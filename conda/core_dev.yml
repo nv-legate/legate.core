@@ -1,0 +1,9 @@
+name: core_dev
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - clang=8.0.1
+  - clang-tools=8.0.1
+  - cffi
+  - numpy
