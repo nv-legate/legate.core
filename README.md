@@ -17,75 +17,206 @@ limitations under the License.
 
 # Legate 
 
-Legate is an endeavor to democratize computing by making it possible
-for all programmers to leverage the power of large clusters of GPUs
-with minimal effort. Legate aims to achieve this by delivering two 
-different, but related, contributions:
-
-1. Legate provides drop-in replacements of popular Python libraries
-   that are capable of running on machines of any scale so that users
-   never need to change their code when scaling from a laptop/desktop 
-   to a supercomputer or the cloud.
-2. Legate provides composability of libraries through a common data
-   model and implicit extraction of parallelism so that Python programs
-   constructed by combining multiple Legate libraries will incur
-   near-zero overhead in passing distributed data types between libraries, 
-   and sufficient parallelism will be extracted across abstraction boundaries
-   to run at the speed of light on the target machine.
-
-In visual terms:
+The Legate project endeavors to democratize computing by making it possible
+for all programmers to leverage the power of large clusters of CPUs and GPUs
+by running the same code that runs on a desktop or a laptop at scale.
+Using this technology, computational and data scientists can develop and test
+programs on moderately sized data sets on local machines and then immediately
+scale up to larger data sets deployed on many nodes in the cloud or on a 
+supercomputer without any code modifications. In visual terms:
 
 ![](vision.png)
 
+The Legate project is built upon two foundational principles:
+
+1. For end users, such as computational and data scientists, the programming
+   model must be identical to programming a single sequential CPU on their
+   laptop or desktop. All concerns relating to parallelism, data 
+   distribution, and synchronization must be implicit. The cloud or a 
+   supercomputer should appear as nothing more than a super-powerful CPU core.
+2. Software must be compositional and not just interoperable (i.e. functionally 
+   correct). Libraries developed in the Legate ecosystem must be able to exchange
+   partitioned and distributed data without requiring "shuffles" or unnecessary
+   blocking synchronization. Computations from different libraries should be 
+   able to use arbitrary data and still be reordered across abstraction boundaries 
+   to hide communication and synchronization latencies where the original sequential 
+   semantics of the program allow. This is essential for achieving speed-of-light
+   performance on large scale machines.
+
+The Legate project is still in its nascent stages of development, but much of
+the fundamental architecture is in place. We encourage development and contributions
+to existing Legate libraries, such as Legate NumPy and Legate Pandas, as well as 
+the development of new Legate libraries. Pull requests are welcomed.
+
 1. [Why Legate?](#why-legate)
-2. [How Do I Install Legate?](#how-do-i-install-legate)
-3. [How Do I Use Legate?](#how-do-i-use-legate)
-4. [Supported and Planned Features](#supported-and-planned-features)
-5. [How Does Legate Work?](#how-does-legate-work)
+2. [What is the Legate Core?](#what-is-the-legate-core)
+3. [How Does Legate Work?](#how-does-legate-work)
+4. [How Do I Install Legate?](#how-do-i-install-legate)
+5. [How Do I Use Legate?](#how-do-i-use-legate)
+6. [Other FAQs](#other-faqs)
 6. [Next Steps](#next-steps)
 
 ## Why Legate?
 
-Programming large clusters of GPUs shouldn't be so hard. Today more and
-more data scientists and HPC programmers are forced to use large clusters of
-GPUs to handle the size of their data and computational intensity of
-their workloads. However, this class of users often struggle to program large 
-machines as they must learn to use both multi-node programming frameworks
-like Spark or MPI, as well as GPU programming models such as CUDA or
-OpenACC. For users that primarily develop in programming models with a
-single thread of control and a shared memory abstraction such as in Python 
-learning and combining multiple programming models with explicit parallelism
-and distinct address spaces is a daunting proposition. Too often they will
-abandon their efforts and unfortunately limit themselves to problems that can 
-be solved only on their desktop machine.
+Computational problems today continue to grow both in their complexity as well
+as the scale of the data that they consume and generate. This is true both in 
+traditional HPC domains as well as enterprise data analytics cases. Consequently,
+more and more users truly need the power of large clusters of both CPUs and 
+GPUs to address their computational problems. Not everyone has the time or 
+resources required to learn and deploy the advanced programming models and tools
+needed to target this class of hardware today. Legate aims to bridge this gap 
+so that any programmer can run code on any scale machine without needing to be 
+an expert in parallel programming and distributed systems, thereby allowing
+developers to bring the problem-solving power of large machines to bear on 
+more kinds of challenging problems than ever before.
 
-Legate aims to give these programmers the best of both worlds. Users
-can develop their code using standard Python libraries and test it using 
-small problem sizes on their desktop machine. Later they can deploy the 
-exact same code using Legate across a large cluster of GPUs on a much 
-larger data set. Legate should greatly expand the set of users that can 
-leverage the computational power and potential of large clusters of GPUs.
+## What is the Legate Core?
+
+The Legate Core is our version of [Apache Arrow](https://arrow.apache.org/). Apache
+Arrow has significantly improved composability of software libraries by making it
+possible for different libraries to share in-memory buffers of data without 
+unnecessary copying. However, it falls short when it comes to meeting two 
+of our primary requirements for Legate:
+
+1. Arrow only provides an API for describing a physical representation
+   of data as a single memory allocation. There is no interface for describing
+   cases where data has been partitioned and then capturing the logical 
+   relationships of those partitioned subsets of data.
+2. Arrow is mute on the subject of synchronization. Accelerators such as GPUs
+   achieve significantly higher performance when computations are performed
+   asynchonously with respect to other components of the system. When data is
+   passed between libraries today, accelerators must be pessimistically 
+   synchronized to ensure that data dependences are satisfied across abstraction
+   boundaries. This might result in tolerable overheads for single GPU systems,
+   but can result in catstrophically poor performance hundreds of GPUs are invovled.
+
+The Legate Core provides an API very similar to Arrow's interface with several
+important distinctions that provide stronger guarantees about data coherence and
+synchronization to aid library developers when building Legate libraries. These
+guarantees are the crux of how libraries in the Legate ecosystem are able to 
+provide excellent composability.
+
+The Legate Core API imports several important concepts from Arrow such that
+users that are familiar with Arrow already will find it unsurprising. We use
+the same type system representation as Arrow so libraries that have already 
+adopted it do not need to learn or adapt to a new type system. We also reuse
+the concept of an [Array](https://arrow.apache.org/docs/cpp/api/array.html)
+from Arrow. The `LegateArray` class supports many of the same methods as 
+the Arrow Array interface (we'll continue to add methods to improve
+compatiblity). The main difference is that instead of obtaining
+[Buffer](https://arrow.apache.org/docs/cpp/api/memory.html#_CPPv4N5arrow6Buffer)
+objects from arrays to describe allocations of data that back the array, the 
+Legate Core API introduces a new primitive called a `LegateStore` which 
+provides a new interface for reasoning about partitioned and distributed
+data in asynchronous execution environments.
+
+Any implementation of a `LegateStore` must maintain the following guarantees
+to clients of the Legate Core API (i.e. Legate library developers):
+
+1. The coherence of data contained in a `LegateStore` must be implicitly 
+   managed by the implementation of the Legate Core API. This means that
+   no matter where data is requested to perform a computation in a machine,
+   the most recent modifications to that data in program order must be
+   reflected. It should never be clients responsibility to maintain this 
+   coherence.
+2. It should be possible to create arbitrary views onto `LegateStore` objects
+   such that library developers can precisely describe the working sets of
+   their computations. Modifications to views must be reflected onto all
+   aliasing views data. This property must be maintained by the Legate Core
+   API implementation such that it is never the concern of clients.
+3. Dependence management between uses of the `LegateStore` objects and their
+   views is the responsibility of Legate Core API regardless of what
+   (asynchronous) computations are performed on `LegateStore` objects or their
+   views. This dependence analysis must be both sound and precise. It is
+   illegal to over-approximate dependences. This dependence analysis must also
+   be performed globally in scope. Any use of the `LegateStore` on any 
+   processor/node in the system must abide by the original sequential
+   semantics of the program 
+
+Note that we do not specify exactly what the abstractions are that are needed
+for implementing `LegateStore` objects. Our goal is not prescribe what these
+abstractions are as they may be implementation dependent. Our only requirements
+are that they have these properties to ensure that incentives are aligned in
+such a way for Legate libraries to achieve a high degree of composability
+at any scale of machine. Indeed, these requirements shift many of the burdens
+that make implementing distributed and accelerated libraries hard off of the
+library developers and onto the implementation of the Legate Core API. This
+is by design as it allows the costs to be amortized across all libraries in
+the ecosystem and ensures that Legate library developers are more productive.
+
+## How Does Legate Work?
+
+Our implementation of the Legate Core API is built on top of the 
+[Legion](http://legion.stanford.edu) programming model and runtime system. 
+Legion was originally designed for large HPC applications that target 
+supercomputers and consequently applications written in the Legion programming
+model tend to both perform and scale well on large clusters of both CPUs and 
+GPUs. Legion programs also are easy to port to new machines as they inherently 
+decouple the machine-independent specification of computations from decisions
+about how that application is mapped to the target machine. Due to this more 
+abstract nature, many programmers find writing Legion programs challenging. 
+By implementing the Legate Core API on top of Legion, we've made it easier
+to use Legion such that developers can still get access to the benefits of
+Legion without needing to learn all of the lowest-level interfaces.
+
+The [Legion programming model](https://legion.stanford.edu/pdfs/sc2012.pdf)
+greatly aids in implementing the Legate Core API. Data types from libraries, 
+such as arrays in Legate NumPy are mapped down onto `LegateStore` objects
+that wrap Legion data types such as logical regions or futures.
+In the case of regions, Legate application libraries rely heavily on 
+Legion's [support for partitioning of logical regions into arbitrary
+subregion views](https://legion.stanford.edu/pdfs/oopsla2013.pdf).
+Each library has its own heuristics for computing such partitions that
+take into consideration the computations that will access the data, the 
+ideal sizes of data to be consumed by different processor kinds, and
+the available number of processors. Legion automatically manages the coherence
+of subregion views regardless of the scale of the machine.
+
+Computations in Legate application libraries are described by Legion tasks. 
+Tasks describe their data usage in terms of `LegateStore` objects, thereby
+allowing Legion to infer where dependences exist. Legion uses distributed 
+bounding volume hieararchies, similar to a high performance ray-tracer,
+to soundly and precisely perform dependence analysis on logical regions 
+and insert the necessary synchronization between tasks to maintain the 
+original sequential semantics of a Legate program.
+
+Each Legate application library also comes with its own custom Legion 
+mapper that uses heuristics to determine the best choice of mapping for 
+tasks (e.g. are they best run on a CPU or a GPU). All 
+Legate tasks are currently implemented in native C or CUDA in order to 
+achieve excellent performance on the target processor kind, but Legion
+has bindings in other languages such as Python, Fortran, and Lua for 
+users that would prefer to use them. Importantly, by using Legion, 
+Legate is able to control the placement of data in order to leave it 
+in-place in fast memories like GPU framebuffers across tasks.
+
+When running on large clusters, Legate leverages a novel technology provided
+by Legion called "[control replication](https://research.nvidia.com/sites/default/files/pubs/2021-02_Scaling-Implicit-Parallelism//ppopp.pdf)" to avoid the sequential bottleneck
+of having one node farm out work to all the nodes in the cluster. With
+control replication, Legate will actually replicate the Legate program and
+run it across all the nodes of the machine at the same time. These copies
+of the program all cooperate logically to appear to execute as one
+logical program. When communication is necessary between 
+different computations, the Legion runtime's program analysis will automatically
+detect it and insert the necessary data movement and synchronization 
+across nodes (or GPU framebuffers). This is the transformation that allows
+sequential programs to run efficiently at scale across large clusters
+as though they are running on a single processor.
 
 ## How Do I Install Legate?
 
 ### Dependencies
 
-Legate has been tested on Ubuntu 16.04 and 18.04.  We expect it to be possible 
-to install legate in other operating systems, but such installations are not tested.
+Legate has been tested on both Linux and Darwin operating systems, although only
+a few flavors of Linux such as Ubuntu have been thoroughly tested. There is currently
+no support for Windows.
 
-We currently assume the following existing dependencies are already installed:
+The Legate Core currently requires Python >= 3.7 and the following packages:
 
-* Python 3.5 or later
-* Python packages listed in the `requirements.txt` file
-* [CUDA](https://developer.nvidia.com/cuda-downloads) - version 8.0 or later
-* [MPI](https://www.open-mpi.org/) - for multi-node versions only (we really only need the MPI compiler and the PMI library to bootstrap GASNet, but it's easier to have a full MPI installation)
-
-Legate comes with a `requirements.txt` file, which can be used to conveniently 
-install Python dependencies:
-
-```
-pip install -r requirements.txt
-```
+  - `pyarrow=1.0.1`
+  - `numpy`
+  - [CUDA](https://developer.nvidia.com/cuda-downloads) >= 8.0
+  - C++14 compatibile compiler (g++, clang, or nvc++)
 
 ### Installation
 
@@ -113,10 +244,10 @@ then you can inform the install script with the `--with-gasnet` flag. The
 `install.py` script also requires you to specify the interconnect network of
 the target machine using the `--conduit` flag (current choices are one of `ibv`
 for [Infiniband](http://www.infinibandta.org/), or `gemini` or `aries` for Cray 
-interconnects). For example this would be an installation for a cluster of 
-DGX1-V boxes like [SaturnV](https://www.nvidia.com/en-us/data-center/dgx-saturnv/):
+interconnects). For example this would be an installation for a 
+[DGX SuperPOD](https://www.nvidia.com/en-us/data-center/dgx-superpod/):
 ```
-./install.py --gasnet --conduit ibv --cuda --arch volta
+./install.py --gasnet --conduit ibv --cuda --arch ampere
 ```
 Alternatively here is an install line for the 
 [Piz-Daint](https://www.cscs.ch/computers/dismissed/piz-daint-piz-dora/) supercomputer:
@@ -144,12 +275,11 @@ desired Python installation.
 Sometimes, the search for the Python library may fail.  In such situation, the 
 build system generates a warning:
 ```
-runtime.mk:265: cannot find libpython3.6*.so - falling back to using LD_LIBRARY_PATH
+runtime.mk: cannot find libpython3.6*.so - falling back to using LD_LIBRARY_PATH
 ```
 In this case, Legate will use the Python library that is available at runtime, if any.
 To explicitly specify the Python library to use, `PYTHON_LIB` should be set to the 
-location of the library, and `PYTHON_VERSION_MAJOR` should be set to the `2` or `3` 
-as appropriate.
+location of the library, and `PYTHON_VERSION_MAJOR` should be set to `3`.
 
 ### Toolchain selection
 
@@ -206,7 +336,7 @@ You can see a list of them by running:
 ```
 installdir/bin/legate --help
 ```
-In addition to running NumPy programs, you can also use Legate in an interactive
+In addition to running Legate programs, you can also use Legate in an interactive
 mode by simply not passing any `*py` files on the command line. You can still
 request resources just as you would though with a normal file. Legate will 
 still use all the resources available to it, including doing multi-node execution.
@@ -224,8 +354,8 @@ If legate is compiled with GASNet support ([see the installation section](#Insta
 it can be run in parallel by using the `--nodes` option followed by the number of nodes 
 to be used.  Whenever the `--nodes` option is used, Legate will be launched 
 using `mpirun`, even with `--nodes 1`.  Without the `--nodes` option, no launcher will 
-be used.  Legate currently supports `mpirun` and `jsrun` as launchers and we are considering
-adding additional launcher kinds if you would like to advocate for one. You can select the
+be used.  Legate currently supports `mpirun`, `srun`, and `jsrun` as launchers and we 
+are open to adding additional launcher kinds. You can select the
 target kind of launcher with `--launcher`.
 
 ### Debugging and Profiling
@@ -255,55 +385,48 @@ We recommend that you do not mix debugging and profiling in the same run as
 some of the logging for the debugging features requires significant file I/O 
 that can adversely effect the performance of the application.
 
-## How Does Legate Work?
+## Other FAQs
 
-Legate is built on top of the [Legion](http://legion.stanford.edu) 
-programming model and runtime system. Legion is primarily designed for large
-HPC applications that target supercomputers and consequently applications written
-in the Legion programming model tend to both perform and scale well on large
-clusters of both CPUs and GPUs. Legion programs also are easy to port to
-new machines as they inherently decouple the machine-independent 
-specification from decisions about how that application is mapped to the
-target machine. Due to this more abstract nature, many programmers find
-writing Legion programs challenging. Legate solves the problem of translating
-NumPy programs to the Legion programming model so that users can have the
-best of both worlds: high productivity using a sequential programming 
-environment they know (Python) while still reaping the performance and 
-scalability benefits of Legion when running on large machines.
+* *Does Legate only work on NVIDIA hardware?*
+  No, Legate will run on most kinds of hardware, anywhere that Legion and
+  GASNet will run. This includes x86, ARM, and PowerPC CPUs. GASNet (and therefore
+  Legate) also includes support for Infiniband, Cray, Omnipath, and 
+  (ROC-)Ethernet based interconnects.
 
-Every Legate application library translates their components of programs
-down to Legion. Data types from libraries, such as arrays in Legate NumPy
-are mapped down to Legion data types such as logical regions or futures.
-In the case of regions, Legate application libraries rely heavily on 
-Legion's support for partitioning of logical regions into subregions.
-Each library has its own heuristics for computing such partitions that
-take into consideration the computations that will access the data, the 
-ideal sizes of data to be consumed by different processor kinds, and
-the available number of processors. Computations in Legate application
-libraries are converted in Legion tasks. Each Legate application library
-comes with its own custom mapper that uses heuristics to determine the best 
-choice of mapping for tasks (e.g. are they best run on a CPU or a GPU). All 
-Legate tasks are implemented in native C or CUDA in order to achieve excellent 
-performance on the target processor kind. Importantly, by using Legion, 
-Legate is able to control the placement of data in order to leave it 
-in-place in fast memories like GPU framebuffers across NumPy operations. 
+* *What languages does the Legate Core API have bindings for?*
+  Currently the Legate Core bindings are only available in Python. Watch
+  this space for new language bindings soon or make a pull request to 
+  contribute your own. Legion has a C API which should make it easy to 
+  develop bindings in any language with a foreign function interface.
 
-When running on large clusters, Legate leverages a novel technology provided
-by Legion called "control replication" to avoid the sequential bottleneck
-of having one node farm out work to all the nodes in the cluster. With
-control replication, Legate will actually replicate the Python program and
-run it across all the nodes of the machine at the same time. As each copy
-of the NumPy program runs and launches off NumPy operations, Legate 
-automatically translates these to Legion "index space" tasks with each
-"point" task operating on different subregions of the data. With control
-replication, each node becomes responsible for a subset of the points in
-the index space task launch. When communication is necessary between 
-NumPy operations, the Legion runtime's program analysis will automatically
-detect it and insert the necessary data movement and synchronization 
-across nodes (or GPU framebuffers). This is the secret to allowing
-sequential NumPy programs to run efficiently at scale across large clusters
-of GPUs and operate on huge data sets that could never fit in memory
-in a single workstation.
+* *Do I have to build drop-in replacement libraries?*
+  No! While we've chosen to provide drop-in replacement libraries for
+  popular Python libraries to illustrate the benefits of Legate, you
+  are both welcomed and encouraged to develop your own libraries on top
+  of Legate. We promise that they will compose well with other existing
+  Legate libraries.
+
+* *What other libraries are you planning to release for the Legate ecosystem?*
+  We're still working on that. If you have thoughts about what is important
+  please let us know so that we can get a feel for where best to put our time.
+
+* *Can I use Legate with other Legion libraries?*
+  Yes! If you're willing to extract the Legion primitives from the `LegateStore`
+  objects you should be able to pass them into other Legion libraries such as
+  [FlexFlow](https://flexflow.ai/). 
+
+* *Does Legate interoperate with X?*
+  Yes, probably, but we don't recommend it. Our motiviation for building
+  Legate is to provide the bare minimum subset of functionality that
+  we believe is essential for building truly composable software that can still
+  run at scale. No other system out there met our needs. Providing 
+  interoperability with those other systems will destroy the very essence
+  of what Legate is and significantly dilute its beneifts. All that being
+  said, Legion does provide some means of doing stop-the-world exchanges
+  with other runtime system running concurrently in the same processes.
+  If you are interested in pursuing this approach please open an issue
+  on the [Legion github issue tracker](https://github.com/StanfordLegion/legion/issues)
+  as it will be almost entirely orthogonal to how you use Legate.
 
 ## Next Steps
 
