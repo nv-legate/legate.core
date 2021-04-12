@@ -88,7 +88,7 @@ of our primary requirements for Legate:
    passed between libraries today, accelerators must be pessimistically 
    synchronized to ensure that data dependences are satisfied across abstraction
    boundaries. This might result in tolerable overheads for single GPU systems,
-   but can result in catastrophically poor performance hundreds of GPUs are involved.
+   but can result in catastrophically poor performance when hundreds of GPUs are involved.
 
 The Legate Core provides an API very similar to Arrow's interface with several
 important distinctions that provide stronger guarantees about data coherence and
@@ -151,9 +151,9 @@ Our implementation of the Legate Core API is built on top of the
 Legion was originally designed for large HPC applications that target 
 supercomputers and consequently applications written in the Legion programming
 model tend to both perform and scale well on large clusters of both CPUs and 
-GPUs. Legion programs also are easy to port to new machines as they inherently 
+GPUs. Legion programs are also easy to port to new machines as they inherently 
 decouple the machine-independent specification of computations from decisions
-about how that application is mapped to the target machine. Due to this more 
+about how that application is mapped to the target machine. Due to this 
 abstract nature, many programmers find writing Legion programs challenging. 
 By implementing the Legate Core API on top of Legion, we've made it easier
 to use Legion such that developers can still get access to the benefits of
@@ -196,7 +196,7 @@ of having one node farm out work to all the nodes in the cluster. With
 control replication, Legate will actually replicate the Legate program and
 run it across all the nodes of the machine at the same time. These copies
 of the program all cooperate logically to appear to execute as one
-logical program. When communication is necessary between 
+program. When communication is necessary between 
 different computations, the Legion runtime's program analysis will automatically
 detect it and insert the necessary data movement and synchronization 
 across nodes (or GPU framebuffers). This is the transformation that allows
@@ -419,7 +419,7 @@ that can adversely effect the performance of the application.
   Yes, probably, but we don't recommend it. Our motivation for building
   Legate is to provide the bare minimum subset of functionality that
   we believe is essential for building truly composable software that can still
-  run at scale. No other system out there met our needs. Providing 
+  run at scale. No other systems out there met our needs. Providing 
   interoperability with those other systems will destroy the very essence
   of what Legate is and significantly dilute its benefits. All that being
   said, Legion does provide some means of doing stop-the-world exchanges
@@ -433,7 +433,8 @@ that can adversely effect the performance of the application.
 We recommend starting by experimenting with at least one Legate application
 library to test out performance and see how Legate works. If you are interested
 in building your own Legate application library, we recommend that you 
-investigate our Legate Hello World application library that provides a small
+investigate our [Legate Hello World application 
+library](https://github.com/nv-legate/legate.hello) that provides a small
 example of how to get started developing your own drop-in replacement library
 on top of Legion using the Legate Core library.
 
