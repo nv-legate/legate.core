@@ -234,7 +234,7 @@ of your CUDA installation. For later invocations you do not need to use this
 flag again the installation scripts will remember the location of your CUDA 
 installation until you tell it differently. You can also specify the name of the
 CUDA architecture you want to target with the `--arch` flag (the default is `volta`
-but you can also specify `kepler`, `maxwell`, or `pascal`).
+but you can also specify `kepler`, `maxwell`, `pascal`, or `ampere`).
 ```
 ./install.py --cuda --with-cuda /usr/local/cuda/ --arch volta
 ```
