@@ -25,7 +25,7 @@ programs on moderately sized data sets on local machines and then immediately
 scale up to larger data sets deployed on many nodes in the cloud or on a 
 supercomputer without any code modifications. In visual terms:
 
-![](vision.png)
+<img src="docs/figures/vision.png" alt="drawing" width="700"/>
 
 The Legate project is built upon two foundational principles:
 
