@@ -84,11 +84,11 @@ of our primary requirements for Legate:
    relationships of those partitioned subsets of data.
 2. Arrow is mute on the subject of synchronization. Accelerators such as GPUs
    achieve significantly higher performance when computations are performed
-   asynchonously with respect to other components of the system. When data is
+   asynchronously with respect to other components of the system. When data is
    passed between libraries today, accelerators must be pessimistically 
    synchronized to ensure that data dependences are satisfied across abstraction
    boundaries. This might result in tolerable overheads for single GPU systems,
-   but can result in catstrophically poor performance hundreds of GPUs are invovled.
+   but can result in catastrophically poor performance hundreds of GPUs are involved.
 
 The Legate Core provides an API very similar to Arrow's interface with several
 important distinctions that provide stronger guarantees about data coherence and
@@ -103,7 +103,7 @@ adopted it do not need to learn or adapt to a new type system. We also reuse
 the concept of an [Array](https://arrow.apache.org/docs/cpp/api/array.html)
 from Arrow. The `LegateArray` class supports many of the same methods as 
 the Arrow Array interface (we'll continue to add methods to improve
-compatiblity). The main difference is that instead of obtaining
+compatibility). The main difference is that instead of obtaining
 [Buffer](https://arrow.apache.org/docs/cpp/api/memory.html#_CPPv4N5arrow6Buffer)
 objects from arrays to describe allocations of data that back the array, the 
 Legate Core API introduces a new primitive called a `LegateStore` which 
@@ -175,7 +175,7 @@ of subregion views regardless of the scale of the machine.
 Computations in Legate application libraries are described by Legion tasks. 
 Tasks describe their data usage in terms of `LegateStore` objects, thereby
 allowing Legion to infer where dependences exist. Legion uses distributed 
-bounding volume hieararchies, similar to a high performance ray-tracer,
+bounding volume hierarchies, similar to a high performance ray-tracer,
 to soundly and precisely perform dependence analysis on logical regions 
 and insert the necessary synchronization between tasks to maintain the 
 original sequential semantics of a Legate program.
@@ -216,7 +216,7 @@ The Legate Core currently requires Python >= 3.7 and the following packages:
   - `pyarrow=1.0.1`
   - `numpy`
   - [CUDA](https://developer.nvidia.com/cuda-downloads) >= 8.0
-  - C++14 compatibile compiler (g++, clang, or nvc++)
+  - C++14 compatible compiler (g++, clang, or nvc++)
 
 ### Installation
 
@@ -416,12 +416,12 @@ that can adversely effect the performance of the application.
   [FlexFlow](https://flexflow.ai/). 
 
 * *Does Legate interoperate with X?*
-  Yes, probably, but we don't recommend it. Our motiviation for building
+  Yes, probably, but we don't recommend it. Our motivation for building
   Legate is to provide the bare minimum subset of functionality that
   we believe is essential for building truly composable software that can still
   run at scale. No other system out there met our needs. Providing 
   interoperability with those other systems will destroy the very essence
-  of what Legate is and significantly dilute its beneifts. All that being
+  of what Legate is and significantly dilute its benefits. All that being
   said, Legion does provide some means of doing stop-the-world exchanges
   with other runtime system running concurrently in the same processes.
   If you are interested in pursuing this approach please open an issue
