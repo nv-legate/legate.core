@@ -175,7 +175,7 @@ def install_legion(legion_src_dir):
     git_clone(
         legion_src_dir,
         url="https://gitlab.com/StanfordLegion/legion.git",
-        branch="control_replication",
+        branch="legate_stable",
     )
 
 
@@ -190,7 +190,7 @@ def install_thrust(thrust_dir):
 
 def update_legion(legion_src_dir):
     # Make sure we are on the right branch for single/multi-node
-    git_update(legion_src_dir, branch="control_replication")
+    git_update(legion_src_dir, branch="legate_stable")
 
 
 def build_legion(
