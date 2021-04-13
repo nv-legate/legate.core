@@ -49,12 +49,13 @@ to existing Legate libraries, such as Legate NumPy and Legate Pandas, as well as
 the development of new Legate libraries. Pull requests are welcomed.
 
 1. [Why Legate?](#why-legate)
-2. [What is the Legate Core?](#what-is-the-legate-core)
-3. [How Does Legate Work?](#how-does-legate-work)
-4. [How Do I Install Legate?](#how-do-i-install-legate)
-5. [How Do I Use Legate?](#how-do-i-use-legate)
-6. [Other FAQs](#other-faqs)
-6. [Next Steps](#next-steps)
+1. [What is the Legate Core?](#what-is-the-legate-core)
+1. [How Does Legate Work?](#how-does-legate-work)
+1. [How Do I Install Legate?](#how-do-i-install-legate)
+1. [How Do I Use Legate?](#how-do-i-use-legate)
+1. [Other FAQs](#other-faqs)
+1. [Documentation](#documentation)
+1. [Next Steps](#next-steps)
 
 ## Why Legate?
 
@@ -427,6 +428,11 @@ that can adversely effect the performance of the application.
   If you are interested in pursuing this approach please open an issue
   on the [Legion github issue tracker](https://github.com/StanfordLegion/legion/issues)
   as it will be almost entirely orthogonal to how you use Legate.
+
+## Documentation
+
+A complete list of available features can is provided in the [API
+reference](https://nv-legate.github.io/legate.core/api.html).
 
 ## Next Steps
 
