@@ -15,7 +15,7 @@
 
 FROM rapidsai/rapidsai-dev:0.15-cuda11.0-devel-ubuntu18.04-py3.8
 
-LABEL maintainer="Marcin Zalewski mzalewski@nvidia.com"
+LABEL maintainer="legate@nvidia.com"
 
 ARG INSTALL_ARGS=
 
