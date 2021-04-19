@@ -551,9 +551,9 @@ def driver():
     parser.add_argument(
         "--no-replicate",
         dest="not_control_replicable",
-        action="store_false",
+        action="store_true",
         required=False,
-        help="Execute this program with control replication.  Most of the "
+        help="Execute this program without control replication.  Most of the "
         "time, this is not recommended.  This option should be used for "
         "debugging.  The -lg:safe_ctrlrepl Legion option may be helpful "
         "with discovering issues with replicated control.",
