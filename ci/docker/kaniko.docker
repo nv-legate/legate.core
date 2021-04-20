@@ -1,5 +1,0 @@
-FROM nvcr.io/nvidian/legion/kaniko-project-executor:debug
-
-SHELL ["/busybox/sh", "-c"]
-
-RUN ln -s /busybox /bin
