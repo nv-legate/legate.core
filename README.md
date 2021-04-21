@@ -48,6 +48,8 @@ the fundamental architecture is in place. We encourage development and contribut
 to existing Legate libraries, such as Legate NumPy and Legate Pandas, as well as 
 the development of new Legate libraries. Pull requests are welcomed.
 
+If you have questions, please contact us at legate(at)nvidia.com.
+
 1. [Why Legate?](#why-legate)
 1. [What is the Legate Core?](#what-is-the-legate-core)
 1. [How Does Legate Work?](#how-does-legate-work)
