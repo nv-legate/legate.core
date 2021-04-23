@@ -2333,6 +2333,7 @@ class Attach(object):
         self.launcher = legion.legion_attach_launcher_create(
             region.handle, region.handle, legion.LEGION_EXTERNAL_INSTANCE
         )
+        self.region = region
         self._launcher = ffi.gc(
             self.launcher, legion.legion_attach_launcher_destroy
         )
@@ -2392,7 +2393,8 @@ class Attach(object):
         return PhysicalRegion(
             legion.legion_attach_launcher_execute(
                 runtime, context, self.launcher
-            )
+            ),
+            self.region,
         )
 
 
@@ -2412,6 +2414,9 @@ class Detach(object):
             external allocation
         """
         self.physical_region = region
+        # Keep a reference to the logical region to ensure that
+        # it is not deleted before this detach operation can run
+        self.region = region.region
         self.flush = flush
 
     def launch(self, runtime, context, unordered=False):
@@ -2931,7 +2936,7 @@ class OutputRegion(object):
 
 
 class PhysicalRegion(object):
-    def __init__(self, handle=None):
+    def __init__(self, handle, region):
         """
         A PhysicalRegion object represents an actual mapping of a logical
         region to a physical allocation in memory and its associated layout.
@@ -2944,8 +2949,11 @@ class PhysicalRegion(object):
         ----------
         handle : legion_physical_region_t
             The handle for a physical region that this object will own
+        region : Region
+            The logical region for this physical region
         """
         self.handle = handle
+        self.region = region
 
     def __del__(self):
         self.destroy(unordered=True)
@@ -3080,6 +3088,7 @@ class InlineMapping(object):
                 mapper,
                 tag,
             )
+        self.region = region
         self._launcher = ffi.gc(
             self.launcher, legion.legion_inline_launcher_destroy
         )
@@ -3107,7 +3116,8 @@ class InlineMapping(object):
         return PhysicalRegion(
             legion.legion_inline_launcher_execute(
                 runtime, context, self.launcher
-            )
+            ),
+            self.region,
         )
 
 
