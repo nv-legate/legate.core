@@ -120,8 +120,6 @@ def run_legate(
     nvprof,
     nsys,
     progress,
-    test,
-    summarize,
     freeze_on_error,
     no_tensor_cores,
     mem_usage,
@@ -251,8 +249,6 @@ def run_legate(
     # Special run modes
     if freeze_on_error:
         cmd_env["LEGION_FREEZE_ON_ERROR"] = str(1)
-    if test:
-        cmd_env["LEGATE_TEST"] = str(1)
     # Debugging options
     cmd_env["REALM_BACKTRACE"] = str(1)
     if gasnet_trace:
@@ -395,10 +391,6 @@ def run_legate(
         # Running with userspace threads would not allow us to inspect the
         # stacktraces of suspended threads.
         cmd += ["-ll:force_kthreads"]
-    if test:
-        cmd += ["-lg:test_mode"]
-    if summarize:
-        cmd += ["-lg:summarize"]
     # Translate the requests to Realm command line parameters
     if cpus != 1:
         cmd += ["-ll:cpu", str(cpus)]
@@ -642,13 +634,6 @@ def driver():
         help="profile Legate execution",
     )
     parser.add_argument(
-        "--summarize",
-        dest="summarize",
-        action="store_true",
-        required=False,
-        help="print a summary of Legate execution calls",
-    )
-    parser.add_argument(
         "--freeze-on-error",
         dest="freeze_on_error",
         action="store_true",
@@ -725,13 +710,6 @@ def driver():
         action="store_true",
         required=False,
         help="show progress of operations when running the program",
-    )
-    parser.add_argument(
-        "--test",
-        dest="test",
-        action="store_true",
-        required=False,
-        help="run Legate in a test mode so failures are not masked",
     )
     parser.add_argument(
         "--no-tensor",
@@ -838,8 +816,6 @@ def driver():
         args.nvprof,
         args.nsys,
         args.progress,
-        args.test,
-        args.summarize,
         args.freeze_on_error,
         args.no_tensor_cores,
         args.mem_usage,
