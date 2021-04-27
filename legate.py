@@ -538,7 +538,7 @@ def run_legate(
 
 
 def driver():
-    parser = argparse.ArgumentParser(description="Legate Driver.")
+    parser = argparse.ArgumentParser(description="Legate Driver.", allow_abbrev=False)
     parser.add_argument(
         "--nodes",
         type=int,
