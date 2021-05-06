@@ -18,7 +18,7 @@ $(error LIBNAME must be given, aborting build)
 endif
 
 USE_PGI ?= 0
-# Check to see if this is the PGI compiler 
+# Check to see if this is the PGI compiler
 # in whch case we need to use different flags in some cases
 ifeq ($(strip $(USE_PGI)),0)
 ifeq ($(findstring nvc++,$(shell $(CXX) --version)),nvc++)
@@ -44,7 +44,7 @@ ifneq ($(strip $(BOOTSTRAP)), 1)
 include $(LEGATE_DIR)/share/legate/config.mk
 LD_FLAGS += -llgcore
 endif
-LD_FLAGS += -L$(LEGATE_DIR)/lib -llegion -lrealm -Wl,-rpath=$(LEGATE_DIR)/lib
+LD_FLAGS += -L$(LEGATE_DIR)/lib -llegion -lrealm -Wl,-rpath,$(LEGATE_DIR)/lib
 
 ifeq ($(strip $(USE_CUDA)),1)
 ifeq (,$(shell which nvcc))
@@ -131,7 +131,7 @@ endif
 
 GEN_SRC		?=
 GEN_CPU_SRC	?=
-GEN_CPU_SRC	+= $(GEN_SRC) 
+GEN_CPU_SRC	+= $(GEN_SRC)
 
 GEN_CPU_OBJS	:= $(GEN_CPU_SRC:.cc=.cc.o)
 ifeq ($(strip $(USE_CUDA)),1)
@@ -207,4 +207,3 @@ clean:
 
 # disable gmake's default rule for building % from %.o
 % : %.o
-
