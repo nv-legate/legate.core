@@ -1846,7 +1846,10 @@ class Copy(object):
         legion.legion_copy_launcher_add_dst_indirect_region_requirement_logical_region(  # noqa: E501
             self.launcher,
             region.handle,
-            ffi.cast("legion_field_id_t", field),
+            ffi.cast(
+                "legion_field_id_t",
+                field.fid if isinstance(field, FieldID) else field,
+            ),
             coherence,
             region.get_root().handle if parent is None else parent.handle,
             tag,
