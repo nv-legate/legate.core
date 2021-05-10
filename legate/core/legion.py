@@ -1005,7 +1005,7 @@ class IndexPartition(object):
 
 
 class FieldSpace(object):
-    def __init__(self, context, runtime, owned=True):
+    def __init__(self, context, runtime, handle=None, owned=True):
         """
         A FieldSpace wraps a `legion_field_space_t` in the Legion C API.
         It is used to represent the columns in a LogicalRegion. Users can
@@ -1017,14 +1017,42 @@ class FieldSpace(object):
             The Legion context from get_legion_context()
         runtime : legion_runtime_t
             Handle for the Legion runtime from get_legion_runtime()
+        handle : legion_logical_region_t
+            Created handle for a logical region from a Legion C API call
+        owned : bool
+            Whether this object owns the handle for this field space and
+            can delete the field space when the object is collected
         """
         self.context = context
         self.runtime = runtime
-        self.handle = legion.legion_field_space_create(runtime, context)
+        self.fields = dict()
+        if handle is None:
+            handle = legion.legion_field_space_create(runtime, context)
+        else:
+            num_fields = legion.legion_field_space_get_fields_size(
+                runtime,
+                context,
+                handle,
+            )
+            fids = ffi.new("legion_field_id_t[%d]" % num_fields)
+            legion.legion_field_space_get_fields(
+                runtime,
+                context,
+                handle,
+                fids,
+                num_fields,
+            )
+            for fid in fids:
+                self.fields[fid] = legion.legion_field_id_get_size(
+                    runtime,
+                    context,
+                    handle,
+                    fid,
+                )
+        self.handle = handle
         self.alloc = legion.legion_field_allocator_create(
             runtime, context, self.handle
         )
-        self.fields = dict()
         self.owned = owned
 
     def __del__(self):
@@ -1253,8 +1281,8 @@ class Region(object):
         parent : Partition
             Parent logical partition for this logical region if any
         owned : bool
-            Whether this object owns the handle for this index space and
-            can delete the index space handle when the object is collected
+            Whether this object owns the handle for this region and
+            can delete the region when the object is collected
         """
         if (
             parent is not None
