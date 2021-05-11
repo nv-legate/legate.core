@@ -1017,8 +1017,8 @@ class FieldSpace(object):
             The Legion context from get_legion_context()
         runtime : legion_runtime_t
             Handle for the Legion runtime from get_legion_runtime()
-        handle : legion_logical_region_t
-            Created handle for a logical region from a Legion C API call
+        handle : legion_field_space_t
+            Created handle for a field space from a Legion C API call
         owned : bool
             Whether this object owns the handle for this field space and
             can delete the field space when the object is collected
