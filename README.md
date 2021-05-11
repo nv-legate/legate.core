@@ -208,6 +208,10 @@ as though they are running on a single processor.
 
 ## How Do I Install Legate?
 
+Pre-built docker images containing all Legate libraries are available on the
+[quickstart](https://github.com/nv-legate/quickstart) repo. You can also build
+Legate Core from source:
+
 ### Dependencies
 
 Legate has been tested on both Linux and Darwin operating systems, although only
