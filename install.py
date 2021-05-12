@@ -362,7 +362,7 @@ def build_legion(
         )
         verbose_check_call(
             [
-                "python",
+                sys.executable,
                 "setup.py",
                 "install",
                 "--prefix",
@@ -479,7 +479,7 @@ def build_legate_core(
     cmd = ["cp", "config.mk", os.path.join(install_dir, "share", "legate")]
     verbose_check_call(cmd, cwd=src_dir)
     # Then run setup.py
-    cmd = ["python", "setup.py", "install", "--recurse"]
+    cmd = [sys.executable, "setup.py", "install", "--recurse"]
     if unknown is not None:
         try:
             prefix_loc = unknown.index("--prefix")
