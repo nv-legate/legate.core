@@ -169,13 +169,13 @@ def install_gasnet(gasnet_dir, conduit, thread_count):
     shutil.rmtree(temp_dir)
 
 
-def install_legion(legion_src_dir):
+def install_legion(legion_src_dir, branch="legate_stable"):
     print("Legate is installing Legion into a local directory...")
     # For now all we have to do is clone legion since we build it with Legate
     git_clone(
         legion_src_dir,
         url="https://gitlab.com/StanfordLegion/legion.git",
-        branch="legate_stable",
+        branch=branch,
     )
 
 
@@ -188,9 +188,9 @@ def install_thrust(thrust_dir):
     )
 
 
-def update_legion(legion_src_dir):
+def update_legion(legion_src_dir, branch="legate_stable"):
     # Make sure we are on the right branch for single/multi-node
-    git_update(legion_src_dir, branch="legate_stable")
+    git_update(legion_src_dir, branch=branch)
 
 
 def build_legion(
@@ -529,6 +529,7 @@ def install(
     thread_count=None,
     verbose=False,
     thrust_dir=None,
+    legion_branch=None,
     unknown=None,
 ):
     global verbose_global
@@ -677,9 +678,9 @@ def install(
             if clean_first:
                 # Don't update Legion if not doing a clean build, to avoid
                 # spurious build errors.
-                update_legion(legion_src_dir)
+                update_legion(legion_src_dir, branch=legion_branch)
         else:
-            install_legion(legion_src_dir)
+            install_legion(legion_src_dir, branch=legion_branch)
 
         build_legion(
             legion_src_dir,
@@ -972,6 +973,14 @@ def driver():
         help="Path to Thrust installation directory. The required version of "
         "Thrust is " + required_thrust_version + " or compatible.  If not "
         "provided, Thrust will be installed automatically.",
+    )
+    parser.add_argument(
+        "--legion-branch",
+        dest="legion_branch",
+        action="store",
+        required=False,
+        default="legate_stable",
+        help="Legion branch to build Legate with.",
     )
     args, unknown = parser.parse_known_args()
     install(unknown=unknown, **vars(args))
