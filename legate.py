@@ -243,8 +243,8 @@ def run_legate(
     if "GASNET_PHYSMEM_MAX" not in cmd_env:
         # We bound how much memory GASNet is allowed to reserve, otherwise it
         # may over-reserve, limiting the amount of memory that can be used for
-        # the application. Note that regmem/rsize and ib_rsize are allocated out
-        # of this chunk.
+        # the application. Note that regmem/rsize and ib_rsize are allocated
+        # out of this chunk.
         cmd_env["GASNET_PHYSMEM_MAX"] = "1G"
     # Special run modes
     if freeze_on_error:
@@ -538,7 +538,9 @@ def run_legate(
 
 
 def driver():
-    parser = argparse.ArgumentParser(description="Legate Driver.", allow_abbrev=False)
+    parser = argparse.ArgumentParser(
+        description="Legate Driver.", allow_abbrev=False
+    )
     parser.add_argument(
         "--nodes",
         type=int,
@@ -658,7 +660,7 @@ def driver():
     parser.add_argument(
         "--logdir",
         type=str,
-        default=os.path.dirname(os.path.realpath(__file__)),
+        default=os.getcwd(),
         dest="logdir",
         help="Directory for Legate log files (defaults to current directory)",
     )
