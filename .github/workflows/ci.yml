@@ -4,7 +4,7 @@ jobs:
   build:
     runs-on: self-hosted
     steps: Run CI
-      - name:
+      - name: Run CI
         run: |
           cd  /data/github-runner/_work/legate.ci
           git pull
