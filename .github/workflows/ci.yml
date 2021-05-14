@@ -1,0 +1,9 @@
+name: Build legate.core
+on: [push, pull_request]
+jobs:
+  build:
+    runs-on: self-hosted
+    steps:
+      - run: |
+        cd  /data/github-runner/_work/legate.ci
+        git pull
