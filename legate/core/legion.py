@@ -203,6 +203,10 @@ class Point(object):
     def __len__(self):
         return self.dim
 
+    def __str__(self):
+        p_strs = [str(self[i]) for i in range(self.dim)]
+        return "<" + ",".join(p_strs) + ">"
+
     def set_point(self, p):
         try:
             if len(p) >= LEGATE_MAX_DIM:
@@ -268,6 +272,9 @@ class Rect(object):
             result = result ^ hash(self.lo[idx])
             result = result ^ hash(self.hi[idx])
         return result
+
+    def __str__(self):
+        return str(self._lo) + ".." + str(self._hi)
 
     def set_bounds(self, lo, hi, exclusive=True):
         if len(hi) >= LEGATE_MAX_DIM:
@@ -385,6 +392,9 @@ class Transform(object):
     def __hash__(self):
         return hash(self.trans.tobytes())
 
+    def __str__(self):
+        return np.array_repr(self.trans).replace("\n", "").replace(" ", "")
+
 
 # An Affine Transform for points in one space to points in another
 class AffineTransform(object):
@@ -470,6 +480,9 @@ class AffineTransform(object):
 
     def __hash__(self):
         return hash(self.transform.tobytes())
+
+    def __str__(self):
+        return np.array_repr(self.transform).replace("\n", "").replace(" ", "")
 
 
 class IndexSpace(object):
