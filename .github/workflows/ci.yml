@@ -1,10 +1,15 @@
 name: Build legate.core
 on: [push, pull_request]
+env:
+  DOCKER_AUTH_TOKEN: ${{ secrets.DOCKER_AUTH_TOKEN }}
+  COMMIT: ${{ github.sha }}
+  PROJECT: github-core-ci
 jobs:
   build:
     runs-on: self-hosted
     steps:
       - name: Run CI
         run: |
-          cd  /data/github-runner/_work/legate-ci
+          cd  /data/github-runner/_work/legate-ci/github-ci/legate.core
           git pull
+          ./build.sh
