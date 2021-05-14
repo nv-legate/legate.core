@@ -10,6 +10,7 @@ jobs:
     steps:
       - name: Run CI
         run: |
+          cd  /data/github-runner/_work/legate-ci
           git pull
           cd  /data/github-runner/_work/legate-ci/github-ci/legate.core
           ./build.sh
