@@ -3,7 +3,7 @@ on: [push, pull_request]
 jobs:
   build:
     runs-on: self-hosted
-    steps: Run CI
+    steps:
       - name: Run CI
         run: |
           cd  /data/github-runner/_work/legate.ci
