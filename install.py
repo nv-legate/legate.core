@@ -83,8 +83,8 @@ def find_active_python_version_and_path():
     paths = [
         p.replace(".a", ".dylib" if os_name == "Darwin" else ".so")
         for p in paths
-        if os.path.isfile(p)
     ]
+    paths = [p for p in paths if os.path.isfile(p)]
     e = "Error: could not auto-locate python library."
     assert paths, e
     return version, paths[0]
