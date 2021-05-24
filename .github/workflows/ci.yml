@@ -5,5 +5,5 @@ jobs:
     runs-on: self-hosted
     steps:
       - run: |
-        cd  /data/github-runner/_work/legate.ci
-        git pull
+          cd  /data/github-runner/_work/legate.ci
+          git pull
