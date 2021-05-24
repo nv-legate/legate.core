@@ -443,19 +443,15 @@ def build_legate_core(
         print("Warning: CMake is currently not supported for Legate build.")
         print("Using GNU Make for now.")
 
-    make_flags = (
-        [
-            "LEGATE_DIR=%s" % install_dir,
-            "DEBUG=%s" % (1 if debug else 0),
-            "DEBUG_RELEASE=%s" % (1 if debug_release else 0),
-            "USE_CUDA=%s" % (1 if cuda else 0),
-            "GPU_ARCH=%s" % arch,
-            "PREFIX=%s" % str(install_dir),
-            "USE_GASNET=%s" % (1 if gasnet else 0),
-        ]
-        + (["CUDA=%s" % cuda_dir] if cuda_dir is not None else [])
-        + (["GCC=%s" % os.environ["CXX"]] if "CXX" in os.environ else [])
-    )
+    make_flags = [
+        "LEGATE_DIR=%s" % install_dir,
+        "DEBUG=%s" % (1 if debug else 0),
+        "DEBUG_RELEASE=%s" % (1 if debug_release else 0),
+        "USE_CUDA=%s" % (1 if cuda else 0),
+        "GPU_ARCH=%s" % arch,
+        "PREFIX=%s" % str(install_dir),
+        "USE_GASNET=%s" % (1 if gasnet else 0),
+    ] + (["CUDA=%s" % cuda_dir] if cuda_dir is not None else [])
     if clean_first:
         verbose_check_call(["make"] + make_flags + ["clean"], cwd=src_dir)
     verbose_check_call(
