@@ -355,6 +355,22 @@ Welcome to Legion Python interactive console
 Note that Legate does not currently support multi-tenancy cases where different
 users are attempting to use the same hardware concurrently.
 
+As a convenience, several command-line options can have their default values set
+via environment variables. These environment variables, their corresponding command-
+line options, and their default values are as follows.
+
+| CLI Option               | Env. Variable                    | Default Value |
+|--------------------------|----------------------------------|---------------|
+| --omps                   | LEGATE\_OMP\_PROCS               | 0             |
+| --ompthreads             | LEGATE\_OMP\_THREADS             | 4             |
+| --utility                | LEGATE\_UTILITY\_CORES           | 2             |
+| --sysmem                 | LEGATE\_SYSMEM                   | 4000          |
+| --numamem                | LEGATE\_NUMAMEM                  | 0             |
+| --fbmem                  | LEGATE\_FBMEM                    | 4000          |
+| --zcmem                  | LEGATE\_ZCMEM                    | 32            |
+| --regmem                 | LEGATE\_REGMEM                   | 0             |
+| --eager-alloc-percentage | LEGATE\_EAGER\_ALLOC\_PERCENTAGE | 50            |
+
 ### Distributed Launch
 
 If legate is compiled with GASNet support ([see the installation section](#Installation)), 
