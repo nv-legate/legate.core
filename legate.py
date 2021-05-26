@@ -575,56 +575,56 @@ def driver():
     parser.add_argument(
         "--omps",
         type=int,
-        default=0,
+        default=(int(os.environ.get("LEGATE_OMP_PROCS", 0))),
         dest="openmp",
         help="Number OpenMP processors per node to use",
     )
     parser.add_argument(
         "--ompthreads",
         type=int,
-        default=4,
+        default=(int(os.environ.get("LEGATE_OMP_THREADS", 4))),
         dest="ompthreads",
         help="Number of threads per OpenMP processor",
     )
     parser.add_argument(
         "--utility",
         type=int,
-        default=2,
+        default=(int(os.environ.get("LEGATE_UTILITY_CORES", 2))),
         dest="utility",
         help="Number of Utility processors per node to request for meta-work",
     )
     parser.add_argument(
         "--sysmem",
         type=int,
-        default=4000,
+        default=(int(os.environ.get("LEGATE_SYSMEM", 4000))),
         dest="sysmem",
         help="Amount of DRAM memory per node (in MBs)",
     )
     parser.add_argument(
         "--numamem",
         type=int,
-        default=0,
+        default=(int(os.environ.get("LEGATE_NUMAMEM", 0))),
         dest="numamem",
         help="Amount of DRAM memory per NUMA domain (in MBs)",
     )
     parser.add_argument(
         "--fbmem",
         type=int,
-        default=4000,
+        default=(int(os.environ.get("LEGATE_FBMEM", 4000))),
         dest="fbmem",
         help="Amount of framebuffer memory per GPU (in MBs)",
     )
     parser.add_argument(
         "--zcmem",
         type=int,
-        default=32,
+        default=(int(os.environ.get("LEGATE_ZCMEM", 32))),
         dest="zcmem",
         help="Amount of zero-copy memory per node (in MBs)",
     )
     parser.add_argument(
         "--regmem",
         type=int,
-        default=0,
+        default=(int(os.environ.get("LEGATE_REGMEM", 0))),
         dest="regmem",
         help="Amount of registered CPU-side pinned memory per node (in MBs)",
     )
@@ -771,7 +771,7 @@ def driver():
     parser.add_argument(
         "--eager-alloc-percentage",
         dest="eager_alloc",
-        default="50",
+        default=(os.environ.get("LEGATE_EAGER_ALLOC_PERCENTAGE", "50")),
         required=False,
         help="Specify the size of eager allocation pool in percentage",
     )
