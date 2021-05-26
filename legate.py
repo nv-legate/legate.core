@@ -427,27 +427,27 @@ def run_legate(
         cmd += ["-ll:fsize", str(fbmem), "-ll:zsize", str(zcmem)]
     if regmem > 0:
         cmd += ["-ll:rsize", str(regmem)]
+    logging_levels = ["openmp=5"]
     if profile:
         cmd += [
             "-lg:prof",
             str(nodes),
-            "-level",
-            "legion_prof=2",
             "-lg:prof_logfile",
             os.path.join(log_dir, "legate_%.prof"),
         ]
+        logging_levels.append("legion_prof=2")
     # The gpu log supression may not be needed in the future.
     # Currently, the cuda hijack layer generates some spurious warnings.
     if gpus > 0:
-        cmd += ["-level", "gpu=5"]
+        logging_levels.append("gpu=5")
     if dataflow or event:
         cmd += [
             "-lg:spy",
-            "-level",
-            "legion_spy=2",
             "-logfile",
             os.path.join(log_dir, "legate_%.spy"),
         ]
+        logging_levels.append("legion_spy=2")
+    cmd += ["-level", ",".join(logging_levels)]
     if gdb and os_name == "Darwin":
         print(
             "WARNING: You must start the debugging session with the following "
