@@ -481,7 +481,7 @@ def run_legate(
     # If we're profiling post process the logfiles and then clean them up when
     # we're done; make sure we only do this once if on a multi-node run with
     # externally-managed launching
-    if profile and (launcher != "none" or node_id == "0"):
+    if profile and (launcher == "none" or node_id == "0"):
         tools_dir = os.path.join(legate_dir, "share", "legate")
         prof_py = os.path.join(tools_dir, "legion_prof.py")
         prof_cmd = [str(prof_py), "-o", "legate_prof"]
