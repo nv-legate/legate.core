@@ -800,7 +800,7 @@ class LegateTask {
                       leaf,
                       inner,
                       idempotent,
-                      false /*no return type*/);
+                      0 /*no return type*/);
   }
   template <typename RET_T,
             RET_T (*TASK_PTR)(const Legion::Task *,
@@ -829,7 +829,7 @@ class LegateTask {
                       leaf,
                       inner,
                       idempotent,
-                      true /*non void return type*/);
+                      sizeof(RET_T) /*non void return type*/);
   }
 };
 

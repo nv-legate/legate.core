@@ -44,7 +44,14 @@ class my_build_py(build_py):
             output_dir = os.path.join(root_dir, "legate", "core")
             include_dir = os.path.join(args.prefix, "include")
             header = subprocess.check_output(
-                ["gcc", "-E", "-I" + str(include_dir), "-P", header_src]
+                [
+                    os.getenv("CC", "gcc"),
+                    "-E",
+                    "-DLEGATE_USE_PYTHON_CFFI",
+                    "-I" + str(include_dir),
+                    "-P",
+                    header_src,
+                ]
             ).decode("utf-8")
             libpath = os.path.join(args.prefix, "lib")
             with open(os.path.join(output_dir, "install_info.py.in")) as f:
