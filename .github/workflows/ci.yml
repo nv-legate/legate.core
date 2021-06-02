@@ -2,7 +2,7 @@ name: Build legate.core
 on: [push, pull_request]
 env:
   DOCKER_AUTH_TOKEN: ${{ secrets.DOCKER_AUTH_TOKEN }}
-  COMMIT: ${{ github.sha }}
+  COMMIT: ${{ github.event.pull_request.head.sha }}
   PROJECT: github-core-ci
 jobs:
   build:
