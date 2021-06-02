@@ -89,7 +89,8 @@ def legate_task_progress(runtime, context):
                 legion.legion_field_space_destroy_unordered(
                     runtime, context, handle[0], True
                 )
-                legion.legion_field_allocator_destroy(handle[1])
+                if handle[1] is not None:
+                    legion.legion_field_allocator_destroy(handle[1])
             elif type is FieldID:
                 legion.legion_field_allocator_free_field_unordered(
                     handle[0], handle[1], True
@@ -1018,7 +1019,7 @@ class IndexPartition(object):
 
 
 class FieldSpace(object):
-    def __init__(self, context, runtime, owned=True):
+    def __init__(self, context, runtime, handle=None, owned=True):
         """
         A FieldSpace wraps a `legion_field_space_t` in the Legion C API.
         It is used to represent the columns in a LogicalRegion. Users can
@@ -1030,13 +1031,23 @@ class FieldSpace(object):
             The Legion context from get_legion_context()
         runtime : legion_runtime_t
             Handle for the Legion runtime from get_legion_runtime()
+        handle : legion_field_space_t
+            Created handle for a field space from a Legion C API call; if
+            provided then this object cannot be used to allocate new fields
+        owned : bool
+            Whether this object owns the handle for this field space and
+            can delete the field space when the object is collected
         """
         self.context = context
         self.runtime = runtime
-        self.handle = legion.legion_field_space_create(runtime, context)
-        self.alloc = legion.legion_field_allocator_create(
-            runtime, context, self.handle
-        )
+        if handle is None:
+            self.handle = legion.legion_field_space_create(runtime, context)
+            self.alloc = legion.legion_field_allocator_create(
+                runtime, context, self.handle
+            )
+        else:
+            self.handle = handle
+            self.alloc = None
         self.fields = dict()
         self.owned = owned
 
@@ -1056,6 +1067,8 @@ class FieldSpace(object):
         Allocate a field in the field space by its size or by inferring its
         size from some type representation that is passed in
         """
+        if self.alloc is None:
+            raise TypeError("Field allocations not allowed on this object")
         if field_id in self.fields:
             raise ValueError("'field_id' must be unique in an index space")
         if len(self.fields) == LEGATE_MAX_FIELDS:
@@ -1087,6 +1100,8 @@ class FieldSpace(object):
         """
         Allocate a field in the field space based on the ctypes type.
         """
+        if self.alloc is None:
+            raise TypeError("Field allocations not allowed on this object")
         if field_id in self.fields:
             raise ValueError("'field_id' must be unique in an index space")
         if len(self.fields) == LEGATE_MAX_FIELDS:
@@ -1107,6 +1122,8 @@ class FieldSpace(object):
         """
         Allocate a field in the field space based on the NumPy dtype.
         """
+        if self.alloc is None:
+            raise TypeError("Field allocations not allowed on this object")
         if field_id in self.fields:
             raise ValueError("'field_id' must be unique in an index space")
         if len(self.fields) == LEGATE_MAX_FIELDS:
@@ -1127,6 +1144,8 @@ class FieldSpace(object):
         """
         Allocate a field based on a size stored in a Future
         """
+        if self.alloc is None:
+            raise TypeError("Field allocations not allowed on this object")
         if field_id in self.fields:
             raise ValueError("'field_id' must be unique in an index space")
         if len(self.fields) == LEGATE_MAX_FIELDS:
@@ -1146,6 +1165,8 @@ class FieldSpace(object):
         Destroy a field in the field space and reclaim its resources.
         Set `unordered` to `True` if this is done inside a garbage collection.
         """
+        if self.alloc is None:
+            raise TypeError("Field allocations not allowed on this object")
         if not self.owned:
             return
         if field_id not in self.fields:
@@ -1196,7 +1217,8 @@ class FieldSpace(object):
             legion.legion_field_space_destroy_unordered(
                 self.runtime, self.context, self.handle, False
             )
-            legion.legion_field_allocator_destroy(self.alloc)
+            if self.alloc is not None:
+                legion.legion_field_allocator_destroy(self.alloc)
 
 
 class FieldID(object):
@@ -1264,10 +1286,10 @@ class Region(object):
         handle : legion_logical_region_t
             Created handle for a logical region from a Legion C API call
         parent : Partition
-            Parent logical partition for this logical region if any
+            Parent logical partition for this logical region, if any
         owned : bool
-            Whether this object owns the handle for this index space and
-            can delete the index space handle when the object is collected
+            Whether this object owns the handle for this region and
+            can delete the region when the object is collected
         """
         if (
             parent is not None
