@@ -32,5 +32,5 @@ jobs:
           git branch -a
           cd ..
           ls
-          ./github-ci/legate.core/build.sh
+          ./run-ngc-build.sh
           
