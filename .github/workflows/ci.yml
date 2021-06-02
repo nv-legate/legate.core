@@ -13,6 +13,6 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
       - name: Run CI
         run: |
-          pwd
-          env
-          ./build.sh
+          git clone ssh://git@gitlab-master.nvidia.com:12051/legate/legate-ci.git
+          ls
+          
