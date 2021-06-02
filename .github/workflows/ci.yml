@@ -25,7 +25,7 @@ jobs:
             git pull
             cd ..
           fi
-          mv legate.core legate-ci
+          mv -f legate.core legate-ci
           cd legate-ci
           ls
           ./github-ci/legate.core/build.sh
