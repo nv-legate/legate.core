@@ -13,6 +13,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
       - name: Run CI
         run: |
+          set -x
           ls
           cd ..
           ls
