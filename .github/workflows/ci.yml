@@ -12,5 +12,6 @@ jobs:
         run: |
           cd  /data/github-runner/_work/legate-ci
           git pull
+          env
           cd  /data/github-runner/_work/legate-ci/github-ci/legate.core
           ./build.sh
