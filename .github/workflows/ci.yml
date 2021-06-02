@@ -23,6 +23,7 @@ jobs:
           else
             cd legate-ci
             git pull
+            cd ..
           fi
           mv legate.core legate-ci
           cd legate-ci
