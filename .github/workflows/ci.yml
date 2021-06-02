@@ -28,5 +28,5 @@ jobs:
           mv legate.core legate-ci
           cd legate-ci
           ls
-          ./build.sh
+          ./github-ci/legate.core/build.sh
           
