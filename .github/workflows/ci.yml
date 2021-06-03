@@ -39,5 +39,5 @@ jobs:
           rm -rf ngc-artifacts
           cd github-ci/
           cd legate.core
-          ./build.sh
+          ./build.sh > ${COMMIT}.log
           
