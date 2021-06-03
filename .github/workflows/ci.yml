@@ -8,12 +8,16 @@ jobs:
   build:
     runs-on: self-hosted
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout on pull pull_request
+        if: github.event.action == 'pull_request'
+        uses: actions/checkout@v2
         with:
           ref: ${{ github.event.pull_request.head.sha }}
+      - name: Checkout on push
+        if: github.event.action == 'push'
+        uses: actions/checkout@v2
       - name: Run CI
         run: |
-          set -x
           ls
           cd ..
           ls
@@ -32,5 +36,8 @@ jobs:
           git branch -a
           cd ..
           ls
-          ./run-ngc-build.sh
+          rm -rf ngc-artifacts
+          cd github-ci/
+          cd legate.core
+          ./build.sh
           
