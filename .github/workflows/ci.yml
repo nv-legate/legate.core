@@ -9,7 +9,7 @@ jobs:
     runs-on: self-hosted
     steps:
       - name: Show event 
-        run: echo ${{ github.event.* }}
+        run: echo ${{ github.even }}
       - name: Checkout on pull pull_request
         if: github.event.action == 'pull_request'
         uses: actions/checkout@v2
