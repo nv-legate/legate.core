@@ -8,6 +8,8 @@ jobs:
   build:
     runs-on: self-hosted
     steps:
+      - name: Show event action
+        run: echo ${{ github.event.action }}
       - name: Checkout on pull pull_request
         if: github.event.action == 'pull_request'
         uses: actions/checkout@v2
