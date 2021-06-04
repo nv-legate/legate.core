@@ -8,15 +8,15 @@ jobs:
   build:
     runs-on: self-hosted
     steps:
-      - name: Show event 
+      - name: Show event_name
         run: echo ${{ github.event_name }}
       - name: Checkout on pull pull_request
-        if: github.event.action == 'pull_request'
+        if: github.event_name == 'pull_request'
         uses: actions/checkout@v2
         with:
           ref: ${{ github.event.pull_request.head.sha }}
       - name: Checkout on push
-        if: github.event.action == 'push'
+        if: github.event_name == 'push'
         uses: actions/checkout@v2
       - name: Run CI
         run: |
