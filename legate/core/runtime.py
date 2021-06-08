@@ -52,38 +52,32 @@ class Context(object):
 
         name = self._name.encode("utf-8")
         legion_runtime = get_legion_runtime()
-        self._first_task_id = legion.legion_runtime_generate_library_task_ids(
-            legion_runtime,
-            name,
+
+        def _maybe_generate_ids(api, max_counts):
+            if max_counts > 0:
+                return api(legion_runtime, name, max_counts)
+            else:
+                return None
+
+        self._first_task_id = _maybe_generate_ids(
+            legion.legion_runtime_generate_library_task_ids,
             config.max_tasks,
         )
-        self._first_mapper_id = (
-            legion.legion_runtime_generate_library_mapper_ids(
-                legion_runtime,
-                name,
-                config.max_mappers,
-            )
+        self._first_mapper_id = _maybe_generate_ids(
+            legion.legion_runtime_generate_library_mapper_ids,
+            config.max_mappers,
         )
-        self._first_redop_id = (
-            legion.legion_runtime_generate_library_reduction_ids(
-                legion_runtime,
-                name,
-                config.max_reduction_ops,
-            )
+        self._first_redop_id = _maybe_generate_ids(
+            legion.legion_runtime_generate_library_reduction_ids,
+            config.max_reduction_ops,
         )
-        self._first_proj_id = (
-            legion.legion_runtime_generate_library_projection_ids(
-                legion_runtime,
-                name,
-                config.max_projections,
-            )
+        self._first_proj_id = _maybe_generate_ids(
+            legion.legion_runtime_generate_library_projection_ids,
+            config.max_projections,
         )
-        self._first_shard_id = (
-            legion.legion_runtime_generate_library_sharding_ids(
-                legion_runtime,
-                name,
-                config.max_shardings,
-            )
+        self._first_shard_id = _maybe_generate_ids(
+            legion.legion_runtime_generate_library_sharding_ids,
+            config.max_shardings,
         )
 
 
