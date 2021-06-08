@@ -17,9 +17,9 @@ from __future__ import absolute_import, division, print_function
 
 # Import select types for Legate library construction
 from legate.core.legate import (
-    LegateArray,
-    LegateLibrary,
-    LegateStore,
+    Array,
+    Library,
+    Store,
     get_legion_context,
     get_legion_runtime,
     legate_add_attachment,

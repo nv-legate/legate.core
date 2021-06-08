@@ -56,14 +56,14 @@ def get_script_dir(follow_symlinks=True):
     return os.path.dirname(path)
 
 
-class LegateStore(object):
+class Store(object):
     def __init__(self):
         """
         Unlike in Arrow where all data is backed by objects that
         implement the Python Buffer protocol, in Legate data is backed
-        by objects that support the LegateStore interface. The LegateStore
+        by objects that support the Store interface. The Store
         interface allows clients to access the underlying primitives that
-        represent the data for a LegateArray object.
+        represent the data for an Array object.
         """
         pass
 
@@ -86,25 +86,25 @@ class LegateStore(object):
     def storage(self):
         """
         Return the Legion storage objects actually backing the
-        data for this LegateStore. These will have exactly the
+        data for this Store. These will have exactly the
         type specified in by 'kind'
         """
         raise NotImplementedError("implement in derived classes")
 
 
-class LegateArray(object):
+class Array(object):
     def __init__(self, dtype, stores, children=None):
         """
-        An Array is a collection of one or more LegateStore objects that can
+        An Array is a collection of one or more Store objects that can
         represent a uniformly typed set of potentially nullable data values.
 
-        Construct an Array from a DataType and a list of LegateStore objects
+        Construct an Array from a DataType and a list of Store objects
 
         Parameters
         ----------
         dtype : DataType
             The type for the constructed array
-        stores : List[LegateStore]
+        stores : List[Store]
             List of storage objects
         children : List[Array]
             Nested type children with length matching type.num_fields
@@ -126,7 +126,7 @@ class LegateArray(object):
 
         if dtype.num_buffers != len(self._stores):
             raise ValueError(
-                "Type's expected number of LegateStore objects "
+                "Type's expected number of Store objects "
                 "({0}) did not match the passed number "
                 "({1}).".format(dtype.num_buffers, len(self._stores))
             )
@@ -147,7 +147,7 @@ class LegateArray(object):
 
     def stores(self):
         """
-        Return a list of the LegateStore object that represent
+        Return a list of the Store object that represent
         the data stored in this array.
         """
         stores = self._stores.copy()
@@ -158,13 +158,13 @@ class LegateArray(object):
     @staticmethod
     def from_stores(dtype, stores, children=None):
         """
-        Construct an Array from a DataType and a list of LegateStore objects
+        Construct an Array from a DataType and a list of Store objects
 
         Parameters
         ----------
         dtype : DataType
             The type for the constructed array
-        stores : List[LegateStore]
+        stores : List[Store]
             List of storage objects
         children : List[Array]
             Nested type children with length matching type.num_fields
@@ -173,9 +173,7 @@ class LegateArray(object):
         -------
         A newly constructed Array
         """
-        return LegateArray(
-            dtype, stores.copy(), children.copy() if children else []
-        )
+        return Array(dtype, stores.copy(), children.copy() if children else [])
 
     @property
     def type(self):
@@ -186,13 +184,13 @@ class LegateArray(object):
         return self._region
 
 
-class LegateTable(object):
+class Table(object):
     def __init__(self, schema, columns):
         """
-        A LegateTable is collection of top-level, equal-length LegateStore
+        A Table is collection of top-level, equal-length Store
         objects. It is designed to be as close as possible to the PyArrow
         Table datatype with the only exception being that its data is backed
-        by LegateStore object instead of buffers in memory.
+        by Store object instead of buffers in memory.
         """
         if len(schema.types) != len(columns):
             raise ValueError(
@@ -206,8 +204,7 @@ class LegateTable(object):
         for column in self._columns:
             if column.region is not region:
                 raise ValueError(
-                    "All Arrays in a LegateTable must "
-                    "have the same logical region"
+                    "All Arrays in a Table must have the same logical region"
                 )
 
     @property
@@ -224,10 +221,10 @@ class LegateTable(object):
         'version' (required) : int
             An integer showing the version number of this implementation of
             the interface (i.e. 1 for this version)
-        'data' (required) : OrderedDict[Field,LegateArray]
+        'data' (required) : OrderedDict[Field,Array]
             An ordered dictionary mapping 'Field' objects that represent the
             names and types of the field data to 'Array' objects containing
-            LegateStore objects
+            Store objects
         """
         result = dict()
         result["version"] = 1
@@ -254,7 +251,7 @@ class LegateTable(object):
 
         Returns
         -------
-        LegateTable : New table with the passed column added.
+        Table : New table with the passed column added.
         """
         if index < 0 or index > len(self._columns):
             raise ValueError(
@@ -273,7 +270,7 @@ class LegateTable(object):
         if index == len(self._columns):
             fields.append(field)
             columns.append(column)
-        return LegateTable(pyarrow.schema(fields), columns)
+        return Table(pyarrow.schema(fields), columns)
 
     def append_column(self, field, column):
         """
@@ -288,7 +285,7 @@ class LegateTable(object):
 
         Returns
         -------
-        LegateTable : New table with the passed column added.
+        Table : New table with the passed column added.
         """
         return self.add_column(len(self._columns), field, column)
 
@@ -351,7 +348,7 @@ class LegateTable(object):
 
         Returns
         -------
-        LegateTable : New table without the columns.
+        Table : New table without the columns.
         """
         indices = []
         for col in columns:
@@ -369,7 +366,7 @@ class LegateTable(object):
                 continue
             fields.append(self._schema.field(idx))
             columns.append(col)
-        return LegateTable(pyarrow.schema(fields), columns)
+        return Table(pyarrow.schema(fields), columns)
 
     def field(self, index):
         """
@@ -389,7 +386,7 @@ class LegateTable(object):
     @staticmethod
     def from_arrays(arrays, names=None, schema=None, metadata=None):
         """
-        Construct a LegateTable from a list of Legate Arrays.
+        Construct a Table from a list of Arrays.
 
         Parameters
         ----------
@@ -404,12 +401,12 @@ class LegateTable(object):
 
         Returns
         -------
-        LegateTable
+        Table
         """
         if schema is None:
             if names is None:
                 raise ValueError(
-                    "Must pass names or schema when constructing LegateTable"
+                    "Must pass names or schema when constructing Table"
                 )
             if len(names) != len(arrays):
                 raise ValueError(
@@ -431,7 +428,7 @@ class LegateTable(object):
             for index, array in enumerate(arrays):
                 if not schema[index].type.equals(array.type):
                     raise TypeError("Schema type and Array type must match")
-        return LegateTable(schema, arrays.copy())
+        return Table(schema, arrays.copy())
 
     def itercolumns(self):
         """
@@ -455,7 +452,7 @@ class LegateTable(object):
 
         Returns
         -------
-        LegateTable : New table without the column.
+        Table : New table without the column.
         """
         if index < 0 or index >= len(self._columns):
             raise ValueError(
@@ -468,7 +465,7 @@ class LegateTable(object):
                 continue
             fields.append(self._schema.field(idx))
             columns.append(col)
-        return LegateTable(pyarrow.schema(fields), columns)
+        return Table(pyarrow.schema(fields), columns)
 
     def rename_columns(self, names):
         """
@@ -482,7 +479,7 @@ class LegateTable(object):
         for index in range(len(self._schema)):
             field = self._schema.field(index)
             fields.append(field.with_name(names[index]))
-        return LegateTable(pyarrow.schema(fields), self._columns.copy())
+        return Table(pyarrow.schema(fields), self._columns.copy())
 
     def set_column(self, index, field, column):
         """
@@ -499,7 +496,7 @@ class LegateTable(object):
 
         Returns
         -------
-        Legate Table : New table with the passed column set.
+        Table : New table with the passed column set.
         """
         if index < 0 or index >= len(self._columns):
             raise ValueError(
@@ -516,7 +513,7 @@ class LegateTable(object):
             else:
                 fields.append(self._schema.field(idx))
                 columns.append(column)
-        return LegateTable(pyarrow.schema(fields), columns)
+        return Table(pyarrow.schema(fields), columns)
 
     @property
     def column_names(self):
@@ -574,7 +571,7 @@ class LegateTable(object):
         return (self.num_rows, self.num_columns)
 
 
-class LegateLibrary(object):
+class Library(object):
     def __init__(self):
         """
         This is the abstract class for a Legate library class. It describes
@@ -648,7 +645,7 @@ class Attachment(object):
         return ptr == self.ptr and extent == self.extent
 
 
-class LegateCore(LegateLibrary):
+class CoreLib(Library):
     def __init__(self):
         self._legate_dir = get_script_dir()
         self._libraries = list()
@@ -793,7 +790,7 @@ class LegateCore(LegateLibrary):
             if attachment.overlaps(ptr, end):
                 assert not attachment.equals(ptr, extent)
                 raise RuntimeError(
-                    "Illegal aliased attachments not supported by " "Legate"
+                    "Illegal aliased attachments not supported by Legate"
                 )
         self._attachments[key] = Attachment(ptr, extent, region, field_id)
 
@@ -811,7 +808,7 @@ class LegateCore(LegateLibrary):
             if attachment.overlaps(ptr, end):
                 assert not attachment.equals(ptr, extent)
                 raise RuntimeError(
-                    "Illegal aliased attachments not supported by " "Legate"
+                    "Illegal aliased attachments not supported by Legate"
                 )
         return None
 
@@ -881,7 +878,7 @@ class LegateCore(LegateLibrary):
             self._cuda_libraries[libname] = None
 
 
-_core = LegateCore()
+_core = CoreLib()
 
 
 def _cleanup_legate():
