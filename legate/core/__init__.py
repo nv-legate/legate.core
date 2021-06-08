@@ -70,6 +70,7 @@ from legate.core.legion import (
     legate_task_progress,
     legate_task_postamble,
 )
+from legate.core.runtime import get_legate_runtime, ResourceConfig
 from legion_cffi import ffi, lib as legion
 
 # Import the PyArrow type system
