@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-from .legate import get_legion_runtime, legate_add_library
+from .legate import get_legion_context, get_legion_runtime, legate_add_library
 from .legion import legion
 
 
@@ -34,6 +34,22 @@ class ResourceConfig(object):
         self.max_shardings = 0
 
 
+class ResourceScope(object):
+    def __init__(self, context, base, category):
+        self._context = context
+        self._base = base
+        self._category = category
+
+    @property
+    def scope(self):
+        return self._context._library.name
+
+    def translate(self, resource_id):
+        if self._base is None:
+            raise ValueError(f"{self.scope} has not {self._category}")
+        return self._base + resource_id
+
+
 class Context(object):
     def __init__(self, runtime, library):
         """
@@ -46,39 +62,80 @@ class Context(object):
         ids.
         """
         self._runtime = runtime
-        self._name = library.name
+        self._library = library
 
         config = library.resource_config
+        name = library.name.encode("utf-8")
+        lg_runtime = self._runtime.legion_runtime
 
-        name = self._name.encode("utf-8")
-        legion_runtime = get_legion_runtime()
+        def _create_scope(api, category, max_counts):
+            base = (
+                api(lg_runtime, name, max_counts) if max_counts > 0 else None
+            )
+            return ResourceScope(self, base, category)
 
-        def _maybe_generate_ids(api, max_counts):
-            if max_counts > 0:
-                return api(legion_runtime, name, max_counts)
-            else:
-                return None
-
-        self._first_task_id = _maybe_generate_ids(
+        self._task_scope = _create_scope(
             legion.legion_runtime_generate_library_task_ids,
+            "task",
             config.max_tasks,
         )
-        self._first_mapper_id = _maybe_generate_ids(
+        self._mapper_scope = _create_scope(
             legion.legion_runtime_generate_library_mapper_ids,
+            "mapper",
             config.max_mappers,
         )
-        self._first_redop_id = _maybe_generate_ids(
+        self._redop_scope = _create_scope(
             legion.legion_runtime_generate_library_reduction_ids,
+            "reduction op",
             config.max_reduction_ops,
         )
-        self._first_proj_id = _maybe_generate_ids(
+        self._proj_scope = _create_scope(
             legion.legion_runtime_generate_library_projection_ids,
+            "Projection functor",
             config.max_projections,
         )
-        self._first_shard_id = _maybe_generate_ids(
+        self._shard_scope = _create_scope(
             legion.legion_runtime_generate_library_sharding_ids,
+            "sharding functor",
             config.max_shardings,
         )
+
+    @property
+    def first_mapper_id(self):
+        return self._mapper_scope._base
+
+    @property
+    def first_redop_id(self):
+        return self._redop_scope._base
+
+    @property
+    def first_shard_id(self):
+        return self._shard_scope._base
+
+    @property
+    def empty_argmap(self):
+        return self._runtime.empty_argmap
+
+    def get_task_id(self, task_id):
+        return self._task_scope.translate(task_id)
+
+    def get_mapper_id(self, mapper_id):
+        return self._mapper_scope.translate(mapper_id)
+
+    def get_reduction_op_id(self, redop_id):
+        return self._redop_scope.translate(redop_id)
+
+    def get_projection_id(self, proj_id):
+        if proj_id == 0:
+            return proj_id
+        else:
+            return self._proj_scope.translate(proj_id)
+
+    def get_sharding_id(self, shard_id):
+        return self._shard_scope.translate(shard_id)
+
+    def dispatch(self, op, redop=None):
+        return self._runtime.dispatch(op, redop)
 
 
 class Runtime(object):
@@ -90,7 +147,14 @@ class Runtime(object):
         resource management for all the libraries so that they can
         focuse on implementing their domain logic.
         """
+        self._legion_runtime = get_legion_runtime()
+        self._legion_context = get_legion_context()
+        self._empty_argmap = legion.legion_argument_map_create()
         self._contexts = {}
+        # This list maintains outstanding operations from all legate libraries
+        # to be dispatched. This list allows cross library introspection for
+        # Legate operations.
+        self._outstanding_ops = []
 
     def register_library(self, library):
         if library.name in self._contexts:
@@ -99,6 +163,24 @@ class Runtime(object):
         context = Context(self, library)
         self._contexts[library.name] = context
         return context
+
+    @property
+    def legion_runtime(self):
+        return self._legion_runtime
+
+    @property
+    def legion_context(self):
+        return self._legion_context
+
+    @property
+    def empty_argmap(self):
+        return self._empty_argmap
+
+    def dispatch(self, op, redop=None):
+        if redop:
+            return op.launch(self.legion_runtime, self.legion_context, redop)
+        else:
+            return op.launch(self.legion_runtime, self.legion_context)
 
 
 _runtime = Runtime()
