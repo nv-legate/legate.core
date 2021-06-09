@@ -15,9 +15,12 @@ jobs:
         uses: actions/checkout@v2
         with:
           ref: ${{ github.event.pull_request.head.sha }}
+          path: "legate-ci/github-ci/legate.core"
       - name: Checkout on push
         if: github.event_name == 'push'
         uses: actions/checkout@v2
+        with:
+          path: "legate-ci/github-ci/legate.core"
       - name: Run CI
         run: |
           env
@@ -32,8 +35,6 @@ jobs:
             git pull
             cd ..
           fi
-          rm -rf legate-ci/legate.core
-          mv legate.core legate-ci
           cd legate-ci
           cd legate.core
           git branch -a
