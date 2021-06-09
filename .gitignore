@@ -10,7 +10,6 @@
 *.gcno
 *.gcda
 *.gcov
-core
 *.fluid
 *.pyc
 *.swp
