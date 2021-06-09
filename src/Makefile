@@ -24,7 +24,10 @@ LIBNAME   = liblgcore
 USE_GPU_REDUCTIONS = 0
 
 # General source files
-GEN_CPU_SRC	= legate.cc \
+GEN_CPU_SRC	= context.cc  \
+							legate.cc   \
+							mapper.cc   \
+							shard.cc    \
 							legate_c.cc
 # No initial GPU files for core Legate but libraries have them
 GEN_GPU_SRC	=
