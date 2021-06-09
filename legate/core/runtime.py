@@ -13,129 +13,34 @@
 # limitations under the License.
 #
 
-from .legate import get_legion_context, get_legion_runtime, legate_add_library
-from .legion import legion
+import gc
+
+from legion_cffi import ffi  # Make sure we only have one ffi instance
+from legion_top import cleanup_items, top_level
+
+from .context import Context
+from .corelib import CoreLib
+from .legion import legate_task_postamble, legate_task_preamble, legion
 
 
-class ResourceConfig(object):
-    __slots__ = [
-        "max_tasks",
-        "max_mappers",
-        "max_reduction_ops",
-        "max_projections",
-        "max_shardings",
-    ]
+class Attachment(object):
+    def __init__(self, ptr, extent, region, field_id):
+        self.ptr = ptr
+        self.extent = extent
+        self.end = ptr + extent - 1
+        self.region = region
+        self.field_id = field_id
+        self.count = 1
 
-    def __init__(self):
-        self.max_tasks = 1_000_000
-        self.max_mappers = 1
-        self.max_reduction_ops = 0
-        self.max_projections = 0
-        self.max_shardings = 0
+    def overlaps(self, start, stop):
+        if self.end < start:
+            return False
+        if stop < self.ptr:
+            return False
+        return True
 
-
-class ResourceScope(object):
-    def __init__(self, context, base, category):
-        self._context = context
-        self._base = base
-        self._category = category
-
-    @property
-    def scope(self):
-        return self._context._library.name
-
-    def translate(self, resource_id):
-        if self._base is None:
-            raise ValueError(f"{self.scope} has not {self._category}")
-        return self._base + resource_id
-
-
-class Context(object):
-    def __init__(self, runtime, library):
-        """
-        A Context is a named scope for Legion resources used in a Legate
-        library. A Context is created when the library is registered
-        for the first time to the Legate runtime, and it must be passed
-        when the library registers or makes accesses to its Legion resources.
-        Resources that are scoped locally to each library include
-        task ids, projection and sharding functor ids, and reduction operator
-        ids.
-        """
-        self._runtime = runtime
-        self._library = library
-
-        config = library.resource_config
-        name = library.name.encode("utf-8")
-        lg_runtime = self._runtime.legion_runtime
-
-        def _create_scope(api, category, max_counts):
-            base = (
-                api(lg_runtime, name, max_counts) if max_counts > 0 else None
-            )
-            return ResourceScope(self, base, category)
-
-        self._task_scope = _create_scope(
-            legion.legion_runtime_generate_library_task_ids,
-            "task",
-            config.max_tasks,
-        )
-        self._mapper_scope = _create_scope(
-            legion.legion_runtime_generate_library_mapper_ids,
-            "mapper",
-            config.max_mappers,
-        )
-        self._redop_scope = _create_scope(
-            legion.legion_runtime_generate_library_reduction_ids,
-            "reduction op",
-            config.max_reduction_ops,
-        )
-        self._proj_scope = _create_scope(
-            legion.legion_runtime_generate_library_projection_ids,
-            "Projection functor",
-            config.max_projections,
-        )
-        self._shard_scope = _create_scope(
-            legion.legion_runtime_generate_library_sharding_ids,
-            "sharding functor",
-            config.max_shardings,
-        )
-
-    @property
-    def first_mapper_id(self):
-        return self._mapper_scope._base
-
-    @property
-    def first_redop_id(self):
-        return self._redop_scope._base
-
-    @property
-    def first_shard_id(self):
-        return self._shard_scope._base
-
-    @property
-    def empty_argmap(self):
-        return self._runtime.empty_argmap
-
-    def get_task_id(self, task_id):
-        return self._task_scope.translate(task_id)
-
-    def get_mapper_id(self, mapper_id):
-        return self._mapper_scope.translate(mapper_id)
-
-    def get_reduction_op_id(self, redop_id):
-        return self._redop_scope.translate(redop_id)
-
-    def get_projection_id(self, proj_id):
-        if proj_id == 0:
-            return proj_id
-        else:
-            return self._proj_scope.translate(proj_id)
-
-    def get_sharding_id(self, shard_id):
-        return self._shard_scope.translate(shard_id)
-
-    def dispatch(self, op, redop=None):
-        return self._runtime.dispatch(op, redop)
+    def equals(self, ptr, extent):
+        return ptr == self.ptr and extent == self.extent
 
 
 class Runtime(object):
@@ -145,27 +50,42 @@ class Runtime(object):
         The Runtime object provides high-level APIs for Legate libraries
         to use services in the Legion runtime. The Runtime centralizes
         resource management for all the libraries so that they can
-        focuse on implementing their domain logic.
+        focus on implementing their domain logic.
         """
-        self._legion_runtime = get_legion_runtime()
-        self._legion_context = get_legion_context()
-        self._empty_argmap = legion.legion_argument_map_create()
+
         self._contexts = {}
+        self._context_list = []
+        self._core_context = None
+        self._attachments = None
+        self._empty_argmap = legion.legion_argument_map_create()
+
         # This list maintains outstanding operations from all legate libraries
         # to be dispatched. This list allows cross library introspection for
         # Legate operations.
         self._outstanding_ops = []
 
-    def register_library(self, library):
-        if library.name in self._contexts:
-            raise RuntimeError(f"library {library.name} already exists!")
-        legate_add_library(library)
-        context = Context(self, library)
-        self._contexts[library.name] = context
-        return context
+        try:
+            self._legion_context = top_level.context[0]
+        except AttributeError:
+            pass
+
+        # Record whether we need to run finalize tasks
+        # Key off whether we are being loaded in a context or not
+        try:
+            # Do this first to detect if we're not in the top-level task
+            self._legion_context = top_level.context[0]
+            self._legion_runtime = legion.legion_runtime_get_runtime()
+            legate_task_preamble(self._legion_runtime, self._legion_context)
+            self._finalize_tasks = True
+        except AttributeError:
+            self._finalize_tasks = False
+            self._legion_runtime = None
+            self._legion_context = None
 
     @property
     def legion_runtime(self):
+        if self._legion_runtime is None:
+            self._legion_runtime = legion.legion_runtime_get_runtime()
         return self._legion_runtime
 
     @property
@@ -173,8 +93,57 @@ class Runtime(object):
         return self._legion_context
 
     @property
+    def core_context(self):
+        if self._core_context is None:
+            self._core_context = self._contexts["legate.core"]
+        return self._core_context
+
+    @property
     def empty_argmap(self):
         return self._empty_argmap
+
+    def register_library(self, library):
+        libname = library.get_name()
+        if libname in self._contexts:
+            raise RuntimeError(
+                f"library {libname} has already been registered!"
+            )
+        # It's important that we load the library so that its constants
+        # can be used for configuration.
+        self.load_library(library)
+        context = Context(self, library)
+        self._contexts[libname] = context
+        self._context_list.append(context)
+        return context
+
+    @staticmethod
+    def load_library(library):
+        shared_lib_path = library.get_shared_library()
+        if shared_lib_path is not None:
+            header = library.get_c_header()
+            if header is not None:
+                ffi.cdef(header)
+            shared_lib = ffi.dlopen(shared_lib_path)
+            library.initialize(shared_lib)
+            callback_name = library.get_registration_callback()
+            callback = getattr(shared_lib, callback_name)
+            callback()
+        else:
+            library.initialize()
+
+    def destroy(self):
+        # Destroy all libraries. Note that we should do this
+        # from the lastly added one to the first one
+        for context in reversed(self._context_list):
+            context.destroy()
+        del self._contexts
+        del self._context_list
+        # Clean up our attachments so that they can be collected
+        self._attachments = None
+        if self._finalize_tasks:
+            # Run a gc and then end the legate task
+            gc.collect()
+            legate_task_postamble(self.legion_runtime, self.legion_context)
 
     def dispatch(self, op, redop=None):
         if redop:
@@ -182,8 +151,92 @@ class Runtime(object):
         else:
             return op.launch(self.legion_runtime, self.legion_context)
 
+    def add_attachment(self, ptr, extent, region, field_id):
+        key = (ptr, extent)
+        if self._attachments is None:
+            self._attachments = dict()
+        elif key in self._attachments:
+            # If we find exactly the match then we know by definition that
+            # nobody overlaps with this attachment or it wouldn't exist
+            self._attachments[key].count += 1
+            return
+        # Otherwise iterate over attachments and look for aliases which are bad
+        end = ptr + extent - 1
+        for attachment in self._attachments.values():
+            if attachment.overlaps(ptr, end):
+                assert not attachment.equals(ptr, extent)
+                raise RuntimeError(
+                    "Illegal aliased attachments not supported by Legate"
+                )
+        self._attachments[key] = Attachment(ptr, extent, region, field_id)
+
+    def find_attachment(self, ptr, extent):
+        if self._attachments is None:
+            return None
+        key = (ptr, extent)
+        if key in self._attachments:
+            attachment = self._attachments[key]
+            assert attachment.count > 0
+            return (attachment.region, attachment.field_id)
+        # Otherwise look for aliases which are bad
+        end = ptr + extent - 1
+        for attachment in self._attachments.values():
+            if attachment.overlaps(ptr, end):
+                assert not attachment.equals(ptr, extent)
+                raise RuntimeError(
+                    "Illegal aliased attachments not supported by Legate"
+                )
+        return None
+
+    def remove_attachment(self, ptr, extent):
+        key = (ptr, extent)
+        if key not in self._attachments:
+            raise RuntimeError("Unable to find attachment to remove")
+        attachment = self._attachments[key]
+        assert attachment.count > 0
+        if attachment.count == 1:
+            del self._attachments[key]
+        else:
+            attachment.count -= 1
+
 
 _runtime = Runtime()
+_runtime.register_library(CoreLib())
+
+
+def _cleanup_legate_runtime():
+    global _runtime
+    _runtime.destroy()
+    del _runtime
+    gc.collect()
+
+
+cleanup_items.append(_cleanup_legate_runtime)
+
+
+def get_legion_runtime():
+    return _runtime.legion_runtime
+
+
+def get_legion_context():
+    return _runtime.legion_context
+
+
+def legate_add_library(library):
+    _runtime.register_library(library)
+
+
+# These functions provide support for deduplicating attaches across libraries
+def legate_add_attachment(ptr, extent, region, field_id):
+    _runtime.add_attachment(ptr, extent, region, field_id)
+
+
+def legate_find_attachment(ptr, extent):
+    return _runtime.find_attachment(ptr, extent)
+
+
+def legate_remove_attachment(ptr, extent):
+    _runtime.remove_attachment(ptr, extent)
 
 
 def get_legate_runtime():

@@ -16,16 +16,19 @@
 from __future__ import absolute_import, division, print_function
 
 # Import select types for Legate library construction
+from legate.core.context import ResourceConfig
 from legate.core.legate import (
     Array,
     Library,
     Store,
+)
+from legate.core.runtime import (
+    get_legate_runtime,
     get_legion_context,
     get_legion_runtime,
     legate_add_attachment,
     legate_add_library,
     legate_find_attachment,
-    legate_initialize_cuda_library,
     legate_remove_attachment,
 )
 from legate.core.legion import (
@@ -70,7 +73,6 @@ from legate.core.legion import (
     legate_task_progress,
     legate_task_postamble,
 )
-from legate.core.runtime import get_legate_runtime, ResourceConfig
 from legion_cffi import ffi, lib as legion
 
 # Import the PyArrow type system
