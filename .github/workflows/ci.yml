@@ -10,8 +10,6 @@ jobs:
     steps:
       - name: Run CI
         run: |
-          env
-          ls
           if [[ ! -d legate-ci ]]
           then
             git clone ssh://git@gitlab-master.nvidia.com:12051/legate/legate-ci.git
@@ -25,4 +23,4 @@ jobs:
           cd legate.core
           rm -rf ngc-artifacts
           ./build.sh > ${COMMIT}.log 2>&1
-          
+          cat *artifacts/*/*
