@@ -1,8 +1,13 @@
 name: Build legate.core
-on: [push, pull_request]
+on: 
+  push:
+    branches-ignore:
+      - gh-pages  # deployment target branch (this workflow should not exist on that branch anyway)
+  pull_request:
+    branches-ignore:
+      - gh-pages  # deployment target branch (this workflow should not exist on that branch anyway)
 env:
-  DOCKER_AUTH_TOKEN: ${{ secrets.DOCKER_AUTH_TOKEN }}
-  COMMIT: ${{ github.event.pull_request.head.sha }}
+  COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
   PROJECT: github-core-ci
 jobs:
   build:
