@@ -1,9 +1,26 @@
 name: Build legate.core
 on: [push, pull_request]
+env:
+  DOCKER_AUTH_TOKEN: ${{ secrets.DOCKER_AUTH_TOKEN }}
+  COMMIT: ${{ github.event.pull_request.head.sha }}
+  PROJECT: github-core-ci
 jobs:
   build:
     runs-on: self-hosted
     steps:
-      - run: |
-          cd  /data/github-runner/_work/legate-ci
-          git pull
+      - name: Run CI
+        run: |
+          if [[ ! -d legate-ci ]]
+          then
+            git clone ssh://git@gitlab-master.nvidia.com:12051/legate/legate-ci.git
+          else
+            cd legate-ci
+            git pull
+            cd ..
+          fi
+          cd legate-ci
+          cd github-ci/
+          cd legate.core
+          rm -rf ngc-artifacts
+          ./build.sh > ${COMMIT}.log 2>&1
+          cat *artifacts/*/*
