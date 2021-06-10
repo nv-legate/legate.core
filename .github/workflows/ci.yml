@@ -47,5 +47,5 @@ jobs:
           cd github-ci/
           cd legate.core
           rm -rf ngc-artifacts
-          ./build.sh > ${COMMIT}.log 2>&1
+          ./test.sh > ${COMMIT}.log 2>&1
           cat *artifacts/*/*
