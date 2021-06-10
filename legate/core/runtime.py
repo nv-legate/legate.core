@@ -14,6 +14,9 @@
 #
 
 import gc
+import math
+
+import numpy as np
 
 from legion_cffi import ffi  # Make sure we only have one ffi instance
 from legion_top import cleanup_items, top_level
@@ -56,6 +59,7 @@ class Runtime(object):
         self._contexts = {}
         self._context_list = []
         self._core_context = None
+        self._core_library = None
         self._attachments = None
         self._empty_argmap = legion.legion_argument_map_create()
 
@@ -97,6 +101,12 @@ class Runtime(object):
         if self._core_context is None:
             self._core_context = self._contexts["legate.core"]
         return self._core_context
+
+    @property
+    def core_library(self):
+        if self._core_library is None:
+            self._core_library = self.core_context.library._lib
+        return self._core_library
 
     @property
     def empty_argmap(self):
@@ -198,6 +208,32 @@ class Runtime(object):
             del self._attachments[key]
         else:
             attachment.count -= 1
+
+    def get_projection(self, src_dim, tgt_dim, mask):
+        proj_id = 0
+        for dim, val in enumerate(mask):
+            proj_id = proj_id | (int(val) << dim)
+        proj_id = (proj_id << 8) | (src_dim << 4) | tgt_dim
+        return self.core_context.get_projection_id(proj_id)
+
+    def get_transpose(self, seq):
+        dim = len(seq)
+        # Convert the dimension sequence to a Lehmer code
+        seq = np.array(seq)
+        code = [(seq[idx + 1 :] < val).sum() for idx, val in enumerate(seq)]
+        # Then convert the code into a factoradic number
+        factoradic = sum(
+            [
+                val * math.factorial(dim - idx - 1)
+                for idx, val in enumerate(code)
+            ]
+        )
+        proj_id = (
+            self.core_library.LEGATE_CORE_FIRST_TRANSPOSE_FUNCTOR
+            | (factoradic << 4)
+            | dim
+        )
+        return self.core_context.get_projection_id(proj_id)
 
 
 _runtime = Runtime()

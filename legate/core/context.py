@@ -41,7 +41,7 @@ class ResourceScope(object):
 
     @property
     def scope(self):
-        return self._context._library.name
+        return self._context._library.get_name()
 
     def translate(self, resource_id):
         if self._base is None:
@@ -101,6 +101,14 @@ class Context(object):
 
     def destroy(self):
         self._library.destroy()
+
+    @property
+    def runtime(self):
+        return self._runtime
+
+    @property
+    def library(self):
+        return self._library
 
     @property
     def first_mapper_id(self):

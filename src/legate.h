@@ -209,6 +209,8 @@ template <>
 constexpr LegateTypeCode legate_type_code_of<complex<double>> = COMPLEX128_LT;
 #endif
 
+struct LegateProjectionFunctor;
+
 class Core {
  public:
   static void parse_config(void);
@@ -217,6 +219,9 @@ class Core {
   static Legion::LayoutConstraintID get_soa_layout(void);
   static Legion::LayoutConstraintID get_reduction_layout(Legion::ReductionOpID redop);
   static Legion::LayoutConstraintID get_virtual_layout(void);
+
+ public:
+  static LegateProjectionFunctor *get_projection_functor(Legion::ProjectionID functor_id);
 
  public:
   // Configuration settings

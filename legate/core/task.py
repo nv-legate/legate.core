@@ -161,7 +161,7 @@ class Broadcast(object):
         return isinstance(other, Broadcast) and self.redop == other.redop
 
 
-class Projection(object):
+class Project(object):
     def __init__(self, part, proj=0, redop=None):
         self.part = part
         self.proj = proj
@@ -199,7 +199,7 @@ class Projection(object):
 
     def __eq__(self, other):
         return (
-            isinstance(other, Projection)
+            isinstance(other, Project)
             and self.part == other.part
             and self.proj == other.proj
             and self.redop == other.redop

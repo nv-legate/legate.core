@@ -23,6 +23,14 @@ typedef enum legate_core_task_id_t {
   LEGATE_CORE_NUM_TASK_IDS,  // must be last
 } legate_core_task_id_t;
 
+typedef enum legate_core_proj_id_t {
+  // The last reduction functor in a 9D space has an id 0x01FF99
+  LEGATE_CORE_FIRST_REDUCTION_FUNCTOR = 0,
+  // The last transpose functor in a 9D space has an id 0x15897F9
+  LEGATE_CORE_FIRST_TRANSPOSE_FUNCTOR = 0x01000000,
+  LEGATE_CORE_MAX_FUNCTOR_ID          = 0x02000000,
+} legate_core_proj_id_t;
+
 typedef enum legate_core_tunable_t {
   LEGATE_CORE_TUNABLE_TOTAL_CPUS = 12345,
   LEGATE_CORE_TUNABLE_TOTAL_GPUS,

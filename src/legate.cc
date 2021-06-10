@@ -18,6 +18,7 @@
 #include <cstdlib>
 #include "legate_c.h"
 #include "mapper.h"
+#include "projection.h"
 #include "shard.h"
 #ifdef LEGATE_USE_CUDA
 #include "cudalibs.h"
@@ -224,15 +225,8 @@ static void finalize_gpu_resource_task(const Task* task,
   // Nothing to do here yet...
 }
 
-/*static*/ void core_registration_callback(Machine machine,
-                                           Runtime* runtime,
-                                           const std::set<Processor>& local_procs)
+void register_legate_core_tasks(Machine machine, Runtime* runtime, const LegateContext& context)
 {
-  ResourceConfig config;
-  config.max_tasks     = LEGATE_CORE_NUM_TASK_IDS;
-  config.max_shardings = 1;
-  LegateContext context(runtime, core_library_name, config);
-
   const TaskID initialize_task_id  = context.get_task_id(LEGATE_CORE_INITIALIZE_TASK_ID);
   const char* initialize_task_name = "Legate Core Resource Initialization";
   runtime->attach_name(
@@ -282,11 +276,25 @@ static void finalize_gpu_resource_task(const Task* task,
     runtime->register_task_variant<finalize_gpu_resource_task>(registrar, LEGATE_GPU_VARIANT);
   }
 #endif
+}
+
+/*static*/ void core_registration_callback(Machine machine,
+                                           Runtime* runtime,
+                                           const std::set<Processor>& local_procs)
+{
+  ResourceConfig config;
+  config.max_tasks       = LEGATE_CORE_NUM_TASK_IDS;
+  config.max_shardings   = 1;
+  config.max_projections = LEGATE_CORE_MAX_FUNCTOR_ID;
+  LegateContext context(runtime, core_library_name, config);
+
+  register_legate_core_tasks(machine, runtime, context);
+
+  register_legate_core_mapper(machine, runtime, context);
+
+  register_legate_core_projection_functors(runtime, context);
 
   register_legate_core_sharding_functors(runtime, context);
-
-  // Now we can generate a mapper ID for our library and register it with the runtime
-  register_legate_core_mapper(machine, runtime, context);
 }
 
 }  // namespace legate
