@@ -129,6 +129,10 @@ class Context(object):
     def get_task_id(self, task_id):
         return self._task_scope.translate(task_id)
 
+    @property
+    def mapper_id(self):
+        return self.get_mapper_id(0)
+
     def get_mapper_id(self, mapper_id):
         return self._mapper_scope.translate(mapper_id)
 
