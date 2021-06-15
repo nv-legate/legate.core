@@ -438,17 +438,18 @@ class RegionField(object):
         self.shard_function = 0  # Default to no shard function
         self.shard_space = None  # Sharding space for launches
         self.shard_point = None  # Tile point we overlap with in root
-        self.attach_array = None  # Numpy array that we attached to this field
-        self.numpy_array = (
-            None  # Numpy array that we returned for the application
+        self.attached_array = (
+            None  # Numpy array that we attached to this field
         )
+        # Numpy array that we returned for the application
+        self.numpy_array = None
         self.interface = None  # Numpy array interface
         self.physical_region = None  # Physical region for attach
         self.physical_region_refs = 0
         self.physical_region_mapped = False
 
     def __del__(self):
-        if self.attach_array is not None:
+        if self.attached_array is not None:
             self.detach_numpy_array(unordered=True, defer=True)
 
     def has_parallel_launch_space(self):
@@ -717,8 +718,8 @@ class RegionField(object):
         assert isinstance(numpy_array, np.ndarray)
         # If we already have a numpy array attached
         # then we have to detach it first
-        if self.attach_array is not None:
-            if self.attach_array is numpy_array:
+        if self.attached_array is not None:
+            if self.attached_array is numpy_array:
                 return
             else:
                 self.detach_numpy_array(unordered=False)
@@ -753,23 +754,23 @@ class RegionField(object):
         # This reference will never be removed, we'll delete the
         # physical region once the object is deleted
         self.physical_region_refs = 1
-        self.attach_array = numpy_array
+        self.attached_array = numpy_array
         if share:
             # If we're sharing this then we can also make this our numpy array
             self.numpy_array = weakref.ref(numpy_array)
 
     def detach_numpy_array(self, unordered, defer=False):
         assert self.parent is None
-        assert self.attach_array is not None
+        assert self.attached_array is not None
         assert self.physical_region is not None
         detach = self.attachment_manager.remove_detachment(self.detach_key)
         detach.unordered = unordered
         self.attachment_manager.detach_array(
-            self.attach_array, self.field, detach, defer
+            self.attached_array, self.field, detach, defer
         )
         self.physical_region = None
         self.physical_region_mapped = False
-        self.attach_array = None
+        self.attached_array = None
 
     def get_inline_mapped_region(self, context):
         if self.parent is None:
@@ -827,9 +828,8 @@ class RegionField(object):
             # transform
             func = getattr(
                 legion,
-                "legion_physical_region_get_field_accessor_array_{}d_with_transform".format(  # noqa E501
-                    dim
-                ),
+                "legion_physical_region_get_field_accessor_array_"
+                f"{dim}d_with_transform",
             )
             accessor = func(
                 physical_region.handle,
@@ -840,24 +840,20 @@ class RegionField(object):
             # No transfrom so we can do the normal thing
             func = getattr(
                 legion,
-                "legion_physical_region_get_field_accessor_array_{}d".format(
-                    dim
-                ),
+                f"legion_physical_region_get_field_accessor_array_{dim}d",
             )
             accessor = func(
                 physical_region.handle,
                 ffi.cast("legion_field_id_t", self.field.field_id),
             )
         # Now that we've got our accessor we can get a pointer to the memory
-        rect = ffi.new("legion_rect_{}d_t *".format(dim))
+        rect = ffi.new(f"legion_rect_{dim}d_t *")
         for d in range(dim):
             rect[0].lo.x[d] = 0
             rect[0].hi.x[d] = self.shape[d] - 1  # inclusive
-        subrect = ffi.new("legion_rect_{}d_t *".format(dim))
+        subrect = ffi.new(f"legion_rect_{dim}d_t *")
         offsets = ffi.new("legion_byte_offset_t[]", dim)
-        func = getattr(
-            legion, "legion_accessor_array_{}d_raw_rect_ptr".format(dim)
-        )
+        func = getattr(legion, f"legion_accessor_array_{dim}d_raw_rect_ptr")
         base_ptr = func(accessor, rect[0], subrect, offsets)
         assert base_ptr is not None
         # Check that the subrect is the same as in the in rect
