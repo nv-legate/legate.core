@@ -435,15 +435,11 @@ class RegionField(object):
         self.subviews = None  # RegionField subviews of this region field
         self.view = view  # The view slice tuple used to make this region field
         self.launch_space = None  # Parallel launch space for this region_field
-        self.shard_function = 0  # Default to no shard function
-        self.shard_space = None  # Sharding space for launches
-        self.shard_point = None  # Tile point we overlap with in root
         self.attached_array = (
             None  # Numpy array that we attached to this field
         )
         # Numpy array that we returned for the application
         self.numpy_array = None
-        self.interface = None  # Numpy array interface
         self.physical_region = None  # Physical region for attach
         self.physical_region_refs = 0
         self.physical_region_mapped = False
@@ -462,7 +458,7 @@ class RegionField(object):
         if self.launch_space is not None:
             return self.launch_space
         if self.parent is not None:
-            key_partition, _, __ = self.find_or_create_key_partition()
+            key_partition = self.find_or_create_key_partition()
             if key_partition is None:
                 self.launch_space = ()
             else:
@@ -477,34 +473,26 @@ class RegionField(object):
             return None
         return self.launch_space
 
-    def find_point_sharding(self):
-        # By the time we call this we should have a launch space
-        # even if it is an empty one
-        assert self.launch_space is not None
-        return self.shard_point, self.shard_function, self.shard_space
-
     def set_key_partition(self, part, shardfn=None, shardsp=None):
         assert part.parent == self.region
         self.launch_space = part.color_shape
         self.key_partition = part
-        self.shard_function = 0
-        self.shard_space = shardsp
 
     def find_or_create_key_partition(self):
         if self.key_partition is not None:
-            return self.key_partition, self.shard_function, self.shard_space
+            return self.key_partition
         # We already tried to compute it and did not have one so we're done
         if self.launch_space == ():
-            return None, None, None
+            return None
         if self.parent is not None:
             # Figure out how many tiles we overlap with of the root
             root = self.parent
             while root.parent is not None:
                 root = root.parent
-            root_key, rootfn, rootsp = root.find_or_create_key_partition()
+            root_key = root.find_or_create_key_partition()
             if root_key is None:
                 self.launch_space = ()
-                return None, None, None
+                return None
             # Project our bounds through the transform into the
             # root coordinate space to get our bounds in the root
             # coordinate space
@@ -559,12 +547,7 @@ class RegionField(object):
                         offset=(0,) * len(launch_space),
                         transform=self.transform,
                     )
-                    self.shard_function = 0
-                    return (
-                        self.key_partition,
-                        self.shard_function,
-                        self.shard_space,
-                    )
+                    return self.key_partition
                 # We're invertible so do the standard inversion
                 inverse = np.transpose(self.transform.trans)
                 # We need to make a make a special sharding functor here that
@@ -580,7 +563,6 @@ class RegionField(object):
                 )
                 launch_transform.trans = self.transform.trans
                 launch_transform.offset = color_lo
-                self.shard_function = 0
                 tile_offset = np.zeros((len(self.shape),), dtype=np.int64)
                 for n in range(len(self.shape)):
                     nonzero = False
@@ -599,10 +581,6 @@ class RegionField(object):
                 # Reset lo and hi back to our space
                 lo = np.zeros((len(self.shape),), dtype=np.int64)
                 hi = np.array(self.shape, dtype=np.int64) - 1
-            else:
-                # If there is no transform then can just use the root function
-                self.shard_function = rootfn
-            self.shard_space = root_key.index_partition.color_space
             # Launch space is how many tiles we have in each dimension
             color_shape = tuple(
                 map(lambda x, y: (x - y) + 1, color_hi, color_lo)
@@ -616,7 +594,7 @@ class RegionField(object):
                 # We overlap with exactly one point in the root
                 # Therefore just record this point
                 self.shard_point = Point(color_lo)
-                return None, None, None
+                return None
             # Now compute the offset for the partitioning
             # This will shift the tile down if necessary to align with the
             # boundaries at the root while still covering all of our elements
@@ -638,7 +616,7 @@ class RegionField(object):
         else:
             launch_space = self.compute_parallel_launch_space()
             if launch_space is None:
-                return None, None, None
+                return None
             tile_shape = self.runtime.compute_tile_shape(
                 self.shape, launch_space
             )
@@ -650,8 +628,7 @@ class RegionField(object):
                 offset=(0,) * len(launch_space),
                 transform=self.transform,
             )
-            self.shard_function = 0
-        return self.key_partition, self.shard_function, self.shard_space
+        return self.key_partition
 
     def find_or_create_congruent_partition(
         self, part, transform=None, offset=None
