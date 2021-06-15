@@ -26,10 +26,7 @@ from legate.core.runtime import (
     get_legate_runtime,
     get_legion_context,
     get_legion_runtime,
-    legate_add_attachment,
     legate_add_library,
-    legate_find_attachment,
-    legate_remove_attachment,
 )
 from legate.core.legion import (
     LEGATE_MAX_DIM,

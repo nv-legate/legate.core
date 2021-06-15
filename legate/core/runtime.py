@@ -422,6 +422,7 @@ class RegionField(object):
         view=None,
     ):
         self.runtime = runtime
+        self.attachment_manager = runtime.attachment_manager
         self.context = runtime.core_context
         self.region = region
         self.field = field
@@ -746,7 +747,7 @@ class RegionField(object):
         # Dangle these fields off here to prevent premature collection
         detach.field = self.field
         detach.array = numpy_array
-        self.detach_key = self.runtime.register_detachment(detach)
+        self.detach_key = self.attachment_manager.register_detachment(detach)
         # Add a reference here to prevent collection in for inline mapped cases
         assert self.physical_region_refs == 0
         # This reference will never be removed, we'll delete the
@@ -761,9 +762,9 @@ class RegionField(object):
         assert self.parent is None
         assert self.attach_array is not None
         assert self.physical_region is not None
-        detach = self.runtime.remove_detachment(self.detach_key)
+        detach = self.attachment_manager.remove_detachment(self.detach_key)
         detach.unordered = unordered
-        self.runtime.detach_array_field(
+        self.attachment_manager.detach_array(
             self.attach_array, self.field, detach, defer
         )
         self.physical_region = None
@@ -904,23 +905,157 @@ class _RegionNdarray(object):
 
 
 class Attachment(object):
-    def __init__(self, ptr, extent, region, field_id):
+    def __init__(self, ptr, extent, region, field):
         self.ptr = ptr
         self.extent = extent
         self.end = ptr + extent - 1
-        self.region = region
-        self.field_id = field_id
         self.count = 1
+        self.region = region
+        self.field = field
 
-    def overlaps(self, start, stop):
-        if self.end < start:
-            return False
-        if stop < self.ptr:
-            return False
-        return True
+    def overlaps(self, other):
+        return not (self.end < other.ptr or other.end < self.ptr)
 
-    def equals(self, ptr, extent):
-        return ptr == self.ptr and extent == self.extent
+    def equals(self, other):
+        # Sufficient to check the pointer and extent
+        # as they are used as a key for de-duplication
+        return self.ptr == other.ptr and self.extent == other.extent
+
+    def add_reference(self):
+        self.count += 1
+
+    def remove_reference(self):
+        assert self.count > 0
+        self.count += 1
+
+    @property
+    def collectible(self):
+        return self.count == 0
+
+
+class AttachmentManager(object):
+    def __init__(self, runtime):
+        self._runtime = runtime
+
+        self._attachments = dict()
+
+        self._next_detachment_key = 0
+        self._registered_detachments = dict()
+        self._deferred_detachments = list()
+        self._pending_detachments = dict()
+
+    def destroy(self):
+        gc.collect()
+        while self._deferred_detachments:
+            self.perform_detachments()
+            # Make sure progress is made on any of these operations
+            self._runtime._progress_unordered_operations()
+            gc.collect()
+        # Always make sure we wait for any pending detachments to be done
+        # so that we don't lose the references and make the GC unhappy
+        gc.collect()
+        while self._pending_detachments:
+            self.prune_detachments()
+            gc.collect()
+
+        # Clean up our attachments so that they can be collected
+        self._attachments = None
+        self._registered_detachments = None
+        self._deferred_detachments = None
+        self._pending_detachments = None
+
+    @staticmethod
+    def attachment_key(array):
+        return (int(array.ctypes.data), array.nbytes)
+
+    def has_attachment(self, array):
+        key = self.attachment_key(array)
+        return key in self._attachments
+
+    def attach_array(self, array, share):
+        assert array.base is None or not isinstance(array.base, np.ndarray)
+        # NumPy arrays are not hashable, so look up the pointer for the array
+        # which should be unique for all root NumPy arrays
+        key = self.attachment_key(array)
+        if key not in self._attachments:
+            region_field = self._runtime.allocate_field(
+                array.shape, array.dtype
+            )
+            region_field.attach_numpy_array(array, share)
+            attachment = Attachment(
+                *key, region_field.region, region_field.field
+            )
+
+            # iterate over attachments and look for aliases which are bad
+            for other in self._attachments.values():
+                if other.overlaps(attachment):
+                    assert not other.equals(attachment)
+                    raise RuntimeError(
+                        "Illegal aliased attachments not supported by Legate"
+                    )
+
+            self._attachments[key] = attachment
+        else:
+            attachment = self._attachments[key]
+            attachment.add_reference()
+            region = attachment.region
+            field = attachment.field
+            region_field = RegionField(
+                self._runtime, region, field, array.shape
+            )
+        return region_field
+
+    def remove_attachment(self, array):
+        key = self.attachment_key(array)
+        if key not in self._attachments:
+            raise RuntimeError("Unable to find attachment to remove")
+        attachment = self._attachments[key]
+        attachment.remove_reference()
+        if attachment.collectible:
+            del self._attachments[key]
+
+    def detach_array(self, array, field, detach, defer):
+        if defer:
+            # If we need to defer this until later do that now
+            self._deferred_detachments.append((array, field, detach))
+            return
+        future = self._runtime.dispatch(detach)
+        # Dangle a reference to the field off the future to prevent the
+        # field from being recycled until the detach is done
+        future.field_reference = field
+        assert array.base is None
+        # We also need to tell the core legate library that this array
+        # is no longer attached
+        self.remove_attachment(array)
+        # If the future is already ready, then no need to track it
+        if future.is_ready():
+            return
+        self._pending_detachments[future] = array
+
+    def register_detachment(self, detach):
+        key = self._next_detachment_key
+        self._registered_detachments[key] = detach
+        self._next_detachment_key += 1
+        return key
+
+    def remove_detachment(self, detach_key):
+        detach = self._registered_detachments[detach_key]
+        del self._registered_detachments[detach_key]
+        return detach
+
+    def perform_detachments(self):
+        detachments = self._deferred_detachments
+        self._deferred_detachments = list()
+        for array, field, detach in detachments:
+            self.detach_array(array, field, detach, defer=False)
+
+    def prune_detachments(self):
+        to_remove = []
+        for future in self._pending_detachments.keys():
+            if future.is_ready():
+                to_remove.append(future)
+        for future in to_remove:
+            del self._pending_detachments[future]
 
 
 class Runtime(object):
@@ -936,17 +1071,13 @@ class Runtime(object):
         self.index_spaces = {}  # map shapes to index spaces
         self.field_spaces = {}  # map dtype to field spaces
         self.field_managers = {}  # map from (shape,dtype) to field managers
+
         self.destroyed = False
         self.max_field_reuse_size = 256
         self.max_field_reuse_frequency = 32
-        self.registered_detachments = None
-        self.next_detachment_key = 0
-        self.deferred_detachments = None
-        self.pending_detachments = None
         self.num_pieces = 4
         self.launch_spaces = dict()
         self.min_shard_volume = 1
-        self.ptr_to_thunk = None  # map from external array pointer to thunks
 
         factors = list()
         pieces = self.num_pieces
@@ -976,7 +1107,6 @@ class Runtime(object):
         self._context_list = []
         self._core_context = None
         self._core_library = None
-        self._attachments = None
         self._empty_argmap = legion.legion_argument_map_create()
 
         # This list maintains outstanding operations from all legate libraries
@@ -1001,6 +1131,8 @@ class Runtime(object):
             self._finalize_tasks = False
             self._legion_runtime = None
             self._legion_context = None
+
+        self._attachment_manager = AttachmentManager(self)
 
     @property
     def legion_runtime(self):
@@ -1027,6 +1159,10 @@ class Runtime(object):
     @property
     def empty_argmap(self):
         return self._empty_argmap
+
+    @property
+    def attachment_manager(self):
+        return self._attachment_manager
 
     def register_library(self, library):
         libname = library.get_name()
@@ -1065,28 +1201,13 @@ class Runtime(object):
         del self._contexts
         del self._context_list
 
+        self._attachment_manager.destroy()
+
         # Remove references to our legion resources so they can be collected
         self.field_managers = None
         self.field_spaces = None
         self.index_spaces = None
 
-        gc.collect()
-        while self.deferred_detachments:
-            self.perform_detachments()
-            # Make sure progress is made on any of these operations
-            legion.legion_context_progress_unordered_operations(
-                self.legion_runtime, self.legion_context
-            )
-            gc.collect()
-        # Always make sure we wait for any pending detachments to be done
-        # so that we don't lose the references and make the GC unhappy
-        gc.collect()
-        while self.pending_detachments:
-            self.prune_detachments()
-            gc.collect()
-
-        # Clean up our attachments so that they can be collected
-        self._attachments = None
         if self._finalize_tasks:
             # Run a gc and then end the legate task
             gc.collect()
@@ -1100,83 +1221,10 @@ class Runtime(object):
         else:
             return op.launch(self.legion_runtime, self.legion_context)
 
-    def add_attachment(self, ptr, extent, region, field_id):
-        key = (ptr, extent)
-        if self._attachments is None:
-            self._attachments = dict()
-        elif key in self._attachments:
-            # If we find exactly the match then we know by definition that
-            # nobody overlaps with this attachment or it wouldn't exist
-            self._attachments[key].count += 1
-            return
-        # Otherwise iterate over attachments and look for aliases which are bad
-        end = ptr + extent - 1
-        for attachment in self._attachments.values():
-            if attachment.overlaps(ptr, end):
-                assert not attachment.equals(ptr, extent)
-                raise RuntimeError(
-                    "Illegal aliased attachments not supported by Legate"
-                )
-        self._attachments[key] = Attachment(ptr, extent, region, field_id)
-
-    def find_attachment(self, ptr, extent):
-        if self._attachments is None:
-            return None
-        key = (ptr, extent)
-        if key in self._attachments:
-            attachment = self._attachments[key]
-            assert attachment.count > 0
-            return (attachment.region, attachment.field_id)
-        # Otherwise look for aliases which are bad
-        end = ptr + extent - 1
-        for attachment in self._attachments.values():
-            if attachment.overlaps(ptr, end):
-                assert not attachment.equals(ptr, extent)
-                raise RuntimeError(
-                    "Illegal aliased attachments not supported by Legate"
-                )
-        return None
-
-    def remove_attachment(self, ptr, extent):
-        key = (ptr, extent)
-        if key not in self._attachments:
-            raise RuntimeError("Unable to find attachment to remove")
-        attachment = self._attachments[key]
-        assert attachment.count > 0
-        if attachment.count == 1:
-            del self._attachments[key]
-        else:
-            attachment.count -= 1
-
-    def register_detachment(self, detach):
-        key = self.next_detachment_key
-        if self.registered_detachments is None:
-            self.registered_detachments = dict()
-        self.registered_detachments[key] = detach
-        self.next_detachment_key += 1
-        return key
-
-    def remove_detachment(self, detach_key):
-        detach = self.registered_detachments[detach_key]
-        del self.registered_detachments[detach_key]
-        return detach
-
-    def perform_detachments(self):
-        detachments = self.deferred_detachments
-        self.deferred_detachments = None
-        for array, field, detach in detachments:
-            self.detach_array_field(array, field, detach, defer=False)
-
-    def prune_detachments(self):
-        to_remove = None
-        for future in self.pending_detachments.keys():
-            if future.is_ready():
-                if to_remove is None:
-                    to_remove = list()
-                to_remove.append(future)
-        if to_remove is not None:
-            for future in to_remove:
-                del self.pending_detachments[future]
+    def _progress_unordered_operations(self):
+        legion.legion_context_progress_unordered_operations(
+            self.legion_runtime, self.legion_context
+        )
 
     def unmap_region(self, physical_region):
         physical_region.unmap(self.legion_runtime, self.legion_context)
@@ -1230,53 +1278,11 @@ class Runtime(object):
         if self.field_managers is not None:
             self.field_managers[key].free_field(region, field_id)
 
-    def attach_array_field(self, array, share):
-        assert array.base is None or not isinstance(array.base, np.ndarray)
-        # NumPy arrays are not hashable, so look up the pointer for the array
-        # which should be unique for all root NumPy arrays
-        ptr = int(array.ctypes.data)
-        result = legate_find_attachment(ptr, array.nbytes)
-        if result is not None:
-            region_field = self.instantiate_region_field(
-                result[0], result[1], array.dtype
-            )
-        else:
-            region_field = self.allocate_field(array.shape, array.dtype)
-        # Now do the attachment
-        region_field.attach_numpy_array(array, share)
-        # Tell Legate about the attachment so that we have it for the future
-        legate_add_attachment(
-            ptr, array.nbytes, region_field.region, region_field.field.field_id
-        )
-        return region_field
+    def attach_array(self, array, share):
+        return self._attachment_manager.attach_array(array, share)
 
-    def detach_array_field(self, array, field, detach, defer):
-        if defer:
-            # If we need to defer this until later do that now
-            if self.deferred_detachments is None:
-                self.deferred_detachments = list()
-            self.deferred_detachments.append((array, field, detach))
-            return
-        future = self.dispatch(detach)
-        # Dangle a reference to the field off the future to prevent the
-        # field from being recycled until the detach is done
-        future.field_reference = field
-        assert array.base is None
-        # Remove the region field from the ptr_to_thunk
-        # NumPy arrays are not hashable, so look up the pointer for the array
-        # which should be unique for all root NumPy arrays
-        ptr = int(array.ctypes.data)
-        if ptr in self.ptr_to_thunk:
-            del self.ptr_to_thunk[ptr]
-        # We also need to tell the core legate library that this array
-        # is no longer attached
-        legate_remove_attachment(ptr, array.nbytes)
-        # If the future is already ready, then no need to track it
-        if future.is_ready():
-            return
-        if not self.pending_detachments:
-            self.pending_detachments = dict()
-        self.pending_detachments[future] = array
+    def has_attachment(self, array):
+        return self._attachment_manager.has_attachment(array)
 
     def find_or_create_index_space(self, bounds):
         if bounds in self.index_spaces:
@@ -1486,19 +1492,6 @@ def get_legion_context():
 
 def legate_add_library(library):
     _runtime.register_library(library)
-
-
-# These functions provide support for deduplicating attaches across libraries
-def legate_add_attachment(ptr, extent, region, field_id):
-    _runtime.add_attachment(ptr, extent, region, field_id)
-
-
-def legate_find_attachment(ptr, extent):
-    return _runtime.find_attachment(ptr, extent)
-
-
-def legate_remove_attachment(ptr, extent):
-    _runtime.remove_attachment(ptr, extent)
 
 
 def get_legate_runtime():
