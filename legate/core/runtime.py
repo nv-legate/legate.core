@@ -56,7 +56,6 @@ class Field(object):
         "field_id",
         "dtype",
         "shape",
-        "partition",
         "own",
     ]
 
@@ -66,7 +65,6 @@ class Field(object):
         self.field_id = field_id
         self.dtype = dtype
         self.shape = shape
-        self.partition = None
         self.own = own
 
     def __del__(self):
@@ -77,7 +75,6 @@ class Field(object):
                 self.field_id,
                 self.dtype,
                 self.shape,
-                self.partition,
             )
 
 
@@ -976,18 +973,11 @@ class PartitionManager(object):
             return None
         # If there is only one point or no points then we never do a parallel
         # launch
-        all_ones_or_zeros = True
-        for ext in shape:
-            if ext > 1:
-                all_ones_or_zeros = False
-                break
-            else:  # Better be a one or zero if we get here
-                assert ext == 1 or ext == 0
         # If we only have one point then we never do parallel launches
-        if all_ones_or_zeros:
+        elif all(ext <= 1 for ext in shape):
             return None
         # Check to see if we already did the math
-        if shape in self._launch_spaces:
+        elif shape in self._launch_spaces:
             return self._launch_spaces[shape]
         # Prune out any dimensions that are 1
         temp_shape = ()
@@ -1390,7 +1380,7 @@ class Runtime(object):
         field = Field(self, region, field_id, dtype, shape)
         return RegionField(self, region, field, shape)
 
-    def free_field(self, region, field_id, dtype, shape, partition):
+    def free_field(self, region, field_id, dtype, shape):
         # Have a guard here to make sure that we don't try to
         # do this after we have been destroyed
         if self.destroyed:
