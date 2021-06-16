@@ -308,27 +308,6 @@ class FieldManager(object):
 
     def free_field(self, region, field_id, ordered=False):
         if ordered:
-            # Issue a fill to clear the field for re-use and enable the
-            # Legion garbage collector to reclaim any physical instances
-            # We'll disable this for now until we see evidence that we
-            # actually need the Legion garbage collector
-            # if self.initial_future is None:
-            #    value = np.array(0, dtype=dtype)
-            #    self.initial_future = self.runtime.create_future(value.data, value.nbytes) # noqa E501
-            #    self.fill_space = self.runtime.compute_parallel_launch_space_by_shape( # noqa E501
-            #                                                                    self.shape) # noqa E501
-            #    if self.fill_space is not None:
-            #        self.tile_shape = self.runtime.compute_tile_shape(self.shape, # noqa E501
-            #                                                          self.fill_space) # noqa E501
-            # if self.fill_space is not None and self.tile_shape in region.tile_partitions: # noqa E501
-            #    partition = region.tile_partitions[self.tile_key]
-            #    fill = IndexFill(partition, 0, region, field_id, self.initial_future, # noqa E501
-            #                     mapper=self.runtime.mapper_id)
-            # else:
-            #    # We better be the top-level region
-            #    fill = Fill(region, region, field_id, self.initial_future,
-            #                mapper=self.runtime.mapper_id)
-            # self.runtime.dispatch(fill)
             if self.free_fields is not None:
                 self.free_fields.append((region, field_id))
         else:  # Put this on the unordered list
@@ -350,7 +329,7 @@ class RegionField(object):
     ):
         self.runtime = runtime
         self.attachment_manager = runtime.attachment_manager
-        self.context = runtime.core_context
+        self.partition_manager = runtime.partition_manager
         self.region = region
         self.field = field
         self.shape = shape
@@ -389,7 +368,7 @@ class RegionField(object):
             else:
                 self.launch_space = key_partition.color_shape
         else:  # top-level region so just do the natural partitioning
-            self.launch_space = self.runtime.compute_parallel_launch_space_by_shape(  # noqa E501
+            self.launch_space = self.partition_manager.compute_parallel_launch_space_by_shape(  # noqa E501
                 self.shape
             )
             if self.launch_space is None:
@@ -454,22 +433,22 @@ class RegionField(object):
                         break
                 if not invertible:
                     # Not invertible so fall back to the standard case
-                    launch_space = (
-                        self.runtime.compute_parallel_launch_space_by_shape(
-                            self.shape
-                        )
+                    launch_space = self.partition_manager.compute_parallel_launch_space_by_shape(  # noqa: E501
+                        self.shape
                     )
                     if launch_space == ():
                         return None, None
-                    tile_shape = self.runtime.compute_tile_shape(
+                    tile_shape = self.partition_manager.compute_tile_shape(
                         self.shape, launch_space
                     )
-                    self.key_partition = self.runtime.find_or_create_partition(
-                        self.region,
-                        launch_space,
-                        tile_shape,
-                        offset=(0,) * len(launch_space),
-                        transform=self.transform,
+                    self.key_partition = (
+                        self.partition_manager.find_or_create_partition(
+                            self.region,
+                            launch_space,
+                            tile_shape,
+                            offset=(0,) * len(launch_space),
+                            transform=self.transform,
+                        )
                     )
                     return self.key_partition
                 # We're invertible so do the standard inversion
@@ -529,26 +508,30 @@ class RegionField(object):
                     color_tile,
                 )
             )
-            self.key_partition = self.runtime.find_or_create_partition(
-                self.region,
-                color_shape,
-                color_tile,
-                offset,
-                self.transform,
+            self.key_partition = (
+                self.partition_manager.find_or_create_partition(
+                    self.region,
+                    color_shape,
+                    color_tile,
+                    offset,
+                    self.transform,
+                )
             )
         else:
             launch_space = self.compute_parallel_launch_space()
             if launch_space is None:
                 return None
-            tile_shape = self.runtime.compute_tile_shape(
+            tile_shape = self.partition_manager.compute_tile_shape(
                 self.shape, launch_space
             )
-            self.key_partition = self.runtime.find_or_create_partition(
-                self.region,
-                launch_space,
-                tile_shape,
-                offset=(0,) * len(launch_space),
-                transform=self.transform,
+            self.key_partition = (
+                self.partition_manager.find_or_create_partition(
+                    self.region,
+                    launch_space,
+                    tile_shape,
+                    offset=(0,) * len(launch_space),
+                    transform=self.transform,
+                )
             )
         return self.key_partition
 
@@ -576,7 +559,7 @@ class RegionField(object):
     ):
         # Compute a tile shape based on our shape
         if tile_shape is None:
-            tile_shape = self.runtime.compute_tile_shape(
+            tile_shape = self.partition_manager.compute_tile_shape(
                 self.shape, launch_space
             )
         if offset is None:
@@ -596,7 +579,7 @@ class RegionField(object):
         # Continue this process on the region object, to ensure any created
         # partitions are shared between RegionField objects referring to the
         # same region
-        return self.runtime.find_or_create_partition(
+        return self.partition_manager.find_or_create_partition(
             self.region,
             launch_space,
             tile_shape,
@@ -611,7 +594,7 @@ class RegionField(object):
         # the points into a partition that makes sense
         raise NotImplementedError("need support for indirect partitioning")
 
-    def attach_numpy_array(self, numpy_array, share=False):
+    def attach_numpy_array(self, context, numpy_array, share=False):
         assert self.parent is None
         assert isinstance(numpy_array, np.ndarray)
         # If we already have a numpy array attached
@@ -626,7 +609,7 @@ class RegionField(object):
             self.region,
             self.field.field_id,
             numpy_array,
-            mapper=self.context.mapper_id,
+            mapper=context.mapper_id,
         )
         # If we're not sharing then there is no need to map or restrict the
         # attachment
@@ -863,7 +846,7 @@ class AttachmentManager(object):
         key = self.attachment_key(array)
         return key in self._attachments
 
-    def attach_array(self, array, share):
+    def attach_array(self, context, array, share):
         assert array.base is None or not isinstance(array.base, np.ndarray)
         # NumPy arrays are not hashable, so look up the pointer for the array
         # which should be unique for all root NumPy arrays
@@ -872,7 +855,7 @@ class AttachmentManager(object):
             region_field = self._runtime.allocate_field(
                 array.shape, array.dtype
             )
-            region_field.attach_numpy_array(array, share)
+            region_field.attach_numpy_array(context, array, share)
             attachment = Attachment(
                 *key, region_field.region, region_field.field
             )
@@ -949,29 +932,21 @@ class AttachmentManager(object):
             del self._pending_detachments[future]
 
 
-class Runtime(object):
-    def __init__(self):
-        """
-        This is a class that implements the Legate runtime.
-        The Runtime object provides high-level APIs for Legate libraries
-        to use services in the Legion runtime. The Runtime centralizes
-        resource management for all the libraries so that they can
-        focus on implementing their domain logic.
-        """
+class PartitionManager(object):
+    def __init__(self, runtime):
+        self._runtime = runtime
+        self._num_pieces = runtime.core_context.get_tunable(
+            runtime.core_library.LEGATE_CORE_TUNABLE_NUM_PIECES,
+            "int32",
+        )
+        self._min_shard_volume = runtime.core_context.get_tunable(
+            runtime.core_library.LEGATE_CORE_TUNABLE_MIN_SHARD_VOLUME,
+            "int32",
+        )
 
-        self.index_spaces = {}  # map shapes to index spaces
-        self.field_spaces = {}  # map dtype to field spaces
-        self.field_managers = {}  # map from (shape,dtype) to field managers
-
-        self.destroyed = False
-        self.max_field_reuse_size = 256
-        self.max_field_reuse_frequency = 32
-        self.num_pieces = 4
-        self.launch_spaces = dict()
-        self.min_shard_volume = 1
-
+        self._launch_spaces = {}
         factors = list()
-        pieces = self.num_pieces
+        pieces = self._num_pieces
         while pieces % 2 == 0:
             factors.append(2)
             pieces = pieces // 2
@@ -992,18 +967,249 @@ class Runtime(object):
                 "legate.numpy currently doesn't support processor "
                 + "counts with large prime factors greater than 11"
             )
-        self.piece_factors = list(reversed(factors))
+        self._piece_factors = list(reversed(factors))
 
-        self._contexts = {}
-        self._context_list = []
-        self._core_context = None
-        self._core_library = None
-        self._empty_argmap = legion.legion_argument_map_create()
+    def compute_parallel_launch_space_by_shape(self, shape):
+        assert self._num_pieces > 0
+        # Easy case if we only have one piece: no parallel launch space
+        if self._num_pieces == 1:
+            return None
+        # If there is only one point or no points then we never do a parallel
+        # launch
+        all_ones_or_zeros = True
+        for ext in shape:
+            if ext > 1:
+                all_ones_or_zeros = False
+                break
+            else:  # Better be a one or zero if we get here
+                assert ext == 1 or ext == 0
+        # If we only have one point then we never do parallel launches
+        if all_ones_or_zeros:
+            return None
+        # Check to see if we already did the math
+        if shape in self._launch_spaces:
+            return self._launch_spaces[shape]
+        # Prune out any dimensions that are 1
+        temp_shape = ()
+        temp_dims = ()
+        volume = 1
+        for dim in range(len(shape)):
+            assert shape[dim] > 0
+            if shape[dim] == 1:
+                continue
+            temp_shape = temp_shape + (shape[dim],)
+            temp_dims = temp_dims + (dim,)
+            volume *= shape[dim]
+        # Figure out how many shards we can make with this array
+        max_pieces = (
+            volume + self._min_shard_volume - 1
+        ) // self._min_shard_volume
+        assert max_pieces > 0
+        # If we can only make one piece return that now
+        if max_pieces == 1:
+            self._launch_spaces[shape] = None
+            return None
+        else:
+            # TODO: a better heuristic here For now if we can make at least two
+            # pieces then we will make N pieces
+            max_pieces = self._num_pieces
+        # Otherwise we need to compute it ourselves
+        # First compute the N-th root of the number of pieces
+        dims = len(temp_shape)
+        temp_result = ()
+        if dims == 0:
+            # Project back onto the original number of dimensions
+            result = ()
+            for dim in range(len(shape)):
+                result = result + (1,)
+            return result
+        elif dims == 1:
+            # Easy case for one dimensional things
+            temp_result = (min(temp_shape[0], max_pieces),)
+        elif dims == 2:
+            if volume < max_pieces:
+                # TBD: Once the max_pieces heuristic is fixed, this should
+                # never happen
+                temp_result = temp_shape
+            else:
+                # Two dimensional so we can use square root to try and generate
+                # as square a pieces as possible since most often we will be
+                # doing matrix operations with these
+                nx = temp_shape[0]
+                ny = temp_shape[1]
+                swap = nx > ny
+                if swap:
+                    temp = nx
+                    nx = ny
+                    ny = temp
+                n = math.sqrt(float(max_pieces * nx) / float(ny))
+                # Need to constraint n to be an integer with numpcs % n == 0
+                # try rounding n both up and down
+                n1 = int(math.floor(n + 1e-12))
+                n1 = max(n1, 1)
+                while max_pieces % n1 != 0:
+                    n1 -= 1
+                n2 = int(math.ceil(n - 1e-12))
+                while max_pieces % n2 != 0:
+                    n2 += 1
+                # pick whichever of n1 and n2 gives blocks closest to square
+                # i.e. gives the shortest long side
+                side1 = max(nx // n1, ny // (max_pieces // n1))
+                side2 = max(nx // n2, ny // (max_pieces // n2))
+                px = n1 if side1 <= side2 else n2
+                py = max_pieces // px
+                # we need to trim launch space if it is larger than the
+                # original shape in one of the dimensions (can happen in
+                # testing)
+                if swap:
+                    temp_result = (
+                        min(py, temp_shape[0]),
+                        min(px, temp_shape[1]),
+                    )
+                else:
+                    temp_result = (
+                        min(px, temp_shape[0]),
+                        min(py, temp_shape[1]),
+                    )
+        else:
+            # For higher dimensions we care less about "square"-ness
+            # and more about evenly dividing things, compute the prime
+            # factors for our number of pieces and then round-robin
+            # them onto the shape, with the goal being to keep the
+            # last dimension >= 32 for good memory performance on the GPU
+            temp_result = list()
+            for dim in range(dims):
+                temp_result.append(1)
+            factor_prod = 1
+            for factor in self._piece_factors:
+                # Avoid exceeding the maximum number of pieces
+                if factor * factor_prod > max_pieces:
+                    break
+                factor_prod *= factor
+                remaining = tuple(
+                    map(lambda s, r: (s + r - 1) // r, temp_shape, temp_result)
+                )
+                big_dim = remaining.index(max(remaining))
+                if big_dim < len(temp_dims) - 1:
+                    # Not the last dimension, so do it
+                    temp_result[big_dim] *= factor
+                else:
+                    # Last dim so see if it still bigger than 32
+                    if (
+                        len(remaining) == 1
+                        or remaining[big_dim] // factor >= 32
+                    ):
+                        # go ahead and do it
+                        temp_result[big_dim] *= factor
+                    else:
+                        # Won't be see if we can do it with one of the other
+                        # dimensions
+                        big_dim = remaining.index(
+                            max(remaining[0 : len(remaining) - 1])
+                        )
+                        if remaining[big_dim] // factor > 0:
+                            temp_result[big_dim] *= factor
+                        else:
+                            # Fine just do it on the last dimension
+                            temp_result[len(temp_dims) - 1] *= factor
+        # Project back onto the original number of dimensions
+        assert len(temp_result) == dims
+        result = ()
+        for dim in range(len(shape)):
+            if dim in temp_dims:
+                result = result + (temp_result[temp_dims.index(dim)],)
+            else:
+                result = result + (1,)
+        # Save the result for later
+        self._launch_spaces[shape] = result
+        return result
 
-        # This list maintains outstanding operations from all legate libraries
-        # to be dispatched. This list allows cross library introspection for
-        # Legate operations.
-        self._outstanding_ops = []
+    def compute_tile_shape(self, shape, launch_space):
+        assert len(shape) == len(launch_space)
+        # Over approximate the tiles so that the ends might be small
+        return tuple(map(lambda x, y: (x + y - 1) // y, shape, launch_space))
+
+    def find_or_create_partition(
+        self, region, color_shape, tile_shape, offset, transform, complete=True
+    ):
+        # Compute the extent and transform for this partition operation
+        lo = (0,) * len(tile_shape)
+        # Legion is inclusive so map down
+        hi = tuple(map(lambda x: (x - 1), tile_shape))
+        if offset is not None:
+            assert len(offset) == len(tile_shape)
+            lo = tuple(map(lambda x, y: (x + y), lo, offset))
+            hi = tuple(map(lambda x, y: (x + y), hi, offset))
+        # Construct the transform to use based on the color space
+        tile_transform = Transform(len(tile_shape), len(tile_shape))
+        for idx, tile in enumerate(tile_shape):
+            tile_transform.trans[idx, idx] = tile
+        # If we have a translation back to the region space
+        # we need to apply that
+        if transform is not None:
+            # Transform the extent points into the region space
+            lo = transform.apply(lo)
+            hi = transform.apply(hi)
+            # Compose the transform from the color space into our shape space
+            # with the transform from our shape space to region space
+            tile_transform = tile_transform.compose(transform)
+        # Now that we have the points in the global coordinate space we can
+        # build the domain for the extent
+        extent = Rect(hi, lo, exclusive=False)
+        # Check to see if we already made a partition like this
+        if region.index_space.children:
+            color_lo = Point((0,) * len(color_shape), dim=len(color_shape))
+            color_hi = Point(dim=len(color_shape))
+            for idx in range(color_hi.dim):
+                color_hi[idx] = color_shape[idx] - 1
+            for part in region.index_space.children:
+                if not isinstance(part.functor, PartitionByRestriction):
+                    continue
+                if part.functor.transform != tile_transform:
+                    continue
+                if part.functor.extent != extent:
+                    continue
+                # Lastly check that the index space domains match
+                color_bounds = part.color_space.get_bounds()
+                if color_bounds.lo != color_lo or color_bounds.hi != color_hi:
+                    continue
+                # Get the corresponding logical partition
+                result = region.get_child(part)
+                # Annotate it with our meta-data
+                if not hasattr(result, "color_shape"):
+                    result.color_shape = color_shape
+                    result.tile_shape = tile_shape
+                    result.tile_offset = offset
+                return result
+        color_space = self._runtime.find_or_create_index_space(color_shape)
+        functor = PartitionByRestriction(tile_transform, extent)
+        index_partition = IndexPartition(
+            self._runtime.legion_context,
+            self._runtime.legion_runtime,
+            region.index_space,
+            color_space,
+            functor,
+            kind=legion.LEGION_DISJOINT_COMPLETE_KIND
+            if complete
+            else legion.LEGION_DISJOINT_INCOMPLETE_KIND,
+            keep=True,  # export this partition functor to other libraries
+        )
+        partition = region.get_child(index_partition)
+        partition.color_shape = color_shape
+        partition.tile_shape = tile_shape
+        partition.tile_offset = offset
+        return partition
+
+
+class Runtime(object):
+    def __init__(self, core_library):
+        """
+        This is a class that implements the Legate runtime.
+        The Runtime object provides high-level APIs for Legate libraries
+        to use services in the Legion runtime. The Runtime centralizes
+        resource management for all the libraries so that they can
+        focus on implementing their domain logic.
+        """
 
         try:
             self._legion_context = top_level.context[0]
@@ -1019,11 +1225,36 @@ class Runtime(object):
             legate_task_preamble(self._legion_runtime, self._legion_context)
             self._finalize_tasks = True
         except AttributeError:
-            self._finalize_tasks = False
             self._legion_runtime = None
             self._legion_context = None
+            self._finalize_tasks = False
 
+        # Initialize context lists for library registration
+        self._contexts = {}
+        self._context_list = []
+
+        # Register the core library now as we need it for the rest of
+        # the runtime initialization
+        self.register_library(core_library)
+        self._core_context = self._context_list[0]
+        self._core_library = core_library
+
+        # This list maintains outstanding operations from all legate libraries
+        # to be dispatched. This list allows cross library introspection for
+        # Legate operations.
+        self._outstanding_ops = []
+
+        # Now we initialize managers
         self._attachment_manager = AttachmentManager(self)
+        self._partition_manager = PartitionManager(self)
+        self.index_spaces = {}  # map shapes to index spaces
+        self.field_spaces = {}  # map dtype to field spaces
+        self.field_managers = {}  # map from (shape,dtype) to field managers
+
+        self.destroyed = False
+        self.max_field_reuse_size = 256
+        self.max_field_reuse_frequency = 32
+        self._empty_argmap = legion.legion_argument_map_create()
 
     @property
     def legion_runtime(self):
@@ -1037,15 +1268,11 @@ class Runtime(object):
 
     @property
     def core_context(self):
-        if self._core_context is None:
-            self._core_context = self._contexts["legate.core"]
         return self._core_context
 
     @property
     def core_library(self):
-        if self._core_library is None:
-            self._core_library = self.core_context.library._lib
-        return self._core_library
+        return self._core_library._lib
 
     @property
     def empty_argmap(self):
@@ -1054,6 +1281,10 @@ class Runtime(object):
     @property
     def attachment_manager(self):
         return self._attachment_manager
+
+    @property
+    def partition_manager(self):
+        return self._partition_manager
 
     def register_library(self, library):
         libname = library.get_name()
@@ -1169,8 +1400,8 @@ class Runtime(object):
         if self.field_managers is not None:
             self.field_managers[key].free_field(region, field_id)
 
-    def attach_array(self, array, share):
-        return self._attachment_manager.attach_array(array, share)
+    def attach_array(self, context, array, share):
+        return self._attachment_manager.attach_array(context, array, share)
 
     def has_attachment(self, array):
         return self._attachment_manager.has_attachment(array)
@@ -1197,166 +1428,6 @@ class Runtime(object):
         field_space = FieldSpace(self.legion_context, self.legion_runtime)
         self.field_spaces[dtype] = field_space
         return field_space
-
-    def compute_parallel_launch_space_by_shape(self, shape):
-        assert self.num_pieces > 0
-        # Easy case if we only have one piece: no parallel launch space
-        if self.num_pieces == 1:
-            return None
-        # If there is only one point or no points then we never do a parallel
-        # launch
-        all_ones_or_zeros = True
-        for ext in shape:
-            if ext > 1:
-                all_ones_or_zeros = False
-                break
-            else:  # Better be a one or zero if we get here
-                assert ext == 1 or ext == 0
-        # If we only have one point then we never do parallel launches
-        if all_ones_or_zeros:
-            return None
-        # Check to see if we already did the math
-        if shape in self.launch_spaces:
-            return self.launch_spaces[shape]
-        # Prune out any dimensions that are 1
-        temp_shape = ()
-        temp_dims = ()
-        volume = 1
-        for dim in range(len(shape)):
-            assert shape[dim] > 0
-            if shape[dim] == 1:
-                continue
-            temp_shape = temp_shape + (shape[dim],)
-            temp_dims = temp_dims + (dim,)
-            volume *= shape[dim]
-        # Figure out how many shards we can make with this array
-        max_pieces = (
-            volume + self.min_shard_volume - 1
-        ) // self.min_shard_volume
-        assert max_pieces > 0
-        # If we can only make one piece return that now
-        if max_pieces == 1:
-            self.launch_spaces[shape] = None
-            return None
-        else:
-            # TODO: a better heuristic here For now if we can make at least two
-            # pieces then we will make N pieces
-            max_pieces = self.num_pieces
-        # Otherwise we need to compute it ourselves
-        # First compute the N-th root of the number of pieces
-        dims = len(temp_shape)
-        temp_result = ()
-        if dims == 0:
-            # Project back onto the original number of dimensions
-            result = ()
-            for dim in range(len(shape)):
-                result = result + (1,)
-            return result
-        elif dims == 1:
-            # Easy case for one dimensional things
-            temp_result = (min(temp_shape[0], max_pieces),)
-        elif dims == 2:
-            if volume < max_pieces:
-                # TBD: Once the max_pieces heuristic is fixed, this should
-                # never happen
-                temp_result = temp_shape
-            else:
-                # Two dimensional so we can use square root to try and generate
-                # as square a pieces as possible since most often we will be
-                # doing matrix operations with these
-                nx = temp_shape[0]
-                ny = temp_shape[1]
-                swap = nx > ny
-                if swap:
-                    temp = nx
-                    nx = ny
-                    ny = temp
-                n = math.sqrt(float(max_pieces * nx) / float(ny))
-                # Need to constraint n to be an integer with numpcs % n == 0
-                # try rounding n both up and down
-                n1 = int(math.floor(n + 1e-12))
-                n1 = max(n1, 1)
-                while max_pieces % n1 != 0:
-                    n1 -= 1
-                n2 = int(math.ceil(n - 1e-12))
-                while max_pieces % n2 != 0:
-                    n2 += 1
-                # pick whichever of n1 and n2 gives blocks closest to square
-                # i.e. gives the shortest long side
-                side1 = max(nx // n1, ny // (max_pieces // n1))
-                side2 = max(nx // n2, ny // (max_pieces // n2))
-                px = n1 if side1 <= side2 else n2
-                py = max_pieces // px
-                # we need to trim launch space if it is larger than the
-                # original shape in one of the dimensions (can happen in
-                # testing)
-                if swap:
-                    temp_result = (
-                        min(py, temp_shape[0]),
-                        min(px, temp_shape[1]),
-                    )
-                else:
-                    temp_result = (
-                        min(px, temp_shape[0]),
-                        min(py, temp_shape[1]),
-                    )
-        else:
-            # For higher dimensions we care less about "square"-ness
-            # and more about evenly dividing things, compute the prime
-            # factors for our number of pieces and then round-robin
-            # them onto the shape, with the goal being to keep the
-            # last dimension >= 32 for good memory performance on the GPU
-            temp_result = list()
-            for dim in range(dims):
-                temp_result.append(1)
-            factor_prod = 1
-            for factor in self.piece_factors:
-                # Avoid exceeding the maximum number of pieces
-                if factor * factor_prod > max_pieces:
-                    break
-                factor_prod *= factor
-                remaining = tuple(
-                    map(lambda s, r: (s + r - 1) // r, temp_shape, temp_result)
-                )
-                big_dim = remaining.index(max(remaining))
-                if big_dim < len(temp_dims) - 1:
-                    # Not the last dimension, so do it
-                    temp_result[big_dim] *= factor
-                else:
-                    # Last dim so see if it still bigger than 32
-                    if (
-                        len(remaining) == 1
-                        or remaining[big_dim] // factor >= 32
-                    ):
-                        # go ahead and do it
-                        temp_result[big_dim] *= factor
-                    else:
-                        # Won't be see if we can do it with one of the other
-                        # dimensions
-                        big_dim = remaining.index(
-                            max(remaining[0 : len(remaining) - 1])
-                        )
-                        if remaining[big_dim] // factor > 0:
-                            temp_result[big_dim] *= factor
-                        else:
-                            # Fine just do it on the last dimension
-                            temp_result[len(temp_dims) - 1] *= factor
-        # Project back onto the original number of dimensions
-        assert len(temp_result) == dims
-        result = ()
-        for dim in range(len(shape)):
-            if dim in temp_dims:
-                result = result + (temp_result[temp_dims.index(dim)],)
-            else:
-                result = result + (1,)
-        # Save the result for later
-        self.launch_spaces[shape] = result
-        return result
-
-    def compute_tile_shape(self, shape, launch_space):
-        assert len(shape) == len(launch_space)
-        # Over approximate the tiles so that the ends might be small
-        return tuple(map(lambda x, y: (x + y - 1) // y, shape, launch_space))
 
     def find_or_create_view(self, parent, view, dim_map, shape, key):
         assert len(shape) <= len(view)
@@ -1468,7 +1539,7 @@ class Runtime(object):
                 # If it would generate a very large number of elements then
                 # we'll apply a heuristic for now and not actually tile it
                 # TODO: A better heurisitc for this in the future
-                if volume > 256 and volume > 16 * self.num_pieces:
+                if volume > 256 and volume > 16 * self._num_pieces:
                     tile = False
             # See if we're making a tiled partition or a one-off partition
             if tile:
@@ -1478,7 +1549,7 @@ class Runtime(object):
                     assert (lo[dim] % tile_shape[dim]) == 0
                     tile_color += (lo[dim] // tile_shape[dim],)
                 assert len(view) == len(tile_shape)
-                partition = self.find_or_create_partition(
+                partition = self.partition_manager.find_or_create_partition(
                     parent.region,
                     color_space_bounds,
                     tile_shape,
@@ -1503,7 +1574,7 @@ class Runtime(object):
                 return region_field
             else:
                 tile_shape = tuple(map(lambda x, y: ((x - y) + 1), hi, lo))
-                partition = self.find_or_create_partition(
+                partition = self.partition_manager.find_or_create_partition(
                     parent.region,
                     (1,) * len(tile_shape),
                     tile_shape,
@@ -1545,80 +1616,8 @@ class Runtime(object):
             parent=region_field,
         )
 
-    def find_or_create_partition(
-        self, region, color_shape, tile_shape, offset, transform, complete=True
-    ):
-        # Compute the extent and transform for this partition operation
-        lo = (0,) * len(tile_shape)
-        # Legion is inclusive so map down
-        hi = tuple(map(lambda x: (x - 1), tile_shape))
-        if offset is not None:
-            assert len(offset) == len(tile_shape)
-            lo = tuple(map(lambda x, y: (x + y), lo, offset))
-            hi = tuple(map(lambda x, y: (x + y), hi, offset))
-        # Construct the transform to use based on the color space
-        tile_transform = Transform(len(tile_shape), len(tile_shape))
-        for idx, tile in enumerate(tile_shape):
-            tile_transform.trans[idx, idx] = tile
-        # If we have a translation back to the region space
-        # we need to apply that
-        if transform is not None:
-            # Transform the extent points into the region space
-            lo = transform.apply(lo)
-            hi = transform.apply(hi)
-            # Compose the transform from the color space into our shape space
-            # with the transform from our shape space to region space
-            tile_transform = tile_transform.compose(transform)
-        # Now that we have the points in the global coordinate space we can
-        # build the domain for the extent
-        extent = Rect(hi, lo, exclusive=False)
-        # Check to see if we already made a partition like this
-        if region.index_space.children:
-            color_lo = Point((0,) * len(color_shape), dim=len(color_shape))
-            color_hi = Point(dim=len(color_shape))
-            for idx in range(color_hi.dim):
-                color_hi[idx] = color_shape[idx] - 1
-            for part in region.index_space.children:
-                if not isinstance(part.functor, PartitionByRestriction):
-                    continue
-                if part.functor.transform != tile_transform:
-                    continue
-                if part.functor.extent != extent:
-                    continue
-                # Lastly check that the index space domains match
-                color_bounds = part.color_space.get_bounds()
-                if color_bounds.lo != color_lo or color_bounds.hi != color_hi:
-                    continue
-                # Get the corresponding logical partition
-                result = region.get_child(part)
-                # Annotate it with our meta-data
-                if not hasattr(result, "color_shape"):
-                    result.color_shape = color_shape
-                    result.tile_shape = tile_shape
-                    result.tile_offset = offset
-                return result
-        color_space = self.find_or_create_index_space(color_shape)
-        functor = PartitionByRestriction(tile_transform, extent)
-        index_partition = IndexPartition(
-            self.legion_context,
-            self.legion_runtime,
-            region.index_space,
-            color_space,
-            functor,
-            kind=legion.LEGION_DISJOINT_COMPLETE_KIND
-            if complete
-            else legion.LEGION_DISJOINT_INCOMPLETE_KIND,
-            keep=True,  # export this partition functor to other libraries
-        )
-        partition = region.get_child(index_partition)
-        partition.color_shape = color_shape
-        partition.tile_shape = tile_shape
-        partition.tile_offset = offset
-        return partition
 
-
-_runtime = Runtime()
-_runtime.register_library(CoreLib())
+_runtime = Runtime(CoreLib())
 
 
 def _cleanup_legate_runtime():

@@ -13,7 +13,9 @@
 # limitations under the License.
 #
 
-from .legion import legion
+import numpy as np
+
+from .legion import Future, legion
 
 
 class ResourceConfig(object):
@@ -147,6 +149,21 @@ class Context(object):
 
     def get_sharding_id(self, shard_id):
         return self._shard_scope.translate(shard_id)
+
+    def get_tunable(self, tunable_id, dtype, mapper_id=0):
+        dtype = np.dtype(dtype)
+        mapper_id = self.get_mapper_id(mapper_id)
+        fut = Future(
+            legion.legion_runtime_select_tunable_value(
+                self._runtime.legion_runtime,
+                self._runtime.legion_context,
+                tunable_id,
+                mapper_id,
+                0,
+            )
+        )
+        buf = fut.get_buffer(dtype.itemsize)
+        return np.frombuffer(buf, dtype=dtype)[0]
 
     def dispatch(self, op, redop=None):
         return self._runtime.dispatch(op, redop)

@@ -25,6 +25,17 @@ namespace legate {
 using namespace Legion;
 using namespace Legion::Mapping;
 
+unsigned extract_env(const char* env_name, const unsigned default_value, const unsigned test_value)
+{
+  const char* legate_test = getenv("LEGATE_TEST");
+  if (legate_test != NULL) return test_value;
+  const char* env_value = getenv(env_name);
+  if (env_value == NULL)
+    return default_value;
+  else
+    return atoi(env_value);
+}
+
 // This is a custom mapper implementation that only has to map
 // start-up tasks associated with the Legate core, no one else
 // should be overriding this mapper so we burry it in here
@@ -82,7 +93,13 @@ class CoreMapper : public Legion::Mapping::NullMapper {
   LegateContext context;
 
  protected:
+  const unsigned min_gpu_chunk;
+  const unsigned min_cpu_chunk;
+  const unsigned min_omp_chunk;
+
+ protected:
   std::vector<Processor> local_cpus;
+  std::vector<Processor> local_omps;
   std::vector<Processor> local_gpus;
 
  protected:
@@ -95,7 +112,10 @@ CoreMapper::CoreMapper(MapperRuntime* rt, Machine m, const LegateContext& c)
     local_node(get_local_node()),
     total_nodes(get_total_nodes(m)),
     mapper_name(create_name(local_node)),
-    context(c)
+    context(c),
+    min_gpu_chunk(extract_env("LEGATE_MIN_GPU_CHUNK", 1 << 20, 2)),
+    min_cpu_chunk(extract_env("LEGATE_MIN_CPU_CHUNK", 1 << 14, 2)),
+    min_omp_chunk(extract_env("LEGATE_MIN_OMP_CHUNK", 1 << 17, 2))
 {
   // Query to find all our local processors
   Machine::ProcessorQuery local_procs(machine);
@@ -104,6 +124,10 @@ CoreMapper::CoreMapper(MapperRuntime* rt, Machine m, const LegateContext& c)
     switch (it->kind()) {
       case Processor::LOC_PROC: {
         local_cpus.push_back(*it);
+        break;
+      }
+      case Processor::OMP_PROC: {
+        local_omps.push_back(*it);
         break;
       }
       case Processor::TOC_PROC: {
@@ -298,13 +322,40 @@ void CoreMapper::select_tunable_value(const MapperContext ctx,
                                       const SelectTunableInput& input,
                                       SelectTunableOutput& output)
 {
-  if (input.tunable_id == LEGATE_CORE_TUNABLE_TOTAL_CPUS) {
-    pack_tunable(local_cpus.size() * total_nodes, output);  // assume symmetry
-  } else if (input.tunable_id == LEGATE_CORE_TUNABLE_TOTAL_GPUS) {
-    pack_tunable(local_gpus.size() * total_nodes, output);  // assume symmetry
-  } else {                                                  // Illegaal tunable variable
-    LEGATE_ABORT
+  switch (input.tunable_id) {
+    case LEGATE_CORE_TUNABLE_TOTAL_CPUS: {
+      pack_tunable(local_cpus.size() * total_nodes, output);  // assume symmetry
+      return;
+    }
+    case LEGATE_CORE_TUNABLE_TOTAL_GPUS: {
+      pack_tunable(local_gpus.size() * total_nodes, output);  // assume symmetry
+      return;
+    }
+    case LEGATE_CORE_TUNABLE_NUM_PIECES: {
+      if (!local_gpus.empty())  // If we have GPUs, use those
+        pack_tunable(local_gpus.size() * total_nodes, output);
+      else if (!local_omps.empty())  // Otherwise use OpenMP procs
+        pack_tunable(local_omps.size() * total_nodes, output);
+      else  // Otherwise use the CPUs
+        pack_tunable(local_cpus.size() * total_nodes, output);
+      return;
+    }
+    case LEGATE_CORE_TUNABLE_MIN_SHARD_VOLUME: {
+      // TODO: make these profile guided
+      if (!local_gpus.empty())
+        // Make sure we can get at least 1M elements on each GPU
+        pack_tunable(min_gpu_chunk, output);
+      else if (!local_omps.empty())
+        // Make sure we get at least 128K elements on each OpenMP
+        pack_tunable(min_omp_chunk, output);
+      else
+        // Make sure we can get at least 8KB elements on each CPU
+        pack_tunable(min_cpu_chunk, output);
+      return;
+    }
   }
+  // Illegal tunable variable
+  LEGATE_ABORT
 }
 
 void register_legate_core_mapper(Machine machine, Runtime* runtime, const LegateContext& context)

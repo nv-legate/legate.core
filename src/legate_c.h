@@ -34,6 +34,8 @@ typedef enum legate_core_proj_id_t {
 typedef enum legate_core_tunable_t {
   LEGATE_CORE_TUNABLE_TOTAL_CPUS = 12345,
   LEGATE_CORE_TUNABLE_TOTAL_GPUS,
+  LEGATE_CORE_TUNABLE_NUM_PIECES,
+  LEGATE_CORE_TUNABLE_MIN_SHARD_VOLUME,
 } legate_core_tunable_t;
 
 typedef enum legate_core_variant_t {
