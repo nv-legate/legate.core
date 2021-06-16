@@ -854,9 +854,6 @@ class AttachmentManager(object):
 
         # Clean up our attachments so that they can be collected
         self._attachments = None
-        self._registered_detachments = None
-        self._deferred_detachments = None
-        self._pending_detachments = None
 
     @staticmethod
     def attachment_key(array):
