@@ -17,7 +17,13 @@ from enum import IntEnum
 
 import numpy as np
 
-from .legion import ArgumentMap, BufferBuilder, IndexTask, Task as SingleTask
+from .legion import (
+    ArgumentMap,
+    BufferBuilder,
+    Future,
+    IndexTask,
+    Task as SingleTask,
+)
 
 
 class Permission(IntEnum):
@@ -48,7 +54,14 @@ class ScalarArg(object):
         self._dtype = dtype
 
     def pack(self, buf):
-        if self._dtype in self._serializers:
+        if isinstance(self._dtype, tuple) or isinstance(self._dtype, list):
+            assert len(self._dtype) == 1
+            dtype = self._dtype[0]
+            self._serializers[np.int32](buf, len(self._value))
+            serializer = self._serializers[dtype]
+            for value in self._value:
+                serializer(buf, value)
+        elif self._dtype in self._serializers:
             self._serializers[self._dtype](buf, self._value)
         else:
             raise ValueError("Unsupported data type: %s" % str(self._dtype))
@@ -313,7 +326,7 @@ class FieldSet(object):
         return coalesced
 
 
-class Task(object):
+class TaskLauncher(object):
     def __init__(self, context, task_id, mapper_id=0, tag=0):
         assert type(tag) != bool
         self._context = context
@@ -378,8 +391,22 @@ class Task(object):
             )
             return self._region_reqs_indices[(key, field_id)]
 
-    def add_region_arg(self, store, transform, proj, perm, tag, flags):
-        (region, field_id) = store.storage
+    def add_store(self, store, transform, proj, perm, tag, flags):
+        scalar = store.kind == Future
+        self.add_scalar_arg(scalar, bool)
+        self.add_scalar_arg(store.ndim, np.int32)
+        self.add_dtype_arg(store.type)
+        self.add_shape(store.shape)
+
+        if scalar:
+            if perm != Permission.READ:
+                raise ValueError("Scalar stores must be read only")
+            self.add_future(store.storage)
+            return
+
+        region = store.storage.region
+        field_id = store.storage.field.field_id
+
         if region in self._region_args:
             field_set = self._region_args[region]
         else:
@@ -400,27 +427,23 @@ class Task(object):
         )
 
     def add_no_access(self, store, transform, proj, tag=0, flags=0):
-        self.add_region_arg(
+        self.add_store(
             store, transform, proj, Permission.NO_ACCESS, tag, flags
         )
 
     def add_input(self, store, transform, proj, tag=0, flags=0):
-        self.add_region_arg(
-            store, transform, proj, Permission.READ, tag, flags
-        )
+        self.add_store(store, transform, proj, Permission.READ, tag, flags)
 
     def add_output(self, store, transform, proj, tag=0, flags=0):
-        self.add_region_arg(
-            store, transform, proj, Permission.WRITE, tag, flags
-        )
+        self.add_store(store, transform, proj, Permission.WRITE, tag, flags)
 
     def add_inout(self, store, transform, proj, tag=0, flags=0):
-        self.add_region_arg(
+        self.add_store(
             store, transform, proj, Permission.READ_WRITE, tag, flags
         )
 
     def add_reduction(self, store, transform, proj, tag=0, flags=0):
-        self.add_region_arg(
+        self.add_store(
             store, transform, proj, Permission.REDUCTION, tag, flags
         )
 
@@ -435,12 +458,11 @@ class Task(object):
 
     def add_shape(self, shape, chunk_shape=None, proj=None):
         assert chunk_shape is None or len(shape) == len(chunk_shape)
-        self.add_scalar_arg(len(shape), np.int32)
-        self.add_point(shape)
+        self.add_scalar_arg(shape, (np.int64,))
         if chunk_shape is not None:
             assert proj is not None
             self.add_scalar_arg(proj, np.int32)
-            self.add_point(chunk_shape)
+            self.add_scalar_arg(chunk_shape, (np.int64,))
         else:
             assert proj is None
             self.add_scalar_arg(-1, np.int32)

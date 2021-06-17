@@ -21,42 +21,6 @@ from .context import ResourceConfig
 from .legion import FieldID, Region
 
 
-class Store(object):
-    def __init__(self):
-        """
-        Unlike in Arrow where all data is backed by objects that
-        implement the Python Buffer protocol, in Legate data is backed
-        by objects that support the Store interface. The Store
-        interface allows clients to access the underlying primitives that
-        represent the data for an Array object.
-        """
-        pass
-
-    @property
-    def type(self):
-        """
-        Return the type of the data in this storage primitive
-        """
-
-    @property
-    def kind(self):
-        """
-        Return the type of the Legion storage object backing the
-        data in this storage object: either Future, FutureMap,
-        (Region,FieldID), or (Region,int)
-        """
-        raise NotImplementedError("implement in derived classes")
-
-    @property
-    def storage(self):
-        """
-        Return the Legion storage objects actually backing the
-        data for this Store. These will have exactly the
-        type specified in by 'kind'
-        """
-        raise NotImplementedError("implement in derived classes")
-
-
 class Array(object):
     def __init__(self, dtype, stores, children=None):
         """

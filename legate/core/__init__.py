@@ -20,7 +20,6 @@ from legate.core.context import ResourceConfig
 from legate.core.legate import (
     Array,
     Library,
-    Store,
 )
 from legate.core.runtime import (
     get_legate_runtime,
@@ -28,6 +27,7 @@ from legate.core.runtime import (
     get_legion_runtime,
     legate_add_library,
 )
+from legate.core.store import Store
 from legate.core.legion import (
     LEGATE_MAX_DIM,
     LEGATE_MAX_FIELDS,
