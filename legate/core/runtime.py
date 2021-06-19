@@ -16,7 +16,6 @@
 import gc
 import math
 import struct
-import weakref
 from collections import deque
 from functools import reduce
 
@@ -28,7 +27,6 @@ from legion_top import cleanup_items, top_level
 from .context import Context
 from .corelib import CoreLib
 from .legion import (
-    AffineTransform,
     FieldSpace,
     Future,
     IndexPartition,
@@ -704,6 +702,7 @@ class PartitionManager(object):
                     result.tile_shape = tile_shape
                     result.tile_offset = offset
                 return result
+        print("create partition with: ", tile_shape, extent, color_shape)
         color_space = self._runtime.find_or_create_index_space(color_shape)
         functor = PartitionByRestriction(tile_transform, extent)
         index_partition = IndexPartition(
@@ -722,6 +721,13 @@ class PartitionManager(object):
         partition.tile_shape = tile_shape
         partition.tile_offset = offset
         return partition
+
+    def use_complete_tiling(self, region_field, tile_shape):
+        # If it would generate a very large number of elements then
+        # we'll apply a heuristic for now and not actually tile it
+        # TODO: A better heurisitc for this in the future
+        num_tiles = (region_field.shape // tile_shape).volume
+        return not (num_tiles > 256 and num_tiles > 16 * self._num_pieces)
 
 
 class Runtime(object):
@@ -907,7 +913,7 @@ class Runtime(object):
         return f"x{id}"
 
     def create_store(self, shape, dtype, optimize_scalar=False):
-        shape = Shape(shape, self.get_unique_name())
+        shape = Shape(shape)
         return Store(self, shape, dtype, optimize_scalar=optimize_scalar)
 
     def allocate_field(self, shape, dtype):
@@ -961,179 +967,6 @@ class Runtime(object):
         field_space = FieldSpace(self.legion_context, self.legion_runtime)
         self.field_spaces[dtype] = field_space
         return field_space
-
-    def find_or_create_view(self, parent, view, dim_map, shape, key):
-        assert len(shape) <= len(view)
-        assert len(parent.shape) <= len(view)
-        assert len(view) == len(dim_map)
-        # Iterate through our parent region's subviews and see if
-        # we find one that matches the view that we want
-        if parent.subviews:
-            for child in parent.subviews:
-                if child.view == view:
-                    return child
-        # We need to make this subview
-        # If all the slices have strides of one then this is a dense
-        # subview and we can make this partition with a call to create
-        # partition by restriction, otherwise we'll fall back to the
-        # general but slow partition by field, we'll also compute our
-        # transform back to the parent address space here
-        dense = True
-        # Transfrom from our space back to the parent's space
-        transform = AffineTransform(len(parent.shape), len(shape), False)
-        parent_idx = 0  # Index of parent dimensions
-        child_idx = 0  # Index of child dimensions
-        for idx in range(len(view)):
-            # If this is an added dimension then it doesn't even contribute
-            # back to the parent space so we can skip it
-            if dim_map[idx] > 0:
-                child_idx += 1
-                continue
-            slc = view[idx]
-            assert parent_idx < len(parent.shape)
-            transform.offset[parent_idx] = slc.start
-            assert (
-                slc.step >= 0
-            )  # Should have handled negative values before this
-            # If this is a collapsed dimension then we can skip it
-            if dim_map[idx] < 0:
-                parent_idx += 1
-                continue
-            assert child_idx < len(shape)
-            transform.trans[parent_idx, child_idx] = slc.step
-            child_idx += 1
-            parent_idx += 1
-            # Our temporary density check for now
-            if slc.step > 1:
-                dense = False
-        assert child_idx == len(shape)
-        assert parent_idx == len(parent.shape)
-        # Compose our transforms if necessary
-        if parent.transform:
-            transform = transform.compose(parent.transform)
-        # If the child shape has the same number of points as the parent
-        # region then we don't actually need to make a subregion, we can
-        # just use the parent region with the transform
-        parent_volume = 1
-        for dim in range(len(parent.shape)):
-            parent_volume *= parent.shape[dim]
-        child_volume = 1
-        for dim in range(len(shape)):
-            child_volume *= shape[dim]
-        if parent_volume == child_volume:
-            # Same number of points, so no need to make a subregion here
-            return RegionField(
-                self,
-                parent.region,
-                parent.field,
-                shape,
-                parent,
-                transform,
-                key,
-            )
-        elif dense:
-            # We can do a single call to create partition by restriction
-            # Build the rect for the subview
-            lo = ()
-            hi = ()
-            # As an interesting optimization, if we can evenly tile the
-            # region in all dimensions of the parent region, then we'll make
-            # a disjoint tiled partition with as many children as possible
-            tile = True
-            tile_shape = ()
-            for dim in range(len(view)):
-                slc = view[dim]
-                lo += (slc.start,)
-                # Legion is inclusive
-                hi += (slc.stop - 1,)
-                # If we're still trying to tile do the analysis
-                if tile:
-                    stride = slc.stop - slc.start
-                    if slc.start > 0 and (slc.start % stride) != 0:
-                        tile = False
-                        continue
-                    if (
-                        slc.stop < parent.shape[dim]
-                        and ((parent.shape[dim] - slc.stop) % stride) != 0
-                    ):
-                        tile = False
-                        continue
-                    tile_shape += (stride,)
-            if tile:
-                # Compute the color space bounds and then see how big it is
-                assert len(lo) == len(tile_shape)
-                color_space_bounds = ()
-                for dim in range(len(lo)):
-                    assert (parent.shape[dim] % tile_shape[dim]) == 0
-                    color_space_bounds += (
-                        parent.shape[dim] // tile_shape[dim],
-                    )
-                volume = reduce(lambda x, y: x * y, color_space_bounds)
-                # If it would generate a very large number of elements then
-                # we'll apply a heuristic for now and not actually tile it
-                # TODO: A better heurisitc for this in the future
-                if volume > 256 and volume > 16 * self._num_pieces:
-                    tile = False
-            # See if we're making a tiled partition or a one-off partition
-            if tile:
-                # Compute the color of the tile that we care about
-                tile_color = ()
-                for dim in range(len(lo)):
-                    assert (lo[dim] % tile_shape[dim]) == 0
-                    tile_color += (lo[dim] // tile_shape[dim],)
-                assert len(view) == len(tile_shape)
-                partition = self.partition_manager.find_or_create_partition(
-                    parent.region,
-                    color_space_bounds,
-                    tile_shape,
-                    None,
-                    parent.transform,
-                )
-                # Then we can build the actual child region that we want and
-                # save it in the subviews that we computed
-                child_region = partition.get_child(Point(tile_color))
-                if not parent.subviews:
-                    parent.subviews = weakref.WeakSet()
-                region_field = RegionField(
-                    self,
-                    child_region,
-                    parent.field,
-                    shape,
-                    parent,
-                    transform,
-                    view,
-                )
-                parent.subviews.add(region_field)
-                return region_field
-            else:
-                tile_shape = tuple(map(lambda x, y: ((x - y) + 1), hi, lo))
-                partition = self.partition_manager.find_or_create_partition(
-                    parent.region,
-                    (1,) * len(tile_shape),
-                    tile_shape,
-                    lo,
-                    parent.transform,
-                    complete=False,
-                )
-                child_region = partition.get_child(
-                    Point((0,) * len(tile_shape))
-                )
-                if not parent.subviews:
-                    parent.subviews = weakref.WeakSet()
-                region_field = RegionField(
-                    self,
-                    child_region,
-                    parent.field,
-                    shape,
-                    parent,
-                    transform,
-                    view,
-                )
-                parent.subviews.add(region_field)
-                return region_field
-        else:
-            # We need fill in a phased partition operation from Legion
-            raise NotImplementedError("implement partition by phase")
 
     def create_transform_view(self, region_field, new_shape, transform):
         assert isinstance(region_field, RegionField)

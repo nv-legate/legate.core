@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-from functools import reduce
+from .utils import compute_volume
 
 
 class Expression(object):
@@ -79,7 +79,7 @@ class Tile(Expression):
 class Dimension(Expression):
     def __init__(self, index, shape):
         self.index = index
-        self.shape = shape
+        self.shape = tuple(dim for dim in shape)
 
     @property
     def closed(self):
@@ -152,10 +152,10 @@ class Subsume(Constraint):
 
 
 class Shape(object):
-    def __init__(self, shape, name):
+    def __init__(self, shape):
+        assert isinstance(shape, tuple)
         self._shape = shape
-        self._name = name
-        self._dims = [Dimension(idx, self) for idx in range(len(shape))]
+        self._volume = compute_volume(shape)
 
     def __str__(self):
         return str(self._shape)
@@ -167,29 +167,100 @@ class Shape(object):
         return len(self._shape)
 
     @property
-    def dims(self):
-        return self._dims
-
-    @property
     def ndim(self):
-        return len(self)
+        return len(self._shape)
 
     @property
-    def name(self):
-        return self._name
-
-    def equals(self, other):
-        return self._shape == other._shape
-
     def volume(self):
-        return reduce(lambda x, y: x * y, self._shape, 1)
+        return self._volume
 
     def __hash__(self):
-        return hash(self._shape)
+        return hash((self.__class__, self._shape))
+
+    def __le__(self, other):
+        if isinstance(other, Shape):
+            return (
+                len(self._shape) == len(other._shape)
+                and self._shape <= other._shape
+            )
+        else:
+            raise ValueError(
+                f"Incompatible operand type for <=: {type(other).__name__}"
+            )
 
     def __eq__(self, other):
-        if self.ndim != other.ndim:
+        if isinstance(other, Shape):
+            return self._shape == other._shape
+        else:
             raise ValueError(
-                f"{self} and {other} don't have the same dimensions"
+                f"Incompatible operand type for ==: {type(other).__name__}"
             )
-        return [Match(d1, d2) for d1, d2 in zip(self._dims, other._dims)]
+
+    def __add__(self, other):
+        if isinstance(other, Shape):
+            return Shape(
+                tuple(a + b for (a, b) in zip(self._shape, other._shape))
+            )
+        elif isinstance(other, int):
+            return Shape(tuple(a + other for a in self._shape))
+        else:
+            raise ValueError(
+                f"Incompatible operand type for +: {type(other).__name__}"
+            )
+
+    def __sub__(self, other):
+        if isinstance(other, Shape):
+            return Shape(
+                tuple(a - b for (a, b) in zip(self._shape, other._shape))
+            )
+        elif isinstance(other, int):
+            return Shape(tuple(a - other for a in self._shape))
+        else:
+            raise ValueError(
+                f"Incompatible operand type for -: {type(other).__name__}"
+            )
+
+    def __mul__(self, other):
+        if isinstance(other, Shape):
+            return Shape(
+                tuple(a * b for (a, b) in zip(self._shape, other._shape))
+            )
+        elif isinstance(other, int):
+            return Shape(tuple(a * other for a in self._shape))
+        else:
+            raise ValueError(
+                f"Incompatible operand type for *: {type(other).__name__}"
+            )
+
+    def __mod__(self, other):
+        if isinstance(other, Shape):
+            return Shape(
+                tuple(a % b for (a, b) in zip(self._shape, other._shape))
+            )
+        elif isinstance(other, int):
+            return Shape(tuple(a % other for a in self._shape))
+        else:
+            raise ValueError(
+                f"Incompatible operand type for %: {type(other).__name__}"
+            )
+
+    def __floordiv__(self, other):
+        if isinstance(other, Shape):
+            return Shape(
+                tuple(a // b for (a, b) in zip(self._shape, other._shape))
+            )
+        elif isinstance(other, int):
+            return Shape(tuple(a // other for a in self._shape))
+        else:
+            raise ValueError(
+                f"Incompatible operand type for //: {type(other).__name__}"
+            )
+
+    def drop(self, dim):
+        return Shape(self._shape[:dim] + self._shape[dim + 1 :])
+
+    def update(self, dim, new_value):
+        return Shape(self._shape[:dim] + (new_value,) + self._shape[dim + 1 :])
+
+    def insert(self, dim, new_value):
+        return Shape(self._shape[:dim] + (new_value,) + self._shape[dim:])

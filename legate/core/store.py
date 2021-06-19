@@ -28,6 +28,9 @@ from .legion import (
     ffi,
     legion,
 )
+from .partition import Tiling
+from .solver import Shape
+from .transform import Project, Promote, Slice
 
 
 # A region field holds a reference to a field in a logical region
@@ -62,6 +65,8 @@ class RegionField(object):
         self.physical_region = None  # Physical region for attach
         self.physical_region_refs = 0
         self.physical_region_mapped = False
+
+        self._partitions = {}
 
     def __del__(self):
         if self.attached_array is not None:
@@ -406,7 +411,7 @@ class RegionField(object):
         else:
             self.parent.decrement_inline_mapped_ref_count()
 
-    def get_numpy_array(self, context=None):
+    def get_numpy_array(self, context=None, transform=None):
         context = self.runtime.context if context is None else context
 
         # See if we still have a valid numpy array to use
@@ -419,7 +424,7 @@ class RegionField(object):
         # We need a pointer to the physical allocation for this physical region
         dim = len(self.shape)
         # Build the accessor for this physical region
-        if self.transform is not None:
+        if transform is not None:
             # We have a transform so build the accessor special with a
             # transform
             func = getattr(
@@ -430,7 +435,7 @@ class RegionField(object):
             accessor = func(
                 physical_region.handle,
                 ffi.cast("legion_field_id_t", self.field.field_id),
-                self.transform.raw(),
+                transform.raw(),
             )
         else:
             # No transfrom so we can do the normal thing
@@ -478,6 +483,53 @@ class RegionField(object):
         self.numpy_array = weakref.ref(array, callback)
         return array
 
+    def get_tile(self, tiling):
+        tile_shape = tiling.tile_shape
+        # If the tile covers the entire region, we don't need to create
+        # a subregion
+        if tile_shape == self.shape:
+            return self
+
+        # As an interesting optimization, if we can evenly tile the
+        # region in all dimensions of the parent region, then we'll make
+        # a disjoint tiled partition with as many children as possible
+        complete_tiling = (tiling.offset % tile_shape).volume == 0
+
+        if complete_tiling and self.partition_manager.use_complete_tiling(
+            self, tile_shape
+        ):
+            color_shape = self.shape // tile_shape
+            tiling = Tiling(self.runtime, tile_shape, color_shape)
+            color = tiling.offset // tile_shape
+        else:
+            color = (0,) * self.shape.ndim
+
+        if tiling in self._partitions:
+            partition = self._partitions[tiling]
+        else:
+            partition = tiling.construct(
+                self.region, self.shape, complete_tiling
+            )
+            self._partitions[tiling] = partition
+
+        child_region = partition.get_child(Point(color))
+        return RegionField(
+            self.runtime,
+            child_region,
+            self.field,
+            tiling.tile_shape,
+            self,
+        )
+
+    def reshape(self, shape):
+        return RegionField(
+            self.runtime,
+            self.region,
+            self.field,
+            shape,
+            self,
+        )
+
 
 # This is a dummy object that is only used as an initializer for the
 # RegionField object above. It is thrown away as soon as the
@@ -498,7 +550,14 @@ class _RegionNdarray(object):
 
 class Store(object):
     def __init__(
-        self, runtime, shape, dtype, storage=None, optimize_scalar=False
+        self,
+        runtime,
+        shape,
+        dtype,
+        storage=None,
+        optimize_scalar=False,
+        parent=None,
+        transform=None,
     ):
         """
         Unlike in Arrow where all data is backed by objects that
@@ -531,15 +590,14 @@ class Store(object):
             or isinstance(storage, Future)
         )
         self._storage = storage
-        self._optimze_scalar = optimize_scalar
-        self._scalar = optimize_scalar and shape.volume() <= 1
+        self._scalar = optimize_scalar and shape.volume <= 1
+        self._parent = parent
+        self._transform = transform
+        self._accessor_transform = None
 
     @property
     def shape(self):
         return self._shape
-
-    def nbytes(self):
-        return self._shape.volume() * self._dtype.itemsize
 
     @property
     def ndim(self):
@@ -574,14 +632,129 @@ class Store(object):
         if self._storage is None:
             # TODO: We should keep track of thunks and evaluate them
             #       if necessary
-            if self._scalar:
-                raise ValueError(
-                    "Illegal to access the storage of an uninitialized Legate "
-                    "store of volume 1 when scalar optimization is used"
-                )
+            if self._parent is None:
+                if self._scalar:
+                    raise ValueError(
+                        "Illegal to access the storage of an uninitialized "
+                        "Legate store of volume 1 with scalar optimization"
+                    )
+                else:
+                    self._storage = self._runtime.allocate_field(
+                        self._shape, self._dtype
+                    )
             else:
-                self._storage = self._runtime.allocate_field(
-                    self._shape, self._dtype
+                assert self._transform is not None
+                if self._parent.kind == Future:
+                    self._storage = self._parent._storage
+                    return
+
+                tiling = Tiling(
+                    self._runtime, self.shape, Shape((1,) * self.ndim)
                 )
+                self._storage = self._get_tile(tiling)
 
         return self._storage
+
+    def _get_tile(self, tiling):
+        if self._parent is not None:
+            tiling = self._transform.invert(tiling)
+            tile = self._parent._get_tile(tiling)
+            return self._transform.transform_tile(tile)
+        else:
+            return self.storage.get_tile(tiling)
+
+    def __str__(self):
+        if self._parent is None:
+            return (
+                f"<Store(shape: {self._shape}, type: {self._dtype}, "
+                f"kind: {self.kind.__name__}, storage: {self._storage.shape})>"
+            )
+        else:
+            return (
+                f"<Store(shape: {self._shape}, type: {self._dtype}, "
+                f"kind: {self.kind.__name__})> <<=={self._transform}== "
+                f"{self._parent}"
+            )
+
+    def __repr__(self):
+        return str(self)
+
+    # Convert a store in N-D space to that in (N+1)-D space.
+    # The extra_dim specifies the added dimension
+    def promote(self, extra_dim, dim_size=1):
+        transform = Promote(self._runtime, extra_dim, dim_size)
+        shape = transform.compute_shape(self._shape)
+        if self._shape == shape:
+            return self
+        return Store(
+            self._runtime,
+            shape,
+            self._dtype,
+            optimize_scalar=self._scalar,
+            parent=self,
+            transform=transform,
+        )
+
+    # Take a hyperplane of an N-D store for a given index
+    # to create an (N-1)-D store
+    def project(self, dim, index):
+        transform = Project(self._runtime, dim, index)
+        shape = transform.compute_shape(self._shape)
+        if self._shape == shape:
+            return self
+        return Store(
+            self._runtime,
+            shape,
+            self._dtype,
+            optimize_scalar=self._scalar,
+            parent=self,
+            transform=transform,
+        )
+
+    def slice(self, dim, sl):
+        if dim < 0 or dim >= self.ndim:
+            raise ValueError(
+                f"Invalid dimension {dim} for a {self.ndim}-D store"
+            )
+
+        size = self.shape[dim]
+        start = 0 if sl.start is None else sl.start
+        stop = size if sl.stop is None else sl.stop
+        start = start + size if start < 0 else start
+        stop = stop + size if stop < 0 else stop
+        step = 1 if sl.step is None else sl.step
+
+        if step != 1:
+            raise ValueError(f"Unsupported slicing: {sl}")
+        if start >= size or stop > size:
+            raise ValueError(f"Out of bounds: {sl} for a shape {self.shape}")
+
+        transform = Slice(self._runtime, dim, slice(start, stop, step))
+        shape = transform.compute_shape(self._shape)
+        if self._shape == shape:
+            return self
+        return Store(
+            self._runtime,
+            shape,
+            self._dtype,
+            optimize_scalar=self._scalar,
+            parent=self,
+            transform=transform,
+        )
+
+    def get_accessor_transform(self):
+        if self._parent is None:
+            return None
+        else:
+            if self._accessor_transform is None:
+                self._accessor_transform = (
+                    self._transform.get_accessor_transform(
+                        self.shape,
+                        self._parent.get_accessor_transform(),
+                    )
+                )
+            return self._accessor_transform
+
+    def get_numpy_array(self, context=None):
+        transform = self.get_accessor_transform()
+        return self.storage.get_numpy_array(context, transform)
