@@ -30,7 +30,7 @@ from .legion import (
 )
 from .partition import Tiling
 from .solver import Shape
-from .transform import Project, Promote, Slice
+from .transform import Project, Promote, Shift
 
 
 # A region field holds a reference to a field in a logical region
@@ -717,8 +717,8 @@ class Store(object):
         if start >= size or stop > size:
             raise ValueError(f"Out of bounds: {sl} for a shape {self.shape}")
 
-        transform = Slice(self._runtime, dim, slice(start, stop, step))
-        shape = transform.compute_shape(self._shape)
+        transform = Shift(self._runtime, dim, -start)
+        shape = self._shape.update(dim, stop - start)
         if self._shape == shape:
             return self
         return Store(

@@ -19,24 +19,17 @@ from .partition import Tiling
 from .solver import Shape
 
 
-class Slice(object):
-    def __init__(self, runtime, dim, sl):
-        assert isinstance(sl, slice)
-        assert None not in (sl.start, sl.stop)
-        assert sl.step == 1
+class Shift(object):
+    def __init__(self, runtime, dim, offset):
         self._runtime = runtime
         self._dim = dim
-        self._slice = sl
-        self._dim_size = sl.stop - sl.start
+        self._offset = offset
 
     def compute_shape(self, shape):
-        new_shape = Shape(
-            shape[: self._dim] + (self._dim_size,) + shape[self._dim + 1 :]
-        )
-        return new_shape
+        return shape
 
     def __str__(self):
-        return f"Slice(dim: {self._dim}, slice: {self._slice})"
+        return f"Shift(dim: {self._dim}, slice: {self._offset})"
 
     def __repr__(self):
         return str(self)
@@ -51,7 +44,7 @@ class Slice(object):
                 self._runtime,
                 partition.tile_shape,
                 partition.color_shape,
-                partition.offset.update(self._dim, self._slice.start),
+                partition.offset.update(self._dim, -self._offset),
             )
         else:
             raise ValueError(
@@ -60,7 +53,7 @@ class Slice(object):
 
     def get_accessor_transform(self, shape, parent_transform=None):
         result = AffineTransform(shape.ndim, shape.ndim, True)
-        result.offset[self._dim] = self._slice.start
+        result.offset[self._dim] = -self._offset
         if parent_transform is not None:
             result = result.compose(parent_transform)
         return result
