@@ -40,7 +40,6 @@ from .legion import (
     legate_task_preamble,
     legion,
 )
-from .solver import Shape
 from .store import RegionField, Store
 
 
@@ -405,7 +404,7 @@ class AttachmentManager(object):
             region_field = RegionField(
                 self._runtime, region, field, array.shape
             )
-        return region_field
+        return Store(self, array.shape, array.dtype, storage=region_field)
 
     def remove_attachment(self, array):
         key = self.attachment_key(array)
@@ -913,7 +912,6 @@ class Runtime(object):
         return f"x{id}"
 
     def create_store(self, shape, dtype, optimize_scalar=False):
-        shape = Shape(shape)
         return Store(self, shape, dtype, optimize_scalar=optimize_scalar)
 
     def allocate_field(self, shape, dtype):

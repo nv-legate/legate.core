@@ -391,7 +391,7 @@ class TaskLauncher(object):
             )
             return self._region_reqs_indices[(key, field_id)]
 
-    def add_store(self, store, transform, proj, perm, tag, flags):
+    def add_store(self, store, proj, perm, tag, flags):
         scalar = store.kind == Future
         self.add_scalar_arg(scalar, bool)
         self.add_scalar_arg(store.ndim, np.int32)
@@ -406,6 +406,7 @@ class TaskLauncher(object):
 
         region = store.storage.region
         field_id = store.storage.field.field_id
+        transform = store.get_accessor_transform()
 
         if region in self._region_args:
             field_set = self._region_args[region]
@@ -426,26 +427,20 @@ class TaskLauncher(object):
             )
         )
 
-    def add_no_access(self, store, transform, proj, tag=0, flags=0):
-        self.add_store(
-            store, transform, proj, Permission.NO_ACCESS, tag, flags
-        )
+    def add_no_access(self, store, proj, tag=0, flags=0):
+        self.add_store(store, proj, Permission.NO_ACCESS, tag, flags)
 
-    def add_input(self, store, transform, proj, tag=0, flags=0):
-        self.add_store(store, transform, proj, Permission.READ, tag, flags)
+    def add_input(self, store, proj, tag=0, flags=0):
+        self.add_store(store, proj, Permission.READ, tag, flags)
 
-    def add_output(self, store, transform, proj, tag=0, flags=0):
-        self.add_store(store, transform, proj, Permission.WRITE, tag, flags)
+    def add_output(self, store, proj, tag=0, flags=0):
+        self.add_store(store, proj, Permission.WRITE, tag, flags)
 
-    def add_inout(self, store, transform, proj, tag=0, flags=0):
-        self.add_store(
-            store, transform, proj, Permission.READ_WRITE, tag, flags
-        )
+    def add_inout(self, store, proj, tag=0, flags=0):
+        self.add_store(store, proj, Permission.READ_WRITE, tag, flags)
 
-    def add_reduction(self, store, transform, proj, tag=0, flags=0):
-        self.add_store(
-            store, transform, proj, Permission.REDUCTION, tag, flags
-        )
+    def add_reduction(self, store, proj, tag=0, flags=0):
+        self.add_store(store, proj, Permission.REDUCTION, tag, flags)
 
     def add_future(self, future):
         self._future_args.append(future)

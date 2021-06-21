@@ -565,6 +565,7 @@ class Store(object):
 
         """
         self._runtime = runtime
+        shape = Shape(shape)
         self._shape = shape
         self._dtype = dtype
         assert (

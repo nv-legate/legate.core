@@ -151,10 +151,20 @@ class Subsume(Constraint):
         super(Subsume, self).__init__(lhs, rhs, ">=")
 
 
+def _cast_tuple(value, ndim):
+    if isinstance(value, Shape):
+        return value._shape
+    elif isinstance(value, tuple):
+        return value
+    elif isinstance(value, int):
+        return (value,) * ndim
+    else:
+        raise ValueError(f"Cannot cast {type(value).__name__} to tuple")
+
+
 class Shape(object):
     def __init__(self, shape):
-        assert isinstance(shape, tuple)
-        self._shape = shape
+        self._shape = tuple(shape)
         self._volume = compute_volume(shape)
 
     def __str__(self):
@@ -178,83 +188,39 @@ class Shape(object):
         return hash((self.__class__, self._shape))
 
     def __le__(self, other):
-        if isinstance(other, Shape):
-            return (
-                len(self._shape) == len(other._shape)
-                and self._shape <= other._shape
-            )
-        else:
-            raise ValueError(
-                f"Incompatible operand type for <=: {type(other).__name__}"
-            )
+        lh = _cast_tuple(self, self.ndim)
+        rh = _cast_tuple(other, self.ndim)
+        return len(lh) == len(rh) and lh <= rh
 
     def __eq__(self, other):
-        if isinstance(other, Shape):
-            return self._shape == other._shape
-        else:
-            raise ValueError(
-                f"Incompatible operand type for ==: {type(other).__name__}"
-            )
+        lh = _cast_tuple(self, self.ndim)
+        rh = _cast_tuple(other, self.ndim)
+        return lh == rh
 
     def __add__(self, other):
-        if isinstance(other, Shape):
-            return Shape(
-                tuple(a + b for (a, b) in zip(self._shape, other._shape))
-            )
-        elif isinstance(other, int):
-            return Shape(tuple(a + other for a in self._shape))
-        else:
-            raise ValueError(
-                f"Incompatible operand type for +: {type(other).__name__}"
-            )
+        lh = _cast_tuple(self, self.ndim)
+        rh = _cast_tuple(other, self.ndim)
+        return Shape(tuple(a + b for (a, b) in zip(lh, rh)))
 
     def __sub__(self, other):
-        if isinstance(other, Shape):
-            return Shape(
-                tuple(a - b for (a, b) in zip(self._shape, other._shape))
-            )
-        elif isinstance(other, int):
-            return Shape(tuple(a - other for a in self._shape))
-        else:
-            raise ValueError(
-                f"Incompatible operand type for -: {type(other).__name__}"
-            )
+        lh = _cast_tuple(self, self.ndim)
+        rh = _cast_tuple(other, self.ndim)
+        return Shape(tuple(a - b for (a, b) in zip(lh, rh)))
 
     def __mul__(self, other):
-        if isinstance(other, Shape):
-            return Shape(
-                tuple(a * b for (a, b) in zip(self._shape, other._shape))
-            )
-        elif isinstance(other, int):
-            return Shape(tuple(a * other for a in self._shape))
-        else:
-            raise ValueError(
-                f"Incompatible operand type for *: {type(other).__name__}"
-            )
+        lh = _cast_tuple(self, self.ndim)
+        rh = _cast_tuple(other, self.ndim)
+        return Shape(tuple(a * b for (a, b) in zip(lh, rh)))
 
     def __mod__(self, other):
-        if isinstance(other, Shape):
-            return Shape(
-                tuple(a % b for (a, b) in zip(self._shape, other._shape))
-            )
-        elif isinstance(other, int):
-            return Shape(tuple(a % other for a in self._shape))
-        else:
-            raise ValueError(
-                f"Incompatible operand type for %: {type(other).__name__}"
-            )
+        lh = _cast_tuple(self, self.ndim)
+        rh = _cast_tuple(other, self.ndim)
+        return Shape(tuple(a % b for (a, b) in zip(lh, rh)))
 
     def __floordiv__(self, other):
-        if isinstance(other, Shape):
-            return Shape(
-                tuple(a // b for (a, b) in zip(self._shape, other._shape))
-            )
-        elif isinstance(other, int):
-            return Shape(tuple(a // other for a in self._shape))
-        else:
-            raise ValueError(
-                f"Incompatible operand type for //: {type(other).__name__}"
-            )
+        lh = _cast_tuple(self, self.ndim)
+        rh = _cast_tuple(other, self.ndim)
+        return Shape(tuple(a // b for (a, b) in zip(lh, rh)))
 
     def drop(self, dim):
         return Shape(self._shape[:dim] + self._shape[dim + 1 :])

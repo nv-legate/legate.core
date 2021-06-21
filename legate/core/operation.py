@@ -90,13 +90,13 @@ class Task(Operation):
         launcher = TaskLauncher(self.context, self._task_id, self.mapper_id)
 
         for no_access in self._no_accesses:
-            launcher.add_no_access(no_access, None, Broadcast())
+            launcher.add_no_access(no_access, Broadcast())
         for input in self._inputs:
-            launcher.add_input(input, None, Broadcast())
+            launcher.add_input(input, Broadcast())
         for output in self._outputs:
-            launcher.add_output(output, None, Broadcast())
+            launcher.add_output(output, Broadcast())
         for (reduction, redop) in self._reductions:
-            launcher.add_reduction(output, None, Broadcast(redop))
+            launcher.add_reduction(output, Broadcast(redop))
         for (arg, dtype) in self._scalar_args:
             launcher.add_scalar_arg(arg, dtype)
 
