@@ -24,17 +24,22 @@ LIBNAME   = liblgcore
 USE_GPU_REDUCTIONS = 0
 
 # General source files
-GEN_CPU_SRC	= context.cc  \
-							legate.cc   \
-							mapper.cc   \
-							projection.cc     \
-							shard.cc    \
+GEN_CPU_SRC	= context.cc      \
+							core.cc         \
+							deserializer.cc \
+							legate.cc       \
+							mapper.cc       \
+							projection.cc   \
+							shard.cc        \
 							legate_c.cc
 # No initial GPU files for core Legate but libraries have them
 GEN_GPU_SRC	=
 # Header files that we need to have installed for client legate libraries
 INSTALL_PATHS  =
 INSTALL_HEADERS = context.h         \
+									core.h            \
+									core.inl          \
+									deserializer.h    \
 									dispatch.h        \
 									legate.h          \
 								  projection.h      \
