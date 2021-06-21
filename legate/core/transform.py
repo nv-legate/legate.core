@@ -35,9 +35,6 @@ class Slice(object):
         )
         return new_shape
 
-    def transform_tile(self, storage):
-        return storage
-
     def __str__(self):
         return f"Slice(dim: {self._dim}, slice: {self._slice})"
 
@@ -82,9 +79,6 @@ class Promote(object):
             + shape[self._extra_dim :]
         )
         return new_shape
-
-    def transform_tile(self, storage):
-        return storage.reshape(self.compute_shape(storage.shape))
 
     def __str__(self):
         return f"Promote(dim: {self._extra_dim}, size: {self._dim_size})"
@@ -132,9 +126,6 @@ class Project(object):
     def compute_shape(self, shape):
         new_shape = Shape(shape[: self._dim] + shape[self._dim + 1 :])
         return new_shape
-
-    def transform_tile(self, storage):
-        return storage.reshape(self.compute_shape(storage.shape))
 
     def __str__(self):
         return f"Project(dim: {self._dim}, index: {self._index})"

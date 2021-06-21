@@ -411,7 +411,7 @@ class RegionField(object):
         else:
             self.parent.decrement_inline_mapped_ref_count()
 
-    def get_numpy_array(self, context=None, transform=None):
+    def get_numpy_array(self, shape, context=None, transform=None):
         context = self.runtime.context if context is None else context
 
         # See if we still have a valid numpy array to use
@@ -422,7 +422,7 @@ class RegionField(object):
                 return result
         physical_region = self.get_inline_mapped_region(context)
         # We need a pointer to the physical allocation for this physical region
-        dim = len(self.shape)
+        dim = len(shape)
         # Build the accessor for this physical region
         if transform is not None:
             # We have a transform so build the accessor special with a
@@ -451,7 +451,7 @@ class RegionField(object):
         rect = ffi.new(f"legion_rect_{dim}d_t *")
         for d in range(dim):
             rect[0].lo.x[d] = 0
-            rect[0].hi.x[d] = self.shape[d] - 1  # inclusive
+            rect[0].hi.x[d] = shape[d] - 1  # inclusive
         subrect = ffi.new(f"legion_rect_{dim}d_t *")
         offsets = ffi.new("legion_byte_offset_t[]", dim)
         func = getattr(legion, f"legion_accessor_array_{dim}d_raw_rect_ptr")
@@ -461,13 +461,12 @@ class RegionField(object):
         for d in range(dim):
             assert rect[0].lo.x[d] == subrect[0].lo.x[d]
             assert rect[0].hi.x[d] == subrect[0].hi.x[d]
-        shape = tuple(rect.hi.x[i] - rect.lo.x[i] + 1 for i in range(dim))
         strides = tuple(offsets[i].offset for i in range(dim))
         # Numpy doesn't know about CFFI pointers, so we have to cast
         # this to a Python long before we can hand it off to Numpy.
         base_ptr = int(ffi.cast("size_t", base_ptr))
         initializer = _RegionNdarray(
-            shape, self.field.dtype, base_ptr, strides, False
+            tuple(shape), self.field.dtype, base_ptr, strides, False
         )
         array = np.asarray(initializer)
 
@@ -483,13 +482,8 @@ class RegionField(object):
         self.numpy_array = weakref.ref(array, callback)
         return array
 
-    def get_tile(self, tiling):
+    def get_tile(self, shape, tiling):
         tile_shape = tiling.tile_shape
-        # If the tile covers the entire region, we don't need to create
-        # a subregion
-        if tile_shape == self.shape:
-            return self
-
         # As an interesting optimization, if we can evenly tile the
         # region in all dimensions of the parent region, then we'll make
         # a disjoint tiled partition with as many children as possible
@@ -498,18 +492,16 @@ class RegionField(object):
         if complete_tiling and self.partition_manager.use_complete_tiling(
             self, tile_shape
         ):
-            color_shape = self.shape // tile_shape
+            color_shape = shape // tile_shape
             tiling = Tiling(self.runtime, tile_shape, color_shape)
             color = tiling.offset // tile_shape
         else:
-            color = (0,) * self.shape.ndim
+            color = (0,) * shape.ndim
 
         if tiling in self._partitions:
             partition = self._partitions[tiling]
         else:
-            partition = tiling.construct(
-                self.region, self.shape, complete_tiling
-            )
+            partition = tiling.construct(self.region, shape, complete_tiling)
             self._partitions[tiling] = partition
 
         child_region = partition.get_child(Point(color))
@@ -518,15 +510,6 @@ class RegionField(object):
             child_region,
             self.field,
             tiling.tile_shape,
-            self,
-        )
-
-    def reshape(self, shape):
-        return RegionField(
-            self.runtime,
-            self.region,
-            self.field,
-            shape,
             self,
         )
 
@@ -658,10 +641,14 @@ class Store(object):
     def _get_tile(self, tiling):
         if self._parent is not None:
             tiling = self._transform.invert(tiling)
-            tile = self._parent._get_tile(tiling)
-            return self._transform.transform_tile(tile)
+            return self._parent._get_tile(tiling)
         else:
-            return self.storage.get_tile(tiling)
+            # If the tile covers the entire region, we don't need to create
+            # a subregion
+            if self.shape == tiling.tile_shape:
+                return self.storage
+            else:
+                return self.storage.get_tile(self.shape, tiling)
 
     def __str__(self):
         if self._parent is None:
@@ -757,4 +744,6 @@ class Store(object):
 
     def get_numpy_array(self, context=None):
         transform = self.get_accessor_transform()
-        return self.storage.get_numpy_array(context, transform)
+        return self.storage.get_numpy_array(
+            self.shape, context=context, transform=transform
+        )
