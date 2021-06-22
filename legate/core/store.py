@@ -487,10 +487,12 @@ class RegionField(object):
         # As an interesting optimization, if we can evenly tile the
         # region in all dimensions of the parent region, then we'll make
         # a disjoint tiled partition with as many children as possible
-        complete_tiling = (tiling.offset % tile_shape).volume == 0
+        complete_tiling = (tiling.offset % tile_shape).volume == 0 and (
+            shape % tile_shape
+        ).volume == 0
 
         if complete_tiling and self.partition_manager.use_complete_tiling(
-            self, tile_shape
+            shape, tile_shape
         ):
             color_shape = shape // tile_shape
             tiling = Tiling(self.runtime, tile_shape, color_shape)
