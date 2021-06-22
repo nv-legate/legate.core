@@ -86,6 +86,12 @@ typedef enum legate_core_resource_t {
   LEGATE_CORE_RESOURCE_CUML,
 } legate_core_resource_t;
 
+typedef enum legate_core_transform_t {
+  LEGATE_CORE_TRANSFORM_SHIFT = 100,
+  LEGATE_CORE_TRANSFORM_PROMOTE,
+  LEGATE_CORE_TRANSFORM_PROJECT,
+} legate_core_transform_t;
+
 #ifdef __cplusplus
 extern "C" {
 #endif

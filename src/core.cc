@@ -155,108 +155,235 @@ std::ostream &operator<<(std::ostream &os, const Shape &shape)
   return os;
 }
 
-Transform::~Transform() { destroy(); }
+using TransformP = std::unique_ptr<Transform>;
 
-Transform::Transform(const Transform &other)
+DomainTransform operator*(const DomainTransform &lhs, const DomainTransform &rhs)
 {
-  destroy();
-  copy(other);
+  assert(lhs.n == rhs.m);
+  DomainTransform result;
+  result.m = lhs.m;
+  result.n = rhs.n;
+  for (int32_t i = 0; i < result.m; ++i)
+    for (int32_t j = 0; j < result.n; ++j) {
+      result.matrix[i * result.n + j] = 0;
+      for (int32_t k = 0; k < lhs.n; ++k)
+        result.matrix[i * result.n + j] += lhs.matrix[i * lhs.n + k] * rhs.matrix[k * rhs.n + j];
+    }
+  return result;
 }
 
-Transform &Transform::operator=(const Transform &other)
+DomainPoint operator+(const DomainPoint &lhs, const DomainPoint &rhs)
 {
-  destroy();
-  copy(other);
-  return *this;
+  assert(lhs.dim == rhs.dim);
+  DomainPoint result(lhs);
+  for (int32_t idx = 0; idx < rhs.dim; ++idx) result[idx] += rhs[idx];
+  return result;
 }
 
-Transform::Transform(Transform &&other) noexcept
+DomainAffineTransform combine(const DomainAffineTransform &lhs, const DomainAffineTransform &rhs)
 {
-  destroy();
-  move(std::forward<Transform>(other));
+  DomainAffineTransform result;
+  auto transform   = lhs.transform * rhs.transform;
+  auto offset      = lhs.transform * rhs.offset + lhs.offset;
+  result.transform = transform;
+  result.offset    = offset;
+  return result;
 }
 
-Transform &Transform::operator=(Transform &&other) noexcept
-{
-  destroy();
-  move(std::forward<Transform>(other));
-  return *this;
-}
+Transform::Transform(TransformP &&parent) : parent_(std::move(parent)) {}
 
-void Transform::copy(const Transform &other)
-{
-  if (exists()) {
-    M_         = other.M_;
-    N_         = other.N_;
-    transform_ = double_dispatch(M_, N_, copy_fn{}, other.transform_);
-  }
-}
-
-void Transform::move(Transform &&other)
-{
-  transform_ = other.transform_;
-  M_         = other.M_;
-  N_         = other.N_;
-
-  other.M_         = -1;
-  other.N_         = -1;
-  other.transform_ = nullptr;
-}
-
-void Transform::destroy()
-{
-  if (exists()) {
-    double_dispatch(M_, N_, destroy_fn{}, transform_);
-    M_ = -1;
-    N_ = -1;
-  }
-}
-
-RegionField::RegionField(int32_t dim, int32_t redop_id, const PhysicalRegion &pr, FieldID fid)
-  : dim_(dim), redop_id_(redop_id), pr_(pr), fid_(fid)
+Shift::Shift(int32_t dim, int64_t offset, TransformP &&parent)
+  : Transform(std::forward<TransformP>(parent)), dim_(dim), offset_(offset)
 {
 }
 
-RegionField::RegionField(
-  int32_t dim, int32_t redop_id, const PhysicalRegion &pr, FieldID fid, Transform &&transform)
-  : dim_(dim),
-    redop_id_(redop_id),
-    pr_(pr),
-    fid_(fid),
-    transform_(std::forward<Transform>(transform))
+Domain Shift::transform(const Domain &input) const
+{
+  auto result = nullptr != parent_ ? parent_->transform(input) : input;
+  result.rect_data[dim_] += offset_;
+  result.rect_data[dim_ + result.dim] += offset_;
+  return result;
+}
+
+DomainAffineTransform Shift::inverse_transform(int32_t in_dim) const
+{
+  assert(dim_ < in_dim);
+  auto out_dim = in_dim;
+
+  DomainTransform transform;
+  transform.m = out_dim;
+  transform.n = in_dim;
+  for (int32_t i = 0; i < out_dim; ++i)
+    for (int32_t j = 0; j < in_dim; ++j)
+      transform.matrix[i * in_dim + j] = static_cast<coord_t>(i == j);
+
+  DomainPoint offset;
+  offset.dim = out_dim;
+  for (int32_t i = 0; i < out_dim; ++i) offset[i] = i == dim_ ? -offset_ : 0;
+
+  DomainAffineTransform result;
+  result.transform = transform;
+  result.offset    = offset;
+
+  if (nullptr != parent_) {
+    auto parent = parent_->inverse_transform(out_dim);
+    return combine(parent, result);
+  } else
+    return result;
+}
+
+Promote::Promote(int32_t extra_dim, int64_t dim_size, TransformP &&parent)
+  : Transform(std::forward<TransformP>(parent)), extra_dim_(extra_dim), dim_size_(dim_size)
+{
+}
+
+Domain Promote::transform(const Domain &input) const
+{
+  auto promote = [](int32_t extra_dim, int64_t dim_size, const Domain &input) {
+    Domain output;
+    output.dim = input.dim + 1;
+
+    for (int32_t out_dim = 0, in_dim = 0; out_dim < output.dim; ++out_dim)
+      if (out_dim == extra_dim) {
+        output.rect_data[out_dim]              = 0;
+        output.rect_data[out_dim + output.dim] = dim_size - 1;
+      } else {
+        output.rect_data[out_dim]              = input.rect_data[in_dim];
+        output.rect_data[out_dim + output.dim] = input.rect_data[in_dim + input.dim];
+        ++in_dim;
+      }
+    return output;
+  };
+
+  return promote(extra_dim_, dim_size_, nullptr != parent_ ? parent_->transform(input) : input);
+}
+
+DomainAffineTransform Promote::inverse_transform(int32_t in_dim) const
+{
+  assert(extra_dim_ < in_dim);
+  auto out_dim = in_dim - 1;
+
+  DomainTransform transform;
+  transform.m = out_dim;
+  transform.n = in_dim;
+  for (int32_t i = 0; i < out_dim; ++i)
+    for (int32_t j = 0; j < in_dim; ++j) transform.matrix[i * in_dim + j] = 0;
+
+  for (int32_t j = 0, i = 0; j < in_dim; ++j)
+    if (j != extra_dim_) transform.matrix[i++ * in_dim + j] = 1;
+
+  DomainPoint offset;
+  offset.dim = out_dim;
+  for (int32_t i = 0; i < out_dim; ++i) offset[i] = 0;
+
+  DomainAffineTransform result;
+  result.transform = transform;
+  result.offset    = offset;
+
+  if (nullptr != parent_) {
+    auto parent = parent_->inverse_transform(out_dim);
+    return combine(parent, result);
+  } else
+    return result;
+}
+
+Project::Project(int32_t dim, int64_t coord, TransformP &&parent)
+  : Transform(std::forward<TransformP>(parent)), dim_(dim), coord_(coord)
+{
+}
+
+Domain Project::transform(const Domain &input) const
+{
+  auto project = [](int32_t collapsed_dim, const Domain &input) {
+    Domain output;
+    output.dim = input.dim - 1;
+
+    for (int32_t in_dim = 0, out_dim = 0; in_dim < input.dim; ++in_dim)
+      if (in_dim != collapsed_dim) {
+        output.rect_data[out_dim]              = input.rect_data[in_dim];
+        output.rect_data[out_dim + output.dim] = input.rect_data[in_dim + input.dim];
+        ++out_dim;
+      }
+    return output;
+  };
+
+  return project(dim_, nullptr != parent_ ? parent_->transform(input) : input);
+}
+
+DomainAffineTransform Project::inverse_transform(int32_t in_dim) const
+{
+  assert(dim_ < in_dim);
+  auto out_dim = in_dim + 1;
+
+  DomainTransform transform;
+  transform.m = out_dim;
+  transform.n = in_dim;
+  for (int32_t i = 0; i < out_dim; ++i)
+    for (int32_t j = 0; j < in_dim; ++j) transform.matrix[i * in_dim + j] = 0;
+
+  for (int32_t i = 0, j = 0; i < out_dim; ++i)
+    if (i != dim_) transform.matrix[i * in_dim + j++] = 1;
+
+  DomainPoint offset;
+  offset.dim = out_dim;
+  for (int32_t i = 0; i < out_dim; ++i) offset[i] = i == dim_ ? coord_ : 0;
+
+  DomainAffineTransform result;
+  result.transform = transform;
+  result.offset    = offset;
+
+  if (nullptr != parent_) {
+    auto parent = parent_->inverse_transform(out_dim);
+    return combine(parent, result);
+  } else
+    return result;
+}
+
+RegionField::RegionField(int32_t dim, const PhysicalRegion &pr, FieldID fid)
+  : dim_(dim), pr_(pr), fid_(fid)
 {
 }
 
 RegionField::RegionField(RegionField &&other) noexcept
-  : dim_(other.dim_),
-    redop_id_(other.redop_id_),
-    pr_(other.pr_),
-    fid_(other.fid_),
-    transform_(std::forward<Transform>(other.transform_))
+  : dim_(other.dim_), pr_(other.pr_), fid_(other.fid_)
 {
 }
 
 RegionField &RegionField::operator=(RegionField &&other) noexcept
 {
-  dim_       = other.dim_;
-  redop_id_  = other.redop_id_;
-  pr_        = other.pr_;
-  fid_       = other.fid_;
-  transform_ = std::move(other.transform_);
+  dim_ = other.dim_;
+  pr_  = other.pr_;
+  fid_ = other.fid_;
   return *this;
 }
 
-Store::Store(int32_t dim, LegateTypeCode code, Shape &&shape, Future future)
-  : is_future_(true), dim_(dim), code_(code), shape_(std::forward<Shape>(shape)), future_(future)
+Domain RegionField::domain() const { return dim_dispatch(dim_, get_domain_fn{}, pr_); }
+
+Store::Store(int32_t dim,
+             LegateTypeCode code,
+             int32_t redop_id,
+             Future future,
+             std::unique_ptr<Transform> transform)
+  : is_future_(true),
+    dim_(dim),
+    code_(code),
+    redop_id_(redop_id),
+    future_(future),
+    transform_(std::move(transform))
 {
 }
 
-Store::Store(int32_t dim, LegateTypeCode code, Shape &&shape, RegionField &&region_field)
+Store::Store(int32_t dim,
+             LegateTypeCode code,
+             int32_t redop_id,
+             RegionField &&region_field,
+             std::unique_ptr<Transform> transform)
   : is_future_(false),
     dim_(dim),
     code_(code),
-    shape_(std::forward<Shape>(shape)),
-    region_field_(std::forward<RegionField>(region_field))
+    redop_id_(redop_id),
+    region_field_(std::forward<RegionField>(region_field)),
+    transform_(std::move(transform))
 {
 }
 
@@ -265,11 +392,11 @@ Store &Store::operator=(Store &&other) noexcept
   is_future_ = other.is_future_;
   dim_       = other.dim_;
   code_      = other.code_;
-  shape_     = std::move(other.shape_);
   if (is_future_)
     future_ = other.future_;
   else
     region_field_ = std::move(other.region_field_);
+  transform_ = std::move(other.transform_);
   return *this;
 }
 

@@ -66,6 +66,12 @@ class ScalarArg(object):
         else:
             raise ValueError("Unsupported data type: %s" % str(self._dtype))
 
+    def __str__(self):
+        return f"ScalarArg({self._value}, {self._dtype})"
+
+    def __repr__(self):
+        return str(self)
+
 
 class DtypeArg(object):
     def __init__(self, dtype):
@@ -73,6 +79,12 @@ class DtypeArg(object):
 
     def pack(self, buf):
         buf.pack_dtype(self._dtype)
+
+    def __str__(self):
+        return f"DtypeArg({self._dtype})"
+
+    def __repr__(self):
+        return str(self)
 
 
 class PointArg(object):
@@ -87,32 +99,24 @@ class PointArg(object):
 
 
 class RegionFieldArg(object):
-    def __init__(self, op, dim, redop, key, field_id, transform):
+    def __init__(self, op, dim, key, field_id):
         self._op = op
         self._dim = dim
-        self._redop = redop
         self._key = key
         self._field_id = field_id
-        self._transform = transform
 
     def pack(self, buf):
-        dim = self._dim if self._transform is None else self._transform.N
-        buf.pack_32bit_int(dim)
-        buf.pack_32bit_int(-1 if self._redop is None else self._redop)
+        buf.pack_32bit_int(self._dim)
         buf.pack_32bit_uint(
             self._op.get_requirement_index(self._key, self._field_id)
         )
         buf.pack_32bit_uint(self._field_id)
-        if self._transform is not None:
-            buf.pack_32bit_int(self._transform.M)
-            buf.pack_32bit_int(self._transform.N)
-            for x in range(0, self._transform.M):
-                for y in range(0, self._transform.N):
-                    buf.pack_64bit_int(self._transform.trans[x, y])
-            for x in range(0, self._transform.M):
-                buf.pack_64bit_int(self._transform.offset[x])
-        else:
-            buf.pack_32bit_int(-1)
+
+    def __str__(self):
+        return f"RegionFieldArg({self._dim}, {self._field_id})"
+
+    def __repr__(self):
+        return str(self)
 
 
 _single_task_calls = {
@@ -392,13 +396,11 @@ class TaskLauncher(object):
             return self._region_reqs_indices[(key, field_id)]
 
     def add_store(self, store, proj, perm, tag, flags):
-        scalar = store.kind == Future
-        self.add_scalar_arg(scalar, bool)
-        self.add_scalar_arg(store.ndim, np.int32)
-        self.add_dtype_arg(store.type)
-        self.add_shape(store.shape)
+        store.serialize(self)
+        redop = -1 if proj.redop is None else proj.redop
+        self.add_scalar_arg(redop, np.int32)
 
-        if scalar:
+        if store.kind == Future:
             if perm != Permission.READ:
                 raise ValueError("Scalar stores must be read only")
             self.add_future(store.storage)
@@ -406,7 +408,6 @@ class TaskLauncher(object):
 
         region = store.storage.region
         field_id = store.storage.field.field_id
-        transform = store.get_accessor_transform()
 
         if region in self._region_args:
             field_set = self._region_args[region]
@@ -420,10 +421,8 @@ class TaskLauncher(object):
             RegionFieldArg(
                 self,
                 region.index_space.get_dim(),
-                proj.redop,
                 RegionReq(region, perm, *proj_info),
                 field_id,
-                transform,
             )
         )
 

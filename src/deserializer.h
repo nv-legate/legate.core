@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <memory>
+
 #include "core.h"
 #include "legate.h"
 
@@ -92,9 +94,9 @@ class Deserializer {
  public:
   friend void deserialize(Deserializer &ctx, UntypedPoint &value);
   friend void deserialize(Deserializer &ctx, Shape &value);
-  friend void deserialize(Deserializer &ctx, Transform &value);
   friend void deserialize(Deserializer &ctx, RegionField &value);
   friend void deserialize(Deserializer &ctx, Store &store);
+  friend std::unique_ptr<Transform> deserialize_transform(Deserializer &ctx);
 
  public:
   template <class T>

@@ -721,11 +721,11 @@ class PartitionManager(object):
         partition.tile_offset = offset
         return partition
 
-    def use_complete_tiling(self, region_field, tile_shape):
+    def use_complete_tiling(self, shape, tile_shape):
         # If it would generate a very large number of elements then
         # we'll apply a heuristic for now and not actually tile it
         # TODO: A better heurisitc for this in the future
-        num_tiles = (region_field.shape // tile_shape).volume
+        num_tiles = (shape // tile_shape).volume
         return not (num_tiles > 256 and num_tiles > 16 * self._num_pieces)
 
 
@@ -910,6 +910,11 @@ class Runtime(object):
         id = self._unique_id
         self._unique_id += 1
         return f"x{id}"
+
+    def get_transform_code(self, name):
+        return getattr(
+            self.core_library, f"LEGATE_CORE_TRANSFORM_{name.upper()}"
+        )
 
     def create_store(self, shape, dtype, optimize_scalar=False):
         return Store(self, shape, dtype, optimize_scalar=optimize_scalar)

@@ -750,3 +750,16 @@ class Store(object):
         return self.storage.get_numpy_array(
             self.shape, context=context, transform=transform
         )
+
+    def _serialize_transform(self, launcher):
+        if self._parent is not None:
+            self._transform.serialize(launcher)
+            self._parent._serialize_transform(launcher)
+        else:
+            launcher.add_scalar_arg(-1, np.int32)
+
+    def serialize(self, launcher):
+        launcher.add_scalar_arg(self._scalar, bool)
+        launcher.add_scalar_arg(self.ndim, np.int32)
+        launcher.add_dtype_arg(self.type)
+        self._serialize_transform(launcher)
