@@ -246,12 +246,12 @@ RegionField &RegionField::operator=(RegionField &&other) noexcept
   return *this;
 }
 
-Array::Array(int32_t dim, LegateTypeCode code, Shape &&shape, Future future)
+Store::Store(int32_t dim, LegateTypeCode code, Shape &&shape, Future future)
   : is_future_(true), dim_(dim), code_(code), shape_(std::forward<Shape>(shape)), future_(future)
 {
 }
 
-Array::Array(int32_t dim, LegateTypeCode code, Shape &&shape, RegionField &&region_field)
+Store::Store(int32_t dim, LegateTypeCode code, Shape &&shape, RegionField &&region_field)
   : is_future_(false),
     dim_(dim),
     code_(code),
@@ -260,7 +260,7 @@ Array::Array(int32_t dim, LegateTypeCode code, Shape &&shape, RegionField &&regi
 {
 }
 
-Array &Array::operator=(Array &&other) noexcept
+Store &Store::operator=(Store &&other) noexcept
 {
   is_future_ = other.is_future_;
   dim_       = other.dim_;

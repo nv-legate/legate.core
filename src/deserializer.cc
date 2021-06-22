@@ -174,7 +174,7 @@ void deserialize(Deserializer &ctx, RegionField &value)
   value = RegionField(dim, redop_id, pr, fid, std::move(transform));
 }
 
-void deserialize(Deserializer &ctx, Array &array)
+void deserialize(Deserializer &ctx, Store &store)
 {
   auto is_future = ctx.deserializer_.unpack_bool();
   auto dim       = ctx.deserializer_.unpack_32bit_int();
@@ -184,12 +184,12 @@ void deserialize(Deserializer &ctx, Array &array)
   deserialize(ctx, shape);
 
   if (is_future) {
-    array        = Array(dim, code, std::move(shape), ctx.futures_[0]);
+    store        = Store(dim, code, std::move(shape), ctx.futures_[0]);
     ctx.futures_ = ctx.futures_.subspan(1);
   } else {
     RegionField rf;
     deserialize(ctx, rf);
-    array = Array(dim, code, std::move(shape), std::move(rf));
+    store = Store(dim, code, std::move(shape), std::move(rf));
   }
 }
 

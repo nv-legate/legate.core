@@ -337,19 +337,19 @@ class RegionField {
   bool reducible_{false};
 };
 
-class Array {
+class Store {
  public:
-  Array() {}
-  Array(int32_t dim, LegateTypeCode code, Shape &&shape, Legion::Future future);
-  Array(int32_t dim, LegateTypeCode code, Shape &&shape, RegionField &&region_field);
+  Store() {}
+  Store(int32_t dim, LegateTypeCode code, Shape &&shape, Legion::Future future);
+  Store(int32_t dim, LegateTypeCode code, Shape &&shape, RegionField &&region_field);
 
  public:
-  Array(Array &&other) noexcept;
-  Array &operator=(Array &&other) noexcept;
+  Store(Store &&other) noexcept;
+  Store &operator=(Store &&other) noexcept;
 
  private:
-  Array(const Array &other) = delete;
-  Array &operator=(const Array &other) = delete;
+  Store(const Store &other) = delete;
+  Store &operator=(const Store &other) = delete;
 
  public:
   int32_t dim() const { return dim_; }

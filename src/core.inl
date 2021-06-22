@@ -142,7 +142,7 @@ AccessorRD<OP, EXCLUSIVE, DIM> RegionField::reduce_accessor(const Legion::Rect<D
 }
 
 template <typename T, int DIM>
-AccessorRO<T, DIM> Array::read_accessor() const
+AccessorRO<T, DIM> Store::read_accessor() const
 {
   if (is_future_) {
     auto memkind = Legion::Memory::Kind::NO_MEMKIND;
@@ -152,28 +152,28 @@ AccessorRO<T, DIM> Array::read_accessor() const
 }
 
 template <typename T, int DIM>
-AccessorWO<T, DIM> Array::write_accessor() const
+AccessorWO<T, DIM> Store::write_accessor() const
 {
   assert(!is_future_);
   return region_field_.write_accessor<T, DIM>();
 }
 
 template <typename T, int DIM>
-AccessorRW<T, DIM> Array::read_write_accessor() const
+AccessorRW<T, DIM> Store::read_write_accessor() const
 {
   assert(!is_future_);
   return region_field_.read_write_accessor<T, DIM>();
 }
 
 template <typename OP, bool EXCLUSIVE, int DIM>
-AccessorRD<OP, EXCLUSIVE, DIM> Array::reduce_accessor() const
+AccessorRD<OP, EXCLUSIVE, DIM> Store::reduce_accessor() const
 {
   assert(!is_future_);
   return region_field_.reduce_accessor<OP, EXCLUSIVE, DIM>();
 }
 
 template <typename T, int DIM>
-AccessorRO<T, DIM> Array::read_accessor(const Legion::Rect<DIM> &bounds) const
+AccessorRO<T, DIM> Store::read_accessor(const Legion::Rect<DIM> &bounds) const
 {
   if (is_future_) {
     auto memkind = Legion::Memory::Kind::NO_MEMKIND;
@@ -184,34 +184,34 @@ AccessorRO<T, DIM> Array::read_accessor(const Legion::Rect<DIM> &bounds) const
 }
 
 template <typename T, int DIM>
-AccessorWO<T, DIM> Array::write_accessor(const Legion::Rect<DIM> &bounds) const
+AccessorWO<T, DIM> Store::write_accessor(const Legion::Rect<DIM> &bounds) const
 {
   assert(!is_future_);
   return region_field_.write_accessor<T, DIM>(bounds);
 }
 
 template <typename T, int DIM>
-AccessorRW<T, DIM> Array::read_write_accessor(const Legion::Rect<DIM> &bounds) const
+AccessorRW<T, DIM> Store::read_write_accessor(const Legion::Rect<DIM> &bounds) const
 {
   assert(!is_future_);
   return region_field_.read_write_accessor<T, DIM>(bounds);
 }
 
 template <typename OP, bool EXCLUSIVE, int DIM>
-AccessorRD<OP, EXCLUSIVE, DIM> Array::reduce_accessor(const Legion::Rect<DIM> &bounds) const
+AccessorRD<OP, EXCLUSIVE, DIM> Store::reduce_accessor(const Legion::Rect<DIM> &bounds) const
 {
   assert(!is_future_);
   return region_field_.reduce_accessor<OP, EXCLUSIVE, DIM>(bounds);
 }
 
 template <int32_t DIM>
-Legion::Rect<DIM> Array::shape() const
+Legion::Rect<DIM> Store::shape() const
 {
   return shape_.to_rect<DIM>();
 }
 
 template <typename VAL>
-VAL Array::scalar() const
+VAL Store::scalar() const
 {
   return future_.get_result<VAL>();
 }
