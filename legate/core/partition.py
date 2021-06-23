@@ -16,6 +16,7 @@
 
 from .launcher import Broadcast, Partition
 from .legion import (
+    Future,
     IndexPartition,
     PartitionByRestriction,
     Rect,
@@ -157,6 +158,7 @@ class Tiling(object):
         return region.get_child(index_partition)
 
     def get_requirement(self, store):
+        assert store.kind != Future
         transform = store.get_inverse_transform()
         part = self.construct(
             store.storage.region, store.shape, inverse_transform=transform

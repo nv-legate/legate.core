@@ -580,7 +580,9 @@ class Store(object):
             or isinstance(storage, Future)
         )
         self._storage = storage
-        self._scalar = optimize_scalar and shape.volume() <= 1
+        self._scalar = optimize_scalar and (
+            shape.volume() <= 1 or isinstance(storage, Future)
+        )
         self._parent = parent
         self._transform = transform
         self._inverse_transform = None
@@ -635,13 +637,12 @@ class Store(object):
             else:
                 assert self._transform is not None
                 if self._parent.kind == Future:
-                    self._storage = self._parent._storage
-                    return
-
-                tiling = Tiling(
-                    self._runtime, self.shape, Shape((1,) * self.ndim)
-                )
-                self._storage = self._get_tile(tiling)
+                    self._storage = self._parent.storage
+                else:
+                    tiling = Tiling(
+                        self._runtime, self.shape, Shape((1,) * self.ndim)
+                    )
+                    self._storage = self._get_tile(tiling)
 
         return self._storage
 
@@ -684,6 +685,7 @@ class Store(object):
             self._runtime,
             shape,
             self._dtype,
+            storage=self._storage if self._scalar else None,
             optimize_scalar=self._scalar,
             parent=self,
             transform=transform,
@@ -701,6 +703,7 @@ class Store(object):
             self._runtime,
             shape,
             self._dtype,
+            storage=self._storage if self._scalar else None,
             optimize_scalar=self._scalar,
             parent=self,
             transform=transform,
@@ -732,6 +735,7 @@ class Store(object):
             self._runtime,
             shape,
             self._dtype,
+            storage=self._storage if self._scalar else None,
             optimize_scalar=self._scalar,
             parent=self,
             transform=transform,
@@ -770,6 +774,8 @@ class Store(object):
         self._serialize_transform(launcher)
 
     def find_key_partition(self):
+        if self._scalar:
+            return NoPartition()
         launch_shape = self._partition_manager.compute_launch_shape(self)
         if launch_shape is None:
             return NoPartition()

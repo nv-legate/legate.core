@@ -923,8 +923,14 @@ class Runtime(object):
             self.core_library, f"LEGATE_CORE_TRANSFORM_{name.upper()}"
         )
 
-    def create_store(self, shape, dtype, optimize_scalar=False):
-        return Store(self, shape, dtype, optimize_scalar=optimize_scalar)
+    def create_store(self, shape, dtype, storage=None, optimize_scalar=False):
+        return Store(
+            self,
+            shape,
+            dtype,
+            storage=storage,
+            optimize_scalar=optimize_scalar,
+        )
 
     def allocate_field(self, shape, dtype):
         assert not self.destroyed
