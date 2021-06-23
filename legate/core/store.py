@@ -28,8 +28,8 @@ from .legion import (
     ffi,
     legion,
 )
-from .partition import Tiling
-from .solver import Shape
+from .partition import NoPartition, Tiling
+from .shape import Shape
 from .transform import Project, Promote, Shift
 
 
@@ -487,23 +487,26 @@ class RegionField(object):
         # As an interesting optimization, if we can evenly tile the
         # region in all dimensions of the parent region, then we'll make
         # a disjoint tiled partition with as many children as possible
-        complete_tiling = (tiling.offset % tile_shape).volume == 0 and (
+        can_tile_completely = (tiling.offset % tile_shape).sum() == 0 and (
             shape % tile_shape
-        ).volume == 0
+        ).sum() == 0
 
-        if complete_tiling and self.partition_manager.use_complete_tiling(
+        if can_tile_completely and self.partition_manager.use_complete_tiling(
             shape, tile_shape
         ):
             color_shape = shape // tile_shape
-            tiling = Tiling(self.runtime, tile_shape, color_shape)
+            new_tiling = Tiling(self.runtime, tile_shape, color_shape)
             color = tiling.offset // tile_shape
+            tiling = new_tiling
+            complete = True
         else:
             color = (0,) * shape.ndim
+            complete = False
 
         if tiling in self._partitions:
             partition = self._partitions[tiling]
         else:
-            partition = tiling.construct(self.region, shape, complete_tiling)
+            partition = tiling.construct(self.region, shape, complete=complete)
             self._partitions[tiling] = partition
 
         child_region = partition.get_child(Point(color))
@@ -567,6 +570,7 @@ class Store(object):
 
         """
         self._runtime = runtime
+        self._partition_manager = runtime.partition_manager
         shape = Shape(shape)
         self._shape = shape
         self._dtype = dtype
@@ -576,7 +580,7 @@ class Store(object):
             or isinstance(storage, Future)
         )
         self._storage = storage
-        self._scalar = optimize_scalar and shape.volume <= 1
+        self._scalar = optimize_scalar and shape.volume() <= 1
         self._parent = parent
         self._transform = transform
         self._accessor_transform = None
@@ -657,7 +661,7 @@ class Store(object):
         if self._parent is None:
             return (
                 f"<Store(shape: {self._shape}, type: {self._dtype}, "
-                f"kind: {self.kind.__name__}, storage: {self._storage.shape})>"
+                f"kind: {self.kind.__name__}, storage: {self._storage})>"
             )
         else:
             return (
@@ -732,21 +736,21 @@ class Store(object):
             transform=transform,
         )
 
-    def get_accessor_transform(self):
+    def get_inverse_transform(self):
         if self._parent is None:
             return None
         else:
             if self._accessor_transform is None:
                 self._accessor_transform = (
-                    self._transform.get_accessor_transform(
+                    self._transform.get_inverse_transform(
                         self.shape,
-                        self._parent.get_accessor_transform(),
+                        self._parent.get_inverse_transform(),
                     )
                 )
             return self._accessor_transform
 
     def get_numpy_array(self, context=None):
-        transform = self.get_accessor_transform()
+        transform = self.get_inverse_transform()
         return self.storage.get_numpy_array(
             self.shape, context=context, transform=transform
         )
@@ -763,3 +767,13 @@ class Store(object):
         launcher.add_scalar_arg(self.ndim, np.int32)
         launcher.add_dtype_arg(self.type)
         self._serialize_transform(launcher)
+
+    def find_key_partition(self):
+        launch_shape = self._partition_manager.compute_launch_shape(self)
+        if launch_shape is None:
+            return NoPartition()
+        else:
+            tile_shape = self._partition_manager.compute_tile_shape(
+                self.shape, launch_shape
+            )
+            return Tiling(self._runtime, tile_shape, launch_shape)

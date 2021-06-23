@@ -14,6 +14,7 @@
 #
 
 
+from .launcher import Broadcast, Partition
 from .legion import (
     IndexPartition,
     PartitionByRestriction,
@@ -21,7 +22,28 @@ from .legion import (
     Transform,
     legion,
 )
-from .solver import Shape
+from .shape import Shape
+
+
+class NoPartition(object):
+    @property
+    def color_shape(self):
+        return None
+
+    def get_requirement(self, store):
+        return Broadcast()
+
+    def __hash__(self):
+        return hash(self.__class__)
+
+    def __eq__(self, other):
+        return isinstance(other, NoPartition)
+
+    def __str__(self):
+        return "NoPartition"
+
+    def __repr__(self):
+        return str(self)
 
 
 class Tiling(object):
@@ -89,15 +111,15 @@ class Tiling(object):
 
         offset = other._offset - self._offset
         # The difference of the offsets must be a multiple of the tile size
-        return (offset % self._tile_shape).volume == 0
+        return (offset % self._tile_shape).sum() == 0
 
     def is_complete_for(self, shape):
-        if self._offset.volume > 0:
+        if self._offset.sum() > 0:
             return False
         covered = self._tile_shape * self._color_shape
         return covered >= shape
 
-    def construct(self, region, shape, complete=None):
+    def construct(self, region, shape, complete=None, inverse_transform=None):
         tile_shape = self._tile_shape
         transform = Transform(tile_shape.ndim, tile_shape.ndim)
         for idx, size in enumerate(tile_shape):
@@ -105,6 +127,14 @@ class Tiling(object):
 
         lo = Shape((0,) * tile_shape.ndim) + self._offset
         hi = self._tile_shape - 1 + self._offset
+
+        if inverse_transform is not None:
+            inverse = Transform(*inverse_transform.trans.shape)
+            inverse.trans = inverse_transform.trans
+            transform = transform.compose(inverse)
+            lo = inverse_transform.apply(lo)
+            hi = inverse_transform.apply(hi)
+
         extent = Rect(hi, lo, exclusive=False)
 
         color_space = self._runtime.find_or_create_index_space(
@@ -125,3 +155,10 @@ class Tiling(object):
             keep=True,  # export this partition functor to other libraries
         )
         return region.get_child(index_partition)
+
+    def get_requirement(self, store):
+        transform = store.get_inverse_transform()
+        part = self.construct(
+            store.storage.region, store.shape, inverse_transform=transform
+        )
+        return Partition(part)

@@ -40,6 +40,7 @@ from .legion import (
     legate_task_preamble,
     legion,
 )
+from .shape import Shape
 from .store import RegionField, Store
 
 
@@ -404,7 +405,9 @@ class AttachmentManager(object):
             region_field = RegionField(
                 self._runtime, region, field, array.shape
             )
-        return Store(self, array.shape, array.dtype, storage=region_field)
+        return Store(
+            self._runtime, array.shape, array.dtype, storage=region_field
+        )
 
     def remove_attachment(self, array):
         key = self.attachment_key(array)
@@ -496,7 +499,8 @@ class PartitionManager(object):
             )
         self._piece_factors = list(reversed(factors))
 
-    def compute_parallel_launch_space_by_shape(self, shape):
+    def compute_launch_shape(self, store):
+        shape = store.shape
         assert self._num_pieces > 0
         # Easy case if we only have one piece: no parallel launch space
         if self._num_pieces == 1:
@@ -640,6 +644,7 @@ class PartitionManager(object):
                 result = result + (temp_result[temp_dims.index(dim)],)
             else:
                 result = result + (1,)
+        result = Shape(result)
         # Save the result for later
         self._launch_spaces[shape] = result
         return result
@@ -647,7 +652,9 @@ class PartitionManager(object):
     def compute_tile_shape(self, shape, launch_space):
         assert len(shape) == len(launch_space)
         # Over approximate the tiles so that the ends might be small
-        return tuple(map(lambda x, y: (x + y - 1) // y, shape, launch_space))
+        return Shape(
+            tuple(map(lambda x, y: (x + y - 1) // y, shape, launch_space))
+        )
 
     def find_or_create_partition(
         self, region, color_shape, tile_shape, offset, transform, complete=True
@@ -725,7 +732,7 @@ class PartitionManager(object):
         # If it would generate a very large number of elements then
         # we'll apply a heuristic for now and not actually tile it
         # TODO: A better heurisitc for this in the future
-        num_tiles = (shape // tile_shape).volume
+        num_tiles = (shape // tile_shape).volume()
         return not (num_tiles > 256 and num_tiles > 16 * self._num_pieces)
 
 

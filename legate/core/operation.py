@@ -13,8 +13,8 @@
 # limitations under the License.
 #
 
-from .launcher import Broadcast, TaskLauncher
-from .solver import Constraint
+from .launcher import TaskLauncher
+from .solver import EqClass, Partitioner
 
 
 class Operation(object):
@@ -25,7 +25,7 @@ class Operation(object):
         self._inputs = []
         self._outputs = []
         self._reductions = []
-        self._constraints = []
+        self._constraints = EqClass()
 
     @property
     def context(self):
@@ -55,6 +55,15 @@ class Operation(object):
     def constraints(self):
         return self._constraints
 
+    def get_all_stores(self):
+        stores = (
+            set(self._no_accesses)
+            | set(self._inputs)
+            | set(self._outputs)
+            | set(store for (store, _) in self._reductions)
+        )
+        return stores
+
     def add_no_access(self, store):
         self._no_accesses.append(store)
 
@@ -67,14 +76,13 @@ class Operation(object):
     def add_reduction(self, store, redop):
         self._reductions.append((store, redop))
 
-    def add_constraint(self, constraint):
-        if isinstance(constraint, list):
-            for c in constraint:
-                if not isinstance(c, Constraint):
-                    raise ValueError(f"{c} is not a valid constraint")
-                self.add_constraint(c)
-        else:
-            self._constraints.append(constraint)
+    def add_alignment(self, store1, store2):
+        if store1.shape != store2.shape:
+            raise ValueError(
+                "Stores must have the same shape to be aligned, "
+                f"but got {store1.shape} and {store2.shape}"
+            )
+        self._constraints.record(store1, store2)
 
 
 class Task(Operation):
@@ -87,17 +95,22 @@ class Task(Operation):
         self._scalar_args.append((value, dtype))
 
     def execute(self):
+        partitioner = Partitioner(self._context.runtime, [self])
+        strategy = partitioner.partition_stores()
+
         launcher = TaskLauncher(self.context, self._task_id, self.mapper_id)
 
         for no_access in self._no_accesses:
-            launcher.add_no_access(no_access, Broadcast())
+            launcher.add_no_access(no_access, strategy[no_access])
         for input in self._inputs:
-            launcher.add_input(input, Broadcast())
+            launcher.add_input(input, strategy[input])
         for output in self._outputs:
-            launcher.add_output(output, Broadcast())
+            launcher.add_output(output, strategy[output])
         for (reduction, redop) in self._reductions:
-            launcher.add_reduction(output, Broadcast(redop))
+            partition = strategy[reduction]
+            partition.redop = redop
+            launcher.add_reduction(output, partition)
         for (arg, dtype) in self._scalar_args:
             launcher.add_scalar_arg(arg, dtype)
 
-        launcher.execute_single()
+        strategy.launch(launcher)

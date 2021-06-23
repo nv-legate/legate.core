@@ -18,7 +18,7 @@ import numpy as np
 
 from .legion import AffineTransform
 from .partition import Tiling
-from .solver import Shape
+from .shape import Shape
 
 
 class Transform(object):
@@ -60,7 +60,7 @@ class Shift(Transform):
                 f"Unsupported partition: {type(partition).__name__}"
             )
 
-    def get_accessor_transform(self, shape, parent_transform=None):
+    def get_inverse_transform(self, shape, parent_transform=None):
         result = AffineTransform(shape.ndim, shape.ndim, True)
         result.offset[self._dim] = -self._offset
         if parent_transform is not None:
@@ -108,7 +108,7 @@ class Promote(Transform):
             )
 
     # Returns the parent partition that coincides a given partition of a child
-    def get_accessor_transform(self, shape, parent_transform=None):
+    def get_inverse_transform(self, shape, parent_transform=None):
         parent_ndim = shape.ndim - 1
         result = AffineTransform(parent_ndim, shape.ndim, False)
         parent_dim = 0
@@ -157,7 +157,7 @@ class Project(Transform):
             )
 
     # Returns the parent partition that coincides a given partition of a child
-    def get_accessor_transform(self, shape, parent_transform=None):
+    def get_inverse_transform(self, shape, parent_transform=None):
         parent_ndim = shape.ndim + 1
         result = AffineTransform(parent_ndim, shape.ndim, False)
         result.offset[self._dim] = self._index

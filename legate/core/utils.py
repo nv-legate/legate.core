@@ -13,12 +13,6 @@
 # limitations under the License.
 #
 
-from functools import reduce
-
 
 def cast_tuple(value):
     return value if isinstance(value, tuple) else tuple(value)
-
-
-def compute_volume(shape):
-    return reduce(lambda x, y: x * y, shape, 1)

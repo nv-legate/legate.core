@@ -13,7 +13,8 @@
 # limitations under the License.
 #
 
-from .utils import compute_volume
+from .legion import Rect
+from .partition import NoPartition
 
 
 class Expression(object):
@@ -151,82 +152,124 @@ class Subsume(Constraint):
         super(Subsume, self).__init__(lhs, rhs, ">=")
 
 
-def _cast_tuple(value, ndim):
-    if isinstance(value, Shape):
-        return value._shape
-    elif isinstance(value, tuple):
-        return value
-    elif isinstance(value, int):
-        return (value,) * ndim
-    else:
-        raise ValueError(f"Cannot cast {type(value).__name__} to tuple")
-
-
-class Shape(object):
-    def __init__(self, shape):
-        self._shape = tuple(shape)
-        self._volume = compute_volume(shape)
-
-    def __str__(self):
-        return str(self._shape)
-
-    def __getitem__(self, idx):
-        return self._shape[idx]
-
-    def __len__(self):
-        return len(self._shape)
+class EqClass(object):
+    def __init__(self):
+        # Maps a store to the equivalent class id
+        self._class_ids = {}
+        self._next_class_id = 0
+        # Maps an equivalent class id to the class
+        self._classes = {}
 
     @property
-    def ndim(self):
-        return len(self._shape)
+    def empty(self):
+        return self._next_class_id == 0
 
-    @property
-    def volume(self):
-        return self._volume
+    def _add(self, store1, store2):
+        cls = set([store1, store2])
+        cls_id = self._next_class_id
+        self._next_class_id + 1
+        self._classes[cls_id] = cls
+        self._class_ids[store1] = cls_id
+        self._class_ids[store2] = cls_id
 
-    def __hash__(self):
-        return hash((self.__class__, self._shape))
+    def _update(self, store1, store2):
+        cls_id = self._class_ids[store1]
+        cls = self._classes[cls_id]
+        cls.add(store2)
+        self._class_ids[store2] = cls_id
 
-    def __le__(self, other):
-        lh = _cast_tuple(self, self.ndim)
-        rh = _cast_tuple(other, self.ndim)
-        return len(lh) == len(rh) and lh <= rh
+    def _merge(self, store1, store2):
+        cls_id1 = self._class_ids[store1]
+        cls_id2 = self._class_ids[store2]
+        cls = self._classes[cls_id1] | self._classes[cls_id2]
+        self._classes[cls_id1] = cls
+        self._classes[cls_id2] = cls
 
-    def __eq__(self, other):
-        lh = _cast_tuple(self, self.ndim)
-        rh = _cast_tuple(other, self.ndim)
-        return lh == rh
+    def record(self, store1, store2):
+        """
+        Record an equivalence relation between two stores
+        """
+        found1 = store1 in self._class_ids
+        found2 = store2 in self._class_ids
 
-    def __add__(self, other):
-        lh = _cast_tuple(self, self.ndim)
-        rh = _cast_tuple(other, self.ndim)
-        return Shape(tuple(a + b for (a, b) in zip(lh, rh)))
+        if not found1 and not found2:
+            self._add(store1, store2)
+        elif found1:
+            self._update(store1, store2)
+        elif found2:
+            self._update(store2, store1)
+        else:
+            self._merge(store1, store2)
 
-    def __sub__(self, other):
-        lh = _cast_tuple(self, self.ndim)
-        rh = _cast_tuple(other, self.ndim)
-        return Shape(tuple(a - b for (a, b) in zip(lh, rh)))
+    def copy(self):
+        new = EqClass()
+        new._class_ids = self._class_ids.copy()
+        new._classes = self._classes.copy()
+        return new
 
-    def __mul__(self, other):
-        lh = _cast_tuple(self, self.ndim)
-        rh = _cast_tuple(other, self.ndim)
-        return Shape(tuple(a * b for (a, b) in zip(lh, rh)))
+    def union(self, other):
+        if self.empty:
+            self._class_ids = other._class_ids.copy()
+            self._classes = other._classes.copy()
+        else:
+            for other_class in other._classes.values():
+                cls = other_class.copy()
+                store1 = cls.pop()
+                for store2 in cls:
+                    self.record(store1, store2)
 
-    def __mod__(self, other):
-        lh = _cast_tuple(self, self.ndim)
-        rh = _cast_tuple(other, self.ndim)
-        return Shape(tuple(a % b for (a, b) in zip(lh, rh)))
+    def find(self, store):
+        """
+        Return an equivalence class for a given store.
+        """
+        if store not in self._class_ids:
+            return set([store])
+        else:
+            return self._classes[self._class_ids[store]]
 
-    def __floordiv__(self, other):
-        lh = _cast_tuple(self, self.ndim)
-        rh = _cast_tuple(other, self.ndim)
-        return Shape(tuple(a // b for (a, b) in zip(lh, rh)))
 
-    def drop(self, dim):
-        return Shape(self._shape[:dim] + self._shape[dim + 1 :])
+class Strategy(object):
+    def __init__(self, launch_shape, strategy):
+        self._launch_shape = launch_shape
+        self._strategy = strategy
 
-    def update(self, dim, new_value):
-        return Shape(self._shape[:dim] + (new_value,) + self._shape[dim + 1 :])
+    def __getitem__(self, store):
+        if store not in self._strategy:
+            raise ValueError(f"No strategy is found for {store}")
+        return self._strategy[store].get_requirement(store)
 
-    def insert(self, dim, new_value):
-        return Shape(self._shape[:dim] + (new_value,) + self._shape[dim:])
+    def launch(self, launcher):
+        if self._launch_shape is None:
+            launcher.execute_single()
+        else:
+            launcher.execute(Rect(self._launch_shape))
+
+
+class Partitioner(object):
+    def __init__(self, runtime, ops):
+        self._runtime = runtime
+        self._ops = ops
+
+    def partition_stores(self):
+        stores = set()
+        constraints = EqClass()
+        for op in self._ops:
+            stores.update(op.get_all_stores())
+            constraints.union(op.constraints)
+
+        partitions = {}
+        prev_part = None
+        while len(stores) > 0:
+            store = stores.pop()
+            if isinstance(prev_part, NoPartition):
+                partition = prev_part
+            else:
+                partition = store.find_key_partition()
+
+            cls = constraints.find(store)
+            for to_align in cls:
+                partitions[to_align] = partition
+            stores = stores - cls
+            prev_part = partition
+
+        return Strategy(prev_part.color_shape, partitions)
