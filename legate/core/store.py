@@ -583,7 +583,7 @@ class Store(object):
         self._scalar = optimize_scalar and shape.volume() <= 1
         self._parent = parent
         self._transform = transform
-        self._accessor_transform = None
+        self._inverse_transform = None
 
     @property
     def shape(self):
@@ -692,6 +692,7 @@ class Store(object):
     # Take a hyperplane of an N-D store for a given index
     # to create an (N-1)-D store
     def project(self, dim, index):
+        assert dim < self.ndim
         transform = Project(self._runtime, dim, index)
         shape = transform.compute_shape(self._shape)
         if self._shape == shape:
@@ -740,14 +741,14 @@ class Store(object):
         if self._parent is None:
             return None
         else:
-            if self._accessor_transform is None:
-                self._accessor_transform = (
+            if self._inverse_transform is None:
+                self._inverse_transform = (
                     self._transform.get_inverse_transform(
                         self.shape,
                         self._parent.get_inverse_transform(),
                     )
                 )
-            return self._accessor_transform
+            return self._inverse_transform
 
     def get_numpy_array(self, context=None):
         transform = self.get_inverse_transform()
@@ -777,3 +778,16 @@ class Store(object):
                 self.shape, launch_shape
             )
             return Tiling(self._runtime, tile_shape, launch_shape)
+
+    def broadcast(self, shape):
+        result = self
+        diff = len(shape) - result.ndim
+        for dim in range(diff):
+            result = result.promote(dim, shape[dim])
+
+        for dim in range(shape.ndim):
+            if result.shape[dim] != shape[dim]:
+                assert result.shape[dim] == 1
+                result = result.project(dim, 0).promote(dim, shape[dim])
+
+        return result

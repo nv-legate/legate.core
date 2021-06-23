@@ -312,8 +312,8 @@ Domain Project::transform(const Domain &input) const
 
 DomainAffineTransform Project::inverse_transform(int32_t in_dim) const
 {
-  assert(dim_ < in_dim);
   auto out_dim = in_dim + 1;
+  assert(dim_ < out_dim);
 
   DomainTransform transform;
   transform.m = out_dim;

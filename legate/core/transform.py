@@ -162,7 +162,7 @@ class Project(Transform):
         result = AffineTransform(parent_ndim, shape.ndim, False)
         result.offset[self._dim] = self._index
         child_dim = 0
-        for parent_dim in range(shape.ndim):
+        for parent_dim in range(parent_ndim):
             if parent_dim != self._dim:
                 result.trans[parent_dim, child_dim] = 1
                 child_dim += 1
