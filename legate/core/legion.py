@@ -164,7 +164,7 @@ def dispatch(func):
 class Point(object):
     def __init__(self, p=None, dim=None):
         """
-        The Point class wraps an `legion_point_{n}d_t` in the Legion C API.
+        The Point class wraps a `legion_domain_point_t` in the Legion C API.
         """
         if dim is None:
             self.point = legion.legion_domain_point_origin(0)
@@ -230,8 +230,9 @@ class Point(object):
 class Rect(object):
     def __init__(self, hi=None, lo=None, exclusive=True, dim=None):
         """
-        The Rect class wrap a legion_rect_{n}d_t in the Legion C API. It
-        represents an N-D rectangle of dense points.
+        The Rect class represents an N-D rectangle of dense points. It wraps a
+        dense `legion_domain_t` (this is a special case for Domains; in the
+        general case a Domain can also contain a sparsity map).
         """
         self._lo = Point(dim=dim)
         self._hi = Point(dim=dim)
@@ -328,6 +329,39 @@ class Domain(object):
 
     def get_volume(self):
         return legion.legion_domain_get_volume(self.domain)
+
+    def get_rects(self):
+        # NOTE: For debugging only!
+        create = getattr(
+            legion,
+            f"legion_rect_in_domain_iterator_create_{self.dim}d",
+        )
+        destroy = getattr(
+            legion,
+            f"legion_rect_in_domain_iterator_destroy_{self.dim}d",
+        )
+        valid = getattr(
+            legion,
+            f"legion_rect_in_domain_iterator_valid_{self.dim}d",
+        )
+        step = getattr(
+            legion,
+            f"legion_rect_in_domain_iterator_step_{self.dim}d",
+        )
+        get_rect = getattr(
+            legion,
+            f"legion_rect_in_domain_iterator_get_rect_{self.dim}d",
+        )
+        rects = []
+        iterator = create(self.domain)
+        while valid(iterator):
+            nd_rect = get_rect(iterator)
+            lo = [nd_rect.lo.x[i] for i in range(self.dim)]
+            hi = [nd_rect.hi.x[i] for i in range(self.dim)]
+            rects.append(Rect(hi=hi, lo=lo, exclusive=False, dim=self.dim))
+            step(iterator)
+        destroy(iterator)
+        return rects
 
 
 class Transform(object):
