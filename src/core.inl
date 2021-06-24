@@ -266,10 +266,7 @@ AccessorRD<OP, EXCLUSIVE, DIM> Store::reduce_accessor(const Legion::Rect<DIM> &b
 template <int32_t DIM>
 Legion::Rect<DIM> Store::shape() const
 {
-  assert(!is_future_);
-  auto domain = region_field_.domain();
-  if (nullptr != transform_) domain = transform_->transform(domain);
-  return Legion::Rect<DIM>(domain);
+  return Legion::Rect<DIM>(domain());
 }
 
 template <typename VAL>

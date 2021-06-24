@@ -400,4 +400,12 @@ Store &Store::operator=(Store &&other) noexcept
   return *this;
 }
 
+Domain Store::domain() const
+{
+  auto result = is_future_ ? Domain(Rect<1>(Point<1>(0), Point<1>(0))) : region_field_.domain();
+  if (nullptr != transform_) result = transform_->transform(result);
+  assert(result.dim == dim_);
+  return result;
+}
+
 }  // namespace legate
