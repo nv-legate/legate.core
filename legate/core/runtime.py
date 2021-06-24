@@ -41,6 +41,7 @@ from .legion import (
     legion,
 )
 from .shape import Shape
+from .solver import Partitioner
 from .store import RegionField, Store
 
 
@@ -774,6 +775,7 @@ class Runtime(object):
         # to be dispatched. This list allows cross library introspection for
         # Legate operations.
         self._outstanding_ops = []
+        self._window_size = 1
 
         # Now we initialize managers
         self._attachment_manager = AttachmentManager(self)
@@ -874,6 +876,21 @@ class Runtime(object):
             return op.launch(self.legion_runtime, self.legion_context, redop)
         else:
             return op.launch(self.legion_runtime, self.legion_context)
+
+    def _schedule(self, ops):
+        must_be_single = any(op._scalar_output is not None for op in ops)
+        partitioner = Partitioner(self, ops, must_be_single=must_be_single)
+        strategy = partitioner.partition_stores()
+
+        for op in ops:
+            op.launch(strategy)
+
+    def submit(self, op):
+        self._outstanding_ops.append(op)
+        if len(self._outstanding_ops) >= self._window_size:
+            ops = self._outstanding_ops
+            self._outstanding_ops = []
+            self._schedule(ops)
 
     def _progress_unordered_operations(self):
         legion.legion_context_progress_unordered_operations(

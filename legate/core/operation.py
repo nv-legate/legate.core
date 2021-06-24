@@ -16,7 +16,7 @@
 import legate.core.types as ty
 
 from .launcher import TaskLauncher
-from .solver import EqClass, Partitioner
+from .solver import EqClass
 
 
 class Operation(object):
@@ -107,29 +107,11 @@ class Operation(object):
             )
         self._constraints.record(store1, store2)
 
-
-class Task(Operation):
-    def __init__(self, context, task_id, mapper_id=0):
-        Operation.__init__(self, context, mapper_id)
-        self._task_id = task_id
-        self._scalar_args = []
-
-    def add_scalar_arg(self, value, dtype):
-        self._scalar_args.append((value, dtype))
-
-    def add_dtype_arg(self, dtype):
-        code = self._context.type_system[dtype].code
-        self._scalar_args.append((code, ty.int32))
-
     def execute(self):
-        partitioner = Partitioner(
-            self._context.runtime,
-            [self],
-            must_be_single=self._scalar_output is not None,
-        )
-        strategy = partitioner.partition_stores()
+        self._context.runtime.submit(self)
 
-        launcher = TaskLauncher(self.context, self._task_id, self.mapper_id)
+    def launch(self, strategy):
+        launcher = self._create_launcher()
 
         for no_access in self._no_accesses:
             launcher.add_no_access(no_access, strategy[no_access])
@@ -151,3 +133,20 @@ class Task(Operation):
             strategy.launch(launcher, store, redop)
         else:
             strategy.launch(launcher)
+
+
+class Task(Operation):
+    def __init__(self, context, task_id, mapper_id=0):
+        Operation.__init__(self, context, mapper_id)
+        self._task_id = task_id
+        self._scalar_args = []
+
+    def add_scalar_arg(self, value, dtype):
+        self._scalar_args.append((value, dtype))
+
+    def add_dtype_arg(self, dtype):
+        code = self._context.type_system[dtype].code
+        self._scalar_args.append((code, ty.int32))
+
+    def _create_launcher(self):
+        return TaskLauncher(self.context, self._task_id, self.mapper_id)
