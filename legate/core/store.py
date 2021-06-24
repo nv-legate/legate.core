@@ -588,6 +588,7 @@ class Store(object):
         self._parent = parent
         self._transform = transform
         self._inverse_transform = None
+        self._partitions = {}
 
     @property
     def shape(self):
@@ -803,3 +804,15 @@ class Store(object):
                 result = result.project(dim, 0).promote(dim, shape[dim])
 
         return result
+
+    def find_or_create_partition(self, functor):
+        assert not self.scalar
+        if functor in self._partitions:
+            return self._partitions[functor]
+
+        transform = self.get_inverse_transform()
+        part = functor.construct(
+            self.storage.region, self.shape, inverse_transform=transform
+        )
+        self._partitions[functor] = part
+        return part
