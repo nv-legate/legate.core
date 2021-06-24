@@ -288,6 +288,7 @@ class Partitioner(object):
                 else:
                     partitions[to_align] = partition
             stores = stores - cls
-            prev_part = partition
+            if not store.scalar:
+                prev_part = partition
 
         return Strategy(prev_part.color_shape, partitions)
