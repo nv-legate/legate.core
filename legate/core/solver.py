@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-from .legion import Future, Rect
+from .legion import Rect
 from .partition import NoPartition
 
 
@@ -268,7 +268,7 @@ class Partitioner(object):
 
             cls = constraints.find(store)
             for to_align in cls:
-                if to_align.kind == Future:
+                if to_align.scalar:
                     partitions[to_align] = NoPartition()
                 else:
                     partitions[to_align] = partition

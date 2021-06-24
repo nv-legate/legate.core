@@ -17,6 +17,7 @@ import numpy as np
 
 from .legion import Future, legion
 from .operation import Task
+from .types import TypeSystem
 
 
 class ResourceConfig(object):
@@ -53,7 +54,7 @@ class ResourceScope(object):
 
 
 class Context(object):
-    def __init__(self, runtime, library):
+    def __init__(self, runtime, library, inherit_core_types=True):
         """
         A Context is a named scope for Legion resources used in a Legate
         library. A Context is created when the library is registered
@@ -65,6 +66,7 @@ class Context(object):
         """
         self._runtime = runtime
         self._library = library
+        self._type_system = TypeSystem(inherit_core_types)
 
         config = library.get_resource_configuration()
         name = library.get_name().encode("utf-8")
@@ -129,6 +131,10 @@ class Context(object):
     def empty_argmap(self):
         return self._runtime.empty_argmap
 
+    @property
+    def type_system(self):
+        return self._type_system
+
     def get_task_id(self, task_id):
         return self._task_scope.translate(task_id)
 
@@ -171,3 +177,16 @@ class Context(object):
 
     def dispatch(self, op, redop=None):
         return self._runtime.dispatch(op, redop)
+
+    def create_store(self, shape, ty, storage=None, optimize_scalar=False):
+        dtype = self.type_system[ty]
+        return self._runtime.create_store(
+            shape,
+            dtype,
+            storage=storage,
+            optimize_scalar=optimize_scalar,
+        )
+
+    def attach_array(self, array, ty, share):
+        dtype = self.type_system[ty]
+        return self._runtime.attach_array(self, array, dtype, share)

@@ -193,7 +193,7 @@ class FieldManager(object):
         self.match_counter = 0
         # Figure out how big our match frequency is based on our size
         volume = reduce(lambda x, y: x * y, self.shape)
-        size = volume * self.dtype.itemsize
+        size = volume * self.dtype.size
         if size > runtime.max_field_reuse_size:
             # Figure out the ratio our size to the max reuse size (round up)
             ratio = (
@@ -374,15 +374,13 @@ class AttachmentManager(object):
         key = self.attachment_key(array)
         return key in self._attachments
 
-    def attach_array(self, context, array, share):
+    def attach_array(self, context, array, dtype, share):
         assert array.base is None or not isinstance(array.base, np.ndarray)
         # NumPy arrays are not hashable, so look up the pointer for the array
         # which should be unique for all root NumPy arrays
         key = self.attachment_key(array)
         if key not in self._attachments:
-            region_field = self._runtime.allocate_field(
-                array.shape, array.dtype
-            )
+            region_field = self._runtime.allocate_field(array.shape, dtype)
             region_field.attach_numpy_array(context, array, share)
             attachment = Attachment(
                 *key, region_field.region, region_field.field
@@ -405,9 +403,7 @@ class AttachmentManager(object):
             region_field = RegionField(
                 self._runtime, region, field, array.shape
             )
-        return Store(
-            self._runtime, array.shape, array.dtype, storage=region_field
-        )
+        return Store(self._runtime, array.shape, dtype, storage=region_field)
 
     def remove_attachment(self, array):
         key = self.attachment_key(array)
@@ -955,8 +951,10 @@ class Runtime(object):
         if self.field_managers is not None:
             self.field_managers[key].free_field(region, field_id)
 
-    def attach_array(self, context, array, share):
-        return self._attachment_manager.attach_array(context, array, share)
+    def attach_array(self, context, array, dtype, share):
+        return self._attachment_manager.attach_array(
+            context, array, dtype, share
+        )
 
     def has_attachment(self, array):
         return self._attachment_manager.has_attachment(array)

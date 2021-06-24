@@ -14,7 +14,7 @@
 #
 
 
-import numpy as np
+import legate.core.types as ty
 
 from .legion import AffineTransform
 from .partition import Tiling
@@ -27,7 +27,7 @@ class Transform(object):
 
     def serialize(self, launcher):
         code = self._runtime.get_transform_code(self.__class__.__name__)
-        launcher.add_scalar_arg(code, np.int32)
+        launcher.add_scalar_arg(code, ty.int32)
 
 
 class Shift(Transform):
@@ -69,8 +69,8 @@ class Shift(Transform):
 
     def serialize(self, launcher):
         super(Shift, self).serialize(launcher)
-        launcher.add_scalar_arg(self._dim, np.int32)
-        launcher.add_scalar_arg(self._offset, np.int64)
+        launcher.add_scalar_arg(self._dim, ty.int32)
+        launcher.add_scalar_arg(self._offset, ty.int64)
 
 
 class Promote(Transform):
@@ -122,8 +122,8 @@ class Promote(Transform):
 
     def serialize(self, launcher):
         super(Promote, self).serialize(launcher)
-        launcher.add_scalar_arg(self._extra_dim, np.int32)
-        launcher.add_scalar_arg(self._dim_size, np.int64)
+        launcher.add_scalar_arg(self._extra_dim, ty.int32)
+        launcher.add_scalar_arg(self._dim_size, ty.int64)
 
 
 class Project(Transform):
@@ -172,5 +172,5 @@ class Project(Transform):
 
     def serialize(self, launcher):
         super(Project, self).serialize(launcher)
-        launcher.add_scalar_arg(self._dim, np.int32)
-        launcher.add_scalar_arg(self._index, np.int64)
+        launcher.add_scalar_arg(self._dim, ty.int32)
+        launcher.add_scalar_arg(self._index, ty.int64)

@@ -18,6 +18,8 @@ from functools import partial, reduce
 
 import numpy as np
 
+import legate.core.types as ty
+
 from .legion import (
     AffineTransform,
     Attach,
@@ -466,7 +468,7 @@ class RegionField(object):
         # this to a Python long before we can hand it off to Numpy.
         base_ptr = int(ffi.cast("size_t", base_ptr))
         initializer = _RegionNdarray(
-            tuple(shape), self.field.dtype, base_ptr, strides, False
+            tuple(shape), self.field.dtype.type, base_ptr, strides, False
         )
         array = np.asarray(initializer)
 
@@ -615,6 +617,10 @@ class Store(object):
             return Future if self._scalar else RegionField
 
     @property
+    def scalar(self):
+        return self._scalar
+
+    @property
     def storage(self):
         """
         Return the Legion storage objects actually backing the
@@ -636,7 +642,7 @@ class Store(object):
                     )
             else:
                 assert self._transform is not None
-                if self._parent.kind == Future:
+                if self._parent.scalar:
                     self._storage = self._parent.storage
                 else:
                     tiling = Tiling(
@@ -765,12 +771,12 @@ class Store(object):
             self._transform.serialize(launcher)
             self._parent._serialize_transform(launcher)
         else:
-            launcher.add_scalar_arg(-1, np.int32)
+            launcher.add_scalar_arg(-1, ty.int32)
 
     def serialize(self, launcher):
         launcher.add_scalar_arg(self._scalar, bool)
-        launcher.add_scalar_arg(self.ndim, np.int32)
-        launcher.add_dtype_arg(self.type)
+        launcher.add_scalar_arg(self.ndim, ty.int32)
+        launcher.add_scalar_arg(self._dtype.code, ty.int32)
         self._serialize_transform(launcher)
 
     def find_key_partition(self):

@@ -13,6 +13,8 @@
 # limitations under the License.
 #
 
+import legate.core.types as ty
+
 from .launcher import TaskLauncher
 from .solver import EqClass, Partitioner
 
@@ -93,6 +95,10 @@ class Task(Operation):
 
     def add_scalar_arg(self, value, dtype):
         self._scalar_args.append((value, dtype))
+
+    def add_dtype_arg(self, dtype):
+        code = self._context.type_system[dtype].code
+        self._scalar_args.append((code, ty.int32))
 
     def execute(self):
         partitioner = Partitioner(self._context.runtime, [self])

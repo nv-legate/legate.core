@@ -15,15 +15,9 @@
 
 from enum import IntEnum
 
-import numpy as np
+import legate.core.types as ty
 
-from .legion import (
-    ArgumentMap,
-    BufferBuilder,
-    Future,
-    IndexTask,
-    Task as SingleTask,
-)
+from .legion import ArgumentMap, BufferBuilder, IndexTask, Task as SingleTask
 
 
 class Permission(IntEnum):
@@ -37,16 +31,16 @@ class Permission(IntEnum):
 class ScalarArg(object):
     _serializers = {
         bool: BufferBuilder.pack_bool,
-        np.int8: BufferBuilder.pack_8bit_int,
-        np.int16: BufferBuilder.pack_16bit_int,
-        np.int32: BufferBuilder.pack_32bit_int,
-        np.int64: BufferBuilder.pack_64bit_int,
-        np.uint8: BufferBuilder.pack_8bit_uint,
-        np.uint16: BufferBuilder.pack_16bit_uint,
-        np.uint32: BufferBuilder.pack_32bit_uint,
-        np.uint64: BufferBuilder.pack_64bit_uint,
-        np.float32: BufferBuilder.pack_32bit_float,
-        np.float64: BufferBuilder.pack_64bit_float,
+        ty.int8: BufferBuilder.pack_8bit_int,
+        ty.int16: BufferBuilder.pack_16bit_int,
+        ty.int32: BufferBuilder.pack_32bit_int,
+        ty.int64: BufferBuilder.pack_64bit_int,
+        ty.uint8: BufferBuilder.pack_8bit_uint,
+        ty.uint16: BufferBuilder.pack_16bit_uint,
+        ty.uint32: BufferBuilder.pack_32bit_uint,
+        ty.uint64: BufferBuilder.pack_64bit_uint,
+        ty.float32: BufferBuilder.pack_32bit_float,
+        ty.float64: BufferBuilder.pack_64bit_float,
     }
 
     def __init__(self, value, dtype):
@@ -57,7 +51,7 @@ class ScalarArg(object):
         if isinstance(self._dtype, tuple) or isinstance(self._dtype, list):
             assert len(self._dtype) == 1
             dtype = self._dtype[0]
-            self._serializers[np.int32](buf, len(self._value))
+            self._serializers[ty.int32](buf, len(self._value))
             serializer = self._serializers[dtype]
             for value in self._value:
                 serializer(buf, value)
@@ -383,9 +377,6 @@ class TaskLauncher(object):
     def add_scalar_arg(self, value, dtype):
         self._args.append(ScalarArg(value, dtype))
 
-    def add_dtype_arg(self, dtype):
-        self._args.append(DtypeArg(dtype))
-
     def get_requirement_index(self, key, field_id):
         try:
             return self._region_reqs_indices[(key, field_id)]
@@ -398,9 +389,9 @@ class TaskLauncher(object):
     def add_store(self, store, proj, perm, tag, flags):
         store.serialize(self)
         redop = -1 if proj.redop is None else proj.redop
-        self.add_scalar_arg(redop, np.int32)
+        self.add_scalar_arg(redop, ty.int32)
 
-        if store.kind == Future:
+        if store.scalar:
             if perm != Permission.READ:
                 raise ValueError("Scalar stores must be read only")
             self.add_future(store.storage)
@@ -449,17 +440,6 @@ class TaskLauncher(object):
 
     def add_point(self, point, untyped=False):
         self._args.append(PointArg(point, untyped))
-
-    def add_shape(self, shape, chunk_shape=None, proj=None):
-        assert chunk_shape is None or len(shape) == len(chunk_shape)
-        self.add_scalar_arg(shape, (np.int64,))
-        if chunk_shape is not None:
-            assert proj is not None
-            self.add_scalar_arg(proj, np.int32)
-            self.add_scalar_arg(chunk_shape, (np.int64,))
-        else:
-            assert proj is None
-            self.add_scalar_arg(-1, np.int32)
 
     def set_sharding_space(self, space):
         self._sharding_space = space

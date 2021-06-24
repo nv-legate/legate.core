@@ -70,6 +70,22 @@ from legate.core.legion import (
     legate_task_progress,
     legate_task_postamble,
 )
+from legate.core.types import (
+    bool_,
+    int8,
+    int16,
+    int32,
+    int64,
+    uint8,
+    uint16,
+    uint32,
+    uint64,
+    float16,
+    float32,
+    float64,
+    complex64,
+    complex128,
+)
 from legion_cffi import ffi, lib as legion
 
 # Import the PyArrow type system
@@ -88,18 +104,6 @@ from pyarrow import (
     Field,
     Schema,
     null,
-    bool_,
-    int8,
-    int16,
-    int32,
-    int64,
-    uint8,
-    uint16,
-    uint32,
-    uint64,
-    float16,
-    float32,
-    float64,
     time32,
     time64,
     timestamp,
@@ -120,5 +124,4 @@ from pyarrow import (
     field,
     schema,
     from_numpy_dtype,
-    types,
 )

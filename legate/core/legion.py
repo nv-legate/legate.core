@@ -24,6 +24,8 @@ import numpy as np
 
 from legion_cffi import ffi, lib as legion
 
+from .types import _Dtype
+
 assert "LEGATE_MAX_DIM" in os.environ
 LEGATE_MAX_DIM = int(os.environ["LEGATE_MAX_DIM"])
 assert "LEGATE_MAX_FIELDS" in os.environ
@@ -1077,9 +1079,7 @@ class FieldSpace(object):
                 + str(LEGATE_MAX_FIELDS)
                 + " in field space"
             )
-        if isinstance(size_or_type, np.dtype) or hasattr(
-            size_or_type, "itemsize"
-        ):
+        if isinstance(size_or_type, _Dtype):
             return self.allocate_field_dtype(size_or_type, field_id=field_id)
         elif isinstance(size_or_type, Future):
             return self.allocate_field_from_future(
@@ -1133,7 +1133,7 @@ class FieldSpace(object):
                 + " in field space"
             )
         field_id = legion.legion_field_allocator_allocate_field(
-            self.alloc, dtype.itemsize, field_id
+            self.alloc, dtype.size, field_id
         )
         self.fields[field_id] = dtype
         return field_id
