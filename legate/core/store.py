@@ -653,6 +653,13 @@ class Store(object):
 
         return self._storage
 
+    def set_storage(self, storage):
+        if self._storage is not None:
+            raise RuntimeError(
+                "Illegal to set a storage to a materialized store"
+            )
+        self._storage = storage
+
     def _get_tile(self, tiling):
         if self._parent is not None:
             tiling = self._transform.invert(tiling)

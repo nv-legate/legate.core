@@ -238,17 +238,26 @@ class Strategy(object):
             raise ValueError(f"No strategy is found for {store}")
         return self._strategy[store].get_requirement(store)
 
-    def launch(self, launcher):
-        if self._launch_shape is None:
-            launcher.execute_single()
+    def launch(self, launcher, output=None, redop=None):
+        if output is None:
+            if self._launch_shape is None:
+                launcher.execute_single()
+            else:
+                launcher.execute(Rect(self._launch_shape))
         else:
-            launcher.execute(Rect(self._launch_shape))
+            if self._launch_shape is None:
+                result = launcher.execute_single()
+            else:
+                assert redop is not None
+                result = launcher.execute(Rect(self._launch_shape), redop)
+            output.set_storage(result)
 
 
 class Partitioner(object):
-    def __init__(self, runtime, ops):
+    def __init__(self, runtime, ops, must_be_single=False):
         self._runtime = runtime
         self._ops = ops
+        self._must_be_single = must_be_single
 
     def partition_stores(self):
         stores = set()
@@ -256,6 +265,12 @@ class Partitioner(object):
         for op in self._ops:
             stores.update(op.get_all_stores())
             constraints.union(op.constraints)
+
+        if self._must_be_single:
+            partitions = {}
+            for store in stores:
+                partitions[store] = NoPartition()
+            return Strategy(None, partitions)
 
         partitions = {}
         prev_part = None

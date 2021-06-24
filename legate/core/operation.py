@@ -27,6 +27,8 @@ class Operation(object):
         self._inputs = []
         self._outputs = []
         self._reductions = []
+        self._scalar_output = None
+        self._scalar_reduction = None
         self._constraints = EqClass()
 
     @property
@@ -72,11 +74,30 @@ class Operation(object):
     def add_input(self, store):
         self._inputs.append(store)
 
+    @property
+    def _has_scalar_output(self):
+        return (
+            self._scalar_reduction is not None
+            or self._scalar_output is not None
+        )
+
+    def _check_scalar_output(self):
+        if self._has_scalar_output:
+            raise ValueError("Only one scalar store can be used for output")
+
     def add_output(self, store):
-        self._outputs.append(store)
+        if store.scalar:
+            self._check_scalar_output()
+            self._scalar_output = store
+        else:
+            self._outputs.append(store)
 
     def add_reduction(self, store, redop):
-        self._reductions.append((store, redop))
+        if store.scalar:
+            self._check_scalar_output()
+            self._scalar_reduction = (store, redop)
+        else:
+            self._reductions.append((store, redop))
 
     def add_alignment(self, store1, store2):
         if store1.shape != store2.shape:
@@ -101,7 +122,11 @@ class Task(Operation):
         self._scalar_args.append((code, ty.int32))
 
     def execute(self):
-        partitioner = Partitioner(self._context.runtime, [self])
+        partitioner = Partitioner(
+            self._context.runtime,
+            [self],
+            must_be_single=self._scalar_output is not None,
+        )
         strategy = partitioner.partition_stores()
 
         launcher = TaskLauncher(self.context, self._task_id, self.mapper_id)
@@ -115,8 +140,14 @@ class Task(Operation):
         for (reduction, redop) in self._reductions:
             partition = strategy[reduction]
             partition.redop = redop
-            launcher.add_reduction(output, partition)
+            launcher.add_reduction(reduction, partition)
         for (arg, dtype) in self._scalar_args:
             launcher.add_scalar_arg(arg, dtype)
 
-        strategy.launch(launcher)
+        if self._scalar_output is not None:
+            strategy.launch(launcher, self._scalar_output)
+        elif self._scalar_reduction is not None:
+            (store, redop) = self._scalar_reduction
+            strategy.launch(launcher, store, redop)
+        else:
+            strategy.launch(launcher)
