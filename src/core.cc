@@ -392,6 +392,7 @@ Store &Store::operator=(Store &&other) noexcept
   is_future_ = other.is_future_;
   dim_       = other.dim_;
   code_      = other.code_;
+  redop_id_  = other.redop_id_;
   if (is_future_)
     future_ = other.future_;
   else
