@@ -276,6 +276,10 @@ class Partitioner(object):
         prev_part = None
         while len(stores) > 0:
             store = stores.pop()
+            if store.scalar:
+                partitions[store] = NoPartition()
+                continue
+
             if isinstance(prev_part, NoPartition):
                 partition = prev_part
             else:
@@ -288,7 +292,6 @@ class Partitioner(object):
                 else:
                     partitions[to_align] = partition
             stores = stores - cls
-            if not store.scalar:
-                prev_part = partition
+            prev_part = partition
 
         return Strategy(prev_part.color_shape, partitions)
