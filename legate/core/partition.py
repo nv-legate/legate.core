@@ -149,9 +149,7 @@ class Tiling(object):
             region.index_space,
             color_space,
             functor,
-            kind=legion.LEGION_DISJOINT_COMPLETE_KIND
-            if complete
-            else legion.LEGION_DISJOINT_INCOMPLETE_KIND,
+            kind=legion.LEGION_COMPUTE_KIND,
             keep=True,  # export this partition functor to other libraries
         )
         return region.get_child(index_partition)
