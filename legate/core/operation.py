@@ -123,8 +123,8 @@ class Operation(object):
             partition = strategy[reduction]
             partition.redop = redop
             launcher.add_reduction(reduction, partition)
-        for (arg, dtype) in self._scalar_args:
-            launcher.add_scalar_arg(arg, dtype)
+
+        self._populate_launcher(launcher)
 
         if self._scalar_output is not None:
             strategy.launch(launcher, self._scalar_output)
@@ -140,6 +140,7 @@ class Task(Operation):
         Operation.__init__(self, context, mapper_id)
         self._task_id = task_id
         self._scalar_args = []
+        self._futures = []
 
     def add_scalar_arg(self, value, dtype):
         self._scalar_args.append((value, dtype))
@@ -148,5 +149,15 @@ class Task(Operation):
         code = self._context.type_system[dtype].code
         self._scalar_args.append((code, ty.int32))
 
+    def add_future(self, future):
+        self._futures.append(future)
+
     def _create_launcher(self):
         return TaskLauncher(self.context, self._task_id, self.mapper_id)
+
+    def _populate_launcher(self, launcher):
+        for (arg, dtype) in self._scalar_args:
+            launcher.add_scalar_arg(arg, dtype)
+
+        for future in self._futures:
+            launcher.add_future(future)
