@@ -266,7 +266,7 @@ class Partitioner(object):
             stores.update(op.get_all_stores())
             constraints.union(op.constraints)
 
-        if self._must_be_single:
+        if self._must_be_single or len(stores) == 0:
             partitions = {}
             for store in stores:
                 partitions[store] = NoPartition()
@@ -294,4 +294,5 @@ class Partitioner(object):
             stores = stores - cls
             prev_part = partition
 
-        return Strategy(prev_part.color_shape, partitions)
+        color_shape = None if prev_part is None else prev_part.color_shape
+        return Strategy(color_shape, partitions)
