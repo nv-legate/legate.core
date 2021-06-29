@@ -32,7 +32,7 @@ from .legion import (
 )
 from .partition import NoPartition, Tiling
 from .shape import Shape
-from .transform import Project, Promote, Shift
+from .transform import Project, Promote, Shift, Transpose
 
 
 # A region field holds a reference to a field in a logical region
@@ -741,6 +741,27 @@ class Store(object):
         shape = self._shape.update(dim, stop - start)
         if self._shape == shape:
             return self
+        return Store(
+            self._runtime,
+            shape,
+            self._dtype,
+            storage=self._storage if self._scalar else None,
+            optimize_scalar=self._scalar,
+            parent=self,
+            transform=transform,
+        )
+
+    def transpose(self, axes):
+        if len(axes) != self.ndim:
+            raise ValueError(
+                f"dimension mismatch: expected {self.ndim} axes, "
+                f"but got {len(axes)}"
+            )
+        elif len(axes) != len(set(axes)):
+            raise ValueError(f"duplicate axes found: {axes}")
+
+        transform = Transpose(self._runtime, axes)
+        shape = transform.compute_shape(self._shape)
         return Store(
             self._runtime,
             shape,

@@ -133,6 +133,12 @@ std::unique_ptr<Transform> deserialize_transform(Deserializer &ctx)
       auto parent   = deserialize_transform(ctx);
       return std::make_unique<Project>(dim, coord, std::move(parent));
     }
+    case LEGATE_CORE_TRANSFORM_TRANSPOSE: {
+      std::vector<int32_t> axes;
+      deserialize(ctx, axes);
+      auto parent = deserialize_transform(ctx);
+      return std::make_unique<Transpose>(std::move(axes), std::move(parent));
+    }
   }
   assert(false);
   return nullptr;

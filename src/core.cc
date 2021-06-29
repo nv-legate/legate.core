@@ -339,6 +339,52 @@ DomainAffineTransform Project::inverse_transform(int32_t in_dim) const
     return result;
 }
 
+Transpose::Transpose(std::vector<int32_t> &&axes, TransformP &&parent)
+  : Transform(std::forward<TransformP>(parent)), axes_(std::move(axes))
+{
+}
+
+Domain Transpose::transform(const Domain &input) const
+{
+  auto transpose = [](const auto &axes, const Domain &input) {
+    Domain output;
+    output.dim = input.dim;
+    for (int32_t in_dim = 0; in_dim < input.dim; ++in_dim) {
+      auto out_dim                           = axes[in_dim];
+      output.rect_data[out_dim]              = input.rect_data[in_dim];
+      output.rect_data[out_dim + output.dim] = input.rect_data[in_dim + input.dim];
+    }
+    return output;
+  };
+
+  return transpose(axes_, nullptr != parent_ ? parent_->transform(input) : input);
+}
+
+DomainAffineTransform Transpose::inverse_transform(int32_t in_dim) const
+{
+  DomainTransform transform;
+  transform.m = in_dim;
+  transform.n = in_dim;
+  for (int32_t i = 0; i < in_dim; ++i)
+    for (int32_t j = 0; j < in_dim; ++j) transform.matrix[i * in_dim + j] = 0;
+
+  for (int32_t i = 0, j = 0; i < in_dim; ++i) transform.matrix[i * in_dim + axes_[i]] = 1;
+
+  DomainPoint offset;
+  offset.dim = in_dim;
+  for (int32_t i = 0; i < in_dim; ++i) offset[i] = 0;
+
+  DomainAffineTransform result;
+  result.transform = transform;
+  result.offset    = offset;
+
+  if (nullptr != parent_) {
+    auto parent = parent_->inverse_transform(in_dim);
+    return combine(parent, result);
+  } else
+    return result;
+}
+
 RegionField::RegionField(int32_t dim, const PhysicalRegion &pr, FieldID fid)
   : dim_(dim), pr_(pr), fid_(fid)
 {

@@ -192,6 +192,19 @@ class Project : public Transform {
   int64_t coord_;
 };
 
+class Transpose : public Transform {
+ public:
+  Transpose(std::vector<int32_t> &&axes, std::unique_ptr<Transform> &&parent = nullptr);
+  virtual ~Transpose() {}
+
+ public:
+  virtual Legion::Domain transform(const Legion::Domain &domain) const override;
+  virtual Legion::DomainAffineTransform inverse_transform(int32_t in_dim) const override;
+
+ private:
+  std::vector<int32_t> axes_;
+};
+
 class RegionField {
  public:
   RegionField() {}

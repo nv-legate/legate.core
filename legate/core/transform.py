@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 
+import numpy as np
 
 import legate.core.types as ty
 
@@ -107,7 +108,6 @@ class Promote(Transform):
                 f"Unsupported partition: {type(partition).__name__}"
             )
 
-    # Returns the parent partition that coincides a given partition of a child
     def get_inverse_transform(self, shape, parent_transform=None):
         parent_ndim = shape.ndim - 1
         result = AffineTransform(parent_ndim, shape.ndim, False)
@@ -156,7 +156,6 @@ class Project(Transform):
                 f"Unsupported partition: {type(partition).__name__}"
             )
 
-    # Returns the parent partition that coincides a given partition of a child
     def get_inverse_transform(self, shape, parent_transform=None):
         parent_ndim = shape.ndim + 1
         result = AffineTransform(parent_ndim, shape.ndim, False)
@@ -174,3 +173,46 @@ class Project(Transform):
         super(Project, self).serialize(launcher)
         launcher.add_scalar_arg(self._dim, ty.int32)
         launcher.add_scalar_arg(self._index, ty.int64)
+
+
+class Transpose(Transform):
+    def __init__(self, runtime, axes):
+        self._runtime = runtime
+        self._axes = axes
+        self._inverse = tuple(np.argsort(self._axes))
+
+    def compute_shape(self, shape):
+        new_shape = Shape(tuple(shape[dim] for dim in self._axes))
+        return new_shape
+
+    def __str__(self):
+        return f"Transpose(axes: {self._axes})"
+
+    @property
+    def invertible(self):
+        return True
+
+    def invert(self, partition):
+        if isinstance(partition, Tiling):
+            return Tiling(
+                self._runtime,
+                partition.tile_shape.map(self._inverse),
+                partition.color_shape.map(self._inverse),
+                partition.offset.map(self._inverse),
+            )
+        else:
+            raise ValueError(
+                f"Unsupported partition: {type(partition).__name__}"
+            )
+
+    def get_inverse_transform(self, shape, parent_transform=None):
+        result = AffineTransform(shape.ndim, shape.ndim, False)
+        for dim in range(shape.ndim):
+            result.trans[dim, self._axes[dim]] = 1
+        if parent_transform is not None:
+            result = result.compose(parent_transform)
+        return result
+
+    def serialize(self, launcher):
+        super(Transpose, self).serialize(launcher)
+        launcher.add_scalar_arg(self._axes, (ty.int32,))

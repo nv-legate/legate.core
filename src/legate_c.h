@@ -90,6 +90,7 @@ typedef enum legate_core_transform_t {
   LEGATE_CORE_TRANSFORM_SHIFT = 100,
   LEGATE_CORE_TRANSFORM_PROMOTE,
   LEGATE_CORE_TRANSFORM_PROJECT,
+  LEGATE_CORE_TRANSFORM_TRANSPOSE,
 } legate_core_transform_t;
 
 #ifdef __cplusplus

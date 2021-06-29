@@ -97,3 +97,6 @@ class Shape(object):
 
     def insert(self, dim, new_value):
         return Shape(self._shape[:dim] + (new_value,) + self._shape[dim:])
+
+    def map(self, mapping):
+        return Shape(tuple(self[mapping[dim]] for dim in range(self.ndim)))
