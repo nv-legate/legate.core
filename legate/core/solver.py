@@ -262,9 +262,11 @@ class Partitioner(object):
     def partition_stores(self):
         stores = set()
         constraints = EqClass()
+        broadcasts = set()
         for op in self._ops:
             stores.update(op.get_all_stores())
             constraints.union(op.constraints)
+            broadcasts.update(op.broadcasts)
 
         if self._must_be_single or len(stores) == 0:
             partitions = {}
@@ -276,7 +278,7 @@ class Partitioner(object):
         prev_part = None
         while len(stores) > 0:
             store = stores.pop()
-            if store.scalar:
+            if store.scalar or store in broadcasts:
                 partitions[store] = NoPartition()
                 continue
 

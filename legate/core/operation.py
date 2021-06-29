@@ -30,6 +30,7 @@ class Operation(object):
         self._scalar_output = None
         self._scalar_reduction = None
         self._constraints = EqClass()
+        self._broadcasts = set()
 
     @property
     def context(self):
@@ -58,6 +59,10 @@ class Operation(object):
     @property
     def constraints(self):
         return self._constraints
+
+    @property
+    def broadcasts(self):
+        return self._broadcasts
 
     def get_all_stores(self):
         stores = (
@@ -106,6 +111,9 @@ class Operation(object):
                 f"but got {store1.shape} and {store2.shape}"
             )
         self._constraints.record(store1, store2)
+
+    def add_broadcast(self, store):
+        self._broadcasts.add(store)
 
     def execute(self):
         self._context.runtime.submit(self)
