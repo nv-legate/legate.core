@@ -4594,20 +4594,19 @@ class BufferBuilder(object):
         else:
             self.pack_32bit_int(transform.M)
             self.pack_32bit_int(transform.N)
-            for x in xrange(0, transform.M):
-                for y in xrange(0, transform.N):
-                    self.pack_64bit_int(transform.trans[x, y])
-            for x in xrange(0, transform.M):
-                self.pack_64bit_int(transform.offset[x])
+            self.pack_transform(transform)
             # Pack the point transform if we have one
             if point_transform is not None:
                 if transform.N != point_transform.M:
                     raise ValueError("Dimension mismatch")
-                for x in xrange(0, point_transform.M):
-                    for y in xrange(0, point_transform.N):
-                        self.pack_64bit_int(point_transform.trans[x, y])
-                for x in xrange(0, point_transform.M):
-                    self.pack_64bit_int(point_transform.offset[x])
+                self.pack_transform(point_transform)
+
+    def pack_transform(self, transform):
+        for x in xrange(0, transform.M):
+            for y in xrange(0, transform.N):
+                self.pack_64bit_int(transform.trans[x, y])
+        for x in xrange(0, transform.M):
+            self.pack_64bit_int(transform.offset[x])
 
     def pack_value(self, value, val_type):
         if np.dtype(val_type) == np.int16:
