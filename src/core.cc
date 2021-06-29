@@ -317,12 +317,17 @@ DomainAffineTransform Project::inverse_transform(int32_t in_dim) const
 
   DomainTransform transform;
   transform.m = out_dim;
-  transform.n = in_dim;
-  for (int32_t i = 0; i < out_dim; ++i)
-    for (int32_t j = 0; j < in_dim; ++j) transform.matrix[i * in_dim + j] = 0;
+  if (in_dim == 0) {
+    transform.n         = out_dim;
+    transform.matrix[0] = 0;
+  } else {
+    transform.n = in_dim;
+    for (int32_t i = 0; i < out_dim; ++i)
+      for (int32_t j = 0; j < in_dim; ++j) transform.matrix[i * in_dim + j] = 0;
 
-  for (int32_t i = 0, j = 0; i < out_dim; ++i)
-    if (i != dim_) transform.matrix[i * in_dim + j++] = 1;
+    for (int32_t i = 0, j = 0; i < out_dim; ++i)
+      if (i != dim_) transform.matrix[i * in_dim + j++] = 1;
+  }
 
   DomainPoint offset;
   offset.dim = out_dim;

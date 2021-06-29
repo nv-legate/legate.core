@@ -161,13 +161,13 @@ Legion::Rect<DIM> RegionField::shape() const
 template <typename T, int DIM>
 AccessorRO<T, DIM> Store::read_accessor() const
 {
-  assert(DIM == dim_);
+  assert(DIM == dim_ || dim_ == 0);
   if (is_future_) {
     auto memkind = Legion::Memory::Kind::NO_MEMKIND;
     return AccessorRO<T, DIM>(future_, memkind, sizeof(T), false, false, NULL, sizeof(uint64_t));
   }
   if (nullptr != transform_) {
-    auto transform = transform_->inverse_transform(DIM);
+    auto transform = transform_->inverse_transform(dim_);
     return region_field_.read_accessor<T, DIM>(transform);
   }
   return region_field_.read_accessor<T, DIM>();
@@ -176,10 +176,10 @@ AccessorRO<T, DIM> Store::read_accessor() const
 template <typename T, int DIM>
 AccessorWO<T, DIM> Store::write_accessor() const
 {
-  assert(DIM == dim_);
+  assert(DIM == dim_ || dim_ == 0);
   assert(!is_future_);
   if (nullptr != transform_) {
-    auto transform = transform_->inverse_transform(DIM);
+    auto transform = transform_->inverse_transform(dim_);
     return region_field_.write_accessor<T, DIM>(transform);
   }
   return region_field_.write_accessor<T, DIM>();
@@ -188,10 +188,10 @@ AccessorWO<T, DIM> Store::write_accessor() const
 template <typename T, int DIM>
 AccessorRW<T, DIM> Store::read_write_accessor() const
 {
-  assert(DIM == dim_);
+  assert(DIM == dim_ || dim_ == 0);
   assert(!is_future_);
   if (nullptr != transform_) {
-    auto transform = transform_->inverse_transform(DIM);
+    auto transform = transform_->inverse_transform(dim_);
     return region_field_.read_write_accessor<T, DIM>(transform);
   }
   return region_field_.read_write_accessor<T, DIM>();
