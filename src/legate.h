@@ -209,6 +209,11 @@ template <>
 constexpr LegateTypeCode legate_type_code_of<complex<double>> = COMPLEX128_LT;
 #endif
 
+template <typename T>
+struct ReturnSize {
+  static constexpr int32_t value = sizeof(T);
+};
+
 struct LegateProjectionFunctor;
 
 class Core {
@@ -834,7 +839,7 @@ class LegateTask {
                       leaf,
                       inner,
                       idempotent,
-                      sizeof(RET_T) /*non void return type*/);
+                      ReturnSize<RET_T>::value /*non void return type*/);
   }
 };
 
