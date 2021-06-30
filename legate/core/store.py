@@ -816,19 +816,6 @@ class Store(object):
             )
             return Tiling(self._runtime, tile_shape, launch_shape)
 
-    def broadcast(self, shape):
-        result = self
-        diff = len(shape) - result.ndim
-        for dim in range(diff):
-            result = result.promote(dim, shape[dim])
-
-        for dim in range(shape.ndim):
-            if result.shape[dim] != shape[dim]:
-                assert result.shape[dim] == 1
-                result = result.project(dim, 0).promote(dim, shape[dim])
-
-        return result
-
     def find_or_create_partition(self, functor):
         assert not self.scalar
         if functor in self._partitions:
