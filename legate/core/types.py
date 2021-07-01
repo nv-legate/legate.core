@@ -86,6 +86,16 @@ class _Dtype(object):
     def __hash__(self):
         return hash(self._dtype)
 
+    def __eq__(self, other):
+        if isinstance(other, _Dtype):
+            return (
+                self._dtype == other._dtype
+                and self._size_in_bytes == other._size_in_bytes
+                and self._code == other._code
+            )
+        else:
+            return self._dtype == other
+
     def __str__(self):
         return str(self._dtype)
 
