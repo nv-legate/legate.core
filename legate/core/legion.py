@@ -204,6 +204,10 @@ class Point(object):
     def __len__(self):
         return self.dim
 
+    def __repr__(self):
+        p_strs = [str(self[i]) for i in range(self.dim)]
+        return "Point(p=[" + ",".join(p_strs) + "])"
+
     def __str__(self):
         p_strs = [str(self[i]) for i in range(self.dim)]
         return "<" + ",".join(p_strs) + ">"
@@ -274,6 +278,9 @@ class Rect(object):
             result = result ^ hash(self.lo[idx])
             result = result ^ hash(self.hi[idx])
         return result
+
+    def __repr__(self):
+        return f"Rect(lo={repr(self._lo)},hi={repr(self._hi)},exclusive=False)"
 
     def __str__(self):
         return str(self._lo) + ".." + str(self._hi)
