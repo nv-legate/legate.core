@@ -654,6 +654,7 @@ class Store(object):
         return self._storage
 
     def set_storage(self, storage):
+        assert isinstance(storage, RegionField) or isinstance(storage, Future)
         self._storage = storage
 
     def _get_tile(self, tiling):

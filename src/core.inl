@@ -35,9 +35,9 @@ AccessorRW<T, DIM> RegionField::read_write_accessor() const
 }
 
 template <typename OP, bool EXCLUSIVE, int DIM>
-AccessorRD<OP, EXCLUSIVE, DIM> RegionField::reduce_accessor() const
+AccessorRD<OP, EXCLUSIVE, DIM> RegionField::reduce_accessor(int32_t redop_id) const
 {
-  return AccessorRD<OP, EXCLUSIVE, DIM>(pr_, fid_, OP::REDOP_ID);
+  return AccessorRD<OP, EXCLUSIVE, DIM>(pr_, fid_, redop_id);
 }
 
 template <typename T, int DIM>
@@ -64,21 +64,11 @@ AccessorRW<T, DIM> RegionField::read_write_accessor(
 
 template <typename OP, bool EXCLUSIVE, int DIM>
 AccessorRD<OP, EXCLUSIVE, DIM> RegionField::reduce_accessor(
-  const Legion::DomainAffineTransform &transform) const
+  int32_t redop_id, const Legion::DomainAffineTransform &transform) const
 {
   using ACC = AccessorRD<OP, EXCLUSIVE, DIM>;
-  // XXX: there's an interesting fact as to why we need to construct an int32_t value from
-  //      OP::REDOP_ID and cannot pass it directly: Since the dispatcher forwards a reference,
-  //      passing OP::REDOP_ID directly requires it to be instantiated in the binary so that its
-  //      reference can be taken, even when it's a static const member of the class OP.
-  //      Since not every class has its static members explicitly instantiated when they are
-  //      inline initialized, we should not pass them directly to any function that forwards them.
-  return dim_dispatch(transform.transform.m,
-                      trans_accesor_fn<ACC, DIM>{},
-                      pr_,
-                      fid_,
-                      int32_t{OP::REDOP_ID},
-                      transform);
+  return dim_dispatch(
+    transform.transform.m, trans_accesor_fn<ACC, DIM>{}, pr_, fid_, redop_id, transform);
 }
 
 template <typename T, int DIM>
@@ -100,9 +90,10 @@ AccessorRW<T, DIM> RegionField::read_write_accessor(const Legion::Rect<DIM> &bou
 }
 
 template <typename OP, bool EXCLUSIVE, int DIM>
-AccessorRD<OP, EXCLUSIVE, DIM> RegionField::reduce_accessor(const Legion::Rect<DIM> &bounds) const
+AccessorRD<OP, EXCLUSIVE, DIM> RegionField::reduce_accessor(int32_t redop_id,
+                                                            const Legion::Rect<DIM> &bounds) const
 {
-  return AccessorRD<OP, EXCLUSIVE, DIM>(pr_, fid_, OP::REDOP_ID, bounds);
+  return AccessorRD<OP, EXCLUSIVE, DIM>(pr_, fid_, redop_id, bounds);
 }
 
 template <typename T, int32_t DIM>
@@ -134,22 +125,13 @@ AccessorRW<T, DIM> RegionField::read_write_accessor(
 
 template <typename OP, bool EXCLUSIVE, int DIM>
 AccessorRD<OP, EXCLUSIVE, DIM> RegionField::reduce_accessor(
-  const Legion::Rect<DIM> &bounds, const Legion::DomainAffineTransform &transform) const
+  int32_t redop_id,
+  const Legion::Rect<DIM> &bounds,
+  const Legion::DomainAffineTransform &transform) const
 {
   using ACC = AccessorRD<OP, EXCLUSIVE, DIM>;
-  // XXX: there's an interesting fact as to why we need to construct an int32_t value from
-  //      OP::REDOP_ID and cannot pass it directly: Since the dispatcher forwards a reference,
-  //      passing OP::REDOP_ID directly requires it to be instantiated in the binary so that its
-  //      reference can be taken, even when it's a static const member of the class OP.
-  //      Since not every class has its static members explicitly instantiated when they are
-  //      inline initialized, we should not pass them directly to any function that forwards them.
-  return dim_dispatch(transform.transform.m,
-                      trans_accesor_fn<ACC, DIM>{},
-                      pr_,
-                      fid_,
-                      int32_t{OP::REDOP_ID},
-                      transform,
-                      bounds);
+  return dim_dispatch(
+    transform.transform.m, trans_accesor_fn<ACC, DIM>{}, pr_, fid_, redop_id, transform, bounds);
 }
 
 template <int32_t DIM>
@@ -205,9 +187,9 @@ AccessorRD<OP, EXCLUSIVE, DIM> Store::reduce_accessor() const
   assert(OP::REDOP_ID == redop_id_);
   if (nullptr != transform_) {
     auto transform = transform_->inverse_transform(DIM);
-    return region_field_.reduce_accessor<OP, EXCLUSIVE, DIM>(transform);
+    return region_field_.reduce_accessor<OP, EXCLUSIVE, DIM>(redop_id_, transform);
   }
-  return region_field_.reduce_accessor<OP, EXCLUSIVE, DIM>();
+  return region_field_.reduce_accessor<OP, EXCLUSIVE, DIM>(redop_id_);
 }
 
 template <typename T, int DIM>
@@ -255,12 +237,11 @@ AccessorRD<OP, EXCLUSIVE, DIM> Store::reduce_accessor(const Legion::Rect<DIM> &b
 {
   assert(!is_future_);
   assert(DIM == dim_);
-  assert(OP::REDOP_ID == redop_id_);
   if (nullptr != transform_) {
     auto transform = transform_->inverse_transform(DIM);
-    return region_field_.reduce_accessor<OP, EXCLUSIVE, DIM>(bounds, transform);
+    return region_field_.reduce_accessor<OP, EXCLUSIVE, DIM>(redop_id_, bounds, transform);
   }
-  return region_field_.reduce_accessor<OP, EXCLUSIVE, DIM>(bounds);
+  return region_field_.reduce_accessor<OP, EXCLUSIVE, DIM>(redop_id_, bounds);
 }
 
 template <int32_t DIM>

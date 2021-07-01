@@ -274,7 +274,7 @@ class RegionField {
   template <typename T, int32_t DIM>
   AccessorRW<T, DIM> read_write_accessor() const;
   template <typename OP, bool EXCLUSIVE, int32_t DIM>
-  AccessorRD<OP, EXCLUSIVE, DIM> reduce_accessor() const;
+  AccessorRD<OP, EXCLUSIVE, DIM> reduce_accessor(int32_t redop_id) const;
 
  public:
   template <typename T, int32_t DIM>
@@ -285,7 +285,7 @@ class RegionField {
   AccessorRW<T, DIM> read_write_accessor(const Legion::DomainAffineTransform &transform) const;
   template <typename OP, bool EXCLUSIVE, int32_t DIM>
   AccessorRD<OP, EXCLUSIVE, DIM> reduce_accessor(
-    const Legion::DomainAffineTransform &transform) const;
+    int32_t redop_id, const Legion::DomainAffineTransform &transform) const;
 
  public:
   template <typename T, int32_t DIM>
@@ -295,7 +295,8 @@ class RegionField {
   template <typename T, int32_t DIM>
   AccessorRW<T, DIM> read_write_accessor(const Legion::Rect<DIM> &bounds) const;
   template <typename OP, bool EXCLUSIVE, int32_t DIM>
-  AccessorRD<OP, EXCLUSIVE, DIM> reduce_accessor(const Legion::Rect<DIM> &bounds) const;
+  AccessorRD<OP, EXCLUSIVE, DIM> reduce_accessor(int32_t redop_id,
+                                                 const Legion::Rect<DIM> &bounds) const;
 
  public:
   template <typename T, int32_t DIM>
@@ -309,7 +310,9 @@ class RegionField {
                                          const Legion::DomainAffineTransform &transform) const;
   template <typename OP, bool EXCLUSIVE, int32_t DIM>
   AccessorRD<OP, EXCLUSIVE, DIM> reduce_accessor(
-    const Legion::Rect<DIM> &bounds, const Legion::DomainAffineTransform &transform) const;
+    int32_t redop_id,
+    const Legion::Rect<DIM> &bounds,
+    const Legion::DomainAffineTransform &transform) const;
 
  public:
   template <int32_t DIM>
