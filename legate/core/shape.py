@@ -36,7 +36,10 @@ class Shape(object):
         return str(self._shape)
 
     def __getitem__(self, idx):
-        return self._shape[idx]
+        if isinstance(idx, slice):
+            return Shape(self._shape[idx])
+        else:
+            return self._shape[idx]
 
     def __len__(self):
         return len(self._shape)
@@ -93,10 +96,23 @@ class Shape(object):
         return Shape(self._shape[:dim] + self._shape[dim + 1 :])
 
     def update(self, dim, new_value):
-        return Shape(self._shape[:dim] + (new_value,) + self._shape[dim + 1 :])
+        return self.replace(dim, (new_value,))
+
+    def replace(self, dim, new_values):
+        if not isinstance(new_values, tuple):
+            new_values = tuple(new_values)
+        return Shape(self._shape[:dim] + new_values + self._shape[dim + 1 :])
 
     def insert(self, dim, new_value):
         return Shape(self._shape[:dim] + (new_value,) + self._shape[dim:])
 
     def map(self, mapping):
         return Shape(tuple(self[mapping[dim]] for dim in range(self.ndim)))
+
+    def strides(self):
+        strides = ()
+        stride = 1
+        for size in reversed(self._shape):
+            strides += (stride,)
+            stride *= size
+        return Shape(reversed(strides))

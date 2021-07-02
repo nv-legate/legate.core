@@ -139,6 +139,13 @@ std::unique_ptr<Transform> deserialize_transform(Deserializer &ctx)
       auto parent = deserialize_transform(ctx);
       return std::make_unique<Transpose>(std::move(axes), std::move(parent));
     }
+    case LEGATE_CORE_TRANSFORM_DELINEARIZE: {
+      int32_t dim = ctx.deserializer_.unpack_32bit_int();
+      std::vector<int64_t> sizes;
+      deserialize(ctx, sizes);
+      auto parent = deserialize_transform(ctx);
+      return std::make_unique<Delinearize>(dim, std::move(sizes), std::move(parent));
+    }
   }
   assert(false);
   return nullptr;

@@ -81,12 +81,7 @@ class Promote(Transform):
         self._dim_size = dim_size
 
     def compute_shape(self, shape):
-        new_shape = Shape(
-            shape[: self._extra_dim]
-            + (self._dim_size,)
-            + shape[self._extra_dim :]
-        )
-        return new_shape
+        return shape.insert(self._extra_dim, self._dim_size)
 
     def __str__(self):
         return f"Promote(dim: {self._extra_dim}, size: {self._dim_size})"
@@ -133,8 +128,7 @@ class Project(Transform):
         self._index = index
 
     def compute_shape(self, shape):
-        new_shape = Shape(shape[: self._dim] + shape[self._dim + 1 :])
-        return new_shape
+        return shape.drop(self._dim)
 
     def __str__(self):
         return f"Project(dim: {self._dim}, index: {self._index})"
@@ -216,3 +210,81 @@ class Transpose(Transform):
     def serialize(self, launcher):
         super(Transpose, self).serialize(launcher)
         launcher.add_scalar_arg(self._axes, (ty.int32,))
+
+
+class Delinearize(Transform):
+    def __init__(self, runtime, dim, shape):
+        self._runtime = runtime
+        self._dim = dim
+        self._shape = Shape(shape)
+        self._strides = self._shape.strides()
+
+    def compute_shape(self, shape):
+        return shape.replace(self._dim, self._shape)
+
+    def __str__(self):
+        return f"Delinearize(dim: {self._dim}, shape: {self._shape})"
+
+    @property
+    def invertible(self):
+        return False
+
+    def invert(self, partition):
+        if isinstance(partition, Tiling):
+            if (
+                partition.color_shape[
+                    self._dim : self._dim + self._shape.ndim
+                ].volume()
+                == 1
+                and partition.offset[
+                    self._dim : self._dim + self._shape.ndim
+                ].sum()
+                == 0
+                and partition.tile_shape[
+                    self._dim : self._dim + self._shape.ndim
+                ]
+                == self._shape
+            ):
+                tile_shape = partition.tile_shape
+                color_shape = partition.color_shape
+                offset = partition.offset
+                for n in range(self._shape.ndim):
+                    tile_shape = tile_shape.drop(self._dim)
+                    color_shape = color_shape.drop(self._dim)
+                    offset = offset.drop(self._dim)
+
+                tile_shape = tile_shape.insert(self._dim, self._shape.volume())
+                color_shape = color_shape.insert(self._dim, 1)
+                offset = offset.insert(self._dim, 0)
+
+                return Tiling(self._runtime, tile_shape, color_shape, offset)
+            else:
+                raise ValueError(f"Unsupported partition: {partition}")
+        else:
+            raise ValueError(
+                f"Unsupported partition: {type(partition).__name__}"
+            )
+
+    def get_inverse_transform(self, shape, parent_transform=None):
+        assert shape.ndim >= self._strides.ndim
+        out_ndim = shape.ndim - self._strides.ndim + 1
+        result = AffineTransform(out_ndim, shape.ndim, False)
+
+        in_dim = 0
+        for out_dim in range(out_ndim):
+            if out_dim == self._dim:
+                for dim, stride in enumerate(self._strides):
+                    result.trans[out_dim, in_dim + dim] = stride
+                in_dim += self._strides.ndim
+            else:
+                result.trans[out_dim, in_dim] = 1
+                in_dim += 1
+
+        if parent_transform is not None:
+            result = result.compose(parent_transform)
+        return result
+
+    def serialize(self, launcher):
+        super(Delinearize, self).serialize(launcher)
+        launcher.add_scalar_arg(self._dim, ty.int32)
+        launcher.add_scalar_arg(self._shape, (ty.int64,))

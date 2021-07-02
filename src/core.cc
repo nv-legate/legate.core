@@ -390,6 +390,73 @@ DomainAffineTransform Transpose::inverse_transform(int32_t in_dim) const
     return result;
 }
 
+Delinearize::Delinearize(int32_t dim, std::vector<int64_t> &&sizes, TransformP &&parent)
+  : Transform(std::forward<TransformP>(parent)),
+    dim_(dim),
+    sizes_(std::move(sizes)),
+    strides_(sizes_.size(), 1),
+    volume_(1)
+{
+  for (int32_t dim = sizes_.size() - 2; dim >= 0; --dim)
+    strides_[dim] = strides_[dim + 1] * sizes_[dim + 1];
+  for (auto size : sizes_) volume_ *= size;
+}
+
+Domain Delinearize::transform(const Domain &input) const
+{
+  Domain output;
+  output.dim     = input.dim - 1 + sizes_.size();
+  int32_t in_dim = 0;
+  for (int32_t in_dim = 0, out_dim = 0; in_dim < input.dim; ++in_dim) {
+    if (in_dim == dim_) {
+      auto lo = input.rect_data[in_dim];
+      auto hi = input.rect_data[input.dim + in_dim];
+      for (auto stride : strides_) {
+        output.rect_data[out_dim]              = lo / stride;
+        output.rect_data[output.dim + out_dim] = hi / stride;
+        lo                                     = lo % stride;
+        hi                                     = hi % stride;
+        ++out_dim;
+      }
+    } else {
+      output.rect_data[out_dim]              = input.rect_data[in_dim];
+      output.rect_data[output.dim + out_dim] = input.rect_data[input.dim + in_dim];
+      ++out_dim;
+    }
+  }
+  return output;
+}
+
+DomainAffineTransform Delinearize::inverse_transform(int32_t in_dim) const
+{
+  DomainTransform transform;
+  int32_t out_dim = in_dim - strides_.size() + 1;
+  transform.m     = out_dim;
+  transform.n     = in_dim;
+  for (int32_t i = 0; i < out_dim; ++i)
+    for (int32_t j = 0; j < in_dim; ++j) transform.matrix[i * in_dim + j] = 0;
+
+  for (int32_t i = 0, j = 0; i < out_dim; ++i)
+    if (i == dim_)
+      for (auto stride : strides_) transform.matrix[i * in_dim + j++] = stride;
+    else
+      transform.matrix[i * in_dim + j++] = 1;
+
+  DomainPoint offset;
+  offset.dim = out_dim;
+  for (int32_t i = 0; i < out_dim; ++i) offset[i] = 0;
+
+  DomainAffineTransform result;
+  result.transform = transform;
+  result.offset    = offset;
+
+  if (nullptr != parent_) {
+    auto parent = parent_->inverse_transform(in_dim);
+    return combine(parent, result);
+  } else
+    return result;
+}
+
 RegionField::RegionField(int32_t dim, const PhysicalRegion &pr, FieldID fid)
   : dim_(dim), pr_(pr), fid_(fid)
 {

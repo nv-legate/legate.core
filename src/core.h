@@ -205,6 +205,24 @@ class Transpose : public Transform {
   std::vector<int32_t> axes_;
 };
 
+class Delinearize : public Transform {
+ public:
+  Delinearize(int32_t dim,
+              std::vector<int64_t> &&sizes,
+              std::unique_ptr<Transform> &&parent = nullptr);
+  virtual ~Delinearize() {}
+
+ public:
+  virtual Legion::Domain transform(const Legion::Domain &domain) const override;
+  virtual Legion::DomainAffineTransform inverse_transform(int32_t in_dim) const override;
+
+ private:
+  int32_t dim_;
+  std::vector<int64_t> sizes_;
+  std::vector<int64_t> strides_;
+  int64_t volume_;
+};
+
 class RegionField {
  public:
   RegionField() {}

@@ -32,7 +32,7 @@ from .legion import (
 )
 from .partition import NoPartition, Tiling
 from .shape import Shape
-from .transform import Project, Promote, Shift, Transpose
+from .transform import Delinearize, Project, Promote, Shift, Transpose
 
 
 # A region field holds a reference to a field in a logical region
@@ -762,6 +762,19 @@ class Store(object):
             raise ValueError(f"duplicate axes found: {axes}")
 
         transform = Transpose(self._runtime, axes)
+        shape = transform.compute_shape(self._shape)
+        return Store(
+            self._runtime,
+            shape,
+            self._dtype,
+            storage=self._storage if self._scalar else None,
+            optimize_scalar=self._scalar,
+            parent=self,
+            transform=transform,
+        )
+
+    def delinearize(self, dim, shape):
+        transform = Delinearize(self._runtime, dim, shape)
         shape = transform.compute_shape(self._shape)
         return Store(
             self._runtime,
