@@ -451,7 +451,7 @@ DomainAffineTransform Delinearize::inverse_transform(int32_t in_dim) const
   result.offset    = offset;
 
   if (nullptr != parent_) {
-    auto parent = parent_->inverse_transform(in_dim);
+    auto parent = parent_->inverse_transform(out_dim);
     return combine(parent, result);
   } else
     return result;
