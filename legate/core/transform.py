@@ -43,6 +43,14 @@ class Shift(Transform):
     def __str__(self):
         return f"Shift(dim: {self._dim}, slice: {self._offset})"
 
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return False
+        return self._dim == other._dim and self._offset == other._offset
+
+    def __hash__(self):
+        return hash((type(self), self._dim, self._offset))
+
     @property
     def invertible(self):
         return True
@@ -85,6 +93,17 @@ class Promote(Transform):
 
     def __str__(self):
         return f"Promote(dim: {self._extra_dim}, size: {self._dim_size})"
+
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return False
+        return (
+            self._extra_dim == other._extra_dim
+            and self._dim_size == other._dim_size
+        )
+
+    def __hash__(self):
+        return hash((type(self), self._extra_dim, self._dim_size))
 
     @property
     def invertible(self):
@@ -132,6 +151,14 @@ class Project(Transform):
 
     def __str__(self):
         return f"Project(dim: {self._dim}, index: {self._index})"
+
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return False
+        return self._dim == other._dim and self._index == other._index
+
+    def __hash__(self):
+        return hash((type(self), self._dim, self._index))
 
     @property
     def invertible(self):
@@ -182,6 +209,14 @@ class Transpose(Transform):
     def __str__(self):
         return f"Transpose(axes: {self._axes})"
 
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return False
+        return self._axes == other._axes
+
+    def __hash__(self):
+        return hash((type(self), tuple(self._axes)))
+
     @property
     def invertible(self):
         return True
@@ -224,6 +259,14 @@ class Delinearize(Transform):
 
     def __str__(self):
         return f"Delinearize(dim: {self._dim}, shape: {self._shape})"
+
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return False
+        return self._dim == other._dim and self._shape == other._shape
+
+    def __hash__(self):
+        return hash((type(self), self._shape, self._strides))
 
     @property
     def invertible(self):

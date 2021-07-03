@@ -653,6 +653,29 @@ class Store(object):
 
         return self._storage
 
+    def __eq__(self, other):
+        if not isinstance(other, Store):
+            return False
+        return (
+            self._shape == other._shape
+            and self._dtype == other._dtype
+            and self._scalar == other._scalar
+            and self._transform == other._transform
+            and self._parent == other._parent
+        )
+
+    def __hash__(self):
+        return hash(
+            (
+                type(self),
+                self._shape,
+                self._dtype,
+                self._scalar,
+                self._transform,
+                self._parent,
+            )
+        )
+
     def set_storage(self, storage):
         assert isinstance(storage, RegionField) or isinstance(storage, Future)
         self._storage = storage
