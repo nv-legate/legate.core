@@ -676,6 +676,12 @@ class Store(object):
             )
         )
 
+    def get_root(self):
+        if self._parent is None:
+            return self
+        else:
+            return self._parent.get_root()
+
     def set_storage(self, storage):
         assert isinstance(storage, RegionField) or isinstance(storage, Future)
         self._storage = storage

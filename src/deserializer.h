@@ -93,7 +93,9 @@ class Deserializer {
 
  public:
   friend void deserialize(Deserializer &ctx, UntypedPoint &value);
+  friend void deserialize(Deserializer &ctx, Legion::DomainPoint &value);
   friend void deserialize(Deserializer &ctx, Shape &value);
+  friend void deserialize(Deserializer &ctx, FutureWrapper &value);
   friend void deserialize(Deserializer &ctx, RegionField &value);
   friend void deserialize(Deserializer &ctx, Store &store);
   friend std::unique_ptr<Transform> deserialize_transform(Deserializer &ctx);

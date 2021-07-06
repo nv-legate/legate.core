@@ -477,10 +477,26 @@ RegionField &RegionField::operator=(RegionField &&other) noexcept
 
 Domain RegionField::domain() const { return dim_dispatch(dim_, get_domain_fn{}, pr_); }
 
+FutureWrapper::FutureWrapper(Domain domain, Future future) : domain_(domain), future_(future) {}
+
+FutureWrapper::FutureWrapper(const FutureWrapper &other) noexcept
+  : domain_(other.domain_), future_(other.future_)
+{
+}
+
+FutureWrapper &FutureWrapper::operator=(const FutureWrapper &other) noexcept
+{
+  domain_ = other.domain_;
+  future_ = other.future_;
+  return *this;
+}
+
+Domain FutureWrapper::domain() const { return domain_; }
+
 Store::Store(int32_t dim,
              LegateTypeCode code,
              int32_t redop_id,
-             Future future,
+             FutureWrapper future,
              std::unique_ptr<Transform> transform)
   : is_future_(true),
     dim_(dim),
@@ -521,7 +537,7 @@ Store &Store::operator=(Store &&other) noexcept
 
 Domain Store::domain() const
 {
-  auto result = is_future_ ? Domain(Rect<1>(Point<1>(0), Point<1>(0))) : region_field_.domain();
+  auto result = is_future_ ? future_.domain() : region_field_.domain();
   if (nullptr != transform_) result = transform_->transform(result);
   assert(result.dim == dim_);
   return result;

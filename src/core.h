@@ -343,13 +343,47 @@ class RegionField {
   Legion::FieldID fid_{-1U};
 };
 
+class FutureWrapper {
+ public:
+  FutureWrapper() {}
+  FutureWrapper(Legion::Domain domain, Legion::Future future);
+
+ public:
+  FutureWrapper(const FutureWrapper &other) noexcept;
+  FutureWrapper &operator=(const FutureWrapper &other) noexcept;
+
+ public:
+  int32_t dim() const { return domain_.dim; }
+
+ public:
+  template <typename T, int32_t DIM>
+  AccessorRO<T, DIM> read_accessor() const;
+
+ public:
+  template <typename T, int32_t DIM>
+  AccessorRO<T, DIM> read_accessor(const Legion::Rect<DIM> &bounds) const;
+
+ public:
+  template <typename VAL>
+  VAL scalar() const;
+
+ public:
+  template <int32_t DIM>
+  Legion::Rect<DIM> shape() const;
+  Legion::Domain domain() const;
+
+ private:
+  Legion::Domain domain_{};
+  Legion::Future future_{};
+};
+
 class Store {
  public:
   Store() {}
   Store(int32_t dim,
         LegateTypeCode code,
         int32_t redop_id,
-        Legion::Future future,
+        FutureWrapper future,
         std::unique_ptr<Transform> transform = nullptr);
   Store(int32_t dim,
         LegateTypeCode code,
@@ -403,7 +437,7 @@ class Store {
   int32_t dim_{-1};
   LegateTypeCode code_{MAX_TYPE_NUMBER};
   int32_t redop_id_{-1};
-  Legion::Future future_;
+  FutureWrapper future_;
   RegionField region_field_;
   std::unique_ptr<Transform> transform_{nullptr};
 };

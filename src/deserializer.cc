@@ -106,6 +106,13 @@ void deserialize(Deserializer &ctx, UntypedPoint &value)
   value = dim_dispatch(dim, deserialize_untyped_point_fn{}, ctx.deserializer_);
 }
 
+void deserialize(Deserializer &ctx, DomainPoint &value)
+{
+  auto dim  = ctx.deserializer_.unpack_32bit_int();
+  value.dim = dim;
+  for (auto idx = 0; idx < dim; ++idx) value[idx] = ctx.deserializer_.unpack_64bit_int();
+}
+
 void deserialize(Deserializer &ctx, Shape &value) {}
 
 std::unique_ptr<Transform> deserialize_transform(Deserializer &ctx)
@@ -151,6 +158,24 @@ std::unique_ptr<Transform> deserialize_transform(Deserializer &ctx)
   return nullptr;
 }
 
+void deserialize(Deserializer &ctx, FutureWrapper &value)
+{
+  DomainPoint point;
+  deserialize(ctx, point);
+
+  auto future  = ctx.futures_[0];
+  ctx.futures_ = ctx.futures_.subspan(1);
+
+  Domain domain;
+  domain.dim = point.dim;
+  for (int32_t idx = 0; idx < point.dim; ++idx) {
+    domain.rect_data[idx]             = 0;
+    domain.rect_data[idx + point.dim] = point[idx] - 1;
+  }
+
+  value = FutureWrapper(domain, future);
+}
+
 void deserialize(Deserializer &ctx, RegionField &value)
 {
   auto dim = ctx.deserializer_.unpack_32bit_int();
@@ -171,8 +196,9 @@ void deserialize(Deserializer &ctx, Store &store)
   auto redop_id  = ctx.deserializer_.unpack_32bit_int();
 
   if (is_future) {
-    store        = Store(dim, code, redop_id, ctx.futures_[0], std::move(transform));
-    ctx.futures_ = ctx.futures_.subspan(1);
+    FutureWrapper fut;
+    deserialize(ctx, fut);
+    store = Store(dim, code, redop_id, fut, std::move(transform));
   } else {
     RegionField rf;
     deserialize(ctx, rf);

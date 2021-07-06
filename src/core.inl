@@ -141,13 +141,38 @@ Legion::Rect<DIM> RegionField::shape() const
 }
 
 template <typename T, int DIM>
+AccessorRO<T, DIM> FutureWrapper::read_accessor() const
+{
+  auto memkind = Legion::Memory::Kind::NO_MEMKIND;
+  return AccessorRO<T, DIM>(future_, memkind, sizeof(T), false, false, NULL, sizeof(uint64_t));
+}
+
+template <typename T, int DIM>
+AccessorRO<T, DIM> FutureWrapper::read_accessor(const Legion::Rect<DIM> &bounds) const
+{
+  auto memkind = Legion::Memory::Kind::NO_MEMKIND;
+  return AccessorRO<T, DIM>(
+    future_, bounds, memkind, sizeof(T), false, false, NULL, sizeof(uint64_t));
+}
+
+template <int32_t DIM>
+Legion::Rect<DIM> FutureWrapper::shape() const
+{
+  return Legion::Rect<DIM>(domain());
+}
+
+template <typename VAL>
+VAL FutureWrapper::scalar() const
+{
+  return future_.get_result<VAL>();
+}
+
+template <typename T, int DIM>
 AccessorRO<T, DIM> Store::read_accessor() const
 {
   assert(DIM == dim_ || dim_ == 0);
-  if (is_future_) {
-    auto memkind = Legion::Memory::Kind::NO_MEMKIND;
-    return AccessorRO<T, DIM>(future_, memkind, sizeof(T), false, false, NULL, sizeof(uint64_t));
-  }
+  if (is_future_) return future_.read_accessor<T, DIM>();
+
   if (nullptr != transform_) {
     auto transform = transform_->inverse_transform(dim_);
     return region_field_.read_accessor<T, DIM>(transform);
@@ -196,11 +221,8 @@ template <typename T, int DIM>
 AccessorRO<T, DIM> Store::read_accessor(const Legion::Rect<DIM> &bounds) const
 {
   assert(DIM == dim_);
-  if (is_future_) {
-    auto memkind = Legion::Memory::Kind::NO_MEMKIND;
-    return AccessorRO<T, DIM>(
-      future_, bounds, memkind, sizeof(T), false, false, NULL, sizeof(uint64_t));
-  }
+  if (is_future_) return future_.read_accessor<T, DIM>(bounds);
+
   if (nullptr != transform_) {
     auto transform = transform_->inverse_transform(DIM);
     return region_field_.read_accessor<T, DIM>(bounds, transform);
@@ -254,7 +276,7 @@ template <typename VAL>
 VAL Store::scalar() const
 {
   assert(is_future_);
-  return future_.get_result<VAL>();
+  return future_.scalar<VAL>();
 }
 
 }  // namespace legate

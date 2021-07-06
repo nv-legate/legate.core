@@ -81,17 +81,6 @@ class DtypeArg(object):
         return str(self)
 
 
-class PointArg(object):
-    def __init__(self, point, untyped=False):
-        self._point = point
-        self._untyped = untyped
-
-    def pack(self, buf):
-        if self._untyped:
-            buf.pack_32bit_int(len(self._point))
-        buf.pack_point(self._point)
-
-
 class RegionFieldArg(object):
     def __init__(self, op, dim, key, field_id):
         self._op = op
@@ -395,6 +384,7 @@ class TaskLauncher(object):
             if perm != Permission.READ:
                 raise ValueError("Scalar stores must be read only")
             self.add_future(store.storage)
+            self.add_scalar_arg(store.get_root().shape, (ty.int64,))
             return
 
         region = store.storage.region
@@ -437,9 +427,6 @@ class TaskLauncher(object):
 
     def add_future_map(self, future_map):
         self._future_map_args.append(future_map)
-
-    def add_point(self, point, untyped=False):
-        self._args.append(PointArg(point, untyped))
 
     def set_sharding_space(self, space):
         self._sharding_space = space
