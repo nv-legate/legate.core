@@ -521,6 +521,17 @@ Store::Store(int32_t dim,
 {
 }
 
+Store::Store(Store &&other) noexcept
+  : is_future_(other.is_future_),
+    dim_(other.dim_),
+    code_(other.code_),
+    redop_id_(other.redop_id_),
+    future_(other.future_),
+    region_field_(std::forward<RegionField>(other.region_field_)),
+    transform_(std::move(other.transform_))
+{
+}
+
 Store &Store::operator=(Store &&other) noexcept
 {
   is_future_ = other.is_future_;
