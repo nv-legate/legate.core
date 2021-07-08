@@ -186,6 +186,15 @@ void deserialize(Deserializer &ctx, RegionField &value)
   value    = RegionField(dim, pr, fid);
 }
 
+void deserialize(Deserializer &ctx, OutputRegionField &value)
+{
+  auto idx = ctx.deserializer_.unpack_32bit_uint();
+  auto fid = ctx.deserializer_.unpack_32bit_int();
+
+  auto &out = ctx.outputs_[idx];
+  value     = OutputRegionField(out, fid);
+}
+
 void deserialize(Deserializer &ctx, Store &store)
 {
   auto is_future = ctx.deserializer_.unpack_bool();
@@ -199,10 +208,14 @@ void deserialize(Deserializer &ctx, Store &store)
     FutureWrapper fut;
     deserialize(ctx, fut);
     store = Store(dim, code, redop_id, fut, std::move(transform));
-  } else {
+  } else if (dim >= 0) {
     RegionField rf;
     deserialize(ctx, rf);
     store = Store(dim, code, redop_id, std::move(rf), std::move(transform));
+  } else {
+    OutputRegionField out;
+    deserialize(ctx, out);
+    store = Store(code, std::move(out), std::move(transform));
   }
 }
 

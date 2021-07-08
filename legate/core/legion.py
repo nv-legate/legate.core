@@ -3206,6 +3206,7 @@ class Task(object):
             self.launcher, legion.legion_task_launcher_destroy
         )
         self.req_index = 0
+        self.outputs = []
 
     def add_no_access_requirement(
         self,
@@ -3491,6 +3492,28 @@ class Task(object):
         """
         legion.legion_task_launcher_add_future(self.launcher, future.handle)
 
+    def add_output(self, output):
+        """
+        Add an output region to the region requirements for this task
+
+        Parameters
+        ----------
+        output : OutputRegion
+            The output region that will be determined by this index launch
+        """
+        self.outputs.append(output)
+
+    def add_outputs(self, outputs):
+        """
+        Add a output regions to the region requirements for this task
+
+        Parameters
+        ----------
+        outputs : List[OutputRegion]
+            The output regions that will be determined by this index launch
+        """
+        self.outputs.extend(outputs)
+
     def set_point(self, point):
         """
         Set the point to describe this task for sharding
@@ -3544,11 +3567,26 @@ class Task(object):
         Future that will complete when the task is done and carries
         the return value of the task if any
         """
-        return Future(
-            legion.legion_task_launcher_execute(
-                runtime, context, self.launcher
+        num_outputs = len(self.outputs)
+        if num_outputs == 0:
+            return Future(
+                legion.legion_task_launcher_execute(
+                    runtime, context, self.launcher
+                )
             )
-        )
+        else:
+            outputs = ffi.new("legion_output_requirement_t[%d]" % num_outputs)
+            for i, output in enumerate(self.outputs):
+                outputs[i] = output.handle
+            return Future(
+                legion.legion_task_launcher_execute_outputs(
+                    runtime,
+                    context,
+                    self.launcher,
+                    outputs,
+                    len(self.outputs),
+                )
+            )
 
 
 class FutureMap(object):
@@ -4168,7 +4206,7 @@ class IndexTask(object):
 
     def add_output(self, output):
         """
-        Add an output region to the regoin requirements for this task
+        Add an output region to the region requirements for this task
 
         Parameters
         ----------
@@ -4179,7 +4217,7 @@ class IndexTask(object):
 
     def add_outputs(self, outputs):
         """
-        Add a output regions to the regoin requirements for this task
+        Add a output regions to the region requirements for this task
 
         Parameters
         ----------

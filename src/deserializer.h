@@ -97,6 +97,7 @@ class Deserializer {
   friend void deserialize(Deserializer &ctx, Shape &value);
   friend void deserialize(Deserializer &ctx, FutureWrapper &value);
   friend void deserialize(Deserializer &ctx, RegionField &value);
+  friend void deserialize(Deserializer &ctx, OutputRegionField &value);
   friend void deserialize(Deserializer &ctx, Store &store);
   friend std::unique_ptr<Transform> deserialize_transform(Deserializer &ctx);
 

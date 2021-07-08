@@ -126,11 +126,15 @@ class Operation(object):
         for input in self._inputs:
             launcher.add_input(input, strategy[input])
         for output in self._outputs:
-            launcher.add_output(output, strategy[output])
+            if not output.unbound:
+                launcher.add_output(output, strategy[output])
         for (reduction, redop) in self._reductions:
             partition = strategy[reduction]
             partition.redop = redop
             launcher.add_reduction(reduction, partition)
+        for output in self._outputs:
+            if output.unbound:
+                launcher.add_unbound_output(output)
 
         self._populate_launcher(launcher)
 

@@ -545,6 +545,7 @@ class Store(object):
         shape,
         dtype,
         storage=None,
+        unbound=False,
         optimize_scalar=False,
         parent=None,
         transform=None,
@@ -573,7 +574,7 @@ class Store(object):
         """
         self._runtime = runtime
         self._partition_manager = runtime.partition_manager
-        shape = Shape(shape)
+        shape = None if shape is None else Shape(shape)
         self._shape = shape
         self._dtype = dtype
         assert (
@@ -582,8 +583,11 @@ class Store(object):
             or isinstance(storage, Future)
         )
         self._storage = storage
-        self._scalar = optimize_scalar and (
-            shape.volume() <= 1 or isinstance(storage, Future)
+        self._unbound = unbound
+        self._scalar = (
+            optimize_scalar
+            and shape is not None
+            and (shape.volume() <= 1 or isinstance(storage, Future))
         )
         self._parent = parent
         self._transform = transform
@@ -596,13 +600,16 @@ class Store(object):
 
     @property
     def ndim(self):
-        return self._shape.ndim
+        return -1 if self._shape is None else self._shape.ndim
 
     @property
     def type(self):
         """
         Return the type of the data in this storage primitive
         """
+        return self._dtype
+
+    def get_dtype(self):
         return self._dtype
 
     @property
@@ -618,6 +625,10 @@ class Store(object):
             return Future if self._scalar else RegionField
 
     @property
+    def unbound(self):
+        return self._unbound
+
+    @property
     def scalar(self):
         return self._scalar
 
@@ -629,6 +640,11 @@ class Store(object):
         type specified in by 'kind'
         """
         if self._storage is None:
+            if self._unbound:
+                raise RuntimeError(
+                    "Storage of a variable size store cannot be retrieved "
+                    "until it is passed to an operation"
+                )
             # TODO: We should keep track of thunks and evaluate them
             #       if necessary
             if self._parent is None:
@@ -682,9 +698,12 @@ class Store(object):
         else:
             return self._parent.get_root()
 
-    def set_storage(self, storage):
+    def set_storage(self, storage, shape=None):
         assert isinstance(storage, RegionField) or isinstance(storage, Future)
         self._storage = storage
+        self._unbound = False
+        if shape is not None:
+            self._shape = shape
 
     def _get_tile(self, tiling):
         if self._parent is not None:

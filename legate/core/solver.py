@@ -15,6 +15,7 @@
 
 from .legion import Rect
 from .partition import NoPartition
+from .shape import Shape
 
 
 class Expression(object):
@@ -236,7 +237,7 @@ class Strategy(object):
     def __getitem__(self, store):
         if store not in self._strategy:
             raise ValueError(f"No strategy is found for {store}")
-        return self._strategy[store].get_requirement(store)
+        return self._strategy[store].get_requirement(self._launch_shape, store)
 
     def launch(self, launcher, output=None, redop=None):
         if output is None:
@@ -274,11 +275,13 @@ class Partitioner(object):
                 partitions[store] = NoPartition()
             return Strategy(None, partitions)
 
+        must_be_1d_launch = any(store.unbound for store in stores)
+
         partitions = {}
         prev_part = None
         while len(stores) > 0:
             store = stores.pop()
-            if store.scalar or store in broadcasts:
+            if store.scalar or store in broadcasts or store.unbound:
                 partitions[store] = NoPartition()
                 continue
 
@@ -297,4 +300,8 @@ class Partitioner(object):
             prev_part = partition
 
         color_shape = None if prev_part is None else prev_part.color_shape
+
+        if must_be_1d_launch:
+            color_shape = Shape((color_shape.volume(),))
+
         return Strategy(color_shape, partitions)

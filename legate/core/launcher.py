@@ -102,6 +102,22 @@ class RegionFieldArg(object):
         return str(self)
 
 
+class OutputRegionArg(object):
+    def __init__(self, idx, field_id):
+        self._idx = idx
+        self._field_id = field_id
+
+    def pack(self, buf):
+        buf.pack_32bit_uint(self._idx)
+        buf.pack_32bit_uint(self._field_id)
+
+    def __str__(self):
+        return f"OutputRegionArg({self._idx}, {self._field_id})"
+
+    def __repr__(self):
+        return str(self)
+
+
 _single_task_calls = {
     Permission.NO_ACCESS: SingleTask.add_no_access_requirement,
     Permission.READ: SingleTask.add_read_requirement,
@@ -317,6 +333,7 @@ class TaskLauncher(object):
     def __init__(self, context, task_id, mapper_id=0, tag=0):
         assert type(tag) != bool
         self._context = context
+        self._runtime = context.runtime
         self._task_id = task_id
         self._mapper_id = mapper_id
         self._args = list()
@@ -330,6 +347,7 @@ class TaskLauncher(object):
         self._tag = tag
         self._sharding_space = None
         self._point = None
+        self._output_regions = list()
 
     @property
     def library_task_id(self):
@@ -422,6 +440,17 @@ class TaskLauncher(object):
     def add_reduction(self, store, proj, tag=0, flags=0):
         self.add_store(store, proj, Permission.REDUCTION, tag, flags)
 
+    def add_unbound_output(self, store):
+        region_field = self._runtime.allocate_unbound_field(store.get_dtype())
+        output_region = self._runtime.create_output_region(region_field)
+
+        store.serialize(self)
+        self.add_scalar_arg(-1, ty.int32)
+
+        idx = len(self._output_regions)
+        self._output_regions.append((store, region_field, output_region))
+        self._args.append(OutputRegionArg(idx, region_field.field.field_id))
+
     def add_future(self, future):
         self._future_args.append(future)
 
@@ -455,6 +484,8 @@ class TaskLauncher(object):
             req.proj.add(task, req, fields)
         for future in self._future_args:
             task.add_future(future)
+        for (_, _, output_region) in self._output_regions:
+            task.add_output(output_region)
         for future_map in self._future_map_args:
             task.add_point_future(ArgumentMap(future_map=future_map))
         return task
@@ -475,6 +506,8 @@ class TaskLauncher(object):
             req.proj.add_single(task, req, fields)
         for future in self._future_args:
             task.add_future(future)
+        for (_, _, output_region) in self._output_regions:
+            task.add_output(output_region)
         if len(self._region_args) == 0:
             task.set_local_function(True)
         if self._sharding_space is not None:
@@ -491,10 +524,32 @@ class TaskLauncher(object):
         argbuf = BufferBuilder()
         task = self.build_task(launch_domain, argbuf)
         if redop is not None:
-            return self._context.dispatch(task, redop=redop)
+            result = self._context.dispatch(task, redop=redop)
         else:
-            return self._context.dispatch(task)
+            result = self._context.dispatch(task)
+
+        for (store, region_field, output_region) in self._output_regions:
+            region = output_region.get_region()
+            bounds = region.index_space.get_bounds()
+            shape = tuple(bounds.hi[idx] + 1 for idx in range(bounds.dim))
+            region_field.region = region
+            region_field.shape = shape
+            region_field.field.region = region
+            region_field.field.shape = shape
+            store.set_storage(region_field, shape=shape)
+
+        return result
 
     def execute_single(self):
         argbuf = BufferBuilder()
-        return self._context.dispatch(self.build_single_task(argbuf))
+        result = self._context.dispatch(self.build_single_task(argbuf))
+        for (store, region_field, output_region) in self._output_regions:
+            region = output_region.get_region()
+            bounds = region.index_space.get_bounds()
+            shape = tuple(bounds.hi[idx] + 1 for idx in range(bounds.dim))
+            region_field.region = region
+            region_field.shape = shape
+            region_field.field.region = region
+            region_field.field.shape = shape
+            store.set_storage(region_field, shape=shape)
+        return result

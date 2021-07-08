@@ -477,6 +477,29 @@ RegionField &RegionField::operator=(RegionField &&other) noexcept
 
 Domain RegionField::domain() const { return dim_dispatch(dim_, get_domain_fn{}, pr_); }
 
+OutputRegionField::OutputRegionField(const OutputRegion &out, FieldID fid) : out_(out), fid_(fid) {}
+
+OutputRegionField::OutputRegionField(OutputRegionField &&other) noexcept
+  : bound_(other.bound_), out_(other.out_), fid_(other.fid_)
+{
+  other.bound_ = false;
+  other.out_   = OutputRegion();
+  other.fid_   = -1;
+}
+
+OutputRegionField &OutputRegionField::operator=(OutputRegionField &&other) noexcept
+{
+  bound_ = other.bound_;
+  out_   = other.out_;
+  fid_   = other.fid_;
+
+  other.bound_ = false;
+  other.out_   = OutputRegion();
+  other.fid_   = -1;
+
+  return *this;
+}
+
 FutureWrapper::FutureWrapper(Domain domain, Future future) : domain_(domain), future_(future) {}
 
 FutureWrapper::FutureWrapper(const FutureWrapper &other) noexcept
@@ -499,6 +522,7 @@ Store::Store(int32_t dim,
              FutureWrapper future,
              std::unique_ptr<Transform> transform)
   : is_future_(true),
+    is_output_store_(false),
     dim_(dim),
     code_(code),
     redop_id_(redop_id),
@@ -513,6 +537,7 @@ Store::Store(int32_t dim,
              RegionField &&region_field,
              std::unique_ptr<Transform> transform)
   : is_future_(false),
+    is_output_store_(false),
     dim_(dim),
     code_(code),
     redop_id_(redop_id),
@@ -521,25 +546,41 @@ Store::Store(int32_t dim,
 {
 }
 
+Store::Store(LegateTypeCode code, OutputRegionField &&output, std::unique_ptr<Transform> transform)
+  : is_future_(false),
+    is_output_store_(true),
+    dim_(-1),
+    code_(code),
+    redop_id_(-1),
+    output_field_(std::forward<OutputRegionField>(output)),
+    transform_(std::move(transform))
+{
+}
+
 Store::Store(Store &&other) noexcept
   : is_future_(other.is_future_),
+    is_output_store_(other.is_output_store_),
     dim_(other.dim_),
     code_(other.code_),
     redop_id_(other.redop_id_),
     future_(other.future_),
     region_field_(std::forward<RegionField>(other.region_field_)),
+    output_field_(std::forward<OutputRegionField>(other.output_field_)),
     transform_(std::move(other.transform_))
 {
 }
 
 Store &Store::operator=(Store &&other) noexcept
 {
-  is_future_ = other.is_future_;
-  dim_       = other.dim_;
-  code_      = other.code_;
-  redop_id_  = other.redop_id_;
+  is_future_       = other.is_future_;
+  is_output_store_ = other.is_output_store_;
+  dim_             = other.dim_;
+  code_            = other.code_;
+  redop_id_        = other.redop_id_;
   if (is_future_)
     future_ = other.future_;
+  else if (is_output_store_)
+    output_field_ = std::move(other.output_field_);
   else
     region_field_ = std::move(other.region_field_);
   transform_ = std::move(other.transform_);
@@ -548,6 +589,7 @@ Store &Store::operator=(Store &&other) noexcept
 
 Domain Store::domain() const
 {
+  assert(!is_output_store_);
   auto result = is_future_ ? future_.domain() : region_field_.domain();
   if (nullptr != transform_) result = transform_->transform(result);
   assert(result.dim == dim_);

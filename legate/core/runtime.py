@@ -31,6 +31,7 @@ from .legion import (
     Future,
     IndexPartition,
     IndexSpace,
+    OutputRegion,
     PartitionByRestriction,
     Point,
     Rect,
@@ -55,15 +56,26 @@ class Field(object):
         "dtype",
         "shape",
         "own",
+        "field_space",
     ]
 
-    def __init__(self, runtime, region, field_id, dtype, shape, own=True):
+    def __init__(
+        self,
+        runtime,
+        region,
+        field_id,
+        dtype,
+        shape,
+        field_space=None,
+        own=True,
+    ):
         self.runtime = runtime
         self.region = region
         self.field_id = field_id
         self.dtype = dtype
         self.shape = shape
         self.own = own
+        self.field_space = field_space
 
     def __del__(self):
         if self.own:
@@ -900,6 +912,11 @@ class Runtime(object):
     def unmap_region(self, physical_region):
         physical_region.unmap(self.legion_runtime, self.legion_context)
 
+    def get_deliearize_functor(self):
+        return self.core_context.get_projection_id(
+            self.core_library.LEGATE_CORE_DELINEARIZE_FUNCTOR
+        )
+
     def get_projection(self, src_dim, tgt_dim, mask):
         proj_id = 0
         for dim, val in enumerate(mask):
@@ -936,12 +953,20 @@ class Runtime(object):
             self.core_library, f"LEGATE_CORE_TRANSFORM_{name.upper()}"
         )
 
-    def create_store(self, shape, dtype, storage=None, optimize_scalar=False):
+    def create_store(
+        self,
+        dtype,
+        shape=None,
+        storage=None,
+        unbound=False,
+        optimize_scalar=False,
+    ):
         return Store(
             self,
             shape,
             dtype,
             storage=storage,
+            unbound=unbound,
             optimize_scalar=optimize_scalar,
         )
 
@@ -967,6 +992,29 @@ class Runtime(object):
         key = (shape, dtype)
         if self.field_managers is not None:
             self.field_managers[key].free_field(region, field_id)
+
+    def allocate_unbound_field(self, dtype):
+        field_space = self.find_or_create_field_space(dtype)
+        field_id = field_space.allocate_field(dtype)
+        field = Field(
+            self,
+            None,
+            field_id,
+            dtype,
+            None,
+            field_space=field_space,
+            own=False,
+        )
+        return RegionField(self, None, field, None)
+
+    def create_output_region(self, region_field):
+        assert region_field.field.field_space is not None
+        return OutputRegion(
+            self.legion_context,
+            self.legion_runtime,
+            field_space=region_field.field.field_space,
+            fields=[region_field.field.field_id],
+        )
 
     def attach_array(self, context, array, dtype, share):
         return self._attachment_manager.attach_array(

@@ -30,7 +30,7 @@ class NoPartition(object):
     def color_shape(self):
         return None
 
-    def get_requirement(self, store):
+    def get_requirement(self, launch_space, store):
         return Broadcast()
 
     def __hash__(self):
@@ -154,5 +154,11 @@ class Tiling(object):
         )
         return region.get_child(index_partition)
 
-    def get_requirement(self, store):
-        return Partition(store.find_or_create_partition(self))
+    def get_requirement(self, launch_space, store):
+        part = store.find_or_create_partition(self)
+        if self.color_shape.ndim != launch_space.ndim:
+            assert launch_space.ndim == 1
+            proj_id = self._runtime.get_deliearize_functor()
+        else:
+            proj_id = 0
+        return Partition(part, proj_id)

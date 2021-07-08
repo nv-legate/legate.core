@@ -343,6 +343,29 @@ class RegionField {
   Legion::FieldID fid_{-1U};
 };
 
+class OutputRegionField {
+ public:
+  OutputRegionField() {}
+  OutputRegionField(const Legion::OutputRegion &out, Legion::FieldID fid);
+
+ public:
+  OutputRegionField(OutputRegionField &&other) noexcept;
+  OutputRegionField &operator=(OutputRegionField &&other) noexcept;
+
+ private:
+  OutputRegionField(const OutputRegionField &other) = delete;
+  OutputRegionField &operator=(const OutputRegionField &other) = delete;
+
+ public:
+  template <typename VAL>
+  void return_data(Legion::DeferredBuffer<VAL, 1> &buffer, size_t num_elements);
+
+ private:
+  bool bound_{false};
+  Legion::OutputRegion out_{};
+  Legion::FieldID fid_{-1U};
+};
+
 class FutureWrapper {
  public:
   FutureWrapper() {}
@@ -390,6 +413,9 @@ class Store {
         int32_t redop_id,
         RegionField &&region_field,
         std::unique_ptr<Transform> transform = nullptr);
+  Store(LegateTypeCode code,
+        OutputRegionField &&output,
+        std::unique_ptr<Transform> transform = nullptr);
 
  public:
   Store(Store &&other) noexcept;
@@ -432,13 +458,19 @@ class Store {
   template <typename VAL>
   VAL scalar() const;
 
+ public:
+  template <typename VAL>
+  void return_data(Legion::DeferredBuffer<VAL, 1> &buffer, size_t num_elements);
+
  private:
   bool is_future_{false};
+  bool is_output_store_{false};
   int32_t dim_{-1};
   LegateTypeCode code_{MAX_TYPE_NUMBER};
   int32_t redop_id_{-1};
   FutureWrapper future_;
   RegionField region_field_;
+  OutputRegionField output_field_;
   std::unique_ptr<Transform> transform_{nullptr};
 };
 

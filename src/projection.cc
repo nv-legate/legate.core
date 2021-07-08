@@ -38,7 +38,7 @@ uint32_t get_transpose_functor_id(const int32_t dim, const uint32_t id)
   return LEGATE_CORE_FIRST_TRANSPOSE_FUNCTOR | id << 4 | dim;
 }
 
-static std::unordered_map<ProjectionID, LegateProjectionFunctor*> functors;
+static std::unordered_map<ProjectionID, ProjectionFunctor*> functors;
 
 LegateProjectionFunctor::LegateProjectionFunctor(Runtime* rt) : ProjectionFunctor(rt) {}
 
@@ -223,6 +223,53 @@ struct create_transpose_functor_fn {
   }
 };
 
+class DelinearizationFunctor : public ProjectionFunctor {
+ public:
+  DelinearizationFunctor(Runtime* runtime);
+
+ public:
+  virtual Legion::LogicalRegion project(Legion::LogicalPartition upper_bound,
+                                        const Legion::DomainPoint& point,
+                                        const Legion::Domain& launch_domain);
+
+ public:
+  virtual bool is_functional(void) const { return true; }
+  virtual bool is_exclusive(void) const { return true; }
+  virtual unsigned get_depth(void) const { return 0; }
+};
+
+DelinearizationFunctor::DelinearizationFunctor(Runtime* runtime) : ProjectionFunctor(runtime) {}
+
+LogicalRegion DelinearizationFunctor::project(LogicalPartition upper_bound,
+                                              const DomainPoint& point,
+                                              const Domain& launch_domain)
+{
+  const auto color_space =
+    runtime->get_index_partition_color_space(upper_bound.get_index_partition());
+
+  assert(color_space.dense());
+  assert(point.dim == 1);
+
+  std::vector<int64_t> strides(color_space.dim, 1);
+  for (int32_t dim = color_space.dim - 1; dim > 0; --dim) {
+    auto extent = color_space.rect_data[dim + color_space.dim] - color_space.rect_data[dim] + 1;
+    strides[dim - 1] = strides[dim] * extent;
+  }
+
+  DomainPoint delinearized;
+  delinearized.dim = color_space.dim;
+  int64_t value    = point[0];
+  for (int32_t dim = 0; dim < color_space.dim; ++dim) {
+    delinearized[dim] = value / strides[dim];
+    value             = value % strides[dim];
+  }
+
+  if (runtime->has_logical_subregion_by_color(upper_bound, delinearized))
+    return runtime->get_logical_subregion_by_color(upper_bound, delinearized);
+  else
+    return LogicalRegion::NO_REGION;
+}
+
 void register_legate_core_projection_functors(Legion::Runtime* runtime,
                                               const LegateContext& context)
 {
@@ -243,11 +290,13 @@ void register_legate_core_projection_functors(Legion::Runtime* runtime,
     for (uint32_t id_in_factoradic = 1; id_in_factoradic < num_permutations; ++id_in_factoradic)
       dim_dispatch(src_dim, create_transpose_functor_fn{}, runtime, context, id_in_factoradic);
   }
-}
 
-/*static*/ LegateProjectionFunctor* Core::get_projection_functor(ProjectionID functor_id)
-{
-  return functors[functor_id];
+  {
+    auto proj_id      = context.get_projection_id(LEGATE_CORE_DELINEARIZE_FUNCTOR);
+    auto functor      = new DelinearizationFunctor(runtime);
+    functors[proj_id] = functor;
+    runtime->register_projection_functor(proj_id, functor, true /*silence warnings*/);
+  }
 }
 
 }  // namespace legate

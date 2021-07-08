@@ -178,12 +178,20 @@ class Context(object):
     def dispatch(self, op, redop=None):
         return self._runtime.dispatch(op, redop)
 
-    def create_store(self, shape, ty, storage=None, optimize_scalar=False):
+    def create_store(
+        self,
+        ty,
+        shape=None,
+        storage=None,
+        unbound=False,
+        optimize_scalar=False,
+    ):
         dtype = self.type_system[ty]
         return self._runtime.create_store(
-            shape,
             dtype,
+            shape=shape,
             storage=storage,
+            unbound=unbound,
             optimize_scalar=optimize_scalar,
         )
 
