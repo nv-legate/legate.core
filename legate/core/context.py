@@ -158,7 +158,7 @@ class Context(object):
         return self._shard_scope.translate(shard_id)
 
     def get_tunable(self, tunable_id, dtype, mapper_id=0):
-        dtype = np.dtype(dtype)
+        dtype = np.dtype(dtype.to_pandas_dtype())
         mapper_id = self.get_mapper_id(mapper_id)
         fut = Future(
             legion.legion_runtime_select_tunable_value(

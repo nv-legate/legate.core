@@ -24,6 +24,8 @@ import numpy as np
 from legion_cffi import ffi  # Make sure we only have one ffi instance
 from legion_top import cleanup_items, top_level
 
+from legate.core import types as ty
+
 from .context import Context
 from .corelib import CoreLib
 from .legion import (
@@ -476,11 +478,11 @@ class PartitionManager(object):
         self._runtime = runtime
         self._num_pieces = runtime.core_context.get_tunable(
             runtime.core_library.LEGATE_CORE_TUNABLE_NUM_PIECES,
-            "int32",
+            ty.int32,
         )
         self._min_shard_volume = runtime.core_context.get_tunable(
             runtime.core_library.LEGATE_CORE_TUNABLE_MIN_SHARD_VOLUME,
-            "int32",
+            ty.int32,
         )
 
         self._launch_spaces = {}
@@ -952,6 +954,11 @@ class Runtime(object):
         return getattr(
             self.core_library, f"LEGATE_CORE_TRANSFORM_{name.upper()}"
         )
+
+    def create_future(self, data, size):
+        future = Future()
+        future.set_value(self.legion_runtime, data, size)
+        return future
 
     def create_store(
         self,
