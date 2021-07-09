@@ -31,14 +31,10 @@ from .corelib import CoreLib
 from .legion import (
     FieldSpace,
     Future,
-    IndexPartition,
     IndexSpace,
     OutputRegion,
-    PartitionByRestriction,
-    Point,
     Rect,
     Region,
-    Transform,
     legate_task_postamble,
     legate_task_preamble,
     legion,
@@ -666,78 +662,6 @@ class PartitionManager(object):
         return Shape(
             tuple(map(lambda x, y: (x + y - 1) // y, shape, launch_space))
         )
-
-    def find_or_create_partition(
-        self, region, color_shape, tile_shape, offset, transform, complete=True
-    ):
-        # Compute the extent and transform for this partition operation
-        lo = (0,) * len(tile_shape)
-        # Legion is inclusive so map down
-        hi = tuple(map(lambda x: (x - 1), tile_shape))
-        if offset is not None:
-            assert len(offset) == len(tile_shape)
-            lo = tuple(map(lambda x, y: (x + y), lo, offset))
-            hi = tuple(map(lambda x, y: (x + y), hi, offset))
-        # Construct the transform to use based on the color space
-        tile_transform = Transform(len(tile_shape), len(tile_shape))
-        for idx, tile in enumerate(tile_shape):
-            tile_transform.trans[idx, idx] = tile
-        # If we have a translation back to the region space
-        # we need to apply that
-        if transform is not None:
-            # Transform the extent points into the region space
-            lo = transform.apply(lo)
-            hi = transform.apply(hi)
-            # Compose the transform from the color space into our shape space
-            # with the transform from our shape space to region space
-            tile_transform = tile_transform.compose(transform)
-        # Now that we have the points in the global coordinate space we can
-        # build the domain for the extent
-        extent = Rect(hi, lo, exclusive=False)
-        # Check to see if we already made a partition like this
-        if region.index_space.children:
-            color_lo = Point((0,) * len(color_shape), dim=len(color_shape))
-            color_hi = Point(dim=len(color_shape))
-            for idx in range(color_hi.dim):
-                color_hi[idx] = color_shape[idx] - 1
-            for part in region.index_space.children:
-                if not isinstance(part.functor, PartitionByRestriction):
-                    continue
-                if part.functor.transform != tile_transform:
-                    continue
-                if part.functor.extent != extent:
-                    continue
-                # Lastly check that the index space domains match
-                color_bounds = part.color_space.get_bounds()
-                if color_bounds.lo != color_lo or color_bounds.hi != color_hi:
-                    continue
-                # Get the corresponding logical partition
-                result = region.get_child(part)
-                # Annotate it with our meta-data
-                if not hasattr(result, "color_shape"):
-                    result.color_shape = color_shape
-                    result.tile_shape = tile_shape
-                    result.tile_offset = offset
-                return result
-        print("create partition with: ", tile_shape, extent, color_shape)
-        color_space = self._runtime.find_or_create_index_space(color_shape)
-        functor = PartitionByRestriction(tile_transform, extent)
-        index_partition = IndexPartition(
-            self._runtime.legion_context,
-            self._runtime.legion_runtime,
-            region.index_space,
-            color_space,
-            functor,
-            kind=legion.LEGION_DISJOINT_COMPLETE_KIND
-            if complete
-            else legion.LEGION_DISJOINT_INCOMPLETE_KIND,
-            keep=True,  # export this partition functor to other libraries
-        )
-        partition = region.get_child(index_partition)
-        partition.color_shape = color_shape
-        partition.tile_shape = tile_shape
-        partition.tile_offset = offset
-        return partition
 
     def use_complete_tiling(self, shape, tile_shape):
         # If it would generate a very large number of elements then
