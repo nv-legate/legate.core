@@ -14,22 +14,13 @@
 #
 
 import weakref
-from functools import partial, reduce
+from functools import partial
 
 import numpy as np
 
 import legate.core.types as ty
 
-from .legion import (
-    AffineTransform,
-    Attach,
-    Detach,
-    Future,
-    InlineMapping,
-    Point,
-    ffi,
-    legion,
-)
+from .legion import Attach, Detach, Future, InlineMapping, Point, ffi, legion
 from .partition import NoPartition, Tiling
 from .shape import Shape
 from .transform import Delinearize, Project, Promote, Shift, Transpose
@@ -54,10 +45,6 @@ class RegionField(object):
         self.field = field
         self.shape = shape
         self.parent = parent
-        self.transform = transform
-        self.key_partition = None  # The key partition for this region field
-        self.subviews = None  # RegionField subviews of this region field
-        self.view = view  # The view slice tuple used to make this region field
         self.launch_space = None  # Parallel launch space for this region_field
         self.attached_array = (
             None  # Numpy array that we attached to this field
@@ -74,247 +61,20 @@ class RegionField(object):
         if self.attached_array is not None:
             self.detach_numpy_array(unordered=True, defer=True)
 
-    def has_parallel_launch_space(self):
-        return self.launch_space is not None
-
     def compute_parallel_launch_space(self):
         # See if we computed it already
         if self.launch_space == ():
             return None
         if self.launch_space is not None:
             return self.launch_space
-        if self.parent is not None:
-            key_partition = self.find_or_create_key_partition()
-            if key_partition is None:
-                self.launch_space = ()
-            else:
-                self.launch_space = key_partition.color_shape
-        else:  # top-level region so just do the natural partitioning
-            self.launch_space = self.partition_manager.compute_parallel_launch_space_by_shape(  # noqa E501
-                self.shape
-            )
-            if self.launch_space is None:
-                self.launch_space = ()
+        self.launch_space = self.partition_manager.compute_parallel_launch_space_by_shape(  # noqa E501
+            self.shape
+        )
+        if self.launch_space is None:
+            self.launch_space = ()
         if self.launch_space == ():
             return None
         return self.launch_space
-
-    def set_key_partition(self, part, shardfn=None, shardsp=None):
-        assert part.parent == self.region
-        self.launch_space = part.color_shape
-        self.key_partition = part
-
-    def find_or_create_key_partition(self):
-        if self.key_partition is not None:
-            return self.key_partition
-        # We already tried to compute it and did not have one so we're done
-        if self.launch_space == ():
-            return None
-        if self.parent is not None:
-            # Figure out how many tiles we overlap with of the root
-            root = self.parent
-            while root.parent is not None:
-                root = root.parent
-            root_key = root.find_or_create_key_partition()
-            if root_key is None:
-                self.launch_space = ()
-                return None
-            # Project our bounds through the transform into the
-            # root coordinate space to get our bounds in the root
-            # coordinate space
-            lo = np.zeros((len(self.shape),), dtype=np.int64)
-            hi = np.array(self.shape, dtype=np.int64) - 1
-            if self.transform:
-                lo = self.transform.apply(lo)
-                hi = self.transform.apply(hi)
-            # Compute the lower bound tile and upper bound tile
-            assert len(lo) == len(root_key.tile_shape)
-            color_lo = tuple(map(lambda x, y: x // y, lo, root_key.tile_shape))
-            color_hi = tuple(map(lambda x, y: x // y, hi, root_key.tile_shape))
-            color_tile = root_key.tile_shape
-            if self.transform:
-                # Check to see if this transform is invertible
-                # If it is then we'll reuse the key partition of the
-                # root in order to guide how we do the partitioning
-                # for this view to maximimize locality. If the transform
-                # is not invertible then we'll fall back to doing the
-                # standard mapping of the index space
-                invertible = True
-                for m in range(len(root.shape)):
-                    nonzero = False
-                    for n in range(len(self.shape)):
-                        if self.transform.trans[m, n] != 0:
-                            if nonzero:
-                                invertible = False
-                                break
-                            if self.transform.trans[m, n] != 1:
-                                invertible = False
-                                break
-                            nonzero = True
-                    if not invertible:
-                        break
-                if not invertible:
-                    # Not invertible so fall back to the standard case
-                    launch_space = self.partition_manager.compute_parallel_launch_space_by_shape(  # noqa: E501
-                        self.shape
-                    )
-                    if launch_space == ():
-                        return None, None
-                    tile_shape = self.partition_manager.compute_tile_shape(
-                        self.shape, launch_space
-                    )
-                    self.key_partition = (
-                        self.partition_manager.find_or_create_partition(
-                            self.region,
-                            launch_space,
-                            tile_shape,
-                            offset=(0,) * len(launch_space),
-                            transform=self.transform,
-                        )
-                    )
-                    return self.key_partition
-                # We're invertible so do the standard inversion
-                inverse = np.transpose(self.transform.trans)
-                # We need to make a make a special sharding functor here that
-                # projects the points in our launch space back into the space
-                # of the root partitions sharding space
-                # First construct the affine mapping for points in our launch
-                # space back into the launch space of the root
-                # This is the special case where we have a special shard
-                # function and sharding space that is different than our normal
-                # launch space because it's a subset of the root's launch space
-                launch_transform = AffineTransform(
-                    len(root.shape), len(self.shape), False
-                )
-                launch_transform.trans = self.transform.trans
-                launch_transform.offset = color_lo
-                tile_offset = np.zeros((len(self.shape),), dtype=np.int64)
-                for n in range(len(self.shape)):
-                    nonzero = False
-                    for m in range(len(root.shape)):
-                        if inverse[n, m] == 0:
-                            continue
-                        nonzero = True
-                        break
-                    if not nonzero:
-                        tile_offset[n] = 1
-                color_lo = tuple((inverse @ color_lo).flatten())
-                color_hi = tuple((inverse @ color_hi).flatten())
-                color_tile = tuple(
-                    (inverse @ color_tile).flatten() + tile_offset
-                )
-                # Reset lo and hi back to our space
-                lo = np.zeros((len(self.shape),), dtype=np.int64)
-                hi = np.array(self.shape, dtype=np.int64) - 1
-            # Launch space is how many tiles we have in each dimension
-            color_shape = tuple(
-                map(lambda x, y: (x - y) + 1, color_hi, color_lo)
-            )
-            # Check to see if they are all one, if so then we don't even need
-            # to bother with making the partition
-            volume = reduce(lambda x, y: x * y, color_shape)
-            assert volume > 0
-            if volume == 1:
-                self.launch_space = ()
-                # We overlap with exactly one point in the root
-                # Therefore just record this point
-                self.shard_point = Point(color_lo)
-                return None
-            # Now compute the offset for the partitioning
-            # This will shift the tile down if necessary to align with the
-            # boundaries at the root while still covering all of our elements
-            offset = tuple(
-                map(
-                    lambda x, y: 0 if (x % y) == 0 else ((x % y) - y),
-                    lo,
-                    color_tile,
-                )
-            )
-            self.key_partition = (
-                self.partition_manager.find_or_create_partition(
-                    self.region,
-                    color_shape,
-                    color_tile,
-                    offset,
-                    self.transform,
-                )
-            )
-        else:
-            launch_space = self.compute_parallel_launch_space()
-            if launch_space is None:
-                return None
-            tile_shape = self.partition_manager.compute_tile_shape(
-                self.shape, launch_space
-            )
-            self.key_partition = (
-                self.partition_manager.find_or_create_partition(
-                    self.region,
-                    launch_space,
-                    tile_shape,
-                    offset=(0,) * len(launch_space),
-                    transform=self.transform,
-                )
-            )
-        return self.key_partition
-
-    def find_or_create_congruent_partition(
-        self, part, transform=None, offset=None
-    ):
-        if transform is not None:
-            shape_transform = AffineTransform(transform.M, transform.N, False)
-            shape_transform.trans = transform.trans.copy()
-            shape_transform.offset = offset
-            offset_transform = transform
-            return self.find_or_create_partition(
-                shape_transform.apply(part.color_shape),
-                shape_transform.apply(part.tile_shape),
-                offset_transform.apply(part.tile_offset),
-            )
-        else:
-            assert len(self.shape) == len(part.color_shape)
-            return self.find_or_create_partition(
-                part.color_shape, part.tile_shape, part.tile_offset
-            )
-
-    def find_or_create_partition(
-        self, launch_space, tile_shape=None, offset=None
-    ):
-        # Compute a tile shape based on our shape
-        if tile_shape is None:
-            tile_shape = self.partition_manager.compute_tile_shape(
-                self.shape, launch_space
-            )
-        if offset is None:
-            offset = (0,) * len(launch_space)
-        # Tile shape should have the same number of dimensions as our shape
-        assert len(launch_space) == len(self.shape)
-        assert len(tile_shape) == len(self.shape)
-        assert len(offset) == len(self.shape)
-        # Do a quick check to see if this is congruent to our key partition
-        if (
-            self.key_partition is not None
-            and launch_space == self.key_partition.color_shape
-            and tile_shape == self.key_partition.tile_shape
-            and offset == self.key_partition.tile_offset
-        ):
-            return self.key_partition
-        # Continue this process on the region object, to ensure any created
-        # partitions are shared between RegionField objects referring to the
-        # same region
-        return self.partition_manager.find_or_create_partition(
-            self.region,
-            launch_space,
-            tile_shape,
-            offset,
-            self.transform,
-        )
-
-    def find_or_create_indirect_partition(self, launch_space):
-        assert len(launch_space) != len(self.shape)
-        # If there is a mismatch in the number of dimensions then we need
-        # to compute a partition and projection functor that can transform
-        # the points into a partition that makes sense
-        raise NotImplementedError("need support for indirect partitioning")
 
     def attach_numpy_array(self, context, numpy_array, share=False):
         assert self.parent is None

@@ -1047,20 +1047,6 @@ class Runtime(object):
         self.field_spaces[dtype] = field_space
         return field_space
 
-    def create_transform_view(self, region_field, new_shape, transform):
-        assert isinstance(region_field, RegionField)
-        # Compose the transform if necessary
-        if region_field.transform is not None:
-            transform = transform.compose(region_field.transform)
-        return RegionField(
-            self,
-            region_field.region,
-            region_field.field,
-            shape=new_shape,
-            transform=transform,
-            parent=region_field,
-        )
-
 
 _runtime = Runtime(CoreLib())
 
