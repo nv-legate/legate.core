@@ -332,9 +332,9 @@ class Store(object):
             Whether to use a Future for the storage when the volume is 1
 
         """
+        assert isinstance(shape, Shape) or shape is None
         self._runtime = runtime
         self._partition_manager = runtime.partition_manager
-        shape = None if shape is None else Shape(shape)
         self._shape = shape
         self._dtype = dtype
         assert (

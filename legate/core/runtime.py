@@ -414,7 +414,9 @@ class AttachmentManager(object):
             region_field = RegionField(
                 self._runtime, region, field, array.shape
             )
-        return Store(self._runtime, array.shape, dtype, storage=region_field)
+        return self._runtime.create_store(
+            dtype, array.shape, storage=region_field
+        )
 
     def remove_attachment(self, array):
         key = self.attachment_key(array)
@@ -892,6 +894,8 @@ class Runtime(object):
         unbound=False,
         optimize_scalar=False,
     ):
+        if shape is not None and not isinstance(shape, Shape):
+            shape = Shape(shape)
         return Store(
             self,
             shape,

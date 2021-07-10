@@ -14,6 +14,7 @@
 #
 
 
+from collections.abc import Iterable
 from functools import reduce
 
 
@@ -30,7 +31,10 @@ def _cast_tuple(value, ndim):
 
 class Shape(object):
     def __init__(self, shape):
-        self._shape = tuple(shape)
+        if not isinstance(shape, Iterable):
+            self._shape = (shape,)
+        else:
+            self._shape = tuple(shape)
 
     def __str__(self):
         return str(self._shape)
