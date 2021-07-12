@@ -170,23 +170,52 @@ class FieldMatch(object):
                 self.manager.free_field(region, field_id, ordered=False)
 
 
+# This class manages all regions of the same shape.
+class RegionManager(object):
+    def __init__(self, runtime, shape):
+        self._runtime = runtime
+        self._shape = shape
+        self._top_regions = []
+
+    def __del__(self):
+        self._shape = None
+        self._top_regions = None
+
+    def destroy(self):
+        while self._top_regions:
+            region = self._top_regions.pop()
+            region.destroy()
+
+    @property
+    def active_region(self):
+        return self._top_regions[-1]
+
+    @property
+    def has_space(self):
+        return (
+            len(self._top_regions) > 0
+            and self.active_region.field_space.has_space
+        )
+
+    def _create_region(self):
+        # Note that the regions created in this method are always fresh
+        # so we don't need to de-duplicate them to keep track of their
+        # life cycles correctly.
+        index_space = self._shape.get_index_space(self._runtime)
+        field_space = self._runtime.create_field_space()
+        region = self._runtime.create_region(index_space, field_space)
+        self._top_regions.append(region)
+
+    def allocate_field(self, dtype):
+        if not self.has_space:
+            self._create_region()
+        region = self.active_region
+        field_id = region.field_space.allocate_field(dtype)
+        return region, field_id
+
+
 # This class manages the allocation and reuse of fields
 class FieldManager(object):
-    __slots__ = [
-        "runtime",
-        "shape",
-        "dtype",
-        "free_fields",
-        "freed_fields",
-        "matches",
-        "match_counter",
-        "match_frequency",
-        "top_regions",
-        "initial_future",
-        "fill_space",
-        "tile_shape",
-    ]
-
     def __init__(self, runtime, shape, dtype):
         self.runtime = runtime
         self.shape = shape
@@ -217,18 +246,10 @@ class FieldManager(object):
             ) // ratio
         else:
             self.match_frequency = runtime.max_field_reuse_frequency
-        self.top_regions = list()  # list of top-level regions with this shape
-        self.initial_future = None
-        self.fill_space = None
-        self.tile_shape = None
 
     def destroy(self):
-        while self.top_regions:
-            region = self.top_regions.pop()
-            region.destroy()
         self.free_fields = None
         self.freed_fields = None
-        self.initial_future = None
         self.fill_space = None
 
     def allocate_field(self):
@@ -267,49 +288,9 @@ class FieldManager(object):
             # Check again to see if we have any free fields
             if len(self.free_fields) > 0:
                 return self.free_fields.popleft()
-        # Still don't have a field
-        # Scan through looking for a free field of the right type
-        for reg in self.top_regions:
-            # Check to see if we've maxed out the fields for this region
-            # Note that this next block ensures that we go
-            # through all the fields in a region before reusing
-            # any of them. This is important for avoiding false
-            # aliasing in the generation of fields
-            if reg.field_space.has_space:
-                region = reg
-                field_id = reg.field_space.allocate_field(self.dtype)
-                return region, field_id
-        # If we make it here then we need to make a new region
-        index_space = self.runtime.find_or_create_index_space(self.shape)
-        field_space = self.runtime.find_or_create_field_space(self.dtype)
-        handle = legion.legion_logical_region_create(
-            self.runtime.legion_runtime,
-            self.runtime.legion_context,
-            index_space.handle,
-            field_space.handle,
-            True,
-        )
-        region = Region(
-            self.runtime.legion_context,
-            self.runtime.legion_runtime,
-            index_space,
-            field_space,
-            handle,
-        )
-        self.top_regions.append(region)
-        field_id = None
-        # See if this is a new fields space or not
-        if len(field_space) > 0:
-            # This field space has been used already, grab the first
-            # field for ourselves and put any other ones on the free list
-            for fid in field_space.fields.keys():
-                if field_id is None:
-                    field_id = fid
-                else:
-                    self.free_fields.append((region, fid))
-        else:
-            field_id = field_space.allocate_field(self.dtype)
-        return region, field_id
+
+        region_manager = self.runtime.find_or_create_region_manager(self.shape)
+        return region_manager.allocate_field(self.dtype)
 
     def free_field(self, region, field_id, ordered=False):
         if ordered:
@@ -390,8 +371,9 @@ class AttachmentManager(object):
         # NumPy arrays are not hashable, so look up the pointer for the array
         # which should be unique for all root NumPy arrays
         key = self.attachment_key(array)
+        shape = Shape(array.shape)
         if key not in self._attachments:
-            region_field = self._runtime.allocate_field(array.shape, dtype)
+            region_field = self._runtime.allocate_field(shape, dtype)
             region_field.attach_numpy_array(context, array, share)
             attachment = Attachment(
                 *key, region_field.region, region_field.field
@@ -414,9 +396,7 @@ class AttachmentManager(object):
             region_field = RegionField(
                 self._runtime, region, field, array.shape
             )
-        return self._runtime.create_store(
-            dtype, array.shape, storage=region_field
-        )
+        return self._runtime.create_store(dtype, shape, storage=region_field)
 
     def remove_attachment(self, array):
         key = self.attachment_key(array)
@@ -721,7 +701,7 @@ class Runtime(object):
         self._attachment_manager = AttachmentManager(self)
         self._partition_manager = PartitionManager(self)
         self.index_spaces = {}  # map shapes to index spaces
-        self.field_spaces = {}  # map dtype to field spaces
+        self.region_managers = {}  # map from shape to region managers
         self.field_managers = {}  # map from (shape,dtype) to field managers
 
         self.destroyed = False
@@ -800,8 +780,8 @@ class Runtime(object):
         self._attachment_manager.destroy()
 
         # Remove references to our legion resources so they can be collected
+        self.region_managers = None
         self.field_managers = None
-        self.field_spaces = None
         self.index_spaces = None
 
         if self._finalize_tasks:
@@ -903,16 +883,27 @@ class Runtime(object):
             optimize_scalar=optimize_scalar,
         )
 
+    def find_or_create_region_manager(self, shape):
+        region_mgr = self.region_managers.get(shape)
+        if shape not in self.region_managers:
+            region_mgr = RegionManager(self, shape)
+            self.region_managers[shape] = region_mgr
+        return region_mgr
+
+    def find_or_create_field_manager(self, shape, dtype):
+        key = (shape, dtype)
+        field_mgr = self.field_managers.get(key)
+        if key not in self.field_managers:
+            field_mgr = FieldManager(self, shape, dtype)
+            self.field_managers[key] = field_mgr
+        return field_mgr
+
     def allocate_field(self, shape, dtype):
         assert not self.destroyed
         region = None
         field_id = None
-        # Regions all have fields of the same field type and shape
-        key = (shape, dtype)
-        # if we don't have a field manager yet then make one
-        if key not in self.field_managers:
-            self.field_managers[key] = FieldManager(self, shape, dtype)
-        region, field_id = self.field_managers[key].allocate_field()
+        field_mgr = self.find_or_create_field_manager(shape, dtype)
+        region, field_id = field_mgr.allocate_field()
         field = Field(self, region, field_id, dtype, shape)
         return RegionField(self, region, field, shape)
 
@@ -927,7 +918,7 @@ class Runtime(object):
             self.field_managers[key].free_field(region, field_id)
 
     def allocate_unbound_field(self, dtype):
-        field_space = self.find_or_create_field_space(dtype)
+        field_space = self.create_field_space()
         field_id = field_space.allocate_field(dtype)
         field = Field(
             self,
@@ -972,13 +963,24 @@ class Runtime(object):
         self.index_spaces[bounds] = result
         return result
 
-    def find_or_create_field_space(self, dtype):
-        if dtype in self.field_spaces:
-            return self.field_spaces[dtype]
-        # Haven't seen this type before so make it now
-        field_space = FieldSpace(self.legion_context, self.legion_runtime)
-        self.field_spaces[dtype] = field_space
-        return field_space
+    def create_field_space(self):
+        return FieldSpace(self.legion_context, self.legion_runtime)
+
+    def create_region(self, index_space, field_space):
+        handle = legion.legion_logical_region_create(
+            self.legion_runtime,
+            self.legion_context,
+            index_space.handle,
+            field_space.handle,
+            True,
+        )
+        return Region(
+            self.legion_context,
+            self.legion_runtime,
+            index_space,
+            field_space,
+            handle,
+        )
 
 
 _runtime = Runtime(CoreLib())

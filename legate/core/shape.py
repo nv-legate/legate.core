@@ -54,7 +54,13 @@ class Shape(object):
         return self._extents
 
     def __str__(self):
-        return str(self.extents)
+        if self._extents is not None:
+            return f"Shape({self._extents})"
+        else:
+            return f"Shape({self._ispace})"
+
+    def __repr__(self):
+        return str(self)
 
     def __getitem__(self, idx):
         if isinstance(idx, slice):
@@ -72,6 +78,14 @@ class Shape(object):
     @property
     def ndim(self):
         return len(self.extents)
+
+    def get_index_space(self, runtime):
+        if self._ispace is None:
+            bounds = self._extents
+            assert bounds is not None
+            return runtime.find_or_create_index_space(bounds)
+        else:
+            return self._ispace
 
     def volume(self):
         return reduce(lambda x, y: x * y, self.extents, 1)
