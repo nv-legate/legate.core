@@ -18,6 +18,7 @@ from enum import IntEnum
 import legate.core.types as ty
 
 from .legion import ArgumentMap, BufferBuilder, IndexTask, Task as SingleTask
+from .shape import Shape
 
 
 class Permission(IntEnum):
@@ -530,8 +531,7 @@ class TaskLauncher(object):
 
         for (store, region_field, output_region) in self._output_regions:
             region = output_region.get_region()
-            bounds = region.index_space.get_bounds()
-            shape = tuple(bounds.hi[idx] + 1 for idx in range(bounds.dim))
+            shape = Shape(ispace=region.index_space)
             region_field.region = region
             region_field.shape = shape
             region_field.field.region = region
@@ -545,8 +545,7 @@ class TaskLauncher(object):
         result = self._context.dispatch(self.build_single_task(argbuf))
         for (store, region_field, output_region) in self._output_regions:
             region = output_region.get_region()
-            bounds = region.index_space.get_bounds()
-            shape = tuple(bounds.hi[idx] + 1 for idx in range(bounds.dim))
+            shape = Shape(ispace=region.index_space)
             region_field.region = region
             region_field.shape = shape
             region_field.field.region = region

@@ -183,7 +183,6 @@ class Context(object):
         ty,
         shape=None,
         storage=None,
-        unbound=False,
         optimize_scalar=False,
     ):
         dtype = self.type_system[ty]
@@ -191,7 +190,6 @@ class Context(object):
             dtype,
             shape=shape,
             storage=storage,
-            unbound=unbound,
             optimize_scalar=optimize_scalar,
         )
 

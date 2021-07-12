@@ -302,10 +302,9 @@ class Store(object):
     def __init__(
         self,
         runtime,
-        shape,
         dtype,
+        shape=None,
         storage=None,
-        unbound=False,
         optimize_scalar=False,
         parent=None,
         transform=None,
@@ -343,7 +342,6 @@ class Store(object):
             or isinstance(storage, Future)
         )
         self._storage = storage
-        self._unbound = unbound
         self._scalar = (
             optimize_scalar
             and shape is not None
@@ -386,7 +384,7 @@ class Store(object):
 
     @property
     def unbound(self):
-        return self._unbound
+        return self._shape is None
 
     @property
     def scalar(self):
@@ -400,7 +398,7 @@ class Store(object):
         type specified in by 'kind'
         """
         if self._storage is None:
-            if self._unbound:
+            if self.unbound:
                 raise RuntimeError(
                     "Storage of a variable size store cannot be retrieved "
                     "until it is passed to an operation"
@@ -461,7 +459,6 @@ class Store(object):
     def set_storage(self, storage, shape=None):
         assert isinstance(storage, RegionField) or isinstance(storage, Future)
         self._storage = storage
-        self._unbound = False
         if shape is not None:
             self._shape = shape
 
@@ -502,8 +499,8 @@ class Store(object):
             return self
         return Store(
             self._runtime,
-            shape,
             self._dtype,
+            shape=shape,
             storage=self._storage if self._scalar else None,
             optimize_scalar=self._scalar,
             parent=self,
@@ -520,8 +517,8 @@ class Store(object):
             return self
         return Store(
             self._runtime,
-            shape,
             self._dtype,
+            shape=shape,
             storage=self._storage if self._scalar else None,
             optimize_scalar=self._scalar,
             parent=self,
@@ -552,8 +549,8 @@ class Store(object):
             return self
         return Store(
             self._runtime,
-            shape,
             self._dtype,
+            shape=shape,
             storage=self._storage if self._scalar else None,
             optimize_scalar=self._scalar,
             parent=self,
@@ -573,8 +570,8 @@ class Store(object):
         shape = transform.compute_shape(self._shape)
         return Store(
             self._runtime,
-            shape,
             self._dtype,
+            shape=shape,
             storage=self._storage if self._scalar else None,
             optimize_scalar=self._scalar,
             parent=self,
@@ -586,8 +583,8 @@ class Store(object):
         shape = transform.compute_shape(self._shape)
         return Store(
             self._runtime,
-            shape,
             self._dtype,
+            shape=shape,
             storage=self._storage if self._scalar else None,
             optimize_scalar=self._scalar,
             parent=self,

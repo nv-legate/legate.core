@@ -20,7 +20,7 @@ from functools import reduce
 
 def _cast_tuple(value, ndim):
     if isinstance(value, Shape):
-        return value._shape
+        return value.extents
     elif isinstance(value, tuple):
         return value
     elif isinstance(value, int):
@@ -30,46 +30,76 @@ def _cast_tuple(value, ndim):
 
 
 class Shape(object):
-    def __init__(self, shape):
-        if not isinstance(shape, Iterable):
-            self._shape = (shape,)
+    def __init__(self, extents=None, ispace=None):
+        if extents is not None:
+            if not isinstance(extents, Iterable):
+                self._extents = (extents,)
+            else:
+                self._extents = tuple(extents)
+            self._ispace = None
         else:
-            self._shape = tuple(shape)
+            assert ispace is not None
+            self._extents = None
+            self._ispace = ispace
+
+    @property
+    def extents(self):
+        if self._extents is None:
+            assert self._ispace is not None
+            bounds = self._ispace.get_bounds()
+            lo = bounds.lo
+            hi = bounds.hi
+            assert all(lo[idx] == 0 for idx in range(lo.dim))
+            self._extents = tuple(hi[idx] + 1 for idx in range(hi.dim))
+        return self._extents
 
     def __str__(self):
-        return str(self._shape)
+        return str(self.extents)
 
     def __getitem__(self, idx):
         if isinstance(idx, slice):
-            return Shape(self._shape[idx])
+            return Shape(self.extents[idx])
         else:
-            return self._shape[idx]
+            return self.extents[idx]
 
     def __len__(self):
-        return len(self._shape)
+        return len(self.extents)
+
+    @property
+    def fixed(self):
+        return self._extents is not None
 
     @property
     def ndim(self):
-        return len(self._shape)
+        return len(self.extents)
 
     def volume(self):
-        return reduce(lambda x, y: x * y, self._shape, 1)
+        return reduce(lambda x, y: x * y, self.extents, 1)
 
     def sum(self):
-        return reduce(lambda x, y: x + y, self._shape, 0)
+        return reduce(lambda x, y: x + y, self.extents, 0)
 
     def __hash__(self):
-        return hash((self.__class__, self._shape))
+        if self._ispace is not None:
+            return hash((self.__class__, False, self._ispace))
+        else:
+            return hash((self.__class__, True, self._extents))
+
+    def __eq__(self, other):
+        if isinstance(other, Shape):
+            if self._ispace is not None:
+                return self._ispace is other._ispace
+            else:
+                return self._extents == other._extents
+        else:
+            lh = _cast_tuple(self, self.ndim)
+            rh = _cast_tuple(other, self.ndim)
+            return lh == rh
 
     def __le__(self, other):
         lh = _cast_tuple(self, self.ndim)
         rh = _cast_tuple(other, self.ndim)
         return len(lh) == len(rh) and lh <= rh
-
-    def __eq__(self, other):
-        lh = _cast_tuple(self, self.ndim)
-        rh = _cast_tuple(other, self.ndim)
-        return lh == rh
 
     def __add__(self, other):
         lh = _cast_tuple(self, self.ndim)
@@ -97,7 +127,7 @@ class Shape(object):
         return Shape(tuple(a // b for (a, b) in zip(lh, rh)))
 
     def drop(self, dim):
-        return Shape(self._shape[:dim] + self._shape[dim + 1 :])
+        return Shape(self.extents[:dim] + self.extents[dim + 1 :])
 
     def update(self, dim, new_value):
         return self.replace(dim, (new_value,))
@@ -105,10 +135,10 @@ class Shape(object):
     def replace(self, dim, new_values):
         if not isinstance(new_values, tuple):
             new_values = tuple(new_values)
-        return Shape(self._shape[:dim] + new_values + self._shape[dim + 1 :])
+        return Shape(self.extents[:dim] + new_values + self.extents[dim + 1 :])
 
     def insert(self, dim, new_value):
-        return Shape(self._shape[:dim] + (new_value,) + self._shape[dim:])
+        return Shape(self.extents[:dim] + (new_value,) + self.extents[dim:])
 
     def map(self, mapping):
         return Shape(tuple(self[mapping[dim]] for dim in range(self.ndim)))
@@ -116,7 +146,7 @@ class Shape(object):
     def strides(self):
         strides = ()
         stride = 1
-        for size in reversed(self._shape):
+        for size in reversed(self.extents):
             strides += (stride,)
             stride *= size
         return Shape(reversed(strides))

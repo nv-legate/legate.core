@@ -891,17 +891,15 @@ class Runtime(object):
         dtype,
         shape=None,
         storage=None,
-        unbound=False,
         optimize_scalar=False,
     ):
         if shape is not None and not isinstance(shape, Shape):
             shape = Shape(shape)
         return Store(
             self,
-            shape,
             dtype,
+            shape=shape,
             storage=storage,
-            unbound=unbound,
             optimize_scalar=optimize_scalar,
         )
 
