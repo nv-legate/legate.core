@@ -83,21 +83,21 @@ class DtypeArg(object):
 
 
 class RegionFieldArg(object):
-    def __init__(self, op, dim, key, field_id):
+    def __init__(self, op, dim, req, field_id):
         self._op = op
         self._dim = dim
-        self._key = key
+        self._req = req
         self._field_id = field_id
 
     def pack(self, buf):
         buf.pack_32bit_int(self._dim)
         buf.pack_32bit_uint(
-            self._op.get_requirement_index(self._key, self._field_id)
+            self._op.get_requirement_index(self._req, self._field_id)
         )
         buf.pack_32bit_uint(self._field_id)
 
     def __str__(self):
-        return f"RegionFieldArg({self._dim}, {self._field_id})"
+        return f"RegionFieldArg({self._dim}, {self._req}, {self._field_id})"
 
     def __repr__(self):
         return str(self)
@@ -238,7 +238,7 @@ class RegionReq(object):
 
     def __hash__(self):
         return hash(
-            (self.region, self.proj, self.permission, self.tag, self.flags)
+            (self.region, self.permission, self.proj, self.tag, self.flags)
         )
 
     def __eq__(self, other):
@@ -248,6 +248,11 @@ class RegionReq(object):
             and self.permission == other.permission
             and self.tag == other.tag
             and self.flags == other.flags
+        )
+
+    def promote_to_read_write(self):
+        return RegionReq(
+            self.region, Permission.READ_WRITE, self.proj, self.tag, self.flags
         )
 
 
@@ -330,6 +335,53 @@ class FieldSet(object):
         return coalesced
 
 
+class RequirementAnalyzer(object):
+    def __init__(self):
+        self._field_sets = {}
+        self._requirements = []
+        self._requirement_map = {}
+
+    @property
+    def requirements(self):
+        return self._requirements
+
+    @property
+    def empty(self):
+        return len(self._field_sets) == 0
+
+    def __del__(self):
+        self._field_sets.clear()
+        self._requirements.clear()
+        self._requirement_map.clear()
+
+    def insert(self, req, field_id):
+        region = req.region
+        if region in self._field_sets:
+            field_set = self._field_sets[region]
+        else:
+            field_set = FieldSet()
+            self._field_sets[region] = field_set
+        proj_info = (req.proj, req.tag, req.flags)
+        field_set.insert(field_id, req.permission, proj_info)
+
+    def analyze_requirements(self):
+        for region, field_set in self._field_sets.items():
+            perm_map = field_set.coalesce()
+            for key, fields in perm_map.items():
+                req_idx = len(self._requirements)
+                req = RegionReq(region, *key)
+                for field_id in fields:
+                    self._requirement_map[(req, field_id)] = req_idx
+                self._requirements.append((req, fields))
+
+    def get_requirement_index(self, req, field_id):
+        try:
+            return self._requirement_map[(req, field_id)]
+        except KeyError:
+            req = req.promote_to_read_write()
+            return self._requirement_map[(req, field_id)]
+
+
 class TaskLauncher(object):
     def __init__(self, context, task_id, mapper_id=0, tag=0):
         assert type(tag) != bool
@@ -338,11 +390,7 @@ class TaskLauncher(object):
         self._task_id = task_id
         self._mapper_id = mapper_id
         self._args = list()
-        self._region_args = {}
-        self._region_reqs = list()
-        self._region_reqs_indices = {}
-        self._next_region_idx = 0
-        self._projections = list()
+        self._analyzer = RequirementAnalyzer()
         self._future_args = list()
         self._future_map_args = list()
         self._tag = tag
@@ -367,32 +415,16 @@ class TaskLauncher(object):
         return self._context.get_mapper_id(self._mapper_id)
 
     def __del__(self):
-        self._region_args.clear()
-        self._projections.clear()
+        del self._analyzer
         self._future_args.clear()
         self._future_map_args.clear()
-
-    def _coalesce_region_requirements(self):
-        for region, field_set in self._region_args.items():
-            perm_map = field_set.coalesce()
-            for key, fields in perm_map.items():
-                req_idx = len(self._region_reqs)
-                req = RegionReq(region, *key)
-                for field_id in fields:
-                    self._region_reqs_indices[(req, field_id)] = req_idx
-                self._region_reqs.append((req, fields))
+        self._output_regions.clear()
 
     def add_scalar_arg(self, value, dtype):
         self._args.append(ScalarArg(value, dtype))
 
-    def get_requirement_index(self, key, field_id):
-        try:
-            return self._region_reqs_indices[(key, field_id)]
-        except KeyError:
-            key = RegionReq(
-                key.region, Permission.READ_WRITE, key.proj, key.tag, key.flags
-            )
-            return self._region_reqs_indices[(key, field_id)]
+    def get_requirement_index(self, req, field_id):
+        return self._analyzer.get_requirement_index(req, field_id)
 
     def add_store(self, store, proj, perm, tag, flags):
         store.serialize(self)
@@ -409,19 +441,14 @@ class TaskLauncher(object):
         region = store.storage.region
         field_id = store.storage.field.field_id
 
-        if region in self._region_args:
-            field_set = self._region_args[region]
-        else:
-            field_set = FieldSet()
-            self._region_args[region] = field_set
-        proj_info = (proj, tag, flags)
-        field_set.insert(field_id, perm, proj_info)
+        req = RegionReq(region, perm, proj, tag, flags)
 
+        self._analyzer.insert(req, field_id)
         self._args.append(
             RegionFieldArg(
                 self,
                 region.index_space.get_dim(),
-                RegionReq(region, perm, *proj_info),
+                req,
                 field_id,
             )
         )
@@ -465,7 +492,7 @@ class TaskLauncher(object):
         self._point = point
 
     def build_task(self, launch_domain, argbuf):
-        self._coalesce_region_requirements()
+        self._analyzer.analyze_requirements()
 
         for arg in self._args:
             arg.pack(argbuf)
@@ -481,7 +508,7 @@ class TaskLauncher(object):
         if self._sharding_space is not None:
             task.set_sharding_space(self._sharding_space)
 
-        for (req, fields) in self._region_reqs:
+        for (req, fields) in self._analyzer.requirements:
             req.proj.add(task, req, fields)
         for future in self._future_args:
             task.add_future(future)
@@ -492,7 +519,7 @@ class TaskLauncher(object):
         return task
 
     def build_single_task(self, argbuf):
-        self._coalesce_region_requirements()
+        self._analyzer.analyze_requirements()
 
         for arg in self._args:
             arg.pack(argbuf)
@@ -503,13 +530,13 @@ class TaskLauncher(object):
             mapper=self.legion_mapper_id,
             tag=self._tag,
         )
-        for (req, fields) in self._region_reqs:
+        for (req, fields) in self._analyzer.requirements:
             req.proj.add_single(task, req, fields)
         for future in self._future_args:
             task.add_future(future)
         for (_, _, output_region) in self._output_regions:
             task.add_output(output_region)
-        if len(self._region_args) == 0:
+        if self._analyzer.empty:
             task.set_local_function(True)
         if self._sharding_space is not None:
             task.set_sharding_space(self._sharding_space)
