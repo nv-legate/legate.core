@@ -133,8 +133,11 @@ class Operation(object):
             partition.redop = redop
             launcher.add_reduction(reduction, partition)
         for output in self._outputs:
-            if output.unbound:
-                launcher.add_unbound_output(output)
+            if not output.unbound:
+                continue
+            fspace = strategy.get_field_space(output)
+            field_id = fspace.allocate_field(output.type)
+            launcher.add_unbound_output(output, fspace, field_id)
 
         self._populate_launcher(launcher)
 

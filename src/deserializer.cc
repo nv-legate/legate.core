@@ -188,6 +188,8 @@ void deserialize(Deserializer &ctx, RegionField &value)
 
 void deserialize(Deserializer &ctx, OutputRegionField &value)
 {
+  auto dim = ctx.deserializer_.unpack_32bit_int();
+  assert(dim == 1);
   auto idx = ctx.deserializer_.unpack_32bit_uint();
   auto fid = ctx.deserializer_.unpack_32bit_int();
 

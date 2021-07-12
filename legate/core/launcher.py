@@ -18,7 +18,6 @@ from enum import IntEnum
 import legate.core.types as ty
 
 from .legion import ArgumentMap, BufferBuilder, IndexTask, Task as SingleTask
-from .shape import Shape
 
 
 class Permission(IntEnum):
@@ -83,8 +82,8 @@ class DtypeArg(object):
 
 
 class RegionFieldArg(object):
-    def __init__(self, op, dim, req, field_id):
-        self._op = op
+    def __init__(self, analyzer, dim, req, field_id):
+        self._analyzer = analyzer
         self._dim = dim
         self._req = req
         self._field_id = field_id
@@ -92,7 +91,7 @@ class RegionFieldArg(object):
     def pack(self, buf):
         buf.pack_32bit_int(self._dim)
         buf.pack_32bit_uint(
-            self._op.get_requirement_index(self._req, self._field_id)
+            self._analyzer.get_requirement_index(self._req, self._field_id)
         )
         buf.pack_32bit_uint(self._field_id)
 
@@ -231,10 +230,14 @@ class RegionReq(object):
         self.tag = tag
         self.flags = flags
 
-    def __repr__(self):
-        return repr(
-            (self.region, self.permission, self.proj, self.tag, self.flags)
+    def __str__(self):
+        return (
+            f"RegionReq({self.region}, {self.permission}, "
+            f"{self.proj}, {self.tag}, {self.flags})"
         )
+
+    def __repr__(self):
+        return str(self)
 
     def __hash__(self):
         return hash(
@@ -254,6 +257,48 @@ class RegionReq(object):
         return RegionReq(
             self.region, Permission.READ_WRITE, self.proj, self.tag, self.flags
         )
+
+
+class OutputReq(object):
+    def __init__(self, runtime, fspace):
+        self.runtime = runtime
+        self.fspace = fspace
+        self.output_region = None
+
+    def __str__(self):
+        return f"OutputReq({self.fspace})"
+
+    def __repr__(self):
+        return str(self)
+
+    def __hash__(self):
+        return hash(self.fspace)
+
+    def __eq__(self, other):
+        return self.fspace == other.fspace
+
+    def _create_output_region(self, fields):
+        assert self.output_region is None
+        self.output_region = self.runtime.create_output_region(
+            self.fspace, fields
+        )
+
+    def add(self, task, fields):
+        self._create_output_region(fields)
+        task.add_output(self.output_region)
+
+    def add_single(self, task, fields):
+        self._create_output_region(fields)
+        task.add_output(self.output_region)
+
+    def update_storage(self, store, field_id):
+        assert self.output_region is not None
+        region_field = self.runtime.import_output_region(
+            self.output_region,
+            field_id,
+            store.type,
+        )
+        store.set_storage(region_field)
 
 
 class ProjectionSet(object):
@@ -356,9 +401,8 @@ class RequirementAnalyzer(object):
 
     def insert(self, req, field_id):
         region = req.region
-        if region in self._field_sets:
-            field_set = self._field_sets[region]
-        else:
+        field_set = self._field_sets.get(region)
+        if field_set is None:
             field_set = FieldSet()
             self._field_sets[region] = field_set
         proj_info = (req.proj, req.tag, req.flags)
@@ -382,6 +426,58 @@ class RequirementAnalyzer(object):
             return self._requirement_map[(req, field_id)]
 
 
+class OutputAnalyzer(object):
+    def __init__(self, runtime):
+        self._runtime = runtime
+        self._groups = {}
+        self._requirements = []
+        self._requirement_map = {}
+
+    @property
+    def requirements(self):
+        return self._requirements
+
+    @property
+    def empty(self):
+        return len(self._groups) == 0
+
+    def __del__(self):
+        self._groups.clear()
+        self._requirements.clear()
+        self._requirement_map.clear()
+
+    def insert(self, req, field_id, store):
+        group = self._groups.get(req)
+        if group is None:
+            group = set()
+            self._groups[req] = group
+        group.add((field_id, store))
+
+    def analyze_requirements(self):
+        for req, group in self._groups.items():
+            req_idx = len(self._requirements)
+            fields = []
+            field_set = set()
+            for field_id, store in group:
+                self._requirement_map[(req, field_id)] = req_idx
+                if field_id in field_set:
+                    raise RuntimeError(
+                        f"{field_id} is duplicated in output requirement {req}"
+                    )
+                fields.append(field_id)
+                field_set.add(field_id)
+
+            self._requirements.append((req, fields))
+
+    def get_requirement_index(self, req, field_id):
+        return self._requirement_map[(req, field_id)]
+
+    def update_storages(self):
+        for req, group in self._groups.items():
+            for field_id, store in group:
+                req.update_storage(store, field_id)
+
+
 class TaskLauncher(object):
     def __init__(self, context, task_id, mapper_id=0, tag=0):
         assert type(tag) != bool
@@ -390,7 +486,8 @@ class TaskLauncher(object):
         self._task_id = task_id
         self._mapper_id = mapper_id
         self._args = list()
-        self._analyzer = RequirementAnalyzer()
+        self._req_analyzer = RequirementAnalyzer()
+        self._out_analyzer = OutputAnalyzer(context.runtime)
         self._future_args = list()
         self._future_map_args = list()
         self._tag = tag
@@ -415,16 +512,14 @@ class TaskLauncher(object):
         return self._context.get_mapper_id(self._mapper_id)
 
     def __del__(self):
-        del self._analyzer
+        del self._req_analyzer
+        del self._out_analyzer
         self._future_args.clear()
         self._future_map_args.clear()
         self._output_regions.clear()
 
     def add_scalar_arg(self, value, dtype):
         self._args.append(ScalarArg(value, dtype))
-
-    def get_requirement_index(self, req, field_id):
-        return self._analyzer.get_requirement_index(req, field_id)
 
     def add_store(self, store, proj, perm, tag, flags):
         store.serialize(self)
@@ -443,10 +538,10 @@ class TaskLauncher(object):
 
         req = RegionReq(region, perm, proj, tag, flags)
 
-        self._analyzer.insert(req, field_id)
+        self._req_analyzer.insert(req, field_id)
         self._args.append(
             RegionFieldArg(
-                self,
+                self._req_analyzer,
                 region.index_space.get_dim(),
                 req,
                 field_id,
@@ -468,16 +563,22 @@ class TaskLauncher(object):
     def add_reduction(self, store, proj, tag=0, flags=0):
         self.add_store(store, proj, Permission.REDUCTION, tag, flags)
 
-    def add_unbound_output(self, store):
-        region_field = self._runtime.allocate_unbound_field(store.get_dtype())
-        output_region = self._runtime.create_output_region(region_field)
-
+    def add_unbound_output(self, store, fspace, field_id):
         store.serialize(self)
         self.add_scalar_arg(-1, ty.int32)
 
-        idx = len(self._output_regions)
-        self._output_regions.append((store, region_field, output_region))
-        self._args.append(OutputRegionArg(idx, region_field.field.field_id))
+        req = OutputReq(self._runtime, fspace)
+
+        self._out_analyzer.insert(req, field_id, store)
+
+        self._args.append(
+            RegionFieldArg(
+                self._out_analyzer,
+                1,
+                req,
+                field_id,
+            )
+        )
 
     def add_future(self, future):
         self._future_args.append(future)
@@ -492,7 +593,8 @@ class TaskLauncher(object):
         self._point = point
 
     def build_task(self, launch_domain, argbuf):
-        self._analyzer.analyze_requirements()
+        self._req_analyzer.analyze_requirements()
+        self._out_analyzer.analyze_requirements()
 
         for arg in self._args:
             arg.pack(argbuf)
@@ -508,18 +610,19 @@ class TaskLauncher(object):
         if self._sharding_space is not None:
             task.set_sharding_space(self._sharding_space)
 
-        for (req, fields) in self._analyzer.requirements:
+        for (req, fields) in self._req_analyzer.requirements:
             req.proj.add(task, req, fields)
         for future in self._future_args:
             task.add_future(future)
-        for (_, _, output_region) in self._output_regions:
-            task.add_output(output_region)
+        for (out_req, fields) in self._out_analyzer.requirements:
+            out_req.add(task, fields)
         for future_map in self._future_map_args:
             task.add_point_future(ArgumentMap(future_map=future_map))
         return task
 
     def build_single_task(self, argbuf):
-        self._analyzer.analyze_requirements()
+        self._req_analyzer.analyze_requirements()
+        self._out_analyzer.analyze_requirements()
 
         for arg in self._args:
             arg.pack(argbuf)
@@ -530,13 +633,13 @@ class TaskLauncher(object):
             mapper=self.legion_mapper_id,
             tag=self._tag,
         )
-        for (req, fields) in self._analyzer.requirements:
+        for (req, fields) in self._req_analyzer.requirements:
             req.proj.add_single(task, req, fields)
         for future in self._future_args:
             task.add_future(future)
-        for (_, _, output_region) in self._output_regions:
-            task.add_output(output_region)
-        if self._analyzer.empty:
+        for (out_req, fields) in self._out_analyzer.requirements:
+            out_req.add_single(task, fields)
+        if self._req_analyzer.empty and self._out_analyzer.empty:
             task.set_local_function(True)
         if self._sharding_space is not None:
             task.set_sharding_space(self._sharding_space)
@@ -556,26 +659,12 @@ class TaskLauncher(object):
         else:
             result = self._context.dispatch(task)
 
-        for (store, region_field, output_region) in self._output_regions:
-            region = output_region.get_region()
-            shape = Shape(ispace=region.index_space)
-            region_field.region = region
-            region_field.shape = shape
-            region_field.field.region = region
-            region_field.field.shape = shape
-            store.set_storage(region_field, shape=shape)
+        self._out_analyzer.update_storages()
 
         return result
 
     def execute_single(self):
         argbuf = BufferBuilder()
         result = self._context.dispatch(self.build_single_task(argbuf))
-        for (store, region_field, output_region) in self._output_regions:
-            region = output_region.get_region()
-            shape = Shape(ispace=region.index_space)
-            region_field.region = region
-            region_field.shape = shape
-            region_field.field.region = region
-            region_field.field.shape = shape
-            store.set_storage(region_field, shape=shape)
+        self._out_analyzer.update_storages()
         return result

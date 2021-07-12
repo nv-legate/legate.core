@@ -64,7 +64,6 @@ class Field(object):
         field_id,
         dtype,
         shape,
-        field_space=None,
         own=True,
     ):
         self.runtime = runtime
@@ -73,7 +72,6 @@ class Field(object):
         self.dtype = dtype
         self.shape = shape
         self.own = own
-        self.field_space = field_space
 
     def __del__(self):
         if self.own:
@@ -176,15 +174,24 @@ class RegionManager(object):
         self._runtime = runtime
         self._shape = shape
         self._top_regions = []
+        self._region_set = set()
 
     def __del__(self):
         self._shape = None
         self._top_regions = None
+        self._region_set = None
 
     def destroy(self):
         while self._top_regions:
             region = self._top_regions.pop()
             region.destroy()
+        self._top_regions = []
+        self._region_set = set()
+
+    def import_region(self, region):
+        if region not in self._region_set:
+            self._top_regions.append(region)
+            self._region_set.add(region)
 
     @property
     def active_region(self):
@@ -205,6 +212,7 @@ class RegionManager(object):
         field_space = self._runtime.create_field_space()
         region = self._runtime.create_region(index_space, field_space)
         self._top_regions.append(region)
+        self._region_set.add(region)
 
     def allocate_field(self, dtype):
         if not self.has_space:
@@ -883,7 +891,7 @@ class Runtime(object):
             optimize_scalar=optimize_scalar,
         )
 
-    def find_or_create_region_manager(self, shape):
+    def find_or_create_region_manager(self, shape, region=None):
         region_mgr = self.region_managers.get(shape)
         if shape not in self.region_managers:
             region_mgr = RegionManager(self, shape)
@@ -917,27 +925,31 @@ class Runtime(object):
         if self.field_managers is not None:
             self.field_managers[key].free_field(region, field_id)
 
-    def allocate_unbound_field(self, dtype):
-        field_space = self.create_field_space()
-        field_id = field_space.allocate_field(dtype)
+    def import_output_region(self, out_region, field_id, dtype):
+        region = out_region.get_region()
+        shape = Shape(ispace=region.index_space)
+
+        region_mgr = self.find_or_create_region_manager(shape)
+        region_mgr.import_region(region)
         field = Field(
             self,
-            None,
+            region,
             field_id,
             dtype,
-            None,
-            field_space=field_space,
-            own=False,
+            shape,
+            own=True,
         )
-        return RegionField(self, None, field, None)
 
-    def create_output_region(self, region_field):
-        assert region_field.field.field_space is not None
+        self.find_or_create_field_manager(shape, dtype)
+
+        return RegionField(self, region, field, shape)
+
+    def create_output_region(self, fspace, fields):
         return OutputRegion(
             self.legion_context,
             self.legion_runtime,
-            field_space=region_field.field.field_space,
-            fields=[region_field.field.field_id],
+            field_space=fspace,
+            fields=fields,
         )
 
     def attach_array(self, context, array, dtype, share):

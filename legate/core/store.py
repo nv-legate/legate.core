@@ -456,11 +456,12 @@ class Store(object):
         else:
             return self._parent.get_root()
 
-    def set_storage(self, storage, shape=None):
+    def set_storage(self, storage):
         assert isinstance(storage, RegionField) or isinstance(storage, Future)
         self._storage = storage
-        if shape is not None:
-            self._shape = shape
+        if self._shape is None:
+            assert isinstance(storage, RegionField)
+            self._shape = storage.shape
 
     def _get_tile(self, tiling):
         if self._parent is not None:

@@ -95,14 +95,22 @@ class EqClass(object):
 
 
 class Strategy(object):
-    def __init__(self, launch_shape, strategy):
+    def __init__(self, launch_shape, strategy, fspaces):
         self._launch_shape = launch_shape
         self._strategy = strategy
+        self._fspaces = fspaces
 
     def __getitem__(self, store):
+        assert not store.unbound
         if store not in self._strategy:
             raise ValueError(f"No strategy is found for {store}")
         return self._strategy[store].get_requirement(self._launch_shape, store)
+
+    def get_field_space(self, store):
+        assert store.unbound
+        if store not in self._fspaces:
+            raise ValueError(f"No strategy is found for {store}")
+        return self._fspaces[store]
 
     def launch(self, launcher, output=None, redop=None):
         if output is None:
@@ -136,18 +144,34 @@ class Partitioner(object):
 
         if self._must_be_single or len(stores) == 0:
             partitions = {}
+            fspaces = {}
             for store in stores:
                 partitions[store] = NoPartition()
-            return Strategy(None, partitions)
+                if store.unbound:
+                    cls = constraints.find(store)
+                    assert all(to_align.unbound for to_align in cls)
+                    fspace = self._runtime.create_field_space()
+                    for to_align in cls:
+                        fspaces[to_align] = fspace
+            return Strategy(None, partitions, fspaces)
 
         must_be_1d_launch = any(store.unbound for store in stores)
 
         partitions = {}
+        fspaces = {}
         prev_part = None
         while len(stores) > 0:
             store = stores.pop()
-            if store.scalar or store in broadcasts or store.unbound:
+            if store.scalar or store in broadcasts:
                 partitions[store] = NoPartition()
+                continue
+            elif store.unbound:
+                cls = constraints.find(store)
+                assert all(to_align.unbound for to_align in cls)
+                fspace = self._runtime.create_field_space()
+                for to_align in cls:
+                    partitions[to_align] = NoPartition()
+                    fspaces[to_align] = fspace
                 continue
 
             if isinstance(prev_part, NoPartition):
@@ -166,7 +190,7 @@ class Partitioner(object):
 
         color_shape = None if prev_part is None else prev_part.color_shape
 
-        if must_be_1d_launch:
+        if must_be_1d_launch and color_shape is not None:
             color_shape = Shape((color_shape.volume(),))
 
-        return Strategy(color_shape, partitions)
+        return Strategy(color_shape, partitions, fspaces)
