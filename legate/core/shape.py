@@ -105,10 +105,10 @@ class Shape(object):
 
     def __eq__(self, other):
         if isinstance(other, Shape):
-            if self._ispace is not None:
+            if self._ispace is not None and other._ispace is not None:
                 return self._ispace is other._ispace
             else:
-                return self._extents == other._extents
+                return self.extents == other.extents
         else:
             lh = _cast_tuple(self, self.ndim)
             rh = _cast_tuple(other, self.ndim)
