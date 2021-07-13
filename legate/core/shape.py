@@ -76,6 +76,10 @@ class Shape(object):
         return self._extents is not None
 
     @property
+    def ispace(self):
+        return self._ispace
+
+    @property
     def ndim(self):
         return len(self.extents)
 

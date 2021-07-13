@@ -15,7 +15,7 @@
 
 import legate.core.types as ty
 
-from .launcher import TaskLauncher
+from .launcher import CopyLauncher, TaskLauncher
 from .solver import EqClass
 
 
@@ -106,6 +106,8 @@ class Operation(object):
 
     def add_alignment(self, store1, store2):
         if store1.shape != store2.shape:
+            print(store1.shape)
+            print(store2.shape)
             raise ValueError(
                 "Stores must have the same shape to be aligned, "
                 f"but got {store1.shape} and {store2.shape}"
@@ -117,37 +119,6 @@ class Operation(object):
 
     def execute(self):
         self._context.runtime.submit(self)
-
-    def launch(self, strategy):
-        launcher = self._create_launcher()
-
-        for no_access in self._no_accesses:
-            launcher.add_no_access(no_access, strategy[no_access])
-        for input in self._inputs:
-            launcher.add_input(input, strategy[input])
-        for output in self._outputs:
-            if not output.unbound:
-                launcher.add_output(output, strategy[output])
-        for (reduction, redop) in self._reductions:
-            partition = strategy[reduction]
-            partition.redop = redop
-            launcher.add_reduction(reduction, partition)
-        for output in self._outputs:
-            if not output.unbound:
-                continue
-            fspace = strategy.get_field_space(output)
-            field_id = fspace.allocate_field(output.type)
-            launcher.add_unbound_output(output, fspace, field_id)
-
-        self._populate_launcher(launcher)
-
-        if self._scalar_output is not None:
-            strategy.launch(launcher, self._scalar_output)
-        elif self._scalar_reduction is not None:
-            (store, redop) = self._scalar_reduction
-            strategy.launch(launcher, store, redop)
-        else:
-            strategy.launch(launcher)
 
 
 class Task(Operation):
@@ -167,12 +138,89 @@ class Task(Operation):
     def add_future(self, future):
         self._futures.append(future)
 
-    def _create_launcher(self):
-        return TaskLauncher(self.context, self._task_id, self.mapper_id)
+    def launch(self, strategy):
+        launcher = TaskLauncher(self.context, self._task_id, self.mapper_id)
 
-    def _populate_launcher(self, launcher):
+        for no_access in self._no_accesses:
+            launcher.add_no_access(no_access, strategy[no_access])
+        for input in self._inputs:
+            launcher.add_input(input, strategy[input])
+        for output in self._outputs:
+            if not output.unbound:
+                launcher.add_output(output, strategy[output])
+        for (reduction, redop) in self._reductions:
+            partition = strategy[reduction]
+            partition.redop = redop
+            launcher.add_reduction(reduction, partition)
+        for output in self._outputs:
+            if not output.unbound:
+                continue
+            fspace = strategy.get_field_space(output)
+            field_id = fspace.allocate_field(output.type)
+            launcher.add_unbound_output(output, fspace, field_id)
+
         for (arg, dtype) in self._scalar_args:
             launcher.add_scalar_arg(arg, dtype)
 
         for future in self._futures:
             launcher.add_future(future)
+
+        if self._scalar_output is not None:
+            strategy.launch(launcher, self._scalar_output)
+        elif self._scalar_reduction is not None:
+            (store, redop) = self._scalar_reduction
+            strategy.launch(launcher, store, redop)
+        else:
+            strategy.launch(launcher)
+
+
+class Copy(Operation):
+    def __init__(self, context, mapper_id=0):
+        Operation.__init__(self, context, mapper_id)
+        self._source_indirects = []
+        self._target_indirects = []
+
+    @property
+    def inputs(self):
+        return (
+            super(Copy, self).inputs
+            + self._source_indirects
+            + self._target_indirects
+        )
+
+    def add_source_indirect(self, store):
+        self._source_indirects.append(store)
+
+    def add_target_indirect(self, store):
+        self._target_indirects.append(store)
+
+    def launch(self, strategy):
+        launcher = CopyLauncher(self.context, self.mapper_id)
+
+        assert len(self._no_accesses) == 0
+        assert len(self._inputs) == len(self._outputs) or len(
+            self._inputs
+        ) == len(self._reductions)
+        assert len(self._source_indirects) == 0 or len(
+            self._source_indirects
+        ) == len(self._inputs)
+        assert len(self._target_indirects) == 0 or len(
+            self._target_indirects
+        ) == len(self._outputs)
+
+        for input in self._inputs:
+            launcher.add_input(input, strategy[input])
+        for output in self._outputs:
+            assert not output.unbound
+            launcher.add_output(output, strategy[output])
+        for indirect in self._source_indirects:
+            launcher.add_source_indirect(indirect, strategy[indirect])
+        for indirect in self._target_indirects:
+            launcher.add_target_indirect(indirect, strategy[indirect])
+
+        for (reduction, redop) in self._reductions:
+            partition = strategy[reduction]
+            partition.redop = redop
+            launcher.add_reduction(reduction, partition)
+
+        strategy.launch(launcher)

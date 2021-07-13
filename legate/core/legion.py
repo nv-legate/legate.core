@@ -1705,6 +1705,7 @@ class Copy(object):
         parent=None,
         tag=0,
         coherence=legion.LEGION_EXCLUSIVE,
+        **kwargs,
     ):
         """
         Add a source region requirement to the copy operation
@@ -1753,6 +1754,7 @@ class Copy(object):
         tag=0,
         redop=0,
         coherence=legion.LEGION_EXCLUSIVE,
+        **kwargs,
     ):
         """
         Add a destination region requirement to the copy operation
@@ -1814,6 +1816,7 @@ class Copy(object):
         tag=0,
         is_range=False,
         coherence=legion.LEGION_EXCLUSIVE,
+        **kwargs,
     ):
         """
         Add a source indirection region requirement to the copy operation
@@ -1856,6 +1859,7 @@ class Copy(object):
         tag=0,
         is_range=False,
         coherence=legion.LEGION_EXCLUSIVE,
+        **kwargs,
     ):
         """
         Add a destination indirection region requirement to the copy operation
@@ -1999,6 +2003,7 @@ class IndexCopy(object):
         parent=None,
         tag=0,
         coherence=legion.LEGION_EXCLUSIVE,
+        **kwargs,
     ):
         """
         Add a source region requirement to the index copy operation
@@ -2071,6 +2076,7 @@ class IndexCopy(object):
         tag=0,
         redop=0,
         coherence=legion.LEGION_EXCLUSIVE,
+        **kwargs,
     ):
         """
         Add a destination region requirement to the index copy operation
@@ -2173,6 +2179,7 @@ class IndexCopy(object):
         tag=0,
         is_range=False,
         coherence=legion.LEGION_EXCLUSIVE,
+        **kwargs,
     ):
         """
         Add a source indirection region requirement to the index copy operation
@@ -2244,6 +2251,7 @@ class IndexCopy(object):
         tag=0,
         is_range=False,
         coherence=legion.LEGION_EXCLUSIVE,
+        **kwargs,
     ):
         """
         Add a destination indirection region requirement

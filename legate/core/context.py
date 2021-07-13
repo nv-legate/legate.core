@@ -16,7 +16,7 @@
 import numpy as np
 
 from .legion import Future, legion
-from .operation import Task
+from .operation import Copy, Task
 from .types import TypeSystem
 
 
@@ -174,6 +174,9 @@ class Context(object):
 
     def create_task(self, task_id, mapper_id=0):
         return Task(self, task_id, mapper_id)
+
+    def create_copy(self, mapper_id=0):
+        return Copy(self, mapper_id)
 
     def dispatch(self, op, redop=None):
         return self._runtime.dispatch(op, redop)

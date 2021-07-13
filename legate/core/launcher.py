@@ -13,19 +13,29 @@
 # limitations under the License.
 #
 
-from enum import IntEnum
+from enum import IntEnum, unique
 
 import legate.core.types as ty
 
-from .legion import ArgumentMap, BufferBuilder, IndexTask, Task as SingleTask
+from .legion import (
+    ArgumentMap,
+    BufferBuilder,
+    Copy as SingleCopy,
+    IndexCopy,
+    IndexTask,
+    Task as SingleTask,
+)
 
 
+@unique
 class Permission(IntEnum):
     NO_ACCESS = 0
     READ = 1
     WRITE = 2
     READ_WRITE = 3
     REDUCTION = 4
+    SOURCE_INDIRECT = 5
+    TARGET_INDIRECT = 6
 
 
 class ScalarArg(object):
@@ -134,13 +144,27 @@ _index_task_calls = {
     Permission.REDUCTION: IndexTask.add_reduction_requirement,
 }
 
+_index_copy_calls = {
+    Permission.READ: IndexCopy.add_src_requirement,
+    Permission.WRITE: IndexCopy.add_dst_requirement,
+    Permission.SOURCE_INDIRECT: IndexCopy.add_src_indirect_requirement,
+    Permission.TARGET_INDIRECT: IndexCopy.add_dst_indirect_requirement,
+}
+
+_single_copy_calls = {
+    Permission.READ: SingleCopy.add_src_requirement,
+    Permission.WRITE: SingleCopy.add_dst_requirement,
+    Permission.SOURCE_INDIRECT: SingleCopy.add_src_indirect_requirement,
+    Permission.TARGET_INDIRECT: SingleCopy.add_dst_indirect_requirement,
+}
+
 
 class Broadcast(object):
     def __init__(self, redop=None):
         self.redop = redop
 
-    def add(self, task, req, fields):
-        f = _index_task_calls[req.permission]
+    def add(self, task, req, fields, methods):
+        f = methods[req.permission]
         if self.redop is None:
             f(task, req.region, fields, 0, parent=req.region, tag=req.tag)
         else:
@@ -155,8 +179,8 @@ class Broadcast(object):
                 tag=req.tag,
             )
 
-    def add_single(self, task, req, fields):
-        f = _single_task_calls[req.permission]
+    def add_single(self, task, req, fields, methods):
+        f = methods[req.permission]
         if self.redop is None:
             f(task, req.region, fields, tag=req.tag, flags=req.flags)
         else:
@@ -183,8 +207,8 @@ class Partition(object):
         self.proj = proj
         self.redop = redop
 
-    def add(self, task, req, fields):
-        f = _index_task_calls[req.permission]
+    def add(self, task, req, fields, methods):
+        f = methods[req.permission]
         if self.redop is None:
             f(task, self.part, fields, self.proj, tag=req.tag, flags=req.flags)
         else:
@@ -199,8 +223,8 @@ class Partition(object):
                 flags=req.flags,
             )
 
-    def add_single(self, task, req, fields):
-        f = _single_task_calls[req.permission]
+    def add_single(self, task, req, fields, methods):
+        f = methods[req.permission]
         if self.redop is None:
             f(task, req.region, fields, tag=req.tag)
         else:
@@ -611,7 +635,7 @@ class TaskLauncher(object):
             task.set_sharding_space(self._sharding_space)
 
         for (req, fields) in self._req_analyzer.requirements:
-            req.proj.add(task, req, fields)
+            req.proj.add(task, req, fields, _index_task_calls)
         for future in self._future_args:
             task.add_future(future)
         for (out_req, fields) in self._out_analyzer.requirements:
@@ -634,7 +658,7 @@ class TaskLauncher(object):
             tag=self._tag,
         )
         for (req, fields) in self._req_analyzer.requirements:
-            req.proj.add_single(task, req, fields)
+            req.proj.add_single(task, req, fields, _single_task_calls)
         for future in self._future_args:
             task.add_future(future)
         for (out_req, fields) in self._out_analyzer.requirements:
@@ -668,3 +692,110 @@ class TaskLauncher(object):
         result = self._context.dispatch(self.build_single_task(argbuf))
         self._out_analyzer.update_storages()
         return result
+
+
+class CopyLauncher(object):
+    def __init__(self, context, mapper_id=0, tag=0):
+        assert type(tag) != bool
+        self._context = context
+        self._runtime = context.runtime
+        self._mapper_id = mapper_id
+        self._req_analyzer = RequirementAnalyzer()
+        self._tag = tag
+        self._sharding_space = None
+        self._point = None
+        self._output_regions = list()
+
+    @property
+    def library_mapper_id(self):
+        return self._mapper_id
+
+    @property
+    def legion_mapper_id(self):
+        return self._context.get_mapper_id(self._mapper_id)
+
+    def __del__(self):
+        del self._req_analyzer
+
+    def add_store(self, store, proj, perm, tag, flags):
+        assert not store.scalar
+        assert store._transform is None
+
+        region = store.storage.region
+        field_id = store.storage.field.field_id
+
+        req = RegionReq(region, perm, proj, tag, flags)
+
+        self._req_analyzer.insert(req, field_id)
+
+    def add_input(self, store, proj, tag=0, flags=0):
+        self.add_store(store, proj, Permission.READ, tag, flags)
+
+    def add_output(self, store, proj, tag=0, flags=0):
+        self.add_store(store, proj, Permission.WRITE, tag, flags)
+
+    def add_reduction(self, store, proj, tag=0, flags=0):
+        self.add_store(store, proj, Permission.REDUCTION, tag, flags)
+
+    def add_source_indirect(self, store, proj, tag=0, flags=0):
+        self.add_store(store, proj, Permission.SOURCE_INDIRECT, tag, flags)
+
+    def add_target_indirect(self, store, proj, tag=0, flags=0):
+        self.add_store(store, proj, Permission.TARGET_INDIRECT, tag, flags)
+
+    def set_sharding_space(self, space):
+        self._sharding_space = space
+
+    def set_point(self, point):
+        self._point = point
+
+    def build_copy(self, launch_domain):
+        self._req_analyzer.analyze_requirements()
+
+        copy = IndexCopy(
+            launch_domain,
+            mapper=self.legion_mapper_id,
+            tag=self._tag,
+        )
+        for (req, fields) in self._req_analyzer.requirements:
+            if req.permission in (
+                Permission.SOURCE_INDIRECT,
+                Permission.TARGET_INDIRECT,
+            ):
+                assert len(fields) == 1
+                fields = fields[0]
+            req.proj.add(copy, req, fields, _index_copy_calls)
+        if self._sharding_space is not None:
+            copy.set_sharding_space(self._sharding_space)
+        if self._point is not None:
+            copy.set_point(self._point)
+        return copy
+
+    def build_single_copy(self):
+        self._req_analyzer.analyze_requirements()
+
+        copy = SingleCopy(
+            mapper=self.legion_mapper_id,
+            tag=self._tag,
+        )
+        for (req, fields) in self._req_analyzer.requirements:
+            if req.permission in (
+                Permission.SOURCE_INDIRECT,
+                Permission.TARGET_INDIRECT,
+            ):
+                assert len(fields) == 1
+                fields = fields[0]
+            req.proj.add_single(copy, req, fields, _single_copy_calls)
+        if self._sharding_space is not None:
+            copy.set_sharding_space(self._sharding_space)
+        if self._point is not None:
+            copy.set_point(self._point)
+        return copy
+
+    def execute(self, launch_domain, redop=None):
+        copy = self.build_copy(launch_domain)
+        return self._context.dispatch(copy)
+
+    def execute_single(self):
+        copy = self.build_single_copy()
+        return self._context.dispatch(copy)
