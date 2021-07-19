@@ -309,6 +309,26 @@ class FieldManager(object):
                 self.freed_fields.append((region, field_id))
 
 
+class ExternalAllocation(object):
+    """
+    Any external allocation that a client library wants to attach to
+    a Legate store must be wrapped by an instance of the ExternalAllocation
+    interface. Legate uses this custom interface instead of Python's
+    memoryview interface because it needs to know the exact starting
+    address of the allocation for the alias analysis; an external
+    allocation attached to more than one Legate store can lead to
+    all sorts of undefined behaviors.
+    """
+
+    @property
+    def address(self):
+        raise NotImplementedError("Should be implemented by a subclass")
+
+    @property
+    def memoryview(self):
+        raise NotImplementedError("Should be implemented by a subclass")
+
+
 class Attachment(object):
     def __init__(self, ptr, extent, region, field):
         self.ptr = ptr
@@ -367,22 +387,18 @@ class AttachmentManager(object):
         self._attachments = None
 
     @staticmethod
-    def attachment_key(array):
-        return (int(array.ctypes.data), array.nbytes)
+    def attachment_key(alloc):
+        return (alloc.address, alloc.memoryview.nbytes)
 
     def has_attachment(self, array):
         key = self.attachment_key(array)
         return key in self._attachments
 
-    def attach_array(self, context, array, dtype, share):
-        assert array.base is None or not isinstance(array.base, np.ndarray)
-        # NumPy arrays are not hashable, so look up the pointer for the array
-        # which should be unique for all root NumPy arrays
-        key = self.attachment_key(array)
-        shape = Shape(array.shape)
+    def attach_external_allocation(self, context, alloc, shape, dtype, share):
+        key = self.attachment_key(alloc)
         if key not in self._attachments:
             region_field = self._runtime.allocate_field(shape, dtype)
-            region_field.attach_numpy_array(context, array, share)
+            region_field.attach_external_allocation(context, alloc, share)
             attachment = Attachment(
                 *key, region_field.region, region_field.field
             )
@@ -401,13 +417,11 @@ class AttachmentManager(object):
             attachment.add_reference()
             region = attachment.region
             field = attachment.field
-            region_field = RegionField(
-                self._runtime, region, field, array.shape
-            )
+            region_field = RegionField(self._runtime, region, field, shape)
         return self._runtime.create_store(dtype, shape, storage=region_field)
 
-    def remove_attachment(self, array):
-        key = self.attachment_key(array)
+    def remove_attachment(self, alloc):
+        key = self.attachment_key(alloc)
         if key not in self._attachments:
             raise RuntimeError("Unable to find attachment to remove")
         attachment = self._attachments[key]
@@ -415,23 +429,22 @@ class AttachmentManager(object):
         if attachment.collectible:
             del self._attachments[key]
 
-    def detach_array(self, array, field, detach, defer):
+    def detach_external_allocation(self, alloc, field, detach, defer):
         if defer:
             # If we need to defer this until later do that now
-            self._deferred_detachments.append((array, field, detach))
+            self._deferred_detachments.append((alloc, field, detach))
             return
         future = self._runtime.dispatch(detach)
         # Dangle a reference to the field off the future to prevent the
         # field from being recycled until the detach is done
         future.field_reference = field
-        assert array.base is None
         # We also need to tell the core legate library that this array
         # is no longer attached
-        self.remove_attachment(array)
+        self.remove_attachment(alloc)
         # If the future is already ready, then no need to track it
         if future.is_ready():
             return
-        self._pending_detachments[future] = array
+        self._pending_detachments[future] = alloc
 
     def register_detachment(self, detach):
         key = self._next_detachment_key
@@ -447,8 +460,8 @@ class AttachmentManager(object):
     def perform_detachments(self):
         detachments = self._deferred_detachments
         self._deferred_detachments = list()
-        for array, field, detach in detachments:
-            self.detach_array(array, field, detach, defer=False)
+        for alloc, field, detach in detachments:
+            self.detach_external_allocation(alloc, field, detach, defer=False)
 
     def prune_detachments(self):
         to_remove = []
@@ -825,8 +838,10 @@ class Runtime(object):
             self.legion_runtime, self.legion_context
         )
 
-    def unmap_region(self, physical_region):
-        physical_region.unmap(self.legion_runtime, self.legion_context)
+    def unmap_region(self, physical_region, unordered=False):
+        physical_region.unmap(
+            self.legion_runtime, self.legion_context, unordered=unordered
+        )
 
     def get_deliearize_functor(self):
         return self.core_context.get_projection_id(
@@ -952,9 +967,20 @@ class Runtime(object):
             fields=fields,
         )
 
-    def attach_array(self, context, array, dtype, share):
-        return self._attachment_manager.attach_array(
-            context, array, dtype, share
+    def attach_external_allocation(self, context, alloc, shape, dtype, share):
+        if not isinstance(alloc, ExternalAllocation):
+            raise ValueError(
+                "Only an ExternalAllocation object can be attached, but got"
+                f"{alloc}"
+            )
+        if shape is not None and not isinstance(shape, Shape):
+            shape = Shape(shape)
+        return self._attachment_manager.attach_external_allocation(
+            context,
+            alloc,
+            shape,
+            dtype,
+            share,
         )
 
     def has_attachment(self, array):

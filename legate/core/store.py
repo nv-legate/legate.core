@@ -16,14 +16,34 @@
 import weakref
 from functools import partial
 
-import numpy as np
-
 import legate.core.types as ty
 
 from .legion import Attach, Detach, Future, InlineMapping, Point, ffi, legion
 from .partition import NoPartition, Tiling
 from .shape import Shape
 from .transform import Delinearize, Project, Promote, Shift, Transpose
+
+
+class InlineMappedAllocation(object):
+    """
+    This helper class is to tie the lifecycle of the client object to
+    the inline mapped allocation
+    """
+
+    def __init__(self, region_field, shape, address, strides):
+        self._region_field = region_field
+        self._shape = shape
+        self._address = address
+        self._strides = strides
+        self._consumed = False
+
+    def consume(self, ctor):
+        if self._consumed:
+            raise RuntimeError("Each inline mapping can be consumed only once")
+        self._consumed = True
+        result = ctor(self._shape, self._address, self._strides)
+        self._region_field.register_consumer(result)
+        return result
 
 
 # A region field holds a reference to a field in a logical region
@@ -46,11 +66,9 @@ class RegionField(object):
         self.shape = shape
         self.parent = parent
         self.launch_space = None  # Parallel launch space for this region_field
-        self.attached_array = (
-            None  # Numpy array that we attached to this field
-        )
-        # Numpy array that we returned for the application
-        self.numpy_array = None
+        # External allocation we attached to this field
+        self.attached_alloc = None
+        self.inline_consumers = []
         self.physical_region = None  # Physical region for attach
         self.physical_region_refs = 0
         self.physical_region_mapped = False
@@ -58,8 +76,8 @@ class RegionField(object):
         self._partitions = {}
 
     def __del__(self):
-        if self.attached_array is not None:
-            self.detach_numpy_array(unordered=True, defer=True)
+        if self.attached_alloc is not None:
+            self.detach_external_allocation(unordered=True, defer=True)
 
     def compute_parallel_launch_space(self):
         # See if we computed it already
@@ -76,21 +94,20 @@ class RegionField(object):
             return None
         return self.launch_space
 
-    def attach_numpy_array(self, context, numpy_array, share=False):
+    def attach_external_allocation(self, context, alloc, share):
         assert self.parent is None
-        assert isinstance(numpy_array, np.ndarray)
         # If we already have a numpy array attached
         # then we have to detach it first
-        if self.attached_array is not None:
-            if self.attached_array is numpy_array:
+        if self.attached_alloc is not None:
+            if self.attached_alloc == alloc:
                 return
             else:
-                self.detach_numpy_array(unordered=False)
+                self.detach_external_allocation(unordered=False)
         # Now we can attach the new one and then do the acquire
         attach = Attach(
             self.region,
             self.field.field_id,
-            numpy_array,
+            alloc.memoryview,
             mapper=context.mapper_id,
         )
         # If we're not sharing then there is no need to map or restrict the
@@ -110,30 +127,28 @@ class RegionField(object):
         detach = Detach(self.physical_region, flush=True)
         # Dangle these fields off here to prevent premature collection
         detach.field = self.field
-        detach.array = numpy_array
+        detach.alloc = alloc
         self.detach_key = self.attachment_manager.register_detachment(detach)
         # Add a reference here to prevent collection in for inline mapped cases
         assert self.physical_region_refs == 0
         # This reference will never be removed, we'll delete the
         # physical region once the object is deleted
         self.physical_region_refs = 1
-        self.attached_array = numpy_array
-        if share:
-            # If we're sharing this then we can also make this our numpy array
-            self.numpy_array = weakref.ref(numpy_array)
+        self.attached_alloc = alloc
 
-    def detach_numpy_array(self, unordered, defer=False):
+    def detach_external_allocation(self, unordered, defer=False):
         assert self.parent is None
-        assert self.attached_array is not None
+        assert self.attached_alloc is not None
         assert self.physical_region is not None
         detach = self.attachment_manager.remove_detachment(self.detach_key)
         detach.unordered = unordered
-        self.attachment_manager.detach_array(
-            self.attached_array, self.field, detach, defer
+        self.attachment_manager.detach_external_allocation(
+            self.attached_alloc, self.field, detach, defer
         )
         self.physical_region = None
         self.physical_region_mapped = False
-        self.attached_array = None
+        self.physical_region_refs = 0
+        self.attached_alloc = None
 
     def get_inline_mapped_region(self, context):
         if self.parent is None:
@@ -162,26 +177,24 @@ class RegionField(object):
         else:
             return self.parent.get_inline_mapped_region(context)
 
-    def decrement_inline_mapped_ref_count(self):
+    def decrement_inline_mapped_ref_count(self, unordered=False):
+        if self.physical_region is None:
+            return
         if self.parent is None:
             assert self.physical_region_refs > 0
             self.physical_region_refs -= 1
             if self.physical_region_refs == 0:
-                self.runtime.unmap_region(self.physical_region)
+                self.runtime.unmap_region(
+                    self.physical_region, unordered=unordered
+                )
                 self.physical_region = None
                 self.physical_region_mapped = False
         else:
             self.parent.decrement_inline_mapped_ref_count()
 
-    def get_numpy_array(self, shape, context=None, transform=None):
+    def get_inline_allocation(self, shape, context=None, transform=None):
         context = self.runtime.context if context is None else context
 
-        # See if we still have a valid numpy array to use
-        if self.numpy_array is not None:
-            # Test the weak reference to see if it is still alive
-            result = self.numpy_array()
-            if result is not None:
-                return result
         physical_region = self.get_inline_mapped_region(context)
         # We need a pointer to the physical allocation for this physical region
         dim = len(shape)
@@ -227,22 +240,23 @@ class RegionField(object):
         # Numpy doesn't know about CFFI pointers, so we have to cast
         # this to a Python long before we can hand it off to Numpy.
         base_ptr = int(ffi.cast("size_t", base_ptr))
-        initializer = _RegionNdarray(
-            tuple(shape), self.field.dtype.type, base_ptr, strides, False
+        return InlineMappedAllocation(
+            self,
+            tuple(shape),
+            base_ptr,
+            strides,
         )
-        array = np.asarray(initializer)
 
+    def register_consumer(self, consumer):
         # This will be the unmap call that will be invoked once the weakref is
         # removed
         # We will use it to unmap the inline mapping that was performed
         def decrement(region_field, ref):
             region_field.decrement_inline_mapped_ref_count()
 
-        # Curry bind arguments to the function
         callback = partial(decrement, self)
-        # Save a weak reference to the array so we don't prevent collection
-        self.numpy_array = weakref.ref(array, callback)
-        return array
+
+        self.inline_consumers.append(weakref.ref(consumer, callback))
 
     def get_tile(self, shape, tiling):
         tile_shape = tiling.tile_shape
@@ -284,7 +298,7 @@ class RegionField(object):
 # This is a dummy object that is only used as an initializer for the
 # RegionField object above. It is thrown away as soon as the
 # RegionField is constructed.
-class _RegionNdarray(object):
+class _LegateNDarray(object):
     __slots__ = ["__array_interface__"]
 
     def __init__(self, shape, field_type, base_ptr, strides, read_only):
@@ -605,9 +619,10 @@ class Store(object):
                 )
             return self._inverse_transform
 
-    def get_numpy_array(self, context=None):
+    def get_inline_allocation(self, context=None):
+        assert not self.scalar
         transform = self.get_inverse_transform()
-        return self.storage.get_numpy_array(
+        return self.storage.get_inline_allocation(
             self.shape, context=context, transform=transform
         )
 

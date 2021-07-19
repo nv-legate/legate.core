@@ -26,6 +26,7 @@ from legate.core.runtime import (
     get_legion_context,
     get_legion_runtime,
     legate_add_library,
+    ExternalAllocation,
 )
 from legate.core.store import Store
 from legate.core.legion import (

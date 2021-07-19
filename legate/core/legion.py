@@ -2350,7 +2350,6 @@ class Attach(object):
         mapper=0,
         tag=0,
         read_only=False,
-        row_major=True,
     ):
         """
         An Attach object provides a mechanism for attaching external data to
@@ -2363,9 +2362,8 @@ class Attach(object):
             The logical region to which external data will be attached
         field : int or FieldID
             The field ID to which the data will be attached
-        data : numpy.ndarray or buffer
-            Input data in the form of a numpy array or an object that
-            implements the Python buffer protocol
+        data : memoryview
+            Input data in a memoryview
         mapper : int
             ID of the mapper to use for mapping the copy operation
         tag : int
@@ -2383,34 +2381,15 @@ class Attach(object):
         self._launcher = ffi.gc(
             self.launcher, legion.legion_attach_launcher_destroy
         )
-        if isinstance(data, np.ndarray):
-            if not (
-                not read_only
-                and (data.flags["CARRAY"] or data.flags["FARRAY"])
-            ) and not (
-                read_only
-                and (data.flags["C_CONTIGUOUS"] or data.flags["F_CONTIGUOUS"])
-            ):
-                raise ValueError("NumPy array cannot be attached")
-            legion.legion_attach_launcher_add_cpu_soa_field(
-                self.launcher,
-                ffi.cast(
-                    "legion_field_id_t",
-                    field.fid if isinstance(field, FieldID) else field,
-                ),
-                ffi.from_buffer(data.data),
-                data.flags["FARRAY"] or data.flags["F_CONTIGUOUS"],
-            )
-        else:
-            legion.legion_attach_launcher_add_cpu_soa_field(
-                self.launcher,
-                ffi.cast(
-                    "legion_field_id_t",
-                    field.fid if isinstance(field, FieldID) else field,
-                ),
-                ffi.from_buffer(data),
-                not row_major,
-            )
+        legion.legion_attach_launcher_add_cpu_soa_field(
+            self.launcher,
+            ffi.cast(
+                "legion_field_id_t",
+                field.fid if isinstance(field, FieldID) else field,
+            ),
+            ffi.from_buffer(data),
+            data.f_contiguous,
+        )
 
     def set_restricted(self, restricted):
         """
