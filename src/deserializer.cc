@@ -91,29 +91,12 @@ void deserialize(Deserializer &ctx, LegateTypeCode &code)
   code = static_cast<LegateTypeCode>(ctx.deserializer_.unpack_32bit_int());
 }
 
-struct deserialize_untyped_point_fn {
-  template <int N>
-  UntypedPoint operator()(LegateDeserializer &ctx)
-  {
-    return UntypedPoint(ctx.unpack_point<N>());
-  }
-};
-
-void deserialize(Deserializer &ctx, UntypedPoint &value)
-{
-  auto dim = ctx.deserializer_.unpack_32bit_int();
-  if (dim < 0) return;
-  value = dim_dispatch(dim, deserialize_untyped_point_fn{}, ctx.deserializer_);
-}
-
 void deserialize(Deserializer &ctx, DomainPoint &value)
 {
   auto dim  = ctx.deserializer_.unpack_32bit_int();
   value.dim = dim;
   for (auto idx = 0; idx < dim; ++idx) value[idx] = ctx.deserializer_.unpack_64bit_int();
 }
-
-void deserialize(Deserializer &ctx, Shape &value) {}
 
 std::unique_ptr<Transform> deserialize_transform(Deserializer &ctx)
 {

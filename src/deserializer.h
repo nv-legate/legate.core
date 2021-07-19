@@ -92,9 +92,7 @@ class Deserializer {
   friend void deserialize(Deserializer &ctx, LegateTypeCode &code);
 
  public:
-  friend void deserialize(Deserializer &ctx, UntypedPoint &value);
   friend void deserialize(Deserializer &ctx, Legion::DomainPoint &value);
-  friend void deserialize(Deserializer &ctx, Shape &value);
   friend void deserialize(Deserializer &ctx, FutureWrapper &value);
   friend void deserialize(Deserializer &ctx, RegionField &value);
   friend void deserialize(Deserializer &ctx, OutputRegionField &value);
