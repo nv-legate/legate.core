@@ -179,6 +179,7 @@ else
 install: $(DLIB)
 	@echo "Installing $(DLIB) into $(PREFIX)..."
 	@mkdir -p $(PREFIX)/include
+	@mkdir -p $(PREFIX)/include/core
 	@$(foreach path,$(INSTALL_PATHS),mkdir -p $(PREFIX)/include/$(path);)
 	@$(foreach file,$(INSTALL_HEADERS),cp $(file) $(PREFIX)/include/$(file);)
 	@mkdir -p $(PREFIX)/lib
@@ -197,10 +198,10 @@ $(DLIB) : $(GEN_CPU_OBJS) $(GEN_GPU_OBJS)
 	$(CXX) -o $(DLIB) $^ $(LD_FLAGS)
 
 $(GEN_CPU_OBJS) : %.cc.o : %.cc $(LEGION_DEFINES_HEADER) $(REALM_DEFINES_HEADER)
-	$(CXX) -o $@ -c $< $(CC_FLAGS) $(INC_FLAGS) $(OMP_FLAGS)
+	$(CXX) -o $@ -c $< $(INC_FLAGS) $(OMP_FLAGS) $(CC_FLAGS)
 
 $(GEN_GPU_OBJS) : %.cu.o : %.cu $(LEGION_DEFINES_HEADER) $(REALM_DEFINES_HEADER)
-	$(NVCC) -o $@ -c $< $(NVCC_FLAGS) $(INC_FLAGS)
+	$(NVCC) -o $@ -c $< $(INC_FLAGS) $(NVCC_FLAGS)
 
 clean:
 	$(RM) -f $(DLIB) $(GEN_CPU_OBJS) $(GEN_GPU_OBJS)
