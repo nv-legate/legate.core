@@ -15,8 +15,6 @@
 
 import numpy as np
 
-import legate.core.types as ty
-
 from .legion import AffineTransform
 from .partition import Tiling
 from .shape import Shape
@@ -26,9 +24,9 @@ class Transform(object):
     def __repr__(self):
         return str(self)
 
-    def serialize(self, launcher):
+    def serialize(self, buf):
         code = self._runtime.get_transform_code(self.__class__.__name__)
-        launcher.add_scalar_arg(code, ty.int32)
+        buf.pack_32bit_int(code)
 
 
 class Shift(Transform):
@@ -76,10 +74,10 @@ class Shift(Transform):
             result = result.compose(parent_transform)
         return result
 
-    def serialize(self, launcher):
-        super(Shift, self).serialize(launcher)
-        launcher.add_scalar_arg(self._dim, ty.int32)
-        launcher.add_scalar_arg(self._offset, ty.int64)
+    def serialize(self, buf):
+        super(Shift, self).serialize(buf)
+        buf.pack_32bit_int(self._dim)
+        buf.pack_64bit_int(self._offset)
 
 
 class Promote(Transform):
@@ -134,10 +132,10 @@ class Promote(Transform):
             result = result.compose(parent_transform)
         return result
 
-    def serialize(self, launcher):
-        super(Promote, self).serialize(launcher)
-        launcher.add_scalar_arg(self._extra_dim, ty.int32)
-        launcher.add_scalar_arg(self._dim_size, ty.int64)
+    def serialize(self, buf):
+        super(Promote, self).serialize(buf)
+        buf.pack_32bit_int(self._extra_dim)
+        buf.pack_64bit_int(self._dim_size)
 
 
 class Project(Transform):
@@ -190,10 +188,10 @@ class Project(Transform):
             result = result.compose(parent_transform)
         return result
 
-    def serialize(self, launcher):
-        super(Project, self).serialize(launcher)
-        launcher.add_scalar_arg(self._dim, ty.int32)
-        launcher.add_scalar_arg(self._index, ty.int64)
+    def serialize(self, buf):
+        super(Project, self).serialize(buf)
+        buf.pack_32bit_int(self._dim)
+        buf.pack_64bit_int(self._index)
 
 
 class Transpose(Transform):
@@ -242,9 +240,11 @@ class Transpose(Transform):
             result = result.compose(parent_transform)
         return result
 
-    def serialize(self, launcher):
-        super(Transpose, self).serialize(launcher)
-        launcher.add_scalar_arg(self._axes, (ty.int32,))
+    def serialize(self, buf):
+        super(Transpose, self).serialize(buf)
+        buf.pack_32bit_uint(len(self._axes))
+        for axis in self._axes:
+            buf.pack_32bit_int(axis)
 
 
 class Delinearize(Transform):
@@ -327,7 +327,9 @@ class Delinearize(Transform):
             result = result.compose(parent_transform)
         return result
 
-    def serialize(self, launcher):
-        super(Delinearize, self).serialize(launcher)
-        launcher.add_scalar_arg(self._dim, ty.int32)
-        launcher.add_scalar_arg(self._shape, (ty.int64,))
+    def serialize(self, buf):
+        super(Delinearize, self).serialize(buf)
+        buf.pack_32bit_int(self._dim)
+        buf.pack_32bit_uint(self._shape.ndim)
+        for extent in self._shape:
+            buf.pack_64bit_int(extent)

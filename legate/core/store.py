@@ -16,8 +16,6 @@
 import weakref
 from functools import partial
 
-import legate.core.types as ty
-
 from .legion import Attach, Detach, Future, InlineMapping, Point, ffi, legion
 from .partition import NoPartition, Tiling
 from .shape import Shape
@@ -626,18 +624,18 @@ class Store(object):
             self.shape, context=context, transform=transform
         )
 
-    def _serialize_transform(self, launcher):
+    def _serialize_transform(self, buf):
         if self._parent is not None:
-            self._transform.serialize(launcher)
-            self._parent._serialize_transform(launcher)
+            self._transform.serialize(buf)
+            self._parent._serialize_transform(buf)
         else:
-            launcher.add_scalar_arg(-1, ty.int32)
+            buf.pack_32bit_int(-1)
 
-    def serialize(self, launcher):
-        launcher.add_scalar_arg(self._scalar, bool)
-        launcher.add_scalar_arg(self.ndim, ty.int32)
-        launcher.add_scalar_arg(self._dtype.code, ty.int32)
-        self._serialize_transform(launcher)
+    def serialize(self, buf):
+        buf.pack_bool(self._scalar)
+        buf.pack_32bit_int(self.ndim)
+        buf.pack_32bit_int(self._dtype.code)
+        self._serialize_transform(buf)
 
     def find_key_partition(self):
         if self._scalar:

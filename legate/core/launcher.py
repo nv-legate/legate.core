@@ -38,67 +38,93 @@ class Permission(IntEnum):
     TARGET_INDIRECT = 6
 
 
-class ScalarArg(object):
-    _serializers = {
-        bool: BufferBuilder.pack_bool,
-        ty.int8: BufferBuilder.pack_8bit_int,
-        ty.int16: BufferBuilder.pack_16bit_int,
-        ty.int32: BufferBuilder.pack_32bit_int,
-        ty.int64: BufferBuilder.pack_64bit_int,
-        ty.uint8: BufferBuilder.pack_8bit_uint,
-        ty.uint16: BufferBuilder.pack_16bit_uint,
-        ty.uint32: BufferBuilder.pack_32bit_uint,
-        ty.uint64: BufferBuilder.pack_64bit_uint,
-        ty.float32: BufferBuilder.pack_32bit_float,
-        ty.float64: BufferBuilder.pack_64bit_float,
-    }
+_SERIALIZERS = {
+    bool: BufferBuilder.pack_bool,
+    ty.int8: BufferBuilder.pack_8bit_int,
+    ty.int16: BufferBuilder.pack_16bit_int,
+    ty.int32: BufferBuilder.pack_32bit_int,
+    ty.int64: BufferBuilder.pack_64bit_int,
+    ty.uint8: BufferBuilder.pack_8bit_uint,
+    ty.uint16: BufferBuilder.pack_16bit_uint,
+    ty.uint32: BufferBuilder.pack_32bit_uint,
+    ty.uint64: BufferBuilder.pack_64bit_uint,
+    ty.float32: BufferBuilder.pack_32bit_float,
+    ty.float64: BufferBuilder.pack_64bit_float,
+}
 
-    def __init__(self, value, dtype):
+
+def _pack(buf, value, dtype, is_tuple):
+    if dtype not in _SERIALIZERS:
+        raise ValueError(f"Unsupported data type: {dtype}")
+    serializer = _SERIALIZERS[dtype]
+
+    if is_tuple:
+        buf.pack_32bit_uint(len(value))
+        for v in value:
+            serializer(buf, v)
+    else:
+        serializer(buf, value)
+
+
+class ScalarArg(object):
+    def __init__(self, core_types, value, dtype, untyped=True):
+        self._core_types = core_types
         self._value = value
         self._dtype = dtype
+        self._untyped = untyped
 
     def pack(self, buf):
-        if isinstance(self._dtype, tuple) or isinstance(self._dtype, list):
-            assert len(self._dtype) == 1
+        if isinstance(self._dtype, tuple):
+            if len(self._dtype) != 1:
+                raise ValueError(
+                    "Unsupported data type: %s" % str(self._dtype)
+                )
+            is_tuple = True
             dtype = self._dtype[0]
-            self._serializers[ty.int32](buf, len(self._value))
-            serializer = self._serializers[dtype]
-            for value in self._value:
-                serializer(buf, value)
-        elif self._dtype in self._serializers:
-            self._serializers[self._dtype](buf, self._value)
         else:
-            raise ValueError("Unsupported data type: %s" % str(self._dtype))
+            is_tuple = False
+            dtype = self._dtype
+
+        if self._untyped:
+            buf.pack_bool(is_tuple)
+            buf.pack_32bit_int(self._core_types[dtype].code)
+
+        _pack(buf, self._value, dtype, is_tuple)
 
     def __str__(self):
-        return f"ScalarArg({self._value}, {self._dtype})"
+        return f"ScalarArg({self._value}, {self._dtype}, {self._untyped})"
 
     def __repr__(self):
         return str(self)
 
 
-class DtypeArg(object):
-    def __init__(self, dtype):
-        self._dtype = dtype
+class FutureStoreArg(object):
+    def __init__(self, store):
+        self._store = store
 
     def pack(self, buf):
-        buf.pack_dtype(self._dtype)
+        self._store.serialize(buf)
+        _pack(buf, self._store.get_root().shape, ty.int64, True)
 
     def __str__(self):
-        return f"DtypeArg({self._dtype})"
+        return f"FutureStoreArg({self._store})"
 
     def __repr__(self):
         return str(self)
 
 
 class RegionFieldArg(object):
-    def __init__(self, analyzer, dim, req, field_id):
+    def __init__(self, analyzer, store, dim, req, field_id, redop):
         self._analyzer = analyzer
+        self._store = store
         self._dim = dim
         self._req = req
         self._field_id = field_id
+        self._redop = redop
 
     def pack(self, buf):
+        self._store.serialize(buf)
+        buf.pack_32bit_int(self._redop)
         buf.pack_32bit_int(self._dim)
         buf.pack_32bit_uint(
             self._analyzer.get_requirement_index(self._req, self._field_id)
@@ -107,22 +133,6 @@ class RegionFieldArg(object):
 
     def __str__(self):
         return f"RegionFieldArg({self._dim}, {self._req}, {self._field_id})"
-
-    def __repr__(self):
-        return str(self)
-
-
-class OutputRegionArg(object):
-    def __init__(self, idx, field_id):
-        self._idx = idx
-        self._field_id = field_id
-
-    def pack(self, buf):
-        buf.pack_32bit_uint(self._idx)
-        buf.pack_32bit_uint(self._field_id)
-
-    def __str__(self):
-        return f"OutputRegionArg({self._idx}, {self._field_id})"
 
     def __repr__(self):
         return str(self)
@@ -507,6 +517,7 @@ class TaskLauncher(object):
         assert type(tag) != bool
         self._context = context
         self._runtime = context.runtime
+        self._core_types = self._runtime.core_context.type_system
         self._task_id = task_id
         self._mapper_id = mapper_id
         self._args = list()
@@ -542,35 +553,33 @@ class TaskLauncher(object):
         self._future_map_args.clear()
         self._output_regions.clear()
 
-    def add_scalar_arg(self, value, dtype):
-        self._args.append(ScalarArg(value, dtype))
+    def add_scalar_arg(self, value, dtype, untyped=True):
+        self._args.append(ScalarArg(self._core_types, value, dtype, untyped))
 
     def add_store(self, store, proj, perm, tag, flags):
-        store.serialize(self)
-        redop = -1 if proj.redop is None else proj.redop
-        self.add_scalar_arg(redop, ty.int32)
-
         if store.scalar:
             if perm != Permission.READ:
                 raise ValueError("Scalar stores must be read only")
             self.add_future(store.storage)
-            self.add_scalar_arg(store.get_root().shape, (ty.int64,))
-            return
+            self._args.append(FutureStoreArg(store))
 
-        region = store.storage.region
-        field_id = store.storage.field.field_id
+        else:
+            region = store.storage.region
+            field_id = store.storage.field.field_id
 
-        req = RegionReq(region, perm, proj, tag, flags)
+            req = RegionReq(region, perm, proj, tag, flags)
 
-        self._req_analyzer.insert(req, field_id)
-        self._args.append(
-            RegionFieldArg(
-                self._req_analyzer,
-                region.index_space.get_dim(),
-                req,
-                field_id,
+            self._req_analyzer.insert(req, field_id)
+            self._args.append(
+                RegionFieldArg(
+                    self._req_analyzer,
+                    store,
+                    region.index_space.get_dim(),
+                    req,
+                    field_id,
+                    -1 if proj.redop is None else proj.redop,
+                )
             )
-        )
 
     def add_no_access(self, store, proj, tag=0, flags=0):
         self.add_store(store, proj, Permission.NO_ACCESS, tag, flags)
@@ -588,9 +597,6 @@ class TaskLauncher(object):
         self.add_store(store, proj, Permission.REDUCTION, tag, flags)
 
     def add_unbound_output(self, store, fspace, field_id):
-        store.serialize(self)
-        self.add_scalar_arg(-1, ty.int32)
-
         req = OutputReq(self._runtime, fspace)
 
         self._out_analyzer.insert(req, field_id, store)
@@ -598,9 +604,11 @@ class TaskLauncher(object):
         self._args.append(
             RegionFieldArg(
                 self._out_analyzer,
+                store,
                 1,
                 req,
                 field_id,
+                -1,
             )
         )
 

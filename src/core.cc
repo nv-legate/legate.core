@@ -326,18 +326,30 @@ DomainAffineTransform Delinearize::inverse_transform(int32_t in_dim) const
 RegionField::RegionField(int32_t dim, const PhysicalRegion &pr, FieldID fid)
   : dim_(dim), pr_(pr), fid_(fid)
 {
+  auto priv  = pr.get_privilege();
+  readable_  = static_cast<bool>(priv & LEGION_READ_PRIV);
+  writable_  = static_cast<bool>(priv & LEGION_WRITE_PRIV);
+  reducible_ = static_cast<bool>(priv & LEGION_REDUCE) || (readable_ && writable_);
 }
 
 RegionField::RegionField(RegionField &&other) noexcept
-  : dim_(other.dim_), pr_(other.pr_), fid_(other.fid_)
+  : dim_(other.dim_),
+    pr_(other.pr_),
+    fid_(other.fid_),
+    readable_(other.readable_),
+    writable_(other.writable_),
+    reducible_(other.reducible_)
 {
 }
 
 RegionField &RegionField::operator=(RegionField &&other) noexcept
 {
-  dim_ = other.dim_;
-  pr_  = other.pr_;
-  fid_ = other.fid_;
+  dim_       = other.dim_;
+  pr_        = other.pr_;
+  fid_       = other.fid_;
+  readable_  = other.readable_;
+  writable_  = other.writable_;
+  reducible_ = other.reducible_;
   return *this;
 }
 
@@ -384,16 +396,16 @@ Domain FutureWrapper::domain() const { return domain_; }
 
 Store::Store(int32_t dim,
              LegateTypeCode code,
-             int32_t redop_id,
              FutureWrapper future,
              std::unique_ptr<Transform> transform)
   : is_future_(true),
     is_output_store_(false),
     dim_(dim),
     code_(code),
-    redop_id_(redop_id),
+    redop_id_(-1),
     future_(future),
-    transform_(std::move(transform))
+    transform_(std::move(transform)),
+    readable_(true)
 {
 }
 
@@ -410,6 +422,9 @@ Store::Store(int32_t dim,
     region_field_(std::forward<RegionField>(region_field)),
     transform_(std::move(transform))
 {
+  readable_  = region_field_.is_readable();
+  writable_  = region_field_.is_writable();
+  reducible_ = region_field_.is_reducible();
 }
 
 Store::Store(LegateTypeCode code, OutputRegionField &&output, std::unique_ptr<Transform> transform)
@@ -432,7 +447,10 @@ Store::Store(Store &&other) noexcept
     future_(other.future_),
     region_field_(std::forward<RegionField>(other.region_field_)),
     output_field_(std::forward<OutputRegionField>(other.output_field_)),
-    transform_(std::move(other.transform_))
+    transform_(std::move(other.transform_)),
+    readable_(other.readable_),
+    writable_(other.writable_),
+    reducible_(other.reducible_)
 {
 }
 
@@ -450,6 +468,9 @@ Store &Store::operator=(Store &&other) noexcept
   else
     region_field_ = std::move(other.region_field_);
   transform_ = std::move(other.transform_);
+  readable_  = other.readable_;
+  writable_  = other.writable_;
+  reducible_ = other.reducible_;
   return *this;
 }
 

@@ -223,10 +223,20 @@ class RegionField {
   Legion::Rect<DIM> shape() const;
   Legion::Domain domain() const;
 
+ public:
+  bool is_readable() const { return readable_; }
+  bool is_writable() const { return writable_; }
+  bool is_reducible() const { return reducible_; }
+
  private:
   int32_t dim_{-1};
   Legion::PhysicalRegion pr_{};
   Legion::FieldID fid_{-1U};
+
+ private:
+  bool readable_{false};
+  bool writable_{false};
+  bool reducible_{false};
 };
 
 class OutputRegionField {
@@ -291,7 +301,6 @@ class Store {
   Store() {}
   Store(int32_t dim,
         LegateTypeCode code,
-        int32_t redop_id,
         FutureWrapper future,
         std::unique_ptr<Transform> transform = nullptr);
   Store(int32_t dim,
@@ -341,6 +350,11 @@ class Store {
   Legion::Domain domain() const;
 
  public:
+  bool is_readable() const { return readable_; }
+  bool is_writable() const { return writable_; }
+  bool is_reducible() const { return reducible_; }
+
+ public:
   template <typename VAL>
   VAL scalar() const;
 
@@ -354,10 +368,19 @@ class Store {
   int32_t dim_{-1};
   LegateTypeCode code_{MAX_TYPE_NUMBER};
   int32_t redop_id_{-1};
+
+ private:
   FutureWrapper future_;
   RegionField region_field_;
   OutputRegionField output_field_;
+
+ private:
   std::unique_ptr<Transform> transform_{nullptr};
+
+ private:
+  bool readable_{false};
+  bool writable_{false};
+  bool reducible_{false};
 };
 
 }  // namespace legate

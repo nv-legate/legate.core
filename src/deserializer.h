@@ -19,7 +19,7 @@
 #include <memory>
 
 #include "core.h"
-#include "legate.h"
+#include "core/scalar.h"
 
 namespace legate {
 
@@ -43,30 +43,6 @@ class FromFuture {
 
  private:
   T value_;
-};
-
-template <typename T>
-struct Span {
- public:
-  Span(T *data, size_t size) : data_(data), size_(size) {}
-
- public:
-  decltype(auto) operator[](size_t pos)
-  {
-    assert(pos < size_);
-    return data_[pos];
-  }
-
- public:
-  decltype(auto) subspan(size_t off)
-  {
-    assert(off <= size_);
-    return Span(data_ + off, size_ - off);
-  }
-
- private:
-  T *data_;
-  size_t size_;
 };
 
 class Deserializer {
@@ -93,6 +69,7 @@ class Deserializer {
 
  public:
   friend void deserialize(Deserializer &ctx, Legion::DomainPoint &value);
+  friend void deserialize(Deserializer &ctx, Scalar &value);
   friend void deserialize(Deserializer &ctx, FutureWrapper &value);
   friend void deserialize(Deserializer &ctx, RegionField &value);
   friend void deserialize(Deserializer &ctx, OutputRegionField &value);
@@ -104,9 +81,9 @@ class Deserializer {
   friend void deserialize(Deserializer &ctx, std::vector<T> &vec, bool resize = true)
   {
     if (resize) {
-      std::uint32_t size;
+      Scalar size;
       deserialize(ctx, size);
-      vec.resize(size);
+      vec.resize(size.value<uint32_t>());
     }
     for (auto &v : vec) deserialize(ctx, v);
   }

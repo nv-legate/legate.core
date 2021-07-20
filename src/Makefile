@@ -31,11 +31,11 @@ GEN_CPU_SRC	= context.cc      \
 							mapper.cc       \
 							projection.cc   \
 							shard.cc        \
+							core/scalar.cc  \
 							legate_c.cc
 # No initial GPU files for core Legate but libraries have them
 GEN_GPU_SRC	=
-# Header files that we need to have installed for client legate libraries
-INSTALL_PATHS  =
+# Header files that we need to have installed for client legate libraries INSTALL_PATHS  =
 INSTALL_HEADERS = context.h         \
 									core.h            \
 									core.inl          \
@@ -44,6 +44,8 @@ INSTALL_HEADERS = context.h         \
 									legate.h          \
 								  projection.h      \
 									legate_c.h        \
+									core/scalar.h     \
+									core/scalar.inl   \
 									legate_preamble.h
 
 # You can modify these variables, some will be appended to by the runtime makefile

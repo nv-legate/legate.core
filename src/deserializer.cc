@@ -125,20 +125,33 @@ std::unique_ptr<Transform> deserialize_transform(Deserializer &ctx)
     }
     case LEGATE_CORE_TRANSFORM_TRANSPOSE: {
       std::vector<int32_t> axes;
-      deserialize(ctx, axes);
+      uint32_t size = ctx.deserializer_.unpack_32bit_uint();
+      axes.resize(size);
+      deserialize(ctx, axes, false);
       auto parent = deserialize_transform(ctx);
       return std::make_unique<Transpose>(std::move(axes), std::move(parent));
     }
     case LEGATE_CORE_TRANSFORM_DELINEARIZE: {
-      int32_t dim = ctx.deserializer_.unpack_32bit_int();
+      int32_t dim   = ctx.deserializer_.unpack_32bit_int();
+      uint32_t size = ctx.deserializer_.unpack_32bit_uint();
       std::vector<int64_t> sizes;
-      deserialize(ctx, sizes);
+      sizes.resize(size);
+      deserialize(ctx, sizes, false);
       auto parent = deserialize_transform(ctx);
       return std::make_unique<Delinearize>(dim, std::move(sizes), std::move(parent));
     }
   }
   assert(false);
   return nullptr;
+}
+
+void deserialize(Deserializer &ctx, Scalar &value)
+{
+  bool tuple = ctx.deserializer_.unpack_bool();
+  LegateTypeCode code;
+  deserialize(ctx, code);
+  value = Scalar(tuple, code, ctx.deserializer_.data());
+  ctx.deserializer_.skip(value.size());
 }
 
 void deserialize(Deserializer &ctx, FutureWrapper &value)
@@ -187,17 +200,19 @@ void deserialize(Deserializer &ctx, Store &store)
   auto code      = ctx.deserializer_.unpack_dtype();
 
   auto transform = deserialize_transform(ctx);
-  auto redop_id  = ctx.deserializer_.unpack_32bit_int();
 
   if (is_future) {
     FutureWrapper fut;
     deserialize(ctx, fut);
-    store = Store(dim, code, redop_id, fut, std::move(transform));
+    store = Store(dim, code, fut, std::move(transform));
   } else if (dim >= 0) {
+    auto redop_id = ctx.deserializer_.unpack_32bit_int();
     RegionField rf;
     deserialize(ctx, rf);
     store = Store(dim, code, redop_id, std::move(rf), std::move(transform));
   } else {
+    auto redop_id = ctx.deserializer_.unpack_32bit_int();
+    assert(redop_id == -1);
     OutputRegionField out;
     deserialize(ctx, out);
     store = Store(code, std::move(out), std::move(transform));
