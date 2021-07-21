@@ -16,20 +16,27 @@
 
 #pragma once
 
-#include <cxxabi.h>
-#include <stdint.h>
-#include <cstdlib>
-#include <cstring>
-
-#include "legion.h"
-// legion.h has to go before this
-#include "core/dispatch.h"
-#include "core/legate_defines.h"
-#include "core/scalar.h"
-#include "core/store.h"
-#include "core/task.h"
-#include "core/type_traits.h"
 #include "core/typedefs.h"
-#include "deserializer.h"
-#include "legate_c.h"
-#include "runtime.h"
+#include "legion.h"
+
+namespace legate {
+
+class Core {
+ public:
+  static void parse_config(void);
+  static void shutdown(void);
+  // Get layout constraints
+  static Legion::LayoutConstraintID get_soa_layout(void);
+  static Legion::LayoutConstraintID get_reduction_layout(Legion::ReductionOpID redop);
+  static Legion::LayoutConstraintID get_virtual_layout(void);
+
+ public:
+  // Configuration settings
+  static bool show_progress;
+#ifdef LEGATE_USE_CUDA
+ public:
+  static cublasContext *get_cublas(void);
+#endif
+};
+
+}  // namespace legate

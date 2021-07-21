@@ -14,22 +14,23 @@
  *
  */
 
-#pragma once
+namespace legate {
 
-#include <cxxabi.h>
-#include <stdint.h>
-#include <cstdlib>
-#include <cstring>
+template <typename VAL>
+VAL Scalar::value() const
+{
+  return *static_cast<const VAL*>(data_);
+}
 
-#include "legion.h"
-// legion.h has to go before this
-#include "core/dispatch.h"
-#include "core/legate_defines.h"
-#include "core/scalar.h"
-#include "core/store.h"
-#include "core/task.h"
-#include "core/type_traits.h"
-#include "core/typedefs.h"
-#include "deserializer.h"
-#include "legate_c.h"
-#include "runtime.h"
+template <typename VAL>
+Span<const VAL> Scalar::values() const
+{
+  if (tuple_) {
+    auto size = *static_cast<const uint32_t*>(data_);
+    auto data = static_cast<const uint8_t*>(data_) + sizeof(uint32_t);
+    return Span<const VAL>(reinterpret_cast<const VAL*>(data), size);
+  } else
+    return Span<const VAL>(static_cast<const VAL*>(data_), 1);
+}
+
+}  // namespace legate

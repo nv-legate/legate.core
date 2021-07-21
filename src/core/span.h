@@ -16,20 +16,39 @@
 
 #pragma once
 
-#include <cxxabi.h>
-#include <stdint.h>
-#include <cstdlib>
-#include <cstring>
-
 #include "legion.h"
-// legion.h has to go before this
-#include "core/dispatch.h"
-#include "core/legate_defines.h"
-#include "core/scalar.h"
-#include "core/store.h"
-#include "core/task.h"
-#include "core/type_traits.h"
-#include "core/typedefs.h"
-#include "deserializer.h"
-#include "legate_c.h"
-#include "runtime.h"
+
+namespace legate {
+
+template <typename T>
+struct Span {
+ public:
+  Span()             = default;
+  Span(const Span &) = default;
+
+ public:
+  Span(T *data, size_t size) : data_(data), size_(size) {}
+
+ public:
+  size_t size() const { return size_; }
+
+ public:
+  decltype(auto) operator[](size_t pos)
+  {
+    assert(pos < size_);
+    return data_[pos];
+  }
+
+ public:
+  decltype(auto) subspan(size_t off)
+  {
+    assert(off <= size_);
+    return Span(data_ + off, size_ - off);
+  }
+
+ private:
+  T *data_{nullptr};
+  size_t size_{0};
+};
+
+}  // namespace legate

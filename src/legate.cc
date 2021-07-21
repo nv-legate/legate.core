@@ -118,37 +118,6 @@ static const char* const core_library_name = "legate.core";
   return layout_id;
 }
 
-/*static*/ LegateTypeCode Core::safe_cast_type_code(int type_code)
-{
-#define CASE(x)                                    \
-  case x: {                                        \
-    return static_cast<LegateTypeCode>(type_code); \
-  }
-  switch (type_code) {
-    CASE(BOOL_LT)
-    CASE(INT8_LT)
-    CASE(INT16_LT)
-    CASE(INT32_LT)
-    CASE(INT64_LT)
-    CASE(UINT8_LT)
-    CASE(UINT16_LT)
-    CASE(UINT32_LT)
-    CASE(UINT64_LT)
-    CASE(HALF_LT)
-    CASE(FLOAT_LT)
-    CASE(DOUBLE_LT)
-    CASE(COMPLEX64_LT)
-    CASE(COMPLEX128_LT)
-    default: {
-      fprintf(stderr, "Invalid type code %d\n", type_code);
-      LEGATE_ABORT
-    }
-  }
-
-  LEGATE_ABORT
-  return MAX_TYPE_NUMBER;
-}
-
 #ifdef LEGATE_USE_CUDA
 static CUDALibraries& get_cuda_libraries(Processor proc, bool check)
 {

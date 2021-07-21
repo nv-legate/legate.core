@@ -14,22 +14,33 @@
  *
  */
 
-#pragma once
-
-#include <cxxabi.h>
-#include <stdint.h>
-#include <cstdlib>
-#include <cstring>
-
-#include "legion.h"
-// legion.h has to go before this
-#include "core/dispatch.h"
-#include "core/legate_defines.h"
 #include "core/scalar.h"
-#include "core/store.h"
-#include "core/task.h"
+#include "core/dispatch.h"
 #include "core/type_traits.h"
-#include "core/typedefs.h"
-#include "deserializer.h"
-#include "legate_c.h"
-#include "runtime.h"
+
+namespace legate {
+
+Scalar::Scalar(bool tuple, LegateTypeCode code, const void *data)
+  : tuple_(tuple), code_(code), data_(data)
+{
+}
+
+struct elem_size_fn {
+  template <LegateTypeCode CODE>
+  size_t operator()()
+  {
+    return sizeof(legate_type_of<CODE>);
+  }
+};
+
+size_t Scalar::size() const
+{
+  auto elem_size = type_dispatch(code_, elem_size_fn{});
+  if (tuple_) {
+    auto num_elements = *static_cast<const int32_t *>(data_);
+    return sizeof(int32_t) + num_elements * elem_size;
+  } else
+    return elem_size;
+}
+
+}  // namespace legate

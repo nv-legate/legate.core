@@ -15,11 +15,44 @@
  */
 
 #include "deserializer.h"
-#include "dispatch.h"
+#include "core/dispatch.h"
+#include "core/scalar.h"
+#include "core/store.h"
 
 namespace legate {
 
 using namespace Legion;
+
+/*static*/ LegateTypeCode LegateDeserializer::safe_cast_type_code(int32_t code)
+{
+#define CASE(x)                               \
+  case x: {                                   \
+    return static_cast<LegateTypeCode>(code); \
+  }
+  switch (code) {
+    CASE(BOOL_LT)
+    CASE(INT8_LT)
+    CASE(INT16_LT)
+    CASE(INT32_LT)
+    CASE(INT64_LT)
+    CASE(UINT8_LT)
+    CASE(UINT16_LT)
+    CASE(UINT32_LT)
+    CASE(UINT64_LT)
+    CASE(HALF_LT)
+    CASE(FLOAT_LT)
+    CASE(DOUBLE_LT)
+    CASE(COMPLEX64_LT)
+    CASE(COMPLEX128_LT)
+    default: {
+      fprintf(stderr, "Invalid type code %d\n", code);
+      LEGATE_ABORT
+    }
+  }
+
+  LEGATE_ABORT
+  return MAX_TYPE_NUMBER;
+}
 
 Deserializer::Deserializer(const Task *task, const std::vector<PhysicalRegion> &regions)
   : task_{task},
@@ -79,11 +112,6 @@ void deserialize(Deserializer &ctx, std::int8_t &value)
   value = ctx.deserializer_.unpack_8bit_int();
 }
 
-void deserialize(Deserializer &ctx, std::string &value)
-{
-  value = ctx.deserializer_.unpack_string();
-}
-
 void deserialize(Deserializer &ctx, bool &value) { value = ctx.deserializer_.unpack_bool(); }
 
 void deserialize(Deserializer &ctx, LegateTypeCode &code)
@@ -98,7 +126,7 @@ void deserialize(Deserializer &ctx, DomainPoint &value)
   for (auto idx = 0; idx < dim; ++idx) value[idx] = ctx.deserializer_.unpack_64bit_int();
 }
 
-std::unique_ptr<Transform> deserialize_transform(Deserializer &ctx)
+std::unique_ptr<StoreTransform> deserialize_transform(Deserializer &ctx)
 {
   int32_t code = ctx.deserializer_.unpack_32bit_int();
   switch (code) {

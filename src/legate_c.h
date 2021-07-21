@@ -42,13 +42,8 @@ typedef enum legate_core_tunable_t {
 typedef enum legate_core_variant_t {
   LEGATE_NO_VARIANT = 0,
   LEGATE_CPU_VARIANT,
-  LEGATE_SSE_VARIANT,
-  LEGATE_AVX_VARIANT,
-  LEGATE_OMP_VARIANT,
   LEGATE_GPU_VARIANT,
-  LEGATE_SUB_CPU_VARIANT,
-  LEGATE_SUB_GPU_VARIANT,
-  LEGATE_SUB_OMP_VARIANT,
+  LEGATE_OMP_VARIANT,
 } legate_core_variant_t;
 
 typedef enum legate_core_partition_t {

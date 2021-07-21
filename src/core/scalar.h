@@ -16,20 +16,36 @@
 
 #pragma once
 
-#include <cxxabi.h>
-#include <stdint.h>
-#include <cstdlib>
-#include <cstring>
-
-#include "legion.h"
-// legion.h has to go before this
-#include "core/dispatch.h"
-#include "core/legate_defines.h"
-#include "core/scalar.h"
-#include "core/store.h"
-#include "core/task.h"
-#include "core/type_traits.h"
+#include "core/span.h"
 #include "core/typedefs.h"
-#include "deserializer.h"
-#include "legate_c.h"
-#include "runtime.h"
+
+namespace legate {
+
+class Scalar {
+ public:
+  Scalar()               = default;
+  Scalar(const Scalar &) = default;
+  Scalar(bool tuple, LegateTypeCode code, const void *data);
+
+ public:
+  Scalar &operator=(const Scalar &) = default;
+
+ public:
+  bool is_tuple() const { return tuple_; }
+  size_t size() const;
+
+ public:
+  template <typename VAL>
+  VAL value() const;
+  template <typename VAL>
+  Span<const VAL> values() const;
+
+ private:
+  bool tuple_{false};
+  LegateTypeCode code_{MAX_TYPE_NUMBER};
+  const void *data_;
+};
+
+}  // namespace legate
+
+#include "scalar.inl"

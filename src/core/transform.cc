@@ -14,14 +14,13 @@
  *
  */
 
-#include "core.h"
-#include "dispatch.h"
+#include "core/transform.h"
 
 namespace legate {
 
 using namespace Legion;
 
-using TransformP = std::unique_ptr<Transform>;
+using StoreTransformP = std::unique_ptr<StoreTransform>;
 
 DomainTransform operator*(const DomainTransform &lhs, const DomainTransform &rhs)
 {
@@ -56,10 +55,10 @@ DomainAffineTransform combine(const DomainAffineTransform &lhs, const DomainAffi
   return result;
 }
 
-Transform::Transform(TransformP &&parent) : parent_(std::move(parent)) {}
+StoreTransform::StoreTransform(StoreTransformP &&parent) : parent_(std::move(parent)) {}
 
-Shift::Shift(int32_t dim, int64_t offset, TransformP &&parent)
-  : Transform(std::forward<TransformP>(parent)), dim_(dim), offset_(offset)
+Shift::Shift(int32_t dim, int64_t offset, StoreTransformP &&parent)
+  : StoreTransform(std::forward<StoreTransformP>(parent)), dim_(dim), offset_(offset)
 {
 }
 
@@ -98,8 +97,10 @@ DomainAffineTransform Shift::inverse_transform(int32_t in_dim) const
     return result;
 }
 
-Promote::Promote(int32_t extra_dim, int64_t dim_size, TransformP &&parent)
-  : Transform(std::forward<TransformP>(parent)), extra_dim_(extra_dim), dim_size_(dim_size)
+Promote::Promote(int32_t extra_dim, int64_t dim_size, StoreTransformP &&parent)
+  : StoreTransform(std::forward<StoreTransformP>(parent)),
+    extra_dim_(extra_dim),
+    dim_size_(dim_size)
 {
 }
 
@@ -153,8 +154,8 @@ DomainAffineTransform Promote::inverse_transform(int32_t in_dim) const
     return result;
 }
 
-Project::Project(int32_t dim, int64_t coord, TransformP &&parent)
-  : Transform(std::forward<TransformP>(parent)), dim_(dim), coord_(coord)
+Project::Project(int32_t dim, int64_t coord, StoreTransformP &&parent)
+  : StoreTransform(std::forward<StoreTransformP>(parent)), dim_(dim), coord_(coord)
 {
 }
 
@@ -210,8 +211,8 @@ DomainAffineTransform Project::inverse_transform(int32_t in_dim) const
     return result;
 }
 
-Transpose::Transpose(std::vector<int32_t> &&axes, TransformP &&parent)
-  : Transform(std::forward<TransformP>(parent)), axes_(std::move(axes))
+Transpose::Transpose(std::vector<int32_t> &&axes, StoreTransformP &&parent)
+  : StoreTransform(std::forward<StoreTransformP>(parent)), axes_(std::move(axes))
 {
 }
 
@@ -256,8 +257,8 @@ DomainAffineTransform Transpose::inverse_transform(int32_t in_dim) const
     return result;
 }
 
-Delinearize::Delinearize(int32_t dim, std::vector<int64_t> &&sizes, TransformP &&parent)
-  : Transform(std::forward<TransformP>(parent)),
+Delinearize::Delinearize(int32_t dim, std::vector<int64_t> &&sizes, StoreTransformP &&parent)
+  : StoreTransform(std::forward<StoreTransformP>(parent)),
     dim_(dim),
     sizes_(std::move(sizes)),
     strides_(sizes_.size(), 1),
@@ -321,166 +322,6 @@ DomainAffineTransform Delinearize::inverse_transform(int32_t in_dim) const
     return combine(parent, result);
   } else
     return result;
-}
-
-RegionField::RegionField(int32_t dim, const PhysicalRegion &pr, FieldID fid)
-  : dim_(dim), pr_(pr), fid_(fid)
-{
-  auto priv  = pr.get_privilege();
-  readable_  = static_cast<bool>(priv & LEGION_READ_PRIV);
-  writable_  = static_cast<bool>(priv & LEGION_WRITE_PRIV);
-  reducible_ = static_cast<bool>(priv & LEGION_REDUCE) || (readable_ && writable_);
-}
-
-RegionField::RegionField(RegionField &&other) noexcept
-  : dim_(other.dim_),
-    pr_(other.pr_),
-    fid_(other.fid_),
-    readable_(other.readable_),
-    writable_(other.writable_),
-    reducible_(other.reducible_)
-{
-}
-
-RegionField &RegionField::operator=(RegionField &&other) noexcept
-{
-  dim_       = other.dim_;
-  pr_        = other.pr_;
-  fid_       = other.fid_;
-  readable_  = other.readable_;
-  writable_  = other.writable_;
-  reducible_ = other.reducible_;
-  return *this;
-}
-
-Domain RegionField::domain() const { return dim_dispatch(dim_, get_domain_fn{}, pr_); }
-
-OutputRegionField::OutputRegionField(const OutputRegion &out, FieldID fid) : out_(out), fid_(fid) {}
-
-OutputRegionField::OutputRegionField(OutputRegionField &&other) noexcept
-  : bound_(other.bound_), out_(other.out_), fid_(other.fid_)
-{
-  other.bound_ = false;
-  other.out_   = OutputRegion();
-  other.fid_   = -1;
-}
-
-OutputRegionField &OutputRegionField::operator=(OutputRegionField &&other) noexcept
-{
-  bound_ = other.bound_;
-  out_   = other.out_;
-  fid_   = other.fid_;
-
-  other.bound_ = false;
-  other.out_   = OutputRegion();
-  other.fid_   = -1;
-
-  return *this;
-}
-
-FutureWrapper::FutureWrapper(Domain domain, Future future) : domain_(domain), future_(future) {}
-
-FutureWrapper::FutureWrapper(const FutureWrapper &other) noexcept
-  : domain_(other.domain_), future_(other.future_)
-{
-}
-
-FutureWrapper &FutureWrapper::operator=(const FutureWrapper &other) noexcept
-{
-  domain_ = other.domain_;
-  future_ = other.future_;
-  return *this;
-}
-
-Domain FutureWrapper::domain() const { return domain_; }
-
-Store::Store(int32_t dim,
-             LegateTypeCode code,
-             FutureWrapper future,
-             std::unique_ptr<Transform> transform)
-  : is_future_(true),
-    is_output_store_(false),
-    dim_(dim),
-    code_(code),
-    redop_id_(-1),
-    future_(future),
-    transform_(std::move(transform)),
-    readable_(true)
-{
-}
-
-Store::Store(int32_t dim,
-             LegateTypeCode code,
-             int32_t redop_id,
-             RegionField &&region_field,
-             std::unique_ptr<Transform> transform)
-  : is_future_(false),
-    is_output_store_(false),
-    dim_(dim),
-    code_(code),
-    redop_id_(redop_id),
-    region_field_(std::forward<RegionField>(region_field)),
-    transform_(std::move(transform))
-{
-  readable_  = region_field_.is_readable();
-  writable_  = region_field_.is_writable();
-  reducible_ = region_field_.is_reducible();
-}
-
-Store::Store(LegateTypeCode code, OutputRegionField &&output, std::unique_ptr<Transform> transform)
-  : is_future_(false),
-    is_output_store_(true),
-    dim_(-1),
-    code_(code),
-    redop_id_(-1),
-    output_field_(std::forward<OutputRegionField>(output)),
-    transform_(std::move(transform))
-{
-}
-
-Store::Store(Store &&other) noexcept
-  : is_future_(other.is_future_),
-    is_output_store_(other.is_output_store_),
-    dim_(other.dim_),
-    code_(other.code_),
-    redop_id_(other.redop_id_),
-    future_(other.future_),
-    region_field_(std::forward<RegionField>(other.region_field_)),
-    output_field_(std::forward<OutputRegionField>(other.output_field_)),
-    transform_(std::move(other.transform_)),
-    readable_(other.readable_),
-    writable_(other.writable_),
-    reducible_(other.reducible_)
-{
-}
-
-Store &Store::operator=(Store &&other) noexcept
-{
-  is_future_       = other.is_future_;
-  is_output_store_ = other.is_output_store_;
-  dim_             = other.dim_;
-  code_            = other.code_;
-  redop_id_        = other.redop_id_;
-  if (is_future_)
-    future_ = other.future_;
-  else if (is_output_store_)
-    output_field_ = std::move(other.output_field_);
-  else
-    region_field_ = std::move(other.region_field_);
-  transform_ = std::move(other.transform_);
-  readable_  = other.readable_;
-  writable_  = other.writable_;
-  reducible_ = other.reducible_;
-  return *this;
-}
-
-Domain Store::domain() const
-{
-  assert(!is_output_store_);
-  auto result = is_future_ ? future_.domain() : region_field_.domain();
-  if (nullptr != transform_) result = transform_->transform(result);
-  assert(result.dim == dim_);
-  return result;
 }
 
 }  // namespace legate

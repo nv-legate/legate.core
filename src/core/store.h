@@ -16,98 +16,11 @@
 
 #pragma once
 
-#include <memory>
-
-#include "legate.h"
+#include "core/transform.h"
+#include "core/typedefs.h"
+#include "legion.h"
 
 namespace legate {
-
-class Transform {
- public:
-  Transform() {}
-  Transform(std::unique_ptr<Transform> &&parent);
-  ~Transform() {}
-
- public:
-  virtual Legion::Domain transform(const Legion::Domain &input) const           = 0;
-  virtual Legion::DomainAffineTransform inverse_transform(int32_t in_dim) const = 0;
-
- protected:
-  std::unique_ptr<Transform> parent_{nullptr};
-};
-
-class Shift : public Transform {
- public:
-  Shift(int32_t dim, int64_t offset, std::unique_ptr<Transform> &&parent = nullptr);
-  virtual ~Shift() {}
-
- public:
-  virtual Legion::Domain transform(const Legion::Domain &input) const override;
-  virtual Legion::DomainAffineTransform inverse_transform(int32_t in_dim) const override;
-
- private:
-  int32_t dim_;
-  int64_t offset_;
-};
-
-class Promote : public Transform {
- public:
-  Promote(int32_t extra_dim, int64_t dim_size, std::unique_ptr<Transform> &&parent = nullptr);
-  virtual ~Promote() {}
-
- public:
-  virtual Legion::Domain transform(const Legion::Domain &input) const override;
-  virtual Legion::DomainAffineTransform inverse_transform(int32_t in_dim) const override;
-
- private:
-  int32_t extra_dim_;
-  int64_t dim_size_;
-};
-
-class Project : public Transform {
- public:
-  Project(int32_t dim, int64_t coord, std::unique_ptr<Transform> &&parent = nullptr);
-  virtual ~Project() {}
-
- public:
-  virtual Legion::Domain transform(const Legion::Domain &domain) const override;
-  virtual Legion::DomainAffineTransform inverse_transform(int32_t in_dim) const override;
-
- private:
-  int32_t dim_;
-  int64_t coord_;
-};
-
-class Transpose : public Transform {
- public:
-  Transpose(std::vector<int32_t> &&axes, std::unique_ptr<Transform> &&parent = nullptr);
-  virtual ~Transpose() {}
-
- public:
-  virtual Legion::Domain transform(const Legion::Domain &domain) const override;
-  virtual Legion::DomainAffineTransform inverse_transform(int32_t in_dim) const override;
-
- private:
-  std::vector<int32_t> axes_;
-};
-
-class Delinearize : public Transform {
- public:
-  Delinearize(int32_t dim,
-              std::vector<int64_t> &&sizes,
-              std::unique_ptr<Transform> &&parent = nullptr);
-  virtual ~Delinearize() {}
-
- public:
-  virtual Legion::Domain transform(const Legion::Domain &domain) const override;
-  virtual Legion::DomainAffineTransform inverse_transform(int32_t in_dim) const override;
-
- private:
-  int32_t dim_;
-  std::vector<int64_t> sizes_;
-  std::vector<int64_t> strides_;
-  int64_t volume_;
-};
 
 class RegionField {
  public:
@@ -302,15 +215,15 @@ class Store {
   Store(int32_t dim,
         LegateTypeCode code,
         FutureWrapper future,
-        std::unique_ptr<Transform> transform = nullptr);
+        std::unique_ptr<StoreTransform> transform = nullptr);
   Store(int32_t dim,
         LegateTypeCode code,
         int32_t redop_id,
         RegionField &&region_field,
-        std::unique_ptr<Transform> transform = nullptr);
+        std::unique_ptr<StoreTransform> transform = nullptr);
   Store(LegateTypeCode code,
         OutputRegionField &&output,
-        std::unique_ptr<Transform> transform = nullptr);
+        std::unique_ptr<StoreTransform> transform = nullptr);
 
  public:
   Store(Store &&other) noexcept;
@@ -375,7 +288,7 @@ class Store {
   OutputRegionField output_field_;
 
  private:
-  std::unique_ptr<Transform> transform_{nullptr};
+  std::unique_ptr<StoreTransform> transform_{nullptr};
 
  private:
   bool readable_{false};
@@ -385,4 +298,4 @@ class Store {
 
 }  // namespace legate
 
-#include "core.inl"
+#include "core/store.inl"

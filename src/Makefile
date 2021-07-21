@@ -24,29 +24,38 @@ LIBNAME   = liblgcore
 USE_GPU_REDUCTIONS = 0
 
 # General source files
-GEN_CPU_SRC	= context.cc      \
-							core.cc         \
-							deserializer.cc \
-							legate.cc       \
-							mapper.cc       \
-							projection.cc   \
-							shard.cc        \
-							core/scalar.cc  \
-							legate_c.cc
+GEN_CPU_SRC	= context.cc        \
+							deserializer.cc   \
+							legate.cc         \
+							legate_c.cc       \
+							mapper.cc         \
+							projection.cc     \
+							shard.cc          \
+							core/scalar.cc    \
+							core/store.cc     \
+							core/transform.cc \
 # No initial GPU files for core Legate but libraries have them
 GEN_GPU_SRC	=
 # Header files that we need to have installed for client legate libraries INSTALL_PATHS  =
-INSTALL_HEADERS = context.h         \
-									core.h            \
-									core.inl          \
-									deserializer.h    \
-									dispatch.h        \
-									legate.h          \
-								  projection.h      \
-									legate_c.h        \
-									core/scalar.h     \
-									core/scalar.inl   \
-									legate_preamble.h
+INSTALL_HEADERS = context.h             \
+									deserializer.h        \
+									dispatch.h            \
+									legate.h              \
+								  projection.h          \
+									runtime.h             \
+									legate_c.h            \
+									legate_preamble.h     \
+									core/dispatch.h       \
+									core/legate_defines.h \
+									core/scalar.h         \
+									core/scalar.inl       \
+									core/span.h           \
+									core/store.h          \
+									core/store.inl        \
+									core/task.h           \
+									core/transform.h      \
+									core/typedefs.h       \
+									core/type_traits.h
 
 # You can modify these variables, some will be appended to by the runtime makefile
 INC_FLAGS	?=

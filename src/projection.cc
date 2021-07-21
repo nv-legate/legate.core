@@ -19,9 +19,9 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#include "dispatch.h"
-#include "legate.h"
 #include "projection.h"
+
+#include "core/dispatch.h"
 
 using namespace Legion;
 
