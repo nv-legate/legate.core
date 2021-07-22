@@ -33,4 +33,14 @@ Span<const VAL> Scalar::values() const
     return Span<const VAL>(static_cast<const VAL*>(data_), 1);
 }
 
+template <>
+inline Legion::DomainPoint Scalar::value<Legion::DomainPoint>() const
+{
+  Legion::DomainPoint result;
+  auto span  = values<int64_t>();
+  result.dim = span.size();
+  for (auto idx = 0; idx < result.dim; ++idx) result[idx] = span[idx];
+  return result;
+}
+
 }  // namespace legate

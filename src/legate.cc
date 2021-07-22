@@ -194,7 +194,7 @@ static void finalize_gpu_resource_task(const Task* task,
   // Nothing to do here yet...
 }
 
-void register_legate_core_tasks(Machine machine, Runtime* runtime, const LegateContext& context)
+void register_legate_core_tasks(Machine machine, Runtime* runtime, const LibraryContext& context)
 {
   const TaskID initialize_task_id  = context.get_task_id(LEGATE_CORE_INITIALIZE_TASK_ID);
   const char* initialize_task_name = "Legate Core Resource Initialization";
@@ -255,7 +255,7 @@ void register_legate_core_tasks(Machine machine, Runtime* runtime, const LegateC
   config.max_tasks       = LEGATE_CORE_NUM_TASK_IDS;
   config.max_shardings   = 1;
   config.max_projections = LEGATE_CORE_MAX_FUNCTOR_ID;
-  LegateContext context(runtime, core_library_name, config);
+  LibraryContext context(runtime, core_library_name, config);
 
   register_legate_core_tasks(machine, runtime, context);
 

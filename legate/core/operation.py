@@ -17,13 +17,13 @@ import legate.core.types as ty
 
 from .launcher import CopyLauncher, TaskLauncher
 from .solver import EqClass
+from .store import Store
 
 
 class Operation(object):
     def __init__(self, context, mapper_id=0):
         self._context = context
         self._mapper_id = mapper_id
-        self._no_accesses = []
         self._inputs = []
         self._outputs = []
         self._reductions = []
@@ -39,10 +39,6 @@ class Operation(object):
     @property
     def mapper_id(self):
         return self._mapper_id
-
-    @property
-    def no_accesses(self):
-        return self._no_accesses
 
     @property
     def inputs(self):
@@ -66,17 +62,19 @@ class Operation(object):
 
     def get_all_stores(self):
         stores = (
-            set(self._no_accesses)
-            | set(self._inputs)
+            set(self._inputs)
             | set(self._outputs)
             | set(store for (store, _) in self._reductions)
         )
         return stores
 
-    def add_no_access(self, store):
-        self._no_accesses.append(store)
+    @staticmethod
+    def _check_store(store):
+        if not isinstance(store, Store):
+            raise ValueError(f"Expected a Store object, but got {type(store)}")
 
     def add_input(self, store):
+        self._check_store(store)
         self._inputs.append(store)
 
     @property
@@ -91,6 +89,7 @@ class Operation(object):
             raise ValueError("Only one scalar store can be used for output")
 
     def add_output(self, store):
+        self._check_store(store)
         if store.scalar:
             self._check_scalar_output()
             self._scalar_output = store
@@ -98,6 +97,7 @@ class Operation(object):
             self._outputs.append(store)
 
     def add_reduction(self, store, redop):
+        self._check_store(store)
         if store.scalar:
             self._check_scalar_output()
             self._scalar_reduction = (store, redop)
@@ -105,9 +105,9 @@ class Operation(object):
             self._reductions.append((store, redop))
 
     def add_alignment(self, store1, store2):
+        self._check_store(store1)
+        self._check_store(store2)
         if store1.shape != store2.shape:
-            print(store1.shape)
-            print(store2.shape)
             raise ValueError(
                 "Stores must have the same shape to be aligned, "
                 f"but got {store1.shape} and {store2.shape}"
@@ -141,8 +141,6 @@ class Task(Operation):
     def launch(self, strategy):
         launcher = TaskLauncher(self.context, self._task_id, self.mapper_id)
 
-        for no_access in self._no_accesses:
-            launcher.add_no_access(no_access, strategy[no_access])
         for input in self._inputs:
             launcher.add_input(input, strategy[input])
         for output in self._outputs:
@@ -197,7 +195,6 @@ class Copy(Operation):
     def launch(self, strategy):
         launcher = CopyLauncher(self.context, self.mapper_id)
 
-        assert len(self._no_accesses) == 0
         assert len(self._inputs) == len(self._outputs) or len(
             self._inputs
         ) == len(self._reductions)

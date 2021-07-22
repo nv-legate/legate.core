@@ -520,7 +520,10 @@ class TaskLauncher(object):
         self._core_types = self._runtime.core_context.type_system
         self._task_id = task_id
         self._mapper_id = mapper_id
-        self._args = list()
+        self._inputs = []
+        self._outputs = []
+        self._reductions = []
+        self._scalars = []
         self._req_analyzer = RequirementAnalyzer()
         self._out_analyzer = OutputAnalyzer(context.runtime)
         self._future_args = list()
@@ -554,14 +557,16 @@ class TaskLauncher(object):
         self._output_regions.clear()
 
     def add_scalar_arg(self, value, dtype, untyped=True):
-        self._args.append(ScalarArg(self._core_types, value, dtype, untyped))
+        self._scalars.append(
+            ScalarArg(self._core_types, value, dtype, untyped)
+        )
 
-    def add_store(self, store, proj, perm, tag, flags):
+    def add_store(self, args, store, proj, perm, tag, flags):
         if store.scalar:
             if perm != Permission.READ:
                 raise ValueError("Scalar stores must be read only")
             self.add_future(store.storage)
-            self._args.append(FutureStoreArg(store))
+            args.append(FutureStoreArg(store))
 
         else:
             region = store.storage.region
@@ -570,7 +575,7 @@ class TaskLauncher(object):
             req = RegionReq(region, perm, proj, tag, flags)
 
             self._req_analyzer.insert(req, field_id)
-            self._args.append(
+            args.append(
                 RegionFieldArg(
                     self._req_analyzer,
                     store,
@@ -581,27 +586,25 @@ class TaskLauncher(object):
                 )
             )
 
-    def add_no_access(self, store, proj, tag=0, flags=0):
-        self.add_store(store, proj, Permission.NO_ACCESS, tag, flags)
-
     def add_input(self, store, proj, tag=0, flags=0):
-        self.add_store(store, proj, Permission.READ, tag, flags)
+        self.add_store(self._inputs, store, proj, Permission.READ, tag, flags)
 
     def add_output(self, store, proj, tag=0, flags=0):
-        self.add_store(store, proj, Permission.WRITE, tag, flags)
-
-    def add_inout(self, store, proj, tag=0, flags=0):
-        self.add_store(store, proj, Permission.READ_WRITE, tag, flags)
+        self.add_store(
+            self._outputs, store, proj, Permission.WRITE, tag, flags
+        )
 
     def add_reduction(self, store, proj, tag=0, flags=0):
-        self.add_store(store, proj, Permission.REDUCTION, tag, flags)
+        self.add_store(
+            self._reductions, store, proj, Permission.REDUCTION, tag, flags
+        )
 
     def add_unbound_output(self, store, fspace, field_id):
         req = OutputReq(self._runtime, fspace)
 
         self._out_analyzer.insert(req, field_id, store)
 
-        self._args.append(
+        self._outputs.append(
             RegionFieldArg(
                 self._out_analyzer,
                 store,
@@ -624,12 +627,21 @@ class TaskLauncher(object):
     def set_point(self, point):
         self._point = point
 
+    @staticmethod
+    def pack_args(argbuf, args):
+        argbuf.pack_32bit_uint(len(args))
+        for arg in args:
+            arg.pack(argbuf)
+
     def build_task(self, launch_domain, argbuf):
         self._req_analyzer.analyze_requirements()
         self._out_analyzer.analyze_requirements()
 
-        for arg in self._args:
-            arg.pack(argbuf)
+        self.pack_args(argbuf, self._inputs)
+        self.pack_args(argbuf, self._outputs)
+        self.pack_args(argbuf, self._reductions)
+        self.pack_args(argbuf, self._scalars)
+
         task = IndexTask(
             self.legion_task_id,
             launch_domain,
@@ -656,8 +668,11 @@ class TaskLauncher(object):
         self._req_analyzer.analyze_requirements()
         self._out_analyzer.analyze_requirements()
 
-        for arg in self._args:
-            arg.pack(argbuf)
+        self.pack_args(argbuf, self._inputs)
+        self.pack_args(argbuf, self._outputs)
+        self.pack_args(argbuf, self._reductions)
+        self.pack_args(argbuf, self._scalars)
+
         task = SingleTask(
             self.legion_task_id,
             argbuf.get_string(),

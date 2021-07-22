@@ -44,6 +44,6 @@ class LegateProjectionFunctor : public Legion::ProjectionFunctor {
 };
 
 void register_legate_core_projection_functors(Legion::Runtime* runtime,
-                                              const LegateContext& context);
+                                              const LibraryContext& context);
 
 }  // namespace legate

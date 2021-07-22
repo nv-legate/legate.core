@@ -20,6 +20,9 @@
 
 namespace legate {
 
+class Store;
+class Scalar;
+
 struct ResourceConfig {
   int64_t max_tasks{1000000};
   int64_t max_mappers{1};
@@ -53,14 +56,14 @@ class ResourceScope {
   int64_t max_{-1};
 };
 
-class LegateContext {
+class LibraryContext {
  public:
-  LegateContext(Legion::Runtime *runtime,
-                const std::string &library_name,
-                const ResourceConfig &config);
+  LibraryContext(Legion::Runtime *runtime,
+                 const std::string &library_name,
+                 const ResourceConfig &config);
 
  public:
-  LegateContext(const LegateContext &) = default;
+  LibraryContext(const LibraryContext &) = default;
 
  public:
   Legion::TaskID get_task_id(int64_t local_task_id) const;
@@ -89,6 +92,32 @@ class LegateContext {
   ResourceScope redop_scope_;
   ResourceScope proj_scope_;
   ResourceScope shard_scope_;
+};
+
+// A thin context layer on top of the Legion runtime, primarily designed to hide verbosity
+// of the Legion API.
+class TaskContext {
+ public:
+  TaskContext(const Legion::Task *task,
+              const std::vector<Legion::PhysicalRegion> &regions,
+              Legion::Context context,
+              Legion::Runtime *runtime);
+
+ public:
+  std::vector<Store> &inputs() { return inputs_; }
+  std::vector<Store> &outputs() { return outputs_; }
+  std::vector<Store> &reductions() { return reductions_; }
+  std::vector<Scalar> &scalars() { return scalars_; }
+
+ private:
+  const Legion::Task *task_;
+  const std::vector<Legion::PhysicalRegion> &regions_;
+  Legion::Context context_;
+  Legion::Runtime *runtime_;
+
+ private:
+  std::vector<Store> inputs_, outputs_, reductions_;
+  std::vector<Scalar> scalars_;
 };
 
 }  // namespace legate

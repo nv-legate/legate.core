@@ -15,15 +15,16 @@
  */
 
 #include "context.h"
+#include "core/scalar.h"
+#include "core/store.h"
+#include "deserializer.h"
 #include "legion.h"
 
 namespace legate {
 
-using namespace Legion;
-
-LegateContext::LegateContext(Legion::Runtime *runtime,
-                             const std::string &library_name,
-                             const ResourceConfig &config)
+LibraryContext::LibraryContext(Legion::Runtime *runtime,
+                               const std::string &library_name,
+                               const ResourceConfig &config)
 {
   task_scope_ = ResourceScope(
     runtime->generate_library_task_ids(library_name.c_str(), config.max_tasks), config.max_tasks);
@@ -41,25 +42,25 @@ LegateContext::LegateContext(Legion::Runtime *runtime,
     config.max_shardings);
 }
 
-TaskID LegateContext::get_task_id(int64_t local_task_id) const
+Legion::TaskID LibraryContext::get_task_id(int64_t local_task_id) const
 {
   assert(task_scope_.valid());
   return task_scope_.translate(local_task_id);
 }
 
-MapperID LegateContext::get_mapper_id(int64_t local_mapper_id) const
+Legion::MapperID LibraryContext::get_mapper_id(int64_t local_mapper_id) const
 {
   assert(mapper_scope_.valid());
   return mapper_scope_.translate(local_mapper_id);
 }
 
-ReductionOpID LegateContext::get_reduction_op_id(int64_t local_redop_id) const
+Legion::ReductionOpID LibraryContext::get_reduction_op_id(int64_t local_redop_id) const
 {
   assert(redop_scope_.valid());
   return redop_scope_.translate(local_redop_id);
 }
 
-ProjectionID LegateContext::get_projection_id(int64_t local_proj_id) const
+Legion::ProjectionID LibraryContext::get_projection_id(int64_t local_proj_id) const
 {
   if (local_proj_id == 0)
     return 0;
@@ -69,31 +70,31 @@ ProjectionID LegateContext::get_projection_id(int64_t local_proj_id) const
   }
 }
 
-ShardingID LegateContext::get_sharding_id(int64_t local_shard_id) const
+Legion::ShardingID LibraryContext::get_sharding_id(int64_t local_shard_id) const
 {
   assert(shard_scope_.valid());
   return shard_scope_.translate(local_shard_id);
 }
 
-int64_t LegateContext::get_local_task_id(TaskID task_id) const
+int64_t LibraryContext::get_local_task_id(Legion::TaskID task_id) const
 {
   assert(task_scope_.valid());
   return task_scope_.invert(task_id);
 }
 
-int64_t LegateContext::get_local_mapper_id(MapperID mapper_id) const
+int64_t LibraryContext::get_local_mapper_id(Legion::MapperID mapper_id) const
 {
   assert(mapper_scope_.valid());
   return mapper_scope_.invert(mapper_id);
 }
 
-int64_t LegateContext::get_local_reduction_op_id(ReductionOpID redop_id) const
+int64_t LibraryContext::get_local_reduction_op_id(Legion::ReductionOpID redop_id) const
 {
   assert(redop_scope_.valid());
   return redop_scope_.invert(redop_id);
 }
 
-int64_t LegateContext::get_local_projection_id(ProjectionID proj_id) const
+int64_t LibraryContext::get_local_projection_id(Legion::ProjectionID proj_id) const
 {
   if (proj_id == 0)
     return 0;
@@ -103,35 +104,48 @@ int64_t LegateContext::get_local_projection_id(ProjectionID proj_id) const
   }
 }
 
-int64_t LegateContext::get_local_sharding_id(ShardingID shard_id) const
+int64_t LibraryContext::get_local_sharding_id(Legion::ShardingID shard_id) const
 {
   assert(shard_scope_.valid());
   return shard_scope_.invert(shard_id);
 }
 
-bool LegateContext::valid_task_id(Legion::TaskID task_id) const
+bool LibraryContext::valid_task_id(Legion::TaskID task_id) const
 {
   return task_scope_.in_scope(task_id);
 }
 
-bool LegateContext::valid_mapper_id(Legion::MapperID mapper_id) const
+bool LibraryContext::valid_mapper_id(Legion::MapperID mapper_id) const
 {
   return mapper_scope_.in_scope(mapper_id);
 }
 
-bool LegateContext::valid_reduction_op_id(Legion::ReductionOpID redop_id) const
+bool LibraryContext::valid_reduction_op_id(Legion::ReductionOpID redop_id) const
 {
   return redop_scope_.in_scope(redop_id);
 }
 
-bool LegateContext::valid_projection_id(Legion::ProjectionID proj_id) const
+bool LibraryContext::valid_projection_id(Legion::ProjectionID proj_id) const
 {
   return proj_scope_.in_scope(proj_id);
 }
 
-bool LegateContext::valid_sharding_id(Legion::ShardingID shard_id) const
+bool LibraryContext::valid_sharding_id(Legion::ShardingID shard_id) const
 {
   return shard_scope_.in_scope(shard_id);
+}
+
+TaskContext::TaskContext(const Legion::Task *task,
+                         const std::vector<Legion::PhysicalRegion> &regions,
+                         Legion::Context context,
+                         Legion::Runtime *runtime)
+  : task_(task), regions_(regions), context_(context), runtime_(runtime)
+{
+  Deserializer dez(task, regions);
+  deserialize(dez, inputs_, true, false);
+  deserialize(dez, outputs_, true, false);
+  deserialize(dez, reductions_, true, false);
+  deserialize(dez, scalars_, true, false);
 }
 
 }  // namespace legate

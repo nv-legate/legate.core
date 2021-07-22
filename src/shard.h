@@ -21,6 +21,7 @@
 
 namespace legate {
 
-void register_legate_core_sharding_functors(Legion::Runtime* runtime, const LegateContext& context);
+void register_legate_core_sharding_functors(Legion::Runtime* runtime,
+                                            const LibraryContext& context);
 
 }  // namespace legate

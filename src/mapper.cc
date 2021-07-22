@@ -41,7 +41,7 @@ unsigned extract_env(const char* env_name, const unsigned default_value, const u
 // should be overriding this mapper so we burry it in here
 class CoreMapper : public Legion::Mapping::NullMapper {
  public:
-  CoreMapper(MapperRuntime* runtime, Machine machine, const LegateContext& context);
+  CoreMapper(MapperRuntime* runtime, Machine machine, const LibraryContext& context);
   virtual ~CoreMapper(void);
 
  public:
@@ -90,7 +90,7 @@ class CoreMapper : public Legion::Mapping::NullMapper {
   const AddressSpace local_node;
   const size_t total_nodes;
   const char* const mapper_name;
-  LegateContext context;
+  LibraryContext context;
 
  protected:
   const unsigned min_gpu_chunk;
@@ -107,7 +107,7 @@ class CoreMapper : public Legion::Mapping::NullMapper {
   std::map<Processor, Memory> local_frame_buffers;
 };
 
-CoreMapper::CoreMapper(MapperRuntime* rt, Machine m, const LegateContext& c)
+CoreMapper::CoreMapper(MapperRuntime* rt, Machine m, const LibraryContext& c)
   : NullMapper(rt, m),
     local_node(get_local_node()),
     total_nodes(get_total_nodes(m)),
@@ -358,7 +358,7 @@ void CoreMapper::select_tunable_value(const MapperContext ctx,
   LEGATE_ABORT
 }
 
-void register_legate_core_mapper(Machine machine, Runtime* runtime, const LegateContext& context)
+void register_legate_core_mapper(Machine machine, Runtime* runtime, const LibraryContext& context)
 {
   // Replace all the default mappers with our custom mapper for the Legate
   // top-level task and init task

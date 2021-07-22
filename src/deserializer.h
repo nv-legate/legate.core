@@ -246,12 +246,20 @@ class Deserializer {
 
  public:
   template <class T>
-  friend void deserialize(Deserializer &ctx, std::vector<T> &vec, bool resize = true)
+  friend void deserialize(Deserializer &ctx,
+                          std::vector<T> &vec,
+                          bool resize     = true,
+                          bool boxed_size = true)
   {
     if (resize) {
-      Scalar size;
-      deserialize(ctx, size);
-      vec.resize(size.value<uint32_t>());
+      if (boxed_size) {
+        Scalar size;
+        deserialize(ctx, size);
+        vec.resize(size.value<uint32_t>());
+      } else {
+        auto size = ctx.deserializer_.unpack_32bit_uint();
+        vec.resize(size);
+      }
     }
     for (auto &v : vec) deserialize(ctx, v);
   }

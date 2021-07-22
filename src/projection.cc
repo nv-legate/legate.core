@@ -104,7 +104,7 @@ struct create_reduction_functor_fn {
   template <int32_t SRC_DIM,
             int32_t TGT_DIM,
             std::enable_if_t<SRC_DIM >= TGT_DIM && SRC_DIM >= 2>* = nullptr>
-  void operator()(Runtime* runtime, const LegateContext& context, uint32_t mask)
+  void operator()(Runtime* runtime, const LibraryContext& context, uint32_t mask)
   {
     auto proj_id      = context.get_projection_id(get_reduction_functor_id(SRC_DIM, TGT_DIM, mask));
     auto functor      = new ReductionFunctor<SRC_DIM, TGT_DIM>(runtime, mask);
@@ -115,7 +115,7 @@ struct create_reduction_functor_fn {
   template <int32_t SRC_DIM,
             int32_t TGT_DIM,
             std::enable_if_t<!(SRC_DIM >= TGT_DIM && SRC_DIM >= 2)>* = nullptr>
-  void operator()(Runtime* runtime, const LegateContext& context, uint32_t mask)
+  void operator()(Runtime* runtime, const LibraryContext& context, uint32_t mask)
   {
     assert(false);
   }
@@ -213,7 +213,7 @@ template <int32_t DIM>
 
 struct create_transpose_functor_fn {
   template <int32_t DIM>
-  void operator()(Runtime* runtime, const LegateContext& context, uint32_t id_in_factoradic)
+  void operator()(Runtime* runtime, const LibraryContext& context, uint32_t id_in_factoradic)
   {
     auto proj_id = context.get_projection_id(get_transpose_functor_id(DIM, id_in_factoradic));
     auto functor = new TransposeFunctor<DIM>(runtime, id_in_factoradic);
@@ -271,7 +271,7 @@ LogicalRegion DelinearizationFunctor::project(LogicalPartition upper_bound,
 }
 
 void register_legate_core_projection_functors(Legion::Runtime* runtime,
-                                              const LegateContext& context)
+                                              const LibraryContext& context)
 {
   // Register reduction functors
   for (uint32_t src_dim = 2; src_dim <= LEGION_MAX_DIM; ++src_dim) {

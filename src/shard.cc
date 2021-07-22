@@ -33,7 +33,7 @@ class LegateCoreShardingFunctor : public ShardingFunctor {
   }
 };
 
-void register_legate_core_sharding_functors(Legion::Runtime* runtime, const LegateContext& context)
+void register_legate_core_sharding_functors(Legion::Runtime* runtime, const LibraryContext& context)
 {
   auto sharding_id = context.get_sharding_id(0);
   runtime->register_sharding_functor(sharding_id, new LegateCoreShardingFunctor());

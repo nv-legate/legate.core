@@ -39,7 +39,6 @@ GEN_GPU_SRC	=
 # Header files that we need to have installed for client legate libraries INSTALL_PATHS  =
 INSTALL_HEADERS = context.h             \
 									deserializer.h        \
-									dispatch.h            \
 									legate.h              \
 								  projection.h          \
 									runtime.h             \
