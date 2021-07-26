@@ -729,7 +729,6 @@ class Runtime(object):
         self.max_field_reuse_size = 256
         self.max_field_reuse_frequency = 32
         self._empty_argmap = legion.legion_argument_map_create()
-        self._unique_id = 0
 
     @property
     def legion_runtime(self):
@@ -873,11 +872,6 @@ class Runtime(object):
             | dim
         )
         return self.core_context.get_projection_id(proj_id)
-
-    def get_unique_name(self):
-        id = self._unique_id
-        self._unique_id += 1
-        return f"x{id}"
 
     def get_transform_code(self, name):
         return getattr(
