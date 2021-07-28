@@ -12,18 +12,20 @@ when the release is ready. The only other merges to `main` are hotfixes.
 Development Workflow
 --------------------
 
-All PRs are merged into a release branch named `branch-M.B` where `M` is the
-major version and `B` is the minor version number. Release branches are created
-from the previous release branch when the decision has been made to **freeze**
-the release. 
+All new development happens on a release branch named `branch-M.B` where `M` is
+the major version and `B` is the minor version number. Minor, single-commit
+changes can be pushed directly to this branch. For more significant development
+use branches on your personal fork of the main repos, and upstream those changes
+through PRs.
 
-To **freeze** a release branch is to stop new development for the release, and
-focus on completing outstanding features and any bugs discovered from testing.
-Once this **freeze** happens a new branch `branch-M.C` (where `C=B+1`) is
-created so development can continue. Updates to `branch-M.B` can be merged as
-needed to `branch-M.C`, but generally will wait until the release is finished.
-This means that `branch-M.X` (where `X` is the highest minor version) the latest
-and greatest code.
+Release branches are created from the previous release branch when the decision
+has been made to **freeze** the release. To **freeze** a release branch is to
+stop new development for the release, and focus on completing outstanding
+features and any bugs discovered from testing. Once this **freeze** happens a
+new branch `branch-M.C` (where `C=B+1`) is created so development can continue.
+Updates to `branch-M.B` can be merged as needed to `branch-M.C`, but generally
+will wait until the release is finished. This means that `branch-M.X` (where `X`
+is the highest minor version) the latest and greatest code.
 
 Hotfixes (patch releases) related to the current release `M.A` are directly
 merged to `main` from a PR and then those changes are also merged to the current
