@@ -52,18 +52,18 @@ Summary
 -------
 
 - The `main` branch is the official release history (including hotfixes).
-  - The tip of `main` is intended to be always working given the testing and
-  reviews of merged PRs. - Hotfixes (patch releases) are automatically tagged
-  for every push to `main`.
+- The tip of `main` is intended to be always working given the testing and
+  reviews of merged PRs.
+- Hotfixes (patch releases) are automatically tagged for every push to `main`.
 - Release branches are used for development of the next releases and **all PRs
-except for hotfixes** are merged to the current release branch.
-  - A new release branch is created from the previous release branch after the
-  release **freeze** (see above). - After the **freeze** and before the release
-  branch is merged, there are two release branches; however, active development
-  should take place in the next release branch, while cleanup and finalization
-  happens in the frozen branch. - This gives the highest numbered `branch-M.X`
-  (modulo hot fixes and unmerged frozen release fixes) the latest and greatest
-  code.
+  except for hotfixes** are merged to the current release branch.
+- A new release branch is created from the previous release branch after the
+  release **freeze** (see above).
+- After the **freeze** and before the release branch is merged, there are two
+  release branches; however, active development should take place in the next
+  release branch, while cleanup and finalization happens in the frozen branch.
+- This gives the highest numbered `branch-M.X` (modulo hotfixes and unmerged
+  frozen release fixes) the latest and greatest code.
 - Minor releases are done by creating a PR for the minor release from the
-associated release branch.
-  - After review and sign off by the team, the PR is merged into main.
+  associated release branch.
+- After review and sign off by the team, the PR is merged into main.
