@@ -142,10 +142,10 @@ TaskContext::TaskContext(const Legion::Task *task,
   : task_(task), regions_(regions), context_(context), runtime_(runtime)
 {
   Deserializer dez(task, regions);
-  deserialize(dez, inputs_, true, false);
-  deserialize(dez, outputs_, true, false);
-  deserialize(dez, reductions_, true, false);
-  deserialize(dez, scalars_, true, false);
+  inputs_     = dez.unpack<std::vector<Store>>();
+  outputs_    = dez.unpack<std::vector<Store>>();
+  reductions_ = dez.unpack<std::vector<Store>>();
+  scalars_    = dez.unpack<std::vector<Scalar>>();
 }
 
 }  // namespace legate

@@ -46,6 +46,9 @@ struct Span {
     return Span(data_ + off, size_ - off);
   }
 
+ public:
+  const T *ptr() const { return data_; }
+
  private:
   T *data_{nullptr};
   size_t size_{0};
