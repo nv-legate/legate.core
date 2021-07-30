@@ -22,6 +22,10 @@
 
 namespace legate {
 
+extern uint32_t extract_env(const char* env_name,
+                            const uint32_t default_value,
+                            const uint32_t test_value);
+
 class Core {
  public:
   static void parse_config(void);
@@ -36,7 +40,7 @@ class Core {
   static bool show_progress;
 #ifdef LEGATE_USE_CUDA
  public:
-  static cublasContext *get_cublas(void);
+  static cublasContext* get_cublas(void);
 #endif
 };
 

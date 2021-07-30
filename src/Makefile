@@ -33,7 +33,8 @@ GEN_CPU_SRC	= context.cc        \
 							shard.cc          \
 							core/scalar.cc    \
 							core/store.cc     \
-							core/transform.cc \
+							core/task.cc      \
+							core/transform.cc
 # No initial GPU files for core Legate but libraries have them
 GEN_GPU_SRC	=
 # Header files that we need to have installed for client legate libraries INSTALL_PATHS  =

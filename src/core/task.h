@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <cxxabi.h>
 #include <sstream>
 
 #include "context.h"
@@ -136,16 +137,20 @@ class LegateTask {
     // can register it later when it is ready
     Legion::CodeDescriptor desc(Legion::LegionTaskWrapper::legion_task_wrapper<
                                 LegateTask<T>::template legate_task_wrapper<void, TASK_PTR>>);
-    T::record_variant(T::TASK_ID,
-                      desc,
-                      execution_constraints,
-                      layout_constraints,
-                      var,
-                      kind,
-                      leaf,
-                      inner,
-                      idempotent,
-                      ReturnSize<void>::value /*non void return type*/);
+    auto task_id  = T::TASK_ID;
+    auto ret_size = ReturnSize<void>::value; /*non void return type*/
+
+    T::Registrar::record_variant(task_id,
+                                 T::task_name(),
+                                 desc,
+                                 execution_constraints,
+                                 layout_constraints,
+                                 var,
+                                 kind,
+                                 leaf,
+                                 inner,
+                                 idempotent,
+                                 ret_size);
   }
   template <typename RET_T, LegateVariantImpl<RET_T> TASK_PTR>
   static void register_variant(Legion::ExecutionConstraintSet &execution_constraints,
@@ -161,16 +166,20 @@ class LegateTask {
     Legion::CodeDescriptor desc(
       Legion::LegionTaskWrapper::
         legion_task_wrapper<RET_T, LegateTask<T>::template legate_task_wrapper<RET_T, TASK_PTR>>);
-    T::record_variant(T::TASK_ID,
-                      desc,
-                      execution_constraints,
-                      layout_constraints,
-                      var,
-                      kind,
-                      leaf,
-                      inner,
-                      idempotent,
-                      ReturnSize<RET_T>::value /*non void return type*/);
+    auto task_id  = T::TASK_ID;
+    auto ret_size = ReturnSize<RET_T>::value; /*non void return type*/
+
+    T::Registrar::record_variant(task_id,
+                                 T::task_name(),
+                                 desc,
+                                 execution_constraints,
+                                 layout_constraints,
+                                 var,
+                                 kind,
+                                 leaf,
+                                 inner,
+                                 idempotent,
+                                 ret_size);
   }
 };
 
@@ -334,5 +343,55 @@ template <typename RET_T, typename REDUC_T>
   RegisterOMPVariantWithReturn<T, LegateTask<T>, RET_T, HasOMPVariant::value>::register_variant();
   RegisterGPUVariantWithReturn<T, LegateTask<T>, REDUC_T, HasGPUVariant::value>::register_variant();
 }
+
+class LegateTaskRegistrar {
+ public:
+  void record_variant(Legion::TaskID tid,
+                      const char *task_name,
+                      const Legion::CodeDescriptor &desc,
+                      Legion::ExecutionConstraintSet &execution_constraints,
+                      Legion::TaskLayoutConstraintSet &layout_constraints,
+                      LegateVariantCode var,
+                      Legion::Processor::Kind kind,
+                      bool leaf,
+                      bool inner,
+                      bool idempotent,
+                      size_t ret_size);
+
+ public:
+  void register_all_tasks(Legion::Runtime *runtime, LibraryContext &context);
+
+ private:
+  struct PendingTaskVariant : public Legion::TaskVariantRegistrar {
+   public:
+    PendingTaskVariant(void)
+      : Legion::TaskVariantRegistrar(), task_name(NULL), var(LEGATE_NO_VARIANT)
+    {
+    }
+    PendingTaskVariant(Legion::TaskID tid,
+                       bool global,
+                       const char *var_name,
+                       const char *t_name,
+                       const Legion::CodeDescriptor &desc,
+                       LegateVariantCode v,
+                       size_t ret)
+      : Legion::TaskVariantRegistrar(tid, global, var_name),
+        task_name(t_name),
+        descriptor(desc),
+        var(v),
+        ret_size(ret)
+    {
+    }
+
+   public:
+    const char *task_name;
+    Legion::CodeDescriptor descriptor;
+    LegateVariantCode var;
+    size_t ret_size;
+  };
+
+ private:
+  std::vector<PendingTaskVariant> pending_task_variants_;
+};
 
 }  // namespace legate

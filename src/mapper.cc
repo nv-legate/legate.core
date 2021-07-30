@@ -25,7 +25,7 @@ namespace legate {
 using namespace Legion;
 using namespace Legion::Mapping;
 
-unsigned extract_env(const char* env_name, const unsigned default_value, const unsigned test_value)
+uint32_t extract_env(const char* env_name, const uint32_t default_value, const uint32_t test_value)
 {
   const char* legate_test = getenv("LEGATE_TEST");
   if (legate_test != NULL) return test_value;

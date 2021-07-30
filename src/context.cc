@@ -32,10 +32,10 @@ LibraryContext::LibraryContext(Legion::Runtime *runtime,
     ResourceScope(runtime->generate_library_mapper_ids(library_name.c_str(), config.max_mappers),
                   config.max_mappers);
   redop_scope_ = ResourceScope(
-    runtime->generate_library_task_ids(library_name.c_str(), config.max_reduction_ops),
+    runtime->generate_library_reduction_ids(library_name.c_str(), config.max_reduction_ops),
     config.max_reduction_ops);
   proj_scope_ = ResourceScope(
-    runtime->generate_library_reduction_ids(library_name.c_str(), config.max_projections),
+    runtime->generate_library_projection_ids(library_name.c_str(), config.max_projections),
     config.max_projections);
   shard_scope_ = ResourceScope(
     runtime->generate_library_sharding_ids(library_name.c_str(), config.max_shardings),
