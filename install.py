@@ -563,9 +563,6 @@ def install(
 
     # Save the maxdim config
     maxdim_config = os.path.join(legate_dir, ".maxdim.json")
-    if "LEGION_MAX_DIM" in os.environ:
-        # Subtract one to get to the legate max dim
-        maxdim = int(os.environ["LEGION_MAX_DIM"]) - 1
     # Check the max dimensions
     # Legion could actually go up to 9 dimensions, but we leave an extra
     # free dimension for libraries to use as a free dimension
@@ -580,8 +577,6 @@ def install(
 
     # Save the maxfields config
     maxfields_config = os.path.join(legate_dir, ".maxfields.json")
-    if "LEGION_MAX_FIELDS" in os.environ:
-        maxfields = int(os.environ["LEGION_MAX_FIELDS"])
     # Check that max fields is between 32 and 4096 and is a power of 2
     if maxfields not in [32, 64, 128, 256, 512, 1024, 2048, 4096]:
         raise Exception(
@@ -593,28 +588,21 @@ def install(
     # If the user asked for a conduit and we don't have gasnet then install it
     if gasnet:
         conduit_config = os.path.join(legate_dir, ".conduit.json")
-        if "CONDUIT" in os.environ:
-            conduit = os.environ["CONDUIT"]
-        else:
+        if conduit is None:
+            conduit = load_json_config(conduit_config)
             if conduit is None:
-                conduit = load_json_config(conduit_config)
-                if conduit is None:
-                    raise Exception(
-                        "The first time you use GASNet you need to "
-                        'tell us which conduit to use with the "--conduit" '
-                        "flag."
-                    )
+                raise Exception(
+                    "The first time you use GASNet you need to tell us "
+                    'which conduit to use with the "--conduit" flag'
+                )
         dump_json_config(conduit_config, conduit)
         gasnet_config = os.path.join(
             legate_dir, ".gasnet" + str(conduit) + ".json"
         )
-        if "GASNET" in os.environ:
-            gasnet_dir = os.environ["GASNET"]
-        else:
+        if gasnet_dir is None:
+            gasnet_dir = load_json_config(gasnet_config)
             if gasnet_dir is None:
-                gasnet_dir = load_json_config(gasnet_config)
-                if gasnet_dir is None:
-                    gasnet_dir = os.path.join(install_dir, "gasnet")
+                gasnet_dir = os.path.join(install_dir, "gasnet")
         if not os.path.exists(gasnet_dir):
             install_gasnet(gasnet_dir, conduit, thread_count)
         dump_json_config(gasnet_config, gasnet_dir)
@@ -623,52 +611,35 @@ def install(
     # directory is
     if cuda:
         cuda_config = os.path.join(legate_dir, ".cuda.json")
-        # See if we can get it from the environment variables
-        if "CUDA" in os.environ:
-            cuda_dir = os.environ["CUDA"]
-        else:
+        if cuda_dir is None:
+            cuda_dir = load_json_config(cuda_config)
             if cuda_dir is None:
-                cuda_dir = load_json_config(cuda_config)
-                if cuda_dir is None:
-                    raise Exception(
-                        "The first time you use CUDA you need to tell Legate "
-                        'where CUDA is installed with the "--with-cuda" flag.'
-                    )
+                raise Exception(
+                    "The first time you use CUDA you need to tell Legate "
+                    'where CUDA is installed with the "--with-cuda" flag.'
+                )
         dump_json_config(cuda_config, cuda_dir)
 
     # install a stable version of Thrust
     thrust_config = os.path.join(legate_dir, ".thrust.json")
-    if "THRUST_PATH" in os.environ:
-        thrust_dir = os.environ["THRUST_PATH"]
-    elif thrust_dir is None:
+    if thrust_dir is None:
         thrust_dir = load_json_config(thrust_config)
         if thrust_dir is None:
             thrust_dir = os.path.join(install_dir, "thrust")
+    thrust_dir = os.path.realpath(thrust_dir)
     if not os.path.exists(thrust_dir):
         install_thrust(thrust_dir)
-    else:
-        thrust_dir = os.path.realpath(thrust_dir)
     # Simply put Thrust into the environment.
     os.environ["CXXFLAGS"] = (
         "-I" + thrust_dir + " " + os.environ.get("CXXFLAGS", "")
     )
     dump_json_config(thrust_config, thrust_dir)
 
-    # Grab LEGION_DIR from the environment if available, otherwise
-    # assume we're running relative to our own location.
+    # If no Legion directory is specified assume we're running relative to our
+    # own location, and build from scratch.
     if legion_dir is None:
-        if "LEGION_DIR" in os.environ:
-            found_legion_install = True
-            legion_dir = os.path.realpath(os.environ["LEGION_DIR"])
-            legion_src_dir = None
-        else:
-            found_legion_install = False
-            legion_src_dir = os.path.join(legate_dir, "legion")
-            legion_dir = install_dir
-    else:
-        found_legion_install = True
-
-    if not found_legion_install:
+        legion_dir = install_dir
+        legion_src_dir = os.path.join(legate_dir, "legion")
         # Check to see if Legion is up-to-date or get it if it isn't
         if os.path.exists(legion_src_dir):
             if clean_first:
@@ -677,7 +648,6 @@ def install(
                 update_legion(legion_src_dir, branch=legion_branch)
         else:
             install_legion(legion_src_dir, branch=legion_branch)
-
         build_legion(
             legion_src_dir,
             legion_dir,
@@ -788,14 +758,15 @@ def driver():
         "--max-dim",
         dest="maxdim",
         type=int,
-        default=3,
+        # One less than Legion's max dim, default 3
+        default=int(os.environ.get("LEGION_MAX_DIM", 4)) - 1,
         help="Maximum number of dimensions that Legate will support",
     )
     parser.add_argument(
         "--max-fields",
         dest="maxfields",
         type=int,
-        default=256,
+        default=int(os.environ.get("LEGION_MAX_FIELDS", 256)),
         help="Maximum number of fields that Legate will support",
     )
     parser.add_argument(
@@ -819,6 +790,7 @@ def driver():
         dest="legion_dir",
         metavar="DIR",
         required=False,
+        default=os.environ.get("LEGION_DIR"),
         help="Path to Legion installation directory.",
     )
     parser.add_argument(
@@ -966,6 +938,7 @@ def driver():
         dest="thrust_dir",
         metavar="DIR",
         required=False,
+        default=os.environ.get("THRUST_PATH"),
         help="Path to Thrust installation directory. The required version of "
         "Thrust is " + required_thrust_version + " or compatible.  If not "
         "provided, Thrust will be installed automatically.",

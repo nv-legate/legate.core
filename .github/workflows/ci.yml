@@ -1,9 +1,30 @@
 name: Build legate.core
-on: [push, pull_request]
+on: 
+  push:
+    branches-ignore:
+      - gh-pages  # deployment target branch (this workflow should not exist on that branch anyway)
+  pull_request:
+    branches-ignore:
+      - gh-pages  # deployment target branch (this workflow should not exist on that branch anyway)
+env:
+  COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+  PROJECT: github-core-ci
+  # Prevent output buffering
+  PYTHONUNBUFFERED: 1
 jobs:
   build:
     runs-on: self-hosted
     steps:
-      - run: |
-          cd  /data/github-runner/_work/legate-ci
-          git pull
+      - name: Run CI build
+        run: |
+          /data/github-runner/legate-bin/setup.sh
+          cd legate-ci/github-ci/legate.core
+          rm -rf ngc-artifacts || true
+          ./build.sh > ${COMMIT}-build.log 2>&1
+          cat *artifacts/*/*
+      - name: Upload Build Log
+        if: always()
+        uses: actions/upload-artifact@v2
+        with:
+          name: build-log
+          path: ./**/${{ env.COMMIT }}-build.log.gpg

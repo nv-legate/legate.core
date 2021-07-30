@@ -166,7 +166,7 @@ def dispatch(func):
 class Point(object):
     def __init__(self, p=None, dim=None):
         """
-        The Point class wraps an `legion_point_{n}d_t` in the Legion C API.
+        The Point class wraps a `legion_domain_point_t` in the Legion C API.
         """
         if dim is None:
             self.point = legion.legion_domain_point_origin(0)
@@ -206,6 +206,10 @@ class Point(object):
     def __len__(self):
         return self.dim
 
+    def __repr__(self):
+        p_strs = [str(self[i]) for i in range(self.dim)]
+        return "Point(p=[" + ",".join(p_strs) + "])"
+
     def __str__(self):
         p_strs = [str(self[i]) for i in range(self.dim)]
         return "<" + ",".join(p_strs) + ">"
@@ -232,8 +236,9 @@ class Point(object):
 class Rect(object):
     def __init__(self, hi=None, lo=None, exclusive=True, dim=None):
         """
-        The Rect class wrap a legion_rect_{n}d_t in the Legion C API. It
-        represents an N-D rectangle of dense points.
+        The Rect class represents an N-D rectangle of dense points. It wraps a
+        dense `legion_domain_t` (this is a special case for Domains; in the
+        general case a Domain can also contain a sparsity map).
         """
         self._lo = Point(dim=dim)
         self._hi = Point(dim=dim)
@@ -275,6 +280,9 @@ class Rect(object):
             result = result ^ hash(self.lo[idx])
             result = result ^ hash(self.hi[idx])
         return result
+
+    def __repr__(self):
+        return f"Rect(lo={repr(self._lo)},hi={repr(self._hi)},exclusive=False)"
 
     def __str__(self):
         return str(self._lo) + ".." + str(self._hi)
@@ -330,6 +338,39 @@ class Domain(object):
 
     def get_volume(self):
         return legion.legion_domain_get_volume(self.domain)
+
+    def get_rects(self):
+        # NOTE: For debugging only!
+        create = getattr(
+            legion,
+            f"legion_rect_in_domain_iterator_create_{self.dim}d",
+        )
+        destroy = getattr(
+            legion,
+            f"legion_rect_in_domain_iterator_destroy_{self.dim}d",
+        )
+        valid = getattr(
+            legion,
+            f"legion_rect_in_domain_iterator_valid_{self.dim}d",
+        )
+        step = getattr(
+            legion,
+            f"legion_rect_in_domain_iterator_step_{self.dim}d",
+        )
+        get_rect = getattr(
+            legion,
+            f"legion_rect_in_domain_iterator_get_rect_{self.dim}d",
+        )
+        rects = []
+        iterator = create(self.domain)
+        while valid(iterator):
+            nd_rect = get_rect(iterator)
+            lo = [nd_rect.lo.x[i] for i in range(self.dim)]
+            hi = [nd_rect.hi.x[i] for i in range(self.dim)]
+            rects.append(Rect(hi=hi, lo=lo, exclusive=False, dim=self.dim))
+            step(iterator)
+        destroy(iterator)
+        return rects
 
 
 class Transform(object):
@@ -4585,20 +4626,19 @@ class BufferBuilder(object):
         else:
             self.pack_32bit_int(transform.M)
             self.pack_32bit_int(transform.N)
-            for x in xrange(0, transform.M):
-                for y in xrange(0, transform.N):
-                    self.pack_64bit_int(transform.trans[x, y])
-            for x in xrange(0, transform.M):
-                self.pack_64bit_int(transform.offset[x])
+            self.pack_transform(transform)
             # Pack the point transform if we have one
             if point_transform is not None:
                 if transform.N != point_transform.M:
                     raise ValueError("Dimension mismatch")
-                for x in xrange(0, point_transform.M):
-                    for y in xrange(0, point_transform.N):
-                        self.pack_64bit_int(point_transform.trans[x, y])
-                for x in xrange(0, point_transform.M):
-                    self.pack_64bit_int(point_transform.offset[x])
+                self.pack_transform(point_transform)
+
+    def pack_transform(self, transform):
+        for x in xrange(0, transform.M):
+            for y in xrange(0, transform.N):
+                self.pack_64bit_int(transform.trans[x, y])
+        for x in xrange(0, transform.M):
+            self.pack_64bit_int(transform.offset[x])
 
     def pack_value(self, value, val_type):
         if np.dtype(val_type) == np.int16:
