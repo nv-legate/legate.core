@@ -20,11 +20,10 @@
 
 #include "legion.h"
 
-#include "core/legate_defines.h"
-#include "core/scalar.h"
-#include "core/span.h"
-#include "core/type_traits.h"
-#include "core/typedefs.h"
+#include "legate_defines.h"
+#include "utilities/span.h"
+#include "utilities/type_traits.h"
+#include "utilities/typedefs.h"
 
 namespace legate {
 

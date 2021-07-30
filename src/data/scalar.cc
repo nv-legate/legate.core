@@ -14,15 +14,33 @@
  *
  */
 
-#pragma once
-
-#include "context.h"
-#include "legion.h"
+#include "data/scalar.h"
+#include "utilities/dispatch.h"
+#include "utilities/type_traits.h"
 
 namespace legate {
 
-void register_legate_core_mapper(Legion::Machine machine,
-                                 Legion::Runtime* runtime,
-                                 const LibraryContext& context);
+Scalar::Scalar(bool tuple, LegateTypeCode code, const void *data)
+  : tuple_(tuple), code_(code), data_(data)
+{
+}
+
+struct elem_size_fn {
+  template <LegateTypeCode CODE>
+  size_t operator()()
+  {
+    return sizeof(legate_type_of<CODE>);
+  }
+};
+
+size_t Scalar::size() const
+{
+  auto elem_size = type_dispatch(code_, elem_size_fn{});
+  if (tuple_) {
+    auto num_elements = *static_cast<const int32_t *>(data_);
+    return sizeof(int32_t) + num_elements * elem_size;
+  } else
+    return elem_size;
+}
 
 }  // namespace legate

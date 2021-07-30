@@ -16,20 +16,15 @@
 
 #pragma once
 
-#include <cxxabi.h>
-#include <stdint.h>
-#include <cstdlib>
-#include <cstring>
-
 #include "legion.h"
-// legion.h has to go before this
-#include "core/dispatch.h"
-#include "core/legate_defines.h"
-#include "core/scalar.h"
-#include "core/store.h"
-#include "core/task.h"
-#include "core/type_traits.h"
-#include "core/typedefs.h"
-#include "deserializer.h"
+// legion.h has to go before these
+#include "data/scalar.h"
+#include "data/store.h"
 #include "legate_c.h"
-#include "runtime.h"
+#include "legate_defines.h"
+#include "runtime/runtime.h"
+#include "task/task.h"
+#include "utilities/deserializer.h"
+#include "utilities/dispatch.h"
+#include "utilities/type_traits.h"
+#include "utilities/typedefs.h"

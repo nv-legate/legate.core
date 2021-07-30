@@ -21,7 +21,7 @@
 
 #include "projection.h"
 
-#include "core/dispatch.h"
+#include "utilities/dispatch.h"
 
 using namespace Legion;
 

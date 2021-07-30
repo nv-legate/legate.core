@@ -14,9 +14,9 @@
  *
  */
 
-#include "deserializer.h"
-#include "core/scalar.h"
-#include "core/store.h"
+#include "utilities/deserializer.h"
+#include "data/scalar.h"
+#include "data/store.h"
 
 namespace legate {
 

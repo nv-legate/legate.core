@@ -14,8 +14,8 @@
  *
  */
 
-#include "core/store.h"
-#include "dispatch.h"
+#include "data/store.h"
+#include "utilities/dispatch.h"
 
 namespace legate {
 

@@ -16,9 +16,10 @@
 
 #pragma once
 
-#include "core/transform.h"
-#include "core/typedefs.h"
 #include "legion.h"
+
+#include "data/transform.h"
+#include "utilities/typedefs.h"
 
 namespace legate {
 
@@ -298,4 +299,4 @@ class Store {
 
 }  // namespace legate
 
-#include "core/store.inl"
+#include "data/store.inl"

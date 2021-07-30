@@ -16,36 +16,28 @@
 
 #pragma once
 
-#include "core/span.h"
-#include "core/typedefs.h"
+#include "legion.h"
+
+#include "utilities/typedefs.h"
 
 namespace legate {
 
-class Scalar {
+extern uint32_t extract_env(const char* env_name,
+                            const uint32_t default_value,
+                            const uint32_t test_value);
+
+class Core {
  public:
-  Scalar()               = default;
-  Scalar(const Scalar &) = default;
-  Scalar(bool tuple, LegateTypeCode code, const void *data);
+  static void parse_config(void);
+  static void shutdown(void);
 
  public:
-  Scalar &operator=(const Scalar &) = default;
-
+  // Configuration settings
+  static bool show_progress;
+#ifdef LEGATE_USE_CUDA
  public:
-  bool is_tuple() const { return tuple_; }
-  size_t size() const;
-
- public:
-  template <typename VAL>
-  VAL value() const;
-  template <typename VAL>
-  Span<const VAL> values() const;
-
- private:
-  bool tuple_{false};
-  LegateTypeCode code_{MAX_TYPE_NUMBER};
-  const void *data_;
+  static cublasContext* get_cublas(void);
+#endif
 };
 
 }  // namespace legate
-
-#include "scalar.inl"

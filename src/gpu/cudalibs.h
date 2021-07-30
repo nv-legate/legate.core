@@ -14,8 +14,7 @@
  *
  */
 
-#ifndef __LEGATE_CUDALIBS_H__
-#define __LEGATE_CUDALIBS_H__
+#pragma once
 
 //#include <cublas_v2.h>
 // We can't include cublas_v2.h because it sucks in half precision
@@ -44,5 +43,3 @@ struct CUDALibraries {
 };
 
 }  // namespace legate
-
-#endif  // __LEGATE_CUDALIBS_H__

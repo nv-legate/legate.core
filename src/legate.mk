@@ -179,7 +179,6 @@ else
 install: $(DLIB)
 	@echo "Installing $(DLIB) into $(PREFIX)..."
 	@mkdir -p $(PREFIX)/include
-	@mkdir -p $(PREFIX)/include/core
 	@$(foreach path,$(INSTALL_PATHS),mkdir -p $(PREFIX)/include/$(path);)
 	@$(foreach file,$(INSTALL_HEADERS),cp $(file) $(PREFIX)/include/$(file);)
 	@mkdir -p $(PREFIX)/lib

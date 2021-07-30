@@ -14,33 +14,38 @@
  *
  */
 
-#include "core/scalar.h"
-#include "core/dispatch.h"
-#include "core/type_traits.h"
+#pragma once
+
+#include "utilities/span.h"
+#include "utilities/typedefs.h"
 
 namespace legate {
 
-Scalar::Scalar(bool tuple, LegateTypeCode code, const void *data)
-  : tuple_(tuple), code_(code), data_(data)
-{
-}
+class Scalar {
+ public:
+  Scalar()               = default;
+  Scalar(const Scalar &) = default;
+  Scalar(bool tuple, LegateTypeCode code, const void *data);
 
-struct elem_size_fn {
-  template <LegateTypeCode CODE>
-  size_t operator()()
-  {
-    return sizeof(legate_type_of<CODE>);
-  }
+ public:
+  Scalar &operator=(const Scalar &) = default;
+
+ public:
+  bool is_tuple() const { return tuple_; }
+  size_t size() const;
+
+ public:
+  template <typename VAL>
+  VAL value() const;
+  template <typename VAL>
+  Span<const VAL> values() const;
+
+ private:
+  bool tuple_{false};
+  LegateTypeCode code_{MAX_TYPE_NUMBER};
+  const void *data_;
 };
 
-size_t Scalar::size() const
-{
-  auto elem_size = type_dispatch(code_, elem_size_fn{});
-  if (tuple_) {
-    auto num_elements = *static_cast<const int32_t *>(data_);
-    return sizeof(int32_t) + num_elements * elem_size;
-  } else
-    return elem_size;
-}
-
 }  // namespace legate
+
+#include "scalar.inl"

@@ -14,11 +14,12 @@
  *
  */
 
-#include "context.h"
-#include "core/scalar.h"
-#include "core/store.h"
-#include "deserializer.h"
 #include "legion.h"
+
+#include "data/scalar.h"
+#include "data/store.h"
+#include "runtime/context.h"
+#include "utilities/deserializer.h"
 
 namespace legate {
 

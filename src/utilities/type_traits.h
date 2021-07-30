@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "utilities/typedefs.h"
+
 namespace legate {
 
 // This maps a type to its LegateTypeCode

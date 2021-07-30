@@ -19,13 +19,12 @@
 #include <cxxabi.h>
 #include <sstream>
 
-#include "context.h"
-#include "core/scalar.h"
-#include "core/store.h"
-#include "core/typedefs.h"
-#include "deserializer.h"
 #include "legion.h"
-#include "runtime.h"
+
+#include "runtime/context.h"
+#include "runtime/runtime.h"
+#include "utilities/deserializer.h"
+#include "utilities/typedefs.h"
 
 namespace legate {
 

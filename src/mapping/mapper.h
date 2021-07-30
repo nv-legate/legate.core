@@ -18,30 +18,12 @@
 
 #include "legion.h"
 
-#include "core/typedefs.h"
+#include "runtime/context.h"
 
 namespace legate {
 
-extern uint32_t extract_env(const char* env_name,
-                            const uint32_t default_value,
-                            const uint32_t test_value);
-
-class Core {
- public:
-  static void parse_config(void);
-  static void shutdown(void);
-  // Get layout constraints
-  static Legion::LayoutConstraintID get_soa_layout(void);
-  static Legion::LayoutConstraintID get_reduction_layout(Legion::ReductionOpID redop);
-  static Legion::LayoutConstraintID get_virtual_layout(void);
-
- public:
-  // Configuration settings
-  static bool show_progress;
-#ifdef LEGATE_USE_CUDA
- public:
-  static cublasContext* get_cublas(void);
-#endif
-};
+void register_legate_core_mapper(Legion::Machine machine,
+                                 Legion::Runtime* runtime,
+                                 const LibraryContext& context);
 
 }  // namespace legate

@@ -15,13 +15,11 @@
  */
 
 #include "legate.h"
-#include <cstdlib>
-#include "legate_c.h"
-#include "mapper.h"
-#include "projection.h"
-#include "shard.h"
+#include "mapping/mapper.h"
+#include "runtime/projection.h"
+#include "runtime/shard.h"
 #ifdef LEGATE_USE_CUDA
-#include "cudalibs.h"
+#include "gpu/cudalibs.h"
 #endif
 
 namespace legate {
@@ -67,55 +65,6 @@ static const char* const core_library_name = "legate.core";
 #endif
   const char* progress = getenv("LEGATE_SHOW_PROGRESS");
   if (progress != NULL) show_progress = true;
-}
-
-/*static*/ LayoutConstraintID Core::get_soa_layout(void)
-{
-  static LayoutConstraintID layout_id = 0;
-  if (layout_id > 0) return layout_id;
-  LayoutConstraintRegistrar constraints;
-  // This should be a normal instance
-  constraints.add_constraint(SpecializedConstraint(LEGION_AFFINE_SPECIALIZE));
-  // We want C ordering of dimensions for now with fields last
-  std::vector<DimensionKind> dim_order(LEGION_MAX_DIM + 1);
-  for (unsigned idx = 0; idx < LEGION_MAX_DIM; ++idx)
-    dim_order[idx] = static_cast<legion_dimension_kind_t>(LEGION_MAX_DIM - 1 - idx);
-  dim_order[LEGION_MAX_DIM] = LEGION_DIM_F;
-  constraints.add_constraint(OrderingConstraint(dim_order, true /*contiguous*/));
-  Runtime* runtime = Runtime::get_runtime();
-  layout_id        = runtime->register_layout(constraints);
-  return layout_id;
-}
-
-/*static*/ LayoutConstraintID Core::get_reduction_layout(ReductionOpID redop)
-{
-  static std::map<ReductionOpID, LayoutConstraintID> reduction_layouts;
-  std::map<ReductionOpID, LayoutConstraintID>::const_iterator finder =
-    reduction_layouts.find(redop);
-  if (finder != reduction_layouts.end()) return finder->second;
-  LayoutConstraintRegistrar constraints;
-  constraints.add_constraint(SpecializedConstraint(LEGION_AFFINE_REDUCTION_SPECIALIZE, redop));
-  // We want C ordering of dimensions for now with fields last
-  std::vector<DimensionKind> dim_order(LEGION_MAX_DIM + 1);
-  for (unsigned idx = 0; idx < LEGION_MAX_DIM; ++idx)
-    dim_order[idx] = static_cast<legion_dimension_kind_t>(LEGION_MAX_DIM - 1 - idx);
-  dim_order[LEGION_MAX_DIM] = LEGION_DIM_F;
-  constraints.add_constraint(OrderingConstraint(dim_order, true /*contiguous*/));
-  Runtime* runtime             = Runtime::get_runtime();
-  LayoutConstraintID layout_id = runtime->preregister_layout(constraints);
-  reduction_layouts[redop]     = layout_id;
-  return layout_id;
-}
-
-/*static*/ LayoutConstraintID Core::get_virtual_layout(void)
-{
-  static LayoutConstraintID layout_id = 0;
-  if (layout_id > 0) return layout_id;
-  LayoutConstraintRegistrar constraints;
-  constraints.add_constraint(SpecializedConstraint(LEGION_VIRTUAL_SPECIALIZE));
-  Runtime* runtime = Runtime::get_runtime();
-  layout_id        = runtime->register_layout(constraints);
-  return layout_id;
 }
 
 #ifdef LEGATE_USE_CUDA
@@ -204,45 +153,43 @@ void register_legate_core_tasks(Machine machine, Runtime* runtime, const Library
   const char* finalize_task_name = "Legate Core Resource Finalization";
   runtime->attach_name(
     finalize_task_id, finalize_task_name, false /*mutable*/, true /*local only*/);
-  // Register the task variant for both CPUs and GPUs
-  {
-    TaskVariantRegistrar registrar(initialize_task_id, initialize_task_name);
-    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
+
+  auto make_registrar = [&](auto task_id, auto* task_name, auto proc_kind) {
+    TaskVariantRegistrar registrar(task_id, task_name);
+    registrar.add_constraint(ProcessorConstraint(proc_kind));
     registrar.set_leaf(true);
     registrar.global_registration = false;
+    return registrar;
+  };
+
+  // Register the task variant for both CPUs and GPUs
+  {
+    auto registrar = make_registrar(initialize_task_id, initialize_task_name, Processor::LOC_PROC);
     runtime->register_task_variant<initialize_cpu_resource_task>(registrar, LEGATE_CPU_VARIANT);
   }
   {
-    TaskVariantRegistrar registrar(finalize_task_id, finalize_task_name);
-    registrar.add_constraint(ProcessorConstraint(Processor::LOC_PROC));
-    registrar.set_leaf(true);
-    registrar.global_registration = false;
+    auto registrar = make_registrar(finalize_task_id, finalize_task_name, Processor::LOC_PROC);
     runtime->register_task_variant<finalize_cpu_resource_task>(registrar, LEGATE_CPU_VARIANT);
   }
 #ifdef LEGATE_USE_CUDA
   {
-    TaskVariantRegistrar registrar(initialize_task_id, initialize_task_name);
-    registrar.add_constraint(ProcessorConstraint(Processor::TOC_PROC));
-    registrar.set_leaf(true);
-    registrar.global_registration = false;
+    auto registrar = make_registrar(initialize_task_id, initialize_task_name, Processor::TOC_PROC);
     runtime->register_task_variant<initialize_gpu_resource_task>(registrar, LEGATE_GPU_VARIANT);
+  }
+  {
+    auto registrar = make_registrar(finalize_task_id, finalize_task_name, Processor::TOC_PROC);
+    runtime->register_task_variant<finalize_gpu_resource_task>(registrar, LEGATE_GPU_VARIANT);
+  }
+  {
     // Make sure we fill in all the cuda libraries entries for the
     // local processors so we don't have races later
     Machine::ProcessorQuery local_gpus(machine);
     local_gpus.local_address_space();
     local_gpus.only_kind(Processor::TOC_PROC);
-    for (Machine::ProcessorQuery::iterator it = local_gpus.begin(); it != local_gpus.end(); it++) {
+    for (auto local_gpu : local_gpus)
       // This call will make an entry for the CUDA libraries but not
       // initialize any of them
-      get_cuda_libraries(*it, false /*check*/);
-    }
-  }
-  {
-    TaskVariantRegistrar registrar(finalize_task_id, finalize_task_name);
-    registrar.add_constraint(ProcessorConstraint(Processor::TOC_PROC));
-    registrar.set_leaf(true);
-    registrar.global_registration = false;
-    runtime->register_task_variant<finalize_gpu_resource_task>(registrar, LEGATE_GPU_VARIANT);
+      get_cuda_libraries(local_gpu, false /*check*/);
   }
 #endif
 }

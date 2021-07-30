@@ -14,7 +14,7 @@
  *
  */
 
-#include "core/transform.h"
+#include "data/transform.h"
 
 namespace legate {
 

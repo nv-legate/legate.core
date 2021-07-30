@@ -23,40 +23,6 @@ GPU_ARCH ?= volta
 LIBNAME   = liblgcore
 USE_GPU_REDUCTIONS = 0
 
-# General source files
-GEN_CPU_SRC	= context.cc        \
-							deserializer.cc   \
-							legate.cc         \
-							legate_c.cc       \
-							mapper.cc         \
-							projection.cc     \
-							shard.cc          \
-							core/scalar.cc    \
-							core/store.cc     \
-							core/task.cc      \
-							core/transform.cc
-# No initial GPU files for core Legate but libraries have them
-GEN_GPU_SRC	=
-# Header files that we need to have installed for client legate libraries INSTALL_PATHS  =
-INSTALL_HEADERS = context.h             \
-									deserializer.h        \
-									legate.h              \
-								  projection.h          \
-									runtime.h             \
-									legate_c.h            \
-									legate_preamble.h     \
-									core/dispatch.h       \
-									core/legate_defines.h \
-									core/scalar.h         \
-									core/scalar.inl       \
-									core/span.h           \
-									core/store.h          \
-									core/store.inl        \
-									core/task.h           \
-									core/transform.h      \
-									core/typedefs.h       \
-									core/type_traits.h
-
 # You can modify these variables, some will be appended to by the runtime makefile
 INC_FLAGS	?=
 INC_FLAGS	+= -I$(shell pwd)
@@ -72,11 +38,12 @@ ifeq ($(strip $(USE_CUDA)),1)
 ifndef CUDA
 $(error CUDA variable is not defined, aborting build)
 endif
-GEN_CPU_SRC	+= cudalibs.cc
-GEN_GPU_SRC	+=
 LD_FLAGS	+= -lcublas
 endif
 
 BOOTSTRAP = 1
+
+include core.mk
+
 # We can just include directly since we know we're the core Makefile
 include legate.mk

@@ -16,8 +16,7 @@
 
 #pragma once
 
-#include "core/typedefs.h"
-#include "legion.h"
+#include "utilities/typedefs.h"
 
 namespace legate {
 
