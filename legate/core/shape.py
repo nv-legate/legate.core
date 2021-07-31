@@ -36,6 +36,8 @@ class Shape(object):
                 self._extents = (extents,)
             else:
                 self._extents = tuple(extents)
+            if any(extent < 0 for extent in self._extents):
+                raise ValueError(f"Invalid shape: {extents}")
             self._ispace = None
         else:
             assert ispace is not None
