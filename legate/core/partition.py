@@ -46,6 +46,15 @@ class NoPartition(object):
         return str(self)
 
 
+class Interval(object):
+    def __init__(self, lo, extent):
+        self._lo = lo
+        self._hi = lo + extent
+
+    def overlaps(self, other):
+        return not (other._hi <= self._lo or self._hi <= other._lo)
+
+
 class Tiling(object):
     def __init__(self, runtime, tile_shape, color_shape, offset=None):
         assert len(tile_shape) == len(color_shape)
@@ -98,6 +107,19 @@ class Tiling(object):
 
     def __repr__(self):
         return str(self)
+
+    def overlaps(self, other):
+        assert self.tile_shape.ndim == other.tile_shape.ndim
+        assert self.color_shape.volume() == 1
+        assert other.color_shape.volume() == 1
+
+        for dim in range(self.tile_shape.ndim):
+            my_interval = Interval(self.offset[dim], self.tile_shape[dim])
+            other_interval = Interval(other.offset[dim], other.tile_shape[dim])
+            if not my_interval.overlaps(other_interval):
+                return False
+
+        return True
 
     # Returns true if the tiles in the other partition are all contained in
     # this partition

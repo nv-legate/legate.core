@@ -475,6 +475,12 @@ class Store(object):
             assert isinstance(storage, RegionField)
             self._shape = storage.shape
 
+    def _invert_tile(self, tiling):
+        if self._parent is not None:
+            return self._parent._invert_tile(self._transform.invert(tiling))
+        else:
+            return tiling
+
     def _get_tile(self, tiling):
         if self._parent is not None:
             tiling = self._transform.invert(tiling)
@@ -623,6 +629,21 @@ class Store(object):
         return self.storage.get_inline_allocation(
             self.shape, context=context, transform=transform
         )
+
+    def overlaps(self, other):
+        my_root = self.get_root()
+        other_root = other.get_root()
+        if my_root is not other_root:
+            return False
+
+        my_tile = self._invert_tile(
+            Tiling(self._runtime, self.shape, Shape((1,) * self.ndim))
+        )
+        other_tile = other._invert_tile(
+            Tiling(self._runtime, other.shape, Shape((1,) * other.ndim))
+        )
+
+        return my_tile.overlaps(other_tile)
 
     def _serialize_transform(self, buf):
         if self._parent is not None:
