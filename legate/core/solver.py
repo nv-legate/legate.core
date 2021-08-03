@@ -101,10 +101,14 @@ class Strategy(object):
         self._fspaces = fspaces
 
     def __getitem__(self, store):
+        partition = self.get_partition(store)
+        return partition.get_requirement(self._launch_shape, store)
+
+    def get_partition(self, store):
         assert not store.unbound
         if store not in self._strategy:
             raise ValueError(f"No strategy is found for {store}")
-        return self._strategy[store].get_requirement(self._launch_shape, store)
+        return self._strategy[store]
 
     def get_field_space(self, store):
         assert store.unbound
@@ -125,6 +129,17 @@ class Strategy(object):
                 assert redop is not None
                 result = launcher.execute(Rect(self._launch_shape), redop)
             output.set_storage(result)
+
+    def __str__(self):
+        st = "[Strategy]"
+        for store, partition in self._strategy.items():
+            st += f"\n{store} ~~> {partition}"
+        for store, fspace in self._fspaces.items():
+            st += f"\n{store} ~~> {fspace}"
+        return st
+
+    def __repr__(self):
+        return str(self)
 
 
 class Partitioner(object):
@@ -207,14 +222,19 @@ class Partitioner(object):
             fspaces,
         )
 
+        stores = sorted(
+            stores, key=lambda store: not store.has_key_partition()
+        )
+
         prev_part = None
-        while len(stores) > 0:
-            store = stores.pop()
+        for store in stores:
+            if store in partitions:
+                continue
 
             if isinstance(prev_part, NoPartition):
                 partition = prev_part
             else:
-                partition = store.find_key_partition()
+                partition = store.compute_key_partition()
 
             cls = constraints.find(store)
             for to_align in cls:
@@ -222,7 +242,6 @@ class Partitioner(object):
                     continue
                 partitions[to_align] = partition
 
-            stores = stores - cls
             prev_part = partition
 
         color_shape = None if prev_part is None else prev_part.color_shape

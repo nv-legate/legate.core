@@ -363,6 +363,11 @@ class Store(object):
         self._transform = transform
         self._inverse_transform = None
         self._partitions = {}
+        self._key_partition = None
+
+        if not self.unbound:
+            if any(extent < 0 for extent in self._shape.extents):
+                raise ValueError(f"Invalid shape: {self._shape}")
 
     @property
     def shape(self):
@@ -658,9 +663,33 @@ class Store(object):
         buf.pack_32bit_int(self._dtype.code)
         self._serialize_transform(buf)
 
-    def find_key_partition(self):
+    def has_key_partition(self):
+        if self._key_partition is not None:
+            return True
+        elif self._parent is not None and self._transform.invertible:
+            return self._parent.has_key_partition()
+        else:
+            return False
+
+    def set_key_partition(self, key_partition):
+        self._key_partition = key_partition
+
+    def reset_key_partition(self):
+        self._key_partition = None
+
+    def compute_key_partition(self):
         if self._scalar:
             return NoPartition()
+        # If this is effectively a scalar store, we don't need to partition it
+        elif self.ndim == 0:
+            return NoPartition()
+
+        if self._key_partition is not None:
+            return self._key_partition
+        elif self._parent is not None and self._transform.invertible:
+            partition = self._parent.compute_key_partition()
+            return self._transform.convert(partition)
+
         launch_shape = self._partition_manager.compute_launch_shape(self)
         if launch_shape is None:
             return NoPartition()

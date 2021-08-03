@@ -16,7 +16,7 @@
 import numpy as np
 
 from .legion import AffineTransform
-from .partition import Tiling
+from .partition import NoPartition, Tiling
 from .shape import Shape
 
 
@@ -62,6 +62,22 @@ class Shift(Transform):
                 partition.color_shape,
                 partition.offset.update(self._dim, offset),
             )
+        else:
+            raise ValueError(
+                f"Unsupported partition: {type(partition).__name__}"
+            )
+
+    def convert(self, partition):
+        if isinstance(partition, Tiling):
+            offset = partition.offset[self._dim] + self._offset
+            return Tiling(
+                self._runtime,
+                partition.tile_shape,
+                partition.color_shape,
+                partition.offset.update(self._dim, offset),
+            )
+        elif isinstance(partition, NoPartition):
+            return partition
         else:
             raise ValueError(
                 f"Unsupported partition: {type(partition).__name__}"
@@ -115,6 +131,21 @@ class Promote(Transform):
                 partition.color_shape.drop(self._extra_dim),
                 partition.offset.drop(self._extra_dim),
             )
+        else:
+            raise ValueError(
+                f"Unsupported partition: {type(partition).__name__}"
+            )
+
+    def convert(self, partition):
+        if isinstance(partition, Tiling):
+            return Tiling(
+                self._runtime,
+                partition.tile_shape.insert(self._extra_dim, self._dim_size),
+                partition.color_shape.insert(self._extra_dim, 1),
+                partition.offset.insert(self._extra_dim, 0),
+            )
+        elif isinstance(partition, NoPartition):
+            return partition
         else:
             raise ValueError(
                 f"Unsupported partition: {type(partition).__name__}"
@@ -175,6 +206,21 @@ class Project(Transform):
                 f"Unsupported partition: {type(partition).__name__}"
             )
 
+    def convert(self, partition):
+        if isinstance(partition, Tiling):
+            return Tiling(
+                self._runtime,
+                partition.tile_shape.drop(self._dim),
+                partition.color_shape.drop(self._dim),
+                partition.offset.drop(self._dim),
+            )
+        elif isinstance(partition, NoPartition):
+            return partition
+        else:
+            raise ValueError(
+                f"Unsupported partition: {type(partition).__name__}"
+            )
+
     def get_inverse_transform(self, shape, parent_transform=None):
         parent_ndim = shape.ndim + 1
         result = AffineTransform(parent_ndim, shape.ndim, False)
@@ -227,6 +273,21 @@ class Transpose(Transform):
                 partition.color_shape.map(self._inverse),
                 partition.offset.map(self._inverse),
             )
+        else:
+            raise ValueError(
+                f"Unsupported partition: {type(partition).__name__}"
+            )
+
+    def convert(self, partition):
+        if isinstance(partition, Tiling):
+            return Tiling(
+                self._runtime,
+                partition.tile_shape.map(self._axes),
+                partition.color_shape.map(self._axes),
+                partition.offset.map(self._axes),
+            )
+        elif isinstance(partition, NoPartition):
+            return partition
         else:
             raise ValueError(
                 f"Unsupported partition: {type(partition).__name__}"

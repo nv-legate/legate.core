@@ -144,8 +144,12 @@ class Task(Operation):
         for input in self._inputs:
             launcher.add_input(input, strategy[input])
         for output in self._outputs:
-            if not output.unbound:
-                launcher.add_output(output, strategy[output])
+            if output.unbound:
+                continue
+            launcher.add_output(output, strategy[output])
+            partition = strategy.get_partition(output)
+            # We update the key partition of a store only when it gets updated
+            output.set_key_partition(partition)
         for (reduction, redop) in self._reductions:
             partition = strategy[reduction]
             partition.redop = redop
