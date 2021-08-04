@@ -8,6 +8,7 @@ on:
       - gh-pages  # deployment target branch (this workflow should not exist on that branch anyway)
 env:
   COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+  REF: ${{ github.event.pull_request.head.ref || github.ref }}
   PROJECT: github-core-ci
   # Prevent output buffering
   PYTHONUNBUFFERED: 1
@@ -20,7 +21,7 @@ jobs:
           /data/github-runner/legate-bin/setup.sh
           cd legate-ci/github-ci/legate.core
           rm -rf ngc-artifacts || true
-          ./build.sh > ${COMMIT}-build.log 2>&1
+          ./build.sh > ${COMMIT}-build.log 2>&1 || true
           cat *artifacts/*/*
       - name: Upload Build Log
         if: always()
