@@ -23,9 +23,9 @@
 
 namespace legate {
 
-LibraryContext::LibraryContext(Legion::Runtime *runtime,
-                               const std::string &library_name,
-                               const ResourceConfig &config)
+LibraryContext::LibraryContext(Legion::Runtime* runtime,
+                               const std::string& library_name,
+                               const ResourceConfig& config)
 {
   task_scope_ = ResourceScope(
     runtime->generate_library_task_ids(library_name.c_str(), config.max_tasks), config.max_tasks);
@@ -136,10 +136,10 @@ bool LibraryContext::valid_sharding_id(Legion::ShardingID shard_id) const
   return shard_scope_.in_scope(shard_id);
 }
 
-TaskContext::TaskContext(const Legion::Task *task,
-                         const std::vector<Legion::PhysicalRegion> &regions,
+TaskContext::TaskContext(const Legion::Task* task,
+                         const std::vector<Legion::PhysicalRegion>& regions,
                          Legion::Context context,
-                         Legion::Runtime *runtime)
+                         Legion::Runtime* runtime)
   : task_(task), regions_(regions), context_(context), runtime_(runtime)
 {
   Deserializer dez(task, regions);

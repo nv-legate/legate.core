@@ -23,7 +23,7 @@ namespace legate {
 template <int DIM>
 struct inner_type_dispatch_fn {
   template <typename Functor, typename... Fnargs>
-  constexpr decltype(auto) operator()(LegateTypeCode code, Functor f, Fnargs &&... args)
+  constexpr decltype(auto) operator()(LegateTypeCode code, Functor f, Fnargs&&... args)
   {
     switch (code) {
       case LegateTypeCode::BOOL_LT: {
@@ -79,7 +79,7 @@ struct inner_type_dispatch_fn {
 template <int DIM>
 struct inner_dim_dispatch_fn {
   template <typename Functor, typename... Fnargs>
-  constexpr decltype(auto) operator()(int dim, Functor f, Fnargs &&... args)
+  constexpr decltype(auto) operator()(int dim, Functor f, Fnargs&&... args)
   {
     switch (dim) {
       case 1: {
@@ -132,7 +132,7 @@ struct inner_dim_dispatch_fn {
 };
 
 template <typename Functor, typename... Fnargs>
-constexpr decltype(auto) double_dispatch(int dim, LegateTypeCode code, Functor f, Fnargs &&... args)
+constexpr decltype(auto) double_dispatch(int dim, LegateTypeCode code, Functor f, Fnargs&&... args)
 {
   switch (dim) {
 #if LEGION_MAX_DIM >= 1
@@ -186,7 +186,7 @@ constexpr decltype(auto) double_dispatch(int dim, LegateTypeCode code, Functor f
 }
 
 template <typename Functor, typename... Fnargs>
-constexpr decltype(auto) double_dispatch(int dim1, int dim2, Functor f, Fnargs &&... args)
+constexpr decltype(auto) double_dispatch(int dim1, int dim2, Functor f, Fnargs&&... args)
 {
   switch (dim1) {
 #if LEGION_MAX_DIM >= 1
@@ -240,7 +240,7 @@ constexpr decltype(auto) double_dispatch(int dim1, int dim2, Functor f, Fnargs &
 }
 
 template <typename Functor, typename... Fnargs>
-constexpr decltype(auto) dim_dispatch(int dim, Functor f, Fnargs &&... args)
+constexpr decltype(auto) dim_dispatch(int dim, Functor f, Fnargs&&... args)
 {
   switch (dim) {
 #if LEGION_MAX_DIM >= 1
@@ -294,7 +294,7 @@ constexpr decltype(auto) dim_dispatch(int dim, Functor f, Fnargs &&... args)
 }
 
 template <typename Functor, typename... Fnargs>
-constexpr decltype(auto) type_dispatch(LegateTypeCode code, Functor f, Fnargs &&... args)
+constexpr decltype(auto) type_dispatch(LegateTypeCode code, Functor f, Fnargs&&... args)
 {
   switch (code) {
     case LegateTypeCode::BOOL_LT: {

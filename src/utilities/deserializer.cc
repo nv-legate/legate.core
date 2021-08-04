@@ -22,10 +22,10 @@ namespace legate {
 
 using namespace Legion;
 
-Deserializer::Deserializer(const Task *task, const std::vector<PhysicalRegion> &regions)
+Deserializer::Deserializer(const Task* task, const std::vector<PhysicalRegion>& regions)
   : regions_{regions.data(), regions.size()},
     futures_{task->futures.data(), task->futures.size()},
-    task_args_{static_cast<const int8_t *>(task->args), task->arglen},
+    task_args_{static_cast<const int8_t*>(task->args), task->arglen},
     outputs_()
 {
   auto runtime = Runtime::get_runtime();
@@ -33,12 +33,12 @@ Deserializer::Deserializer(const Task *task, const std::vector<PhysicalRegion> &
   runtime->get_output_regions(ctx, outputs_);
 }
 
-void Deserializer::_unpack(LegateTypeCode &value)
+void Deserializer::_unpack(LegateTypeCode& value)
 {
   value = static_cast<LegateTypeCode>(unpack<int32_t>());
 }
 
-void Deserializer::_unpack(Store &value)
+void Deserializer::_unpack(Store& value)
 {
   auto is_future = unpack<bool>();
   auto dim       = unpack<int32_t>();
@@ -61,7 +61,7 @@ void Deserializer::_unpack(Store &value)
   }
 }
 
-void Deserializer::_unpack(Scalar &value)
+void Deserializer::_unpack(Scalar& value)
 {
   auto tuple = unpack<bool>();
   auto code  = unpack<LegateTypeCode>();
@@ -69,7 +69,7 @@ void Deserializer::_unpack(Scalar &value)
   task_args_ = task_args_.subspan(value.size());
 }
 
-void Deserializer::_unpack(FutureWrapper &value)
+void Deserializer::_unpack(FutureWrapper& value)
 {
   auto future = futures_[0];
   futures_    = futures_.subspan(1);
@@ -85,7 +85,7 @@ void Deserializer::_unpack(FutureWrapper &value)
   value = FutureWrapper(domain, future);
 }
 
-void Deserializer::_unpack(RegionField &value)
+void Deserializer::_unpack(RegionField& value)
 {
   auto dim = unpack<int32_t>();
   auto idx = unpack<uint32_t>();
@@ -94,7 +94,7 @@ void Deserializer::_unpack(RegionField &value)
   value = RegionField(dim, regions_[idx], fid);
 }
 
-void Deserializer::_unpack(OutputRegionField &value)
+void Deserializer::_unpack(OutputRegionField& value)
 {
   auto dim = unpack<int32_t>();
   assert(dim == 1);

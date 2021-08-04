@@ -25,11 +25,11 @@ namespace legate {
 class StoreTransform {
  public:
   StoreTransform() {}
-  StoreTransform(std::unique_ptr<StoreTransform> &&parent);
+  StoreTransform(std::unique_ptr<StoreTransform>&& parent);
   ~StoreTransform() {}
 
  public:
-  virtual Legion::Domain transform(const Legion::Domain &input) const           = 0;
+  virtual Legion::Domain transform(const Legion::Domain& input) const           = 0;
   virtual Legion::DomainAffineTransform inverse_transform(int32_t in_dim) const = 0;
 
  protected:
@@ -38,11 +38,11 @@ class StoreTransform {
 
 class Shift : public StoreTransform {
  public:
-  Shift(int32_t dim, int64_t offset, std::unique_ptr<StoreTransform> &&parent = nullptr);
+  Shift(int32_t dim, int64_t offset, std::unique_ptr<StoreTransform>&& parent = nullptr);
   virtual ~Shift() {}
 
  public:
-  virtual Legion::Domain transform(const Legion::Domain &input) const override;
+  virtual Legion::Domain transform(const Legion::Domain& input) const override;
   virtual Legion::DomainAffineTransform inverse_transform(int32_t in_dim) const override;
 
  private:
@@ -52,11 +52,11 @@ class Shift : public StoreTransform {
 
 class Promote : public StoreTransform {
  public:
-  Promote(int32_t extra_dim, int64_t dim_size, std::unique_ptr<StoreTransform> &&parent = nullptr);
+  Promote(int32_t extra_dim, int64_t dim_size, std::unique_ptr<StoreTransform>&& parent = nullptr);
   virtual ~Promote() {}
 
  public:
-  virtual Legion::Domain transform(const Legion::Domain &input) const override;
+  virtual Legion::Domain transform(const Legion::Domain& input) const override;
   virtual Legion::DomainAffineTransform inverse_transform(int32_t in_dim) const override;
 
  private:
@@ -66,11 +66,11 @@ class Promote : public StoreTransform {
 
 class Project : public StoreTransform {
  public:
-  Project(int32_t dim, int64_t coord, std::unique_ptr<StoreTransform> &&parent = nullptr);
+  Project(int32_t dim, int64_t coord, std::unique_ptr<StoreTransform>&& parent = nullptr);
   virtual ~Project() {}
 
  public:
-  virtual Legion::Domain transform(const Legion::Domain &domain) const override;
+  virtual Legion::Domain transform(const Legion::Domain& domain) const override;
   virtual Legion::DomainAffineTransform inverse_transform(int32_t in_dim) const override;
 
  private:
@@ -80,11 +80,11 @@ class Project : public StoreTransform {
 
 class Transpose : public StoreTransform {
  public:
-  Transpose(std::vector<int32_t> &&axes, std::unique_ptr<StoreTransform> &&parent = nullptr);
+  Transpose(std::vector<int32_t>&& axes, std::unique_ptr<StoreTransform>&& parent = nullptr);
   virtual ~Transpose() {}
 
  public:
-  virtual Legion::Domain transform(const Legion::Domain &domain) const override;
+  virtual Legion::Domain transform(const Legion::Domain& domain) const override;
   virtual Legion::DomainAffineTransform inverse_transform(int32_t in_dim) const override;
 
  private:
@@ -94,12 +94,12 @@ class Transpose : public StoreTransform {
 class Delinearize : public StoreTransform {
  public:
   Delinearize(int32_t dim,
-              std::vector<int64_t> &&sizes,
-              std::unique_ptr<StoreTransform> &&parent = nullptr);
+              std::vector<int64_t>&& sizes,
+              std::unique_ptr<StoreTransform>&& parent = nullptr);
   virtual ~Delinearize() {}
 
  public:
-  virtual Legion::Domain transform(const Legion::Domain &domain) const override;
+  virtual Legion::Domain transform(const Legion::Domain& domain) const override;
   virtual Legion::DomainAffineTransform inverse_transform(int32_t in_dim) const override;
 
  private:

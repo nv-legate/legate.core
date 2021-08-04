@@ -37,7 +37,7 @@ class ResourceScope {
   ResourceScope(int64_t base, int64_t max) : base_(base), max_(max) {}
 
  public:
-  ResourceScope(const ResourceScope &) = default;
+  ResourceScope(const ResourceScope&) = default;
 
  public:
   int64_t translate(int64_t local_resource_id) const { return base_ + local_resource_id; }
@@ -58,12 +58,12 @@ class ResourceScope {
 
 class LibraryContext {
  public:
-  LibraryContext(Legion::Runtime *runtime,
-                 const std::string &library_name,
-                 const ResourceConfig &config);
+  LibraryContext(Legion::Runtime* runtime,
+                 const std::string& library_name,
+                 const ResourceConfig& config);
 
  public:
-  LibraryContext(const LibraryContext &) = default;
+  LibraryContext(const LibraryContext&) = default;
 
  public:
   Legion::TaskID get_task_id(int64_t local_task_id) const;
@@ -98,22 +98,22 @@ class LibraryContext {
 // of the Legion API.
 class TaskContext {
  public:
-  TaskContext(const Legion::Task *task,
-              const std::vector<Legion::PhysicalRegion> &regions,
+  TaskContext(const Legion::Task* task,
+              const std::vector<Legion::PhysicalRegion>& regions,
               Legion::Context context,
-              Legion::Runtime *runtime);
+              Legion::Runtime* runtime);
 
  public:
-  std::vector<Store> &inputs() { return inputs_; }
-  std::vector<Store> &outputs() { return outputs_; }
-  std::vector<Store> &reductions() { return reductions_; }
-  std::vector<Scalar> &scalars() { return scalars_; }
+  std::vector<Store>& inputs() { return inputs_; }
+  std::vector<Store>& outputs() { return outputs_; }
+  std::vector<Store>& reductions() { return reductions_; }
+  std::vector<Scalar>& scalars() { return scalars_; }
 
  private:
-  const Legion::Task *task_;
-  const std::vector<Legion::PhysicalRegion> &regions_;
+  const Legion::Task* task_;
+  const std::vector<Legion::PhysicalRegion>& regions_;
   Legion::Context context_;
-  Legion::Runtime *runtime_;
+  Legion::Runtime* runtime_;
 
  private:
   std::vector<Store> inputs_, outputs_, reductions_;

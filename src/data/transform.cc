@@ -22,7 +22,7 @@ using namespace Legion;
 
 using StoreTransformP = std::unique_ptr<StoreTransform>;
 
-DomainTransform operator*(const DomainTransform &lhs, const DomainTransform &rhs)
+DomainTransform operator*(const DomainTransform& lhs, const DomainTransform& rhs)
 {
   assert(lhs.n == rhs.m);
   DomainTransform result;
@@ -37,7 +37,7 @@ DomainTransform operator*(const DomainTransform &lhs, const DomainTransform &rhs
   return result;
 }
 
-DomainPoint operator+(const DomainPoint &lhs, const DomainPoint &rhs)
+DomainPoint operator+(const DomainPoint& lhs, const DomainPoint& rhs)
 {
   assert(lhs.dim == rhs.dim);
   DomainPoint result(lhs);
@@ -45,7 +45,7 @@ DomainPoint operator+(const DomainPoint &lhs, const DomainPoint &rhs)
   return result;
 }
 
-DomainAffineTransform combine(const DomainAffineTransform &lhs, const DomainAffineTransform &rhs)
+DomainAffineTransform combine(const DomainAffineTransform& lhs, const DomainAffineTransform& rhs)
 {
   DomainAffineTransform result;
   auto transform   = lhs.transform * rhs.transform;
@@ -55,14 +55,14 @@ DomainAffineTransform combine(const DomainAffineTransform &lhs, const DomainAffi
   return result;
 }
 
-StoreTransform::StoreTransform(StoreTransformP &&parent) : parent_(std::move(parent)) {}
+StoreTransform::StoreTransform(StoreTransformP&& parent) : parent_(std::move(parent)) {}
 
-Shift::Shift(int32_t dim, int64_t offset, StoreTransformP &&parent)
+Shift::Shift(int32_t dim, int64_t offset, StoreTransformP&& parent)
   : StoreTransform(std::forward<StoreTransformP>(parent)), dim_(dim), offset_(offset)
 {
 }
 
-Domain Shift::transform(const Domain &input) const
+Domain Shift::transform(const Domain& input) const
 {
   auto result = nullptr != parent_ ? parent_->transform(input) : input;
   result.rect_data[dim_] += offset_;
@@ -97,16 +97,16 @@ DomainAffineTransform Shift::inverse_transform(int32_t in_dim) const
     return result;
 }
 
-Promote::Promote(int32_t extra_dim, int64_t dim_size, StoreTransformP &&parent)
+Promote::Promote(int32_t extra_dim, int64_t dim_size, StoreTransformP&& parent)
   : StoreTransform(std::forward<StoreTransformP>(parent)),
     extra_dim_(extra_dim),
     dim_size_(dim_size)
 {
 }
 
-Domain Promote::transform(const Domain &input) const
+Domain Promote::transform(const Domain& input) const
 {
-  auto promote = [](int32_t extra_dim, int64_t dim_size, const Domain &input) {
+  auto promote = [](int32_t extra_dim, int64_t dim_size, const Domain& input) {
     Domain output;
     output.dim = input.dim + 1;
 
@@ -154,14 +154,14 @@ DomainAffineTransform Promote::inverse_transform(int32_t in_dim) const
     return result;
 }
 
-Project::Project(int32_t dim, int64_t coord, StoreTransformP &&parent)
+Project::Project(int32_t dim, int64_t coord, StoreTransformP&& parent)
   : StoreTransform(std::forward<StoreTransformP>(parent)), dim_(dim), coord_(coord)
 {
 }
 
-Domain Project::transform(const Domain &input) const
+Domain Project::transform(const Domain& input) const
 {
-  auto project = [](int32_t collapsed_dim, const Domain &input) {
+  auto project = [](int32_t collapsed_dim, const Domain& input) {
     Domain output;
     output.dim = input.dim - 1;
 
@@ -211,14 +211,14 @@ DomainAffineTransform Project::inverse_transform(int32_t in_dim) const
     return result;
 }
 
-Transpose::Transpose(std::vector<int32_t> &&axes, StoreTransformP &&parent)
+Transpose::Transpose(std::vector<int32_t>&& axes, StoreTransformP&& parent)
   : StoreTransform(std::forward<StoreTransformP>(parent)), axes_(std::move(axes))
 {
 }
 
-Domain Transpose::transform(const Domain &input) const
+Domain Transpose::transform(const Domain& input) const
 {
-  auto transpose = [](const auto &axes, const Domain &input) {
+  auto transpose = [](const auto& axes, const Domain& input) {
     Domain output;
     output.dim = input.dim;
     for (int32_t in_dim = 0; in_dim < input.dim; ++in_dim) {
@@ -257,7 +257,7 @@ DomainAffineTransform Transpose::inverse_transform(int32_t in_dim) const
     return result;
 }
 
-Delinearize::Delinearize(int32_t dim, std::vector<int64_t> &&sizes, StoreTransformP &&parent)
+Delinearize::Delinearize(int32_t dim, std::vector<int64_t>&& sizes, StoreTransformP&& parent)
   : StoreTransform(std::forward<StoreTransformP>(parent)),
     dim_(dim),
     sizes_(std::move(sizes)),
@@ -269,7 +269,7 @@ Delinearize::Delinearize(int32_t dim, std::vector<int64_t> &&sizes, StoreTransfo
   for (auto size : sizes_) volume_ *= size;
 }
 
-Domain Delinearize::transform(const Domain &input) const
+Domain Delinearize::transform(const Domain& input) const
 {
   Domain output;
   output.dim     = input.dim - 1 + sizes_.size();

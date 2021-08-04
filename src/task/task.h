@@ -39,7 +39,7 @@ struct ReturnSize<void> {
 };
 
 template <typename RET_T = void>
-using LegateVariantImpl = RET_T (*)(TaskContext &);
+using LegateVariantImpl = RET_T (*)(TaskContext&);
 
 template <typename T>
 class LegateTask {
@@ -49,23 +49,23 @@ class LegateTask {
   using __yes = int8_t[2];
   struct HasCPUVariant {
     template <typename U>
-    static __yes &test(decltype(&U::cpu_variant));
+    static __yes& test(decltype(&U::cpu_variant));
     template <typename U>
-    static __no &test(...);
+    static __no& test(...);
     static const bool value = (sizeof(test<T>(0)) == sizeof(__yes));
   };
   struct HasOMPVariant {
     template <typename U>
-    static __yes &test(decltype(&U::omp_variant));
+    static __yes& test(decltype(&U::omp_variant));
     template <typename U>
-    static __no &test(...);
+    static __no& test(...);
     static const bool value = (sizeof(test<T>(0)) == sizeof(__yes));
   };
   struct HasGPUVariant {
     template <typename U>
-    static __yes &test(decltype(&U::gpu_variant));
+    static __yes& test(decltype(&U::gpu_variant));
     template <typename U>
-    static __no &test(...);
+    static __no& test(...);
     static const bool value = (sizeof(test<T>(0)) == sizeof(__yes));
   };
 
@@ -75,19 +75,19 @@ class LegateTask {
   static void register_variants_with_return();
 
  public:
-  static const char *task_name()
+  static const char* task_name()
   {
     static std::string result;
     if (result.empty()) {
       int status      = 0;
-      char *demangled = abi::__cxa_demangle(typeid(T).name(), 0, 0, &status);
+      char* demangled = abi::__cxa_demangle(typeid(T).name(), 0, 0, &status);
       result          = demangled;
       free(demangled);
     }
 
     return result.c_str();
   }
-  static void show_progress(const Legion::Task *task, Legion::Context ctx, Legion::Runtime *runtime)
+  static void show_progress(const Legion::Task* task, Legion::Context ctx, Legion::Runtime* runtime)
   {
     if (!Core::show_progress) return;
     const auto exec_proc = runtime->get_executing_processor(ctx);
@@ -97,7 +97,7 @@ class LegateTask {
         : (exec_proc.kind() == Legion::Processor::TOC_PROC) ? "GPU" : "OpenMP";
 
     std::stringstream point_str;
-    const auto &point = task->index_point;
+    const auto& point = task->index_point;
     point_str << point[0];
     for (int32_t dim = 1; dim < task->index_point.dim; ++dim) point_str << "," << point[dim];
 
@@ -110,10 +110,10 @@ class LegateTask {
 
   // Task wrappers so we can instrument all Legate tasks if we want
   template <typename RET_T, LegateVariantImpl<RET_T> TASK_PTR>
-  static RET_T legate_task_wrapper(const Legion::Task *task,
-                                   const std::vector<Legion::PhysicalRegion> &regions,
+  static RET_T legate_task_wrapper(const Legion::Task* task,
+                                   const std::vector<Legion::PhysicalRegion>& regions,
                                    Legion::Context legion_context,
-                                   Legion::Runtime *runtime)
+                                   Legion::Runtime* runtime)
   {
     show_progress(task, legion_context, runtime);
 
@@ -124,8 +124,8 @@ class LegateTask {
  public:
   // Methods for registering variants
   template <LegateVariantImpl<> TASK_PTR>
-  static void register_variant(Legion::ExecutionConstraintSet &execution_constraints,
-                               Legion::TaskLayoutConstraintSet &layout_constraints,
+  static void register_variant(Legion::ExecutionConstraintSet& execution_constraints,
+                               Legion::TaskLayoutConstraintSet& layout_constraints,
                                LegateVariantCode var,
                                Legion::Processor::Kind kind,
                                bool leaf       = false,
@@ -152,8 +152,8 @@ class LegateTask {
                                  ret_size);
   }
   template <typename RET_T, LegateVariantImpl<RET_T> TASK_PTR>
-  static void register_variant(Legion::ExecutionConstraintSet &execution_constraints,
-                               Legion::TaskLayoutConstraintSet &layout_constraints,
+  static void register_variant(Legion::ExecutionConstraintSet& execution_constraints,
+                               Legion::TaskLayoutConstraintSet& layout_constraints,
                                LegateVariantCode var,
                                Legion::Processor::Kind kind,
                                bool leaf       = false,
@@ -346,10 +346,10 @@ template <typename RET_T, typename REDUC_T>
 class LegateTaskRegistrar {
  public:
   void record_variant(Legion::TaskID tid,
-                      const char *task_name,
-                      const Legion::CodeDescriptor &desc,
-                      Legion::ExecutionConstraintSet &execution_constraints,
-                      Legion::TaskLayoutConstraintSet &layout_constraints,
+                      const char* task_name,
+                      const Legion::CodeDescriptor& desc,
+                      Legion::ExecutionConstraintSet& execution_constraints,
+                      Legion::TaskLayoutConstraintSet& layout_constraints,
                       LegateVariantCode var,
                       Legion::Processor::Kind kind,
                       bool leaf,
@@ -358,7 +358,7 @@ class LegateTaskRegistrar {
                       size_t ret_size);
 
  public:
-  void register_all_tasks(Legion::Runtime *runtime, LibraryContext &context);
+  void register_all_tasks(Legion::Runtime* runtime, LibraryContext& context);
 
  private:
   struct PendingTaskVariant : public Legion::TaskVariantRegistrar {
@@ -369,9 +369,9 @@ class LegateTaskRegistrar {
     }
     PendingTaskVariant(Legion::TaskID tid,
                        bool global,
-                       const char *var_name,
-                       const char *t_name,
-                       const Legion::CodeDescriptor &desc,
+                       const char* var_name,
+                       const char* t_name,
+                       const Legion::CodeDescriptor& desc,
                        LegateVariantCode v,
                        size_t ret)
       : Legion::TaskVariantRegistrar(tid, global, var_name),
@@ -383,7 +383,7 @@ class LegateTaskRegistrar {
     }
 
    public:
-    const char *task_name;
+    const char* task_name;
     Legion::CodeDescriptor descriptor;
     LegateVariantCode var;
     size_t ret_size;
