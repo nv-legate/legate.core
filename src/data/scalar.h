@@ -23,12 +23,12 @@ namespace legate {
 
 class Scalar {
  public:
-  Scalar()               = default;
-  Scalar(const Scalar &) = default;
-  Scalar(bool tuple, LegateTypeCode code, const void *data);
+  Scalar()              = default;
+  Scalar(const Scalar&) = default;
+  Scalar(bool tuple, LegateTypeCode code, const void* data);
 
  public:
-  Scalar &operator=(const Scalar &) = default;
+  Scalar& operator=(const Scalar&) = default;
 
  public:
   bool is_tuple() const { return tuple_; }
@@ -43,7 +43,7 @@ class Scalar {
  private:
   bool tuple_{false};
   LegateTypeCode code_{MAX_TYPE_NUMBER};
-  const void *data_;
+  const void* data_;
 };
 
 }  // namespace legate

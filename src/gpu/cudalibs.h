@@ -31,15 +31,15 @@ struct CUDALibraries {
 
  private:
   // Prevent copying and overwriting
-  CUDALibraries(const CUDALibraries &rhs);
-  CUDALibraries &operator=(const CUDALibraries &rhs);
+  CUDALibraries(const CUDALibraries& rhs);
+  CUDALibraries& operator=(const CUDALibraries& rhs);
 
  public:
   void finalize(void);
-  cublasContext *get_cublas(void);
+  cublasContext* get_cublas(void);
 
  protected:
-  cublasContext *cublas;  // this is synonymous with cublasHandle_t
+  cublasContext* cublas;  // this is synonymous with cublasHandle_t
 };
 
 }  // namespace legate

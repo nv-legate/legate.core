@@ -26,15 +26,15 @@ namespace legate {
 class RegionField {
  public:
   RegionField() {}
-  RegionField(int32_t dim, const Legion::PhysicalRegion &pr, Legion::FieldID fid);
+  RegionField(int32_t dim, const Legion::PhysicalRegion& pr, Legion::FieldID fid);
 
  public:
-  RegionField(RegionField &&other) noexcept;
-  RegionField &operator=(RegionField &&other) noexcept;
+  RegionField(RegionField&& other) noexcept;
+  RegionField& operator=(RegionField&& other) noexcept;
 
  private:
-  RegionField(const RegionField &other) = delete;
-  RegionField &operator=(const RegionField &other) = delete;
+  RegionField(const RegionField& other) = delete;
+  RegionField& operator=(const RegionField& other) = delete;
 
  public:
   int32_t dim() const { return dim_; }
@@ -43,34 +43,34 @@ class RegionField {
   template <typename ACC, int32_t N>
   struct trans_accesor_fn {
     template <int32_t M>
-    ACC operator()(const Legion::PhysicalRegion &pr,
+    ACC operator()(const Legion::PhysicalRegion& pr,
                    Legion::FieldID fid,
-                   const Legion::AffineTransform<M, N> &transform)
+                   const Legion::AffineTransform<M, N>& transform)
     {
       return ACC(pr, fid, transform);
     }
     template <int32_t M>
-    ACC operator()(const Legion::PhysicalRegion &pr,
+    ACC operator()(const Legion::PhysicalRegion& pr,
                    Legion::FieldID fid,
-                   const Legion::AffineTransform<M, N> &transform,
-                   const Legion::Rect<N> &bounds)
+                   const Legion::AffineTransform<M, N>& transform,
+                   const Legion::Rect<N>& bounds)
     {
       return ACC(pr, fid, transform, bounds);
     }
     template <int32_t M>
-    ACC operator()(const Legion::PhysicalRegion &pr,
+    ACC operator()(const Legion::PhysicalRegion& pr,
                    Legion::FieldID fid,
                    int32_t redop_id,
-                   const Legion::AffineTransform<M, N> &transform)
+                   const Legion::AffineTransform<M, N>& transform)
     {
       return ACC(pr, fid, redop_id, transform);
     }
     template <int32_t M>
-    ACC operator()(const Legion::PhysicalRegion &pr,
+    ACC operator()(const Legion::PhysicalRegion& pr,
                    Legion::FieldID fid,
                    int32_t redop_id,
-                   const Legion::AffineTransform<M, N> &transform,
-                   const Legion::Rect<N> &bounds)
+                   const Legion::AffineTransform<M, N>& transform,
+                   const Legion::Rect<N>& bounds)
     {
       return ACC(pr, fid, redop_id, transform, bounds);
     }
@@ -78,7 +78,7 @@ class RegionField {
 
   struct get_domain_fn {
     template <int32_t DIM>
-    Legion::Domain operator()(const Legion::PhysicalRegion &pr)
+    Legion::Domain operator()(const Legion::PhysicalRegion& pr)
     {
       return Legion::Domain(pr.get_bounds<DIM, Legion::coord_t>());
     }
@@ -96,41 +96,41 @@ class RegionField {
 
  public:
   template <typename T, int32_t DIM>
-  AccessorRO<T, DIM> read_accessor(const Legion::DomainAffineTransform &transform) const;
+  AccessorRO<T, DIM> read_accessor(const Legion::DomainAffineTransform& transform) const;
   template <typename T, int32_t DIM>
-  AccessorWO<T, DIM> write_accessor(const Legion::DomainAffineTransform &transform) const;
+  AccessorWO<T, DIM> write_accessor(const Legion::DomainAffineTransform& transform) const;
   template <typename T, int32_t DIM>
-  AccessorRW<T, DIM> read_write_accessor(const Legion::DomainAffineTransform &transform) const;
+  AccessorRW<T, DIM> read_write_accessor(const Legion::DomainAffineTransform& transform) const;
   template <typename OP, bool EXCLUSIVE, int32_t DIM>
   AccessorRD<OP, EXCLUSIVE, DIM> reduce_accessor(
-    int32_t redop_id, const Legion::DomainAffineTransform &transform) const;
+    int32_t redop_id, const Legion::DomainAffineTransform& transform) const;
 
  public:
   template <typename T, int32_t DIM>
-  AccessorRO<T, DIM> read_accessor(const Legion::Rect<DIM> &bounds) const;
+  AccessorRO<T, DIM> read_accessor(const Legion::Rect<DIM>& bounds) const;
   template <typename T, int32_t DIM>
-  AccessorWO<T, DIM> write_accessor(const Legion::Rect<DIM> &bounds) const;
+  AccessorWO<T, DIM> write_accessor(const Legion::Rect<DIM>& bounds) const;
   template <typename T, int32_t DIM>
-  AccessorRW<T, DIM> read_write_accessor(const Legion::Rect<DIM> &bounds) const;
+  AccessorRW<T, DIM> read_write_accessor(const Legion::Rect<DIM>& bounds) const;
   template <typename OP, bool EXCLUSIVE, int32_t DIM>
   AccessorRD<OP, EXCLUSIVE, DIM> reduce_accessor(int32_t redop_id,
-                                                 const Legion::Rect<DIM> &bounds) const;
+                                                 const Legion::Rect<DIM>& bounds) const;
 
  public:
   template <typename T, int32_t DIM>
-  AccessorRO<T, DIM> read_accessor(const Legion::Rect<DIM> &bounds,
-                                   const Legion::DomainAffineTransform &transform) const;
+  AccessorRO<T, DIM> read_accessor(const Legion::Rect<DIM>& bounds,
+                                   const Legion::DomainAffineTransform& transform) const;
   template <typename T, int32_t DIM>
-  AccessorWO<T, DIM> write_accessor(const Legion::Rect<DIM> &bounds,
-                                    const Legion::DomainAffineTransform &transform) const;
+  AccessorWO<T, DIM> write_accessor(const Legion::Rect<DIM>& bounds,
+                                    const Legion::DomainAffineTransform& transform) const;
   template <typename T, int32_t DIM>
-  AccessorRW<T, DIM> read_write_accessor(const Legion::Rect<DIM> &bounds,
-                                         const Legion::DomainAffineTransform &transform) const;
+  AccessorRW<T, DIM> read_write_accessor(const Legion::Rect<DIM>& bounds,
+                                         const Legion::DomainAffineTransform& transform) const;
   template <typename OP, bool EXCLUSIVE, int32_t DIM>
   AccessorRD<OP, EXCLUSIVE, DIM> reduce_accessor(
     int32_t redop_id,
-    const Legion::Rect<DIM> &bounds,
-    const Legion::DomainAffineTransform &transform) const;
+    const Legion::Rect<DIM>& bounds,
+    const Legion::DomainAffineTransform& transform) const;
 
  public:
   template <int32_t DIM>
@@ -156,19 +156,19 @@ class RegionField {
 class OutputRegionField {
  public:
   OutputRegionField() {}
-  OutputRegionField(const Legion::OutputRegion &out, Legion::FieldID fid);
+  OutputRegionField(const Legion::OutputRegion& out, Legion::FieldID fid);
 
  public:
-  OutputRegionField(OutputRegionField &&other) noexcept;
-  OutputRegionField &operator=(OutputRegionField &&other) noexcept;
+  OutputRegionField(OutputRegionField&& other) noexcept;
+  OutputRegionField& operator=(OutputRegionField&& other) noexcept;
 
  private:
-  OutputRegionField(const OutputRegionField &other) = delete;
-  OutputRegionField &operator=(const OutputRegionField &other) = delete;
+  OutputRegionField(const OutputRegionField& other) = delete;
+  OutputRegionField& operator=(const OutputRegionField& other) = delete;
 
  public:
   template <typename VAL>
-  void return_data(Legion::DeferredBuffer<VAL, 1> &buffer, size_t num_elements);
+  void return_data(Legion::DeferredBuffer<VAL, 1>& buffer, size_t num_elements);
 
  private:
   bool bound_{false};
@@ -182,8 +182,8 @@ class FutureWrapper {
   FutureWrapper(Legion::Domain domain, Legion::Future future);
 
  public:
-  FutureWrapper(const FutureWrapper &other) noexcept;
-  FutureWrapper &operator=(const FutureWrapper &other) noexcept;
+  FutureWrapper(const FutureWrapper& other) noexcept;
+  FutureWrapper& operator=(const FutureWrapper& other) noexcept;
 
  public:
   int32_t dim() const { return domain_.dim; }
@@ -194,7 +194,7 @@ class FutureWrapper {
 
  public:
   template <typename T, int32_t DIM>
-  AccessorRO<T, DIM> read_accessor(const Legion::Rect<DIM> &bounds) const;
+  AccessorRO<T, DIM> read_accessor(const Legion::Rect<DIM>& bounds) const;
 
  public:
   template <typename VAL>
@@ -220,19 +220,19 @@ class Store {
   Store(int32_t dim,
         LegateTypeCode code,
         int32_t redop_id,
-        RegionField &&region_field,
+        RegionField&& region_field,
         std::unique_ptr<StoreTransform> transform = nullptr);
   Store(LegateTypeCode code,
-        OutputRegionField &&output,
+        OutputRegionField&& output,
         std::unique_ptr<StoreTransform> transform = nullptr);
 
  public:
-  Store(Store &&other) noexcept;
-  Store &operator=(Store &&other) noexcept;
+  Store(Store&& other) noexcept;
+  Store& operator=(Store&& other) noexcept;
 
  private:
-  Store(const Store &other) = delete;
-  Store &operator=(const Store &other) = delete;
+  Store(const Store& other) = delete;
+  Store& operator=(const Store& other) = delete;
 
  public:
   int32_t dim() const { return dim_; }
@@ -250,13 +250,13 @@ class Store {
 
  public:
   template <typename T, int32_t DIM>
-  AccessorRO<T, DIM> read_accessor(const Legion::Rect<DIM> &bounds) const;
+  AccessorRO<T, DIM> read_accessor(const Legion::Rect<DIM>& bounds) const;
   template <typename T, int32_t DIM>
-  AccessorWO<T, DIM> write_accessor(const Legion::Rect<DIM> &bounds) const;
+  AccessorWO<T, DIM> write_accessor(const Legion::Rect<DIM>& bounds) const;
   template <typename T, int32_t DIM>
-  AccessorRW<T, DIM> read_write_accessor(const Legion::Rect<DIM> &bounds) const;
+  AccessorRW<T, DIM> read_write_accessor(const Legion::Rect<DIM>& bounds) const;
   template <typename OP, bool EXCLUSIVE, int32_t DIM>
-  AccessorRD<OP, EXCLUSIVE, DIM> reduce_accessor(const Legion::Rect<DIM> &bounds) const;
+  AccessorRD<OP, EXCLUSIVE, DIM> reduce_accessor(const Legion::Rect<DIM>& bounds) const;
 
  public:
   template <int32_t DIM>
@@ -274,7 +274,7 @@ class Store {
 
  public:
   template <typename VAL>
-  void return_data(Legion::DeferredBuffer<VAL, 1> &buffer, size_t num_elements);
+  void return_data(Legion::DeferredBuffer<VAL, 1>& buffer, size_t num_elements);
 
  private:
   bool is_future_{false};

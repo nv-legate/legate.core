@@ -36,7 +36,7 @@ class OutputRegionField;
 
 class Deserializer {
  public:
-  Deserializer(const Legion::Task *task, const std::vector<Legion::PhysicalRegion> &regions);
+  Deserializer(const Legion::Task* task, const std::vector<Legion::PhysicalRegion>& regions);
 
  public:
   template <typename T>
@@ -48,28 +48,28 @@ class Deserializer {
   }
 
  private:
-  template <typename T, std::enable_if_t<legate_type_code_of<T> != MAX_TYPE_NUMBER> * = nullptr>
-  void _unpack(T &value)
+  template <typename T, std::enable_if_t<legate_type_code_of<T> != MAX_TYPE_NUMBER>* = nullptr>
+  void _unpack(T& value)
   {
-    value      = *reinterpret_cast<const T *>(task_args_.ptr());
+    value      = *reinterpret_cast<const T*>(task_args_.ptr());
     task_args_ = task_args_.subspan(sizeof(T));
   }
 
  private:
   template <typename T>
-  void _unpack(std::vector<T> &values)
+  void _unpack(std::vector<T>& values)
   {
     auto size = unpack<uint32_t>();
     for (uint32_t idx = 0; idx < size; ++idx) values.push_back(unpack<T>());
   }
 
  private:
-  void _unpack(LegateTypeCode &value);
-  void _unpack(Store &value);
-  void _unpack(Scalar &value);
-  void _unpack(FutureWrapper &value);
-  void _unpack(RegionField &value);
-  void _unpack(OutputRegionField &value);
+  void _unpack(LegateTypeCode& value);
+  void _unpack(Store& value);
+  void _unpack(Scalar& value);
+  void _unpack(FutureWrapper& value);
+  void _unpack(RegionField& value);
+  void _unpack(OutputRegionField& value);
 
  private:
   std::unique_ptr<StoreTransform> unpack_transform();

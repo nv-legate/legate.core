@@ -23,11 +23,11 @@ namespace legate {
 template <typename T>
 struct Span {
  public:
-  Span()             = default;
-  Span(const Span &) = default;
+  Span()            = default;
+  Span(const Span&) = default;
 
  public:
-  Span(T *data, size_t size) : data_(data), size_(size) {}
+  Span(T* data, size_t size) : data_(data), size_(size) {}
 
  public:
   size_t size() const { return size_; }
@@ -47,10 +47,10 @@ struct Span {
   }
 
  public:
-  const T *ptr() const { return data_; }
+  const T* ptr() const { return data_; }
 
  private:
-  T *data_{nullptr};
+  T* data_{nullptr};
   size_t size_{0};
 };
 
