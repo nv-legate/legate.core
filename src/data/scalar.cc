@@ -20,7 +20,7 @@
 
 namespace legate {
 
-Scalar::Scalar(bool tuple, LegateTypeCode code, const void *data)
+Scalar::Scalar(bool tuple, LegateTypeCode code, const void* data)
   : tuple_(tuple), code_(code), data_(data)
 {
 }
@@ -37,7 +37,7 @@ size_t Scalar::size() const
 {
   auto elem_size = type_dispatch(code_, elem_size_fn{});
   if (tuple_) {
-    auto num_elements = *static_cast<const int32_t *>(data_);
+    auto num_elements = *static_cast<const int32_t*>(data_);
     return sizeof(int32_t) + num_elements * elem_size;
   } else
     return elem_size;

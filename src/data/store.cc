@@ -21,7 +21,7 @@ namespace legate {
 
 using namespace Legion;
 
-RegionField::RegionField(int32_t dim, const PhysicalRegion &pr, FieldID fid)
+RegionField::RegionField(int32_t dim, const PhysicalRegion& pr, FieldID fid)
   : dim_(dim), pr_(pr), fid_(fid)
 {
   auto priv  = pr.get_privilege();
@@ -30,7 +30,7 @@ RegionField::RegionField(int32_t dim, const PhysicalRegion &pr, FieldID fid)
   reducible_ = static_cast<bool>(priv & LEGION_REDUCE) || (readable_ && writable_);
 }
 
-RegionField::RegionField(RegionField &&other) noexcept
+RegionField::RegionField(RegionField&& other) noexcept
   : dim_(other.dim_),
     pr_(other.pr_),
     fid_(other.fid_),
@@ -40,7 +40,7 @@ RegionField::RegionField(RegionField &&other) noexcept
 {
 }
 
-RegionField &RegionField::operator=(RegionField &&other) noexcept
+RegionField& RegionField::operator=(RegionField&& other) noexcept
 {
   dim_       = other.dim_;
   pr_        = other.pr_;
@@ -53,9 +53,9 @@ RegionField &RegionField::operator=(RegionField &&other) noexcept
 
 Domain RegionField::domain() const { return dim_dispatch(dim_, get_domain_fn{}, pr_); }
 
-OutputRegionField::OutputRegionField(const OutputRegion &out, FieldID fid) : out_(out), fid_(fid) {}
+OutputRegionField::OutputRegionField(const OutputRegion& out, FieldID fid) : out_(out), fid_(fid) {}
 
-OutputRegionField::OutputRegionField(OutputRegionField &&other) noexcept
+OutputRegionField::OutputRegionField(OutputRegionField&& other) noexcept
   : bound_(other.bound_), out_(other.out_), fid_(other.fid_)
 {
   other.bound_ = false;
@@ -63,7 +63,7 @@ OutputRegionField::OutputRegionField(OutputRegionField &&other) noexcept
   other.fid_   = -1;
 }
 
-OutputRegionField &OutputRegionField::operator=(OutputRegionField &&other) noexcept
+OutputRegionField& OutputRegionField::operator=(OutputRegionField&& other) noexcept
 {
   bound_ = other.bound_;
   out_   = other.out_;
@@ -78,12 +78,12 @@ OutputRegionField &OutputRegionField::operator=(OutputRegionField &&other) noexc
 
 FutureWrapper::FutureWrapper(Domain domain, Future future) : domain_(domain), future_(future) {}
 
-FutureWrapper::FutureWrapper(const FutureWrapper &other) noexcept
+FutureWrapper::FutureWrapper(const FutureWrapper& other) noexcept
   : domain_(other.domain_), future_(other.future_)
 {
 }
 
-FutureWrapper &FutureWrapper::operator=(const FutureWrapper &other) noexcept
+FutureWrapper& FutureWrapper::operator=(const FutureWrapper& other) noexcept
 {
   domain_ = other.domain_;
   future_ = other.future_;
@@ -110,7 +110,7 @@ Store::Store(int32_t dim,
 Store::Store(int32_t dim,
              LegateTypeCode code,
              int32_t redop_id,
-             RegionField &&region_field,
+             RegionField&& region_field,
              std::unique_ptr<StoreTransform> transform)
   : is_future_(false),
     is_output_store_(false),
@@ -126,7 +126,7 @@ Store::Store(int32_t dim,
 }
 
 Store::Store(LegateTypeCode code,
-             OutputRegionField &&output,
+             OutputRegionField&& output,
              std::unique_ptr<StoreTransform> transform)
   : is_future_(false),
     is_output_store_(true),
@@ -138,7 +138,7 @@ Store::Store(LegateTypeCode code,
 {
 }
 
-Store::Store(Store &&other) noexcept
+Store::Store(Store&& other) noexcept
   : is_future_(other.is_future_),
     is_output_store_(other.is_output_store_),
     dim_(other.dim_),
@@ -154,7 +154,7 @@ Store::Store(Store &&other) noexcept
 {
 }
 
-Store &Store::operator=(Store &&other) noexcept
+Store& Store::operator=(Store&& other) noexcept
 {
   is_future_       = other.is_future_;
   is_output_store_ = other.is_output_store_;
