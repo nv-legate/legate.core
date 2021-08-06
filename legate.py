@@ -314,6 +314,9 @@ def run_legate(
             "--ntasks-per-node",
             "1",
         ]
+        if gdb or cuda_gdb:
+            # Execute in pseudo-terminal mode when we need to be interactive
+            cmd += ["--pty"]
     elif launcher == "none":
         if nodes == 1:
             node_id = "0"
