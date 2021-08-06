@@ -223,7 +223,11 @@ class Partitioner(object):
         )
 
         stores = sorted(
-            stores, key=lambda store: not store.has_key_partition()
+            stores,
+            key=lambda store: (
+                -store.comm_volume(),
+                not store.has_key_partition(),
+            ),
         )
 
         prev_part = None

@@ -67,6 +67,9 @@ class Shift(Transform):
                 f"Unsupported partition: {type(partition).__name__}"
             )
 
+    def invert_dimensions(self, dims):
+        return dims
+
     def convert(self, partition):
         if isinstance(partition, Tiling):
             offset = partition.offset[self._dim] + self._offset
@@ -135,6 +138,9 @@ class Promote(Transform):
             raise ValueError(
                 f"Unsupported partition: {type(partition).__name__}"
             )
+
+    def invert_dimensions(self, dims):
+        return dims[: self._extra_dim] + dims[self._extra_dim + 1 :]
 
     def convert(self, partition):
         if isinstance(partition, Tiling):
@@ -205,6 +211,9 @@ class Project(Transform):
             raise ValueError(
                 f"Unsupported partition: {type(partition).__name__}"
             )
+
+    def invert_dimensions(self, dims):
+        return dims[: self._dim] + (-1,) + dims[self._dim :]
 
     def convert(self, partition):
         if isinstance(partition, Tiling):
@@ -278,6 +287,9 @@ class Transpose(Transform):
                 f"Unsupported partition: {type(partition).__name__}"
             )
 
+    def invert_dimensions(self, dims):
+        return tuple(dims[self._inverse[idx]] for idx in range(len(dims)))
+
     def convert(self, partition):
         if isinstance(partition, Tiling):
             return Tiling(
@@ -292,6 +304,9 @@ class Transpose(Transform):
             raise ValueError(
                 f"Unsupported partition: {type(partition).__name__}"
             )
+
+    def convert_dim_mask(self, mask):
+        return tuple(mask[self._axes[idx]] for idx in range(len(mask)))
 
     def get_inverse_transform(self, shape, parent_transform=None):
         result = AffineTransform(shape.ndim, shape.ndim, False)

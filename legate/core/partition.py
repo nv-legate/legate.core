@@ -135,13 +135,11 @@ class Tiling(object):
         # The difference of the offsets must be a multiple of the tile size
         return (offset % self._tile_shape).sum() == 0
 
-    def is_complete_for(self, shape):
-        if self._offset.sum() > 0:
-            return False
-        covered = self._tile_shape * self._color_shape
-        return covered >= shape
+    def is_complete_for(self, tile):
+        covered = self.tile_shape * self.color_shape
+        return covered >= tile.tile_shape and self._offset == tile.offset
 
-    def construct(self, region, shape, complete=None, inverse_transform=None):
+    def construct(self, region, complete=False):
         tile_shape = self._tile_shape
         transform = Transform(tile_shape.ndim, tile_shape.ndim)
         for idx, size in enumerate(tile_shape):
@@ -150,37 +148,30 @@ class Tiling(object):
         lo = Shape((0,) * tile_shape.ndim) + self._offset
         hi = self._tile_shape - 1 + self._offset
 
-        if inverse_transform is not None:
-            inverse = Transform(*inverse_transform.trans.shape)
-            inverse.trans = inverse_transform.trans
-            transform = transform.compose(inverse)
-            lo = inverse_transform.apply(lo)
-            hi = inverse_transform.apply(hi)
-
         extent = Rect(hi, lo, exclusive=False)
 
         color_space = self._runtime.find_or_create_index_space(
             self.color_shape
         )
         functor = PartitionByRestriction(transform, extent)
-        if complete is None:
-            complete = self.is_complete_for(shape)
+        if complete:
+            kind = legion.LEGION_DISJOINT_COMPLETE_KIND
+        else:
+            kind = legion.LEGION_DISJOINT_INCOMPLETE_KIND
         index_partition = IndexPartition(
             self._runtime.legion_context,
             self._runtime.legion_runtime,
             region.index_space,
             color_space,
             functor,
-            kind=legion.LEGION_COMPUTE_KIND,
+            kind=kind,
             keep=True,  # export this partition functor to other libraries
         )
         return region.get_child(index_partition)
 
     def get_requirement(self, launch_space, store):
-        part = store.find_or_create_partition(self)
+        part, proj_id = store.find_or_create_partition(self)
         if self.color_shape.ndim != launch_space.ndim:
             assert launch_space.ndim == 1
             proj_id = self._runtime.get_deliearize_functor()
-        else:
-            proj_id = 0
         return Partition(part, proj_id)
