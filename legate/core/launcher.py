@@ -175,10 +175,9 @@ class Broadcast(object):
 
     def add(self, task, req, fields, methods):
         f = methods[req.permission]
-        if self.redop is None:
+        if req.permission != Permission.REDUCTION:
             f(task, req.region, fields, 0, parent=req.region, tag=req.tag)
         else:
-            assert req.permission == Permission.REDUCTION
             f(
                 task,
                 req.region,
@@ -191,10 +190,9 @@ class Broadcast(object):
 
     def add_single(self, task, req, fields, methods):
         f = methods[req.permission]
-        if self.redop is None:
+        if req.permission != Permission.REDUCTION:
             f(task, req.region, fields, tag=req.tag, flags=req.flags)
         else:
-            assert req.permission == Permission.REDUCTION
             f(
                 task,
                 req.region,
@@ -219,10 +217,9 @@ class Partition(object):
 
     def add(self, task, req, fields, methods):
         f = methods[req.permission]
-        if self.redop is None:
+        if req.permission != Permission.REDUCTION:
             f(task, self.part, fields, self.proj, tag=req.tag, flags=req.flags)
         else:
-            assert req.permission == Permission.REDUCTION
             f(
                 task,
                 self.part,
@@ -235,10 +232,9 @@ class Partition(object):
 
     def add_single(self, task, req, fields, methods):
         f = methods[req.permission]
-        if self.redop is None:
+        if req.permission != Permission.REDUCTION:
             f(task, req.region, fields, tag=req.tag)
         else:
-            assert req.permission == Permission.REDUCTION
             f(task, req.region, fields, self.redop, tag=req.tag)
 
     def __hash__(self):
@@ -594,10 +590,20 @@ class TaskLauncher(object):
             self._outputs, store, proj, Permission.WRITE, tag, flags
         )
 
-    def add_reduction(self, store, proj, tag=0, flags=0):
-        self.add_store(
-            self._reductions, store, proj, Permission.REDUCTION, tag, flags
-        )
+    def add_reduction(self, store, proj, tag=0, flags=0, read_write=False):
+        if read_write:
+            self.add_store(
+                self._reductions,
+                store,
+                proj,
+                Permission.READ_WRITE,
+                tag,
+                flags,
+            )
+        else:
+            self.add_store(
+                self._reductions, store, proj, Permission.REDUCTION, tag, flags
+            )
 
     def add_unbound_output(self, store, fspace, field_id):
         req = OutputReq(self._runtime, fspace)

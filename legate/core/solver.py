@@ -100,7 +100,11 @@ class Strategy(object):
         self._strategy = strategy
         self._fspaces = fspaces
 
-    def __getitem__(self, store):
+    @property
+    def parallel(self):
+        return self._launch_shape is not None
+
+    def get_projection(self, store):
         partition = self.get_partition(store)
         return partition.get_requirement(self._launch_shape, store)
 

@@ -484,16 +484,16 @@ class Store(object):
             assert isinstance(storage, RegionField)
             self._shape = storage.shape
 
-    def _invert_partition(self, partition):
+    def invert_partition(self, partition):
         if self._parent is not None:
             partition = self._transform.invert(partition)
-            return self._parent._invert_partition(partition)
+            return self._parent.invert_partition(partition)
         else:
             return partition
 
     def _get_tile_shape(self):
         tile = Tiling(self._runtime, self.shape, Shape((1,) * self.ndim))
-        return self._invert_partition(tile)
+        return self.invert_partition(tile)
 
     def _get_tile(self, tiling):
         if self._parent is not None:
@@ -721,7 +721,7 @@ class Store(object):
             return self._partitions[functor]
 
         # Convert the partition to use the root's coordinate space
-        converted = self._invert_partition(functor)
+        converted = self.invert_partition(functor)
         complete = converted.is_complete_for(self._get_tile_shape())
 
         # Then, find the right projection functor that maps points in the color

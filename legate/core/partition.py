@@ -30,6 +30,9 @@ class NoPartition(object):
     def color_shape(self):
         return None
 
+    def is_disjoint_for(self, strategy, store):
+        return not strategy.parallel
+
     def get_requirement(self, launch_space, store):
         return Broadcast()
 
@@ -138,6 +141,10 @@ class Tiling(object):
     def is_complete_for(self, tile):
         covered = self.tile_shape * self.color_shape
         return covered >= tile.tile_shape and self._offset == tile.offset
+
+    def is_disjoint_for(self, strategy, store):
+        inverted = store.invert_partition(self)
+        return inverted.color_shape.volume() == self.color_shape.volume()
 
     def construct(self, region, complete=False):
         tile_shape = self._tile_shape
