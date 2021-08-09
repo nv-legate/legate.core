@@ -507,8 +507,31 @@ class PartitionManager(object):
             )
         self._piece_factors = list(reversed(factors))
 
-    def compute_launch_shape(self, store):
+    def compute_launch_shape(self, store, restrictions):
         shape = store.shape
+        assert len(restrictions) == shape.ndim
+
+        to_partition = ()
+        for dim, restriction in enumerate(restrictions):
+            if restriction >= 0:
+                to_partition += (shape[dim],)
+
+        launch_shape = self._compute_launch_shape(to_partition)
+        if launch_shape is None:
+            return None
+
+        idx = 0
+        result = ()
+        for restriction in restrictions:
+            if restriction >= 0:
+                result += (launch_shape[idx],)
+                idx += 1
+            else:
+                result += (1,)
+
+        return Shape(result)
+
+    def _compute_launch_shape(self, shape):
         assert self._num_pieces > 0
         # Easy case if we only have one piece: no parallel launch space
         if self._num_pieces == 1:

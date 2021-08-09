@@ -197,6 +197,17 @@ class Partitioner(object):
 
         return stores - to_remove, len(to_remove) > 0
 
+    @staticmethod
+    def _find_restrictions(cls):
+        merged = None
+        for store in cls:
+            dims = store.find_restricted_dimensions()
+            if merged is None:
+                merged = dims
+            else:
+                merged = tuple(min(a, b) for a, b in zip(merged, dims))
+        return merged
+
     def partition_stores(self):
         stores = set()
         constraints = EqClass()
@@ -239,12 +250,14 @@ class Partitioner(object):
             if store in partitions:
                 continue
 
+            cls = constraints.find(store)
+            restrictions = self._find_restrictions(cls)
+
             if isinstance(prev_part, NoPartition):
                 partition = prev_part
             else:
-                partition = store.compute_key_partition()
+                partition = store.compute_key_partition(restrictions)
 
-            cls = constraints.find(store)
             for to_align in cls:
                 if to_align in partitions:
                     continue

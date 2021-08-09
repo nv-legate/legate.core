@@ -679,7 +679,7 @@ class Store(object):
     def reset_key_partition(self):
         self._key_partition = None
 
-    def compute_key_partition(self):
+    def compute_key_partition(self, restrictions):
         if self._scalar:
             return NoPartition()
         # If this is effectively a scalar store, we don't need to partition it
@@ -689,10 +689,14 @@ class Store(object):
         if self._key_partition is not None:
             return self._key_partition
         elif self._parent is not None and self._transform.invertible:
-            partition = self._parent.compute_key_partition()
+            restrictions = self._transform.invert_dimensions(restrictions)
+            partition = self._parent.compute_key_partition(restrictions)
             return self._transform.convert(partition)
 
-        launch_shape = self._partition_manager.compute_launch_shape(self)
+        launch_shape = self._partition_manager.compute_launch_shape(
+            self,
+            restrictions,
+        )
         if launch_shape is None:
             return NoPartition()
         else:
@@ -714,6 +718,13 @@ class Store(object):
             return 0
         else:
             return self._runtime.get_projection(self.ndim, dims)
+
+    def find_restricted_dimensions(self):
+        if self._parent is None:
+            return tuple((1,) * self.ndim)
+        else:
+            dims = self._parent.find_restricted_dimensions()
+            return self._transform.convert_restrictions(dims)
 
     def find_or_create_partition(self, functor):
         assert not self.scalar
