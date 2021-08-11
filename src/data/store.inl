@@ -168,7 +168,7 @@ VAL FutureWrapper::scalar() const
 }
 
 template <typename VAL>
-void OutputRegionField::return_data(Legion::DeferredBuffer<VAL, 1>& buffer, size_t num_elements)
+void OutputRegionField::return_data(Buffer<VAL>& buffer, size_t num_elements)
 {
   assert(!bound_);
   out_.return_data(fid_, buffer, &num_elements);
@@ -287,7 +287,7 @@ VAL Store::scalar() const
 }
 
 template <typename VAL>
-void Store::return_data(Legion::DeferredBuffer<VAL, 1>& buffer, size_t num_elements)
+void Store::return_data(Buffer<VAL>& buffer, size_t num_elements)
 {
   assert(is_output_store_);
   output_field_.return_data(buffer, num_elements);

@@ -18,6 +18,7 @@
 
 #include "legion.h"
 
+#include "data/buffer.h"
 #include "data/transform.h"
 #include "utilities/typedefs.h"
 
@@ -168,7 +169,7 @@ class OutputRegionField {
 
  public:
   template <typename VAL>
-  void return_data(Legion::DeferredBuffer<VAL, 1>& buffer, size_t num_elements);
+  void return_data(Buffer<VAL>& buffer, size_t num_elements);
 
  private:
   bool bound_{false};
@@ -274,7 +275,7 @@ class Store {
 
  public:
   template <typename VAL>
-  void return_data(Legion::DeferredBuffer<VAL, 1>& buffer, size_t num_elements);
+  void return_data(Buffer<VAL>& buffer, size_t num_elements);
 
  private:
   bool is_future_{false};
