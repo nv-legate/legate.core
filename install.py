@@ -56,6 +56,47 @@ except TypeError:
 
 os_name = platform.system()
 
+
+class BooleanFlag(argparse.Action):
+    def __init__(
+        self,
+        option_strings,
+        dest,
+        default,
+        required=False,
+        help="",
+        metavar=None,
+    ):
+        assert all(not opt.startswith("--no") for opt in option_strings)
+
+        def flatten(list):
+            return [item for sublist in list for item in sublist]
+
+        option_strings = flatten(
+            [
+                [opt, "--no-" + opt[2:], "--no" + opt[2:]]
+                if opt.startswith("--")
+                else [opt]
+                for opt in option_strings
+            ]
+        )
+        super().__init__(
+            option_strings,
+            dest,
+            nargs=0,
+            const=None,
+            default=default,
+            type=bool,
+            choices=None,
+            required=required,
+            help=help,
+            metavar=metavar,
+        )
+
+    def __call__(self, parser, namespace, values, option_string):
+        setattr(namespace, self.dest, not option_string.startswith("--no"))
+
+
 required_thrust_version = "cuda-11.2"
 
 # Global variable for verbose installation
@@ -795,11 +836,9 @@ def driver():
     )
     parser.add_argument(
         "--cuda",
-        dest="cuda",
-        action="store_true",
-        required=False,
-        default=os.environ.get("USE_CUDA") == "1",
-        help="Build Legate with CUDA.",
+        action=BooleanFlag,
+        default=os.environ.get("USE_CUDA", "0") == "1",
+        help="Build Legate with CUDA support.",
     )
     parser.add_argument(
         "--with-cuda",
@@ -819,10 +858,8 @@ def driver():
     )
     parser.add_argument(
         "--openmp",
-        dest="openmp",
-        action="store_true",
-        required=False,
-        default=os.environ.get("USE_OPENMP") == "1",
+        action=BooleanFlag,
+        default=os.environ.get("USE_OPENMP", "0") == "1",
         help="Build Legate with OpenMP support.",
     )
     parser.add_argument(
@@ -880,18 +917,9 @@ def driver():
     )
     parser.add_argument(
         "--cmake",
-        dest="cmake",
-        action="store_true",
-        required=False,
-        default=None,
-        help="Build Legate with CMake.",
-    )
-    parser.add_argument(
-        "--no-cmake",
-        dest="cmake",
-        action="store_false",
-        required=False,
-        help="Don't build Legate with CMake (instead use GNU Make).",
+        action=BooleanFlag,
+        default=os.environ.get("USE_CMAKE", "0") == "1",
+        help="Build Legate with CMake instead of GNU Make.",
     )
     parser.add_argument(
         "--with-cmake",
@@ -902,13 +930,11 @@ def driver():
         help="Path to CMake executable (if not on PATH).",
     )
     parser.add_argument(
-        "--no-clean",
-        "--noclean",
+        "--clean",
         dest="clean_first",
-        action="store_false",
-        required=False,
+        action=BooleanFlag,
         default=True,
-        help="Skip clean before build, and don't pull latest Legion.",
+        help="Clean before build, and pull latest Legion.",
     )
     parser.add_argument(
         "--extra",
