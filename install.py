@@ -837,7 +837,7 @@ def driver():
     parser.add_argument(
         "--cuda",
         action=BooleanFlag,
-        default=os.environ.get("USE_CUDA", "0") == "1",
+        default=os.environ.get("USE_CUDA", "1") == "1",
         help="Build Legate with CUDA support.",
     )
     parser.add_argument(
@@ -859,7 +859,7 @@ def driver():
     parser.add_argument(
         "--openmp",
         action=BooleanFlag,
-        default=os.environ.get("USE_OPENMP", "0") == "1",
+        default=os.environ.get("USE_OPENMP", "1") == "1",
         help="Build Legate with OpenMP support.",
     )
     parser.add_argument(
