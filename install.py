@@ -540,34 +540,34 @@ def get_cmake_config(cmake, legate_dir, default=None):
 
 
 def install(
-    gasnet=False,
-    cuda=False,
-    arch=None,
-    openmp=False,
-    hdf=False,
-    llvm=False,
-    spy=False,
-    conduit=None,
-    no_hijack=True,
-    cmake=None,
-    cmake_exe=None,
-    install_dir=None,
-    gasnet_dir=None,
-    legion_dir=None,
-    pylib_name=None,
-    cuda_dir=None,
-    maxdim=3,
-    maxfields=256,
-    debug=False,
-    debug_release=False,
-    check_bounds=False,
-    clean_first=None,
-    extra_flags=[],
-    thread_count=None,
-    verbose=False,
-    thrust_dir=None,
-    legion_branch=None,
-    unknown=None,
+    gasnet,
+    cuda,
+    arch,
+    openmp,
+    hdf,
+    llvm,
+    spy,
+    conduit,
+    no_hijack,
+    cmake,
+    cmake_exe,
+    install_dir,
+    gasnet_dir,
+    legion_dir,
+    pylib_name,
+    cuda_dir,
+    maxdim,
+    maxfields,
+    debug,
+    debug_release,
+    check_bounds,
+    clean_first,
+    extra_flags,
+    thread_count,
+    verbose,
+    thrust_dir,
+    legion_branch,
+    unknown,
 ):
     global verbose_global
     verbose_global = verbose
@@ -575,9 +575,6 @@ def install(
     legate_dir = os.path.dirname(os.path.realpath(__file__))
 
     cmake = get_cmake_config(cmake, legate_dir, default=False)
-
-    if clean_first is None:
-        clean_first = not cmake
 
     if pylib_name is None:
         pyversion, pylib_name = find_active_python_version_and_path()
@@ -598,7 +595,6 @@ def install(
     dump_json_config(install_dir_config, install_dir)
     os.makedirs(os.path.join(install_dir, "share", "legate"), exist_ok=True)
 
-    thread_count = thread_count
     if thread_count is None:
         thread_count = multiprocessing.cpu_count()
 
@@ -949,7 +945,7 @@ def driver():
         dest="thread_count",
         nargs="?",
         type=int,
-        help="Number threads used to compile.",
+        help="Number of threads used to compile.",
     )
     parser.add_argument(
         "-v",
