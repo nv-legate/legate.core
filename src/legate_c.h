@@ -99,6 +99,8 @@ void legate_shutdown(void);
 
 void legate_core_perform_registration(void);
 
+void legate_register_projection_functor(int32_t, int32_t, int32_t*, legion_projection_id_t);
+
 #ifdef __cplusplus
 }
 #endif

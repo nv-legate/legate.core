@@ -16,7 +16,7 @@
 import numpy as np
 
 from .legion import AffineTransform
-from .partition import Tiling
+from .partition import NoPartition, Restriction, Tiling
 from .shape import Shape
 
 
@@ -66,6 +66,31 @@ class Shift(Transform):
             raise ValueError(
                 f"Unsupported partition: {type(partition).__name__}"
             )
+
+    def invert_dimensions(self, dims):
+        return dims
+
+    def invert_restrictions(self, restrictions):
+        return restrictions
+
+    def convert(self, partition):
+        if isinstance(partition, Tiling):
+            offset = partition.offset[self._dim] + self._offset
+            return Tiling(
+                self._runtime,
+                partition.tile_shape,
+                partition.color_shape,
+                partition.offset.update(self._dim, offset),
+            )
+        elif isinstance(partition, NoPartition):
+            return partition
+        else:
+            raise ValueError(
+                f"Unsupported partition: {type(partition).__name__}"
+            )
+
+    def convert_restrictions(self, restrictions):
+        return restrictions
 
     def get_inverse_transform(self, shape, parent_transform=None):
         result = AffineTransform(shape.ndim, shape.ndim, True)
@@ -119,6 +144,35 @@ class Promote(Transform):
             raise ValueError(
                 f"Unsupported partition: {type(partition).__name__}"
             )
+
+    def invert_dimensions(self, dims):
+        return dims[: self._extra_dim] + dims[self._extra_dim + 1 :]
+
+    def invert_restrictions(self, restrictions):
+        left = restrictions[: self._extra_dim]
+        right = restrictions[self._extra_dim + 1 :]
+        return left + right
+
+    def convert(self, partition):
+        if isinstance(partition, Tiling):
+            return Tiling(
+                self._runtime,
+                partition.tile_shape.insert(self._extra_dim, self._dim_size),
+                partition.color_shape.insert(self._extra_dim, 1),
+                partition.offset.insert(self._extra_dim, 0),
+            )
+        elif isinstance(partition, NoPartition):
+            return partition
+        else:
+            raise ValueError(
+                f"Unsupported partition: {type(partition).__name__}"
+            )
+
+    def convert_restrictions(self, restrictions):
+        left = restrictions[: self._extra_dim]
+        right = restrictions[self._extra_dim :]
+        new = (Restriction.AVOIDED,)
+        return left + new + right
 
     def get_inverse_transform(self, shape, parent_transform=None):
         parent_ndim = shape.ndim - 1
@@ -174,6 +228,33 @@ class Project(Transform):
             raise ValueError(
                 f"Unsupported partition: {type(partition).__name__}"
             )
+
+    def invert_dimensions(self, dims):
+        return dims[: self._dim] + (-1,) + dims[self._dim :]
+
+    def invert_restrictions(self, restrictions):
+        left = restrictions[: self._dim]
+        right = restrictions[self._dim :]
+        new = (Restriction.UNRESTRICTED,)
+        return left + new + right
+
+    def convert(self, partition):
+        if isinstance(partition, Tiling):
+            return Tiling(
+                self._runtime,
+                partition.tile_shape.drop(self._dim),
+                partition.color_shape.drop(self._dim),
+                partition.offset.drop(self._dim),
+            )
+        elif isinstance(partition, NoPartition):
+            return partition
+        else:
+            raise ValueError(
+                f"Unsupported partition: {type(partition).__name__}"
+            )
+
+    def convert_restrictions(self, restrictions):
+        return restrictions[: self._dim] + restrictions[self._dim + 1 :]
 
     def get_inverse_transform(self, shape, parent_transform=None):
         parent_ndim = shape.ndim + 1
@@ -232,6 +313,30 @@ class Transpose(Transform):
                 f"Unsupported partition: {type(partition).__name__}"
             )
 
+    def invert_dimensions(self, dims):
+        return tuple(dims[idx] for idx in self._inverse)
+
+    def invert_restrictions(self, restrictions):
+        return tuple(restrictions[idx] for idx in self._inverse)
+
+    def convert(self, partition):
+        if isinstance(partition, Tiling):
+            return Tiling(
+                self._runtime,
+                partition.tile_shape.map(self._axes),
+                partition.color_shape.map(self._axes),
+                partition.offset.map(self._axes),
+            )
+        elif isinstance(partition, NoPartition):
+            return partition
+        else:
+            raise ValueError(
+                f"Unsupported partition: {type(partition).__name__}"
+            )
+
+    def convert_restrictions(self, restrictions):
+        return tuple(restrictions[idx] for idx in self._axes)
+
     def get_inverse_transform(self, shape, parent_transform=None):
         result = AffineTransform(shape.ndim, shape.ndim, False)
         for dim in range(shape.ndim):
@@ -276,37 +381,65 @@ class Delinearize(Transform):
         if isinstance(partition, Tiling):
             if (
                 partition.color_shape[
-                    self._dim : self._dim + self._shape.ndim
+                    self._dim + 1 : self._dim + self._shape.ndim
                 ].volume()
                 == 1
                 and partition.offset[
-                    self._dim : self._dim + self._shape.ndim
+                    self._dim + 1 : self._dim + self._shape.ndim
                 ].sum()
                 == 0
-                and partition.tile_shape[
-                    self._dim : self._dim + self._shape.ndim
-                ]
-                == self._shape
             ):
-                tile_shape = partition.tile_shape
-                color_shape = partition.color_shape
-                offset = partition.offset
-                for n in range(self._shape.ndim):
-                    tile_shape = tile_shape.drop(self._dim)
-                    color_shape = color_shape.drop(self._dim)
-                    offset = offset.drop(self._dim)
+                new_tile_shape = partition.tile_shape
+                new_color_shape = partition.color_shape
+                new_offset = partition.offset
+                for _ in range(self._shape.ndim):
+                    new_tile_shape = new_tile_shape.drop(self._dim)
+                    new_color_shape = new_color_shape.drop(self._dim)
+                    new_offset = new_offset.drop(self._dim)
 
-                tile_shape = tile_shape.insert(self._dim, self._shape.volume())
-                color_shape = color_shape.insert(self._dim, 1)
-                offset = offset.insert(self._dim, 0)
+                dim_volume = self._shape.volume()
+                dim_tile_size = (
+                    partition.tile_shape[self._dim] * self._strides[0]
+                )
+                dim_offset = partition.offset[self._dim] * self._strides[0]
+                dim_colors = (dim_volume + dim_tile_size - 1) // dim_tile_size
 
-                return Tiling(self._runtime, tile_shape, color_shape, offset)
+                new_tile_shape = new_tile_shape.insert(
+                    self._dim, dim_tile_size
+                )
+                new_color_shape = new_color_shape.insert(self._dim, dim_colors)
+                new_offset = new_offset.insert(self._dim, dim_offset)
+
+                return Tiling(
+                    self._runtime,
+                    new_tile_shape,
+                    new_color_shape,
+                    new_offset,
+                )
             else:
                 raise ValueError(f"Unsupported partition: {partition}")
         else:
             raise ValueError(
                 f"Unsupported partition: {type(partition).__name__}"
             )
+
+    def invert_dimensions(self, dims):
+        left = dims[: self._dim + 1]
+        right = dims[self._dim + self._shape.ndim :]
+        return left + right
+
+    def invert_restrictions(self, restrictions):
+        left = restrictions[: self._dim + 1]
+        right = restrictions[self._dim + self._shape.ndim :]
+        return left + right
+
+    def convert_restrictions(self, restrictions):
+        left = restrictions[: self._dim]
+        right = restrictions[self._dim + 1 :]
+        new = (Restriction.UNRESTRICTED,) + (Restriction.RESTRICTED,) * (
+            self._shape.ndim - 1
+        )
+        return left + new + right
 
     def get_inverse_transform(self, shape, parent_transform=None):
         assert shape.ndim >= self._strides.ndim

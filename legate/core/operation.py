@@ -142,14 +142,22 @@ class Task(Operation):
         launcher = TaskLauncher(self.context, self._task_id, self.mapper_id)
 
         for input in self._inputs:
-            launcher.add_input(input, strategy[input])
+            proj = strategy.get_projection(input)
+            launcher.add_input(input, proj)
         for output in self._outputs:
-            if not output.unbound:
-                launcher.add_output(output, strategy[output])
+            if output.unbound:
+                continue
+            proj = strategy.get_projection(output)
+            launcher.add_output(output, proj)
+            partition = strategy.get_partition(output)
+            # We update the key partition of a store only when it gets updated
+            output.set_key_partition(partition)
         for (reduction, redop) in self._reductions:
-            partition = strategy[reduction]
-            partition.redop = redop
-            launcher.add_reduction(reduction, partition)
+            partition = strategy.get_partition(reduction)
+            can_read_write = partition.is_disjoint_for(strategy, reduction)
+            proj = strategy.get_projection(reduction)
+            proj.redop = redop
+            launcher.add_reduction(reduction, proj, read_write=can_read_write)
         for output in self._outputs:
             if not output.unbound:
                 continue
@@ -206,18 +214,22 @@ class Copy(Operation):
         ) == len(self._outputs)
 
         for input in self._inputs:
-            launcher.add_input(input, strategy[input])
+            proj = strategy.get_projection(input)
+            launcher.add_input(input, proj)
         for output in self._outputs:
             assert not output.unbound
-            launcher.add_output(output, strategy[output])
+            proj = strategy.get_projection(output)
+            launcher.add_output(output, proj)
         for indirect in self._source_indirects:
-            launcher.add_source_indirect(indirect, strategy[indirect])
+            proj = strategy.get_projection(indirect)
+            launcher.add_source_indirect(indirect, proj)
         for indirect in self._target_indirects:
-            launcher.add_target_indirect(indirect, strategy[indirect])
+            proj = strategy.get_projection(indirect)
+            launcher.add_target_indirect(indirect, proj)
 
         for (reduction, redop) in self._reductions:
-            partition = strategy[reduction]
-            partition.redop = redop
-            launcher.add_reduction(reduction, partition)
+            proj = strategy.get_projection(reduction)
+            proj.redop = redop
+            launcher.add_reduction(reduction, proj)
 
         strategy.launch(launcher)

@@ -32,12 +32,12 @@ def _cast_tuple(value, ndim):
 class Shape(object):
     def __init__(self, extents=None, ispace=None):
         if extents is not None:
-            if not isinstance(extents, Iterable):
+            if not (
+                isinstance(extents, Iterable) or isinstance(extents, Shape)
+            ):
                 self._extents = (extents,)
             else:
                 self._extents = tuple(extents)
-            if any(extent < 0 for extent in self._extents):
-                raise ValueError(f"Invalid shape: {extents}")
             self._ispace = None
         else:
             assert ispace is not None

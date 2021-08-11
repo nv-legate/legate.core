@@ -17,7 +17,7 @@ import weakref
 from functools import partial
 
 from .legion import Attach, Detach, Future, InlineMapping, Point, ffi, legion
-from .partition import NoPartition, Tiling
+from .partition import NoPartition, Restriction, Tiling
 from .shape import Shape
 from .transform import Delinearize, Project, Promote, Shift, Transpose
 
@@ -280,7 +280,7 @@ class RegionField(object):
         if tiling in self._partitions:
             partition = self._partitions[tiling]
         else:
-            partition = tiling.construct(self.region, shape, complete=complete)
+            partition = tiling.construct(self.region, complete=complete)
             self._partitions[tiling] = partition
 
         child_region = partition.get_child(Point(color))
@@ -363,6 +363,11 @@ class Store(object):
         self._transform = transform
         self._inverse_transform = None
         self._partitions = {}
+        self._key_partition = None
+
+        if not self.unbound:
+            if any(extent < 0 for extent in self._shape.extents):
+                raise ValueError(f"Invalid shape: {self._shape}")
 
     @property
     def shape(self):
@@ -468,6 +473,10 @@ class Store(object):
         else:
             return self._parent.get_root()
 
+    def comm_volume(self):
+        my_tile = self._get_tile_shape()
+        return my_tile.tile_shape.volume()
+
     def set_storage(self, storage):
         assert isinstance(storage, RegionField) or isinstance(storage, Future)
         self._storage = storage
@@ -475,11 +484,16 @@ class Store(object):
             assert isinstance(storage, RegionField)
             self._shape = storage.shape
 
-    def _invert_tile(self, tiling):
+    def invert_partition(self, partition):
         if self._parent is not None:
-            return self._parent._invert_tile(self._transform.invert(tiling))
+            partition = self._transform.invert(partition)
+            return self._parent.invert_partition(partition)
         else:
-            return tiling
+            return partition
+
+    def _get_tile_shape(self):
+        tile = Tiling(self._runtime, self.shape, Shape((1,) * self.ndim))
+        return self.invert_partition(tile)
 
     def _get_tile(self, tiling):
         if self._parent is not None:
@@ -494,17 +508,14 @@ class Store(object):
                 return self.storage.get_tile(self.shape, tiling)
 
     def __str__(self):
-        if self._parent is None:
-            return (
-                f"<Store(shape: {self._shape}, type: {self._dtype}, "
-                f"kind: {self.kind.__name__}, storage: {self._storage})>"
-            )
-        else:
-            return (
-                f"<Store(shape: {self._shape}, type: {self._dtype}, "
-                f"kind: {self.kind.__name__})> <<=={self._transform}== "
-                f"{self._parent}"
-            )
+        storage = "None" if self._storage is None else "Materialized"
+        result = (
+            f"<Store(shape: {self._shape}, type: {self._dtype}, "
+            f"kind: {self.kind.__name__}, storage: {storage})>"
+        )
+        if self._parent is not None:
+            result += f" <<=={self._transform}== {self._parent}"
+        return result
 
     def __repr__(self):
         return str(self)
@@ -585,6 +596,9 @@ class Store(object):
         elif len(axes) != len(set(axes)):
             raise ValueError(f"duplicate axes found: {axes}")
 
+        if all(idx == val for idx, val in enumerate(axes)):
+            return self
+
         transform = Transpose(self._runtime, axes)
         shape = transform.compute_shape(self._shape)
         return Store(
@@ -598,7 +612,15 @@ class Store(object):
         )
 
     def delinearize(self, dim, shape):
-        transform = Delinearize(self._runtime, dim, shape)
+        if len(shape) == 1:
+            return self
+        s = Shape(shape)
+        transform = Delinearize(self._runtime, dim, s)
+        if self._shape[dim] != s.volume():
+            raise ValueError(
+                f"Dimension of size {self._shape[dim]} "
+                f"cannot be delinearized into {shape}"
+            )
         shape = transform.compute_shape(self._shape)
         return Store(
             self._runtime,
@@ -636,12 +658,8 @@ class Store(object):
         if my_root is not other_root:
             return False
 
-        my_tile = self._invert_tile(
-            Tiling(self._runtime, self.shape, Shape((1,) * self.ndim))
-        )
-        other_tile = other._invert_tile(
-            Tiling(self._runtime, other.shape, Shape((1,) * other.ndim))
-        )
+        my_tile = self._get_tile_shape()
+        other_tile = other._get_tile_shape()
 
         return my_tile.overlaps(other_tile)
 
@@ -658,10 +676,45 @@ class Store(object):
         buf.pack_32bit_int(self._dtype.code)
         self._serialize_transform(buf)
 
-    def find_key_partition(self):
+    def has_key_partition(self, restrictions):
+        if (
+            self._key_partition is not None
+            and self._key_partition.satisfies_restriction(restrictions)
+        ):
+            return True
+        elif self._parent is not None and self._transform.invertible:
+            restrictions = self._transform.invert_restrictions(restrictions)
+            return self._parent.has_key_partition(restrictions)
+        else:
+            return False
+
+    def set_key_partition(self, key_partition):
+        self._key_partition = key_partition
+
+    def reset_key_partition(self):
+        self._key_partition = None
+
+    def compute_key_partition(self, restrictions):
         if self._scalar:
             return NoPartition()
-        launch_shape = self._partition_manager.compute_launch_shape(self)
+        # If this is effectively a scalar store, we don't need to partition it
+        elif self.ndim == 0:
+            return NoPartition()
+
+        if (
+            self._key_partition is not None
+            and self._key_partition.satisfies_restriction(restrictions)
+        ):
+            return self._key_partition
+        elif self._parent is not None and self._transform.invertible:
+            restrictions = self._transform.invert_restrictions(restrictions)
+            partition = self._parent.compute_key_partition(restrictions)
+            return self._transform.convert(partition)
+
+        launch_shape = self._partition_manager.compute_launch_shape(
+            self,
+            restrictions,
+        )
         if launch_shape is None:
             return NoPartition()
         else:
@@ -670,14 +723,41 @@ class Store(object):
             )
             return Tiling(self._runtime, tile_shape, launch_shape)
 
+    def _invert_dimensions(self, dims):
+        if self._parent is None:
+            return dims
+        else:
+            dims = self._transform.invert_dimensions(dims)
+            return self._parent._invert_dimensions(dims)
+
+    def _compute_projection(self, partition):
+        dims = self._invert_dimensions(tuple(range(self.ndim)))
+        if dims == tuple(range(self.ndim)):
+            return 0
+        else:
+            return self._runtime.get_projection(self.ndim, dims)
+
+    def find_restrictions(self):
+        if self._parent is None:
+            return (Restriction.UNRESTRICTED,) * self.ndim
+        else:
+            restrictions = self._parent.find_restrictions()
+            return self._transform.convert_restrictions(restrictions)
+
     def find_or_create_partition(self, functor):
         assert not self.scalar
         if functor in self._partitions:
             return self._partitions[functor]
 
-        transform = self.get_inverse_transform()
-        part = functor.construct(
-            self.storage.region, self.shape, inverse_transform=transform
-        )
-        self._partitions[functor] = part
-        return part
+        # Convert the partition to use the root's coordinate space
+        converted = self.invert_partition(functor)
+        complete = converted.is_complete_for(self._get_tile_shape())
+
+        # Then, find the right projection functor that maps points in the color
+        # space of the child's partition to subregions of the converted
+        # partition
+        proj = self._compute_projection(converted)
+
+        part = converted.construct(self.storage.region, complete=complete)
+        self._partitions[functor] = (part, proj)
+        return part, proj

@@ -100,11 +100,19 @@ class Strategy(object):
         self._strategy = strategy
         self._fspaces = fspaces
 
-    def __getitem__(self, store):
+    @property
+    def parallel(self):
+        return self._launch_shape is not None
+
+    def get_projection(self, store):
+        partition = self.get_partition(store)
+        return partition.get_requirement(self._launch_shape, store)
+
+    def get_partition(self, store):
         assert not store.unbound
         if store not in self._strategy:
             raise ValueError(f"No strategy is found for {store}")
-        return self._strategy[store].get_requirement(self._launch_shape, store)
+        return self._strategy[store]
 
     def get_field_space(self, store):
         assert store.unbound
@@ -126,12 +134,90 @@ class Strategy(object):
                 result = launcher.execute(Rect(self._launch_shape), redop)
             output.set_storage(result)
 
+    def __str__(self):
+        st = "[Strategy]"
+        for store, partition in self._strategy.items():
+            st += f"\n{store} ~~> {partition}"
+        for store, fspace in self._fspaces.items():
+            st += f"\n{store} ~~> {fspace}"
+        return st
+
+    def __repr__(self):
+        return str(self)
+
 
 class Partitioner(object):
     def __init__(self, runtime, ops, must_be_single=False):
         self._runtime = runtime
         self._ops = ops
         self._must_be_single = must_be_single
+
+    def _solve_broadcast_constraints(
+        self, stores, constraints, broadcasts, partitions
+    ):
+        to_remove = set()
+        for store in stores:
+            if not (store.scalar or store in broadcasts):
+                continue
+
+            to_remove.add(store)
+
+            if store in partitions:
+                continue
+
+            if store.scalar:
+                partitions[store] = NoPartition()
+            else:
+                cls = constraints.find(store)
+                for to_align in cls:
+                    partitions[to_align] = NoPartition()
+
+        return stores - to_remove
+
+    def _solve_unbound_constraints(
+        self, stores, constraints, partitions, fspaces
+    ):
+        to_remove = set()
+        for store in stores:
+            if not store.unbound:
+                continue
+
+            to_remove.add(store)
+
+            if store in partitions:
+                continue
+
+            cls = constraints.find(store)
+            assert all(to_align.unbound for to_align in cls)
+
+            fspace = self._runtime.create_field_space()
+            for to_align in cls:
+                partitions[to_align] = NoPartition()
+                fspaces[to_align] = fspace
+
+        return stores - to_remove, len(to_remove) > 0
+
+    @staticmethod
+    def _find_restrictions(cls):
+        merged = None
+        for store in cls:
+            restrictions = store.find_restrictions()
+            if merged is None:
+                merged = restrictions
+            else:
+                merged = tuple(min(a, b) for a, b in zip(merged, restrictions))
+        return merged
+
+    def _find_all_restrictions(self, stores, constraints):
+        all_restrictions = {}
+        for store in stores:
+            if store in all_restrictions:
+                continue
+            cls = constraints.find(store)
+            restrictions = self._find_restrictions(cls)
+            for store in cls:
+                all_restrictions[store] = restrictions
+        return all_restrictions
 
     def partition_stores(self):
         stores = set()
@@ -143,49 +229,53 @@ class Partitioner(object):
             broadcasts.update(op.broadcasts)
 
         if self._must_be_single or len(stores) == 0:
-            partitions = {}
-            fspaces = {}
-            for store in stores:
-                partitions[store] = NoPartition()
-                if store.unbound:
-                    cls = constraints.find(store)
-                    assert all(to_align.unbound for to_align in cls)
-                    fspace = self._runtime.create_field_space()
-                    for to_align in cls:
-                        fspaces[to_align] = fspace
-            return Strategy(None, partitions, fspaces)
-
-        must_be_1d_launch = any(store.unbound for store in stores)
+            broadcasts = stores
 
         partitions = {}
         fspaces = {}
+
+        stores = self._solve_broadcast_constraints(
+            stores,
+            constraints,
+            broadcasts,
+            partitions,
+        )
+
+        stores, must_be_1d_launch = self._solve_unbound_constraints(
+            stores,
+            constraints,
+            partitions,
+            fspaces,
+        )
+
+        all_restrictions = self._find_all_restrictions(stores, constraints)
+
+        stores = sorted(
+            stores,
+            key=lambda store: (
+                -store.comm_volume(),
+                not store.has_key_partition(all_restrictions[store]),
+            ),
+        )
+
         prev_part = None
-        while len(stores) > 0:
-            store = stores.pop()
-            if store.scalar or store in broadcasts:
-                partitions[store] = NoPartition()
+        for store in stores:
+            if store in partitions:
                 continue
-            elif store.unbound:
-                cls = constraints.find(store)
-                assert all(to_align.unbound for to_align in cls)
-                fspace = self._runtime.create_field_space()
-                for to_align in cls:
-                    partitions[to_align] = NoPartition()
-                    fspaces[to_align] = fspace
-                continue
+
+            restrictions = all_restrictions[store]
 
             if isinstance(prev_part, NoPartition):
                 partition = prev_part
             else:
-                partition = store.find_key_partition()
+                partition = store.compute_key_partition(restrictions)
 
             cls = constraints.find(store)
             for to_align in cls:
-                if to_align.scalar:
-                    partitions[to_align] = NoPartition()
-                else:
-                    partitions[to_align] = partition
-            stores = stores - cls
+                if to_align in partitions:
+                    continue
+                partitions[to_align] = partition
+
             prev_part = partition
 
         color_shape = None if prev_part is None else prev_part.color_shape

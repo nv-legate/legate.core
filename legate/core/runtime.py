@@ -19,8 +19,6 @@ import struct
 from collections import deque
 from functools import reduce
 
-import numpy as np
-
 from legion_cffi import ffi  # Make sure we only have one ffi instance
 from legion_top import cleanup_items, top_level
 
@@ -39,6 +37,7 @@ from .legion import (
     legate_task_preamble,
     legion,
 )
+from .partition import Restriction
 from .shape import Shape
 from .solver import Partitioner
 from .store import RegionField, Store
@@ -509,8 +508,31 @@ class PartitionManager(object):
             )
         self._piece_factors = list(reversed(factors))
 
-    def compute_launch_shape(self, store):
+    def compute_launch_shape(self, store, restrictions):
         shape = store.shape
+        assert len(restrictions) == shape.ndim
+
+        to_partition = ()
+        for dim, restriction in enumerate(restrictions):
+            if restriction != Restriction.RESTRICTED:
+                to_partition += (shape[dim],)
+
+        launch_shape = self._compute_launch_shape(to_partition)
+        if launch_shape is None:
+            return None
+
+        idx = 0
+        result = ()
+        for restriction in restrictions:
+            if restriction != Restriction.RESTRICTED:
+                result += (launch_shape[idx],)
+                idx += 1
+            else:
+                result += (1,)
+
+        return Shape(result)
+
+    def _compute_launch_shape(self, shape):
         assert self._num_pieces > 0
         # Easy case if we only have one piece: no parallel launch space
         if self._num_pieces == 1:
@@ -730,6 +752,9 @@ class Runtime(object):
         self.max_field_reuse_frequency = 32
         self._empty_argmap = legion.legion_argument_map_create()
 
+        self._next_projection_id = 1
+        self._registered_projections = {}
+
     @property
     def legion_runtime(self):
         if self._legion_runtime is None:
@@ -847,31 +872,28 @@ class Runtime(object):
             self.core_library.LEGATE_CORE_DELINEARIZE_FUNCTOR
         )
 
-    def get_projection(self, src_dim, tgt_dim, mask):
-        proj_id = 0
-        for dim, val in enumerate(mask):
-            proj_id = proj_id | (int(val) << dim)
-        proj_id = (proj_id << 8) | (src_dim << 4) | tgt_dim
-        return self.core_context.get_projection_id(proj_id)
+    def get_projection(self, src_ndim, dims):
+        spec = (src_ndim, dims)
+        if spec in self._registered_projections:
+            return self._registered_projections[spec]
 
-    def get_transpose(self, seq):
-        dim = len(seq)
-        # Convert the dimension sequence to a Lehmer code
-        seq = np.array(seq)
-        code = [(seq[idx + 1 :] < val).sum() for idx, val in enumerate(seq)]
-        # Then convert the code into a factoradic number
-        factoradic = sum(
-            [
-                val * math.factorial(dim - idx - 1)
-                for idx, val in enumerate(code)
-            ]
+        tgt_ndim = len(dims)
+        dims_c = ffi.new(f"int32_t[{tgt_ndim}]")
+        for idx, dim in enumerate(dims):
+            dims_c[idx] = dim
+
+        proj_id = self.core_context.get_projection_id(self._next_projection_id)
+        self._next_projection_id += 1
+        self._registered_projections[spec] = proj_id
+
+        self.core_library.legate_register_projection_functor(
+            src_ndim,
+            tgt_ndim,
+            dims_c,
+            proj_id,
         )
-        proj_id = (
-            self.core_library.LEGATE_CORE_FIRST_TRANSPOSE_FUNCTOR
-            | (factoradic << 4)
-            | dim
-        )
-        return self.core_context.get_projection_id(proj_id)
+
+        return proj_id
 
     def get_transform_code(self, name):
         return getattr(
