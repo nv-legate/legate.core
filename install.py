@@ -29,30 +29,8 @@ import sys
 import tempfile
 from distutils import sysconfig
 
-_version = sys.version_info.major
-
-try:
-    _input = raw_input  # Python 2.x:
-except NameError:
-    _input = input  # Python 3.x:
-
-# reopen stdout file descriptor with write mode
-# and 0 as the buffer size (unbuffered)
-# import io
-
-try:
-    # Python 3, open as binary, then wrap in a TextIOWrapper with
-    # write-through.
-    #
-    # sys.stdout =
-    # io.TextIOWrapper(open(sys.stdout.fileno(), 'wb', 0), write_through=True)
-    #
-    # If flushing on newlines is sufficient, as of 3.7 you can instead just
-    # call:
-    sys.stdout.reconfigure(line_buffering=True)
-except TypeError:
-    # Python 2
-    sys.stdout = os.fdopen(sys.stdout.fileno(), "w", 0)
+# Flush output on newlines
+sys.stdout.reconfigure(line_buffering=True)
 
 os_name = platform.system()
 
