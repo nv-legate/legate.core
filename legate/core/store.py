@@ -17,7 +17,7 @@ import weakref
 from functools import partial
 
 from .legion import Attach, Detach, Future, InlineMapping, Point, ffi, legion
-from .partition import NoPartition, Tiling
+from .partition import NoPartition, Restriction, Tiling
 from .shape import Shape
 from .transform import Delinearize, Project, Promote, Shift, Transpose
 
@@ -683,7 +683,7 @@ class Store(object):
         ):
             return True
         elif self._parent is not None and self._transform.invertible:
-            restrictions = self._transform.invert_dimensions(restrictions)
+            restrictions = self._transform.invert_restrictions(restrictions)
             return self._parent.has_key_partition(restrictions)
         else:
             return False
@@ -707,7 +707,7 @@ class Store(object):
         ):
             return self._key_partition
         elif self._parent is not None and self._transform.invertible:
-            restrictions = self._transform.invert_dimensions(restrictions)
+            restrictions = self._transform.invert_restrictions(restrictions)
             partition = self._parent.compute_key_partition(restrictions)
             return self._transform.convert(partition)
 
@@ -737,12 +737,12 @@ class Store(object):
         else:
             return self._runtime.get_projection(self.ndim, dims)
 
-    def find_restricted_dimensions(self):
+    def find_restrictions(self):
         if self._parent is None:
-            return tuple((1,) * self.ndim)
+            return (Restriction.UNRESTRICTED,) * self.ndim
         else:
-            dims = self._parent.find_restricted_dimensions()
-            return self._transform.convert_restrictions(dims)
+            restrictions = self._parent.find_restrictions()
+            return self._transform.convert_restrictions(restrictions)
 
     def find_or_create_partition(self, functor):
         assert not self.scalar

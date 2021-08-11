@@ -37,6 +37,7 @@ from .legion import (
     legate_task_preamble,
     legion,
 )
+from .partition import Restriction
 from .shape import Shape
 from .solver import Partitioner
 from .store import RegionField, Store
@@ -513,7 +514,7 @@ class PartitionManager(object):
 
         to_partition = ()
         for dim, restriction in enumerate(restrictions):
-            if restriction >= 0:
+            if restriction != Restriction.RESTRICTED:
                 to_partition += (shape[dim],)
 
         launch_shape = self._compute_launch_shape(to_partition)
@@ -523,7 +524,7 @@ class PartitionManager(object):
         idx = 0
         result = ()
         for restriction in restrictions:
-            if restriction >= 0:
+            if restriction != Restriction.RESTRICTED:
                 result += (launch_shape[idx],)
                 idx += 1
             else:

@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 
+from enum import IntEnum, unique
 
 from .launcher import Broadcast, Partition
 from .legion import (
@@ -23,6 +24,13 @@ from .legion import (
     legion,
 )
 from .shape import Shape
+
+
+@unique
+class Restriction(IntEnum):
+    RESTRICTED = -2
+    AVOIDED = -1
+    UNRESTRICTED = 1
 
 
 class NoPartition(object):

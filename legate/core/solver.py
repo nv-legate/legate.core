@@ -201,11 +201,11 @@ class Partitioner(object):
     def _find_restrictions(cls):
         merged = None
         for store in cls:
-            dims = store.find_restricted_dimensions()
+            restrictions = store.find_restrictions()
             if merged is None:
-                merged = dims
+                merged = restrictions
             else:
-                merged = tuple(min(a, b) for a, b in zip(merged, dims))
+                merged = tuple(min(a, b) for a, b in zip(merged, restrictions))
         return merged
 
     def _find_all_restrictions(self, stores, constraints):

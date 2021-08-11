@@ -16,7 +16,7 @@
 import numpy as np
 
 from .legion import AffineTransform
-from .partition import NoPartition, Tiling
+from .partition import NoPartition, Restriction, Tiling
 from .shape import Shape
 
 
@@ -70,6 +70,9 @@ class Shift(Transform):
     def invert_dimensions(self, dims):
         return dims
 
+    def invert_restrictions(self, restrictions):
+        return restrictions
+
     def convert(self, partition):
         if isinstance(partition, Tiling):
             offset = partition.offset[self._dim] + self._offset
@@ -86,8 +89,8 @@ class Shift(Transform):
                 f"Unsupported partition: {type(partition).__name__}"
             )
 
-    def convert_restrictions(self, dims):
-        return dims
+    def convert_restrictions(self, restrictions):
+        return restrictions
 
     def get_inverse_transform(self, shape, parent_transform=None):
         result = AffineTransform(shape.ndim, shape.ndim, True)
@@ -145,6 +148,11 @@ class Promote(Transform):
     def invert_dimensions(self, dims):
         return dims[: self._extra_dim] + dims[self._extra_dim + 1 :]
 
+    def invert_restrictions(self, restrictions):
+        left = restrictions[: self._extra_dim]
+        right = restrictions[self._extra_dim + 1 :]
+        return left + right
+
     def convert(self, partition):
         if isinstance(partition, Tiling):
             return Tiling(
@@ -160,8 +168,11 @@ class Promote(Transform):
                 f"Unsupported partition: {type(partition).__name__}"
             )
 
-    def convert_restrictions(self, dims):
-        return dims[: self._extra_dim] + (-1,) + dims[self._extra_dim :]
+    def convert_restrictions(self, restrictions):
+        left = restrictions[: self._extra_dim]
+        right = restrictions[self._extra_dim :]
+        new = (Restriction.AVOIDED,)
+        return left + new + right
 
     def get_inverse_transform(self, shape, parent_transform=None):
         parent_ndim = shape.ndim - 1
@@ -221,6 +232,12 @@ class Project(Transform):
     def invert_dimensions(self, dims):
         return dims[: self._dim] + (-1,) + dims[self._dim :]
 
+    def invert_restrictions(self, restrictions):
+        left = restrictions[: self._dim]
+        right = restrictions[self._dim :]
+        new = (Restriction.UNRESTRICTED,)
+        return left + new + right
+
     def convert(self, partition):
         if isinstance(partition, Tiling):
             return Tiling(
@@ -236,8 +253,8 @@ class Project(Transform):
                 f"Unsupported partition: {type(partition).__name__}"
             )
 
-    def convert_restrictions(self, dims):
-        return dims[: self._dim] + dims[self._dim + 1 :]
+    def convert_restrictions(self, restrictions):
+        return restrictions[: self._dim] + restrictions[self._dim + 1 :]
 
     def get_inverse_transform(self, shape, parent_transform=None):
         parent_ndim = shape.ndim + 1
@@ -297,7 +314,10 @@ class Transpose(Transform):
             )
 
     def invert_dimensions(self, dims):
-        return tuple(dims[self._inverse[idx]] for idx in range(len(dims)))
+        return tuple(dims[idx] for idx in self._inverse)
+
+    def invert_restrictions(self, restrictions):
+        return tuple(restrictions[idx] for idx in self._inverse)
 
     def convert(self, partition):
         if isinstance(partition, Tiling):
@@ -314,8 +334,8 @@ class Transpose(Transform):
                 f"Unsupported partition: {type(partition).__name__}"
             )
 
-    def convert_restrictions(self, dims):
-        return tuple(dims[idx] for idx in self._axes)
+    def convert_restrictions(self, restrictions):
+        return tuple(restrictions[idx] for idx in self._axes)
 
     def get_inverse_transform(self, shape, parent_transform=None):
         result = AffineTransform(shape.ndim, shape.ndim, False)
@@ -404,14 +424,22 @@ class Delinearize(Transform):
             )
 
     def invert_dimensions(self, dims):
-        left = dims[: self._dim]
+        left = dims[: self._dim + 1]
         right = dims[self._dim + self._shape.ndim :]
-        dim = dims[self._dim]
-        return left + (dim,) + right
+        return left + right
 
-    def convert_restrictions(self, dims):
-        restrictions = (1,) + (-2,) * (self._shape.ndim - 1)
-        return dims[: self._dim] + restrictions + dims[self._dim + 1 :]
+    def invert_restrictions(self, restrictions):
+        left = restrictions[: self._dim + 1]
+        right = restrictions[self._dim + self._shape.ndim :]
+        return left + right
+
+    def convert_restrictions(self, restrictions):
+        left = restrictions[: self._dim]
+        right = restrictions[self._dim + 1 :]
+        new = (Restriction.UNRESTRICTED,) + (Restriction.RESTRICTED,) * (
+            self._shape.ndim - 1
+        )
+        return left + new + right
 
     def get_inverse_transform(self, shape, parent_transform=None):
         assert shape.ndim >= self._strides.ndim
