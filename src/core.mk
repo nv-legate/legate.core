@@ -42,6 +42,7 @@ INSTALL_HEADERS = legate.h                 \
 									legate_c.h               \
 									legate_defines.h         \
 									legate_preamble.h        \
+									data/buffer.h            \
 									data/scalar.h            \
 									data/scalar.inl          \
 									data/store.h             \
