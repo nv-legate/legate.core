@@ -676,11 +676,15 @@ class Store(object):
         buf.pack_32bit_int(self._dtype.code)
         self._serialize_transform(buf)
 
-    def has_key_partition(self):
-        if self._key_partition is not None:
+    def has_key_partition(self, restrictions):
+        if (
+            self._key_partition is not None
+            and self._key_partition.satisfies_restriction(restrictions)
+        ):
             return True
         elif self._parent is not None and self._transform.invertible:
-            return self._parent.has_key_partition()
+            restrictions = self._transform.invert_dimensions(restrictions)
+            return self._parent.has_key_partition(restrictions)
         else:
             return False
 
@@ -697,7 +701,10 @@ class Store(object):
         elif self.ndim == 0:
             return NoPartition()
 
-        if self._key_partition is not None:
+        if (
+            self._key_partition is not None
+            and self._key_partition.satisfies_restriction(restrictions)
+        ):
             return self._key_partition
         elif self._parent is not None and self._transform.invertible:
             restrictions = self._transform.invert_dimensions(restrictions)

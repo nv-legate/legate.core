@@ -48,6 +48,9 @@ class NoPartition(object):
     def __repr__(self):
         return str(self)
 
+    def satisfies_restriction(self, restrictions):
+        return True
+
 
 class Interval(object):
     def __init__(self, lo, extent):
@@ -124,19 +127,11 @@ class Tiling(object):
 
         return True
 
-    # Returns true if the tiles in the other partition are all contained in
-    # this partition
-    def subsumes(self, other):
-        if not (
-            isinstance(other, Tiling) and self._tile_shape == other._tile_shape
-        ):
-            return False
-        elif not (other._color_shape <= self._color_shape):
-            return False
-
-        offset = other._offset - self._offset
-        # The difference of the offsets must be a multiple of the tile size
-        return (offset % self._tile_shape).sum() == 0
+    def satisfies_restriction(self, restrictions):
+        for dim, restriction in enumerate(restrictions):
+            if restriction <= 0 and self.color_shape[dim] > 1:
+                return False
+        return True
 
     def is_complete_for(self, tile):
         covered = self.tile_shape * self.color_shape

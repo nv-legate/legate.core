@@ -406,7 +406,7 @@ class Delinearize(Transform):
     def invert_dimensions(self, dims):
         left = dims[: self._dim]
         right = dims[self._dim + self._shape.ndim :]
-        dim = left[-1] + 1 if len(left) > 0 else 0
+        dim = dims[self._dim]
         return left + (dim,) + right
 
     def convert_restrictions(self, dims):
