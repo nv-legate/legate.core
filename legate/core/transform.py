@@ -407,7 +407,7 @@ class Delinearize(Transform):
         left = dims[: self._dim]
         right = dims[self._dim + self._shape.ndim :]
         dim = left[-1] + 1 if len(left) > 0 else 0
-        return left + (dim,) + tuple(dim - self._shape.ndim for dim in right)
+        return left + (dim,) + right
 
     def convert_restrictions(self, dims):
         restrictions = (1,) + (-2,) * (self._shape.ndim - 1)
