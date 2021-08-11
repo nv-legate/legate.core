@@ -735,7 +735,7 @@ def driver():
         dest="debug",
         action="store_true",
         required=False,
-        default=os.environ.get("DEBUG") == "1",
+        default=os.environ.get("DEBUG", "0") == "1",
         help="Build Legate with debugging enabled.",
     )
     parser.add_argument(
@@ -743,7 +743,7 @@ def driver():
         dest="debug_release",
         action="store_true",
         required=False,
-        default=os.environ.get("DEBUG_RELEASE") == "1",
+        default=os.environ.get("DEBUG_RELEASE", "0") == "1",
         help="Build Legate with debugging symbols enabled.",
     )
     parser.add_argument(
@@ -751,7 +751,7 @@ def driver():
         dest="check_bounds",
         action="store_true",
         required=False,
-        default=os.environ.get("CHECK_BOUNDS") == "1",
+        default=os.environ.get("CHECK_BOUNDS", "0") == "1",
         help="Build Legate with bounds checkin enabled (warning: expensive).",
     )
     parser.add_argument(
@@ -774,7 +774,7 @@ def driver():
         dest="gasnet",
         action="store_true",
         required=False,
-        default=os.environ.get("USE_GASNET") == "1",
+        default=os.environ.get("USE_GASNET", "0") == "1",
         help="Build Legate with GASNet.",
     )
     parser.add_argument(
@@ -830,7 +830,7 @@ def driver():
         dest="llvm",
         action="store_true",
         required=False,
-        default=os.environ.get("USE_LLVM") == "1",
+        default=os.environ.get("USE_LLVM", "0") == "1",
         help="Build Legate with LLVM support.",
     )
     parser.add_argument(
@@ -839,15 +839,15 @@ def driver():
         dest="hdf",
         action="store_true",
         required=False,
-        default=os.environ.get("USE_HDF") == "1",
-        help="Build Legate with HDF.",
+        default=os.environ.get("USE_HDF", "0") == "1",
+        help="Build Legate with HDF support.",
     )
     parser.add_argument(
         "--spy",
         dest="spy",
         action="store_true",
         required=False,
-        default=os.environ.get("USE_SPY") == "1",
+        default=os.environ.get("USE_SPY", "0") == "1",
         help="Build Legate with detailed Legion Spy enabled.",
     )
     parser.add_argument(
