@@ -32,7 +32,9 @@ def _cast_tuple(value, ndim):
 class Shape(object):
     def __init__(self, extents=None, ispace=None):
         if extents is not None:
-            if not isinstance(extents, Iterable):
+            if not (
+                isinstance(extents, Iterable) or isinstance(extents, Shape)
+            ):
                 self._extents = (extents,)
             else:
                 self._extents = tuple(extents)
