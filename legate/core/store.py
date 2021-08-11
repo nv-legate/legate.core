@@ -596,6 +596,9 @@ class Store(object):
         elif len(axes) != len(set(axes)):
             raise ValueError(f"duplicate axes found: {axes}")
 
+        if all(idx == val for idx, val in enumerate(axes)):
+            return self
+
         transform = Transpose(self._runtime, axes)
         shape = transform.compute_shape(self._shape)
         return Store(
@@ -609,7 +612,15 @@ class Store(object):
         )
 
     def delinearize(self, dim, shape):
-        transform = Delinearize(self._runtime, dim, shape)
+        if len(shape) == 1:
+            return self
+        s = Shape(shape)
+        transform = Delinearize(self._runtime, dim, s)
+        if self._shape[dim] != s.volume():
+            raise ValueError(
+                f"Dimension of size {self._shape[dim]} "
+                f"cannot be delinearized into {shape}"
+            )
         shape = transform.compute_shape(self._shape)
         return Store(
             self._runtime,
