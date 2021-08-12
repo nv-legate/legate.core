@@ -506,17 +506,6 @@ def build_legate_core(
     verbose_check_call(cmd, cwd=legate_dir)
 
 
-def get_cmake_config(cmake, legate_dir, default=None):
-    config_filename = os.path.join(legate_dir, ".cmake.json")
-    if cmake is None:
-        cmake = load_json_config(config_filename)
-        if cmake is None:
-            cmake = default
-    assert cmake in [True, False]
-    dump_json_config(config_filename, cmake)
-    return cmake
-
-
 def install(
     gasnet,
     cuda,
@@ -552,7 +541,8 @@ def install(
 
     legate_dir = os.path.dirname(os.path.realpath(__file__))
 
-    cmake = get_cmake_config(cmake, legate_dir, default=False)
+    cmake_config = os.path.join(legate_dir, ".cmake.json")
+    dump_json_config(cmake_config, cmake)
 
     if pylib_name is None:
         pyversion, pylib_name = find_active_python_version_and_path()
