@@ -441,7 +441,7 @@ def build_legion(
 
 def build_legate_core(
     install_dir,
-    legate_dir,
+    legate_core_dir,
     cmake,
     cmake_exe,
     cuda_dir,
@@ -457,7 +457,7 @@ def build_legate_core(
     verbose,
     unknown,
 ):
-    src_dir = os.path.join(legate_dir, "src")
+    src_dir = os.path.join(legate_core_dir, "src")
     if cmake:
         print("Warning: CMake is currently not supported for Legate build.")
         print("Using GNU Make for now.")
@@ -503,7 +503,7 @@ def build_legate_core(
             cmd += ["--prefix", str(install_dir)]
     else:
         cmd += ["--prefix", str(install_dir)]
-    verbose_check_call(cmd, cwd=legate_dir)
+    verbose_check_call(cmd, cwd=legate_core_dir)
 
 
 def install(
@@ -538,9 +538,9 @@ def install(
     global verbose_global
     verbose_global = verbose
 
-    legate_dir = os.path.dirname(os.path.realpath(__file__))
+    legate_core_dir = os.path.dirname(os.path.realpath(__file__))
 
-    cmake_config = os.path.join(legate_dir, ".cmake.json")
+    cmake_config = os.path.join(legate_core_dir, ".cmake.json")
     dump_json_config(cmake_config, cmake)
 
     if pylib_name is None:
@@ -553,11 +553,11 @@ def install(
         pyversion = match.group(1)
     print("Using python lib and version: {}, {}".format(pylib_name, pyversion))
 
-    install_dir_config = os.path.join(legate_dir, ".install-dir.json")
+    install_dir_config = os.path.join(legate_core_dir, ".install-dir.json")
     if install_dir is None:
         install_dir = load_json_config(install_dir_config)
         if install_dir is None:
-            install_dir = os.path.join(legate_dir, "install")
+            install_dir = os.path.join(legate_core_dir, "install")
     install_dir = os.path.realpath(install_dir)
     dump_json_config(install_dir_config, install_dir)
     os.makedirs(os.path.join(install_dir, "share", "legate"), exist_ok=True)
@@ -566,7 +566,7 @@ def install(
         thread_count = multiprocessing.cpu_count()
 
     # Save the maxdim config
-    maxdim_config = os.path.join(legate_dir, ".maxdim.json")
+    maxdim_config = os.path.join(legate_core_dir, ".maxdim.json")
     # Check the max dimensions
     # Legion could actually go up to 9 dimensions, but we leave an extra
     # free dimension for libraries to use as a free dimension
@@ -580,7 +580,7 @@ def install(
     dump_json_config(maxdim_config, str(maxdim))
 
     # Save the maxfields config
-    maxfields_config = os.path.join(legate_dir, ".maxfields.json")
+    maxfields_config = os.path.join(legate_core_dir, ".maxfields.json")
     # Check that max fields is between 32 and 4096 and is a power of 2
     if maxfields not in [32, 64, 128, 256, 512, 1024, 2048, 4096]:
         raise Exception(
@@ -591,7 +591,7 @@ def install(
 
     # If the user asked for a conduit and we don't have gasnet then install it
     if gasnet:
-        conduit_config = os.path.join(legate_dir, ".conduit.json")
+        conduit_config = os.path.join(legate_core_dir, ".conduit.json")
         if conduit is None:
             conduit = load_json_config(conduit_config)
             if conduit is None:
@@ -601,7 +601,7 @@ def install(
                 )
         dump_json_config(conduit_config, conduit)
         gasnet_config = os.path.join(
-            legate_dir, ".gasnet" + str(conduit) + ".json"
+            legate_core_dir, ".gasnet" + str(conduit) + ".json"
         )
         if gasnet_dir is None:
             gasnet_dir = load_json_config(gasnet_config)
@@ -614,7 +614,7 @@ def install(
     # If the user asked for CUDA, make sure we know where the install
     # directory is
     if cuda:
-        cuda_config = os.path.join(legate_dir, ".cuda.json")
+        cuda_config = os.path.join(legate_core_dir, ".cuda.json")
         if cuda_dir is None:
             cuda_dir = load_json_config(cuda_config)
             if cuda_dir is None:
@@ -625,7 +625,7 @@ def install(
         dump_json_config(cuda_config, cuda_dir)
 
     # install a stable version of Thrust
-    thrust_config = os.path.join(legate_dir, ".thrust.json")
+    thrust_config = os.path.join(legate_core_dir, ".thrust.json")
     if thrust_dir is None:
         thrust_dir = load_json_config(thrust_config)
         if thrust_dir is None:
@@ -640,7 +640,7 @@ def install(
     dump_json_config(thrust_config, thrust_dir)
 
     # Build Legion from scratch.
-    legion_src_dir = os.path.join(legate_dir, "legion")
+    legion_src_dir = os.path.join(legate_core_dir, "legion")
     # Check to see if Legion is up-to-date or get it if it isn't
     if os.path.exists(legion_src_dir):
         if clean_first:
@@ -680,7 +680,7 @@ def install(
 
     build_legate_core(
         install_dir,
-        legate_dir,
+        legate_core_dir,
         cmake,
         cmake_exe,
         cuda_dir,
@@ -699,7 +699,7 @@ def install(
     # Copy any executables that we need for legate functionality
     verbose_check_call(
         ["cp", "legate.py", os.path.join(install_dir, "bin", "legate")],
-        cwd=legate_dir,
+        cwd=legate_core_dir,
     )
     if cuda:
         # Copy CUDA configuration that the launcher needs to find CUDA path
@@ -709,7 +709,7 @@ def install(
                 ".cuda.json",
                 os.path.join(install_dir, "share", "legate", ".cuda.json"),
             ],
-            cwd=legate_dir,
+            cwd=legate_core_dir,
         )
     # Copy thrust configuration
     verbose_check_call(
@@ -718,7 +718,7 @@ def install(
             thrust_config,
             os.path.join(install_dir, "share", "legate"),
         ],
-        cwd=legate_dir,
+        cwd=legate_core_dir,
     )
 
 
