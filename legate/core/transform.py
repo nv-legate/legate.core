@@ -397,12 +397,11 @@ class Delinearize(Transform):
                     new_color_shape = new_color_shape.drop(self._dim)
                     new_offset = new_offset.drop(self._dim)
 
-                dim_volume = self._shape.volume()
                 dim_tile_size = (
                     partition.tile_shape[self._dim] * self._strides[0]
                 )
                 dim_offset = partition.offset[self._dim] * self._strides[0]
-                dim_colors = (dim_volume + dim_tile_size - 1) // dim_tile_size
+                dim_colors = partition.color_shape[self._dim]
 
                 new_tile_shape = new_tile_shape.insert(
                     self._dim, dim_tile_size
