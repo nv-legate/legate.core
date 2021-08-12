@@ -15,8 +15,6 @@
 # limitations under the License.
 #
 
-from __future__ import print_function
-
 import argparse
 import json
 import multiprocessing
@@ -29,32 +27,51 @@ import sys
 import tempfile
 from distutils import sysconfig
 
-_version = sys.version_info.major
-
-try:
-    _input = raw_input  # Python 2.x:
-except NameError:
-    _input = input  # Python 3.x:
-
-# reopen stdout file descriptor with write mode
-# and 0 as the buffer size (unbuffered)
-# import io
-
-try:
-    # Python 3, open as binary, then wrap in a TextIOWrapper with
-    # write-through.
-    #
-    # sys.stdout =
-    # io.TextIOWrapper(open(sys.stdout.fileno(), 'wb', 0), write_through=True)
-    #
-    # If flushing on newlines is sufficient, as of 3.7 you can instead just
-    # call:
-    sys.stdout.reconfigure(line_buffering=True)
-except TypeError:
-    # Python 2
-    sys.stdout = os.fdopen(sys.stdout.fileno(), "w", 0)
+# Flush output on newlines
+sys.stdout.reconfigure(line_buffering=True)
 
 os_name = platform.system()
+
+
+class BooleanFlag(argparse.Action):
+    def __init__(
+        self,
+        option_strings,
+        dest,
+        default,
+        required=False,
+        help="",
+        metavar=None,
+    ):
+        assert all(not opt.startswith("--no") for opt in option_strings)
+
+        def flatten(list):
+            return [item for sublist in list for item in sublist]
+
+        option_strings = flatten(
+            [
+                [opt, "--no-" + opt[2:], "--no" + opt[2:]]
+                if opt.startswith("--")
+                else [opt]
+                for opt in option_strings
+            ]
+        )
+        super().__init__(
+            option_strings,
+            dest,
+            nargs=0,
+            const=None,
+            default=default,
+            type=bool,
+            choices=None,
+            required=required,
+            help=help,
+            metavar=metavar,
+        )
+
+    def __call__(self, parser, namespace, values, option_string):
+        setattr(namespace, self.dest, not option_string.startswith("--no"))
+
 
 required_thrust_version = "cuda-11.2"
 
@@ -422,7 +439,7 @@ def build_legion(
 
 def build_legate_core(
     install_dir,
-    legate_dir,
+    legate_core_dir,
     cmake,
     cmake_exe,
     cuda_dir,
@@ -438,7 +455,7 @@ def build_legate_core(
     verbose,
     unknown,
 ):
-    src_dir = os.path.join(legate_dir, "src")
+    src_dir = os.path.join(legate_core_dir, "src")
     if cmake:
         print("Warning: CMake is currently not supported for Legate build.")
         print("Using GNU Make for now.")
@@ -484,59 +501,45 @@ def build_legate_core(
             cmd += ["--prefix", str(install_dir)]
     else:
         cmd += ["--prefix", str(install_dir)]
-    verbose_check_call(cmd, cwd=legate_dir)
-
-
-def get_cmake_config(cmake, legate_dir, default=None):
-    config_filename = os.path.join(legate_dir, ".cmake.json")
-    if cmake is None:
-        cmake = load_json_config(config_filename)
-        if cmake is None:
-            cmake = default
-    assert cmake in [True, False]
-    dump_json_config(config_filename, cmake)
-    return cmake
+    verbose_check_call(cmd, cwd=legate_core_dir)
 
 
 def install(
-    gasnet=False,
-    cuda=False,
-    arch=None,
-    openmp=False,
-    hdf=False,
-    llvm=False,
-    spy=False,
-    conduit=None,
-    no_hijack=True,
-    cmake=None,
-    cmake_exe=None,
-    install_dir=None,
-    gasnet_dir=None,
-    legion_dir=None,
-    pylib_name=None,
-    cuda_dir=None,
-    maxdim=3,
-    maxfields=256,
-    debug=False,
-    debug_release=False,
-    check_bounds=False,
-    clean_first=None,
-    extra_flags=[],
-    thread_count=None,
-    verbose=False,
-    thrust_dir=None,
-    legion_branch=None,
-    unknown=None,
+    gasnet,
+    cuda,
+    arch,
+    openmp,
+    hdf,
+    llvm,
+    spy,
+    conduit,
+    no_hijack,
+    cmake,
+    cmake_exe,
+    install_dir,
+    gasnet_dir,
+    pylib_name,
+    cuda_dir,
+    maxdim,
+    maxfields,
+    debug,
+    debug_release,
+    check_bounds,
+    clean_first,
+    extra_flags,
+    thread_count,
+    verbose,
+    thrust_dir,
+    legion_branch,
+    unknown,
 ):
     global verbose_global
     verbose_global = verbose
 
-    legate_dir = os.path.dirname(os.path.realpath(__file__))
+    legate_core_dir = os.path.dirname(os.path.realpath(__file__))
 
-    cmake = get_cmake_config(cmake, legate_dir, default=False)
-
-    if clean_first is None:
-        clean_first = not cmake
+    cmake_config = os.path.join(legate_core_dir, ".cmake.json")
+    dump_json_config(cmake_config, cmake)
 
     if pylib_name is None:
         pyversion, pylib_name = find_active_python_version_and_path()
@@ -548,21 +551,20 @@ def install(
         pyversion = match.group(1)
     print("Using python lib and version: {}, {}".format(pylib_name, pyversion))
 
-    install_dir_config = os.path.join(legate_dir, ".install-dir.json")
+    install_dir_config = os.path.join(legate_core_dir, ".install-dir.json")
     if install_dir is None:
         install_dir = load_json_config(install_dir_config)
         if install_dir is None:
-            install_dir = os.path.join(legate_dir, "install")
+            install_dir = os.path.join(legate_core_dir, "install")
     install_dir = os.path.realpath(install_dir)
     dump_json_config(install_dir_config, install_dir)
     os.makedirs(os.path.join(install_dir, "share", "legate"), exist_ok=True)
 
-    thread_count = thread_count
     if thread_count is None:
         thread_count = multiprocessing.cpu_count()
 
     # Save the maxdim config
-    maxdim_config = os.path.join(legate_dir, ".maxdim.json")
+    maxdim_config = os.path.join(legate_core_dir, ".maxdim.json")
     # Check the max dimensions
     # Legion could actually go up to 9 dimensions, but we leave an extra
     # free dimension for libraries to use as a free dimension
@@ -576,7 +578,7 @@ def install(
     dump_json_config(maxdim_config, str(maxdim))
 
     # Save the maxfields config
-    maxfields_config = os.path.join(legate_dir, ".maxfields.json")
+    maxfields_config = os.path.join(legate_core_dir, ".maxfields.json")
     # Check that max fields is between 32 and 4096 and is a power of 2
     if maxfields not in [32, 64, 128, 256, 512, 1024, 2048, 4096]:
         raise Exception(
@@ -587,7 +589,7 @@ def install(
 
     # If the user asked for a conduit and we don't have gasnet then install it
     if gasnet:
-        conduit_config = os.path.join(legate_dir, ".conduit.json")
+        conduit_config = os.path.join(legate_core_dir, ".conduit.json")
         if conduit is None:
             conduit = load_json_config(conduit_config)
             if conduit is None:
@@ -597,7 +599,7 @@ def install(
                 )
         dump_json_config(conduit_config, conduit)
         gasnet_config = os.path.join(
-            legate_dir, ".gasnet" + str(conduit) + ".json"
+            legate_core_dir, ".gasnet" + str(conduit) + ".json"
         )
         if gasnet_dir is None:
             gasnet_dir = load_json_config(gasnet_config)
@@ -610,7 +612,7 @@ def install(
     # If the user asked for CUDA, make sure we know where the install
     # directory is
     if cuda:
-        cuda_config = os.path.join(legate_dir, ".cuda.json")
+        cuda_config = os.path.join(legate_core_dir, ".cuda.json")
         if cuda_dir is None:
             cuda_dir = load_json_config(cuda_config)
             if cuda_dir is None:
@@ -621,7 +623,7 @@ def install(
         dump_json_config(cuda_config, cuda_dir)
 
     # install a stable version of Thrust
-    thrust_config = os.path.join(legate_dir, ".thrust.json")
+    thrust_config = os.path.join(legate_core_dir, ".thrust.json")
     if thrust_dir is None:
         thrust_dir = load_json_config(thrust_config)
         if thrust_dir is None:
@@ -635,51 +637,48 @@ def install(
     )
     dump_json_config(thrust_config, thrust_dir)
 
-    # If no Legion directory is specified assume we're running relative to our
-    # own location, and build from scratch.
-    if legion_dir is None:
-        legion_dir = install_dir
-        legion_src_dir = os.path.join(legate_dir, "legion")
-        # Check to see if Legion is up-to-date or get it if it isn't
-        if os.path.exists(legion_src_dir):
-            if clean_first:
-                # Don't update Legion if not doing a clean build, to avoid
-                # spurious build errors.
-                update_legion(legion_src_dir, branch=legion_branch)
-        else:
-            install_legion(legion_src_dir, branch=legion_branch)
-        build_legion(
-            legion_src_dir,
-            legion_dir,
-            cmake,
-            cmake_exe,
-            cuda_dir,
-            debug,
-            debug_release,
-            check_bounds,
-            cuda,
-            arch,
-            openmp,
-            llvm,
-            hdf,
-            spy,
-            gasnet,
-            gasnet_dir,
-            conduit,
-            no_hijack,
-            pyversion,
-            pylib_name,
-            maxdim,
-            maxfields,
-            clean_first,
-            extra_flags,
-            thread_count,
-            verbose,
-        )
+    # Build Legion from scratch.
+    legion_src_dir = os.path.join(legate_core_dir, "legion")
+    # Check to see if Legion is up-to-date or get it if it isn't
+    if os.path.exists(legion_src_dir):
+        if clean_first:
+            # Don't update Legion if not doing a clean build, to avoid
+            # spurious build errors.
+            update_legion(legion_src_dir, branch=legion_branch)
+    else:
+        install_legion(legion_src_dir, branch=legion_branch)
+    build_legion(
+        legion_src_dir,
+        install_dir,
+        cmake,
+        cmake_exe,
+        cuda_dir,
+        debug,
+        debug_release,
+        check_bounds,
+        cuda,
+        arch,
+        openmp,
+        llvm,
+        hdf,
+        spy,
+        gasnet,
+        gasnet_dir,
+        conduit,
+        no_hijack,
+        pyversion,
+        pylib_name,
+        maxdim,
+        maxfields,
+        clean_first,
+        extra_flags,
+        thread_count,
+        verbose,
+    )
 
     build_legate_core(
         install_dir,
-        legate_dir,
+        legate_core_dir,
         cmake,
         cmake_exe,
         cuda_dir,
@@ -698,7 +697,7 @@ def install(
     # Copy any executables that we need for legate functionality
     verbose_check_call(
         ["cp", "legate.py", os.path.join(install_dir, "bin", "legate")],
-        cwd=legate_dir,
+        cwd=legate_core_dir,
     )
     if cuda:
         # Copy CUDA configuration that the launcher needs to find CUDA path
@@ -708,7 +707,7 @@ def install(
                 ".cuda.json",
                 os.path.join(install_dir, "share", "legate", ".cuda.json"),
             ],
-            cwd=legate_dir,
+            cwd=legate_core_dir,
         )
     # Copy thrust configuration
     verbose_check_call(
@@ -717,7 +716,7 @@ def install(
             thrust_config,
             os.path.join(install_dir, "share", "legate"),
         ],
-        cwd=legate_dir,
+        cwd=legate_core_dir,
     )
 
 
@@ -735,7 +734,7 @@ def driver():
         dest="debug",
         action="store_true",
         required=False,
-        default=os.environ.get("DEBUG") == "1",
+        default=os.environ.get("DEBUG", "0") == "1",
         help="Build Legate with debugging enabled.",
     )
     parser.add_argument(
@@ -743,7 +742,7 @@ def driver():
         dest="debug_release",
         action="store_true",
         required=False,
-        default=os.environ.get("DEBUG_RELEASE") == "1",
+        default=os.environ.get("DEBUG_RELEASE", "0") == "1",
         help="Build Legate with debugging symbols enabled.",
     )
     parser.add_argument(
@@ -751,7 +750,7 @@ def driver():
         dest="check_bounds",
         action="store_true",
         required=False,
-        default=os.environ.get("CHECK_BOUNDS") == "1",
+        default=os.environ.get("CHECK_BOUNDS", "0") == "1",
         help="Build Legate with bounds checkin enabled (warning: expensive).",
     )
     parser.add_argument(
@@ -774,7 +773,7 @@ def driver():
         dest="gasnet",
         action="store_true",
         required=False,
-        default=os.environ.get("USE_GASNET") == "1",
+        default=os.environ.get("USE_GASNET", "0") == "1",
         help="Build Legate with GASNet.",
     )
     parser.add_argument(
@@ -786,20 +785,10 @@ def driver():
         help="Path to GASNet installation directory.",
     )
     parser.add_argument(
-        "--with-legion",
-        dest="legion_dir",
-        metavar="DIR",
-        required=False,
-        default=os.environ.get("LEGION_DIR"),
-        help="Path to Legion installation directory.",
-    )
-    parser.add_argument(
         "--cuda",
-        dest="cuda",
-        action="store_true",
-        required=False,
-        default=os.environ.get("USE_CUDA") == "1",
-        help="Build Legate with CUDA.",
+        action=BooleanFlag,
+        default=os.environ.get("USE_CUDA", "1") == "1",
+        help="Build Legate with CUDA support.",
     )
     parser.add_argument(
         "--with-cuda",
@@ -819,10 +808,8 @@ def driver():
     )
     parser.add_argument(
         "--openmp",
-        dest="openmp",
-        action="store_true",
-        required=False,
-        default=os.environ.get("USE_OPENMP") == "1",
+        action=BooleanFlag,
+        default=os.environ.get("USE_OPENMP", "1") == "1",
         help="Build Legate with OpenMP support.",
     )
     parser.add_argument(
@@ -830,7 +817,7 @@ def driver():
         dest="llvm",
         action="store_true",
         required=False,
-        default=os.environ.get("USE_LLVM") == "1",
+        default=os.environ.get("USE_LLVM", "0") == "1",
         help="Build Legate with LLVM support.",
     )
     parser.add_argument(
@@ -839,15 +826,15 @@ def driver():
         dest="hdf",
         action="store_true",
         required=False,
-        default=os.environ.get("USE_HDF") == "1",
-        help="Build Legate with HDF.",
+        default=os.environ.get("USE_HDF", "0") == "1",
+        help="Build Legate with HDF support.",
     )
     parser.add_argument(
         "--spy",
         dest="spy",
         action="store_true",
         required=False,
-        default=os.environ.get("USE_SPY") == "1",
+        default=os.environ.get("USE_SPY", "0") == "1",
         help="Build Legate with detailed Legion Spy enabled.",
     )
     parser.add_argument(
@@ -880,18 +867,9 @@ def driver():
     )
     parser.add_argument(
         "--cmake",
-        dest="cmake",
-        action="store_true",
-        required=False,
-        default=None,
-        help="Build Legate with CMake.",
-    )
-    parser.add_argument(
-        "--no-cmake",
-        dest="cmake",
-        action="store_false",
-        required=False,
-        help="Don't build Legate with CMake (instead use GNU Make).",
+        action=BooleanFlag,
+        default=os.environ.get("USE_CMAKE", "0") == "1",
+        help="Build Legate with CMake instead of GNU Make.",
     )
     parser.add_argument(
         "--with-cmake",
@@ -902,13 +880,11 @@ def driver():
         help="Path to CMake executable (if not on PATH).",
     )
     parser.add_argument(
-        "--no-clean",
-        "--noclean",
+        "--clean",
         dest="clean_first",
-        action="store_false",
-        required=False,
+        action=BooleanFlag,
         default=True,
-        help="Skip clean before build, and don't pull latest Legion.",
+        help="Clean before build, and pull latest Legion.",
     )
     parser.add_argument(
         "--extra",
@@ -923,7 +899,7 @@ def driver():
         dest="thread_count",
         nargs="?",
         type=int,
-        help="Number threads used to compile.",
+        help="Number of threads used to compile.",
     )
     parser.add_argument(
         "-v",
