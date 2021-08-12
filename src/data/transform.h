@@ -26,7 +26,7 @@ class StoreTransform {
  public:
   StoreTransform() {}
   StoreTransform(std::unique_ptr<StoreTransform>&& parent);
-  ~StoreTransform() {}
+  virtual ~StoreTransform() {}
 
  public:
   virtual Legion::Domain transform(const Legion::Domain& input) const           = 0;
