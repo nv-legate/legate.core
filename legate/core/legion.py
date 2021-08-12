@@ -216,7 +216,7 @@ class Point(object):
 
     def set_point(self, p):
         try:
-            if len(p) >= LEGATE_MAX_DIM:
+            if len(p) > LEGATE_MAX_DIM:
                 raise ValueError(
                     "Point cannot exceed "
                     + str(LEGATE_MAX_DIM)
@@ -288,7 +288,7 @@ class Rect(object):
         return str(self._lo) + ".." + str(self._hi)
 
     def set_bounds(self, lo, hi, exclusive=True):
-        if len(hi) >= LEGATE_MAX_DIM:
+        if len(hi) > LEGATE_MAX_DIM:
             raise ValueError(
                 "Point cannot exceed "
                 + str(LEGATE_MAX_DIM)
