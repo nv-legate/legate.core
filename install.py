@@ -520,7 +520,6 @@ def install(
     cmake_exe,
     install_dir,
     gasnet_dir,
-    legion_dir,
     pylib_name,
     cuda_dir,
     maxdim,
@@ -640,47 +639,44 @@ def install(
     )
     dump_json_config(thrust_config, thrust_dir)
 
-    # If no Legion directory is specified assume we're running relative to our
-    # own location, and build from scratch.
-    if legion_dir is None:
-        legion_dir = install_dir
-        legion_src_dir = os.path.join(legate_dir, "legion")
-        # Check to see if Legion is up-to-date or get it if it isn't
-        if os.path.exists(legion_src_dir):
-            if clean_first:
-                # Don't update Legion if not doing a clean build, to avoid
-                # spurious build errors.
-                update_legion(legion_src_dir, branch=legion_branch)
-        else:
-            install_legion(legion_src_dir, branch=legion_branch)
-        build_legion(
-            legion_src_dir,
-            legion_dir,
-            cmake,
-            cmake_exe,
-            cuda_dir,
-            debug,
-            debug_release,
-            check_bounds,
-            cuda,
-            arch,
-            openmp,
-            llvm,
-            hdf,
-            spy,
-            gasnet,
-            gasnet_dir,
-            conduit,
-            no_hijack,
-            pyversion,
-            pylib_name,
-            maxdim,
-            maxfields,
-            clean_first,
-            extra_flags,
-            thread_count,
-            verbose,
-        )
+    # Build Legion from scratch.
+    legion_src_dir = os.path.join(legate_dir, "legion")
+    # Check to see if Legion is up-to-date or get it if it isn't
+    if os.path.exists(legion_src_dir):
+        if clean_first:
+            # Don't update Legion if not doing a clean build, to avoid
+            # spurious build errors.
+            update_legion(legion_src_dir, branch=legion_branch)
+    else:
+        install_legion(legion_src_dir, branch=legion_branch)
+    build_legion(
+        legion_src_dir,
+        install_dir,
+        cmake,
+        cmake_exe,
+        cuda_dir,
+        debug,
+        debug_release,
+        check_bounds,
+        cuda,
+        arch,
+        openmp,
+        llvm,
+        hdf,
+        spy,
+        gasnet,
+        gasnet_dir,
+        conduit,
+        no_hijack,
+        pyversion,
+        pylib_name,
+        maxdim,
+        maxfields,
+        clean_first,
+        extra_flags,
+        thread_count,
+        verbose,
+    )
 
     build_legate_core(
         install_dir,
@@ -789,14 +785,6 @@ def driver():
         required=False,
         default=os.environ.get("GASNET"),
         help="Path to GASNet installation directory.",
-    )
-    parser.add_argument(
-        "--with-legion",
-        dest="legion_dir",
-        metavar="DIR",
-        required=False,
-        default=os.environ.get("LEGION_DIR"),
-        help="Path to Legion installation directory.",
     )
     parser.add_argument(
         "--cuda",
