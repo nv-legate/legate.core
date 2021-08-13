@@ -10,6 +10,7 @@ env:
   COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
   PROJECT: github-core-ci
   REF: ${{ github.event.pull_request.head.ref || github.ref }}
+  EVENT_NAME: ${{ github.event_name }}
   # Prevent output buffering
   PYTHONUNBUFFERED: 1
 jobs:
