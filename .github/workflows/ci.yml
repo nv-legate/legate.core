@@ -41,6 +41,7 @@ jobs:
         run: echo "$MATRIX_CONTEXT"
       - name: Run CI build
         run: |
+          env
           /data/github-runner/legate-bin/setup.sh
           cd legate-ci/github-ci/legate.core
           rm -rf ngc-artifacts || true
