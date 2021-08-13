@@ -70,6 +70,7 @@ struct inner_type_dispatch_fn {
         return f.template operator()<LegateTypeCode::COMPLEX128_LT, DIM>(
           std::forward<Fnargs>(args)...);
       }
+      default: break;
     }
     assert(false);
     return f.template operator()<LegateTypeCode::BOOL_LT, DIM>(std::forward<Fnargs>(args)...);
@@ -339,6 +340,7 @@ constexpr decltype(auto) type_dispatch(LegateTypeCode code, Functor f, Fnargs&&.
     case LegateTypeCode::COMPLEX128_LT: {
       return f.template operator()<LegateTypeCode::COMPLEX128_LT>(std::forward<Fnargs>(args)...);
     }
+    default: break;
   }
   assert(false);
   return f.template operator()<LegateTypeCode::BOOL_LT>(std::forward<Fnargs>(args)...);
