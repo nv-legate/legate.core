@@ -9,6 +9,7 @@ on:
 env:
   COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
   PROJECT: github-core-ci
+  REF: ${{ github.event.pull_request.head.ref || github.ref }}
   # Prevent output buffering
   PYTHONUNBUFFERED: 1
 jobs:
@@ -41,7 +42,6 @@ jobs:
         run: echo "$MATRIX_CONTEXT"
       - name: Run CI build
         run: |
-          env
           /data/github-runner/legate-bin/setup.sh
           cd legate-ci/github-ci/legate.core
           rm -rf ngc-artifacts || true
