@@ -368,6 +368,12 @@ class Store(object):
             or isinstance(storage, Future)
         )
         self._storage = storage
+        if parent is None:
+            assert transform is None
+        else:
+            assert transform is not None
+        self._parent = parent
+        self._transform = transform
         if isinstance(storage, Future):
             assert shape is not None
             self._scalar = True
@@ -377,8 +383,6 @@ class Store(object):
             self._scalar = (
                 optimize_scalar and shape is not None and shape.volume() <= 1
             )
-        self._parent = parent
-        self._transform = transform
         self._inverse_transform = None
         self._partitions = {}
         self._key_partition = None
@@ -408,9 +412,8 @@ class Store(object):
     @property
     def kind(self):
         """
-        Return the type of the Legion storage object backing the
-        data in this storage object: either Future, FutureMap,
-        RegionField
+        Return the type of the Legion storage object backing the data in this
+        storage object: either Future, FutureMap, or RegionField.
         """
         if self._storage is not None:
             return type(self._storage)
@@ -428,9 +431,8 @@ class Store(object):
     @property
     def storage(self):
         """
-        Return the Legion storage objects actually backing the
-        data for this Store. These will have exactly the
-        type specified in by 'kind'
+        Return the Legion storage objects actually backing the data for this
+        Store. These will have exactly the type specified by `.kind`.
         """
         if self._storage is None:
             if self.unbound:
