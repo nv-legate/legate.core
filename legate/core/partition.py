@@ -150,33 +150,37 @@ class Tiling(object):
         return inverted.color_shape.volume() == self.color_shape.volume()
 
     def construct(self, region, complete=False):
-        tile_shape = self._tile_shape
-        transform = Transform(tile_shape.ndim, tile_shape.ndim)
-        for idx, size in enumerate(tile_shape):
-            transform.trans[idx, idx] = size
+        index_space = region.index_space
+        index_partition = self._runtime.find_partition(index_space, self)
+        if index_partition is None:
+            tile_shape = self._tile_shape
+            transform = Transform(tile_shape.ndim, tile_shape.ndim)
+            for idx, size in enumerate(tile_shape):
+                transform.trans[idx, idx] = size
 
-        lo = Shape((0,) * tile_shape.ndim) + self._offset
-        hi = self._tile_shape - 1 + self._offset
+            lo = Shape((0,) * tile_shape.ndim) + self._offset
+            hi = self._tile_shape - 1 + self._offset
 
-        extent = Rect(hi, lo, exclusive=False)
+            extent = Rect(hi, lo, exclusive=False)
 
-        color_space = self._runtime.find_or_create_index_space(
-            self.color_shape
-        )
-        functor = PartitionByRestriction(transform, extent)
-        if complete:
-            kind = legion.LEGION_DISJOINT_COMPLETE_KIND
-        else:
-            kind = legion.LEGION_DISJOINT_INCOMPLETE_KIND
-        index_partition = IndexPartition(
-            self._runtime.legion_context,
-            self._runtime.legion_runtime,
-            region.index_space,
-            color_space,
-            functor,
-            kind=kind,
-            keep=True,  # export this partition functor to other libraries
-        )
+            color_space = self._runtime.find_or_create_index_space(
+                self.color_shape
+            )
+            functor = PartitionByRestriction(transform, extent)
+            if complete:
+                kind = legion.LEGION_DISJOINT_COMPLETE_KIND
+            else:
+                kind = legion.LEGION_DISJOINT_INCOMPLETE_KIND
+            index_partition = IndexPartition(
+                self._runtime.legion_context,
+                self._runtime.legion_runtime,
+                index_space,
+                color_space,
+                functor,
+                kind=kind,
+                keep=True,  # export this partition functor to other libraries
+            )
+            self._runtime.record_partition(index_space, self, index_partition)
         return region.get_child(index_partition)
 
     def get_requirement(self, launch_space, store):
