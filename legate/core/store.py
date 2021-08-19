@@ -376,6 +376,7 @@ class Store(object):
         self._transform = transform
         if isinstance(storage, Future):
             assert shape is not None
+            assert self.get_root().shape.volume() <= 1
             self._scalar = True
         elif isinstance(storage, RegionField):
             self._scalar = False
@@ -415,10 +416,7 @@ class Store(object):
         Return the type of the Legion storage object backing the data in this
         storage object: either Future, FutureMap, or RegionField.
         """
-        if self._storage is not None:
-            return type(self._storage)
-        else:
-            return Future if self._scalar else RegionField
+        return Future if self._scalar else RegionField
 
     @property
     def unbound(self):
@@ -426,6 +424,9 @@ class Store(object):
 
     @property
     def scalar(self):
+        """
+        Equivalent to `.kind is Future`.
+        """
         return self._scalar
 
     @property
