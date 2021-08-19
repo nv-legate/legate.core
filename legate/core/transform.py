@@ -39,7 +39,7 @@ class Shift(Transform):
         return shape
 
     def __str__(self):
-        return f"Shift(dim: {self._dim}, slice: {self._offset})"
+        return f"Shift(dim: {self._dim}, offset: {self._offset})"
 
     def __eq__(self, other):
         if not isinstance(other, type(self)):
