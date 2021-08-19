@@ -77,6 +77,15 @@ class RegionField(object):
         if self.attached_alloc is not None:
             self.detach_external_allocation(unordered=True, defer=True)
 
+    def __str__(self):
+        return (
+            f"RegionField("
+            f"tid: {self.region.handle.tree_id}, "
+            f"is: {self.region.handle.index_space.id}, "
+            f"fs: {self.region.handle.field_space.id}, "
+            f"fid: {self.field.field_id})"
+        )
+
     def compute_parallel_launch_space(self):
         # See if we computed it already
         if self.launch_space == ():
@@ -508,10 +517,16 @@ class Store(object):
                 return self.storage.get_tile(self.shape, tiling)
 
     def __str__(self):
-        storage = "None" if self._storage is None else "Materialized"
+        storage = (
+            f"{self.kind.__name__}(uninitialized)"
+            if self._storage is None
+            else str(self._storage)
+        )
         result = (
-            f"<Store(shape: {self._shape}, type: {self._dtype}, "
-            f"kind: {self.kind.__name__}, storage: {storage})>"
+            f"Store("
+            f"shape: {self._shape}, "
+            f"type: {self._dtype}, "
+            f"storage: {storage})"
         )
         if self._parent is not None:
             result += f" <<=={self._transform}== {self._parent}"

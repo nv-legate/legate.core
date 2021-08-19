@@ -72,6 +72,9 @@ class Field(object):
         self.shape = shape
         self.own = own
 
+    def __str__(self):
+        return f"Field({self.field_id})"
+
     def __del__(self):
         if self.own:
             # Return our field back to the runtime

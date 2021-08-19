@@ -1366,6 +1366,14 @@ class Region(object):
         if self.owned and self.parent is None:
             self.destroy(unordered=True)
 
+    def __str__(self):
+        return (
+            f"Region("
+            f"tid: {self.handle.tree_id}, "
+            f"is: {self.handle.index_space.id}, "
+            f"fs: {self.handle.field_space.id})"
+        )
+
     def destroy(self, unordered=False):
         """
         Force deletion of this Region regardless of ownership
@@ -2628,6 +2636,9 @@ class Future(object):
 
     def __del__(self):
         self.destroy(unordered=True)
+
+    def __str__(self):
+        return f"Future({self.handle})"
 
     def destroy(self, unordered):
         """
