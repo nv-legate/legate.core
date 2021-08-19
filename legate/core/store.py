@@ -361,11 +361,15 @@ class Store(object):
             or isinstance(storage, Future)
         )
         self._storage = storage
-        self._scalar = (
-            optimize_scalar
-            and shape is not None
-            and (shape.volume() <= 1 or isinstance(storage, Future))
-        )
+        if isinstance(storage, Future):
+            assert shape is not None
+            self._scalar = True
+        elif isinstance(storage, RegionField):
+            self._scalar = False
+        else:
+            self._scalar = (
+                optimize_scalar and shape is not None and shape.volume() <= 1
+            )
         self._parent = parent
         self._transform = transform
         self._inverse_transform = None
@@ -487,6 +491,8 @@ class Store(object):
     def set_storage(self, storage):
         assert isinstance(storage, RegionField) or isinstance(storage, Future)
         self._storage = storage
+        if isinstance(storage, Future):
+            assert self._scalar
         if self._shape is None:
             assert isinstance(storage, RegionField)
             self._shape = storage.shape
