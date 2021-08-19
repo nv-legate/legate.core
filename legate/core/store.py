@@ -53,8 +53,6 @@ class RegionField(object):
         field,
         shape,
         parent=None,
-        transform=None,
-        view=None,
     ):
         self.runtime = runtime
         self.attachment_manager = runtime.attachment_manager
@@ -76,6 +74,22 @@ class RegionField(object):
     def __del__(self):
         if self.attached_alloc is not None:
             self.detach_external_allocation(unordered=True, defer=True)
+
+    def same_handle(self, other):
+        return (
+            type(self) == type(other)
+            and self.region.same_handle(other.region)
+            and self.field.same_handle(other.field)
+        )
+
+    def __str__(self):
+        return (
+            f"RegionField("
+            f"tid: {self.region.handle.tree_id}, "
+            f"is: {self.region.handle.index_space.id}, "
+            f"fs: {self.region.handle.field_space.id}, "
+            f"fid: {self.field.field_id})"
+        )
 
     def compute_parallel_launch_space(self):
         # See if we computed it already
@@ -354,11 +368,15 @@ class Store(object):
             or isinstance(storage, Future)
         )
         self._storage = storage
-        self._scalar = (
-            optimize_scalar
-            and shape is not None
-            and (shape.volume() <= 1 or isinstance(storage, Future))
-        )
+        if isinstance(storage, Future):
+            assert shape is not None
+            self._scalar = True
+        elif isinstance(storage, RegionField):
+            self._scalar = False
+        else:
+            self._scalar = (
+                optimize_scalar and shape is not None and shape.volume() <= 1
+            )
         self._parent = parent
         self._transform = transform
         self._inverse_transform = None
@@ -444,29 +462,6 @@ class Store(object):
 
         return self._storage
 
-    def __eq__(self, other):
-        if not isinstance(other, Store):
-            return False
-        return (
-            self._shape == other._shape
-            and self._dtype == other._dtype
-            and self._scalar == other._scalar
-            and self._transform == other._transform
-            and self._parent == other._parent
-        )
-
-    def __hash__(self):
-        return hash(
-            (
-                type(self),
-                self._shape,
-                self._dtype,
-                self._scalar,
-                self._transform,
-                self._parent,
-            )
-        )
-
     def get_root(self):
         if self._parent is None:
             return self
@@ -480,6 +475,8 @@ class Store(object):
     def set_storage(self, storage):
         assert isinstance(storage, RegionField) or isinstance(storage, Future)
         self._storage = storage
+        if isinstance(storage, Future):
+            assert self._scalar
         if self._shape is None:
             assert isinstance(storage, RegionField)
             self._shape = storage.shape
@@ -508,10 +505,16 @@ class Store(object):
                 return self.storage.get_tile(self.shape, tiling)
 
     def __str__(self):
-        storage = "None" if self._storage is None else "Materialized"
+        storage = (
+            f"{self.kind.__name__}(uninitialized)"
+            if self._storage is None
+            else str(self._storage)
+        )
         result = (
-            f"<Store(shape: {self._shape}, type: {self._dtype}, "
-            f"kind: {self.kind.__name__}, storage: {storage})>"
+            f"Store("
+            f"shape: {self._shape}, "
+            f"type: {self._dtype}, "
+            f"storage: {storage})"
         )
         if self._parent is not None:
             result += f" <<=={self._transform}== {self._parent}"

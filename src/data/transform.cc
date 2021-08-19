@@ -22,29 +22,6 @@ using namespace Legion;
 
 using StoreTransformP = std::unique_ptr<StoreTransform>;
 
-DomainTransform operator*(const DomainTransform& lhs, const DomainTransform& rhs)
-{
-  assert(lhs.n == rhs.m);
-  DomainTransform result;
-  result.m = lhs.m;
-  result.n = rhs.n;
-  for (int32_t i = 0; i < result.m; ++i)
-    for (int32_t j = 0; j < result.n; ++j) {
-      result.matrix[i * result.n + j] = 0;
-      for (int32_t k = 0; k < lhs.n; ++k)
-        result.matrix[i * result.n + j] += lhs.matrix[i * lhs.n + k] * rhs.matrix[k * rhs.n + j];
-    }
-  return result;
-}
-
-DomainPoint operator+(const DomainPoint& lhs, const DomainPoint& rhs)
-{
-  assert(lhs.dim == rhs.dim);
-  DomainPoint result(lhs);
-  for (int32_t idx = 0; idx < rhs.dim; ++idx) result[idx] += rhs[idx];
-  return result;
-}
-
 DomainAffineTransform combine(const DomainAffineTransform& lhs, const DomainAffineTransform& rhs)
 {
   DomainAffineTransform result;
