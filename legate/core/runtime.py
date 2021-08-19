@@ -512,6 +512,7 @@ class PartitionManager(object):
                 + "counts with large prime factors greater than 11"
             )
         self._piece_factors = list(reversed(factors))
+        self._index_partitions = {}
 
     def compute_launch_shape(self, store, restrictions):
         shape = store.shape
@@ -699,6 +700,15 @@ class PartitionManager(object):
         # TODO: A better heurisitc for this in the future
         num_tiles = (shape // tile_shape).volume()
         return not (num_tiles > 256 and num_tiles > 16 * self._num_pieces)
+
+    def find_partition(self, index_space, functor):
+        key = (index_space, functor)
+        return self._index_partitions.get(key)
+
+    def record_partition(self, index_space, functor, index_partition):
+        key = (index_space, functor)
+        assert key not in self._index_partitions
+        self._index_partitions[key] = index_partition
 
 
 class Runtime(object):
@@ -1039,6 +1049,14 @@ class Runtime(object):
             index_space,
             field_space,
             handle,
+        )
+
+    def find_partition(self, index_space, functor):
+        return self._partition_manager.find_partition(index_space, functor)
+
+    def record_partition(self, index_space, functor, index_partition):
+        self._partition_manager.record_partition(
+            index_space, functor, index_partition
         )
 
 
