@@ -23,139 +23,172 @@ namespace mapping {
 using namespace Legion;
 using namespace Legion::Mapping;
 
-bool InstanceInfoSet::has_instance(LogicalRegion region, PhysicalInstance& result) const
+using RegionGroupP = std::shared_ptr<RegionGroup>;
+
+RegionGroup::RegionGroup(const std::vector<Region>& rs, const Domain bound)
+  : regions(rs), bounding_box(bound)
 {
-  auto finder = region_mapping.find(region);
-  if (finder == region_mapping.end()) return false;
-  const auto& info = instances[finder->second];
-  result           = info->instance;
+}
+
+RegionGroup::RegionGroup(std::vector<Region>&& rs, const Domain bound)
+  : regions(std::move(rs)), bounding_box(bound)
+{
+}
+
+bool InstanceSet::find_instance(Region region, Instance& result) const
+{
+  auto finder = groups_.find(region);
+  if (finder == groups_.end()) return false;
+  auto& group  = finder->second;
+  auto ifinder = instances_.find(group);
+  assert(ifinder != instances_.end());
+  result = ifinder->second;
   return true;
 }
 
-uint32_t InstanceInfoSet::find_or_add_instance_info(PhysicalInstance inst,
-                                                    LogicalRegion region,
-                                                    const Domain& bound)
+// We define "too big" as the size of the "unused" points being bigger than the intersection
+static inline bool too_big(size_t union_volume,
+                           size_t my_volume,
+                           size_t group_volume,
+                           size_t intersect_volume)
 {
-  uint32_t index = instances.size();
-  for (uint32_t idx = 0; idx < instances.size(); idx++) {
-    if (inst != instances[idx]->instance) continue;
-    index = idx;
-    break;
-  }
-  if (index == instances.size())
-    instances.push_back(
-      std::make_shared<InstanceInfo>(inst, bound, std::vector<LogicalRegion>({region})));
-  region_mapping[region] = index;
-  return index;
+  return (union_volume - (my_volume + group_volume - intersect_volume)) > intersect_volume;
 }
 
-struct find_overlapping_instances_fn {
+struct construct_overlapping_region_group_fn {
   template <int32_t DIM>
-  Domain operator()(std::vector<uint32_t>& overlaps,
-                    const Domain& domain,
-                    const std::vector<std::shared_ptr<InstanceInfo>>& instances)
+  RegionGroupP operator()(
+    const InstanceSet::Region& region,
+    const InstanceSet::Domain& domain,
+    const std::map<InstanceSet::RegionGroupP, InstanceSet::Instance>& instances)
   {
     auto bound = domain.bounds<DIM, coord_t>();
-    for (uint32_t idx = 0; idx < instances.size(); ++idx) {
-      auto info       = instances[idx];
-      Rect<DIM> other = info->bounding_box;
-      auto intersect  = bound.intersection(other);
+    std::vector<InstanceSet::Region> regions(1, region);
+
+    for (const auto& pair : instances) {
+      auto& group = pair.first;
+
+      Rect<DIM> group_bbox = group->bounding_box;
+      auto intersect       = bound.intersection(group_bbox);
       if (intersect.empty()) continue;
+
       // Don't merge if the unused space would be more than the space saved
-      auto union_bbox     = bound.union_bbox(other);
-      size_t bound_volume = bound.volume();
-      size_t union_volume = union_bbox.volume();
+      auto union_bbox  = bound.union_bbox(group_bbox);
+      size_t bound_vol = bound.volume();
+      size_t union_vol = union_bbox.volume();
+
       // If it didn't get any bigger then we can keep going
-      if (bound_volume == union_volume) continue;
-      size_t intersect_volume = intersect.volume();
+      if (bound_vol == union_vol) continue;
+
       // Only allow merging if it isn't "too big"
-      // We define "too big" as the size of the "unused" points being bigger than the intersection
-      if ((union_volume - (bound_volume + other.volume() - intersect_volume)) > intersect_volume)
-        continue;
-      overlaps.push_back(idx);
+      if (too_big(union_vol, bound_vol, group_bbox.volume(), intersect.volume())) continue;
+
+      regions.insert(regions.end(), group->regions.begin(), group->regions.end());
       bound = union_bbox;
     }
-    return Domain(bound);
+
+    return std::make_shared<RegionGroup>(std::move(regions), InstanceSet::Domain(bound));
   }
 };
 
-Domain InstanceInfoSet::find_overlapping_instances(const Domain& domain,
-                                                   std::vector<uint32_t>& overlaps) const
+RegionGroupP InstanceSet::construct_overlapping_region_group(const Region& region,
+                                                             const Domain& domain) const
 {
   return dim_dispatch(
-    domain.get_dim(), find_overlapping_instances_fn{}, overlaps, domain, instances);
+    domain.get_dim(), construct_overlapping_region_group_fn{}, region, domain, instances_);
 }
 
-bool InstanceInfoSet::filter(PhysicalInstance inst)
+std::set<InstanceSet::Instance> InstanceSet::record_instance(RegionGroupP group, Instance instance)
 {
-  for (uint32_t idx = 0; idx < instances.size(); idx++)
-    if (instances[idx]->instance == inst) {
-      erase(idx);
-      break;
-    }
-  return instances.empty();
-}
+  assert(instances_.find(group) == instances_.end());
+  instances_[group] = instance;
 
-void InstanceInfoSet::erase(uint32_t idx)
-{
-  // We also need to update any of the other region mappings
-  for (auto it = region_mapping.begin(); it != region_mapping.end(); /*nothing*/) {
-    if (it->second == idx) {
-      auto to_delete = it++;
-      region_mapping.erase(to_delete);
-    } else {
-      if (it->second > idx) it->second--;
-      it++;
+  std::set<Instance> replaced;
+  for (auto& region : group->regions) {
+    auto finder = groups_.find(region);
+    if (finder == groups_.end())
+      groups_[region] = group;
+    else {
+      replaced.insert(instances_[finder->second]);
+      finder->second = group;
     }
   }
-  instances.erase(instances.begin() + idx);
+  replaced.erase(instance);
+  return std::move(replaced);
 }
 
-bool InstanceManager::find_instance(LogicalRegion region,
+bool InstanceSet::erase(PhysicalInstance inst)
+{
+  std::set<RegionGroupP> filtered_groups;
+  for (auto it = instances_.begin(); it != instances_.end(); /*nothing*/) {
+    if (it->second == inst) {
+      auto to_erase = it++;
+      filtered_groups.insert(to_erase->first);
+      instances_.erase(to_erase);
+    } else
+      it++;
+  }
+
+  for (auto& group : filtered_groups)
+    for (auto& region : group->regions) groups_.erase(region);
+
+  return instances_.empty();
+}
+
+size_t InstanceSet::get_instance_size() const
+{
+  size_t sum = 0;
+  for (auto& pair : instances_) sum += pair.second.get_instance_size();
+  return sum;
+}
+
+bool InstanceManager::find_instance(Region region,
                                     FieldID field_id,
                                     Memory memory,
-                                    PhysicalInstance& result)
+                                    Instance& result)
 {
-  auto finder = instance_sets.find(FieldMemInfo(region.get_tree_id(), field_id, memory));
-  return finder != instance_sets.end() && finder->second->has_instance(region, result);
+  auto finder = instance_sets_.find(FieldMemInfo(region.get_tree_id(), field_id, memory));
+  return finder != instance_sets_.end() && finder->second.find_instance(region, result);
 }
 
-std::shared_ptr<InstanceInfoSet> InstanceManager::find_instance_info_set(RegionTreeID tid,
-                                                                         FieldID field_id,
-                                                                         Memory memory)
+RegionGroupP InstanceManager::find_region_group(const Region& region,
+                                                const Domain& domain,
+                                                FieldID field_id,
+                                                Memory memory)
 {
-  auto finder = instance_sets.find(FieldMemInfo(tid, field_id, memory));
-  return finder == instance_sets.end() ? nullptr : finder->second;
+  FieldMemInfo key(region.get_tree_id(), field_id, memory);
+
+  auto finder = instance_sets_.find(key);
+  if (finder == instance_sets_.end())
+    return std::make_shared<RegionGroup>(std::vector<Region>({region}), domain);
+
+  return finder->second.construct_overlapping_region_group(region, domain);
 }
 
-std::shared_ptr<InstanceInfoSet> InstanceManager::find_or_create_instance_info_set(RegionTreeID tid,
-                                                                                   FieldID field_id,
-                                                                                   Memory memory)
+std::set<InstanceManager::Instance> InstanceManager::record_instance(RegionGroupP group,
+                                                                     FieldID fid,
+                                                                     Instance instance)
 {
-  FieldMemInfo key(tid, field_id, memory);
-  auto finder = instance_sets.find(key);
-  if (finder != instance_sets.end())
-    return finder->second;
-  else {
-    auto result        = std::make_shared<InstanceInfoSet>();
-    instance_sets[key] = result;
-    return result;
-  }
+  const auto mem = instance.get_location();
+  const auto tid = instance.get_tree_id();
+
+  FieldMemInfo key(tid, fid, mem);
+  return instance_sets_[key].record_instance(group, instance);
 }
 
-void InstanceManager::filter(PhysicalInstance inst)
+void InstanceManager::erase(PhysicalInstance inst)
 {
   const auto mem = inst.get_location();
   const auto tid = inst.get_tree_id();
 
-  for (auto fit = instance_sets.begin(); fit != instance_sets.end(); /*nothing*/) {
+  for (auto fit = instance_sets_.begin(); fit != instance_sets_.end(); /*nothing*/) {
     if ((fit->first.memory != mem) || (fit->first.tid != tid)) {
       fit++;
       continue;
     }
-    if (fit->second->filter(inst)) {
-      auto to_delete = fit++;
-      instance_sets.erase(to_delete);
+    if (fit->second.erase(inst)) {
+      auto to_erase = fit++;
+      instance_sets_.erase(to_erase);
     } else
       fit++;
   }
@@ -164,10 +197,10 @@ void InstanceManager::filter(PhysicalInstance inst)
 std::map<Legion::Memory, size_t> InstanceManager::aggregate_instance_sizes() const
 {
   std::map<Legion::Memory, size_t> result;
-  for (auto& pair : instance_sets) {
+  for (auto& pair : instance_sets_) {
     auto& memory = pair.first.memory;
     if (result.find(memory) == result.end()) result[memory] = 0;
-    for (auto& info : pair.second->instances) result[memory] += info->get_instance_size();
+    result[memory] += pair.second.get_instance_size();
   }
   return result;
 }

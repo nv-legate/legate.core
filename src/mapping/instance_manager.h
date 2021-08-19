@@ -23,99 +23,103 @@
 namespace legate {
 namespace mapping {
 
-struct FieldMemInfo {
+// This class represents a set of regions that colocate in an instance
+struct RegionGroup {
  public:
-  FieldMemInfo(Legion::RegionTreeID t, Legion::FieldID f, Legion::Memory m)
-    : tid(t), fid(f), memory(m)
-  {
-  }
+  using Region = Legion::LogicalRegion;
+  using Domain = Legion::Domain;
 
  public:
-  inline bool operator==(const FieldMemInfo& rhs) const
-  {
-    return tid == rhs.tid && fid == rhs.fid && memory == rhs.memory;
-  }
-
-  inline bool operator<(const FieldMemInfo& rhs) const
-  {
-    if (tid < rhs.tid)
-      return true;
-    else if (tid > rhs.tid)
-      return false;
-    if (fid < rhs.fid)
-      return true;
-    else if (fid > rhs.fid)
-      return false;
-    return memory < rhs.memory;
-  }
+  RegionGroup(const std::vector<Region>& regions, const Domain bounding_box);
+  RegionGroup(std::vector<Region>&& regions, const Domain bounding_box);
 
  public:
-  Legion::RegionTreeID tid;
-  Legion::FieldID fid;
-  Legion::Memory memory;
+  RegionGroup(const RegionGroup&) = default;
+  RegionGroup(RegionGroup&&)      = default;
+
+ public:
+  std::vector<Region> regions;
+  Domain bounding_box;
 };
 
-struct InstanceInfo {
+struct InstanceSet {
  public:
-  InstanceInfo(Legion::Mapping::PhysicalInstance inst,
-               const Legion::Domain& b,
-               std::vector<Legion::LogicalRegion>&& rs)
-    : instance(inst), bounding_box(b), regions(std::move(rs))
-  {
-    assert(bounding_box.get_dim() > 0);
-  }
+  using Region       = Legion::LogicalRegion;
+  using Instance     = Legion::Mapping::PhysicalInstance;
+  using Domain       = Legion::Domain;
+  using RegionGroupP = std::shared_ptr<RegionGroup>;
 
  public:
-  size_t get_instance_size() const { return instance.get_instance_size(); }
+  bool find_instance(Region region, Instance& result) const;
+  RegionGroupP construct_overlapping_region_group(const Region& region, const Domain& domain) const;
 
  public:
-  Legion::Mapping::PhysicalInstance instance;
-  Legion::Domain bounding_box;
-  std::vector<Legion::LogicalRegion> regions;
-};
-
-struct InstanceInfoSet {
- public:
-  bool has_instance(Legion::LogicalRegion region, Legion::Mapping::PhysicalInstance& result) const;
-  // This function should return std::set<std::shared_ptr<InstanceInfo>>
-  Legion::Domain find_overlapping_instances(const Legion::Domain& domain,
-                                            std::vector<uint32_t>& overlaps) const;
+  std::set<Instance> record_instance(RegionGroupP group, Instance instance);
 
  public:
-  uint32_t find_or_add_instance_info(Legion::Mapping::PhysicalInstance inst,
-                                     Legion::LogicalRegion region,
-                                     const Legion::Domain& bound);
-  bool filter(Legion::Mapping::PhysicalInstance inst);
-  void erase(uint32_t idx);
+  bool erase(Instance inst);
 
  public:
-  // A list of instances that we have for this field in this memory
-  std::vector<std::shared_ptr<InstanceInfo>> instances;
-  // Mapping for logical regions that we already know have instances
-  std::map<Legion::LogicalRegion, uint32_t> region_mapping;
-  // void sanity_check(); ==> checks the round-trip property
-  //    forall pair in instances.
-  //      pair.first in pair.second->regions /\
-  //      forall reg in pair.second->regions. instances[reg].second == pair.second
+  size_t get_instance_size() const;
+
+ private:
+  std::map<RegionGroupP, Instance> instances_;
+  std::map<Legion::LogicalRegion, RegionGroupP> groups_;
 };
 
 class InstanceManager {
  public:
-  bool find_instance(Legion::LogicalRegion region,
-                     Legion::FieldID field_id,
-                     Legion::Memory memory,
-                     Legion::Mapping::PhysicalInstance& result);
-  std::shared_ptr<InstanceInfoSet> find_instance_info_set(Legion::RegionTreeID tid,
-                                                          Legion::FieldID field_id,
-                                                          Legion::Memory memory);
-  std::shared_ptr<InstanceInfoSet> find_or_create_instance_info_set(Legion::RegionTreeID tid,
-                                                                    Legion::FieldID field_id,
-                                                                    Legion::Memory memory);
-  void filter(Legion::Mapping::PhysicalInstance inst);
-  std::map<Legion::Memory, size_t> aggregate_instance_sizes() const;
+  using Region       = Legion::LogicalRegion;
+  using RegionTreeID = Legion::RegionTreeID;
+  using Instance     = Legion::Mapping::PhysicalInstance;
+  using Domain       = Legion::Domain;
+  using FieldID      = Legion::FieldID;
+  using Memory       = Legion::Memory;
+  using RegionGroupP = std::shared_ptr<RegionGroup>;
 
  public:
-  std::map<FieldMemInfo, std::shared_ptr<InstanceInfoSet>> instance_sets;
+  struct FieldMemInfo {
+   public:
+    FieldMemInfo(RegionTreeID t, FieldID f, Memory m) : tid(t), fid(f), memory(m) {}
+    inline bool operator==(const FieldMemInfo& rhs) const
+    {
+      return tid == rhs.tid && fid == rhs.fid && memory == rhs.memory;
+    }
+    inline bool operator<(const FieldMemInfo& rhs) const
+    {
+      if (tid < rhs.tid)
+        return true;
+      else if (tid > rhs.tid)
+        return false;
+      if (fid < rhs.fid)
+        return true;
+      else if (fid > rhs.fid)
+        return false;
+      return memory < rhs.memory;
+    }
+
+   public:
+    RegionTreeID tid;
+    FieldID fid;
+    Memory memory;
+  };
+
+ public:
+  bool find_instance(Region region, FieldID field_id, Memory memory, Instance& result);
+  RegionGroupP find_region_group(const Region& region,
+                                 const Domain& domain,
+                                 FieldID field_id,
+                                 Memory memory);
+  std::set<Instance> record_instance(RegionGroupP group, FieldID field_id, Instance instance);
+
+ public:
+  void erase(Instance inst);
+
+ public:
+  std::map<Legion::Memory, size_t> aggregate_instance_sizes() const;
+
+ private:
+  std::map<FieldMemInfo, InstanceSet> instance_sets_;
 };
 
 }  // namespace mapping

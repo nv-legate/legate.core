@@ -501,6 +501,8 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
         return true;
     }
   }
+  // This whole process has to appear atomic
+  runtime->disable_reentrant(ctx);
   // Haven't made this instance before, so make it now
   // We can do an interesting optimization here to try to reduce unnecessary
   // inter-memory copies. For logical regions that are overlapping we try
@@ -508,76 +510,9 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
   // that instance for all the tasks for the different regions.
   // First we have to see if there is anything we overlap with
   const IndexSpace is = region.get_index_space();
-  // This whole process has to appear atomic
-  runtime->disable_reentrant(ctx);
-  auto infos =
-    local_instances->find_or_create_instance_info_set(region.get_tree_id(), fid, target_memory);
-  // One more check once we get the lock
-  if (infos->has_instance(region, result)) {
-    runtime->enable_reentrant(ctx);
-    return true;
-  }
   const Domain domain = runtime->get_index_space_domain(ctx, is);
-  std::vector<uint32_t> overlaps;
-  auto upper_bound = infos->find_overlapping_instances(domain, overlaps);
-  // Regions to include in the overlap from other fields
-  std::set<LogicalRegion> other_field_overlaps;
-  //  // This is guaranteed to be a rectangle
-  //  Domain upper_bound;
-  //  switch (is.get_dim()) {
-  //#define LEGATE_DIMFUNC(DN) \
-//  case DN: { \
-//    bool changed   = false; \
-//    Rect<DN> bound = dom.bounds<DN, coord_t>(); \
-//    for (uint32_t idx = 0; idx < infos.instances.size(); idx++) { \
-//      const InstanceInfo& info = infos.instances[idx]; \
-//      Rect<DN> other           = info.bounding_box; \
-//      Rect<DN> intersect       = bound.intersection(other); \
-//      if (intersect.empty()) continue; \
-//      /*Don't merge if the unused space would be more than the space saved*/ \
-//      Rect<DN> union_bbox = bound.union_bbox(other); \
-//      size_t bound_volume = bound.volume(); \
-//      size_t union_volume = union_bbox.volume(); \
-//      /* If it didn't get any bigger then we can keep going*/ \
-//      if (bound_volume == union_volume) continue; \
-//      size_t intersect_volume = intersect.volume(); \
-//      /* Only allow merging if it isn't "too big"*/ \
-//      /* We define "too big" as the size of the "unused" points being bigger than the \
-//       * intersection*/ \
-//      if ((union_volume - (bound_volume + other.volume() - intersect_volume)) >
-  //      intersect_volume) \
-//        continue; \
-//      overlaps.push_back(idx); \
-//      bound   = union_bbox; \
-//      changed = true; \
-//    } \
-//    /* If we didn't find any overlapping modifications check adjacent fields in the same tree*/
-  //    \
-//    /* to see if we can use them to infer what our shape should be.*/ \
-//    if (!changed) { \
-//      for (std::map<FieldMemInfo, InstanceInfos>::const_iterator it = local_instances.begin(); \
-//           it != local_instances.end(); \
-//           it++) { \
-//        if ((it->first.tid != info_key.tid) || (it->first.fid == info_key.fid) || \
-//            (it->first.memory != info_key.memory)) \
-//          continue; \
-//        std::map<LogicalRegion, uint32_t>::const_iterator finder = \
-//          it->second.region_mapping.find(region); \
-//        if (finder != it->second.region_mapping.end()) { \
-//          const InstanceInfo& other_info = it->second.instances[finder->second]; \
-//          Rect<DN> other                 = other_info.bounding_box; \
-//          bound                          = bound.union_bbox(other); \
-//          other_field_overlaps.insert(other_info.regions.begin(), other_info.regions.end()); \
-//        } \
-//      } \
-//    } \
-//    upper_bound = Domain(bound); \
-//    break; \
-//  }
-  //    LEGATE_FOREACH_N(LEGATE_DIMFUNC)
-  //#undef LEGATE_DIMFUNC
-  //    default: assert(false);
-  //  }
+  auto group          = local_instances->find_region_group(region, domain, fid, target_memory);
+
   // We're going to need some of this constraint information no matter
   // which path we end up taking below
   LayoutConstraintSet layout_constraints;
@@ -595,158 +530,42 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
   // Make sure we have our field
   const std::vector<FieldID> fields(1, fid);
   layout_constraints.add_constraint(FieldConstraint(fields, true /*contiguous*/));
-  // Check to see if we have any overlaps
-  if (overlaps.empty()) {
-    // No overlaps, so just go ahead and make our instance and add it
-    std::vector<LogicalRegion> regions(1, region);
-    // If we're bringing in other regions include them as well in this set
-    if (!other_field_overlaps.empty()) {
-      other_field_overlaps.erase(region);
-      regions.insert(regions.end(), other_field_overlaps.begin(), other_field_overlaps.end());
-    }
-    bool created;
-    size_t footprint;
-    if (runtime->find_or_create_physical_instance(ctx,
-                                                  target_memory,
-                                                  layout_constraints,
-                                                  regions,
-                                                  result,
-                                                  created,
-                                                  true /*acquire*/,
-                                                  memoize_result ? GC_NEVER_PRIORITY : 0,
-                                                  false /*tight bounds*/,
-                                                  &footprint)) {
-      // We succeeded in making the instance where we want it
-      assert(result.exists());
-      if (created)
-        logger.info("%s created instance %lx containing %zd bytes in memory " IDFMT,
-                    get_mapper_name(),
-                    result.get_instance_id(),
-                    footprint,
-                    target_memory.id);
-      // Only save the result for future use if it is not an external instance
-      if (memoize_result && !result.is_external_instance()) {
-        infos->find_or_add_instance_info(result, region, upper_bound);
-        /*
-        InstanceInfo& info = infos.instances[idx];
-        for (std::set<LogicalRegion>::const_iterator it = other_field_overlaps.begin();
-             it != other_field_overlaps.end();
-             it++) {
-          if ((*it) == region) continue;
-          infos.region_mapping[*it] = idx;
-          info.regions.push_back(*it);
-        }
-        */
-      }
-      // We made it so no need for an acquire
-      runtime->enable_reentrant(ctx);
-      return false;
-    }
 
-  } else if (overlaps.size() == 1) {
-    // Overlap with exactly one other instance
-    auto info = infos->instances[overlaps[0]];
-    // A Legion bug prevents us from doing this case
-    if (info->bounding_box == upper_bound) {
-      // Easy case of dominance, so just add it
-      info->regions.push_back(region);
-      infos->region_mapping[region] = overlaps[0];
-      result                        = info->instance;
-      runtime->enable_reentrant(ctx);
-      // Didn't make it so we need to acquire it
-      return true;
-    } else {
-      // We have to make a new instance
-      info->regions.push_back(region);
-      bool created;
-      size_t footprint;
-      if (runtime->find_or_create_physical_instance(ctx,
-                                                    target_memory,
-                                                    layout_constraints,
-                                                    info->regions,
-                                                    result,
-                                                    created,
-                                                    true /*acquire*/,
-                                                    GC_NEVER_PRIORITY,
-                                                    false /*tight bounds*/,
-                                                    &footprint)) {
-        // We succeeded in making the instance where we want it
-        assert(result.exists());
-        if (created)
-          logger.info("%s created instance %lx containing %zd bytes in memory " IDFMT,
-                      get_mapper_name(),
-                      result.get_instance_id(),
-                      footprint,
-                      target_memory.id);
-        // Remove the GC priority on the old instance back to 0
-        auto& instance = info->instance;
+  bool created;
+  size_t footprint;
+  if (runtime->find_or_create_physical_instance(ctx,
+                                                target_memory,
+                                                layout_constraints,
+                                                group->regions,
+                                                result,
+                                                created,
+                                                true /*acquire*/,
+                                                memoize_result ? GC_NEVER_PRIORITY : 0,
+                                                false /*tight bounds*/,
+                                                &footprint)) {
+    // We succeeded in making the instance where we want it
+    assert(result.exists());
+    if (created)
+      logger.info("%s created instance %lx containing %zd bytes in memory " IDFMT,
+                  get_mapper_name(),
+                  result.get_instance_id(),
+                  footprint,
+                  target_memory.id);
+    // Only save the result for future use if it is not an external instance
+    if (memoize_result && !result.is_external_instance()) {
+      auto replaced = local_instances->record_instance(group, fid, result);
+      for (auto& instance : replaced) {
         if (!instance.is_external_instance())
           runtime->set_garbage_collection_priority(ctx, instance, 0);
-        // Update everything in place
-        info->instance                = result;
-        info->bounding_box            = upper_bound;
-        infos->region_mapping[region] = overlaps[0];
-        runtime->enable_reentrant(ctx);
-        // We made it so no need for an acquire
-        return false;
-      } else  // Failed to make it so pop the logical region name back off
-        info->regions.pop_back();
-    }
-  } else {
-    // Overlap with multiple previous instances
-    std::vector<LogicalRegion> combined_regions(1, region);
-    for (auto idx : overlaps)
-      combined_regions.insert(combined_regions.end(),
-                              infos->instances[idx]->regions.begin(),
-                              infos->instances[idx]->regions.end());
-    // Try to make it
-    bool created;
-    size_t footprint;
-    if (runtime->find_or_create_physical_instance(ctx,
-                                                  target_memory,
-                                                  layout_constraints,
-                                                  combined_regions,
-                                                  result,
-                                                  created,
-                                                  true /*acquire*/,
-                                                  GC_NEVER_PRIORITY,
-                                                  false /*tight bounds*/,
-                                                  &footprint)) {
-      // We succeeded in making the instance where we want it
-      assert(result.exists());
-      if (created)
-        logger.info("%s created instance %lx containing %zd bytes in memory " IDFMT,
-                    get_mapper_name(),
-                    result.get_instance_id(),
-                    footprint,
-                    target_memory.id);
-      // Remove all the previous entries back to front
-      for (std::vector<uint32_t>::const_reverse_iterator it = overlaps.crbegin();
-           it != overlaps.crend();
-           it++) {
-        // Remove the GC priority on the old instance
-        auto& instance = infos->instances[*it]->instance;
-        if (!instance.is_external_instance())
-          runtime->set_garbage_collection_priority(ctx, instance, 0);
-        infos->erase(*it);
       }
-      // Add the new entry
-      const uint32_t index = infos->instances.size();
-      infos->instances.resize(index + 1);
-      infos->instances[index] =
-        std::make_shared<InstanceInfo>(result, upper_bound, std::move(combined_regions));
-      // Update the mappings for all the instances
-      // This really sucks but it should be pretty rare
-      // We can start at the entry of the first overlap since everything
-      // before that is guaranteed to be unchanged
-      for (auto& region : infos->instances[index]->regions) infos->region_mapping[region] = index;
-      runtime->enable_reentrant(ctx);
-      // We made it so no need for an acquire
-      return false;
     }
+    // We made it so no need for an acquire
+    runtime->enable_reentrant(ctx);
+    return false;
   }
   // Done with the atomic part
   runtime->enable_reentrant(ctx);
+
   // If we get here it's because we failed to make the instance, we still
   // have a few more tricks that we can try
   // First see if we can find an existing valid instance that we can use
@@ -784,7 +603,7 @@ void BaseMapper::filter_failed_acquires(std::vector<PhysicalInstance>& needed_ac
   for (auto& instance : needed_acquires) {
     if (failed_acquires.find(instance) != failed_acquires.end()) continue;
     failed_acquires.insert(instance);
-    local_instances->filter(instance);
+    local_instances->erase(instance);
   }
   needed_acquires.clear();
 }
