@@ -1366,6 +1366,14 @@ class Region(object):
         if self.owned and self.parent is None:
             self.destroy(unordered=True)
 
+    def same_handle(self, other):
+        return (
+            type(self) == type(other)
+            and self.handle.tree_id == other.handle.tree_id
+            and self.handle.index_space.id == other.handle.index_space.id
+            and self.handle.field_space.id == other.handle.field_space.id
+        )
+
     def __str__(self):
         return (
             f"Region("
@@ -2636,6 +2644,13 @@ class Future(object):
 
     def __del__(self):
         self.destroy(unordered=True)
+
+    # We cannot use this as __eq__ because then we would have to define a
+    # compatible __hash__, which would not be sound because self.handle can
+    # change during the lifetime of a Future object, and thus so would the
+    # object's hash. So we just leave the default `f1 == f2 <==> f1 is f2`.
+    def same_handle(self, other):
+        return type(self) == type(other) and self.handle == other.handle
 
     def __str__(self):
         return f"Future({self.handle})"

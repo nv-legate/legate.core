@@ -71,6 +71,9 @@ class Field(object):
         self.shape = shape
         self.own = own
 
+    def same_handle(self, other):
+        return type(self) == type(other) and self.field_id == other.field_id
+
     def __str__(self):
         return f"Field({self.field_id})"
 

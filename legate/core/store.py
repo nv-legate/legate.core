@@ -75,6 +75,13 @@ class RegionField(object):
         if self.attached_alloc is not None:
             self.detach_external_allocation(unordered=True, defer=True)
 
+    def same_handle(self, other):
+        return (
+            type(self) == type(other)
+            and self.region.same_handle(other.region)
+            and self.field.same_handle(other.field)
+        )
+
     def __str__(self):
         return (
             f"RegionField("
@@ -454,29 +461,6 @@ class Store(object):
                     self._storage = self._get_tile(tiling)
 
         return self._storage
-
-    def __eq__(self, other):
-        if not isinstance(other, Store):
-            return False
-        return (
-            self._shape == other._shape
-            and self._dtype == other._dtype
-            and self._scalar == other._scalar
-            and self._transform == other._transform
-            and self._parent == other._parent
-        )
-
-    def __hash__(self):
-        return hash(
-            (
-                type(self),
-                self._shape,
-                self._dtype,
-                self._scalar,
-                self._transform,
-                self._parent,
-            )
-        )
 
     def get_root(self):
         if self._parent is None:
