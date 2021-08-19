@@ -53,8 +53,6 @@ class RegionField(object):
         field,
         shape,
         parent=None,
-        transform=None,
-        view=None,
     ):
         self.runtime = runtime
         self.attachment_manager = runtime.attachment_manager

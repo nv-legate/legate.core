@@ -53,7 +53,6 @@ class Field(object):
         "dtype",
         "shape",
         "own",
-        "field_space",
     ]
 
     def __init__(
