@@ -26,6 +26,7 @@ namespace legate {
 LibraryContext::LibraryContext(Legion::Runtime* runtime,
                                const std::string& library_name,
                                const ResourceConfig& config)
+  : library_name_(library_name)
 {
   task_scope_ = ResourceScope(
     runtime->generate_library_task_ids(library_name.c_str(), config.max_tasks), config.max_tasks);
@@ -42,6 +43,8 @@ LibraryContext::LibraryContext(Legion::Runtime* runtime,
     runtime->generate_library_sharding_ids(library_name.c_str(), config.max_shardings),
     config.max_shardings);
 }
+
+const std::string& LibraryContext::get_library_name() const { return library_name_; }
 
 Legion::TaskID LibraryContext::get_task_id(int64_t local_task_id) const
 {

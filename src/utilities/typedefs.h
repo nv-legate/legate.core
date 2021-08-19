@@ -43,6 +43,8 @@ using GenericAccessorWO = Legion::FieldAccessor<WRITE_DISCARD, FT, N, T>;
 template <typename FT, int N, typename T = Legion::coord_t>
 using GenericAccessorRW = Legion::FieldAccessor<READ_WRITE, FT, N, T>;
 
+using TunableID = Legion::TunableID;
+
 // C enum typedefs
 using LegateVariantCode = legate_core_variant_t;
 using LegatePartition   = legate_core_partition_t;

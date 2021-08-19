@@ -15,16 +15,18 @@
 
 
 # General source files
-GEN_CPU_SRC	= legate_c.cc               \
-							data/scalar.cc            \
-							data/store.cc             \
-							data/transform.cc         \
-							mapping/mapper.cc         \
-							runtime/context.cc        \
-							runtime/projection.cc     \
-							runtime/runtime.cc        \
-							runtime/shard.cc          \
-							task/task.cc              \
+GEN_CPU_SRC	= legate_c.cc                 \
+							data/scalar.cc              \
+							data/store.cc               \
+							data/transform.cc           \
+							mapping/base_mapper.cc      \
+							mapping/core_mapper.cc      \
+							mapping/instance_manager.cc \
+							runtime/context.cc          \
+							runtime/projection.cc       \
+							runtime/runtime.cc          \
+							runtime/shard.cc            \
+							task/task.cc                \
 							utilities/deserializer.cc
 
 ifeq ($(strip $(USE_CUDA)),1)
@@ -48,6 +50,7 @@ INSTALL_HEADERS = legate.h                 \
 									data/store.h             \
 									data/store.inl           \
 									data/transform.h         \
+									mapping/base_mapper.h    \
 									runtime/context.h        \
 									runtime/runtime.h        \
 									task/task.h              \

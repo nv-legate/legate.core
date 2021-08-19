@@ -15,7 +15,7 @@
  */
 
 #include "legate.h"
-#include "mapping/mapper.h"
+#include "mapping/core_mapper.h"
 #include "runtime/projection.h"
 #include "runtime/shard.h"
 #ifdef LEGATE_USE_CUDA
