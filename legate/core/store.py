@@ -424,6 +424,10 @@ class Store(object):
         return self._shape is None
 
     @property
+    def scalar(self):
+        return self._kind is Future and self._shape.volume() == 1
+
+    @property
     def storage(self):
         """
         Return the Legion storage objects actually backing the data for this
