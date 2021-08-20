@@ -21,6 +21,7 @@ from .legion import (
     ArgumentMap,
     BufferBuilder,
     Copy as SingleCopy,
+    Future,
     IndexCopy,
     IndexTask,
     Task as SingleTask,
@@ -558,7 +559,7 @@ class TaskLauncher(object):
         )
 
     def add_store(self, args, store, proj, perm, tag, flags):
-        if store.scalar:
+        if store.kind is Future:
             if perm != Permission.READ:
                 raise ValueError("Scalar stores must be read only")
             self.add_future(store.storage)
@@ -747,7 +748,7 @@ class CopyLauncher(object):
         del self._req_analyzer
 
     def add_store(self, store, proj, perm, tag, flags):
-        assert not store.scalar
+        assert store.kind is not Future
         assert store._transform is None
 
         region = store.storage.region

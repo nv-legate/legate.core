@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-from .legion import Rect
+from .legion import Future, Rect
 from .partition import NoPartition
 from .shape import Shape
 
@@ -157,7 +157,7 @@ class Partitioner(object):
     ):
         to_remove = set()
         for store in stores:
-            if not (store.scalar or store in broadcasts):
+            if not (store.kind is Future or store in broadcasts):
                 continue
 
             to_remove.add(store)
@@ -165,7 +165,7 @@ class Partitioner(object):
             if store in partitions:
                 continue
 
-            if store.scalar:
+            if store.kind is Future:
                 partitions[store] = NoPartition()
             else:
                 cls = constraints.find(store)

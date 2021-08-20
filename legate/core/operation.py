@@ -16,6 +16,7 @@
 import legate.core.types as ty
 
 from .launcher import CopyLauncher, TaskLauncher
+from .legion import Future
 from .solver import EqClass
 from .store import Store
 
@@ -90,7 +91,7 @@ class Operation(object):
 
     def add_output(self, store):
         self._check_store(store)
-        if store.scalar:
+        if store.kind is Future:
             self._check_scalar_output()
             self._scalar_output = store
         else:
@@ -98,7 +99,7 @@ class Operation(object):
 
     def add_reduction(self, store, redop):
         self._check_store(store)
-        if store.scalar:
+        if store.kind is Future:
             self._check_scalar_output()
             self._scalar_reduction = (store, redop)
         else:
