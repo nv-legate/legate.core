@@ -368,10 +368,9 @@ class Store(object):
             or isinstance(storage, Future)
         )
         self._storage = storage
-        if parent is None:
-            assert transform is None
-        else:
-            assert transform is not None
+        assert (parent is None and transform is None) or (
+            parent is not None and transform is not None
+        )
         self._parent = parent
         self._transform = transform
         if isinstance(storage, Future):
