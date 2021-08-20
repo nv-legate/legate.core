@@ -2653,7 +2653,7 @@ class Future(object):
         return type(self) == type(other) and self.handle == other.handle
 
     def __str__(self):
-        return f"Future({self.handle})"
+        return f"Future({str(self.handle.impl)[16:-1]})"
 
     def destroy(self, unordered):
         """

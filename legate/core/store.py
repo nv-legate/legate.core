@@ -368,17 +368,23 @@ class Store(object):
             or isinstance(storage, Future)
         )
         self._storage = storage
-        if isinstance(storage, Future):
-            assert shape is not None
-            self._scalar = True
-        elif isinstance(storage, RegionField):
-            self._scalar = False
-        else:
-            self._scalar = (
-                optimize_scalar and shape is not None and shape.volume() <= 1
-            )
+        assert (parent is None and transform is None) or (
+            parent is not None and transform is not None
+        )
         self._parent = parent
         self._transform = transform
+        if isinstance(storage, Future):
+            assert shape is not None
+            assert self.get_root().shape.volume() <= 1
+            self._kind = Future
+        elif isinstance(storage, RegionField):
+            self._kind = RegionField
+        elif parent is not None:
+            self._kind = parent._kind
+        elif optimize_scalar and shape is not None and shape.volume() <= 1:
+            self._kind = Future
+        else:
+            self._kind = RegionField
         self._inverse_transform = None
         self._partitions = {}
         self._key_partition = None
@@ -408,14 +414,10 @@ class Store(object):
     @property
     def kind(self):
         """
-        Return the type of the Legion storage object backing the
-        data in this storage object: either Future, FutureMap,
-        RegionField
+        Return the type of the Legion storage object backing the data in this
+        storage object: either Future, FutureMap, or RegionField.
         """
-        if self._storage is not None:
-            return type(self._storage)
-        else:
-            return Future if self._scalar else RegionField
+        return self._kind
 
     @property
     def unbound(self):
@@ -423,14 +425,13 @@ class Store(object):
 
     @property
     def scalar(self):
-        return self._scalar
+        return self._kind is Future and self._shape.volume() == 1
 
     @property
     def storage(self):
         """
-        Return the Legion storage objects actually backing the
-        data for this Store. These will have exactly the
-        type specified in by 'kind'
+        Return the Legion storage objects actually backing the data for this
+        Store. These will have exactly the type specified by `.kind`.
         """
         if self._storage is None:
             if self.unbound:
@@ -441,7 +442,7 @@ class Store(object):
             # TODO: We should keep track of thunks and evaluate them
             #       if necessary
             if self._parent is None:
-                if self._scalar:
+                if self._kind is Future:
                     raise ValueError(
                         "Illegal to access the storage of an uninitialized "
                         "Legate store of volume 1 with scalar optimization"
@@ -450,15 +451,13 @@ class Store(object):
                     self._storage = self._runtime.allocate_field(
                         self._shape, self._dtype
                     )
+            elif self._kind is Future:
+                self._storage = self._parent.storage
             else:
-                assert self._transform is not None
-                if self._parent.scalar:
-                    self._storage = self._parent.storage
-                else:
-                    tiling = Tiling(
-                        self._runtime, self.shape, Shape((1,) * self.ndim)
-                    )
-                    self._storage = self._get_tile(tiling)
+                tiling = Tiling(
+                    self._runtime, self.shape, Shape((1,) * self.ndim)
+                )
+                self._storage = self._get_tile(tiling)
 
         return self._storage
 
@@ -473,10 +472,8 @@ class Store(object):
         return my_tile.tile_shape.volume()
 
     def set_storage(self, storage):
-        assert isinstance(storage, RegionField) or isinstance(storage, Future)
+        assert type(storage) is self._kind
         self._storage = storage
-        if isinstance(storage, Future):
-            assert self._scalar
         if self._shape is None:
             assert isinstance(storage, RegionField)
             self._shape = storage.shape
@@ -506,7 +503,7 @@ class Store(object):
 
     def __str__(self):
         storage = (
-            f"{self.kind.__name__}(uninitialized)"
+            f"{self._kind.__name__}(uninitialized)"
             if self._storage is None
             else str(self._storage)
         )
@@ -534,8 +531,7 @@ class Store(object):
             self._runtime,
             self._dtype,
             shape=shape,
-            storage=self._storage if self._scalar else None,
-            optimize_scalar=self._scalar,
+            storage=self._storage if self._kind is Future else None,
             parent=self,
             transform=transform,
         )
@@ -552,8 +548,7 @@ class Store(object):
             self._runtime,
             self._dtype,
             shape=shape,
-            storage=self._storage if self._scalar else None,
-            optimize_scalar=self._scalar,
+            storage=self._storage if self._kind is Future else None,
             parent=self,
             transform=transform,
         )
@@ -584,8 +579,7 @@ class Store(object):
             self._runtime,
             self._dtype,
             shape=shape,
-            storage=self._storage if self._scalar else None,
-            optimize_scalar=self._scalar,
+            storage=self._storage if self._kind is Future else None,
             parent=self,
             transform=transform,
         )
@@ -608,8 +602,7 @@ class Store(object):
             self._runtime,
             self._dtype,
             shape=shape,
-            storage=self._storage if self._scalar else None,
-            optimize_scalar=self._scalar,
+            storage=self._storage if self._kind is Future else None,
             parent=self,
             transform=transform,
         )
@@ -629,8 +622,7 @@ class Store(object):
             self._runtime,
             self._dtype,
             shape=shape,
-            storage=self._storage if self._scalar else None,
-            optimize_scalar=self._scalar,
+            storage=self._storage if self._kind is Future else None,
             parent=self,
             transform=transform,
         )
@@ -649,7 +641,7 @@ class Store(object):
             return self._inverse_transform
 
     def get_inline_allocation(self, context=None):
-        assert not self.scalar
+        assert self._kind is RegionField
         transform = self.get_inverse_transform()
         return self.storage.get_inline_allocation(
             self.shape, context=context, transform=transform
@@ -674,7 +666,7 @@ class Store(object):
             buf.pack_32bit_int(-1)
 
     def serialize(self, buf):
-        buf.pack_bool(self._scalar)
+        buf.pack_bool(self._kind is Future)
         buf.pack_32bit_int(self.ndim)
         buf.pack_32bit_int(self._dtype.code)
         self._serialize_transform(buf)
@@ -698,10 +690,8 @@ class Store(object):
         self._key_partition = None
 
     def compute_key_partition(self, restrictions):
-        if self._scalar:
-            return NoPartition()
         # If this is effectively a scalar store, we don't need to partition it
-        elif self.ndim == 0:
+        if self._kind is Future or self.ndim == 0:
             return NoPartition()
 
         if (
@@ -748,7 +738,7 @@ class Store(object):
             return self._transform.convert_restrictions(restrictions)
 
     def find_or_create_partition(self, functor):
-        assert not self.scalar
+        assert self._kind is RegionField
         if functor in self._partitions:
             return self._partitions[functor]
 
