@@ -29,26 +29,18 @@ is the highest minor version) the latest and greatest code.
 
 Hotfixes (patch releases) related to the current release `M.A` are directly
 merged to `main` from a PR and then those changes are also merged to the current
-release branches in progress through an automated process. All merges to `main`
-trigger an automated CI job that will produce a new release and tag incrementing
-the patch version off of the previous highest tag in the repo. Once the tag is
-set, the automated CI build for conda packages creates and pushes new packages
-for users. This includes the version change enabling known good builds and the
-ability to rollback.
+release branches in progress through manual process. 
 
 Minor (and eventually, Major) release development takes place on the current
 release branch. PRs can be edited on GitHub to set the target base branch for
 merging the PR. It is the reviewer’s responsibility to ensure the PR is targeted
 for the correct and planned release branch. Once PRs have passed all tests, they
-are merged to their release branch, which triggers an automated CI build for
-conda packages that will be marked as development, such as M.N-dev1. These can
-be inspected by the team to ensure the build works as intended and perform
-larger testing.
+are merged to their release branch.
 
 Once a release has been reviewed and signoff has been given, a PR is created to
-merge the release branch to main. After the merge, the automated tagging process
-tags and releases a minor version and kicks off the conda builds for the public
-release.
+merge the release branch to `main`. After the merge, the automated tagging
+process tags and releases a minor version and kicks off the conda builds for the
+public release.
 
 Summary
 -------
