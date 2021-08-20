@@ -561,7 +561,7 @@ class TaskLauncher(object):
     def add_store(self, args, store, proj, perm, tag, flags):
         if store.kind is Future:
             if perm != Permission.READ:
-                raise ValueError("Scalar stores must be read only")
+                raise ValueError("Future-backed stores must be read only")
             self.add_future(store.storage)
             args.append(FutureStoreArg(store))
 

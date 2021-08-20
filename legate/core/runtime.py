@@ -848,7 +848,7 @@ class Runtime(object):
             return op.launch(self.legion_runtime, self.legion_context)
 
     def _schedule(self, ops):
-        must_be_single = any(op._scalar_output is not None for op in ops)
+        must_be_single = any(op._future_output is not None for op in ops)
         partitioner = Partitioner(self, ops, must_be_single=must_be_single)
         strategy = partitioner.partition_stores()
 
