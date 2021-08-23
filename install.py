@@ -863,7 +863,11 @@ def driver():
         action="store",
         required=False,
         default=None,
-        help="Build Legate for the specified Python library.",
+        help=(
+            "Build Legate against the specified Python shared library. "
+            "Default is to use the Python library currently executing this "
+            "install script."
+        ),
     )
     parser.add_argument(
         "--cmake",
