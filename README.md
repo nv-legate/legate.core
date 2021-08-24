@@ -208,9 +208,10 @@ as though they are running on a single processor.
 
 ## How Do I Install Legate?
 
-Pre-built docker images containing all Legate libraries are available on the
-[quickstart](https://github.com/nv-legate/quickstart) repo. You can also build
-Legate Core from source:
+Pre-built docker images containing all Legate libraries, as well as specialized
+install scripts for supported clusters are available on the
+[quickstart](https://github.com/nv-legate/quickstart) repo. Read on for instructions
+on how to build Legate Core from source.
 
 ### Dependencies
 
@@ -222,6 +223,7 @@ The Legate Core currently requires Python >= 3.7 and the following packages:
 
   - `pyarrow=1.0.1`
   - `numpy`
+  - `cffi`
   - [CUDA](https://developer.nvidia.com/cuda-downloads) >= 8.0
   - C++14 compatible compiler (g++, clang, or nvc++)
 
