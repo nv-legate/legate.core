@@ -145,7 +145,7 @@ TaskContext::TaskContext(const Legion::Task* task,
                          Legion::Runtime* runtime)
   : task_(task), regions_(regions), context_(context), runtime_(runtime)
 {
-  Deserializer dez(task, regions);
+  TaskDeserializer dez(task, regions);
   inputs_     = dez.unpack<std::vector<Store>>();
   outputs_    = dez.unpack<std::vector<Store>>();
   reductions_ = dez.unpack<std::vector<Store>>();

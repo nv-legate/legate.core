@@ -17,28 +17,25 @@
 #include "utilities/deserializer.h"
 #include "data/scalar.h"
 #include "data/store.h"
+#include "mapping/task.h"
+
+using LegionTask = Legion::Task;
+
+using namespace Legion;
+using namespace Legion::Mapping;
 
 namespace legate {
 
-using namespace Legion;
-
-Deserializer::Deserializer(const Task* task, const std::vector<PhysicalRegion>& regions)
-  : regions_{regions.data(), regions.size()},
-    futures_{task->futures.data(), task->futures.size()},
-    task_args_{static_cast<const int8_t*>(task->args), task->arglen},
-    outputs_()
+TaskDeserializer::TaskDeserializer(const LegionTask* task,
+                                   const std::vector<PhysicalRegion>& regions)
+  : BaseDeserializer(task), regions_{regions.data(), regions.size()}, outputs_()
 {
   auto runtime = Runtime::get_runtime();
   auto ctx     = Runtime::get_context();
   runtime->get_output_regions(ctx, outputs_);
 }
 
-void Deserializer::_unpack(LegateTypeCode& value)
-{
-  value = static_cast<LegateTypeCode>(unpack<int32_t>());
-}
-
-void Deserializer::_unpack(Store& value)
+void TaskDeserializer::_unpack(Store& value)
 {
   auto is_future = unpack<bool>();
   auto dim       = unpack<int32_t>();
@@ -61,31 +58,7 @@ void Deserializer::_unpack(Store& value)
   }
 }
 
-void Deserializer::_unpack(Scalar& value)
-{
-  auto tuple = unpack<bool>();
-  auto code  = unpack<LegateTypeCode>();
-  value      = Scalar(tuple, code, task_args_.ptr());
-  task_args_ = task_args_.subspan(value.size());
-}
-
-void Deserializer::_unpack(FutureWrapper& value)
-{
-  auto future = futures_[0];
-  futures_    = futures_.subspan(1);
-
-  auto point = unpack<std::vector<int64_t>>();
-  Domain domain;
-  domain.dim = static_cast<int32_t>(point.size());
-  for (int32_t idx = 0; idx < domain.dim; ++idx) {
-    domain.rect_data[idx]              = 0;
-    domain.rect_data[idx + domain.dim] = point[idx] - 1;
-  }
-
-  value = FutureWrapper(domain, future);
-}
-
-void Deserializer::_unpack(RegionField& value)
+void TaskDeserializer::_unpack(RegionField& value)
 {
   auto dim = unpack<int32_t>();
   auto idx = unpack<uint32_t>();
@@ -94,7 +67,7 @@ void Deserializer::_unpack(RegionField& value)
   value = RegionField(dim, regions_[idx], fid);
 }
 
-void Deserializer::_unpack(OutputRegionField& value)
+void TaskDeserializer::_unpack(OutputRegionField& value)
 {
   auto dim = unpack<int32_t>();
   assert(dim == 1);
@@ -104,45 +77,49 @@ void Deserializer::_unpack(OutputRegionField& value)
   value = OutputRegionField(outputs_[idx], fid);
 }
 
-std::unique_ptr<StoreTransform> Deserializer::unpack_transform()
+namespace mapping {
+
+MapperDeserializer::MapperDeserializer(const LegionTask* task,
+                                       MapperRuntime* runtime,
+                                       MapperContext context)
+  : BaseDeserializer(task),
+    regions_{task->regions.data(), task->regions.size()},
+    output_regions_{task->output_regions.data(), task->output_regions.size()},
+    runtime_(runtime),
+    context_(context)
 {
-  auto code = unpack<int32_t>();
-  switch (code) {
-    case -1: {
-      return nullptr;
-    }
-    case LEGATE_CORE_TRANSFORM_SHIFT: {
-      auto dim    = unpack<int32_t>();
-      auto offset = unpack<int64_t>();
-      auto parent = unpack_transform();
-      return std::make_unique<Shift>(dim, offset, std::move(parent));
-    }
-    case LEGATE_CORE_TRANSFORM_PROMOTE: {
-      auto extra_dim = unpack<int32_t>();
-      auto dim_size  = unpack<int64_t>();
-      auto parent    = unpack_transform();
-      return std::make_unique<Promote>(extra_dim, dim_size, std::move(parent));
-    }
-    case LEGATE_CORE_TRANSFORM_PROJECT: {
-      auto dim    = unpack<int32_t>();
-      auto coord  = unpack<int64_t>();
-      auto parent = unpack_transform();
-      return std::make_unique<Project>(dim, coord, std::move(parent));
-    }
-    case LEGATE_CORE_TRANSFORM_TRANSPOSE: {
-      auto axes   = unpack<std::vector<int32_t>>();
-      auto parent = unpack_transform();
-      return std::make_unique<Transpose>(std::move(axes), std::move(parent));
-    }
-    case LEGATE_CORE_TRANSFORM_DELINEARIZE: {
-      auto dim    = unpack<int32_t>();
-      auto sizes  = unpack<std::vector<int64_t>>();
-      auto parent = unpack_transform();
-      return std::make_unique<Delinearize>(dim, std::move(sizes), std::move(parent));
-    }
-  }
-  assert(false);
-  return nullptr;
 }
+
+void MapperDeserializer::_unpack(Store& value)
+{
+  auto is_future = unpack<bool>();
+  auto dim       = unpack<int32_t>();
+  auto code      = unpack<LegateTypeCode>();
+
+  auto transform = unpack_transform();
+
+  if (is_future) {
+    auto fut = unpack<FutureWrapper>();
+    value    = Store(dim, code, fut, std::move(transform));
+  } else {
+    auto is_output_region = dim < 0;
+    auto redop_id         = unpack<int32_t>();
+    RegionField rf;
+    _unpack(rf, is_output_region);
+    value =
+      Store(runtime_, context_, dim, code, redop_id, rf, is_output_region, std::move(transform));
+  }
+}
+
+void MapperDeserializer::_unpack(RegionField& value, bool is_output_region)
+{
+  auto dim = unpack<int32_t>();
+  auto idx = unpack<uint32_t>();
+  auto fid = unpack<int32_t>();
+
+  value = RegionField(dim, is_output_region ? output_regions_[idx] : regions_[idx], fid);
+}
+
+}  // namespace mapping
 
 }  // namespace legate

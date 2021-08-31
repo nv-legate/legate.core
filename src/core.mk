@@ -22,6 +22,7 @@ GEN_CPU_SRC	= legate_c.cc                 \
 							mapping/base_mapper.cc      \
 							mapping/core_mapper.cc      \
 							mapping/instance_manager.cc \
+							mapping/task.cc             \
 							runtime/context.cc          \
 							runtime/projection.cc       \
 							runtime/runtime.cc          \
@@ -40,22 +41,25 @@ INSTALL_PATHS = data      \
 								task      \
 								utilities
 
-INSTALL_HEADERS = legate.h                 \
-									legate_c.h               \
-									legate_defines.h         \
-									legate_preamble.h        \
-									data/buffer.h            \
-									data/scalar.h            \
-									data/scalar.inl          \
-									data/store.h             \
-									data/store.inl           \
-									data/transform.h         \
-									mapping/base_mapper.h    \
-									runtime/context.h        \
-									runtime/runtime.h        \
-									task/task.h              \
-									utilities/deserializer.h \
-									utilities/dispatch.h     \
-									utilities/span.h         \
-									utilities/type_traits.h  \
+INSTALL_HEADERS = legate.h                   \
+									legate_c.h                 \
+									legate_defines.h           \
+									legate_preamble.h          \
+									data/buffer.h              \
+									data/scalar.h              \
+									data/scalar.inl            \
+									data/store.h               \
+									data/store.inl             \
+									data/transform.h           \
+									mapping/base_mapper.h      \
+									mapping/task.h             \
+									mapping/task.inl           \
+									runtime/context.h          \
+									runtime/runtime.h          \
+									task/task.h                \
+									utilities/deserializer.h   \
+									utilities/deserializer.inl \
+									utilities/dispatch.h       \
+									utilities/span.h           \
+									utilities/type_traits.h    \
 									utilities/typedefs.h

@@ -18,16 +18,19 @@
 #include <sstream>
 #include "legion/legion_mapping.h"
 
+#include "data/store.h"
 #include "legate_c.h"
 #include "legate_defines.h"
 #include "mapping/base_mapper.h"
 #include "mapping/instance_manager.h"
+#include "mapping/task.h"
+
+using LegionTask = Legion::Task;
 
 using namespace Legion;
 using namespace Legion::Mapping;
 
 namespace legate {
-
 namespace mapping {
 
 BaseMapper::BaseMapper(MapperRuntime* rt, Machine m, const LibraryContext& ctx)
@@ -139,8 +142,7 @@ BaseMapper::~BaseMapper(void)
   Machine::ProcessorQuery query(m);
   query.only_kind(Processor::LOC_PROC);
   std::set<AddressSpace> spaces;
-  for (Machine::ProcessorQuery::iterator it = query.begin(); it != query.end(); it++)
-    spaces.insert(it->address_space());
+  for (auto proc : query) spaces.insert(proc.address_space());
   return spaces.size();
 }
 
@@ -165,7 +167,9 @@ Mapper::MapperSyncModel BaseMapper::get_mapper_sync_model(void) const
   return SERIALIZED_REENTRANT_MAPPER_MODEL;
 }
 
-void BaseMapper::select_task_options(const MapperContext ctx, const Task& task, TaskOptions& output)
+void BaseMapper::select_task_options(const MapperContext ctx,
+                                     const LegionTask& task,
+                                     TaskOptions& output)
 {
   assert(task.get_depth() > 0);
   if (!local_gpus.empty() && has_variant(ctx, task, Processor::TOC_PROC))
@@ -179,7 +183,7 @@ void BaseMapper::select_task_options(const MapperContext ctx, const Task& task, 
 }
 
 void BaseMapper::premap_task(const MapperContext ctx,
-                             const Task& task,
+                             const LegionTask& task,
                              const PremapTaskInput& input,
                              PremapTaskOutput& output)
 {
@@ -187,7 +191,7 @@ void BaseMapper::premap_task(const MapperContext ctx,
 }
 
 void BaseMapper::slice_task(const MapperContext ctx,
-                            const Task& task,
+                            const LegionTask& task,
                             const SliceTaskInput& input,
                             SliceTaskOutput& output)
 {
@@ -241,7 +245,7 @@ void BaseMapper::slice_task(const MapperContext ctx,
   }
 }
 
-bool BaseMapper::has_variant(const MapperContext ctx, const Task& task, Processor::Kind kind)
+bool BaseMapper::has_variant(const MapperContext ctx, const LegionTask& task, Processor::Kind kind)
 {
   const std::pair<TaskID, Processor::Kind> key(task.task_id, kind);
   // Check to see if we already have it
@@ -269,12 +273,14 @@ bool BaseMapper::has_variant(const MapperContext ctx, const Task& task, Processo
   return has_leaf;
 }
 
-VariantID BaseMapper::find_variant(const MapperContext ctx, const Task& task)
+VariantID BaseMapper::find_variant(const MapperContext ctx, const LegionTask& task)
 {
   return find_variant(ctx, task, task.target_proc);
 }
 
-VariantID BaseMapper::find_variant(const MapperContext ctx, const Task& task, Processor target_proc)
+VariantID BaseMapper::find_variant(const MapperContext ctx,
+                                   const LegionTask& task,
+                                   Processor target_proc)
 {
   const std::pair<TaskID, Processor::Kind> key(task.task_id, target_proc.kind());
   auto finder = leaf_variants.find(key);
@@ -307,10 +313,12 @@ VariantID BaseMapper::find_variant(const MapperContext ctx, const Task& task, Pr
 }
 
 void BaseMapper::map_task(const MapperContext ctx,
-                          const Task& task,
+                          const LegionTask& task,
                           const MapTaskInput& input,
                           MapTaskOutput& output)
 {
+  Task legate_task(task, runtime, ctx);
+
   // Should never be mapping the top-level task here
   assert(task.get_depth() > 0);
   // This is one of our normal Legate tasks
@@ -408,7 +416,7 @@ void BaseMapper::map_task(const MapperContext ctx,
 }
 
 void BaseMapper::map_replicate_task(const MapperContext ctx,
-                                    const Task& task,
+                                    const LegionTask& task,
                                     const MapTaskInput& input,
                                     const MapTaskOutput& def_output,
                                     MapReplicateTaskOutput& output)
@@ -620,7 +628,7 @@ void BaseMapper::report_failed_mapping(const Mappable& mappable,
   };
   switch (mappable.get_mappable_type()) {
     case Mappable::TASK_MAPPABLE: {
-      const Task* task = mappable.as_task();
+      const auto task = mappable.as_task();
       if (redop > 0)
         logger.error(
           "Mapper %s failed to map reduction (%d) region "
@@ -706,7 +714,7 @@ void BaseMapper::report_failed_mapping(const Mappable& mappable,
 }
 
 void BaseMapper::select_task_variant(const MapperContext ctx,
-                                     const Task& task,
+                                     const LegionTask& task,
                                      const SelectVariantInput& input,
                                      SelectVariantOutput& output)
 {
@@ -714,7 +722,7 @@ void BaseMapper::select_task_variant(const MapperContext ctx,
 }
 
 void BaseMapper::postmap_task(const MapperContext ctx,
-                              const Task& task,
+                              const LegionTask& task,
                               const PostMapInput& input,
                               PostMapOutput& output)
 {
@@ -723,7 +731,7 @@ void BaseMapper::postmap_task(const MapperContext ctx,
 }
 
 void BaseMapper::select_task_sources(const MapperContext ctx,
-                                     const Task& task,
+                                     const LegionTask& task,
                                      const SelectTaskSrcInput& input,
                                      SelectTaskSrcOutput& output)
 {
@@ -792,13 +800,15 @@ void BaseMapper::legate_select_sources(const MapperContext ctx,
     ranking.push_back(it->first);
 }
 
-void BaseMapper::speculate(const MapperContext ctx, const Task& task, SpeculativeOutput& output)
+void BaseMapper::speculate(const MapperContext ctx,
+                           const LegionTask& task,
+                           SpeculativeOutput& output)
 {
   output.speculate = false;
 }
 
 void BaseMapper::report_profiling(const MapperContext ctx,
-                                  const Task& task,
+                                  const LegionTask& task,
                                   const TaskProfilingInfo& input)
 {
   // Shouldn't get any profiling feedback currently
@@ -813,7 +823,7 @@ void BaseMapper::report_profiling(const MapperContext ctx,
 //}
 
 void BaseMapper::select_sharding_functor(const MapperContext ctx,
-                                         const Task& task,
+                                         const LegionTask& task,
                                          const SelectShardingFunctorInput& input,
                                          SelectShardingFunctorOutput& output)
 {
@@ -1391,14 +1401,14 @@ ShardingID BaseMapper::select_sharding_functor(const Fill& fill)
 */
 
 void BaseMapper::configure_context(const MapperContext ctx,
-                                   const Task& task,
+                                   const LegionTask& task,
                                    ContextConfigOutput& output)
 {
   // Use the defaults currently
 }
 
 void BaseMapper::select_tunable_value(const MapperContext ctx,
-                                      const Task& task,
+                                      const LegionTask& task,
                                       const SelectTunableInput& input,
                                       SelectTunableOutput& output)
 {

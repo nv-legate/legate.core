@@ -1,0 +1,133 @@
+/* Copyright 2021 NVIDIA Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
+#pragma once
+
+#include "data/scalar.h"
+#include "data/store.h"
+
+namespace legate {
+namespace mapping {
+
+class RegionField {
+ public:
+  RegionField() {}
+  RegionField(int32_t dim, const Legion::RegionRequirement& req, Legion::FieldID fid);
+
+ public:
+  RegionField(const RegionField& other) = default;
+  RegionField& operator=(const RegionField& other) = default;
+
+ public:
+  template <int32_t DIM>
+  Legion::Rect<DIM> shape(Legion::Mapping::MapperRuntime* runtime,
+                          const Legion::Mapping::MapperContext context) const;
+
+ public:
+  Legion::Domain domain(Legion::Mapping::MapperRuntime* runtime,
+                        const Legion::Mapping::MapperContext context) const;
+
+ public:
+  int32_t dim() const { return dim_; }
+
+ private:
+  int32_t dim_{-1};
+  Legion::RegionRequirement req_{};
+  Legion::FieldID fid_{-1U};
+};
+
+class Store {
+ public:
+  Store() {}
+  Store(int32_t dim,
+        LegateTypeCode code,
+        FutureWrapper future,
+        std::unique_ptr<StoreTransform> transform = nullptr);
+  Store(Legion::Mapping::MapperRuntime* runtime,
+        const Legion::Mapping::MapperContext context,
+        int32_t dim,
+        LegateTypeCode code,
+        int32_t redop_id,
+        const RegionField& region_field,
+        bool is_output_store                      = false,
+        std::unique_ptr<StoreTransform> transform = nullptr);
+
+ public:
+  Store(Store&& other) noexcept;
+  Store& operator=(Store&& other) noexcept;
+
+ private:
+  Store(const Store& other) = delete;
+  Store& operator=(const Store& other) = delete;
+
+ public:
+  bool is_future() const { return is_future_; }
+  bool unbound() const { return is_output_store_; }
+  int32_t dim() const { return dim_; }
+
+ public:
+  template <int32_t DIM>
+  Legion::Rect<DIM> shape() const;
+
+ public:
+  Legion::Domain domain() const;
+
+ private:
+  bool is_future_{false};
+  bool is_output_store_{false};
+  int32_t dim_{-1};
+  LegateTypeCode code_{MAX_TYPE_NUMBER};
+  int32_t redop_id_{-1};
+
+ private:
+  FutureWrapper future_;
+  RegionField region_field_;
+
+ private:
+  std::unique_ptr<StoreTransform> transform_{nullptr};
+
+ private:
+  Legion::Mapping::MapperRuntime* runtime_{nullptr};
+  Legion::Mapping::MapperContext context_{nullptr};
+};
+
+class Task {
+ public:
+  Task(const Legion::Task& task,
+       Legion::Mapping::MapperRuntime* runtime,
+       const Legion::Mapping::MapperContext context);
+
+ public:
+  std::vector<Store>& inputs() { return inputs_; }
+  std::vector<Store>& outputs() { return outputs_; }
+  std::vector<Store>& reductions() { return reductions_; }
+  std::vector<Scalar>& scalars() { return scalars_; }
+
+ public:
+  Legion::DomainPoint point() const { return task_.index_point; }
+
+ private:
+  const Legion::Task& task_;
+
+ private:
+  std::vector<Store> inputs_, outputs_, reductions_;
+  std::vector<Scalar> scalars_;
+};
+
+}  // namespace mapping
+}  // namespace legate
+
+#include "mapping/task.inl"
