@@ -14,11 +14,14 @@
  *
  */
 
+#pragma once
+
 #include <memory>
 
 #include "legion.h"
 
 #include "data/scalar.h"
+#include "mapping/mapping.h"
 #include "runtime/context.h"
 #include "utilities/typedefs.h"
 
@@ -30,10 +33,6 @@ class InstanceManager;
 enum class Strictness : bool {
   strict = true,
   hint   = false,
-};
-
-struct LegateMapper {
-  virtual Scalar select_tunable_value(TunableID tunable_id) = 0;
 };
 
 class BaseMapper : public Legion::Mapping::Mapper, LegateMapper {
