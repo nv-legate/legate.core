@@ -144,15 +144,14 @@ template <typename T, int DIM>
 AccessorRO<T, DIM> FutureWrapper::read_accessor() const
 {
   auto memkind = Legion::Memory::Kind::NO_MEMKIND;
-  return AccessorRO<T, DIM>(future_, memkind, sizeof(T), false, false, NULL, sizeof(uint64_t));
+  return AccessorRO<T, DIM>(future_, memkind);
 }
 
 template <typename T, int DIM>
 AccessorRO<T, DIM> FutureWrapper::read_accessor(const Legion::Rect<DIM>& bounds) const
 {
   auto memkind = Legion::Memory::Kind::NO_MEMKIND;
-  return AccessorRO<T, DIM>(
-    future_, bounds, memkind, sizeof(T), false, false, NULL, sizeof(uint64_t));
+  return AccessorRO<T, DIM>(future_, bounds, memkind);
 }
 
 template <int32_t DIM>
