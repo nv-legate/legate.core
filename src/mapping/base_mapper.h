@@ -35,7 +35,7 @@ enum class Strictness : bool {
   hint   = false,
 };
 
-class BaseMapper : public Legion::Mapping::Mapper, LegateMapper {
+class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
  public:
   BaseMapper(Legion::Mapping::MapperRuntime* rt,
              Legion::Machine machine,
@@ -45,9 +45,6 @@ class BaseMapper : public Legion::Mapping::Mapper, LegateMapper {
  private:
   BaseMapper(const BaseMapper& rhs) = delete;
   BaseMapper& operator=(const BaseMapper& rhs) = delete;
-
- public:
-  virtual Scalar select_tunable_value(TunableID tunable_id) = 0;
 
  protected:
   // Start-up methods
@@ -293,10 +290,8 @@ class BaseMapper : public Legion::Mapping::Mapper, LegateMapper {
                    const Legion::Task& task,
                    Legion::Processor::Kind kind);
   Legion::VariantID find_variant(const Legion::Mapping::MapperContext ctx,
-                                 const Legion::Task& task);
-  Legion::VariantID find_variant(const Legion::Mapping::MapperContext ctx,
                                  const Legion::Task& task,
-                                 Legion::Processor target_proc);
+                                 Legion::Processor::Kind kind);
   /*
   static int find_key_region(const Legion::Task& task);
 

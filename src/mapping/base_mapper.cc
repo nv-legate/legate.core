@@ -171,14 +171,31 @@ void BaseMapper::select_task_options(const MapperContext ctx,
                                      const LegionTask& task,
                                      TaskOptions& output)
 {
-  assert(task.get_depth() > 0);
+  std::vector<TaskTarget> options;
   if (!local_gpus.empty() && has_variant(ctx, task, Processor::TOC_PROC))
-    output.initial_proc = local_gpus.front();
-  else if (!local_omps.empty() && has_variant(ctx, task, Processor::OMP_PROC))
-    output.initial_proc = local_omps.front();
-  else
-    output.initial_proc = local_cpus.front();
+    options.push_back(TaskTarget::GPU);
+  if (!local_omps.empty() && has_variant(ctx, task, Processor::OMP_PROC))
+    options.push_back(TaskTarget::OMP);
+  options.push_back(TaskTarget::CPU);
+
+  Task legate_task(task, runtime, ctx);
+  auto target = task_target(legate_task, options);
+
   // We never want valid instances
+  switch (target) {
+    case TaskTarget::CPU: {
+      output.initial_proc = local_cpus.front();
+      break;
+    }
+    case TaskTarget::GPU: {
+      output.initial_proc = local_gpus.front();
+      break;
+    }
+    case TaskTarget::OMP: {
+      output.initial_proc = local_omps.front();
+      break;
+    }
+  }
   output.valid_instances = false;
 }
 
@@ -273,16 +290,11 @@ bool BaseMapper::has_variant(const MapperContext ctx, const LegionTask& task, Pr
   return has_leaf;
 }
 
-VariantID BaseMapper::find_variant(const MapperContext ctx, const LegionTask& task)
-{
-  return find_variant(ctx, task, task.target_proc);
-}
-
 VariantID BaseMapper::find_variant(const MapperContext ctx,
                                    const LegionTask& task,
-                                   Processor target_proc)
+                                   Processor::Kind kind)
 {
-  const std::pair<TaskID, Processor::Kind> key(task.task_id, target_proc.kind());
+  const std::pair<TaskID, Processor::Kind> key(task.task_id, kind);
   auto finder = leaf_variants.find(key);
   if ((finder != leaf_variants.end()) && (finder->second != 0)) return finder->second;
   // Haven't seen it before so let's look it up to make sure it exists
@@ -325,7 +337,7 @@ void BaseMapper::map_task(const MapperContext ctx,
   // First let's see if this is sub-rankable
   output.chosen_instances.resize(task.regions.size());
   // We've subsumed the tag for now to capture sharding function IDs
-  output.chosen_variant = find_variant(ctx, task);
+  output.chosen_variant = find_variant(ctx, task, task.target_proc.kind());
   // Normal task and not sub-rankable, so let's actually do the mapping
   Memory target_memory = Memory::NO_MEMORY;
   switch (task.target_proc.kind()) {
@@ -718,7 +730,7 @@ void BaseMapper::select_task_variant(const MapperContext ctx,
                                      const SelectVariantInput& input,
                                      SelectVariantOutput& output)
 {
-  output.chosen_variant = find_variant(ctx, task, input.processor);
+  output.chosen_variant = find_variant(ctx, task, input.processor.kind());
 }
 
 void BaseMapper::postmap_task(const MapperContext ctx,
@@ -1412,7 +1424,7 @@ void BaseMapper::select_tunable_value(const MapperContext ctx,
                                       const SelectTunableInput& input,
                                       SelectTunableOutput& output)
 {
-  auto value   = select_tunable_value(input.tunable_id);
+  auto value   = tunable_value(input.tunable_id);
   output.size  = value.size();
   output.value = malloc(output.size);
   memcpy(output.value, value.ptr(), output.size);

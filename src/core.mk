@@ -52,6 +52,7 @@ INSTALL_HEADERS = legate.h                   \
 									data/store.inl             \
 									data/transform.h           \
 									mapping/base_mapper.h      \
+									mapping/mapping.h          \
 									mapping/task.h             \
 									mapping/task.inl           \
 									runtime/context.h          \
