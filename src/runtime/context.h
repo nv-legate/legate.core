@@ -18,6 +18,8 @@
 
 #include "legion.h"
 
+#include "task/return.h"
+
 namespace legate {
 
 class Store;
@@ -108,6 +110,9 @@ class TaskContext {
   std::vector<Store>& outputs() { return outputs_; }
   std::vector<Store>& reductions() { return reductions_; }
   std::vector<Scalar>& scalars() { return scalars_; }
+
+ public:
+  ReturnValues pack_return_values() const;
 
  private:
   const Legion::Task* task_;

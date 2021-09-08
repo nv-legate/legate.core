@@ -120,7 +120,16 @@ class Strategy(object):
             raise ValueError(f"No strategy is found for {store}")
         return self._fspaces[store]
 
-    def launch(self, launcher, output=None, redop=None):
+    def launch(self, op, launcher):
+        output = None
+        redop = None
+        if len(op.scalar_outputs) + len(op.scalar_reductions) > 0:
+            assert len(op.scalar_outputs) + len(op.scalar_reductions) == 1
+            if len(op.scalar_outputs) == 1:
+                output = op.outputs[op.scalar_outputs[0]]
+            else:
+                (output, redop) = op.reductions[op.scalar_reductions[0]]
+
         if output is None:
             if self._launch_shape is None:
                 launcher.execute_single()

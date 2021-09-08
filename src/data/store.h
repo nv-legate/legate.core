@@ -20,6 +20,8 @@
 
 #include "data/buffer.h"
 #include "data/transform.h"
+#include "task/return.h"
+#include "utilities/machine.h"
 #include "utilities/typedefs.h"
 
 namespace legate {
@@ -180,6 +182,7 @@ class OutputRegionField {
 class FutureWrapper {
  public:
   FutureWrapper() {}
+  FutureWrapper(Legion::Domain domain, int32_t field_size);
   FutureWrapper(Legion::Domain domain, Legion::Future future);
 
  public:
@@ -192,10 +195,14 @@ class FutureWrapper {
  public:
   template <typename T, int32_t DIM>
   AccessorRO<T, DIM> read_accessor() const;
+  template <typename T, int32_t DIM>
+  AccessorWO<T, DIM> write_accessor() const;
 
  public:
   template <typename T, int32_t DIM>
   AccessorRO<T, DIM> read_accessor(const Legion::Rect<DIM>& bounds) const;
+  template <typename T, int32_t DIM>
+  AccessorWO<T, DIM> write_accessor(const Legion::Rect<DIM>& bounds) const;
 
  public:
   template <typename VAL>
@@ -206,9 +213,18 @@ class FutureWrapper {
   Legion::Rect<DIM> shape() const;
   Legion::Domain domain() const;
 
+ public:
+  ReturnValue pack() const { return ReturnValue(rawptr_, field_size_); }
+
  private:
+  bool read_only_{true};
   Legion::Domain domain_{};
   Legion::Future future_{};
+  Legion::UntypedDeferredValue buffer_{};
+
+ private:
+  mutable size_t field_size_{0};
+  mutable void* rawptr_{nullptr};
 };
 
 class Store {
@@ -276,6 +292,10 @@ class Store {
  public:
   template <typename VAL>
   void return_data(Buffer<VAL>& buffer, size_t num_elements);
+
+ public:
+  bool is_future() const { return is_future_; }
+  ReturnValue pack() const { return future_.pack(); }
 
  private:
   bool is_future_{false};

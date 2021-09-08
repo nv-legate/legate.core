@@ -24,8 +24,10 @@ GEN_CPU_SRC	= legate_c.cc               \
 							runtime/projection.cc     \
 							runtime/runtime.cc        \
 							runtime/shard.cc          \
+							task/return.cc            \
 							task/task.cc              \
-							utilities/deserializer.cc
+							utilities/deserializer.cc \
+							utilities/machine.cc
 
 ifeq ($(strip $(USE_CUDA)),1)
 GEN_CPU_SRC	+= gpu/cudalibs.cc
@@ -50,9 +52,11 @@ INSTALL_HEADERS = legate.h                 \
 									data/transform.h         \
 									runtime/context.h        \
 									runtime/runtime.h        \
+									task/return.h            \
 									task/task.h              \
 									utilities/deserializer.h \
 									utilities/dispatch.h     \
+									utilities/machine.h      \
 									utilities/span.h         \
 									utilities/type_traits.h  \
 									utilities/typedefs.h

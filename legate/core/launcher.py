@@ -100,11 +100,14 @@ class ScalarArg(object):
 
 
 class FutureStoreArg(object):
-    def __init__(self, store):
+    def __init__(self, store, read_only):
         self._store = store
+        self._read_only = read_only
 
     def pack(self, buf):
         self._store.serialize(buf)
+        buf.pack_bool(self._read_only)
+        buf.pack_32bit_int(self._store.type.size)
         _pack(buf, self._store.get_root().shape, ty.int64, True)
 
     def __str__(self):
@@ -560,10 +563,10 @@ class TaskLauncher(object):
 
     def add_store(self, args, store, proj, perm, tag, flags):
         if store.kind is Future:
-            if perm != Permission.READ:
-                raise ValueError("Future-backed stores must be read only")
-            self.add_future(store.storage)
-            args.append(FutureStoreArg(store))
+            read_only = perm == Permission.READ
+            if read_only:
+                self.add_future(store.storage)
+            args.append(FutureStoreArg(store, read_only))
 
         else:
             region = store.storage.region

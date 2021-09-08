@@ -76,17 +76,29 @@ OutputRegionField& OutputRegionField::operator=(OutputRegionField&& other) noexc
   return *this;
 }
 
+FutureWrapper::FutureWrapper(Domain domain, int32_t field_size) : read_only_{false}, domain_(domain)
+{
+  assert(field_size > 0);
+  auto mem_kind = find_memory_kind_for_executing_processor();
+  buffer_       = Legion::UntypedDeferredValue(field_size, mem_kind);
+}
+
 FutureWrapper::FutureWrapper(Domain domain, Future future) : domain_(domain), future_(future) {}
 
 FutureWrapper::FutureWrapper(const FutureWrapper& other) noexcept
-  : domain_(other.domain_), future_(other.future_)
+  : read_only_(other.read_only_),
+    domain_(other.domain_),
+    future_(other.future_),
+    buffer_(other.buffer_)
 {
 }
 
 FutureWrapper& FutureWrapper::operator=(const FutureWrapper& other) noexcept
 {
-  domain_ = other.domain_;
-  future_ = other.future_;
+  domain_    = other.domain_;
+  future_    = other.future_;
+  read_only_ = other.read_only_;
+  buffer_    = other.buffer_;
   return *this;
 }
 
