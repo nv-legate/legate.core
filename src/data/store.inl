@@ -143,47 +143,49 @@ Legion::Rect<DIM> RegionField::shape() const
 template <typename T, int DIM>
 AccessorRO<T, DIM> FutureWrapper::read_accessor() const
 {
-  assert(read_only_);
-  auto memkind = Legion::Memory::Kind::NO_MEMKIND;
-  return AccessorRO<T, DIM>(future_, memkind);
+  assert(sizeof(T) == field_size_);
+  if (read_only_) {
+    auto memkind = Legion::Memory::Kind::NO_MEMKIND;
+    return AccessorRO<T, DIM>(future_, memkind);
+  } else
+    return AccessorRO<T, DIM>(buffer_);
 }
 
 template <typename T, int DIM>
 AccessorWO<T, DIM> FutureWrapper::write_accessor() const
 {
+  assert(sizeof(T) == field_size_);
   assert(!read_only_);
   auto acc = AccessorWO<T, DIM>(buffer_);
-  if (nullptr == rawptr_) {
-    rawptr_     = acc.ptr(Legion::Point<DIM>::ZEROES());
-    field_size_ = sizeof(T);
-  }
+  if (nullptr == rawptr_) rawptr_ = acc.ptr(Legion::Point<DIM>::ZEROES());
   return acc;
 }
 
 template <typename T, int DIM>
 AccessorRW<T, DIM> FutureWrapper::read_write_accessor() const
 {
+  assert(sizeof(T) == field_size_);
   assert(!read_only_);
   auto acc = AccessorRW<T, DIM>(buffer_);
-  if (nullptr == rawptr_) {
-    rawptr_     = acc.ptr(Legion::Point<DIM>::ZEROES());
-    field_size_ = sizeof(T);
-  }
+  if (nullptr == rawptr_) rawptr_ = acc.ptr(Legion::Point<DIM>::ZEROES());
   return acc;
 }
 
 template <typename OP, bool EXCLUSIVE, int DIM>
 AccessorRD<OP, EXCLUSIVE, DIM> FutureWrapper::reduce_accessor(int32_t redop_id) const
 {
+  assert(sizeof(typename OP::LHS) == field_size_);
   assert(!read_only_);
   auto acc = AccessorRD<OP, EXCLUSIVE, DIM>(buffer_);
   if (nullptr == rawptr_) {
-    auto p      = Legion::Point<DIM>::ZEROES();
-    rawptr_     = acc.ptr(p);
-    field_size_ = sizeof(typename OP::LHS);
+    auto p  = Legion::Point<DIM>::ZEROES();
+    rawptr_ = acc.ptr(p);
 
-    auto identity = OP::identity;
-    memcpy(rawptr_, &identity, field_size_);
+    if (uninitialized_) {
+      auto identity = OP::identity;
+      memcpy(rawptr_, &identity, field_size_);
+      uninitialized_ = false;
+    }
   }
   return acc;
 }
@@ -191,32 +193,31 @@ AccessorRD<OP, EXCLUSIVE, DIM> FutureWrapper::reduce_accessor(int32_t redop_id) 
 template <typename T, int DIM>
 AccessorRO<T, DIM> FutureWrapper::read_accessor(const Legion::Rect<DIM>& bounds) const
 {
-  assert(read_only_);
-  auto memkind = Legion::Memory::Kind::NO_MEMKIND;
-  return AccessorRO<T, DIM>(future_, bounds, memkind);
+  assert(sizeof(T) == field_size_);
+  if (read_only_) {
+    auto memkind = Legion::Memory::Kind::NO_MEMKIND;
+    return AccessorRO<T, DIM>(future_, bounds, memkind);
+  } else
+    return AccessorRO<T, DIM>(buffer_, bounds);
 }
 
 template <typename T, int DIM>
 AccessorWO<T, DIM> FutureWrapper::write_accessor(const Legion::Rect<DIM>& bounds) const
 {
+  assert(sizeof(T) == field_size_);
   assert(!read_only_);
   auto acc = AccessorWO<T, DIM>(buffer_, bounds);
-  if (nullptr == rawptr_) {
-    rawptr_     = acc.ptr(bounds.lo);
-    field_size_ = sizeof(T);
-  }
+  if (nullptr == rawptr_) rawptr_ = acc.ptr(bounds.lo);
   return acc;
 }
 
 template <typename T, int DIM>
 AccessorRW<T, DIM> FutureWrapper::read_write_accessor(const Legion::Rect<DIM>& bounds) const
 {
+  assert(sizeof(T) == field_size_);
   assert(!read_only_);
   auto acc = AccessorRW<T, DIM>(buffer_, bounds);
-  if (nullptr == rawptr_) {
-    rawptr_     = acc.ptr(bounds.lo);
-    field_size_ = sizeof(T);
-  }
+  if (nullptr == rawptr_) rawptr_ = acc.ptr(bounds.lo);
   return acc;
 }
 
@@ -224,15 +225,18 @@ template <typename OP, bool EXCLUSIVE, int DIM>
 AccessorRD<OP, EXCLUSIVE, DIM> FutureWrapper::reduce_accessor(int32_t redop_id,
                                                               const Legion::Rect<DIM>& bounds) const
 {
+  assert(sizeof(typename OP::LHS) == field_size_);
   assert(!read_only_);
   auto acc = AccessorRD<OP, EXCLUSIVE, DIM>(buffer_, bounds);
   if (nullptr == rawptr_) {
-    auto& p     = bounds.lo;
-    rawptr_     = acc.ptr(p);
-    field_size_ = sizeof(typename OP::LHS);
+    auto& p = bounds.lo;
+    rawptr_ = acc.ptr(p);
 
-    auto identity = OP::identity;
-    memcpy(rawptr_, &identity, field_size_);
+    if (uninitialized_) {
+      auto identity = OP::identity;
+      memcpy(rawptr_, &identity, field_size_);
+      uninitialized_ = false;
+    }
   }
   return acc;
 }
@@ -246,6 +250,7 @@ Legion::Rect<DIM> FutureWrapper::shape() const
 template <typename VAL>
 VAL FutureWrapper::scalar() const
 {
+  assert(sizeof(VAL) == field_size_);
   if (!read_only_)
     return buffer_.operator Legion::DeferredValue<VAL>().read();
   else

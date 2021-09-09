@@ -461,6 +461,10 @@ class Store(object):
 
         return self._storage
 
+    @property
+    def has_storage(self):
+        return self._storage is not None
+
     def get_root(self):
         if self._parent is None:
             return self

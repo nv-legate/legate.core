@@ -75,6 +75,7 @@ class Deserializer {
   std::unique_ptr<StoreTransform> unpack_transform();
 
  private:
+  bool first_task_;
   Span<const Legion::PhysicalRegion> regions_;
   Span<const Legion::Future> futures_;
   Span<const int8_t> task_args_;

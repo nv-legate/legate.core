@@ -76,33 +76,56 @@ OutputRegionField& OutputRegionField::operator=(OutputRegionField&& other) noexc
   return *this;
 }
 
-FutureWrapper::FutureWrapper(Domain domain, int32_t field_size) : read_only_{false}, domain_(domain)
+FutureWrapper::FutureWrapper(
+  bool read_only, int32_t field_size, Domain domain, Future future, bool initialize /*= false*/)
+  : read_only_(read_only),
+    field_size_(field_size),
+    domain_(domain),
+    future_(future),
+    uninitialized_(!initialize)
 {
   assert(field_size > 0);
-  auto mem_kind = find_memory_kind_for_executing_processor();
-  buffer_       = Legion::UntypedDeferredValue(field_size, mem_kind);
+  if (!read_only) {
+    auto mem_kind = find_memory_kind_for_executing_processor();
+    assert(!initialize || future_.get_untyped_size() == field_size);
+    auto p_init_value = initialize ? future_.get_buffer(mem_kind) : nullptr;
+    buffer_           = Legion::UntypedDeferredValue(field_size, mem_kind, p_init_value);
+  }
 }
-
-FutureWrapper::FutureWrapper(Domain domain, Future future) : domain_(domain), future_(future) {}
 
 FutureWrapper::FutureWrapper(const FutureWrapper& other) noexcept
   : read_only_(other.read_only_),
+    field_size_(other.field_size_),
     domain_(other.domain_),
     future_(other.future_),
-    buffer_(other.buffer_)
+    buffer_(other.buffer_),
+    uninitialized_(other.uninitialized_),
+    rawptr_(other.rawptr_)
 {
 }
 
 FutureWrapper& FutureWrapper::operator=(const FutureWrapper& other) noexcept
 {
-  domain_    = other.domain_;
-  future_    = other.future_;
-  read_only_ = other.read_only_;
-  buffer_    = other.buffer_;
+  read_only_     = other.read_only_;
+  field_size_    = other.field_size_;
+  domain_        = other.domain_;
+  future_        = other.future_;
+  buffer_        = other.buffer_;
+  uninitialized_ = other.uninitialized_;
+  rawptr_        = other.rawptr_;
   return *this;
 }
 
 Domain FutureWrapper::domain() const { return domain_; }
+
+ReturnValue FutureWrapper::pack() const
+{
+  if (nullptr == rawptr_) {
+    fprintf(stderr, "Found an uninitialized Legate store\n");
+    assert(false);
+  }
+  return ReturnValue(rawptr_, field_size_);
+}
 
 Store::Store(int32_t dim,
              LegateTypeCode code,

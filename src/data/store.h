@@ -182,8 +182,11 @@ class OutputRegionField {
 class FutureWrapper {
  public:
   FutureWrapper() {}
-  FutureWrapper(Legion::Domain domain, int32_t field_size);
-  FutureWrapper(Legion::Domain domain, Legion::Future future);
+  FutureWrapper(bool read_only,
+                int32_t field_size,
+                Legion::Domain domain,
+                Legion::Future future,
+                bool initialize = false);
 
  public:
   FutureWrapper(const FutureWrapper& other) noexcept;
@@ -223,16 +226,17 @@ class FutureWrapper {
   Legion::Domain domain() const;
 
  public:
-  ReturnValue pack() const { return ReturnValue(rawptr_, field_size_); }
+  ReturnValue pack() const;
 
  private:
   bool read_only_{true};
+  size_t field_size_{0};
   Legion::Domain domain_{};
   Legion::Future future_{};
   Legion::UntypedDeferredValue buffer_{};
 
  private:
-  mutable size_t field_size_{0};
+  mutable bool uninitialized_{true};
   mutable void* rawptr_{nullptr};
 };
 
