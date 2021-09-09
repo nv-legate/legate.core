@@ -23,7 +23,7 @@ namespace legate {
 Memory::Kind find_memory_kind_for_executing_processor()
 {
   auto proc = Processor::get_executing_processor();
-  return proc.kind() == Processor::Kind::TOC_PROC ? Memory::Kind::GPU_FB_MEM
+  return proc.kind() == Processor::Kind::TOC_PROC ? Memory::Kind::Z_COPY_MEM
                                                   : Memory::Kind::SYSTEM_MEM;
 }
 

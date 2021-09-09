@@ -18,7 +18,14 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "legion.h"
+
 #include "task/return.h"
+#ifdef LEGATE_USE_CUDA
+#include <cuda.h>
+#endif
+
+using namespace Legion;
 
 namespace legate {
 
@@ -33,6 +40,10 @@ size_t ReturnValues::legion_buffer_size() const { return buffer_size_; }
 void ReturnValues::legion_serialize(void* buffer) const
 {
   auto ptr = static_cast<int8_t*>(buffer);
+#ifdef LEGATE_USE_CUDA
+  auto kind = Processor::get_executing_processor().kind();
+  if (kind == Processor::TOC_PROC) cudaDeviceSynchronize();
+#endif
   for (auto& ret : return_values_) {
     memcpy(ptr, ret.first, ret.second);
     ptr += ret.second;

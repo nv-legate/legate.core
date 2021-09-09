@@ -197,12 +197,21 @@ class FutureWrapper {
   AccessorRO<T, DIM> read_accessor() const;
   template <typename T, int32_t DIM>
   AccessorWO<T, DIM> write_accessor() const;
+  template <typename T, int32_t DIM>
+  AccessorRW<T, DIM> read_write_accessor() const;
+  template <typename OP, bool EXCLUSIVE, int32_t DIM>
+  AccessorRD<OP, EXCLUSIVE, DIM> reduce_accessor(int32_t redop_id) const;
 
  public:
   template <typename T, int32_t DIM>
   AccessorRO<T, DIM> read_accessor(const Legion::Rect<DIM>& bounds) const;
   template <typename T, int32_t DIM>
   AccessorWO<T, DIM> write_accessor(const Legion::Rect<DIM>& bounds) const;
+  template <typename T, int32_t DIM>
+  AccessorRW<T, DIM> read_write_accessor(const Legion::Rect<DIM>& bounds) const;
+  template <typename OP, bool EXCLUSIVE, int32_t DIM>
+  AccessorRD<OP, EXCLUSIVE, DIM> reduce_accessor(int32_t redop_id,
+                                                 const Legion::Rect<DIM>& bounds) const;
 
  public:
   template <typename VAL>
