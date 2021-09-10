@@ -12,6 +12,7 @@ env:
   REF: ${{ github.event.pull_request.head.ref || github.ref }}
   EVENT_NAME: ${{ github.event_name }}
   LABEL: ${{ github.event.pull_request.head.label }}
+  REPO_URL: ${{ github.event.pull_request.head.repo.html_url || github.event.repository.html_url }}
   # Prevent output buffering
   PYTHONUNBUFFERED: 1
 jobs:
@@ -47,8 +48,12 @@ jobs:
           /data/github-runner/legate-bin/setup.sh
           cd legate-ci/github-ci/legate.core
           rm -rf ngc-artifacts || true
-          ./build.sh > ${COMMIT}-build.log 2>&1 || true
+          ./build.sh > ${COMMIT}-build.log 2>&1
+      - name: Process Output
+        run: |
+          cd legate-ci/github-ci/legate.core
           cat *artifacts/*/*
+        if: always()
       - name: Upload Build Log
         if: always()
         uses: actions/upload-artifact@v2

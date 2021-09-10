@@ -465,6 +465,7 @@ def build_legate_core(
         "DEBUG=%s" % (1 if debug else 0),
         "DEBUG_RELEASE=%s" % (1 if debug_release else 0),
         "USE_CUDA=%s" % (1 if cuda else 0),
+        "USE_OPENMP=%s" % (1 if openmp else 0),
         "GPU_ARCH=%s" % arch,
         "PREFIX=%s" % str(install_dir),
         "USE_GASNET=%s" % (1 if gasnet else 0),
@@ -483,7 +484,7 @@ def build_legate_core(
         debug_release=repr(1 if debug_release else 0),
         cuda=repr(1 if cuda else 0),
         arch=(arch if arch is not None else ""),
-        cudadir=(cuda_dir if cuda_dir is not None else ""),
+        cuda_dir=(cuda_dir if cuda_dir is not None else ""),
         openmp=repr(1 if openmp else 0),
         gasnet=repr(1 if gasnet else 0),
     )
@@ -735,7 +736,8 @@ def driver():
         action="store_true",
         required=False,
         default=os.environ.get("DEBUG", "0") == "1",
-        help="Build Legate with debugging enabled.",
+        help="Build Legate and Legion with no optimizations, and full "
+        "debugging checks.",
     )
     parser.add_argument(
         "--debug-release",
@@ -743,7 +745,8 @@ def driver():
         action="store_true",
         required=False,
         default=os.environ.get("DEBUG_RELEASE", "0") == "1",
-        help="Build Legate with debugging symbols enabled.",
+        help="Build Legate and Legion with optimizations enabled, but include "
+        "debugging symbols.",
     )
     parser.add_argument(
         "--check-bounds",
@@ -751,7 +754,7 @@ def driver():
         action="store_true",
         required=False,
         default=os.environ.get("CHECK_BOUNDS", "0") == "1",
-        help="Build Legate with bounds checkin enabled (warning: expensive).",
+        help="Build Legion with bounds checking enabled (warning: expensive).",
     )
     parser.add_argument(
         "--max-dim",
@@ -787,7 +790,7 @@ def driver():
     parser.add_argument(
         "--cuda",
         action=BooleanFlag,
-        default=os.environ.get("USE_CUDA", "1") == "1",
+        default=os.environ.get("USE_CUDA", "0") == "1",
         help="Build Legate with CUDA support.",
     )
     parser.add_argument(
@@ -809,7 +812,7 @@ def driver():
     parser.add_argument(
         "--openmp",
         action=BooleanFlag,
-        default=os.environ.get("USE_OPENMP", "1") == "1",
+        default=os.environ.get("USE_OPENMP", "0") == "1",
         help="Build Legate with OpenMP support.",
     )
     parser.add_argument(
@@ -863,7 +866,11 @@ def driver():
         action="store",
         required=False,
         default=None,
-        help="Build Legate for the specified Python library.",
+        help=(
+            "Build Legate against the specified Python shared library. "
+            "Default is to use the Python library currently executing this "
+            "install script."
+        ),
     )
     parser.add_argument(
         "--cmake",
