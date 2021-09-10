@@ -137,7 +137,10 @@ class Tiling(object):
 
     def satisfies_restriction(self, restrictions):
         for dim, restriction in enumerate(restrictions):
-            if restriction <= 0 and self.color_shape[dim] > 1:
+            if (
+                restriction == Restriction.RESTRICTED
+                and self.color_shape[dim] > 1
+            ):
                 return False
         return True
 
