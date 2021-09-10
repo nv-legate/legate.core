@@ -725,7 +725,7 @@ class Store(object):
 
     def _compute_projection(self, partition):
         dims = self._invert_dimensions(tuple(range(self.ndim)))
-        if dims == tuple(range(self.ndim)):
+        if all(idx == dim for idx, dim in enumerate(dims)):
             return 0
         else:
             return self._runtime.get_projection(self.ndim, dims)
