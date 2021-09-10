@@ -89,7 +89,7 @@ FutureWrapper::FutureWrapper(
     auto mem_kind = find_memory_kind_for_executing_processor();
     assert(!initialize || future_.get_untyped_size() == field_size);
     auto p_init_value = initialize ? future_.get_buffer(mem_kind) : nullptr;
-    buffer_           = Legion::UntypedDeferredValue(field_size, mem_kind, p_init_value);
+    buffer_           = UntypedDeferredValue(field_size, mem_kind, p_init_value);
   }
 }
 

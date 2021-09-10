@@ -51,7 +51,10 @@ class ResourceScope {
 
  public:
   bool valid() const { return base_ != -1; }
-  bool in_scope(int64_t resource_id) const { return base_ <= resource_id && resource_id < max_; }
+  bool in_scope(int64_t resource_id) const
+  {
+    return base_ <= resource_id && resource_id < base_ + max_;
+  }
 
  private:
   int64_t base_{-1};

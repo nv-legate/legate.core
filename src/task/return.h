@@ -24,6 +24,7 @@ using ReturnValue = std::pair<const void*, size_t>;
 
 struct ReturnValues {
  public:
+  ReturnValues();
   ReturnValues(std::vector<ReturnValue>&& return_values);
 
  public:
@@ -35,13 +36,16 @@ struct ReturnValues {
   ReturnValues& operator=(ReturnValues&&) = default;
 
  public:
+  ReturnValue operator[](int32_t idx) const;
+
+ public:
   size_t legion_buffer_size() const;
   void legion_serialize(void* buffer) const;
   void legion_deserialize(const void* buffer);
 
  private:
   size_t buffer_size_{0};
-  std::vector<ReturnValue> return_values_;
+  std::vector<ReturnValue> return_values_{};
 };
 
 }  // namespace legate

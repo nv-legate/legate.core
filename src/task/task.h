@@ -29,7 +29,7 @@
 
 namespace legate {
 
-// We're going to allow for each task to use only up to 256 scalar output stores
+// We're going to allow for each task to use only up to 170 scalar output stores
 constexpr size_t LEGATE_MAX_SIZE_SCALAR_RETURN = 2048;
 
 using LegateVariantImpl = void (*)(TaskContext&);

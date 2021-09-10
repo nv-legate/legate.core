@@ -164,7 +164,40 @@ class Task(Operation):
         for future in self._futures:
             launcher.add_future(future)
 
-        strategy.launch(self, launcher)
+        result = strategy.launch(launcher)
+
+        num_scalar_outs = len(self.scalar_outputs)
+        num_scalar_reds = len(self.scalar_reductions)
+        runtime = self.context.runtime
+        if num_scalar_outs + num_scalar_reds == 0:
+            return
+        elif num_scalar_outs + num_scalar_reds == 1:
+            if num_scalar_outs == 1:
+                output = self.outputs[self.scalar_outputs[0]]
+                output.set_storage(result)
+            else:
+                (output, redop) = self.reductions[self.scalar_reductions[0]]
+                output.set_storage(runtime.reduce_future_map(result, redop))
+        else:
+            idx = 0
+            launch_domain = (
+                strategy.launch_domain if strategy.parallel else None
+            )
+            for out_idx in self.scalar_outputs:
+                output = self.outputs[out_idx]
+                output.set_storage(
+                    runtime.extract_scalar(result, idx, launch_domain)
+                )
+                idx += 1
+            for red_idx in self.scalar_reductions:
+                (output, redop) = self.reductions[red_idx]
+                output.set_storage(
+                    runtime.reduce_future_map(
+                        runtime.extract_scalar(result, idx, launch_domain),
+                        redop,
+                    )
+                )
+                idx += 1
 
 
 class Copy(Operation):
@@ -219,4 +252,4 @@ class Copy(Operation):
             proj.redop = redop
             launcher.add_reduction(reduction, proj)
 
-        strategy.launch(self, launcher)
+        strategy.launch(launcher)
