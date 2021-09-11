@@ -28,12 +28,12 @@ class LegateProjectionFunctor : public Legion::ProjectionFunctor {
 
  public:
   using Legion::ProjectionFunctor::project;
-  // Different projection methods for different branches
   virtual Legion::LogicalRegion project(Legion::LogicalPartition upper_bound,
                                         const Legion::DomainPoint& point,
                                         const Legion::Domain& launch_domain);
-  // legate projection functors are almost always functional and don't traverse the region tree
+
  public:
+  // legate projection functors are almost always functional and don't traverse the region tree
   virtual bool is_functional(void) const { return true; }
   virtual bool is_exclusive(void) const { return true; }
   virtual unsigned get_depth(void) const { return 0; }
@@ -45,5 +45,7 @@ class LegateProjectionFunctor : public Legion::ProjectionFunctor {
 
 void register_legate_core_projection_functors(Legion::Runtime* runtime,
                                               const LibraryContext& context);
+
+LegateProjectionFunctor* find_legate_projection_functor(Legion::ProjectionID proj_id);
 
 }  // namespace legate

@@ -14,6 +14,7 @@
  *
  */
 
+#include <mutex>
 #include <numeric>
 #include <sstream>
 #include <unordered_map>
@@ -137,14 +138,27 @@ template <int32_t SRC_DIM, int32_t TGT_DIM>
   return transform;
 }
 
+static std::unordered_map<ProjectionID, LegateProjectionFunctor*> functor_table;
+static std::mutex functor_table_lock;
+
 struct create_reduction_functor_fn {
   template <int32_t SRC_DIM, int32_t TGT_DIM>
   void operator()(Runtime* runtime, int32_t* dims, ProjectionID proj_id)
   {
     auto functor = new ReductionFunctor<SRC_DIM, TGT_DIM>(runtime, dims);
     runtime->register_projection_functor(proj_id, functor, true /*silence warnings*/);
+
+    const std::lock_guard<std::mutex> lock(functor_table_lock);
+    functor_table[proj_id] = functor;
   }
 };
+
+LegateProjectionFunctor* find_legate_projection_functor(ProjectionID proj_id)
+{
+  if (0 == proj_id) return nullptr;
+  const std::lock_guard<std::mutex> lock(functor_table_lock);
+  return functor_table[proj_id];
+}
 
 }  // namespace legate
 

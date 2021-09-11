@@ -24,6 +24,8 @@
 #include "mapping/base_mapper.h"
 #include "mapping/instance_manager.h"
 #include "mapping/task.h"
+#include "runtime/projection.h"
+#include "utilities/dispatch.h"
 
 using LegionTask = Legion::Task;
 
@@ -207,55 +209,79 @@ void BaseMapper::premap_task(const MapperContext ctx,
   // NO-op since we know that all our futures should be mapped in the system memory
 }
 
+struct linearize_fn {
+  template <int32_t DIM>
+  size_t operator()(const DomainPoint& lo_dp, const DomainPoint& hi_dp, const DomainPoint& point_dp)
+  {
+    Point<DIM> lo      = lo_dp;
+    Point<DIM> hi      = hi_dp;
+    Point<DIM> point   = point_dp;
+    Point<DIM> extents = hi - lo + Point<DIM>::ONES();
+    size_t idx         = 0;
+    for (int32_t dim = 0; dim < DIM; ++dim) idx += idx * extents[dim] + point[dim];
+    return idx;
+  }
+};
+
+size_t linearize(const DomainPoint& lo, const DomainPoint& hi, const DomainPoint& point)
+{
+  return dim_dispatch(point.dim, linearize_fn{}, lo, hi, point);
+}
+
 void BaseMapper::slice_task(const MapperContext ctx,
                             const LegionTask& task,
                             const SliceTaskInput& input,
                             SliceTaskOutput& output)
 {
+  LegateProjectionFunctor* key_functor = nullptr;
+  for (auto& req : task.regions)
+    if (req.tag == LEGATE_CORE_KEY_STORE_TAG) {
+      key_functor = find_legate_projection_functor(req.projection);
+      break;
+    }
+
   // For multi-node cases we should already have been sharded so we
   // should just have one or a few points here on this node, so iterate
   // them and round-robin them across the local processors here
   output.slices.reserve(input.domain.get_volume());
-  // Get the sharding functor for this operation and then use it to localize
-  // the points onto the processors of this shard
-  // const ShardingID sid          = select_sharding_functor(ctx, task);
-  // NumPyShardingFunctor* functor = find_sharding_functor(sid);
+
   // Get the domain for the sharding space also
   Domain sharding_domain = task.index_domain;
   if (task.sharding_space.exists())
     sharding_domain = runtime->get_index_space_domain(ctx, task.sharding_space);
+
+  auto round_robin = [&](auto& procs) {
+    if (nullptr != key_functor) {
+      auto lo = key_functor->project_point(sharding_domain.lo(), sharding_domain);
+      auto hi = key_functor->project_point(sharding_domain.hi(), sharding_domain);
+      for (Domain::DomainPointIterator itr(input.domain); itr; itr++) {
+        auto p   = key_functor->project_point(itr.p, sharding_domain);
+        auto idx = linearize(lo, hi, p);
+        output.slices.push_back(TaskSlice(
+          Domain(itr.p, itr.p), procs[idx % procs.size()], false /*recurse*/, false /*stealable*/));
+      }
+    } else {
+      auto lo = sharding_domain.lo();
+      auto hi = sharding_domain.hi();
+      for (Domain::DomainPointIterator itr(input.domain); itr; itr++) {
+        auto idx = linearize(lo, hi, itr.p);
+        output.slices.push_back(TaskSlice(
+          Domain(itr.p, itr.p), procs[idx % procs.size()], false /*recurse*/, false /*stealable*/));
+      }
+    }
+  };
+
   switch (task.target_proc.kind()) {
     case Processor::LOC_PROC: {
-      uint32_t local_index = 0;
-      for (Domain::DomainPointIterator itr(input.domain); itr; itr++) {
-        // functor->localize(itr.p, sharding_domain, total_nodes, local_node) % local_cpus.size();
-        output.slices.push_back(TaskSlice(Domain(itr.p, itr.p),
-                                          local_cpus[local_index++ % local_cpus.size()],
-                                          false /*recurse*/,
-                                          false /*stealable*/));
-      }
+      round_robin(local_cpus);
       break;
     }
     case Processor::TOC_PROC: {
-      uint32_t local_index = 0;
-      for (Domain::DomainPointIterator itr(input.domain); itr; itr++) {
-        // functor->localize(itr.p, sharding_domain, total_nodes, local_node) % local_gpus.size();
-        output.slices.push_back(TaskSlice(Domain(itr.p, itr.p),
-                                          local_gpus[local_index++ % local_gpus.size()],
-                                          false /*recurse*/,
-                                          false /*stealable*/));
-      }
+      round_robin(local_gpus);
       break;
     }
     case Processor::OMP_PROC: {
-      uint32_t local_index = 0;
-      for (Domain::DomainPointIterator itr(input.domain); itr; itr++) {
-        // functor->localize(itr.p, sharding_domain, total_nodes, local_node) % local_omps.size();
-        output.slices.push_back(TaskSlice(Domain(itr.p, itr.p),
-                                          local_omps[local_index++ % local_omps.size()],
-                                          false /*recurse*/,
-                                          false /*stealable*/));
-      }
+      round_robin(local_omps);
       break;
     }
     default: LEGATE_ABORT

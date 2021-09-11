@@ -90,6 +90,10 @@ typedef enum legate_core_transform_t {
   LEGATE_CORE_TRANSFORM_DELINEARIZE,
 } legate_core_transform_t;
 
+typedef enum legate_core_mapping_tag_t {
+  LEGATE_CORE_KEY_STORE_TAG = 1,
+} legate_core_mapping_tag_t;
+
 #ifdef __cplusplus
 extern "C" {
 #endif

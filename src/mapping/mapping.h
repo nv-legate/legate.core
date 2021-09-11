@@ -57,7 +57,6 @@ struct StoreMapping {
 struct LegateMapper {
   virtual bool is_pure() const                                                             = 0;
   virtual TaskTarget task_target(const Task& task, const std::vector<TaskTarget>& options) = 0;
-  // virtual Store distribution_key(const Task& task)                                          = 0;
   // virtual std::vector<StoreMapping> store_mappings(const Task& task,
   //                                                 const std::vector<StoreTarget>& options) = 0;
   virtual Scalar tunable_value(TunableID tunable_id) = 0;
