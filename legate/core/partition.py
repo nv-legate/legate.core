@@ -145,8 +145,13 @@ class Tiling(object):
         return True
 
     def is_complete_for(self, tile):
-        covered = self.tile_shape * self.color_shape
-        return covered >= tile.tile_shape and self._offset == tile.offset
+        my_lo = self._offset
+        my_hi = self._offset + self.tile_shape * self.color_shape
+
+        tile_lo = tile._offset
+        tile_hi = tile._offset + tile.tile_shape * tile.color_shape
+
+        return my_lo <= tile_lo and tile_hi <= my_hi
 
     def is_disjoint_for(self, strategy, store):
         inverted = store.invert_partition(self)
