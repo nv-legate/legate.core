@@ -26,6 +26,7 @@ from legate.core import types as ty
 
 from .context import Context
 from .corelib import CoreLib
+from .launcher import TaskLauncher
 from .legion import (
     FieldSpace,
     Future,
@@ -858,7 +859,7 @@ class Runtime(object):
             return op.launch(self.legion_runtime, self.legion_context)
 
     def _schedule(self, ops):
-        must_be_single = any(op._future_output is not None for op in ops)
+        must_be_single = any(len(op.scalar_outputs) > 0 for op in ops)
         partitioner = Partitioner(self, ops, must_be_single=must_be_single)
         strategy = partitioner.partition_stores()
 
@@ -1058,6 +1059,30 @@ class Runtime(object):
         self._partition_manager.record_partition(
             index_space, functor, index_partition
         )
+
+    def extract_scalar(self, future, idx, launch_domain=None):
+        launcher = TaskLauncher(
+            self.core_context,
+            self.core_library.LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,
+            tag=self.core_library.LEGATE_CPU_VARIANT,
+        )
+        launcher.add_future(future)
+        launcher.add_scalar_arg(idx, ty.int32)
+        if launch_domain is None:
+            return launcher.execute_single()
+        else:
+            return launcher.execute(launch_domain)
+
+    def reduce_future_map(self, future_map, redop):
+        if isinstance(future_map, Future):
+            return future_map
+        else:
+            return future_map.reduce(
+                self.legion_context,
+                self.legion_runtime,
+                redop,
+                mapper=self.core_context.get_mapper_id(0),
+            )
 
 
 _runtime = Runtime(CoreLib())

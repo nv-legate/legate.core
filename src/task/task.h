@@ -23,23 +23,16 @@
 
 #include "runtime/context.h"
 #include "runtime/runtime.h"
+#include "task/return.h"
 #include "utilities/deserializer.h"
 #include "utilities/typedefs.h"
 
 namespace legate {
 
-template <typename T>
-struct ReturnSize {
-  static constexpr int32_t value = sizeof(T);
-};
+// We're going to allow for each task to use only up to 170 scalar output stores
+constexpr size_t LEGATE_MAX_SIZE_SCALAR_RETURN = 2048;
 
-template <>
-struct ReturnSize<void> {
-  static constexpr int32_t value = 0;
-};
-
-template <typename RET_T = void>
-using LegateVariantImpl = RET_T (*)(TaskContext&);
+using LegateVariantImpl = void (*)(TaskContext&);
 
 template <typename T>
 class LegateTask {
@@ -109,49 +102,23 @@ class LegateTask {
   }
 
   // Task wrappers so we can instrument all Legate tasks if we want
-  template <typename RET_T, LegateVariantImpl<RET_T> TASK_PTR>
-  static RET_T legate_task_wrapper(const Legion::Task* task,
-                                   const std::vector<Legion::PhysicalRegion>& regions,
-                                   Legion::Context legion_context,
-                                   Legion::Runtime* runtime)
+  template <LegateVariantImpl TASK_PTR>
+  static ReturnValues legate_task_wrapper(const Legion::Task* task,
+                                          const std::vector<Legion::PhysicalRegion>& regions,
+                                          Legion::Context legion_context,
+                                          Legion::Runtime* runtime)
   {
     show_progress(task, legion_context, runtime);
 
     TaskContext context(task, regions, legion_context, runtime);
-    return (*TASK_PTR)(context);
+    (*TASK_PTR)(context);
+
+    return context.pack_return_values();
   }
 
  public:
   // Methods for registering variants
-  template <LegateVariantImpl<> TASK_PTR>
-  static void register_variant(Legion::ExecutionConstraintSet& execution_constraints,
-                               Legion::TaskLayoutConstraintSet& layout_constraints,
-                               LegateVariantCode var,
-                               Legion::Processor::Kind kind,
-                               bool leaf       = false,
-                               bool inner      = false,
-                               bool idempotent = false)
-  {
-    // Construct the code descriptor for this task so that the library
-    // can register it later when it is ready
-    Legion::CodeDescriptor desc(Legion::LegionTaskWrapper::legion_task_wrapper<
-                                LegateTask<T>::template legate_task_wrapper<void, TASK_PTR>>);
-    auto task_id  = T::TASK_ID;
-    auto ret_size = ReturnSize<void>::value; /*non void return type*/
-
-    T::Registrar::record_variant(task_id,
-                                 T::task_name(),
-                                 desc,
-                                 execution_constraints,
-                                 layout_constraints,
-                                 var,
-                                 kind,
-                                 leaf,
-                                 inner,
-                                 idempotent,
-                                 ret_size);
-  }
-  template <typename RET_T, LegateVariantImpl<RET_T> TASK_PTR>
+  template <LegateVariantImpl TASK_PTR>
   static void register_variant(Legion::ExecutionConstraintSet& execution_constraints,
                                Legion::TaskLayoutConstraintSet& layout_constraints,
                                LegateVariantCode var,
@@ -164,9 +131,8 @@ class LegateTask {
     // can register it later when it is ready
     Legion::CodeDescriptor desc(
       Legion::LegionTaskWrapper::
-        legion_task_wrapper<RET_T, LegateTask<T>::template legate_task_wrapper<RET_T, TASK_PTR>>);
-    auto task_id  = T::TASK_ID;
-    auto ret_size = ReturnSize<RET_T>::value; /*non void return type*/
+        legion_task_wrapper<ReturnValues, LegateTask<T>::template legate_task_wrapper<TASK_PTR>>);
+    auto task_id = T::TASK_ID;
 
     T::Registrar::record_variant(task_id,
                                  T::task_name(),
@@ -178,7 +144,7 @@ class LegateTask {
                                  leaf,
                                  inner,
                                  idempotent,
-                                 ret_size);
+                                 LEGATE_MAX_SIZE_SCALAR_RETURN);
   }
 };
 
@@ -260,87 +226,6 @@ template <typename T>
   RegisterCPUVariant<T, LegateTask<T>, HasCPUVariant::value>::register_variant();
   RegisterOMPVariant<T, LegateTask<T>, HasOMPVariant::value>::register_variant();
   RegisterGPUVariant<T, LegateTask<T>, HasGPUVariant::value>::register_variant();
-}
-
-template <typename T, typename BASE, typename RET, bool HAS_CPU>
-class RegisterCPUVariantWithReturn {
- public:
-  static void register_variant()
-  {
-    Legion::ExecutionConstraintSet execution_constraints;
-    Legion::TaskLayoutConstraintSet layout_constraints;
-    BASE::template register_variant<RET, T::cpu_variant>(execution_constraints,
-                                                         layout_constraints,
-                                                         LEGATE_CPU_VARIANT,
-                                                         Legion::Processor::LOC_PROC,
-                                                         true /*leaf*/);
-  }
-};
-
-template <typename T, typename BASE, typename RET>
-class RegisterCPUVariantWithReturn<T, BASE, RET, false> {
- public:
-  static void register_variant()
-  {
-    // Do nothing
-  }
-};
-
-template <typename T, typename BASE, typename RET, bool HAS_OPENMP>
-class RegisterOMPVariantWithReturn {
- public:
-  static void register_variant()
-  {
-    Legion::ExecutionConstraintSet execution_constraints;
-    Legion::TaskLayoutConstraintSet layout_constraints;
-    BASE::template register_variant<RET, T::omp_variant>(execution_constraints,
-                                                         layout_constraints,
-                                                         LEGATE_OMP_VARIANT,
-                                                         Legion::Processor::OMP_PROC,
-                                                         true /*leaf*/);
-  }
-};
-
-template <typename T, typename BASE, typename RET>
-class RegisterOMPVariantWithReturn<T, BASE, RET, false> {
- public:
-  static void register_variant()
-  {
-    // Do nothing
-  }
-};
-
-template <typename T, typename BASE, typename RET, bool HAS_GPU>
-class RegisterGPUVariantWithReturn {
- public:
-  static void register_variant()
-  {
-    Legion::ExecutionConstraintSet execution_constraints;
-    Legion::TaskLayoutConstraintSet layout_constraints;
-    BASE::template register_variant<RET, T::gpu_variant>(execution_constraints,
-                                                         layout_constraints,
-                                                         LEGATE_GPU_VARIANT,
-                                                         Legion::Processor::TOC_PROC,
-                                                         true /*leaf*/);
-  }
-};
-
-template <typename T, typename BASE, typename RET>
-class RegisterGPUVariantWithReturn<T, BASE, RET, false> {
- public:
-  static void register_variant()
-  {
-    // Do nothing
-  }
-};
-
-template <typename T>
-template <typename RET_T, typename REDUC_T>
-/*static*/ void LegateTask<T>::register_variants_with_return()
-{
-  RegisterCPUVariantWithReturn<T, LegateTask<T>, RET_T, HasCPUVariant::value>::register_variant();
-  RegisterOMPVariantWithReturn<T, LegateTask<T>, RET_T, HasOMPVariant::value>::register_variant();
-  RegisterGPUVariantWithReturn<T, LegateTask<T>, REDUC_T, HasGPUVariant::value>::register_variant();
 }
 
 class LegateTaskRegistrar {

@@ -104,6 +104,11 @@ class Strategy(object):
     def parallel(self):
         return self._launch_shape is not None
 
+    @property
+    def launch_domain(self):
+        assert self.parallel
+        return Rect(self._launch_shape)
+
     def get_projection(self, store):
         partition = self.get_partition(store)
         return partition.get_requirement(self._launch_shape, store)
@@ -120,19 +125,11 @@ class Strategy(object):
             raise ValueError(f"No strategy is found for {store}")
         return self._fspaces[store]
 
-    def launch(self, launcher, output=None, redop=None):
-        if output is None:
-            if self._launch_shape is None:
-                launcher.execute_single()
-            else:
-                launcher.execute(Rect(self._launch_shape))
+    def launch(self, launcher):
+        if self.parallel:
+            return launcher.execute(self.launch_domain)
         else:
-            if self._launch_shape is None:
-                result = launcher.execute_single()
-            else:
-                assert redop is not None
-                result = launcher.execute(Rect(self._launch_shape), redop)
-            output.set_storage(result)
+            return launcher.execute_single()
 
     def __str__(self):
         st = "[Strategy]"

@@ -31,6 +31,8 @@ Deserializer::Deserializer(const Task* task, const std::vector<PhysicalRegion>& 
   auto runtime = Runtime::get_runtime();
   auto ctx     = Runtime::get_context();
   runtime->get_output_regions(ctx, outputs_);
+
+  first_task_ = !task->is_index_space || (task->index_point == task->index_domain.lo());
 }
 
 void Deserializer::_unpack(LegateTypeCode& value)
@@ -71,8 +73,9 @@ void Deserializer::_unpack(Scalar& value)
 
 void Deserializer::_unpack(FutureWrapper& value)
 {
-  auto future = futures_[0];
-  futures_    = futures_.subspan(1);
+  auto read_only   = unpack<bool>();
+  auto has_storage = unpack<bool>();
+  auto field_size  = unpack<int32_t>();
 
   auto point = unpack<std::vector<int64_t>>();
   Domain domain;
@@ -82,7 +85,13 @@ void Deserializer::_unpack(FutureWrapper& value)
     domain.rect_data[idx + domain.dim] = point[idx] - 1;
   }
 
-  value = FutureWrapper(domain, future);
+  Future future;
+  if (has_storage) {
+    future   = futures_[0];
+    futures_ = futures_.subspan(1);
+  }
+
+  value = FutureWrapper(read_only, field_size, domain, future, has_storage && first_task_);
 }
 
 void Deserializer::_unpack(RegionField& value)
