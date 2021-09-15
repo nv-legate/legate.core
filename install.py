@@ -32,6 +32,8 @@ sys.stdout.reconfigure(line_buffering=True)
 
 os_name = platform.system()
 
+default_legion_branch = "control_replication"
+
 
 class BooleanFlag(argparse.Action):
     def __init__(
@@ -85,6 +87,12 @@ def verbose_check_call(*args, **kwargs):
     subprocess.check_call(*args, **kwargs)
 
 
+def verbose_check_output(*args, **kwargs):
+    if verbose_global:
+        print('Executing: "', " ".join(*args), '" with ', kwargs)
+    return subprocess.check_output(*args, **kwargs)
+
+
 def find_active_python_version_and_path():
     # Launching a sub-process to do this in a general way seems hard
     version = (
@@ -105,6 +113,21 @@ def find_active_python_version_and_path():
     e = "Error: could not auto-locate python library."
     assert paths, e
     return version, paths[0]
+
+
+def find_default_legion_branch(core_dir):
+    try:
+        branch = verbose_check_output(
+            ["git", "symbolic-ref", "--short", "HEAD"], cwd=core_dir
+        )
+    except subprocess.CalledProcessError:
+        return default_legion_branch
+
+    branch = branch.decode().strip()
+    if branch in ("master", "main"):
+        return "legate_stable"
+    else:
+        return default_legion_branch
 
 
 def git_clone(repo_dir, url, branch=None, tag=None, commit=None):
@@ -539,6 +562,9 @@ def install(
 
     legate_core_dir = os.path.dirname(os.path.realpath(__file__))
 
+    if legion_branch is None:
+        legion_branch = find_default_legion_branch(legate_core_dir)
+
     cmake_config = os.path.join(legate_core_dir, ".cmake.json")
     dump_json_config(cmake_config, cmake)
 
@@ -931,7 +957,7 @@ def driver():
         dest="legion_branch",
         action="store",
         required=False,
-        default="legate_stable",
+        default=None,
         help="Legion branch to build Legate with.",
     )
     args, unknown = parser.parse_known_args()
