@@ -32,6 +32,8 @@ sys.stdout.reconfigure(line_buffering=True)
 
 os_name = platform.system()
 
+default_legion_branch = "control_replication"
+
 
 class BooleanFlag(argparse.Action):
     def __init__(
@@ -114,14 +116,18 @@ def find_active_python_version_and_path():
 
 
 def find_default_legion_branch(core_dir):
-    branch = verbose_check_output(
-        ["git", "symbolic-ref", "--short", "HEAD"], cwd=core_dir
-    )
+    try:
+        branch = verbose_check_output(
+            ["git", "symbolic-ref", "--short", "HEAD"], cwd=core_dir
+        )
+    except subprocess.CalledProcessError:
+        return default_legion_branch
+
     branch = branch.decode().strip()
     if branch in ("master", "main"):
         return "legate_stable"
     else:
-        return "control_replication"
+        return default_legion_branch
 
 
 def git_clone(repo_dir, url, branch=None, tag=None, commit=None):
