@@ -85,6 +85,12 @@ def verbose_check_call(*args, **kwargs):
     subprocess.check_call(*args, **kwargs)
 
 
+def verbose_check_output(*args, **kwargs):
+    if verbose_global:
+        print('Executing: "', " ".join(*args), '" with ', kwargs)
+    return subprocess.check_output(*args, **kwargs)
+
+
 def find_active_python_version_and_path():
     # Launching a sub-process to do this in a general way seems hard
     version = (
@@ -105,6 +111,15 @@ def find_active_python_version_and_path():
     e = "Error: could not auto-locate python library."
     assert paths, e
     return version, paths[0]
+
+
+def find_default_legion_branch():
+    branch = verbose_check_output(["git", "symbolic-ref", "--short", "HEAD"])
+    branch = branch.decode().strip()
+    if branch in ("master", "main"):
+        return "legate_stable"
+    else:
+        return "control_replication"
 
 
 def git_clone(repo_dir, url, branch=None, tag=None, commit=None):
@@ -534,6 +549,9 @@ def install(
     legion_branch,
     unknown,
 ):
+    if legion_branch is None:
+        legion_branch = find_default_legion_branch()
+
     global verbose_global
     verbose_global = verbose
 
@@ -931,7 +949,7 @@ def driver():
         dest="legion_branch",
         action="store",
         required=False,
-        default="legate_stable",
+        default=None,
         help="Legion branch to build Legate with.",
     )
     args, unknown = parser.parse_known_args()
