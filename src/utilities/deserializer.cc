@@ -33,6 +33,8 @@ TaskDeserializer::TaskDeserializer(const LegionTask* task,
   auto runtime = Runtime::get_runtime();
   auto ctx     = Runtime::get_context();
   runtime->get_output_regions(ctx, outputs_);
+
+  first_task_ = !task->is_index_space || (task->index_point == task->index_domain.lo());
 }
 
 void TaskDeserializer::_unpack(Store& value)
@@ -88,6 +90,7 @@ MapperDeserializer::MapperDeserializer(const LegionTask* task,
     runtime_(runtime),
     context_(context)
 {
+  first_task_ = false;
 }
 
 void MapperDeserializer::_unpack(Store& value)

@@ -41,8 +41,9 @@ void BaseDeserializer<Deserializer>::_unpack(Scalar& value)
 template <typename Deserializer>
 void BaseDeserializer<Deserializer>::_unpack(FutureWrapper& value)
 {
-  auto future = futures_[0];
-  futures_    = futures_.subspan(1);
+  auto read_only   = unpack<bool>();
+  auto has_storage = unpack<bool>();
+  auto field_size  = unpack<int32_t>();
 
   auto point = unpack<std::vector<int64_t>>();
   Legion::Domain domain;
@@ -52,7 +53,13 @@ void BaseDeserializer<Deserializer>::_unpack(FutureWrapper& value)
     domain.rect_data[idx + domain.dim] = point[idx] - 1;
   }
 
-  value = FutureWrapper(domain, future);
+  Legion::Future future;
+  if (has_storage) {
+    future   = futures_[0];
+    futures_ = futures_.subspan(1);
+  }
+
+  value = FutureWrapper(read_only, field_size, domain, future, has_storage && first_task_);
 }
 
 template <typename Deserializer>

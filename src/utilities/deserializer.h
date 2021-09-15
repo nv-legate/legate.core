@@ -68,6 +68,9 @@ class BaseDeserializer {
  protected:
   std::unique_ptr<StoreTransform> unpack_transform();
 
+ protected:
+  bool first_task_;
+
  private:
   Span<const Legion::Future> futures_;
   Span<const int8_t> task_args_;

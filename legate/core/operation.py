@@ -16,7 +16,6 @@
 import legate.core.types as ty
 
 from .launcher import CopyLauncher, TaskLauncher
-from .legion import Future
 from .solver import EqClass
 from .store import Store
 
@@ -28,8 +27,8 @@ class Operation(object):
         self._inputs = []
         self._outputs = []
         self._reductions = []
-        self._future_output = None
-        self._future_reduction = None
+        self._scalar_outputs = []
+        self._scalar_reductions = []
         self._constraints = EqClass()
         self._broadcasts = set()
 
@@ -52,6 +51,14 @@ class Operation(object):
     @property
     def reductions(self):
         return self._reductions
+
+    @property
+    def scalar_outputs(self):
+        return self._scalar_outputs
+
+    @property
+    def scalar_reductions(self):
+        return self._scalar_reductions
 
     @property
     def constraints(self):
@@ -78,34 +85,17 @@ class Operation(object):
         self._check_store(store)
         self._inputs.append(store)
 
-    @property
-    def _has_future_output(self):
-        return (
-            self._future_reduction is not None
-            or self._future_output is not None
-        )
-
-    def _check_future_output(self):
-        if self._has_future_output:
-            raise ValueError(
-                "Only one Future-backed store can be used for output"
-            )
-
     def add_output(self, store):
         self._check_store(store)
-        if store.kind is Future:
-            self._check_future_output()
-            self._future_output = store
-        else:
-            self._outputs.append(store)
+        if store.scalar:
+            self._scalar_outputs.append(len(self._outputs))
+        self._outputs.append(store)
 
     def add_reduction(self, store, redop):
         self._check_store(store)
-        if store.kind is Future:
-            self._check_future_output()
-            self._future_reduction = (store, redop)
-        else:
-            self._reductions.append((store, redop))
+        if store.scalar:
+            self._scalar_reductions.append(len(self._reductions))
+        self._reductions.append((store, redop))
 
     def add_alignment(self, store1, store2):
         self._check_store(store1)
@@ -185,13 +175,40 @@ class Task(Operation):
         for future in self._futures:
             launcher.add_future(future)
 
-        if self._future_output is not None:
-            strategy.launch(launcher, self._future_output)
-        elif self._future_reduction is not None:
-            (store, redop) = self._future_reduction
-            strategy.launch(launcher, store, redop)
+        result = strategy.launch(launcher)
+
+        num_scalar_outs = len(self.scalar_outputs)
+        num_scalar_reds = len(self.scalar_reductions)
+        runtime = self.context.runtime
+        if num_scalar_outs + num_scalar_reds == 0:
+            return
+        elif num_scalar_outs + num_scalar_reds == 1:
+            if num_scalar_outs == 1:
+                output = self.outputs[self.scalar_outputs[0]]
+                output.set_storage(result)
+            else:
+                (output, redop) = self.reductions[self.scalar_reductions[0]]
+                output.set_storage(runtime.reduce_future_map(result, redop))
         else:
-            strategy.launch(launcher)
+            idx = 0
+            launch_domain = (
+                strategy.launch_domain if strategy.parallel else None
+            )
+            for out_idx in self.scalar_outputs:
+                output = self.outputs[out_idx]
+                output.set_storage(
+                    runtime.extract_scalar(result, idx, launch_domain)
+                )
+                idx += 1
+            for red_idx in self.scalar_reductions:
+                (output, redop) = self.reductions[red_idx]
+                output.set_storage(
+                    runtime.reduce_future_map(
+                        runtime.extract_scalar(result, idx, launch_domain),
+                        redop,
+                    )
+                )
+                idx += 1
 
 
 class Copy(Operation):

@@ -100,11 +100,16 @@ class ScalarArg(object):
 
 
 class FutureStoreArg(object):
-    def __init__(self, store):
+    def __init__(self, store, read_only, has_storage):
         self._store = store
+        self._read_only = read_only
+        self._has_storage = has_storage
 
     def pack(self, buf):
         self._store.serialize(buf)
+        buf.pack_bool(self._read_only)
+        buf.pack_bool(self._has_storage)
+        buf.pack_32bit_int(self._store.type.size)
         _pack(buf, self._store.get_root().shape, ty.int64, True)
 
     def __str__(self):
@@ -560,10 +565,14 @@ class TaskLauncher(object):
 
     def add_store(self, args, store, proj, perm, tag, flags):
         if store.kind is Future:
-            if perm != Permission.READ:
-                raise ValueError("Future-backed stores must be read only")
-            self.add_future(store.storage)
-            args.append(FutureStoreArg(store))
+            if store.has_storage:
+                self.add_future(store.storage)
+            elif perm == Permission.READ or perm == Permission.REDUCTION:
+                raise RuntimeError(
+                    "Read access to an uninitialized store is disallowed"
+                )
+            read_only = perm == Permission.READ
+            args.append(FutureStoreArg(store, read_only, store.has_storage))
 
         else:
             region = store.storage.region
@@ -592,7 +601,7 @@ class TaskLauncher(object):
         )
 
     def add_reduction(self, store, proj, tag=0, flags=0, read_write=False):
-        if read_write:
+        if read_write and not store.scalar:
             self.add_store(
                 self._reductions,
                 store,

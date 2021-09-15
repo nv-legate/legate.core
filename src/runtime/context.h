@@ -18,6 +18,8 @@
 
 #include "legion.h"
 
+#include "task/return.h"
+
 namespace legate {
 
 class Store;
@@ -49,7 +51,10 @@ class ResourceScope {
 
  public:
   bool valid() const { return base_ != -1; }
-  bool in_scope(int64_t resource_id) const { return base_ <= resource_id && resource_id < max_; }
+  bool in_scope(int64_t resource_id) const
+  {
+    return base_ <= resource_id && resource_id < base_ + max_;
+  }
 
  private:
   int64_t base_{-1};
@@ -112,6 +117,9 @@ class TaskContext {
   std::vector<Store>& outputs() { return outputs_; }
   std::vector<Store>& reductions() { return reductions_; }
   std::vector<Scalar>& scalars() { return scalars_; }
+
+ public:
+  ReturnValues pack_return_values() const;
 
  private:
   const Legion::Task* task_;

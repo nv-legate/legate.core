@@ -152,4 +152,20 @@ TaskContext::TaskContext(const Legion::Task* task,
   scalars_    = dez.unpack<std::vector<Scalar>>();
 }
 
+ReturnValues TaskContext::pack_return_values() const
+{
+  std::vector<ReturnValue> return_values;
+
+  for (auto& output : outputs_) {
+    if (!output.is_future()) continue;
+    return_values.push_back(output.pack());
+  }
+  for (auto& reduction : reductions_) {
+    if (!reduction.is_future()) continue;
+    return_values.push_back(reduction.pack());
+  }
+
+  return ReturnValues(std::move(return_values));
+}
+
 }  // namespace legate

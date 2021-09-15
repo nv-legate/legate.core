@@ -16,8 +16,10 @@
 
 #include "legate.h"
 #include "mapping/core_mapper.h"
+#include "runtime/context.h"
 #include "runtime/projection.h"
 #include "runtime/shard.h"
+#include "utilities/deserializer.h"
 #ifdef LEGATE_USE_CUDA
 #include "gpu/cudalibs.h"
 #endif
@@ -107,6 +109,17 @@ static void finalize_cpu_resource_task(const Task* task,
   // Nothing to do here yet...
 }
 
+static ReturnValues extract_scalar_task(const Task* task,
+                                        const std::vector<PhysicalRegion>& regions,
+                                        Context legion_context,
+                                        Runtime* runtime)
+{
+  TaskContext context(task, regions, legion_context, runtime);
+  auto values = task->futures[0].get_result<ReturnValues>();
+  auto idx    = context.scalars()[0].value<int32_t>();
+  return ReturnValues({values[idx]});
+}
+
 #ifdef LEGATE_USE_CUDA
 static void initialize_gpu_resource_task(const Task* task,
                                          const std::vector<PhysicalRegion>& regions,
@@ -149,10 +162,16 @@ void register_legate_core_tasks(Machine machine, Runtime* runtime, const Library
   const char* initialize_task_name = "Legate Core Resource Initialization";
   runtime->attach_name(
     initialize_task_id, initialize_task_name, false /*mutable*/, true /*local only*/);
+
   const TaskID finalize_task_id  = context.get_task_id(LEGATE_CORE_FINALIZE_TASK_ID);
   const char* finalize_task_name = "Legate Core Resource Finalization";
   runtime->attach_name(
     finalize_task_id, finalize_task_name, false /*mutable*/, true /*local only*/);
+
+  const TaskID extract_scalar_task_id  = context.get_task_id(LEGATE_CORE_EXTRACT_SCALAR_TASK_ID);
+  const char* extract_scalar_task_name = "Legate Core Scalar Extraction";
+  runtime->attach_name(
+    extract_scalar_task_id, extract_scalar_task_name, false /*mutable*/, true /*local only*/);
 
   auto make_registrar = [&](auto task_id, auto* task_name, auto proc_kind) {
     TaskVariantRegistrar registrar(task_id, task_name);
@@ -170,6 +189,12 @@ void register_legate_core_tasks(Machine machine, Runtime* runtime, const Library
   {
     auto registrar = make_registrar(finalize_task_id, finalize_task_name, Processor::LOC_PROC);
     runtime->register_task_variant<finalize_cpu_resource_task>(registrar, LEGATE_CPU_VARIANT);
+  }
+  {
+    auto registrar =
+      make_registrar(extract_scalar_task_id, extract_scalar_task_name, Processor::LOC_PROC);
+    runtime->register_task_variant<ReturnValues, extract_scalar_task>(registrar,
+                                                                      LEGATE_CPU_VARIANT);
   }
 #ifdef LEGATE_USE_CUDA
   {

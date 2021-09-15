@@ -81,6 +81,9 @@ class CoreMapper : public Legion::Mapping::NullMapper {
   virtual void configure_context(const MapperContext ctx,
                                  const Task& task,
                                  ContextConfigOutput& output);
+  void map_future_map_reduction(const MapperContext ctx,
+                                const FutureMapReductionInput& input,
+                                FutureMapReductionOutput& output);
   virtual void select_tunable_value(const MapperContext ctx,
                                     const Task& task,
                                     const SelectTunableInput& input,
@@ -316,6 +319,12 @@ void CoreMapper::pack_tunable(const int value, Mapper::SelectTunableOutput& outp
   *result      = value;
   output.value = result;
   output.size  = sizeof(value);
+}
+
+void CoreMapper::map_future_map_reduction(const MapperContext ctx,
+                                          const FutureMapReductionInput& input,
+                                          FutureMapReductionOutput& output)
+{
 }
 
 void CoreMapper::select_tunable_value(const MapperContext ctx,
