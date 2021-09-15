@@ -113,8 +113,10 @@ def find_active_python_version_and_path():
     return version, paths[0]
 
 
-def find_default_legion_branch():
-    branch = verbose_check_output(["git", "symbolic-ref", "--short", "HEAD"])
+def find_default_legion_branch(core_dir):
+    branch = verbose_check_output(
+        ["git", "symbolic-ref", "--short", "HEAD"], cwd=core_dir
+    )
     branch = branch.decode().strip()
     if branch in ("master", "main"):
         return "legate_stable"
@@ -549,13 +551,13 @@ def install(
     legion_branch,
     unknown,
 ):
-    if legion_branch is None:
-        legion_branch = find_default_legion_branch()
-
     global verbose_global
     verbose_global = verbose
 
     legate_core_dir = os.path.dirname(os.path.realpath(__file__))
+
+    if legion_branch is None:
+        legion_branch = find_default_legion_branch(legate_core_dir)
 
     cmake_config = os.path.join(legate_core_dir, ".cmake.json")
     dump_json_config(cmake_config, cmake)
