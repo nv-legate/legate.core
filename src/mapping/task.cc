@@ -25,15 +25,25 @@ using LegionTask = Legion::Task;
 using namespace Legion;
 using namespace Legion::Mapping;
 
-RegionField::RegionField(int32_t dim, const RegionRequirement& req, FieldID fid)
-  : dim_(dim), req_(req), fid_(fid)
+RegionField::RegionField(const LegionTask* task, int32_t dim, uint32_t idx, FieldID fid)
+  : task_(task), dim_(dim), idx_(idx), fid_(fid)
 {
+}
+
+IndexSpace RegionField::get_index_space() const
+{
+  auto& req = dim_ > 0 ? task_->regions[idx_] : task_->output_regions[idx_];
+  return req.region.get_index_space();
 }
 
 Domain RegionField::domain(MapperRuntime* runtime, const MapperContext context) const
 {
-  return runtime->get_index_space_domain(context, req_.region.get_index_space());
+  return runtime->get_index_space_domain(context, get_index_space());
 }
+
+FutureWrapper::FutureWrapper(const Domain& domain) : domain_(domain) {}
+
+Domain FutureWrapper::domain() const { return domain_; }
 
 Store::Store(int32_t dim,
              LegateTypeCode code,
@@ -106,10 +116,10 @@ Domain Store::domain() const
   return result;
 }
 
-Task::Task(const LegionTask& task, MapperRuntime* runtime, const MapperContext context)
+Task::Task(const LegionTask* task, MapperRuntime* runtime, const MapperContext context)
   : task_(task)
 {
-  MapperDeserializer dez(&task, runtime, context);
+  MapperDeserializer dez(task, runtime, context);
   inputs_     = dez.unpack<std::vector<Store>>();
   outputs_    = dez.unpack<std::vector<Store>>();
   reductions_ = dez.unpack<std::vector<Store>>();

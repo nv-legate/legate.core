@@ -18,8 +18,7 @@ namespace legate {
 
 template <typename Deserializer>
 BaseDeserializer<Deserializer>::BaseDeserializer(const Legion::Task* task)
-  : futures_{task->futures.data(), task->futures.size()},
-    task_args_{static_cast<const int8_t*>(task->args), task->arglen}
+  : task_(task), task_args_{static_cast<const int8_t*>(task->args), task->arglen}
 {
 }
 
@@ -36,30 +35,6 @@ void BaseDeserializer<Deserializer>::_unpack(Scalar& value)
   auto code  = unpack<LegateTypeCode>();
   value      = Scalar(tuple, code, task_args_.ptr());
   task_args_ = task_args_.subspan(value.size());
-}
-
-template <typename Deserializer>
-void BaseDeserializer<Deserializer>::_unpack(FutureWrapper& value)
-{
-  auto read_only   = unpack<bool>();
-  auto has_storage = unpack<bool>();
-  auto field_size  = unpack<int32_t>();
-
-  auto point = unpack<std::vector<int64_t>>();
-  Legion::Domain domain;
-  domain.dim = static_cast<int32_t>(point.size());
-  for (int32_t idx = 0; idx < domain.dim; ++idx) {
-    domain.rect_data[idx]              = 0;
-    domain.rect_data[idx + domain.dim] = point[idx] - 1;
-  }
-
-  Legion::Future future;
-  if (has_storage) {
-    future   = futures_[0];
-    futures_ = futures_.subspan(1);
-  }
-
-  value = FutureWrapper(read_only, field_size, domain, future, has_storage && first_task_);
 }
 
 template <typename Deserializer>

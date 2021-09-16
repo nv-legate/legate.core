@@ -28,10 +28,11 @@ enum class TaskTarget : int32_t {
 };
 
 enum class StoreTarget : int32_t {
-  SYSMEM  = 1,
-  FBMEM   = 2,
-  ZCMEM   = 3,
-  RDMAMEM = 4,
+  SYSMEM    = 1,
+  FBMEM     = 2,
+  ZCMEM     = 3,
+  RDMAMEM   = 4,
+  SOCKETMEM = 5,
 };
 
 enum class AllocPolicy : int32_t {
@@ -55,11 +56,11 @@ struct StoreMapping {
 };
 
 struct LegateMapper {
-  virtual bool is_pure() const                                                             = 0;
-  virtual TaskTarget task_target(const Task& task, const std::vector<TaskTarget>& options) = 0;
-  // virtual std::vector<StoreMapping> store_mappings(const Task& task,
-  //                                                 const std::vector<StoreTarget>& options) = 0;
-  virtual Scalar tunable_value(TunableID tunable_id) = 0;
+  virtual bool is_pure() const                                                              = 0;
+  virtual TaskTarget task_target(const Task& task, const std::vector<TaskTarget>& options)  = 0;
+  virtual std::vector<StoreMapping> store_mappings(const Task& task,
+                                                   const std::vector<StoreTarget>& options) = 0;
+  virtual Scalar tunable_value(TunableID tunable_id)                                        = 0;
 };
 
 }  // namespace mapping

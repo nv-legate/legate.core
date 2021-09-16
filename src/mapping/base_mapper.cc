@@ -180,7 +180,7 @@ void BaseMapper::select_task_options(const MapperContext ctx,
     options.push_back(TaskTarget::OMP);
   options.push_back(TaskTarget::CPU);
 
-  Task legate_task(task, runtime, ctx);
+  Task legate_task(&task, runtime, ctx);
   auto target = task_target(legate_task, options);
 
   // We never want valid instances
@@ -355,7 +355,26 @@ void BaseMapper::map_task(const MapperContext ctx,
                           const MapTaskInput& input,
                           MapTaskOutput& output)
 {
-  Task legate_task(task, runtime, ctx);
+  Task legate_task(&task, runtime, ctx);
+
+  std::vector<StoreTarget> options;
+  switch (task.target_proc.kind()) {
+    case Processor::LOC_PROC: {
+      options = {StoreTarget::SYSMEM, StoreTarget::RDMAMEM};
+      break;
+    }
+    case Processor::TOC_PROC: {
+      options = {StoreTarget::FBMEM, StoreTarget::ZCMEM};
+      break;
+    }
+    case Processor::OMP_PROC: {
+      options = {StoreTarget::SOCKETMEM, StoreTarget::SYSMEM, StoreTarget::RDMAMEM};
+      break;
+    }
+    default: LEGATE_ABORT
+  }
+
+  auto mappings = store_mappings(legate_task, options);
 
   // Should never be mapping the top-level task here
   assert(task.get_depth() > 0);

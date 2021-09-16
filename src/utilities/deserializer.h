@@ -63,16 +63,15 @@ class BaseDeserializer {
  public:
   void _unpack(LegateTypeCode& value);
   void _unpack(Scalar& value);
-  void _unpack(FutureWrapper& value);
 
  protected:
   std::unique_ptr<StoreTransform> unpack_transform();
 
  protected:
+  const Legion::Task* task_;
   bool first_task_;
 
  private:
-  Span<const Legion::Future> futures_;
   Span<const int8_t> task_args_;
 };
 
@@ -85,10 +84,12 @@ class TaskDeserializer : public BaseDeserializer<TaskDeserializer> {
 
  public:
   void _unpack(Store& value);
+  void _unpack(FutureWrapper& value);
   void _unpack(RegionField& value);
   void _unpack(OutputRegionField& value);
 
  private:
+  Span<const Legion::Future> futures_;
   Span<const Legion::PhysicalRegion> regions_;
   std::vector<Legion::OutputRegion> outputs_;
 };
@@ -106,11 +107,8 @@ class MapperDeserializer : public BaseDeserializer<MapperDeserializer> {
 
  public:
   void _unpack(Store& value);
+  void _unpack(FutureWrapper& value);
   void _unpack(RegionField& value, bool is_output_region);
-
- private:
-  Span<const Legion::RegionRequirement> regions_;
-  Span<const Legion::RegionRequirement> output_regions_;
 
  private:
   Legion::Mapping::MapperRuntime* runtime_;

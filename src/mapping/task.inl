@@ -25,6 +25,12 @@ Legion::Rect<DIM> RegionField::shape(Legion::Mapping::MapperRuntime* runtime,
 }
 
 template <int32_t DIM>
+Legion::Rect<DIM> FutureWrapper::shape() const
+{
+  return Legion::Rect<DIM>(domain());
+}
+
+template <int32_t DIM>
 Legion::Rect<DIM> Store::shape() const
 {
   return Legion::Rect<DIM>(domain());

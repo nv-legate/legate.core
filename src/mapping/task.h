@@ -25,7 +25,7 @@ namespace mapping {
 class RegionField {
  public:
   RegionField() {}
-  RegionField(int32_t dim, const Legion::RegionRequirement& req, Legion::FieldID fid);
+  RegionField(const Legion::Task* task, int32_t dim, uint32_t idx, Legion::FieldID fid);
 
  public:
   RegionField(const RegionField& other) = default;
@@ -41,12 +41,39 @@ class RegionField {
                         const Legion::Mapping::MapperContext context) const;
 
  public:
+  uint32_t index() const { return idx_; }
   int32_t dim() const { return dim_; }
+  bool unbound() const { return dim_ < 0; }
 
  private:
+  Legion::IndexSpace get_index_space() const;
+
+ private:
+  const Legion::Task* task_{nullptr};
   int32_t dim_{-1};
-  Legion::RegionRequirement req_{};
+  uint32_t idx_{-1U};
   Legion::FieldID fid_{-1U};
+};
+
+class FutureWrapper {
+ public:
+  FutureWrapper() {}
+  FutureWrapper(const Legion::Domain& domain);
+
+ public:
+  FutureWrapper(const FutureWrapper& other) = default;
+  FutureWrapper& operator=(const FutureWrapper& other) = default;
+
+ public:
+  int32_t dim() const { return domain_.dim; }
+
+ public:
+  template <int32_t DIM>
+  Legion::Rect<DIM> shape() const;
+  Legion::Domain domain() const;
+
+ private:
+  Legion::Domain domain_{};
 };
 
 class Store {
@@ -79,6 +106,9 @@ class Store {
   int32_t dim() const { return dim_; }
 
  public:
+  bool can_colocate_with(const Store& other) const;
+
+ public:
   template <int32_t DIM>
   Legion::Rect<DIM> shape() const;
 
@@ -106,7 +136,7 @@ class Store {
 
 class Task {
  public:
-  Task(const Legion::Task& task,
+  Task(const Legion::Task* task,
        Legion::Mapping::MapperRuntime* runtime,
        const Legion::Mapping::MapperContext context);
 
@@ -117,10 +147,10 @@ class Task {
   std::vector<Scalar>& scalars() { return scalars_; }
 
  public:
-  Legion::DomainPoint point() const { return task_.index_point; }
+  Legion::DomainPoint point() const { return task_->index_point; }
 
  private:
-  const Legion::Task& task_;
+  const Legion::Task* task_;
 
  private:
   std::vector<Store> inputs_, outputs_, reductions_;

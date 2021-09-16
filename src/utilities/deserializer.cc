@@ -28,7 +28,10 @@ namespace legate {
 
 TaskDeserializer::TaskDeserializer(const LegionTask* task,
                                    const std::vector<PhysicalRegion>& regions)
-  : BaseDeserializer(task), regions_{regions.data(), regions.size()}, outputs_()
+  : BaseDeserializer(task),
+    futures_{task->futures.data(), task->futures.size()},
+    regions_{regions.data(), regions.size()},
+    outputs_()
 {
   auto runtime = Runtime::get_runtime();
   auto ctx     = Runtime::get_context();
@@ -60,6 +63,29 @@ void TaskDeserializer::_unpack(Store& value)
   }
 }
 
+void TaskDeserializer::_unpack(FutureWrapper& value)
+{
+  auto read_only   = unpack<bool>();
+  auto has_storage = unpack<bool>();
+  auto field_size  = unpack<int32_t>();
+
+  auto point = unpack<std::vector<int64_t>>();
+  Legion::Domain domain;
+  domain.dim = static_cast<int32_t>(point.size());
+  for (int32_t idx = 0; idx < domain.dim; ++idx) {
+    domain.rect_data[idx]              = 0;
+    domain.rect_data[idx + domain.dim] = point[idx] - 1;
+  }
+
+  Legion::Future future;
+  if (has_storage) {
+    future   = futures_[0];
+    futures_ = futures_.subspan(1);
+  }
+
+  value = FutureWrapper(read_only, field_size, domain, future, has_storage && first_task_);
+}
+
 void TaskDeserializer::_unpack(RegionField& value)
 {
   auto dim = unpack<int32_t>();
@@ -84,11 +110,7 @@ namespace mapping {
 MapperDeserializer::MapperDeserializer(const LegionTask* task,
                                        MapperRuntime* runtime,
                                        MapperContext context)
-  : BaseDeserializer(task),
-    regions_{task->regions.data(), task->regions.size()},
-    output_regions_{task->output_regions.data(), task->output_regions.size()},
-    runtime_(runtime),
-    context_(context)
+  : BaseDeserializer(task), runtime_(runtime), context_(context)
 {
   first_task_ = false;
 }
@@ -114,13 +136,31 @@ void MapperDeserializer::_unpack(Store& value)
   }
 }
 
+void MapperDeserializer::_unpack(FutureWrapper& value)
+{
+  // We still need to deserialize these fields to get to the domain
+  unpack<bool>();
+  unpack<bool>();
+  unpack<int32_t>();
+
+  auto point = unpack<std::vector<int64_t>>();
+  Legion::Domain domain;
+  domain.dim = static_cast<int32_t>(point.size());
+  for (int32_t idx = 0; idx < domain.dim; ++idx) {
+    domain.rect_data[idx]              = 0;
+    domain.rect_data[idx + domain.dim] = point[idx] - 1;
+  }
+
+  value = FutureWrapper(domain);
+}
+
 void MapperDeserializer::_unpack(RegionField& value, bool is_output_region)
 {
   auto dim = unpack<int32_t>();
   auto idx = unpack<uint32_t>();
   auto fid = unpack<int32_t>();
 
-  value = RegionField(dim, is_output_region ? output_regions_[idx] : regions_[idx], fid);
+  value = RegionField(task_, dim, idx, fid);
 }
 
 }  // namespace mapping
