@@ -63,6 +63,7 @@ INSTALL_HEADERS = legate.h                   \
 									utilities/deserializer.h   \
 									utilities/deserializer.inl \
 									utilities/dispatch.h       \
+									utilities/machine.h        \
 									utilities/span.h           \
 									utilities/type_traits.h    \
 									utilities/typedefs.h
