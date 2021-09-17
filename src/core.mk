@@ -22,6 +22,7 @@ GEN_CPU_SRC	= legate_c.cc                 \
 							mapping/base_mapper.cc      \
 							mapping/core_mapper.cc      \
 							mapping/instance_manager.cc \
+							mapping/mapping.cc          \
 							mapping/task.cc             \
 							runtime/context.cc          \
 							runtime/projection.cc       \

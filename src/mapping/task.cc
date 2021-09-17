@@ -30,15 +30,26 @@ RegionField::RegionField(const LegionTask* task, int32_t dim, uint32_t idx, Fiel
 {
 }
 
-IndexSpace RegionField::get_index_space() const
+bool RegionField::can_colocate_with(const RegionField& other) const
 {
-  auto& req = dim_ > 0 ? task_->regions[idx_] : task_->output_regions[idx_];
-  return req.region.get_index_space();
+  auto& my_req    = get_requirement();
+  auto& other_req = other.get_requirement();
+  return my_req.region.get_tree_id() == other_req.region.get_tree_id();
 }
 
 Domain RegionField::domain(MapperRuntime* runtime, const MapperContext context) const
 {
   return runtime->get_index_space_domain(context, get_index_space());
+}
+
+const RegionRequirement& RegionField::get_requirement() const
+{
+  return dim_ > 0 ? task_->regions[idx_] : task_->output_regions[idx_];
+}
+
+IndexSpace RegionField::get_index_space() const
+{
+  return get_requirement().region.get_index_space();
 }
 
 FutureWrapper::FutureWrapper(const Domain& domain) : domain_(domain) {}
@@ -77,6 +88,18 @@ Store::Store(Legion::Mapping::MapperRuntime* runtime,
     runtime_(runtime),
     context_(context)
 {
+}
+
+bool Store::can_colocate_with(const Store& other) const
+{
+  if (is_future() || other.is_future()) return false;
+  return region_field_.can_colocate_with(other.region_field_);
+}
+
+const RegionField& Store::region_field() const
+{
+  assert(!is_future());
+  return region_field_;
 }
 
 Domain Store::domain() const

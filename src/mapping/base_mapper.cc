@@ -16,6 +16,7 @@
 
 #include <cstdlib>
 #include <sstream>
+
 #include "legion/legion_mapping.h"
 
 #include "data/store.h"
@@ -355,12 +356,20 @@ void BaseMapper::map_task(const MapperContext ctx,
                           const MapTaskInput& input,
                           MapTaskOutput& output)
 {
+  // Should never be mapping the top-level task here
+  assert(task.get_depth() > 0);
+
+  // Let's populate easy outputs first
+  output.chosen_variant = find_variant(ctx, task, task.target_proc.kind());
+  // Just put our target proc in the target processors for now
+  output.target_procs.push_back(task.target_proc);
+
   Task legate_task(&task, runtime, ctx);
 
   std::vector<StoreTarget> options;
   switch (task.target_proc.kind()) {
     case Processor::LOC_PROC: {
-      options = {StoreTarget::SYSMEM, StoreTarget::RDMAMEM};
+      options = {StoreTarget::SYSMEM};
       break;
     }
     case Processor::TOC_PROC: {
@@ -368,7 +377,7 @@ void BaseMapper::map_task(const MapperContext ctx,
       break;
     }
     case Processor::OMP_PROC: {
-      options = {StoreTarget::SOCKETMEM, StoreTarget::SYSMEM, StoreTarget::RDMAMEM};
+      options = {StoreTarget::SOCKETMEM, StoreTarget::SYSMEM};
       break;
     }
     default: LEGATE_ABORT
@@ -376,14 +385,62 @@ void BaseMapper::map_task(const MapperContext ctx,
 
   auto mappings = store_mappings(legate_task, options);
 
-  // Should never be mapping the top-level task here
-  assert(task.get_depth() > 0);
-  // This is one of our normal Legate tasks
-  // First let's see if this is sub-rankable
+  std::map<RegionField::Id, uint32_t> client_mapped;
+  for (uint32_t mapping_idx = 0; mapping_idx < mappings.size(); ++mapping_idx) {
+    auto& mapping = mappings[mapping_idx];
+    for (auto& store : mapping.colocate) {
+      if (store.is_future()) continue;
+
+      auto& rf = store.region_field();
+      auto key = rf.unique_id();
+
+      auto finder = client_mapped.find(key);
+      // If this is the first store mapping for this requirement,
+      // we record the mapping index for future reference.
+      if (finder == client_mapped.end()) client_mapped[key] = mapping_idx;
+      // If we're still in the same store mapping, we know for sure
+      // that the mapping is consistent.
+      else {
+        if (finder->second == mapping_idx) continue;
+        // Otherwise, we do consistency checking
+        auto& other_mapping = mappings[finder->second];
+        if (mapping.ordering != other_mapping.ordering || mapping.target != other_mapping.target ||
+            mapping.policy != other_mapping.policy || mapping.exact != other_mapping.exact) {
+          logger.error("Mapper %s returned inconsistent store mappings", get_mapper_name());
+        }
+      }
+    }
+  }
+
+  // Generate default mappings for stores that are not yet mapped by the client mapper
+  auto default_option            = options.front();
+  auto generate_default_mappings = [&](auto& stores, bool exact) {
+    for (auto& store : stores) {
+      if (store.is_future()) continue;
+      auto key = store.region_field().unique_id();
+      if (client_mapped.find(key) != client_mapped.end()) continue;
+      client_mapped[key] = static_cast<int32_t>(mappings.size());
+      mappings.push_back(StoreMapping::default_mapping(store, default_option, exact));
+    }
+  };
+
+  generate_default_mappings(legate_task.inputs(), false);
+  generate_default_mappings(legate_task.outputs(), false);
+  generate_default_mappings(legate_task.reductions(), true);
+
   output.chosen_instances.resize(task.regions.size());
-  // We've subsumed the tag for now to capture sharding function IDs
-  output.chosen_variant = find_variant(ctx, task, task.target_proc.kind());
-  // Normal task and not sub-rankable, so let's actually do the mapping
+
+  auto get_target_memory = [&](auto& store_target) {
+    switch (store_target) {
+      case StoreTarget::SYSMEM: return local_system_memory;
+      case StoreTarget::FBMEM: return local_frame_buffers[task.target_proc];
+      case StoreTarget::ZCMEM: return local_zerocopy_memory;
+      case StoreTarget::SOCKETMEM: return local_numa_domains[task.target_proc];
+      default: LEGATE_ABORT
+    }
+    return Memory::NO_MEMORY;
+  };
+
   Memory target_memory = Memory::NO_MEMORY;
   switch (task.target_proc.kind()) {
     case Processor::LOC_PROC: {
@@ -400,6 +457,7 @@ void BaseMapper::map_task(const MapperContext ctx,
     }
     default: LEGATE_ABORT
   }
+
   // Map each field separately for each of the logical regions
   std::vector<PhysicalInstance> needed_acquires;
   for (uint32_t idx = 0; idx < task.regions.size(); idx++) {
@@ -466,8 +524,7 @@ void BaseMapper::map_task(const MapperContext ctx,
       }
     }
   }
-  // Just put our target proc in the target processors for now
-  output.target_procs.push_back(task.target_proc);
+
   // Use the chosen target memory for all the output regions for now
   for (auto& output_target : output.output_targets) output_target = target_memory;
 }

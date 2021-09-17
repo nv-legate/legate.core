@@ -31,13 +31,12 @@ enum class StoreTarget : int32_t {
   SYSMEM    = 1,
   FBMEM     = 2,
   ZCMEM     = 3,
-  RDMAMEM   = 4,
-  SOCKETMEM = 5,
+  SOCKETMEM = 4,
 };
 
 enum class AllocPolicy : int32_t {
-  MUST_ALLOC  = 1,
-  CAN_ALLOC   = 2,
+  CAN_ALLOC   = 1,
+  MUST_ALLOC  = 2,
   NEVER_ALLOC = 3,
 };
 
@@ -47,12 +46,27 @@ enum class InstLayout : int32_t {
 };
 
 struct StoreMapping {
-  std::vector<int32_t> ordering;
-  std::vector<Store> colocate;
-  StoreTarget target;
-  AllocPolicy policy;
-  InstLayout layout;
-  bool exact;
+ public:
+  std::vector<int32_t> ordering{};
+  std::vector<Store> colocate{};
+  StoreTarget target{StoreTarget::SYSMEM};
+  AllocPolicy policy{AllocPolicy::CAN_ALLOC};
+  InstLayout layout{InstLayout::SOA};
+  bool exact{false};
+
+ public:
+  StoreMapping() {}
+
+ public:
+  StoreMapping(const StoreMapping&) = default;
+  StoreMapping& operator=(const StoreMapping&) = default;
+
+ public:
+  StoreMapping(StoreMapping&&) = default;
+  StoreMapping& operator=(StoreMapping&&) = default;
+
+ public:
+  static StoreMapping default_mapping(const Store& store, StoreTarget target, bool exact = false);
 };
 
 struct LegateMapper {

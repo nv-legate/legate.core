@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <tuple>
+
 #include "data/scalar.h"
 #include "data/store.h"
 
@@ -24,12 +26,18 @@ namespace mapping {
 
 class RegionField {
  public:
+  using Id = std::tuple<bool, uint32_t, Legion::FieldID>;
+
+ public:
   RegionField() {}
   RegionField(const Legion::Task* task, int32_t dim, uint32_t idx, Legion::FieldID fid);
 
  public:
   RegionField(const RegionField& other) = default;
   RegionField& operator=(const RegionField& other) = default;
+
+ public:
+  bool can_colocate_with(const RegionField& other) const;
 
  public:
   template <int32_t DIM>
@@ -41,11 +49,19 @@ class RegionField {
                         const Legion::Mapping::MapperContext context) const;
 
  public:
-  uint32_t index() const { return idx_; }
+  bool operator==(const RegionField& other) const;
+
+ public:
+  Id unique_id() const { return std::make_tuple(unbound(), idx_, fid_); }
+
+ public:
   int32_t dim() const { return dim_; }
+  uint32_t index() const { return idx_; }
+  Legion::FieldID field_id() const { return fid_; }
   bool unbound() const { return dim_ < 0; }
 
  private:
+  const Legion::RegionRequirement& get_requirement() const;
   Legion::IndexSpace get_index_space() const;
 
  private:
@@ -103,6 +119,7 @@ class Store {
 
  public:
   bool can_colocate_with(const Store& other) const;
+  const RegionField& region_field() const;
 
  public:
   template <int32_t DIM>
@@ -137,10 +154,10 @@ class Task {
        const Legion::Mapping::MapperContext context);
 
  public:
-  std::vector<Store>& inputs() { return inputs_; }
-  std::vector<Store>& outputs() { return outputs_; }
-  std::vector<Store>& reductions() { return reductions_; }
-  std::vector<Scalar>& scalars() { return scalars_; }
+  const std::vector<Store>& inputs() const { return inputs_; }
+  const std::vector<Store>& outputs() const { return outputs_; }
+  const std::vector<Store>& reductions() const { return reductions_; }
+  const std::vector<Scalar>& scalars() const { return scalars_; }
 
  public:
   Legion::DomainPoint point() const { return task_->index_point; }
