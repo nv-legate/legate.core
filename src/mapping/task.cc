@@ -48,7 +48,7 @@ Domain FutureWrapper::domain() const { return domain_; }
 Store::Store(int32_t dim,
              LegateTypeCode code,
              FutureWrapper future,
-             std::unique_ptr<StoreTransform> transform)
+             std::shared_ptr<StoreTransform> transform)
   : is_future_(true),
     is_output_store_(false),
     dim_(dim),
@@ -66,7 +66,7 @@ Store::Store(Legion::Mapping::MapperRuntime* runtime,
              int32_t redop_id,
              const RegionField& region_field,
              bool is_output_store,
-             std::unique_ptr<StoreTransform> transform)
+             std::shared_ptr<StoreTransform> transform)
   : is_future_(false),
     is_output_store_(is_output_store),
     dim_(dim),
@@ -77,34 +77,6 @@ Store::Store(Legion::Mapping::MapperRuntime* runtime,
     runtime_(runtime),
     context_(context)
 {
-}
-
-Store::Store(Store&& store) noexcept
-  : is_future_(store.is_future_),
-    is_output_store_(store.is_output_store_),
-    dim_(store.dim_),
-    code_(store.code_),
-    redop_id_(store.redop_id_),
-    future_(store.future_),
-    region_field_(store.region_field_),
-    transform_(std::move(store.transform_)),
-    runtime_(store.runtime_),
-    context_(store.context_)
-{
-}
-
-Store& Store::operator=(Store&& store) noexcept
-{
-  is_future_       = store.is_future_;
-  is_output_store_ = store.is_output_store_;
-  dim_             = store.dim_;
-  code_            = store.code_;
-  redop_id_        = store.redop_id_;
-  future_          = store.future_;
-  region_field_    = store.region_field_;
-  transform_       = std::move(store.transform_);
-  runtime_         = store.runtime_;
-  context_         = store.context_;
 }
 
 Domain Store::domain() const

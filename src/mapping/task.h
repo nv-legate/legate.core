@@ -82,7 +82,7 @@ class Store {
   Store(int32_t dim,
         LegateTypeCode code,
         FutureWrapper future,
-        std::unique_ptr<StoreTransform> transform = nullptr);
+        std::shared_ptr<StoreTransform> transform = nullptr);
   Store(Legion::Mapping::MapperRuntime* runtime,
         const Legion::Mapping::MapperContext context,
         int32_t dim,
@@ -90,15 +90,11 @@ class Store {
         int32_t redop_id,
         const RegionField& region_field,
         bool is_output_store                      = false,
-        std::unique_ptr<StoreTransform> transform = nullptr);
+        std::shared_ptr<StoreTransform> transform = nullptr);
 
  public:
-  Store(Store&& other) noexcept;
-  Store& operator=(Store&& other) noexcept;
-
- private:
-  Store(const Store& other) = delete;
-  Store& operator=(const Store& other) = delete;
+  Store(const Store& other) = default;
+  Store& operator=(const Store& other) = default;
 
  public:
   bool is_future() const { return is_future_; }
@@ -127,7 +123,7 @@ class Store {
   RegionField region_field_;
 
  private:
-  std::unique_ptr<StoreTransform> transform_{nullptr};
+  std::shared_ptr<StoreTransform> transform_{nullptr};
 
  private:
   Legion::Mapping::MapperRuntime* runtime_{nullptr};

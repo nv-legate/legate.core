@@ -50,7 +50,7 @@ void TaskDeserializer::_unpack(Store& value)
 
   if (is_future) {
     auto fut = unpack<FutureWrapper>();
-    value    = Store(dim, code, fut, std::move(transform));
+    value    = Store(dim, code, fut, transform);
   } else if (dim >= 0) {
     auto redop_id = unpack<int32_t>();
     auto rf       = unpack<RegionField>();
