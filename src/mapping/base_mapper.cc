@@ -181,7 +181,7 @@ void BaseMapper::select_task_options(const MapperContext ctx,
     options.push_back(TaskTarget::OMP);
   options.push_back(TaskTarget::CPU);
 
-  Task legate_task(&task, runtime, ctx);
+  Task legate_task(&task, context, runtime, ctx);
   auto target = task_target(legate_task, options);
 
   // We never want valid instances
@@ -364,7 +364,7 @@ void BaseMapper::map_task(const MapperContext ctx,
   // Just put our target proc in the target processors for now
   output.target_procs.push_back(task.target_proc);
 
-  Task legate_task(&task, runtime, ctx);
+  Task legate_task(&task, context, runtime, ctx);
 
   std::vector<StoreTarget> options;
   switch (task.target_proc.kind()) {

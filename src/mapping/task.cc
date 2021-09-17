@@ -114,8 +114,11 @@ Domain Store::domain() const
   return result;
 }
 
-Task::Task(const LegionTask* task, MapperRuntime* runtime, const MapperContext context)
-  : task_(task)
+Task::Task(const LegionTask* task,
+           const LibraryContext& library,
+           MapperRuntime* runtime,
+           const MapperContext context)
+  : task_(task), library_(library)
 {
   MapperDeserializer dez(task, runtime, context);
   inputs_     = dez.unpack<std::vector<Store>>();
@@ -123,6 +126,8 @@ Task::Task(const LegionTask* task, MapperRuntime* runtime, const MapperContext c
   reductions_ = dez.unpack<std::vector<Store>>();
   scalars_    = dez.unpack<std::vector<Scalar>>();
 }
+
+int64_t Task::task_id() const { return library_.get_local_task_id(task_->task_id); }
 
 }  // namespace mapping
 }  // namespace legate

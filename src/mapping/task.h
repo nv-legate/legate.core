@@ -16,10 +16,12 @@
 
 #pragma once
 
+#include <memory>
 #include <tuple>
 
 #include "data/scalar.h"
-#include "data/store.h"
+#include "data/transform.h"
+#include "runtime/context.h"
 
 namespace legate {
 namespace mapping {
@@ -154,8 +156,12 @@ class Store {
 class Task {
  public:
   Task(const Legion::Task* task,
+       const LibraryContext& library,
        Legion::Mapping::MapperRuntime* runtime,
        const Legion::Mapping::MapperContext context);
+
+ public:
+  int64_t task_id() const;
 
  public:
   const std::vector<Store>& inputs() const { return inputs_; }
@@ -167,6 +173,7 @@ class Task {
   Legion::DomainPoint point() const { return task_->index_point; }
 
  private:
+  const LibraryContext& library_;
   const Legion::Task* task_;
 
  private:
