@@ -18,6 +18,7 @@ import legate.core.types as ty
 from .launcher import CopyLauncher, TaskLauncher
 from .solver import EqClass
 from .store import Store
+from .utils import OrderedSet
 
 
 class Operation(object):
@@ -30,7 +31,7 @@ class Operation(object):
         self._scalar_outputs = []
         self._scalar_reductions = []
         self._constraints = EqClass()
-        self._broadcasts = set()
+        self._broadcasts = OrderedSet()
 
     @property
     def context(self):
@@ -70,9 +71,9 @@ class Operation(object):
 
     def get_all_stores(self):
         stores = (
-            set(self._inputs)
-            | set(self._outputs)
-            | set(store for (store, _) in self._reductions)
+            OrderedSet(self._inputs)
+            | OrderedSet(self._outputs)
+            | OrderedSet(store for (store, _) in self._reductions)
         )
         return stores
 

@@ -16,6 +16,7 @@
 from .legion import Future, Rect
 from .partition import NoPartition
 from .shape import Shape
+from .utils import OrderedSet
 
 
 class EqClass(object):
@@ -152,7 +153,7 @@ class Partitioner(object):
     def _solve_broadcast_constraints(
         self, stores, constraints, broadcasts, partitions
     ):
-        to_remove = set()
+        to_remove = OrderedSet()
         for store in stores:
             if not (store.kind is Future or store in broadcasts):
                 continue
@@ -174,7 +175,7 @@ class Partitioner(object):
     def _solve_unbound_constraints(
         self, stores, constraints, partitions, fspaces
     ):
-        to_remove = set()
+        to_remove = OrderedSet()
         for store in stores:
             if not store.unbound:
                 continue
@@ -217,9 +218,9 @@ class Partitioner(object):
         return all_restrictions
 
     def partition_stores(self):
-        stores = set()
+        stores = OrderedSet()
         constraints = EqClass()
-        broadcasts = set()
+        broadcasts = OrderedSet()
         for op in self._ops:
             stores.update(op.get_all_stores())
             constraints.union(op.constraints)
