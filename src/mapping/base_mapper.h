@@ -260,11 +260,19 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
                                   const MapperTaskResult& result);
 
  protected:
+  Legion::Memory get_target_memory(Legion::Processor proc, StoreTarget target);
   bool find_existing_instance(Legion::LogicalRegion region,
                               Legion::FieldID fid,
                               Legion::Memory target_memory,
                               Legion::Mapping::PhysicalInstance& result,
                               Strictness strictness = Strictness::hint);
+  bool map_legate_store(const Legion::Mapping::MapperContext ctx,
+                        const Legion::Mappable& mappable,
+                        const StoreMapping& mapping,
+                        const Legion::RegionRequirement& req,
+                        Legion::Processor target_proc,
+                        const std::vector<Legion::Mapping::PhysicalInstance>& valid,
+                        Legion::Mapping::PhysicalInstance& result);
   bool map_legate_store(const Legion::Mapping::MapperContext ctx,
                         const Legion::Mappable& mappable,
                         unsigned index,

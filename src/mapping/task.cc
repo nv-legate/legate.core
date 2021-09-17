@@ -34,7 +34,7 @@ bool RegionField::can_colocate_with(const RegionField& other) const
 {
   auto& my_req    = get_requirement();
   auto& other_req = other.get_requirement();
-  return my_req.region.get_tree_id() == other_req.region.get_tree_id();
+  return my_req.region == other_req.region;
 }
 
 Domain RegionField::domain(MapperRuntime* runtime, const MapperContext context) const
@@ -92,7 +92,10 @@ Store::Store(Legion::Mapping::MapperRuntime* runtime,
 
 bool Store::can_colocate_with(const Store& other) const
 {
-  if (is_future() || other.is_future()) return false;
+  if (is_future() || other.is_future())
+    return false;
+  else if (is_reduction() || other.is_reduction())
+    return false;
   return region_field_.can_colocate_with(other.region_field_);
 }
 

@@ -35,9 +35,8 @@ enum class StoreTarget : int32_t {
 };
 
 enum class AllocPolicy : int32_t {
-  CAN_ALLOC   = 1,
-  MUST_ALLOC  = 2,
-  NEVER_ALLOC = 3,
+  MAY_ALLOC  = 1,
+  MUST_ALLOC = 2,
 };
 
 enum class InstLayout : int32_t {
@@ -50,7 +49,7 @@ struct StoreMapping {
   std::vector<int32_t> ordering{};
   std::vector<Store> colocate{};
   StoreTarget target{StoreTarget::SYSMEM};
-  AllocPolicy policy{AllocPolicy::CAN_ALLOC};
+  AllocPolicy policy{AllocPolicy::MAY_ALLOC};
   InstLayout layout{InstLayout::SOA};
   bool exact{false};
 
@@ -64,6 +63,14 @@ struct StoreMapping {
  public:
   StoreMapping(StoreMapping&&) = default;
   StoreMapping& operator=(StoreMapping&&) = default;
+
+ public:
+  bool for_unbound_stores() const;
+  uint32_t requirement_index() const;
+
+ public:
+  void populate_layout_constraints(Legion::LayoutConstraintSet& layout_constraints,
+                                   const Legion::RegionRequirement& requirement) const;
 
  public:
   static StoreMapping default_mapping(const Store& store, StoreTarget target, bool exact = false);

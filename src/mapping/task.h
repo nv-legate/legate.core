@@ -118,6 +118,10 @@ class Store {
   int32_t dim() const { return dim_; }
 
  public:
+  bool is_reduction() const { return redop_id_ > 0; }
+  Legion::ReductionOpID redop() const { return redop_id_; }
+
+ public:
   bool can_colocate_with(const Store& other) const;
   const RegionField& region_field() const;
 

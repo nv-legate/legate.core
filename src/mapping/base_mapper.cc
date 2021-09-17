@@ -388,6 +388,13 @@ void BaseMapper::map_task(const MapperContext ctx,
   std::map<RegionField::Id, uint32_t> client_mapped;
   for (uint32_t mapping_idx = 0; mapping_idx < mappings.size(); ++mapping_idx) {
     auto& mapping = mappings[mapping_idx];
+
+    assert(mapping.colocate.size() > 0);
+    for (uint32_t store_idx = 1; store_idx < mapping.colocate.size(); ++store_idx) {
+      if (!mapping.colocate[store_idx].can_colocate_with(mapping.colocate[0]))
+        logger.error("Mapper %s tried to colocate stores that cannot colocate", get_mapper_name());
+    }
+
     for (auto& store : mapping.colocate) {
       if (store.is_future()) continue;
 
@@ -430,62 +437,32 @@ void BaseMapper::map_task(const MapperContext ctx,
 
   output.chosen_instances.resize(task.regions.size());
 
-  auto get_target_memory = [&](auto& store_target) {
-    switch (store_target) {
-      case StoreTarget::SYSMEM: return local_system_memory;
-      case StoreTarget::FBMEM: return local_frame_buffers[task.target_proc];
-      case StoreTarget::ZCMEM: return local_zerocopy_memory;
-      case StoreTarget::SOCKETMEM: return local_numa_domains[task.target_proc];
-      default: LEGATE_ABORT
-    }
-    return Memory::NO_MEMORY;
-  };
-
-  Memory target_memory = Memory::NO_MEMORY;
-  switch (task.target_proc.kind()) {
-    case Processor::LOC_PROC: {
-      target_memory = local_system_memory;
-      break;
-    }
-    case Processor::TOC_PROC: {
-      target_memory = local_frame_buffers[task.target_proc];
-      break;
-    }
-    case Processor::OMP_PROC: {
-      target_memory = local_numa_domains[task.target_proc];
-      break;
-    }
-    default: LEGATE_ABORT
-  }
-
   // Map each field separately for each of the logical regions
   std::vector<PhysicalInstance> needed_acquires;
-  for (uint32_t idx = 0; idx < task.regions.size(); idx++) {
-    const RegionRequirement& req = task.regions[idx];
-    // Skip any regions that have been projected out
-    if (!req.region.exists()) continue;
-    auto& instances = output.chosen_instances[idx];
-    // Get the reference to our valid instances in case we decide to use them
-    const auto& valid = input.valid_instances[idx];
-    instances.resize(req.privilege_fields.size());
-    uint32_t index     = 0;
-    const bool memoize = true;
-    for (auto fid : req.privilege_fields) {
-      if (map_legate_store(ctx,
-                           task,
-                           idx,
-                           req.region,
-                           fid,
-                           target_memory,
-                           task.target_proc,
-                           valid,
-                           instances[index],
-                           memoize,
-                           req.redop))
-        needed_acquires.push_back(instances[index]);
-      ++index;
+  std::map<PhysicalInstance, uint32_t> instances_to_mappings;
+  for (uint32_t mapping_idx = 0; mapping_idx < mappings.size(); ++mapping_idx) {
+    auto& mapping = mappings[mapping_idx];
+    auto req_idx  = mapping.requirement_index();
+
+    if (mapping.for_unbound_stores()) {
+      output.output_targets[req_idx] = get_target_memory(task.target_proc, mapping.target);
+      continue;
     }
+
+    const auto& req = task.regions[req_idx];
+    if (!req.region.exists()) continue;
+
+    // Get the reference to our valid instances in case we decide to use them
+    const auto& valid = input.valid_instances[req_idx];
+    auto& instances   = output.chosen_instances[req_idx];
+
+    PhysicalInstance result;
+    if (map_legate_store(ctx, task, mapping, req, task.target_proc, valid, result))
+      needed_acquires.push_back(result);
+    instances.push_back(result);
+    instances_to_mappings[result] = mapping_idx;
   }
+
   // Do an acquire on all the instances so we have our result
   // Keep doing this until we succed or we get an out of memory error
   while (!needed_acquires.empty() &&
@@ -495,38 +472,29 @@ void BaseMapper::map_task(const MapperContext ctx,
     // out of the mapper's data structure so do that first
     std::set<PhysicalInstance> failed_acquires;
     filter_failed_acquires(needed_acquires, failed_acquires);
-    // Now go through all our region requirements and and figure out which
-    // region requirements and fields need to attempt to remap
-    for (uint32_t idx1 = 0; idx1 < task.regions.size(); idx1++) {
-      const RegionRequirement& req = task.regions[idx1];
-      // Skip any regions that have been projected out
-      if (!req.region.exists()) continue;
-      auto& instances = output.chosen_instances[idx1];
-      auto fit        = req.privilege_fields.begin();
-      for (uint32_t idx2 = 0; idx2 < instances.size(); idx2++, fit++) {
-        if (failed_acquires.find(instances[idx2]) == failed_acquires.end()) continue;
-        // Now try to remap it
-        const FieldID fid                          = *fit;
-        const std::vector<PhysicalInstance>& valid = input.valid_instances[idx1];
-        const bool memoize                         = true;
-        if (map_legate_store(ctx,
-                             task,
-                             idx1,
-                             req.region,
-                             fid,
-                             target_memory,
-                             task.target_proc,
-                             valid,
-                             instances[idx2],
-                             memoize,
-                             req.redop))
-          needed_acquires.push_back(instances[idx2]);
-      }
+
+    for (auto failed_acquire : failed_acquires) {
+      auto mapping_idx = instances_to_mappings[failed_acquire];
+      auto& mapping    = mappings[mapping_idx];
+      auto req_idx     = mapping.requirement_index();
+
+      const auto& req = task.regions[req_idx];
+
+      const auto& valid = input.valid_instances[req_idx];
+      auto& instances   = output.chosen_instances[req_idx];
+
+      uint32_t inst_idx = 0;
+      for (; inst_idx < instances.size(); ++inst_idx)
+        if (instances[inst_idx] == failed_acquire) break;
+      instances.erase(instances.begin() + inst_idx);
+
+      PhysicalInstance result;
+      if (map_legate_store(ctx, task, mapping, req, task.target_proc, valid, result))
+        needed_acquires.push_back(result);
+      instances.push_back(result);
+      instances_to_mappings[result] = mapping_idx;
     }
   }
-
-  // Use the chosen target memory for all the output regions for now
-  for (auto& output_target : output.output_targets) output_target = target_memory;
 }
 
 void BaseMapper::map_replicate_task(const MapperContext ctx,
@@ -562,6 +530,146 @@ bool BaseMapper::find_existing_instance(LogicalRegion region,
   return false;
 }
 
+Memory BaseMapper::get_target_memory(Processor proc, StoreTarget target)
+{
+  switch (target) {
+    case StoreTarget::SYSMEM: return local_system_memory;
+    case StoreTarget::FBMEM: return local_frame_buffers[proc];
+    case StoreTarget::ZCMEM: return local_zerocopy_memory;
+    case StoreTarget::SOCKETMEM: return local_numa_domains[proc];
+    default: LEGATE_ABORT
+  }
+  assert(false);
+  return Memory::NO_MEMORY;
+}
+
+bool BaseMapper::map_legate_store(const MapperContext ctx,
+                                  const Mappable& mappable,
+                                  const StoreMapping& mapping,
+                                  const RegionRequirement& req,
+                                  Processor target_proc,
+                                  const std::vector<PhysicalInstance>& valid,
+                                  PhysicalInstance& result)
+{
+  auto& region       = req.region;
+  auto target_memory = get_target_memory(target_proc, mapping.target);
+
+  // Generate layout constraints from the store mapping
+  LayoutConstraintSet layout_constraints;
+  mapping.populate_layout_constraints(layout_constraints, req);
+
+  // If we're making a reduction instance, we should just make it now
+  if (req.redop != 0) {
+    const std::vector<LogicalRegion> regions(1, region);
+    if (!runtime->create_physical_instance(
+          ctx, target_memory, layout_constraints, regions, result, true /*acquire*/))
+      report_failed_mapping(mappable, mapping.requirement_index(), target_memory, req.redop);
+    // We already did the acquire
+    return false;
+  }
+
+  auto& fields = layout_constraints.field_constraint.field_set;
+
+  // See if we already have it in our local instances
+  if (fields.size() == 1 &&
+      local_instances->find_instance(region, fields.front(), target_memory, result))
+    // Needs acquire to keep the runtime happy
+    return true;
+
+  // This whole process has to appear atomic
+  runtime->disable_reentrant(ctx);
+
+  std::vector<LogicalRegion> regions;
+  std::shared_ptr<RegionGroup> group{nullptr};
+
+  // Haven't made this instance before, so make it now
+  if (fields.size() == 1) {
+    // When the client mapper didn't request colocation and also didn't want the instance
+    // to be exact, we can do an interesting optimization here to try to reduce unnecessary
+    // inter-memory copies. For logical regions that are overlapping we try
+    // to accumulate as many as possible into one physical instance and use
+    // that instance for all the tasks for the different regions.
+    // First we have to see if there is anything we overlap with
+    auto fid            = fields.front();
+    const IndexSpace is = region.get_index_space();
+    const Domain domain = runtime->get_index_space_domain(ctx, is);
+    group               = local_instances->find_region_group(region, domain, fid, target_memory);
+
+    if (!mapping.exact)
+      regions = group->regions;
+    else
+      regions.push_back(region);
+  } else {
+    // If we have more than one field to map, we don't pull any fancy trick for now
+    regions.push_back(region);
+  }
+
+  bool memoize_result = req.privilege == LEGION_WRITE_ONLY || req.privilege == LEGION_READ_WRITE;
+
+  bool created     = false;
+  size_t footprint = 0;
+  bool success     = false;
+
+  switch (mapping.policy) {
+    case AllocPolicy::MAY_ALLOC: {
+      success = runtime->find_or_create_physical_instance(ctx,
+                                                          target_memory,
+                                                          layout_constraints,
+                                                          regions,
+                                                          result,
+                                                          created,
+                                                          true /*acquire*/,
+                                                          memoize_result ? GC_NEVER_PRIORITY : 0,
+                                                          mapping.exact /*tight bounds*/,
+                                                          &footprint);
+      break;
+    }
+    case AllocPolicy::MUST_ALLOC: {
+      success = runtime->create_physical_instance(ctx,
+                                                  target_memory,
+                                                  layout_constraints,
+                                                  regions,
+                                                  result,
+                                                  true /*acquire*/,
+                                                  memoize_result ? GC_NEVER_PRIORITY : 0,
+                                                  mapping.exact /*tight bounds*/,
+                                                  &footprint);
+      break;
+    }
+    default: LEGATE_ABORT  // should never get here
+  }
+
+  if (success) {
+    // We succeeded in making the instance where we want it
+    assert(result.exists());
+    if (created)
+      logger.info("%s created instance %lx containing %zd bytes in memory " IDFMT,
+                  get_mapper_name(),
+                  result.get_instance_id(),
+                  footprint,
+                  target_memory.id);
+    // Only save the result for future use if it is not an external instance
+    if (memoize_result && !result.is_external_instance() && group != nullptr) {
+      assert(fields.size() == 1);
+      auto fid      = fields.front();
+      auto replaced = local_instances->record_instance(group, fid, result);
+      for (auto& instance : replaced) {
+        if (!instance.is_external_instance())
+          runtime->set_garbage_collection_priority(ctx, instance, 0);
+      }
+    }
+    // We made it so no need for an acquire
+    runtime->enable_reentrant(ctx);
+    return false;
+  }
+  // Done with the atomic part
+  runtime->enable_reentrant(ctx);
+
+  // If we make it here then we failed entirely
+  report_failed_mapping(mappable, mapping.requirement_index(), target_memory, req.redop);
+  return true;
+}
+
 bool BaseMapper::map_legate_store(const MapperContext ctx,
                                   const Mappable& mappable,
                                   uint32_t index,
@@ -578,7 +686,6 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
   if (redop != 0) {
     // Switch the target memory if we're going to a GPU because
     // Realm's DMA system still does not support reductions
-    if (target_memory.kind() == Memory::GPU_FB_MEM) target_memory = local_zerocopy_memory;
     const std::vector<LogicalRegion> regions(1, region);
     LayoutConstraintSet layout_constraints;
     // No specialization
