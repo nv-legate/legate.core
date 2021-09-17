@@ -219,7 +219,7 @@ struct linearize_fn {
     Point<DIM> point   = point_dp;
     Point<DIM> extents = hi - lo + Point<DIM>::ONES();
     size_t idx         = 0;
-    for (int32_t dim = 0; dim < DIM; ++dim) idx += idx * extents[dim] + point[dim];
+    for (int32_t dim = 0; dim < DIM; ++dim) idx = idx * extents[dim] + point[dim];
     return idx;
   }
 };
