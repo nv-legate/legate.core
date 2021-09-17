@@ -17,6 +17,7 @@ env:
   PYTHONUNBUFFERED: 1
 jobs:
   build:
+    if: github.repository == "nv-legate/legate.core"
     runs-on: self-hosted
     steps:
       - name: Dump GitHub context
