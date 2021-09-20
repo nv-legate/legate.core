@@ -433,7 +433,7 @@ void BaseMapper::map_task(const MapperContext ctx,
 
   generate_default_mappings(legate_task.inputs(), false);
   generate_default_mappings(legate_task.outputs(), false);
-  generate_default_mappings(legate_task.reductions(), true);
+  generate_default_mappings(legate_task.reductions(), false);
 
   output.chosen_instances.resize(task.regions.size());
 
