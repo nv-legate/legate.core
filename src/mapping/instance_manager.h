@@ -50,8 +50,10 @@ struct InstanceSet {
   using RegionGroupP = std::shared_ptr<RegionGroup>;
 
  public:
-  bool find_instance(Region region, Instance& result) const;
-  RegionGroupP construct_overlapping_region_group(const Region& region, const Domain& domain) const;
+  bool find_instance(Region region, Instance& result, bool exact) const;
+  RegionGroupP construct_overlapping_region_group(const Region& region,
+                                                  const Domain& domain,
+                                                  bool exact) const;
 
  public:
   std::set<Instance> record_instance(RegionGroupP group, Instance instance);
@@ -105,11 +107,13 @@ class InstanceManager {
   };
 
  public:
-  bool find_instance(Region region, FieldID field_id, Memory memory, Instance& result);
+  bool find_instance(
+    Region region, FieldID field_id, Memory memory, Instance& result, bool exact = false);
   RegionGroupP find_region_group(const Region& region,
                                  const Domain& domain,
                                  FieldID field_id,
-                                 Memory memory);
+                                 Memory memory,
+                                 bool exact = false);
   std::set<Instance> record_instance(RegionGroupP group, FieldID field_id, Instance instance);
 
  public:

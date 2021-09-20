@@ -557,6 +557,7 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
   // Generate layout constraints from the store mapping
   LayoutConstraintSet layout_constraints;
   mapping.populate_layout_constraints(layout_constraints, req);
+  layout_constraints.add_constraint(MemoryConstraint(target_memory.kind()));
 
   // If we're making a reduction instance, we should just make it now
   if (req.redop != 0) {
@@ -572,7 +573,7 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
 
   // See if we already have it in our local instances
   if (fields.size() == 1 &&
-      local_instances->find_instance(region, fields.front(), target_memory, result))
+      local_instances->find_instance(region, fields.front(), target_memory, result, mapping.exact))
     // Needs acquire to keep the runtime happy
     return true;
 
@@ -593,22 +594,16 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
     auto fid            = fields.front();
     const IndexSpace is = region.get_index_space();
     const Domain domain = runtime->get_index_space_domain(ctx, is);
-    group               = local_instances->find_region_group(region, domain, fid, target_memory);
-
-    if (!mapping.exact)
-      regions = group->regions;
-    else
-      regions.push_back(region);
+    group   = local_instances->find_region_group(region, domain, fid, target_memory, mapping.exact);
+    regions = group->regions;
   } else {
     // If we have more than one field to map, we don't pull any fancy trick for now
     regions.push_back(region);
   }
 
-  bool memoize_result = req.privilege == LEGION_WRITE_ONLY || req.privilege == LEGION_READ_WRITE;
-
   bool created     = false;
-  size_t footprint = 0;
   bool success     = false;
+  size_t footprint = 0;
 
   switch (mapping.policy) {
     case AllocPolicy::MAY_ALLOC: {
@@ -619,7 +614,7 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
                                                           result,
                                                           created,
                                                           true /*acquire*/,
-                                                          memoize_result ? GC_NEVER_PRIORITY : 0,
+                                                          LEGION_GC_DEFAULT_PRIORITY,
                                                           mapping.exact /*tight bounds*/,
                                                           &footprint);
       break;
@@ -631,7 +626,7 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
                                                   regions,
                                                   result,
                                                   true /*acquire*/,
-                                                  memoize_result ? GC_NEVER_PRIORITY : 0,
+                                                  LEGION_GC_DEFAULT_PRIORITY,
                                                   mapping.exact /*tight bounds*/,
                                                   &footprint);
       break;
@@ -649,14 +644,10 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
                   footprint,
                   target_memory.id);
     // Only save the result for future use if it is not an external instance
-    if (memoize_result && !result.is_external_instance() && group != nullptr) {
+    if (!result.is_external_instance() && group != nullptr) {
       assert(fields.size() == 1);
-      auto fid      = fields.front();
-      auto replaced = local_instances->record_instance(group, fid, result);
-      for (auto& instance : replaced) {
-        if (!instance.is_external_instance())
-          runtime->set_garbage_collection_priority(ctx, instance, 0);
-      }
+      auto fid = fields.front();
+      local_instances->record_instance(group, fid, result);
     }
     // We made it so no need for an acquire
     runtime->enable_reentrant(ctx);
@@ -725,7 +716,7 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
     Machine::MemoryQuery affinity_mems(machine);
     affinity_mems.has_affinity_to(target_proc);
     for (auto memory : affinity_mems) {
-      if (local_instances->find_instance(region, fid, target_memory, result))
+      if (local_instances->find_instance(region, fid, memory, result))
         // Needs acquire to keep the runtime happy
         return true;
     }

@@ -35,11 +35,12 @@ RegionGroup::RegionGroup(std::vector<Region>&& rs, const Domain bound)
 {
 }
 
-bool InstanceSet::find_instance(Region region, Instance& result) const
+bool InstanceSet::find_instance(Region region, Instance& result, bool exact /*=false*/) const
 {
   auto finder = groups_.find(region);
   if (finder == groups_.end()) return false;
-  auto& group  = finder->second;
+  auto& group = finder->second;
+  if (exact && group->regions.size() > 1) return false;
   auto ifinder = instances_.find(group);
   assert(ifinder != instances_.end());
   result = ifinder->second;
@@ -92,10 +93,17 @@ struct construct_overlapping_region_group_fn {
 };
 
 RegionGroupP InstanceSet::construct_overlapping_region_group(const Region& region,
-                                                             const Domain& domain) const
+                                                             const Domain& domain,
+                                                             bool exact) const
 {
-  return dim_dispatch(
-    domain.get_dim(), construct_overlapping_region_group_fn{}, region, domain, instances_);
+  auto finder = groups_.find(region);
+  if (finder == groups_.end())
+    return dim_dispatch(
+      domain.get_dim(), construct_overlapping_region_group_fn{}, region, domain, instances_);
+  else {
+    assert(exact && finder->second->regions.size() > 1);
+    return std::make_shared<RegionGroup>(std::vector<Region>({region}), domain);
+  }
 }
 
 std::set<InstanceSet::Instance> InstanceSet::record_instance(RegionGroupP group, Instance instance)
@@ -142,19 +150,18 @@ size_t InstanceSet::get_instance_size() const
   return sum;
 }
 
-bool InstanceManager::find_instance(Region region,
-                                    FieldID field_id,
-                                    Memory memory,
-                                    Instance& result)
+bool InstanceManager::find_instance(
+  Region region, FieldID field_id, Memory memory, Instance& result, bool exact /*=false*/)
 {
   auto finder = instance_sets_.find(FieldMemInfo(region.get_tree_id(), field_id, memory));
-  return finder != instance_sets_.end() && finder->second.find_instance(region, result);
+  return finder != instance_sets_.end() && finder->second.find_instance(region, result, exact);
 }
 
 RegionGroupP InstanceManager::find_region_group(const Region& region,
                                                 const Domain& domain,
                                                 FieldID field_id,
-                                                Memory memory)
+                                                Memory memory,
+                                                bool exact /*=false*/)
 {
   FieldMemInfo key(region.get_tree_id(), field_id, memory);
 
@@ -162,7 +169,7 @@ RegionGroupP InstanceManager::find_region_group(const Region& region,
   if (finder == instance_sets_.end())
     return std::make_shared<RegionGroup>(std::vector<Region>({region}), domain);
 
-  return finder->second.construct_overlapping_region_group(region, domain);
+  return finder->second.construct_overlapping_region_group(region, domain, exact);
 }
 
 std::set<InstanceManager::Instance> InstanceManager::record_instance(RegionGroupP group,
