@@ -273,17 +273,17 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
                         Legion::Processor target_proc,
                         const std::vector<Legion::Mapping::PhysicalInstance>& valid,
                         Legion::Mapping::PhysicalInstance& result);
-  bool map_legate_store(const Legion::Mapping::MapperContext ctx,
-                        const Legion::Mappable& mappable,
-                        unsigned index,
-                        Legion::LogicalRegion region,
-                        Legion::FieldID fid,
-                        Legion::Memory target_memory,
-                        Legion::Processor target_proc,
-                        const std::vector<Legion::Mapping::PhysicalInstance>& valid,
-                        Legion::Mapping::PhysicalInstance& result,
-                        bool memoize,
-                        Legion::ReductionOpID redop = 0);
+  bool map_raw_array(const Legion::Mapping::MapperContext ctx,
+                     const Legion::Mappable& mappable,
+                     unsigned index,
+                     Legion::LogicalRegion region,
+                     Legion::FieldID fid,
+                     Legion::Memory target_memory,
+                     Legion::Processor target_proc,
+                     const std::vector<Legion::Mapping::PhysicalInstance>& valid,
+                     Legion::Mapping::PhysicalInstance& result,
+                     bool memoize,
+                     Legion::ReductionOpID redop = 0);
   void filter_failed_acquires(std::vector<Legion::Mapping::PhysicalInstance>& needed_acquires,
                               std::set<Legion::Mapping::PhysicalInstance>& failed_acquires);
   void report_failed_mapping(const Legion::Mappable& mappable,

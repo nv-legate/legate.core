@@ -665,17 +665,17 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
   return true;
 }
 
-bool BaseMapper::map_legate_store(const MapperContext ctx,
-                                  const Mappable& mappable,
-                                  uint32_t index,
-                                  LogicalRegion region,
-                                  FieldID fid,
-                                  Memory target_memory,
-                                  Processor target_proc,
-                                  const std::vector<PhysicalInstance>& valid,
-                                  PhysicalInstance& result,
-                                  bool memoize_result,
-                                  ReductionOpID redop /*=0*/)
+bool BaseMapper::map_raw_array(const MapperContext ctx,
+                               const Mappable& mappable,
+                               uint32_t index,
+                               LogicalRegion region,
+                               FieldID fid,
+                               Memory target_memory,
+                               Processor target_proc,
+                               const std::vector<PhysicalInstance>& valid,
+                               PhysicalInstance& result,
+                               bool memoize_result,
+                               ReductionOpID redop /*=0*/)
 {
   // If we're making a reduction instance, we should just make it now
   if (redop != 0) {
@@ -1119,17 +1119,17 @@ void BaseMapper::map_inline(const MapperContext ctx,
   uint32_t index = 0;
   std::vector<PhysicalInstance> needed_acquires;
   for (auto fid : req.privilege_fields) {
-    if (map_legate_store(ctx,
-                         inline_op,
-                         0,
-                         req.region,
-                         fid,
-                         local_system_memory,
-                         inline_op.parent_task->current_proc,
-                         valid,
-                         output.chosen_instances[index],
-                         false /*memoize*/,
-                         req.redop))
+    if (map_raw_array(ctx,
+                      inline_op,
+                      0,
+                      req.region,
+                      fid,
+                      local_system_memory,
+                      inline_op.parent_task->current_proc,
+                      valid,
+                      output.chosen_instances[index],
+                      false /*memoize*/,
+                      req.redop))
       needed_acquires.push_back(output.chosen_instances[index]);
     ++index;
   }
@@ -1143,16 +1143,16 @@ void BaseMapper::map_inline(const MapperContext ctx,
     for (uint32_t idx = 0; idx < output.chosen_instances.size(); idx++, fit++) {
       if (failed_instances.find(output.chosen_instances[idx]) == failed_instances.end()) continue;
       // Now try to remap it
-      if (map_legate_store(ctx,
-                           inline_op,
-                           0 /*idx*/,
-                           req.region,
-                           *fit,
-                           local_system_memory,
-                           inline_op.parent_task->current_proc,
-                           valid,
-                           output.chosen_instances[idx],
-                           false /*memoize*/))
+      if (map_raw_array(ctx,
+                        inline_op,
+                        0 /*idx*/,
+                        req.region,
+                        *fit,
+                        local_system_memory,
+                        inline_op.parent_task->current_proc,
+                        valid,
+                        output.chosen_instances[idx],
+                        false /*memoize*/))
         needed_acquires.push_back(output.chosen_instances[idx]);
     }
   }
@@ -1222,16 +1222,16 @@ void BaseMapper::map_copy(const MapperContext ctx,
         continue;
       }
       if (find_existing_instance(region, fid, target_memory, outputs[fidx]) ||
-          map_legate_store(ctx,
-                           copy,
-                           idx,
-                           region,
-                           fid,
-                           target_memory,
-                           Processor::NO_PROC,
-                           valid,
-                           outputs[fidx],
-                           memoize))
+          map_raw_array(ctx,
+                        copy,
+                        idx,
+                        region,
+                        fid,
+                        target_memory,
+                        Processor::NO_PROC,
+                        valid,
+                        outputs[fidx],
+                        memoize))
         needed_acquires.push_back(outputs[fidx]);
       ++fidx;
     }
@@ -1279,16 +1279,16 @@ void BaseMapper::map_copy(const MapperContext ctx,
         ++fidx;
         continue;
       }
-      if (map_legate_store(ctx,
-                           copy,
-                           idx,
-                           region,
-                           fid,
-                           target_memory,
-                           Processor::NO_PROC,
-                           valid,
-                           outputs[fidx],
-                           memoize))
+      if (map_raw_array(ctx,
+                        copy,
+                        idx,
+                        region,
+                        fid,
+                        target_memory,
+                        Processor::NO_PROC,
+                        valid,
+                        outputs[fidx],
+                        memoize))
         needed_acquires.push_back(outputs[fidx]);
       ++fidx;
     }
@@ -1513,16 +1513,16 @@ void BaseMapper::map_partition(const MapperContext ctx,
                                local_system_memory,
                                output.chosen_instances[fidx],
                                Strictness::strict) ||
-        map_legate_store(ctx,
-                         partition,
-                         0,
-                         req.region,
-                         fid,
-                         local_system_memory,
-                         Processor::NO_PROC,
-                         valid,
-                         output.chosen_instances[fidx],
-                         memoize)) {
+        map_raw_array(ctx,
+                      partition,
+                      0,
+                      req.region,
+                      fid,
+                      local_system_memory,
+                      Processor::NO_PROC,
+                      valid,
+                      output.chosen_instances[fidx],
+                      memoize)) {
       needed_acquires.push_back(output.chosen_instances[fidx]);
     }
     ++fidx;
@@ -1537,16 +1537,16 @@ void BaseMapper::map_partition(const MapperContext ctx,
     for (uint32_t idx = 0; idx < output.chosen_instances.size(); idx++, fit++) {
       if (failed_instances.find(output.chosen_instances[idx]) == failed_instances.end()) continue;
       // Now try to remap it
-      if (map_legate_store(ctx,
-                           partition,
-                           0 /*idx*/,
-                           req.region,
-                           *fit,
-                           local_system_memory,
-                           Processor::NO_PROC,
-                           valid,
-                           output.chosen_instances[idx],
-                           memoize))
+      if (map_raw_array(ctx,
+                        partition,
+                        0 /*idx*/,
+                        req.region,
+                        *fit,
+                        local_system_memory,
+                        Processor::NO_PROC,
+                        valid,
+                        output.chosen_instances[idx],
+                        memoize))
         needed_acquires.push_back(output.chosen_instances[idx]);
     }
   }
