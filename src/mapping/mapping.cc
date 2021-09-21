@@ -38,18 +38,18 @@ Memory::Kind get_memory_kind(StoreTarget target)
   return Memory::Kind::SYSTEM_MEM;
 }
 
-bool StoreMappingPolicy::operator==(const StoreMappingPolicy& other) const
+bool InstanceMappingPolicy::operator==(const InstanceMappingPolicy& other) const
 {
   return target == other.target && allocation == other.allocation && layout == other.layout &&
          exact == other.exact && ordering == other.ordering;
 }
 
-bool StoreMappingPolicy::operator!=(const StoreMappingPolicy& other) const
+bool InstanceMappingPolicy::operator!=(const InstanceMappingPolicy& other) const
 {
   return !operator==(other);
 }
 
-void StoreMappingPolicy::populate_layout_constraints(
+void InstanceMappingPolicy::populate_layout_constraints(
   Legion::LayoutConstraintSet& layout_constraints) const
 {
   std::vector<DimensionKind> dimension_ordering{};
@@ -62,9 +62,10 @@ void StoreMappingPolicy::populate_layout_constraints(
   layout_constraints.add_constraint(MemoryConstraint(get_memory_kind(target)));
 }
 
-/*static*/ StoreMappingPolicy StoreMappingPolicy::default_policy(StoreTarget target, bool exact)
+/*static*/ InstanceMappingPolicy InstanceMappingPolicy::default_policy(StoreTarget target,
+                                                                       bool exact)
 {
-  StoreMappingPolicy policy{};
+  InstanceMappingPolicy policy{};
   policy.target = target;
   policy.exact  = exact;
   return std::move(policy);
@@ -104,7 +105,7 @@ void StoreMapping::populate_layout_constraints(
                                                       bool exact)
 {
   StoreMapping mapping{};
-  mapping.policy = StoreMappingPolicy::default_policy(target, exact);
+  mapping.policy = InstanceMappingPolicy::default_policy(target, exact);
   if (!store.unbound()) {
     mapping.policy.ordering.resize(store.dim());
     std::iota(mapping.policy.ordering.begin(), mapping.policy.ordering.end(), 0);

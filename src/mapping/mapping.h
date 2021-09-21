@@ -44,7 +44,7 @@ enum class InstLayout : int32_t {
   AOS = 2,
 };
 
-struct StoreMappingPolicy {
+struct InstanceMappingPolicy {
  public:
   std::vector<int32_t> ordering{};
   StoreTarget target{StoreTarget::SYSMEM};
@@ -53,31 +53,31 @@ struct StoreMappingPolicy {
   bool exact{false};
 
  public:
-  StoreMappingPolicy() {}
+  InstanceMappingPolicy() {}
 
  public:
-  StoreMappingPolicy(const StoreMappingPolicy&) = default;
-  StoreMappingPolicy& operator=(const StoreMappingPolicy&) = default;
+  InstanceMappingPolicy(const InstanceMappingPolicy&) = default;
+  InstanceMappingPolicy& operator=(const InstanceMappingPolicy&) = default;
 
  public:
-  StoreMappingPolicy(StoreMappingPolicy&&) = default;
-  StoreMappingPolicy& operator=(StoreMappingPolicy&&) = default;
+  InstanceMappingPolicy(InstanceMappingPolicy&&) = default;
+  InstanceMappingPolicy& operator=(InstanceMappingPolicy&&) = default;
 
  public:
-  bool operator==(const StoreMappingPolicy&) const;
-  bool operator!=(const StoreMappingPolicy&) const;
+  bool operator==(const InstanceMappingPolicy&) const;
+  bool operator!=(const InstanceMappingPolicy&) const;
 
  public:
   void populate_layout_constraints(Legion::LayoutConstraintSet& layout_constraints) const;
 
  public:
-  static StoreMappingPolicy default_policy(StoreTarget target, bool exact = false);
+  static InstanceMappingPolicy default_policy(StoreTarget target, bool exact = false);
 };
 
 struct StoreMapping {
  public:
   std::vector<Store> stores{};
-  StoreMappingPolicy policy;
+  InstanceMappingPolicy policy;
 
  public:
   StoreMapping() {}
