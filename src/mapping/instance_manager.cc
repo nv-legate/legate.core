@@ -35,16 +35,25 @@ RegionGroup::RegionGroup(std::vector<Region>&& rs, const Domain bound)
 {
 }
 
-bool InstanceSet::find_instance(Region region, Instance& result, bool exact /*=false*/) const
+bool InstanceSet::find_instance(Region region,
+                                Instance& result,
+                                const InstanceMappingPolicy& policy) const
 {
   auto finder = groups_.find(region);
   if (finder == groups_.end()) return false;
+
   auto& group = finder->second;
-  if (exact && group->regions.size() > 1) return false;
+  if (policy.exact && group->regions.size() > 1) return false;
+
   auto ifinder = instances_.find(group);
   assert(ifinder != instances_.end());
-  result = ifinder->second;
-  return true;
+
+  auto& spec = ifinder->second;
+  if (spec.policy == policy) {
+    result = spec.instance;
+    return true;
+  } else
+    return false;
 }
 
 // We define "too big" as the size of the "unused" points being bigger than the intersection
@@ -61,7 +70,7 @@ struct construct_overlapping_region_group_fn {
   RegionGroupP operator()(
     const InstanceSet::Region& region,
     const InstanceSet::Domain& domain,
-    const std::map<InstanceSet::RegionGroupP, InstanceSet::Instance>& instances)
+    const std::map<InstanceSet::RegionGroupP, InstanceSet::InstanceSpec>& instances)
   {
     auto bound = domain.bounds<DIM, coord_t>();
     std::vector<InstanceSet::Region> regions(1, region);
@@ -106,23 +115,25 @@ RegionGroupP InstanceSet::construct_overlapping_region_group(const Region& regio
   }
 }
 
-std::set<InstanceSet::Instance> InstanceSet::record_instance(RegionGroupP group, Instance instance)
+std::set<InstanceSet::Instance> InstanceSet::record_instance(RegionGroupP group,
+                                                             Instance instance,
+                                                             const InstanceMappingPolicy& policy)
 {
   std::set<Instance> replaced;
 
   auto finder = instances_.find(group);
   if (finder != instances_.end()) {
-    replaced.insert(finder->second);
-    finder->second = instance;
+    replaced.insert(finder->second.instance);
+    finder->second = InstanceSpec(instance, policy);
   } else
-    instances_[group] = instance;
+    instances_[group] = InstanceSpec(instance, policy);
 
   for (auto& region : group->regions) {
     auto finder = groups_.find(region);
     if (finder == groups_.end())
       groups_[region] = group;
     else {
-      replaced.insert(instances_[finder->second]);
+      replaced.insert(instances_[finder->second].instance);
       finder->second = group;
     }
   }
@@ -134,7 +145,7 @@ bool InstanceSet::erase(PhysicalInstance inst)
 {
   std::set<RegionGroupP> filtered_groups;
   for (auto it = instances_.begin(); it != instances_.end(); /*nothing*/) {
-    if (it->second == inst) {
+    if (it->second.instance == inst) {
       auto to_erase = it++;
       filtered_groups.insert(to_erase->first);
       instances_.erase(to_erase);
@@ -151,15 +162,19 @@ bool InstanceSet::erase(PhysicalInstance inst)
 size_t InstanceSet::get_instance_size() const
 {
   size_t sum = 0;
-  for (auto& pair : instances_) sum += pair.second.get_instance_size();
+  for (auto& pair : instances_) sum += pair.second.instance.get_instance_size();
   return sum;
 }
 
-bool InstanceManager::find_instance(
-  Region region, FieldID field_id, Memory memory, Instance& result, bool exact /*=false*/)
+bool InstanceManager::find_instance(Region region,
+                                    FieldID field_id,
+                                    Memory memory,
+                                    Instance& result,
+                                    const InstanceMappingPolicy& policy)
 {
   auto finder = instance_sets_.find(FieldMemInfo(region.get_tree_id(), field_id, memory));
-  return finder != instance_sets_.end() && finder->second.find_instance(region, result, exact);
+  return policy.allocation != AllocPolicy::MUST_ALLOC && finder != instance_sets_.end() &&
+         finder->second.find_instance(region, result, policy);
 }
 
 RegionGroupP InstanceManager::find_region_group(const Region& region,
@@ -177,15 +192,14 @@ RegionGroupP InstanceManager::find_region_group(const Region& region,
   return finder->second.construct_overlapping_region_group(region, domain, exact);
 }
 
-std::set<InstanceManager::Instance> InstanceManager::record_instance(RegionGroupP group,
-                                                                     FieldID fid,
-                                                                     Instance instance)
+std::set<InstanceManager::Instance> InstanceManager::record_instance(
+  RegionGroupP group, FieldID fid, Instance instance, const InstanceMappingPolicy& policy)
 {
   const auto mem = instance.get_location();
   const auto tid = instance.get_tree_id();
 
   FieldMemInfo key(tid, fid, mem);
-  return instance_sets_[key].record_instance(group, instance);
+  return instance_sets_[key].record_instance(group, instance, policy);
 }
 
 void InstanceManager::erase(PhysicalInstance inst)

@@ -19,6 +19,7 @@
 #include <memory>
 
 #include "legion.h"
+#include "mapping/mapping.h"
 
 namespace legate {
 namespace mapping {
@@ -50,13 +51,26 @@ struct InstanceSet {
   using RegionGroupP = std::shared_ptr<RegionGroup>;
 
  public:
-  bool find_instance(Region region, Instance& result, bool exact) const;
+  struct InstanceSpec {
+    InstanceSpec() {}
+    InstanceSpec(const Instance& inst, const InstanceMappingPolicy& po) : instance(inst), policy(po)
+    {
+    }
+
+    Instance instance{};
+    InstanceMappingPolicy policy{};
+  };
+
+ public:
+  bool find_instance(Region region, Instance& result, const InstanceMappingPolicy& policy) const;
   RegionGroupP construct_overlapping_region_group(const Region& region,
                                                   const Domain& domain,
                                                   bool exact) const;
 
  public:
-  std::set<Instance> record_instance(RegionGroupP group, Instance instance);
+  std::set<Instance> record_instance(RegionGroupP group,
+                                     Instance instance,
+                                     const InstanceMappingPolicy& policy);
 
  public:
   bool erase(Instance inst);
@@ -65,7 +79,7 @@ struct InstanceSet {
   size_t get_instance_size() const;
 
  private:
-  std::map<RegionGroupP, Instance> instances_;
+  std::map<RegionGroupP, InstanceSpec> instances_;
   std::map<Legion::LogicalRegion, RegionGroupP> groups_;
 };
 
@@ -107,14 +121,20 @@ class InstanceManager {
   };
 
  public:
-  bool find_instance(
-    Region region, FieldID field_id, Memory memory, Instance& result, bool exact = false);
+  bool find_instance(Region region,
+                     FieldID field_id,
+                     Memory memory,
+                     Instance& result,
+                     const InstanceMappingPolicy& policy = {});
   RegionGroupP find_region_group(const Region& region,
                                  const Domain& domain,
                                  FieldID field_id,
                                  Memory memory,
                                  bool exact = false);
-  std::set<Instance> record_instance(RegionGroupP group, FieldID field_id, Instance instance);
+  std::set<Instance> record_instance(RegionGroupP group,
+                                     FieldID field_id,
+                                     Instance instance,
+                                     const InstanceMappingPolicy& policy = {});
 
  public:
   void erase(Instance inst);

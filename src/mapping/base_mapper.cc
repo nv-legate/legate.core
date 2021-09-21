@@ -576,8 +576,8 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
   auto& fields = layout_constraints.field_constraint.field_set;
 
   // See if we already have it in our local instances
-  if (fields.size() == 1 && policy.allocation != AllocPolicy::MUST_ALLOC &&
-      local_instances->find_instance(region, fields.front(), target_memory, result, policy.exact))
+  if (fields.size() == 1 &&
+      local_instances->find_instance(region, fields.front(), target_memory, result, policy))
     // Needs acquire to keep the runtime happy
     return true;
 
@@ -651,7 +651,7 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
     if (!result.is_external_instance() && group != nullptr) {
       assert(fields.size() == 1);
       auto fid = fields.front();
-      local_instances->record_instance(group, fid, result);
+      local_instances->record_instance(group, fid, result, policy);
     }
     // We made it so no need for an acquire
     runtime->enable_reentrant(ctx);
