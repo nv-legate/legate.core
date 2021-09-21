@@ -60,6 +60,7 @@ INSTALL_HEADERS = legate.h                   \
 									mapping/task.inl           \
 									runtime/context.h          \
 									runtime/runtime.h          \
+									task/return.h              \
 									task/task.h                \
 									utilities/deserializer.h   \
 									utilities/deserializer.inl \
