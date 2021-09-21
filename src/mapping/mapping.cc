@@ -18,37 +18,40 @@
 
 #include "mapping/mapping.h"
 
+#include "legate_defines.h"
+
 using namespace Legion;
 
 namespace legate {
 namespace mapping {
 
-bool StoreMapping::for_unbound_stores() const
+Memory::Kind get_memory_kind(StoreTarget target)
 {
-  for (auto& store : colocate) return store.unbound();
-  assert(false);
-  return false;
-}
-
-uint32_t StoreMapping::requirement_index() const
-{
-  assert(colocate.size() > 0);
-  uint32_t result = -1U;
-  for (auto& store : colocate) {
-    auto idx = store.region_field().index();
-    assert(result == -1U || result == idx);
-    result = idx;
+  switch (target) {
+    case StoreTarget::SYSMEM: return Memory::Kind::SYSTEM_MEM;
+    case StoreTarget::FBMEM: return Memory::Kind::GPU_FB_MEM;
+    case StoreTarget::ZCMEM: return Memory::Kind::Z_COPY_MEM;
+    case StoreTarget::SOCKETMEM: return Memory::Kind::SOCKET_MEM;
+    default: LEGATE_ABORT
   }
-  return result;
+  assert(false);
+  return Memory::Kind::SYSTEM_MEM;
 }
 
-void StoreMapping::populate_layout_constraints(Legion::LayoutConstraintSet& layout_constraints,
-                                               const Legion::RegionRequirement& requirement) const
+bool StoreMappingPolicy::operator==(const StoreMappingPolicy& other) const
 {
-  if (requirement.redop > 0)
-    layout_constraints.add_constraint(
-      SpecializedConstraint(REDUCTION_FOLD_SPECIALIZE, requirement.redop));
+  return target == other.target && allocation == other.allocation && layout == other.layout &&
+         exact == other.exact && ordering == other.ordering;
+}
 
+bool StoreMappingPolicy::operator!=(const StoreMappingPolicy& other) const
+{
+  return !operator==(other);
+}
+
+void StoreMappingPolicy::populate_layout_constraints(
+  Legion::LayoutConstraintSet& layout_constraints) const
+{
   std::vector<DimensionKind> dimension_ordering{};
   if (layout == InstLayout::AOS) dimension_ordering.push_back(DIM_F);
   for (auto it = ordering.rbegin(); it != ordering.rend(); ++it)
@@ -56,8 +59,43 @@ void StoreMapping::populate_layout_constraints(Legion::LayoutConstraintSet& layo
   if (layout == InstLayout::SOA) dimension_ordering.push_back(DIM_F);
   layout_constraints.add_constraint(OrderingConstraint(dimension_ordering, false /*contiguous*/));
 
+  layout_constraints.add_constraint(MemoryConstraint(get_memory_kind(target)));
+}
+
+/*static*/ StoreMappingPolicy StoreMappingPolicy::default_policy(StoreTarget target, bool exact)
+{
+  StoreMappingPolicy policy{};
+  policy.target = target;
+  policy.exact  = exact;
+  return std::move(policy);
+}
+
+bool StoreMapping::for_unbound_stores() const
+{
+  for (auto& store : stores) return store.unbound();
+  assert(false);
+  return false;
+}
+
+uint32_t StoreMapping::requirement_index() const
+{
+  assert(stores.size() > 0);
+  uint32_t result = -1U;
+  for (auto& store : stores) {
+    auto idx = store.region_field().index();
+    assert(result == -1U || result == idx);
+    result = idx;
+  }
+  return result;
+}
+
+void StoreMapping::populate_layout_constraints(
+  Legion::LayoutConstraintSet& layout_constraints) const
+{
+  policy.populate_layout_constraints(layout_constraints);
+
   std::vector<FieldID> fields{};
-  for (auto& store : colocate) fields.push_back(store.region_field().field_id());
+  for (auto& store : stores) fields.push_back(store.region_field().field_id());
   layout_constraints.add_constraint(FieldConstraint(fields, true /*contiguous*/));
 }
 
@@ -66,16 +104,12 @@ void StoreMapping::populate_layout_constraints(Legion::LayoutConstraintSet& layo
                                                       bool exact)
 {
   StoreMapping mapping{};
-
+  mapping.policy = StoreMappingPolicy::default_policy(target, exact);
   if (!store.unbound()) {
-    mapping.ordering.resize(store.dim());
-    std::iota(mapping.ordering.begin(), mapping.ordering.end(), 0);
+    mapping.policy.ordering.resize(store.dim());
+    std::iota(mapping.policy.ordering.begin(), mapping.policy.ordering.end(), 0);
   }
-
-  mapping.colocate.push_back(store);
-  mapping.target = target;
-  mapping.exact  = exact;
-
+  mapping.stores.push_back(store);
   return std::move(mapping);
 }
 

@@ -44,14 +44,40 @@ enum class InstLayout : int32_t {
   AOS = 2,
 };
 
-struct StoreMapping {
+struct StoreMappingPolicy {
  public:
   std::vector<int32_t> ordering{};
-  std::vector<Store> colocate{};
   StoreTarget target{StoreTarget::SYSMEM};
-  AllocPolicy policy{AllocPolicy::MAY_ALLOC};
+  AllocPolicy allocation{AllocPolicy::MAY_ALLOC};
   InstLayout layout{InstLayout::SOA};
   bool exact{false};
+
+ public:
+  StoreMappingPolicy() {}
+
+ public:
+  StoreMappingPolicy(const StoreMappingPolicy&) = default;
+  StoreMappingPolicy& operator=(const StoreMappingPolicy&) = default;
+
+ public:
+  StoreMappingPolicy(StoreMappingPolicy&&) = default;
+  StoreMappingPolicy& operator=(StoreMappingPolicy&&) = default;
+
+ public:
+  bool operator==(const StoreMappingPolicy&) const;
+  bool operator!=(const StoreMappingPolicy&) const;
+
+ public:
+  void populate_layout_constraints(Legion::LayoutConstraintSet& layout_constraints) const;
+
+ public:
+  static StoreMappingPolicy default_policy(StoreTarget target, bool exact = false);
+};
+
+struct StoreMapping {
+ public:
+  std::vector<Store> stores{};
+  StoreMappingPolicy policy;
 
  public:
   StoreMapping() {}
@@ -69,8 +95,7 @@ struct StoreMapping {
   uint32_t requirement_index() const;
 
  public:
-  void populate_layout_constraints(Legion::LayoutConstraintSet& layout_constraints,
-                                   const Legion::RegionRequirement& requirement) const;
+  void populate_layout_constraints(Legion::LayoutConstraintSet& layout_constraints) const;
 
  public:
   static StoreMapping default_mapping(const Store& store, StoreTarget target, bool exact = false);

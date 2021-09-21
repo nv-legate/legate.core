@@ -389,15 +389,15 @@ void BaseMapper::map_task(const MapperContext ctx,
   for (uint32_t mapping_idx = 0; mapping_idx < mappings.size(); ++mapping_idx) {
     auto& mapping = mappings[mapping_idx];
 
-    assert(mapping.colocate.size() > 0);
-    for (uint32_t store_idx = 1; store_idx < mapping.colocate.size(); ++store_idx) {
-      if (!mapping.colocate[store_idx].can_colocate_with(mapping.colocate[0])) {
+    assert(mapping.stores.size() > 0);
+    for (uint32_t store_idx = 1; store_idx < mapping.stores.size(); ++store_idx) {
+      if (!mapping.stores[store_idx].can_colocate_with(mapping.stores[0])) {
         logger.error("Mapper %s tried to colocate stores that cannot colocate", get_mapper_name());
         LEGATE_ABORT
       }
     }
 
-    for (auto& store : mapping.colocate) {
+    for (auto& store : mapping.stores) {
       if (store.is_future()) continue;
 
       auto& rf = store.region_field();
@@ -413,8 +413,7 @@ void BaseMapper::map_task(const MapperContext ctx,
         if (finder->second == mapping_idx) continue;
         // Otherwise, we do consistency checking
         auto& other_mapping = mappings[finder->second];
-        if (mapping.ordering != other_mapping.ordering || mapping.target != other_mapping.target ||
-            mapping.policy != other_mapping.policy || mapping.exact != other_mapping.exact) {
+        if (mapping.policy != other_mapping.policy) {
           logger.error("Mapper %s returned inconsistent store mappings", get_mapper_name());
           LEGATE_ABORT
         }
@@ -448,7 +447,7 @@ void BaseMapper::map_task(const MapperContext ctx,
     auto req_idx  = mapping.requirement_index();
 
     if (mapping.for_unbound_stores()) {
-      output.output_targets[req_idx] = get_target_memory(task.target_proc, mapping.target);
+      output.output_targets[req_idx] = get_target_memory(task.target_proc, mapping.policy.target);
       continue;
     }
 
@@ -554,16 +553,18 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
                                   const std::vector<PhysicalInstance>& valid,
                                   PhysicalInstance& result)
 {
+  const auto& policy = mapping.policy;
   auto& region       = req.region;
-  auto target_memory = get_target_memory(target_proc, mapping.target);
+  auto target_memory = get_target_memory(target_proc, policy.target);
 
   // Generate layout constraints from the store mapping
   LayoutConstraintSet layout_constraints;
-  mapping.populate_layout_constraints(layout_constraints, req);
-  layout_constraints.add_constraint(MemoryConstraint(target_memory.kind()));
+  mapping.populate_layout_constraints(layout_constraints);
 
   // If we're making a reduction instance, we should just make it now
   if (req.redop != 0) {
+    layout_constraints.add_constraint(SpecializedConstraint(REDUCTION_FOLD_SPECIALIZE, req.redop));
+
     const std::vector<LogicalRegion> regions(1, region);
     if (!runtime->create_physical_instance(
           ctx, target_memory, layout_constraints, regions, result, true /*acquire*/))
@@ -575,8 +576,8 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
   auto& fields = layout_constraints.field_constraint.field_set;
 
   // See if we already have it in our local instances
-  if (fields.size() == 1 && mapping.policy != AllocPolicy::MUST_ALLOC &&
-      local_instances->find_instance(region, fields.front(), target_memory, result, mapping.exact))
+  if (fields.size() == 1 && policy.allocation != AllocPolicy::MUST_ALLOC &&
+      local_instances->find_instance(region, fields.front(), target_memory, result, policy.exact))
     // Needs acquire to keep the runtime happy
     return true;
 
@@ -597,7 +598,7 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
     auto fid            = fields.front();
     const IndexSpace is = region.get_index_space();
     const Domain domain = runtime->get_index_space_domain(ctx, is);
-    group   = local_instances->find_region_group(region, domain, fid, target_memory, mapping.exact);
+    group   = local_instances->find_region_group(region, domain, fid, target_memory, policy.exact);
     regions = group->regions;
   } else {
     // If we have more than one field to map, we don't pull any fancy trick for now
@@ -608,7 +609,7 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
   bool success     = false;
   size_t footprint = 0;
 
-  switch (mapping.policy) {
+  switch (policy.allocation) {
     case AllocPolicy::MAY_ALLOC: {
       success = runtime->find_or_create_physical_instance(ctx,
                                                           target_memory,
@@ -618,7 +619,7 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
                                                           created,
                                                           true /*acquire*/,
                                                           LEGION_GC_DEFAULT_PRIORITY,
-                                                          mapping.exact /*tight bounds*/,
+                                                          policy.exact /*tight bounds*/,
                                                           &footprint);
       break;
     }
@@ -630,7 +631,7 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
                                                   result,
                                                   true /*acquire*/,
                                                   LEGION_GC_DEFAULT_PRIORITY,
-                                                  mapping.exact /*tight bounds*/,
+                                                  policy.exact /*tight bounds*/,
                                                   &footprint);
       break;
     }
