@@ -391,8 +391,10 @@ void BaseMapper::map_task(const MapperContext ctx,
 
     assert(mapping.colocate.size() > 0);
     for (uint32_t store_idx = 1; store_idx < mapping.colocate.size(); ++store_idx) {
-      if (!mapping.colocate[store_idx].can_colocate_with(mapping.colocate[0]))
+      if (!mapping.colocate[store_idx].can_colocate_with(mapping.colocate[0])) {
         logger.error("Mapper %s tried to colocate stores that cannot colocate", get_mapper_name());
+        LEGATE_ABORT
+      }
     }
 
     for (auto& store : mapping.colocate) {
@@ -414,6 +416,7 @@ void BaseMapper::map_task(const MapperContext ctx,
         if (mapping.ordering != other_mapping.ordering || mapping.target != other_mapping.target ||
             mapping.policy != other_mapping.policy || mapping.exact != other_mapping.exact) {
           logger.error("Mapper %s returned inconsistent store mappings", get_mapper_name());
+          LEGATE_ABORT
         }
       }
     }
@@ -572,7 +575,7 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
   auto& fields = layout_constraints.field_constraint.field_set;
 
   // See if we already have it in our local instances
-  if (fields.size() == 1 &&
+  if (fields.size() == 1 && mapping.policy != AllocPolicy::MUST_ALLOC &&
       local_instances->find_instance(region, fields.front(), target_memory, result, mapping.exact))
     // Needs acquire to keep the runtime happy
     return true;

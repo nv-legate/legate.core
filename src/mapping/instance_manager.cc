@@ -101,17 +101,22 @@ RegionGroupP InstanceSet::construct_overlapping_region_group(const Region& regio
     return dim_dispatch(
       domain.get_dim(), construct_overlapping_region_group_fn{}, region, domain, instances_);
   else {
-    assert(exact && finder->second->regions.size() > 1);
+    if (!exact || finder->second->regions.size() == 1) return finder->second;
     return std::make_shared<RegionGroup>(std::vector<Region>({region}), domain);
   }
 }
 
 std::set<InstanceSet::Instance> InstanceSet::record_instance(RegionGroupP group, Instance instance)
 {
-  assert(instances_.find(group) == instances_.end());
-  instances_[group] = instance;
-
   std::set<Instance> replaced;
+
+  auto finder = instances_.find(group);
+  if (finder != instances_.end()) {
+    replaced.insert(finder->second);
+    finder->second = instance;
+  } else
+    instances_[group] = instance;
+
   for (auto& region : group->regions) {
     auto finder = groups_.find(region);
     if (finder == groups_.end())
