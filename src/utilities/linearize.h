@@ -16,14 +16,12 @@
 
 #pragma once
 
-#include "context.h"
 #include "legion.h"
 
 namespace legate {
 
-void register_legate_core_sharding_functors(Legion::Runtime* runtime,
-                                            const LibraryContext& context);
-
-Legion::ShardingID find_sharding_functor_by_projection_functor(Legion::ProjectionID proj_id);
+size_t linearize(const Legion::DomainPoint& lo,
+                 const Legion::DomainPoint& hi,
+                 const Legion::DomainPoint& point);
 
 }  // namespace legate

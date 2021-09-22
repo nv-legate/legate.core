@@ -25,12 +25,8 @@ typedef enum legate_core_task_id_t {
 } legate_core_task_id_t;
 
 typedef enum legate_core_proj_id_t {
-  // The last reduction functor in a 9D space has an id 0x01FF99
-  LEGATE_CORE_FIRST_REDUCTION_FUNCTOR = 0,
-  // The last transpose functor in a 9D space has an id 0x15897F9
-  LEGATE_CORE_FIRST_TRANSPOSE_FUNCTOR = 0x01000000,
-  LEGATE_CORE_DELINEARIZE_FUNCTOR     = 0x02000000,
-  LEGATE_CORE_MAX_FUNCTOR_ID          = 0x03000000,
+  LEGATE_CORE_DELINEARIZE_FUNCTOR = 2,
+  LEGATE_CORE_MAX_FUNCTOR_ID      = 3000000,
 } legate_core_proj_id_t;
 
 typedef enum legate_core_tunable_t {
@@ -105,6 +101,8 @@ void legate_shutdown(void);
 void legate_core_perform_registration(void);
 
 void legate_register_projection_functor(int32_t, int32_t, int32_t*, legion_projection_id_t);
+
+void legate_create_sharding_functor_using_projection(legion_sharding_id_t, legion_projection_id_t);
 
 #ifdef __cplusplus
 }

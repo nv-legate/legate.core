@@ -225,8 +225,9 @@ void register_legate_core_tasks(Machine machine, Runtime* runtime, const Library
 {
   ResourceConfig config;
   config.max_tasks       = LEGATE_CORE_NUM_TASK_IDS;
-  config.max_shardings   = 1;
   config.max_projections = LEGATE_CORE_MAX_FUNCTOR_ID;
+  // We register one sharding functor for each new projection functor
+  config.max_shardings = LEGATE_CORE_MAX_FUNCTOR_ID;
   LibraryContext context(runtime, core_library_name, config);
 
   register_legate_core_tasks(machine, runtime, context);

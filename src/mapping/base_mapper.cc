@@ -26,7 +26,8 @@
 #include "mapping/instance_manager.h"
 #include "mapping/task.h"
 #include "runtime/projection.h"
-#include "utilities/dispatch.h"
+#include "runtime/shard.h"
+#include "utilities/linearize.h"
 
 using LegionTask = Legion::Task;
 
@@ -210,25 +211,6 @@ void BaseMapper::premap_task(const MapperContext ctx,
   // NO-op since we know that all our futures should be mapped in the system memory
 }
 
-struct linearize_fn {
-  template <int32_t DIM>
-  size_t operator()(const DomainPoint& lo_dp, const DomainPoint& hi_dp, const DomainPoint& point_dp)
-  {
-    Point<DIM> lo      = lo_dp;
-    Point<DIM> hi      = hi_dp;
-    Point<DIM> point   = point_dp;
-    Point<DIM> extents = hi - lo + Point<DIM>::ONES();
-    size_t idx         = 0;
-    for (int32_t dim = 0; dim < DIM; ++dim) idx = idx * extents[dim] + point[dim];
-    return idx;
-  }
-};
-
-size_t linearize(const DomainPoint& lo, const DomainPoint& hi, const DomainPoint& point)
-{
-  return dim_dispatch(point.dim, linearize_fn{}, lo, hi, point);
-}
-
 void BaseMapper::slice_task(const MapperContext ctx,
                             const LegionTask& task,
                             const SliceTaskInput& input,
@@ -250,6 +232,8 @@ void BaseMapper::slice_task(const MapperContext ctx,
   Domain sharding_domain = task.index_domain;
   if (task.sharding_space.exists())
     sharding_domain = runtime->get_index_space_domain(ctx, task.sharding_space);
+
+  assert(input.domain.dense());
 
   auto round_robin = [&](auto& procs) {
     if (nullptr != key_functor) {
@@ -1043,6 +1027,12 @@ void BaseMapper::select_sharding_functor(const MapperContext ctx,
                                          const SelectShardingFunctorInput& input,
                                          SelectShardingFunctorOutput& output)
 {
+  for (auto& req : task.regions)
+    if (req.tag == LEGATE_CORE_KEY_STORE_TAG) {
+      output.chosen_functor = find_sharding_functor_by_projection_functor(req.projection);
+      return;
+    }
+
   output.chosen_functor = 0;
 }
 

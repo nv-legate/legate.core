@@ -31,7 +31,8 @@ GEN_CPU_SRC	= legate_c.cc                 \
 							task/return.cc              \
 							task/task.cc                \
 							utilities/deserializer.cc   \
-							utilities/machine.cc
+							utilities/machine.cc        \
+							utilities/linearize.cc
 
 ifeq ($(strip $(USE_CUDA)),1)
 GEN_CPU_SRC	+= gpu/cudalibs.cc
