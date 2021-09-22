@@ -1020,13 +1020,6 @@ void BaseMapper::report_profiling(const MapperContext ctx,
   LEGATE_ABORT
 }
 
-///*static*/ int BaseMapper::find_key_region(const Task& task)
-//{
-//  for (uint32_t idx = 0; idx < task.regions.size(); idx++)
-//    if (task.regions[idx].tag & NUMPY_KEY_REGION_TAG) return idx;
-//  return -1;
-//}
-
 void BaseMapper::select_sharding_functor(const MapperContext ctx,
                                          const LegionTask& task,
                                          const SelectShardingFunctorInput& input,
@@ -1040,68 +1033,6 @@ void BaseMapper::select_sharding_functor(const MapperContext ctx,
 
   output.chosen_functor = 0;
 }
-
-/*
-ShardingID BaseMapper::select_sharding_functor(const MapperContext ctx, const Task& task)
-{
-  const int launch_dim = task.index_domain.get_dim();
-  if (task.regions.empty()) {
-    switch (launch_dim) {
-      case 1: return first_sharding_id + NUMPY_SHARD_TILE_1D;
-      case 2: return first_sharding_id + NUMPY_SHARD_TILE_2D;
-      case 3: return first_sharding_id + NUMPY_SHARD_TILE_3D;
-      default: LEGATE_ABORT
-    }
-    // keep the compiler happy
-    return 0;
-  }
-  // Decode the task and see if it is an "interesting" task
-  NumPyOpCode op_code = decode_task_id(task.task_id);
-  if (op_code == NumPyOpCode::NUMPY_DOT || op_code == NumPyOpCode::NUMPY_MATVECMUL ||
-      op_code == NumPyOpCode::NUMPY_MATMUL) {
-    switch (launch_dim) {
-      case 1:  // vector dot product
-        return first_sharding_id + NUMPY_SHARD_TILE_1D;
-      case 2:  // GEMV
-        return first_sharding_id + NUMPY_SHARD_TILE_2D;
-      case 3:  // GEMM
-      {
-        // Find the key region
-        const int key_index = find_key_region(task);
-        // Assign points so they end up wherever the
-        // biggest chunk of matrix is for that point
-        switch (key_index) {
-          case 0: return first_sharding_id + NUMPY_SHARD_TILE_3D_2D_XZ;
-          case 1: return first_sharding_id + NUMPY_SHARD_TILE_3D_2D_XY;
-          case 2: return first_sharding_id + NUMPY_SHARD_TILE_3D_2D_YZ;
-          default: LEGATE_ABORT
-        }
-      }
-      default: LEGATE_ABORT
-    }
-  } else if (task.tag != 0) {
-    // If we've already been perscribed a sharding function then use it
-    return task.tag;
-  } else {
-    // For all other tasks we do the normal tile sharding
-    switch (launch_dim) {
-      case 1: return first_sharding_id + NUMPY_SHARD_TILE_1D;
-      case 2: return first_sharding_id + NUMPY_SHARD_TILE_2D;
-      case 3: return first_sharding_id + NUMPY_SHARD_TILE_3D;
-      default: LEGATE_ABORT
-    }
-  }
-  // Keep the compiler happy
-  return 0;
-}
-
-NumPyShardingFunctor* BaseMapper::find_sharding_functor(ShardingID sid)
-{
-  assert(first_sharding_id <= sid);
-  assert(sid < (first_sharding_id + NUMPY_SHARD_LAST));
-  return NumPyShardingFunctor::sharding_functors[sid - first_sharding_id];
-}
-*/
 
 void BaseMapper::map_inline(const MapperContext ctx,
                             const InlineMapping& inline_op,
@@ -1359,23 +1290,6 @@ void BaseMapper::select_sharding_functor(const MapperContext ctx,
   output.chosen_functor = 0;
 }
 
-/*
-ShardingID BaseMapper::select_sharding_functor(const Copy& copy)
-{
-  // If we've already been prescribed a sharding functor then use it
-  if (copy.tag != 0) return copy.tag;
-  // This is easy for copies, we just use the index space domain for now
-  switch (copy.index_domain.get_dim()) {
-    case 1: return first_sharding_id + NUMPY_SHARD_TILE_1D;
-    case 2: return first_sharding_id + NUMPY_SHARD_TILE_2D;
-    case 3: return first_sharding_id + NUMPY_SHARD_TILE_3D;
-    default: LEGATE_ABORT
-  }
-  // Keep the compiler happy
-  return 0;
-}
-*/
-
 void BaseMapper::map_close(const MapperContext ctx,
                            const Close& close,
                            const MapCloseInput& input,
@@ -1571,21 +1485,6 @@ void BaseMapper::select_sharding_functor(const MapperContext ctx,
   output.chosen_functor = 0;
 }
 
-/*
-ShardingID BaseMapper::select_sharding_functor(const Partition& partition)
-{
-  // This is easy for partitions, we just use the index space domain for now
-  switch (partition.index_domain.get_dim()) {
-    case 1: return first_sharding_id + NUMPY_SHARD_TILE_1D;
-    case 2: return first_sharding_id + NUMPY_SHARD_TILE_2D;
-    case 3: return first_sharding_id + NUMPY_SHARD_TILE_3D;
-    default: LEGATE_ABORT
-  }
-  // Keep the compiler happy
-  return 0;
-}
-*/
-
 void BaseMapper::select_sharding_functor(const MapperContext ctx,
                                          const Fill& fill,
                                          const SelectShardingFunctorInput& input,
@@ -1593,23 +1492,6 @@ void BaseMapper::select_sharding_functor(const MapperContext ctx,
 {
   output.chosen_functor = 0;
 }
-
-/*
-ShardingID BaseMapper::select_sharding_functor(const Fill& fill)
-{
-  // If we've already been perscribed a sharding functor then use it
-  if (fill.tag != 0) return fill.tag;
-  // This is easy for fills, we just use the index space domain for now
-  switch (fill.index_domain.get_dim()) {
-    case 1: return first_sharding_id + NUMPY_SHARD_TILE_1D;
-    case 2: return first_sharding_id + NUMPY_SHARD_TILE_2D;
-    case 3: return first_sharding_id + NUMPY_SHARD_TILE_3D;
-    default: LEGATE_ABORT
-  }
-  // Keep the compiler happy
-  return 0;
-}
-*/
 
 void BaseMapper::configure_context(const MapperContext ctx,
                                    const LegionTask& task,

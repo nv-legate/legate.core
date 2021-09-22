@@ -300,17 +300,6 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
   Legion::VariantID find_variant(const Legion::Mapping::MapperContext ctx,
                                  const Legion::Task& task,
                                  Legion::Processor::Kind kind);
-  /*
-  static int find_key_region(const Legion::Task& task);
-
-   protected:
-    Legion::ShardingID select_sharding_functor(const Legion::Mapping::MapperContext ctx,
-                                               const Legion::Task& task);
-    Legion::ShardingID select_sharding_functor(const Legion::Copy& copy);
-    Legion::ShardingID select_sharding_functor(const Legion::Partition& partition);
-    Legion::ShardingID select_sharding_functor(const Legion::Fill& fill);
-    NumPyShardingFunctor* find_sharding_functor(Legion::ShardingID sid);
-  */
 
  protected:
   static inline bool physical_sort_func(
