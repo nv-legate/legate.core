@@ -44,12 +44,48 @@ enum class InstLayout : int32_t {
   AOS = 2,
 };
 
+struct DimOrdering {
+ public:
+  enum class Kind : int32_t {
+    C       = 1,
+    FORTRAN = 2,
+    CUSTOM  = 3,
+  };
+
+ public:
+  DimOrdering() {}
+
+ public:
+  DimOrdering(const DimOrdering&) = default;
+  DimOrdering& operator=(const DimOrdering&) = default;
+
+ public:
+  DimOrdering(DimOrdering&&) = default;
+  DimOrdering& operator=(DimOrdering&&) = default;
+
+ public:
+  bool operator==(const DimOrdering&) const;
+
+ public:
+  void populate_dimension_ordering(const Store& store,
+                                   std::vector<Legion::DimensionKind>& ordering) const;
+
+ public:
+  Kind kind{Kind::C};
+  // When relative is true, 'dims' specifies the order of dimensions
+  // for the store's local coordinate space, which will be mapped
+  // back to the root store's original coordinate space.
+  bool relative{false};
+  // Used only when the kind is CUSTOM
+  std::vector<int32_t> dims{};
+};
+
 struct InstanceMappingPolicy {
  public:
-  std::vector<int32_t> ordering{};
   StoreTarget target{StoreTarget::SYSMEM};
   AllocPolicy allocation{AllocPolicy::MAY_ALLOC};
   InstLayout layout{InstLayout::SOA};
+  DimOrdering ordering{};
   bool exact{false};
 
  public:
@@ -68,7 +104,8 @@ struct InstanceMappingPolicy {
   bool operator!=(const InstanceMappingPolicy&) const;
 
  public:
-  void populate_layout_constraints(Legion::LayoutConstraintSet& layout_constraints) const;
+  void populate_layout_constraints(const Store& store,
+                                   Legion::LayoutConstraintSet& layout_constraints) const;
 
  public:
   static InstanceMappingPolicy default_policy(StoreTarget target, bool exact = false);

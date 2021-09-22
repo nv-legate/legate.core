@@ -38,6 +38,36 @@ Memory::Kind get_memory_kind(StoreTarget target)
   return Memory::Kind::SYSTEM_MEM;
 }
 
+bool DimOrdering::operator==(const DimOrdering& other) const
+{
+  return kind == other.kind && relative == other.relative && dims == other.dims;
+}
+
+void DimOrdering::populate_dimension_ordering(const Store& store,
+                                              std::vector<DimensionKind>& ordering) const
+{
+  // TODO: We need to implement the relative dimension ordering
+  assert(!relative);
+  switch (kind) {
+    case Kind::C: {
+      auto dim = store.region_field().dim();
+      for (int32_t idx = dim - 1; idx >= 0; --idx)
+        ordering.push_back(static_cast<DimensionKind>(DIM_X + idx));
+      break;
+    }
+    case Kind::FORTRAN: {
+      auto dim = store.region_field().dim();
+      for (int32_t idx = 0; idx < dim; ++idx)
+        ordering.push_back(static_cast<DimensionKind>(DIM_X + idx));
+      break;
+    }
+    case Kind::CUSTOM: {
+      for (auto idx : dims) ordering.push_back(static_cast<DimensionKind>(DIM_X + idx));
+      break;
+    }
+  }
+}
+
 bool InstanceMappingPolicy::operator==(const InstanceMappingPolicy& other) const
 {
   return target == other.target && allocation == other.allocation && layout == other.layout &&
@@ -50,13 +80,14 @@ bool InstanceMappingPolicy::operator!=(const InstanceMappingPolicy& other) const
 }
 
 void InstanceMappingPolicy::populate_layout_constraints(
-  Legion::LayoutConstraintSet& layout_constraints) const
+  const Store& store, Legion::LayoutConstraintSet& layout_constraints) const
 {
   std::vector<DimensionKind> dimension_ordering{};
+
   if (layout == InstLayout::AOS) dimension_ordering.push_back(DIM_F);
-  for (auto it = ordering.rbegin(); it != ordering.rend(); ++it)
-    dimension_ordering.push_back(static_cast<DimensionKind>(DIM_X + *it));
+  ordering.populate_dimension_ordering(store, dimension_ordering);
   if (layout == InstLayout::SOA) dimension_ordering.push_back(DIM_F);
+
   layout_constraints.add_constraint(OrderingConstraint(dimension_ordering, false /*contiguous*/));
 
   layout_constraints.add_constraint(MemoryConstraint(get_memory_kind(target)));
@@ -93,7 +124,7 @@ uint32_t StoreMapping::requirement_index() const
 void StoreMapping::populate_layout_constraints(
   Legion::LayoutConstraintSet& layout_constraints) const
 {
-  policy.populate_layout_constraints(layout_constraints);
+  policy.populate_layout_constraints(stores.front(), layout_constraints);
 
   std::vector<FieldID> fields{};
   for (auto& store : stores) fields.push_back(store.region_field().field_id());
@@ -106,10 +137,6 @@ void StoreMapping::populate_layout_constraints(
 {
   StoreMapping mapping{};
   mapping.policy = InstanceMappingPolicy::default_policy(target, exact);
-  if (!store.unbound()) {
-    mapping.policy.ordering.resize(store.dim());
-    std::iota(mapping.policy.ordering.begin(), mapping.policy.ordering.end(), 0);
-  }
   mapping.stores.push_back(store);
   return std::move(mapping);
 }

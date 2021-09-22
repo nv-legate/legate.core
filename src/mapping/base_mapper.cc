@@ -381,6 +381,11 @@ void BaseMapper::map_task(const MapperContext ctx,
       }
     }
 
+    if (mapping.stores.size() > 1 && mapping.policy.ordering.relative) {
+      logger.error("Colocation with relative dimension ordering is illegal");
+      LEGATE_ABORT
+    }
+
     for (auto& store : mapping.stores) {
       if (store.is_future()) continue;
 
