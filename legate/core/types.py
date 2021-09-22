@@ -14,6 +14,8 @@
 #
 
 
+from enum import IntEnum, unique
+
 import pyarrow as pa
 
 from legion_cffi import lib as legion
@@ -70,6 +72,7 @@ class _Dtype(object):
         self._dtype = dtype
         self._size_in_bytes = size_in_bytes
         self._code = code
+        self._redop_ids = {}
 
     @property
     def type(self):
@@ -82,6 +85,24 @@ class _Dtype(object):
     @property
     def code(self):
         return self._code
+
+    def reduction_op_id(self, op):
+        if op not in self._redop_ids:
+            raise KeyError(
+                f"{str(op)} is not a valid reduction op for type {self}"
+            )
+        return self._redop_ids[op]
+
+    def register_reduction_op(self, op, redop_id):
+        if op in self._redop_ids:
+            raise KeyError(
+                f"reduction op {str(op)} is already registered to type {self}"
+            )
+        self._redop_ids[op] = redop_id
+
+    def copy_all_reduction_ops(self, other):
+        for op, redop_id in self._redop_ids.items():
+            other.register_reduction_op(op, redop_id)
 
     def __hash__(self):
         return hash(self._dtype)
@@ -101,6 +122,19 @@ class _Dtype(object):
 
     def __repr__(self):
         return f"Dtype({self._dtype}, {self.code}, {self.size})"
+
+
+@unique
+class ReductionOp(IntEnum):
+    ADD = legion.LEGION_REDOP_KIND_SUM
+    SUB = legion.LEGION_REDOP_KIND_DIFF
+    MUL = legion.LEGION_REDOP_KIND_PROD
+    DIV = legion.LEGION_REDOP_KIND_DIV
+    MAX = legion.LEGION_REDOP_KIND_MAX
+    MIN = legion.LEGION_REDOP_KIND_MIN
+    OR = legion.LEGION_REDOP_KIND_OR
+    AND = legion.LEGION_REDOP_KIND_AND
+    XOR = legion.LEGION_REDOP_KIND_XOR
 
 
 _CORE_DTYPES = [
@@ -124,6 +158,15 @@ _CORE_DTYPES = [
 
 _CORE_DTYPE_MAP = dict([(dtype.type, dtype) for dtype in _CORE_DTYPES])
 
+for dtype in _CORE_DTYPE_MAP.values():
+    for op in ReductionOp:
+        redop_id = (
+            legion.LEGION_REDOP_BASE
+            + op.value * legion.LEGION_TYPE_TOTAL
+            + dtype.code
+        )
+        dtype.register_reduction_op(op, redop_id)
+
 
 class TypeSystem(object):
     def __init__(self, inherit_core_types=True):
@@ -143,9 +186,11 @@ class TypeSystem(object):
         dtype = _Dtype(ty, size_in_bytes, code)
         self._types[dtype] = dtype
 
-    def make_alias(self, alias, src_type):
+    def make_alias(self, alias, src_type, copy_reduction_ops=True):
         dtype = self[src_type]
         copy = _Dtype(alias, dtype.size, dtype.code)
+        if copy_reduction_ops:
+            dtype.copy_all_reduction_ops(copy)
         self._types[alias] = copy
 
     def __str__(self):
