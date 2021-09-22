@@ -15,19 +15,24 @@
 
 
 # General source files
-GEN_CPU_SRC	= legate_c.cc               \
-							data/scalar.cc            \
-							data/store.cc             \
-							data/transform.cc         \
-							mapping/mapper.cc         \
-							runtime/context.cc        \
-							runtime/projection.cc     \
-							runtime/runtime.cc        \
-							runtime/shard.cc          \
-							task/return.cc            \
-							task/task.cc              \
-							utilities/deserializer.cc \
-							utilities/machine.cc
+GEN_CPU_SRC	= legate_c.cc                 \
+							data/scalar.cc              \
+							data/store.cc               \
+							data/transform.cc           \
+							mapping/base_mapper.cc      \
+							mapping/core_mapper.cc      \
+							mapping/instance_manager.cc \
+							mapping/mapping.cc          \
+							mapping/task.cc             \
+							runtime/context.cc          \
+							runtime/projection.cc       \
+							runtime/runtime.cc          \
+							runtime/shard.cc            \
+							task/return.cc              \
+							task/task.cc                \
+							utilities/deserializer.cc   \
+							utilities/machine.cc        \
+							utilities/linearize.cc
 
 ifeq ($(strip $(USE_CUDA)),1)
 GEN_CPU_SRC	+= gpu/cudalibs.cc
@@ -40,23 +45,28 @@ INSTALL_PATHS = data      \
 								task      \
 								utilities
 
-INSTALL_HEADERS = legate.h                 \
-									legate_c.h               \
-									legate_defines.h         \
-									legate_preamble.h        \
-									data/buffer.h            \
-									data/scalar.h            \
-									data/scalar.inl          \
-									data/store.h             \
-									data/store.inl           \
-									data/transform.h         \
-									runtime/context.h        \
-									runtime/runtime.h        \
-									task/return.h            \
-									task/task.h              \
-									utilities/deserializer.h \
-									utilities/dispatch.h     \
-									utilities/machine.h      \
-									utilities/span.h         \
-									utilities/type_traits.h  \
+INSTALL_HEADERS = legate.h                   \
+									legate_c.h                 \
+									legate_defines.h           \
+									legate_preamble.h          \
+									data/buffer.h              \
+									data/scalar.h              \
+									data/scalar.inl            \
+									data/store.h               \
+									data/store.inl             \
+									data/transform.h           \
+									mapping/base_mapper.h      \
+									mapping/mapping.h          \
+									mapping/task.h             \
+									mapping/task.inl           \
+									runtime/context.h          \
+									runtime/runtime.h          \
+									task/return.h              \
+									task/task.h                \
+									utilities/deserializer.h   \
+									utilities/deserializer.inl \
+									utilities/dispatch.h       \
+									utilities/machine.h        \
+									utilities/span.h           \
+									utilities/type_traits.h    \
 									utilities/typedefs.h

@@ -14,11 +14,12 @@
  *
  */
 
-#include "mapper.h"
+#include "mappers/null_mapper.h"
+
 #include "legate.h"
 #include "legate_c.h"
 
-#include "mappers/null_mapper.h"
+#include "mapping/core_mapper.h"
 
 namespace legate {
 

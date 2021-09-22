@@ -768,8 +768,12 @@ class Runtime(object):
         self.max_field_reuse_frequency = 32
         self._empty_argmap = legion.legion_argument_map_create()
 
-        self._next_projection_id = 1
+        # A projection functor and its corresponding sharding functor
+        # have the same local id
+        self._next_projection_id = 10
+        self._next_sharding_id = 10
         self._registered_projections = {}
+        self._registered_shardings = {}
 
     @property
     def legion_runtime(self):
@@ -906,6 +910,15 @@ class Runtime(object):
             src_ndim,
             tgt_ndim,
             dims_c,
+            proj_id,
+        )
+
+        shard_id = self.core_context.get_projection_id(self._next_sharding_id)
+        self._next_sharding_id += 1
+        self._registered_shardings[spec] = shard_id
+
+        self.core_library.legate_create_sharding_functor_using_projection(
+            shard_id,
             proj_id,
         )
 

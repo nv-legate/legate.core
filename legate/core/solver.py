@@ -96,10 +96,11 @@ class EqClass(object):
 
 
 class Strategy(object):
-    def __init__(self, launch_shape, strategy, fspaces):
+    def __init__(self, launch_shape, strategy, fspaces, key_stores):
         self._launch_shape = launch_shape
         self._strategy = strategy
         self._fspaces = fspaces
+        self._key_stores = key_stores
 
     @property
     def parallel(self):
@@ -125,6 +126,9 @@ class Strategy(object):
         if store not in self._fspaces:
             raise ValueError(f"No strategy is found for {store}")
         return self._fspaces[store]
+
+    def is_key_store(self, store):
+        return store in self._key_stores
 
     def launch(self, launcher):
         if self.parallel:
@@ -256,6 +260,8 @@ class Partitioner(object):
             ),
         )
 
+        key_stores = set()
+
         prev_part = None
         for store in stores:
             if store in partitions:
@@ -267,6 +273,7 @@ class Partitioner(object):
                 partition = prev_part
             else:
                 partition = store.compute_key_partition(restrictions)
+                key_stores.add(store)
 
             cls = constraints.find(store)
             for to_align in cls:
@@ -281,4 +288,4 @@ class Partitioner(object):
         if must_be_1d_launch and color_shape is not None:
             color_shape = Shape((color_shape.volume(),))
 
-        return Strategy(color_shape, partitions, fspaces)
+        return Strategy(color_shape, partitions, fspaces, key_stores)

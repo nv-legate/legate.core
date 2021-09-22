@@ -71,6 +71,9 @@ class LibraryContext {
   LibraryContext(const LibraryContext&) = default;
 
  public:
+  const std::string& get_library_name() const;
+
+ public:
   Legion::TaskID get_task_id(int64_t local_task_id) const;
   Legion::MapperID get_mapper_id(int64_t local_mapper_id) const;
   Legion::ReductionOpID get_reduction_op_id(int64_t local_redop_id) const;
@@ -92,6 +95,7 @@ class LibraryContext {
   bool valid_sharding_id(Legion::ShardingID shard_id) const;
 
  private:
+  const std::string library_name_;
   ResourceScope task_scope_;
   ResourceScope mapper_scope_;
   ResourceScope redop_scope_;

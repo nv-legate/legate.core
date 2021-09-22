@@ -113,6 +113,7 @@ def run_legate(
     dataflow,
     event,
     log_dir,
+    user_logging_levels,
     gdb,
     cuda_gdb,
     memcheck,
@@ -450,7 +451,10 @@ def run_legate(
             os.path.join(log_dir, "legate_%.spy"),
         ]
         logging_levels.append("legion_spy=2")
-    cmd += ["-level", ",".join(logging_levels)]
+    logging_levels = ",".join(logging_levels)
+    if user_logging_levels is not None:
+        logging_levels += "," + user_logging_levels
+    cmd += ["-level", logging_levels]
     if gdb and os_name == "Darwin":
         print(
             "WARNING: You must start the debugging session with the following "
@@ -668,6 +672,13 @@ def driver():
         help="Directory for Legate log files (defaults to current directory)",
     )
     parser.add_argument(
+        "--logging",
+        type=str,
+        default=None,
+        dest="user_logging_levels",
+        help="extra loggers to turn on",
+    )
+    parser.add_argument(
         "--gdb",
         dest="gdb",
         action="store_true",
@@ -814,6 +825,7 @@ def driver():
         args.dataflow,
         args.event,
         args.logdir,
+        args.user_logging_levels,
         args.gdb,
         args.cuda_gdb,
         args.memcheck,

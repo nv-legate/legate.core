@@ -14,16 +14,27 @@
  *
  */
 
-#pragma once
-
-#include "context.h"
-#include "legion.h"
-
 namespace legate {
+namespace mapping {
 
-void register_legate_core_sharding_functors(Legion::Runtime* runtime,
-                                            const LibraryContext& context);
+template <int32_t DIM>
+Legion::Rect<DIM> RegionField::shape(Legion::Mapping::MapperRuntime* runtime,
+                                     const Legion::Mapping::MapperContext context) const
+{
+  return Legion::Rect<DIM>(domain(runtime, context));
+}
 
-Legion::ShardingID find_sharding_functor_by_projection_functor(Legion::ProjectionID proj_id);
+template <int32_t DIM>
+Legion::Rect<DIM> FutureWrapper::shape() const
+{
+  return Legion::Rect<DIM>(domain());
+}
 
+template <int32_t DIM>
+Legion::Rect<DIM> Store::shape() const
+{
+  return Legion::Rect<DIM>(domain());
+}
+
+}  // namespace mapping
 }  // namespace legate

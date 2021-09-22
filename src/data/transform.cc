@@ -20,7 +20,7 @@ namespace legate {
 
 using namespace Legion;
 
-using StoreTransformP = std::unique_ptr<StoreTransform>;
+using StoreTransformP = std::shared_ptr<StoreTransform>;
 
 DomainAffineTransform combine(const DomainAffineTransform& lhs, const DomainAffineTransform& rhs)
 {
@@ -32,9 +32,9 @@ DomainAffineTransform combine(const DomainAffineTransform& lhs, const DomainAffi
   return result;
 }
 
-StoreTransform::StoreTransform(StoreTransformP&& parent) : parent_(std::move(parent)) {}
+StoreTransform::StoreTransform(StoreTransformP parent) : parent_(std::move(parent)) {}
 
-Shift::Shift(int32_t dim, int64_t offset, StoreTransformP&& parent)
+Shift::Shift(int32_t dim, int64_t offset, StoreTransformP parent)
   : StoreTransform(std::forward<StoreTransformP>(parent)), dim_(dim), offset_(offset)
 {
 }
@@ -74,7 +74,7 @@ DomainAffineTransform Shift::inverse_transform(int32_t in_dim) const
     return result;
 }
 
-Promote::Promote(int32_t extra_dim, int64_t dim_size, StoreTransformP&& parent)
+Promote::Promote(int32_t extra_dim, int64_t dim_size, StoreTransformP parent)
   : StoreTransform(std::forward<StoreTransformP>(parent)),
     extra_dim_(extra_dim),
     dim_size_(dim_size)
@@ -131,7 +131,7 @@ DomainAffineTransform Promote::inverse_transform(int32_t in_dim) const
     return result;
 }
 
-Project::Project(int32_t dim, int64_t coord, StoreTransformP&& parent)
+Project::Project(int32_t dim, int64_t coord, StoreTransformP parent)
   : StoreTransform(std::forward<StoreTransformP>(parent)), dim_(dim), coord_(coord)
 {
 }
@@ -188,7 +188,7 @@ DomainAffineTransform Project::inverse_transform(int32_t in_dim) const
     return result;
 }
 
-Transpose::Transpose(std::vector<int32_t>&& axes, StoreTransformP&& parent)
+Transpose::Transpose(std::vector<int32_t>&& axes, StoreTransformP parent)
   : StoreTransform(std::forward<StoreTransformP>(parent)), axes_(std::move(axes))
 {
 }
@@ -234,7 +234,7 @@ DomainAffineTransform Transpose::inverse_transform(int32_t in_dim) const
     return result;
 }
 
-Delinearize::Delinearize(int32_t dim, std::vector<int64_t>&& sizes, StoreTransformP&& parent)
+Delinearize::Delinearize(int32_t dim, std::vector<int64_t>&& sizes, StoreTransformP parent)
   : StoreTransform(std::forward<StoreTransformP>(parent)),
     dim_(dim),
     sizes_(std::move(sizes)),

@@ -246,15 +246,15 @@ class Store {
   Store(int32_t dim,
         LegateTypeCode code,
         FutureWrapper future,
-        std::unique_ptr<StoreTransform> transform = nullptr);
+        std::shared_ptr<StoreTransform> transform = nullptr);
   Store(int32_t dim,
         LegateTypeCode code,
         int32_t redop_id,
         RegionField&& region_field,
-        std::unique_ptr<StoreTransform> transform = nullptr);
+        std::shared_ptr<StoreTransform> transform = nullptr);
   Store(LegateTypeCode code,
         OutputRegionField&& output,
-        std::unique_ptr<StoreTransform> transform = nullptr);
+        std::shared_ptr<StoreTransform> transform = nullptr);
 
  public:
   Store(Store&& other) noexcept;
@@ -323,7 +323,7 @@ class Store {
   OutputRegionField output_field_;
 
  private:
-  std::unique_ptr<StoreTransform> transform_{nullptr};
+  std::shared_ptr<StoreTransform> transform_{nullptr};
 
  private:
   bool readable_{false};

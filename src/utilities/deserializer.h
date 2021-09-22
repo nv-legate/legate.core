@@ -20,34 +20,31 @@
 
 #include "legion.h"
 
+#include "data/scalar.h"
+#include "data/store.h"
 #include "legate_defines.h"
+#include "mapping/task.h"
 #include "utilities/span.h"
 #include "utilities/type_traits.h"
 #include "utilities/typedefs.h"
 
 namespace legate {
 
-class Store;
-class StoreTransform;
-class Scalar;
-class FutureWrapper;
-class RegionField;
-class OutputRegionField;
-
-class Deserializer {
+template <typename Deserializer>
+class BaseDeserializer {
  public:
-  Deserializer(const Legion::Task* task, const std::vector<Legion::PhysicalRegion>& regions);
+  BaseDeserializer(const Legion::Task* task);
 
  public:
   template <typename T>
   T unpack()
   {
     T value;
-    _unpack(value);
+    static_cast<Deserializer*>(this)->_unpack(value);
     return std::move(value);
   }
 
- private:
+ public:
   template <typename T, std::enable_if_t<legate_type_code_of<T> != MAX_TYPE_NUMBER>* = nullptr>
   void _unpack(T& value)
   {
@@ -55,7 +52,7 @@ class Deserializer {
     task_args_ = task_args_.subspan(sizeof(T));
   }
 
- private:
+ public:
   template <typename T>
   void _unpack(std::vector<T>& values)
   {
@@ -63,23 +60,63 @@ class Deserializer {
     for (uint32_t idx = 0; idx < size; ++idx) values.push_back(unpack<T>());
   }
 
- private:
+ public:
   void _unpack(LegateTypeCode& value);
-  void _unpack(Store& value);
   void _unpack(Scalar& value);
+
+ protected:
+  std::shared_ptr<StoreTransform> unpack_transform();
+
+ protected:
+  const Legion::Task* task_;
+  bool first_task_;
+
+ private:
+  Span<const int8_t> task_args_;
+};
+
+class TaskDeserializer : public BaseDeserializer<TaskDeserializer> {
+ public:
+  TaskDeserializer(const Legion::Task* task, const std::vector<Legion::PhysicalRegion>& regions);
+
+ public:
+  using BaseDeserializer::_unpack;
+
+ public:
+  void _unpack(Store& value);
   void _unpack(FutureWrapper& value);
   void _unpack(RegionField& value);
   void _unpack(OutputRegionField& value);
 
  private:
-  std::unique_ptr<StoreTransform> unpack_transform();
-
- private:
-  bool first_task_;
-  Span<const Legion::PhysicalRegion> regions_;
   Span<const Legion::Future> futures_;
-  Span<const int8_t> task_args_;
+  Span<const Legion::PhysicalRegion> regions_;
   std::vector<Legion::OutputRegion> outputs_;
 };
 
+namespace mapping {
+
+class MapperDeserializer : public BaseDeserializer<MapperDeserializer> {
+ public:
+  MapperDeserializer(const Legion::Task* task,
+                     Legion::Mapping::MapperRuntime* runtime,
+                     Legion::Mapping::MapperContext context);
+
+ public:
+  using BaseDeserializer::_unpack;
+
+ public:
+  void _unpack(Store& value);
+  void _unpack(FutureWrapper& value);
+  void _unpack(RegionField& value, bool is_output_region);
+
+ private:
+  Legion::Mapping::MapperRuntime* runtime_;
+  Legion::Mapping::MapperContext context_;
+};
+
+}  // namespace mapping
+
 }  // namespace legate
+
+#include "utilities/deserializer.inl"
