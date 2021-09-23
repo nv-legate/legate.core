@@ -86,6 +86,7 @@ from legate.core.types import (
     float64,
     complex64,
     complex128,
+    ReductionOp,
 )
 from legion_cffi import ffi, lib as legion
 

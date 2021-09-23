@@ -158,7 +158,7 @@ class Task(Operation):
             partition = strategy.get_partition(reduction)
             can_read_write = partition.is_disjoint_for(strategy, reduction)
             proj = strategy.get_projection(reduction)
-            proj.redop = redop
+            proj.redop = reduction.type.reduction_op_id(redop)
             tag = self.get_tag(strategy, reduction)
             launcher.add_reduction(
                 reduction, proj, tag=tag, read_write=can_read_write
@@ -189,7 +189,8 @@ class Task(Operation):
                 output.set_storage(result)
             else:
                 (output, redop) = self.reductions[self.scalar_reductions[0]]
-                output.set_storage(runtime.reduce_future_map(result, redop))
+                redop_id = output.type.reduction_op_id(redop)
+                output.set_storage(runtime.reduce_future_map(result, redop_id))
         else:
             idx = 0
             launch_domain = (
@@ -203,10 +204,11 @@ class Task(Operation):
                 idx += 1
             for red_idx in self.scalar_reductions:
                 (output, redop) = self.reductions[red_idx]
+                redop_id = output.type.reduction_op_id(redop)
                 output.set_storage(
                     runtime.reduce_future_map(
                         runtime.extract_scalar(result, idx, launch_domain),
-                        redop,
+                        redop_id,
                     )
                 )
                 idx += 1
@@ -256,7 +258,7 @@ class Copy(Operation):
             launcher.add_output(output, proj, tag=tag)
         for (reduction, redop) in self._reductions:
             proj = strategy.get_projection(reduction)
-            proj.redop = redop
+            proj.redop = reduction.type.reduction_op_id(redop)
             tag = self.get_tag(strategy, reduction)
             launcher.add_reduction(reduction, proj, tag=tag)
         for indirect in self._source_indirects:
