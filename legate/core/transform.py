@@ -20,6 +20,10 @@ from .partition import NoPartition, Restriction, Tiling
 from .shape import Shape
 
 
+class NonInvertibleError(Exception):
+    pass
+
+
 class Transform(object):
     def __repr__(self):
         return str(self)
@@ -416,7 +420,7 @@ class Delinearize(Transform):
                     new_offset,
                 )
             else:
-                raise ValueError(f"Unsupported partition: {partition}")
+                raise NonInvertibleError()
         else:
             raise ValueError(
                 f"Unsupported partition: {type(partition).__name__}"
