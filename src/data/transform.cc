@@ -248,27 +248,31 @@ Delinearize::Delinearize(int32_t dim, std::vector<int64_t>&& sizes, StoreTransfo
 
 Domain Delinearize::transform(const Domain& input) const
 {
-  Domain output;
-  output.dim     = input.dim - 1 + sizes_.size();
-  int32_t in_dim = 0;
-  for (int32_t in_dim = 0, out_dim = 0; in_dim < input.dim; ++in_dim) {
-    if (in_dim == dim_) {
-      auto lo = input.rect_data[in_dim];
-      auto hi = input.rect_data[input.dim + in_dim];
-      for (auto stride : strides_) {
-        output.rect_data[out_dim]              = lo / stride;
-        output.rect_data[output.dim + out_dim] = hi / stride;
-        lo                                     = lo % stride;
-        hi                                     = hi % stride;
+  auto delinearize = [](const auto dim, const auto ndim, const auto& strides, const Domain& input) {
+    Domain output;
+    output.dim     = input.dim - 1 + ndim;
+    int32_t in_dim = 0;
+    for (int32_t in_dim = 0, out_dim = 0; in_dim < input.dim; ++in_dim) {
+      if (in_dim == dim) {
+        auto lo = input.rect_data[in_dim];
+        auto hi = input.rect_data[input.dim + in_dim];
+        for (auto stride : strides) {
+          output.rect_data[out_dim]              = lo / stride;
+          output.rect_data[output.dim + out_dim] = hi / stride;
+          lo                                     = lo % stride;
+          hi                                     = hi % stride;
+          ++out_dim;
+        }
+      } else {
+        output.rect_data[out_dim]              = input.rect_data[in_dim];
+        output.rect_data[output.dim + out_dim] = input.rect_data[input.dim + in_dim];
         ++out_dim;
       }
-    } else {
-      output.rect_data[out_dim]              = input.rect_data[in_dim];
-      output.rect_data[output.dim + out_dim] = input.rect_data[input.dim + in_dim];
-      ++out_dim;
     }
-  }
-  return output;
+    return output;
+  };
+  return delinearize(
+    dim_, sizes_.size(), strides_, nullptr != parent_ ? parent_->transform(input) : input);
 }
 
 DomainAffineTransform Delinearize::inverse_transform(int32_t in_dim) const
