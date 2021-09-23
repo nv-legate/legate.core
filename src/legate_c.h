@@ -43,16 +43,6 @@ typedef enum legate_core_variant_t {
   LEGATE_OMP_VARIANT,
 } legate_core_variant_t;
 
-typedef enum legate_core_partition_t {
-  PID_ALL_CPUS,
-  PID_ALL_GPUS,
-  PID_ALL_NUMA,
-  PID_ALL_NODES,
-  PID_NODE_CPUS,  // sub-partition of PID_ALL_NODES
-  PID_NODE_GPUS,  // sub-partition of PID_ALL_NODES
-  PID_NODE_NUMA,  // sub-partition of PID_ALL_NODES
-} legate_core_partition_t;
-
 // Match these to numpy_field_type_offsets in legate/numpy/config.py
 typedef enum legate_core_type_code_t {
   BOOL_LT         = LEGION_TYPE_BOOL,
