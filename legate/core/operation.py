@@ -28,6 +28,7 @@ class Operation(object):
         self._inputs = []
         self._outputs = []
         self._reductions = []
+        self._temps = []
         self._future_output = None
         self._future_reduction = None
         self._constraints = EqClass()
@@ -99,6 +100,14 @@ class Operation(object):
         else:
             self._outputs.append(store)
 
+    def add_temp(self, store):
+        self._check_store(store)
+        self._temps.append(store) #this may not be necessary
+
+    def add_output(self, store):
+        self._check_store(store)
+        self._outputs.append(store)
+
     def add_reduction(self, store, redop):
         self._check_store(store)
         if store.kind is Future:
@@ -143,10 +152,15 @@ class Task(Operation):
 
     def launch(self, strategy):
         launcher = TaskLauncher(self.context, self._task_id, self.mapper_id)
-
         for input in self._inputs:
             proj = strategy.get_projection(input)
             launcher.add_input(input, proj)
+        for temp in self._temps:
+            proj = strategy.get_projection(temp)
+            launcher.add_temp(temp, proj)
+            partition = strategy.get_partition(temp)
+            # We update the key partition of a store only when it gets updated
+            temp.set_key_partition(partition)
         for output in self._outputs:
             if output.unbound:
                 continue

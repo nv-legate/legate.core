@@ -41,7 +41,7 @@ from .partition import Restriction
 from .shape import Shape
 from .solver import Partitioner
 from .store import RegionField, Store
-
+import numpy as npo
 
 # A Field holds a reference to a field in a region tree
 # that can be used by many different RegionField objects
@@ -711,6 +711,110 @@ class PartitionManager(object):
         self._index_partitions[key] = index_partition
 
 
+class FusionChecker(object):
+    def __init__(self, ops, contexts, runtime):
+        """
+        This is a class containing a list of constraints for fusing ops
+        It emits whether or not a given list of ops can be fused
+        """
+        self.constraints = []
+        self.ops = ops
+        self.contexts = contexts
+        self.runtime=runtime
+
+    def register_constraint(self, fusion_constraint_rule):
+        self.constraints.append(fusion_constraint_rule)
+
+    def can_fuse(self):
+        results = [constraint.apply(self.contexts, self.runtime, self.ops) for constraint in self.constraints]
+        print(results)
+        return reduce(lambda x,y: x and y, results)
+
+class FusionConstraint(object):
+    def apply(self, contexts, runtime, ops):
+        """"
+         Abstract class for determining a rule that constrains
+         which legate operations can be fused
+         """
+        raise NotImplementedError("Implement in derived classes")
+
+
+class NumpyContextExists(FusionConstraint):
+    def apply(self, contexts, runtime, ops):
+        return "legate.numpy" in contexts
+
+
+class AllBinaryOps(FusionConstraint):
+    """Temporary class for only fusing Binary Ops. 
+       This constrains will be removed"""
+    def apply(self, contexts, runtime, ops):
+        allBinary = reduce(lambda x,y: x and y,[int(op._task_id)==400000 for op in ops])
+        return allBinary
+
+
+class IdenticalProjection(FusionConstraint):
+    """Fusion rule that only ops with identical
+       projection functors can be fused"""
+    def apply(self, contexts, runtime, ops):
+        partitioners = []
+        strategies = []
+        must_be_single = any(op._future_output is not None for op in ops)
+        for op in ops:
+            partitioner = Partitioner(runtime, ops, must_be_single=must_be_single)
+            strategy = partitioner.partition_stores()
+
+        store_to_ops = {}
+        for op in ops:
+            bufferSet = {}
+            for input in op._inputs:
+                if input not in bufferSet:
+                    proj = strategy.get_projection(input)
+                    if hasattr(proj, 'part'):
+                        bufferSet[input]=proj
+
+            for output in op._outputs:
+                if output not in bufferSet:
+                    proj = strategy.get_projection(output)
+                    if hasattr(proj, 'part'):
+                        bufferSet[output]=proj
+
+            for buffer in bufferSet.keys():
+                proj = bufferSet[buffer]
+                matrix = proj.part.index_partition.functor.transform.trans
+                if buffer not in store_to_ops:
+                    store_to_ops[buffer] = [matrix]
+                else:
+                    store_to_ops[buffer].append(matrix)
+        for store, matrices in store_to_ops.items():
+            if len(matrices)>1:
+                allEqual = reduce(lambda x,y: x==y, matrices)
+                if not allEqual:
+                    return False
+        print(store_to_ops)
+        return True
+
+
+class IdenticalLaunchShapes(FusionConstraint):
+    """Fusion rule that only ops with identical
+       launch shapes can be fused"""
+    def apply(self, contexts, runtime, ops):
+        partitioners = []
+        strategies = []
+        launch_shapes = []
+        must_be_single = any(op._future_output is not None for op in ops)
+        for op in ops:
+            partitioner = Partitioner(runtime, ops, must_be_single=must_be_single)
+            strategy = partitioner.partition_stores()
+            launch_shapes.append(strategy._launch_shape)
+        first_shape = launch_shapes[0]
+        print(launch_shapes)
+        for launch_shape in launch_shapes:
+            if launch_shape!=first_shape:
+                return False
+        return True
+
+
+   
 class Runtime(object):
     def __init__(self, core_library):
         """
@@ -753,7 +857,7 @@ class Runtime(object):
         # to be dispatched. This list allows cross library introspection for
         # Legate operations.
         self._outstanding_ops = []
-        self._window_size = 1
+        self._window_size = 2
 
         # Now we initialize managers
         self._attachment_manager = AttachmentManager(self)
@@ -857,20 +961,111 @@ class Runtime(object):
         else:
             return op.launch(self.legion_runtime, self.legion_context)
 
-    def _schedule(self, ops):
+
+    def build_fused_binary_numpy_op(self,ops):
+        fusion_checker = FusionChecker(ops, self._contexts, self)
+        fusion_checker.register_constraint(NumpyContextExists())
+        fusion_checker.register_constraint(AllBinaryOps())
+        fusion_checker.register_constraint(IdenticalLaunchShapes())
+        fusion_checker.register_constraint(IdenticalProjection())
+        can_fuse = fusion_checker.can_fuse()
+        
+        if not can_fuse:
+            return None
+
+        #hacky way to get numpy context and designated fused task id
+        fused_id = self._contexts["legate.numpy"].fused_id
+        numpy_context = self._contexts["legate.numpy"]
+        numpy_runtime = numpy_context._library.runtime
+        #initialize fused task
+        fused_task = numpy_context.create_task(fused_id)
+         
+        #generate offset maps for all inputs
+        input_starts, output_starts, offset_starts, offsets= [],[],[],[]
+        input_start, output_start, offset_start = 0,0,0
+
+        for op in ops:
+            input_starts.append(input_start)
+            output_starts.append(output_start)
+            offset_starts.append(offset_start)
+
+            for i,input in enumerate(op._inputs):
+                offsets.append(i+1)
+            for o,output in enumerate(op._outputs):
+                offsets.append(-(o+1))
+
+            offset_start+=(len(op._inputs)+len(op._outputs))
+            input_start+=len(op._inputs)
+            output_start+=len(op._outputs)
+
+        #terminators
+        input_starts.append(input_start)
+        output_starts.append(output_start)
+        offset_starts.append(offset_start)
+
+        #turn offset maps into deferred arrays
+        #then load them into the task as the initial inputs
+       	#print(input_starts, output_starts, offset_starts, offsets)
+        inst, oust, offst, offs = map(npo.array, (input_starts, output_starts, offset_starts, offsets))
+        def make_deferred(inst):
+            return numpy_runtime.find_or_create_array_thunk(inst, stacklevel=0, defer=True) 
+        offset_maps = map(make_deferred, (inst, oust, offst, offs))
+        
+	#add offset maps to task
+        for offset_map in offset_maps:
+            fused_task.add_input(offset_map.base)
+            fused_task.add_broadcast(offset_map.base)
+
+        #add typical inputs and outputs to task
+        for op in ops:
+            for scalar in op._scalar_args:
+                fused_task.add_scalar_arg(scalar[0], ty.int32)
+            for input in op._inputs:
+                fused_task.add_input(input)   
+            for output in op._outputs:
+                fused_task.add_output(output)   
+
+        return fused_task
+
+    def _launch_outstanding(self):
+        print("launching final outstanding ops")
+        if len(self._outstanding_ops):
+            ops = self._outstanding_ops
+            self._outstanding_ops = []
+            self._schedule(ops, force_eval=True)
+               
+   
+    def _schedule(self, ops, force_eval=False):
+        ids = [op._task_id for op in ops]
+        #print("current ops", ids)
+        #try fusing tasks
+        if len(ops)>=2 and (not force_eval):
+            fused_task = self.build_fused_binary_numpy_op(ops)
+            if fused_task:
+                fused_task.execute() 
+                return
+
+        #if we cann't fuse op launch them individually
         must_be_single = any(op._future_output is not None for op in ops)
         partitioner = Partitioner(self, ops, must_be_single=must_be_single)
         strategy = partitioner.partition_stores()
-
         for op in ops:
+            #print("task_id", op._task_id, int(op._task_id))
+            #print("inputs", op._inputs)
+            #print("outputs", op._outputs)
             op.launch(strategy)
 
     def submit(self, op):
-        self._outstanding_ops.append(op)
-        if len(self._outstanding_ops) >= self._window_size:
-            ops = self._outstanding_ops
-            self._outstanding_ops = []
-            self._schedule(ops)
+        #always launch a fused op, dont add it to the window
+        #as the encapsulated ops already waited in the window
+        if int(op._task_id)==400028:
+            self._schedule([op])
+        else:
+            self._outstanding_ops.append(op)
+            if len(self._outstanding_ops) >= self._window_size:
+                ops = self._outstanding_ops
+                self._outstanding_ops = []
+                self._schedule(ops)
 
     def _progress_unordered_operations(self):
         legion.legion_context_progress_unordered_operations(
@@ -1065,6 +1260,7 @@ _runtime = Runtime(CoreLib())
 
 def _cleanup_legate_runtime():
     global _runtime
+    _runtime._launch_outstanding()
     _runtime.destroy()
     del _runtime
     gc.collect()

@@ -49,7 +49,10 @@ class ResourceScope {
 
  public:
   bool valid() const { return base_ != -1; }
-  bool in_scope(int64_t resource_id) const { return base_ <= resource_id && resource_id < max_; }
+  bool in_scope(int64_t resource_id) const { 
+  std::cout<<"resource_id "<<resource_id<<std::endl;  
+  std::cout<<"max "<<max_<<std::endl;  
+  return base_ <= resource_id && resource_id < max_; }
 
  private:
   int64_t base_{-1};
@@ -108,8 +111,10 @@ class TaskContext {
   std::vector<Store>& outputs() { return outputs_; }
   std::vector<Store>& reductions() { return reductions_; }
   std::vector<Scalar>& scalars() { return scalars_; }
+  //Deserializer dez;
+  //Serializer dez;
 
- private:
+ public:
   const Legion::Task* task_;
   const std::vector<Legion::PhysicalRegion>& regions_;
   Legion::Context context_;

@@ -91,7 +91,7 @@ void Deserializer::_unpack(RegionField& value)
   auto idx = unpack<uint32_t>();
   auto fid = unpack<int32_t>();
 
-  value = RegionField(dim, regions_[idx], fid);
+  value = RegionField(dim, regions_[idx], fid, idx);
 }
 
 void Deserializer::_unpack(OutputRegionField& value)
@@ -101,12 +101,12 @@ void Deserializer::_unpack(OutputRegionField& value)
   auto idx = unpack<uint32_t>();
   auto fid = unpack<int32_t>();
 
-  value = OutputRegionField(outputs_[idx], fid);
+  value = OutputRegionField(outputs_[idx], fid, idx);
 }
 
 std::unique_ptr<StoreTransform> Deserializer::unpack_transform()
 {
-  auto code = unpack<int32_t>();
+  int32_t code = unpack<int32_t>();
   switch (code) {
     case -1: {
       return nullptr;

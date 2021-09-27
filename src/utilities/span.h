@@ -35,6 +35,7 @@ struct Span {
  public:
   decltype(auto) operator[](size_t pos)
   {
+    //std::cout<<"pos "<<pos<<" "<<size_<<std::endl;
     assert(pos < size_);
     return data_[pos];
   }
@@ -42,6 +43,7 @@ struct Span {
  public:
   decltype(auto) subspan(size_t off)
   {
+    //std::cout<<"size "<<size_<<" off "<<off<<std::endl;
     assert(off <= size_);
     return Span(data_ + off, size_ - off);
   }

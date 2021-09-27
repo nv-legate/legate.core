@@ -887,7 +887,7 @@ def driver():
         "--clean",
         dest="clean_first",
         action=BooleanFlag,
-        default=True,
+        default=False,
         help="Clean before build, and pull latest Legion.",
     )
     parser.add_argument(

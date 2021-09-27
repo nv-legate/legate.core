@@ -21,13 +21,14 @@
 #include "data/buffer.h"
 #include "data/transform.h"
 #include "utilities/typedefs.h"
+#include "utilities/makeshift_serializer.h"
 
 namespace legate {
 
 class RegionField {
  public:
   RegionField() {}
-  RegionField(int32_t dim, const Legion::PhysicalRegion& pr, Legion::FieldID fid);
+  RegionField(int32_t dim, const Legion::PhysicalRegion& pr, Legion::FieldID fid, unsigned reqIdx);
 
  public:
   RegionField(RegionField&& other) noexcept;
@@ -147,17 +148,20 @@ class RegionField {
   int32_t dim_{-1};
   Legion::PhysicalRegion pr_{};
   Legion::FieldID fid_{-1U};
+  unsigned reqIdx_; //this gets packed as an unsigned
 
  private:
   bool readable_{false};
   bool writable_{false};
   bool reducible_{false};
+
+  friend class MakeshiftSerializer;
 };
 
 class OutputRegionField {
  public:
   OutputRegionField() {}
-  OutputRegionField(const Legion::OutputRegion& out, Legion::FieldID fid);
+  OutputRegionField(const Legion::OutputRegion& out, Legion::FieldID fid, unsigned reqIdx);
 
  public:
   OutputRegionField(OutputRegionField&& other) noexcept;
@@ -175,6 +179,9 @@ class OutputRegionField {
   bool bound_{false};
   Legion::OutputRegion out_{};
   Legion::FieldID fid_{-1U};
+  unsigned reqIdx_;  //this gets packed as an unsigned
+
+  friend class MakeshiftSerializer;
 };
 
 class FutureWrapper {
@@ -237,6 +244,7 @@ class Store {
 
  public:
   int32_t dim() const { return dim_; }
+  bool is_future() const { return is_future_; }
   LegateTypeCode code() const { return code_; }
 
  public:
@@ -296,8 +304,9 @@ class Store {
   bool readable_{false};
   bool writable_{false};
   bool reducible_{false};
-};
 
+ friend class MakeshiftSerializer;
+};
 }  // namespace legate
 
 #include "data/store.inl"

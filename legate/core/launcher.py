@@ -364,6 +364,7 @@ class ProjectionSet(object):
         # promote them to read write permission.
         if len(all_perms - set([Permission.NO_ACCESS])) > 1:
             perm = Permission.READ_WRITE
+            #perm = Permission.WRITE
 
             # When the field requires read write permission,
             # all projections must be the same
@@ -440,6 +441,7 @@ class RequirementAnalyzer(object):
         field_set.insert(field_id, req.permission, proj_info)
 
     def analyze_requirements(self):
+        #import pdb; pdb.set_trace()
         for region, field_set in self._field_sets.items():
             perm_map = field_set.coalesce()
             for key, fields in perm_map.items():
@@ -568,7 +570,6 @@ class TaskLauncher(object):
         else:
             region = store.storage.region
             field_id = store.storage.field.field_id
-
             req = RegionReq(region, perm, proj, tag, flags)
 
             self._req_analyzer.insert(req, field_id)
@@ -587,6 +588,12 @@ class TaskLauncher(object):
         self.add_store(self._inputs, store, proj, Permission.READ, tag, flags)
 
     def add_output(self, store, proj, tag=0, flags=0):
+        self.add_store(
+            self._outputs, store, proj, Permission.WRITE, tag, flags
+        )
+
+    # currently this is adding to outputs but we can have a seperate "temps" array in the core
+    def add_temp(self, store, proj, tag=0, flags=0):
         self.add_store(
             self._outputs, store, proj, Permission.WRITE, tag, flags
         )
@@ -642,13 +649,17 @@ class TaskLauncher(object):
 
     def build_task(self, launch_domain, argbuf):
         self._req_analyzer.analyze_requirements()
+        #print("building task id", self._task_id)
+        for req in self._req_analyzer._requirements:
+            print(req)
+            print(req[0].__dict__)
+            print()
         self._out_analyzer.analyze_requirements()
 
         self.pack_args(argbuf, self._inputs)
         self.pack_args(argbuf, self._outputs)
         self.pack_args(argbuf, self._reductions)
         self.pack_args(argbuf, self._scalars)
-
         task = IndexTask(
             self.legion_task_id,
             launch_domain,
