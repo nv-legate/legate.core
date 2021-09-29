@@ -17,14 +17,27 @@
 #pragma once
 
 #include "legion.h"
-// legion.h has to go before these
-#include "core/data/scalar.h"
-#include "core/data/store.h"
-#include "core/legate_c.h"
-#include "core/runtime/runtime.h"
-#include "core/task/task.h"
-#include "core/utilities/deserializer.h"
-#include "core/utilities/dispatch.h"
-#include "core/utilities/type_traits.h"
+
 #include "core/utilities/typedefs.h"
-#include "legate_defines.h"
+
+namespace legate {
+
+extern uint32_t extract_env(const char* env_name,
+                            const uint32_t default_value,
+                            const uint32_t test_value);
+
+class Core {
+ public:
+  static void parse_config(void);
+  static void shutdown(void);
+
+ public:
+  // Configuration settings
+  static bool show_progress;
+#ifdef LEGATE_USE_CUDA
+ public:
+  static cublasContext* get_cublas(void);
+#endif
+};
+
+}  // namespace legate

@@ -14,17 +14,8 @@
  *
  */
 
-#pragma once
-
-#include "legion.h"
-// legion.h has to go before these
-#include "core/data/scalar.h"
-#include "core/data/store.h"
-#include "core/legate_c.h"
 #include "core/runtime/runtime.h"
-#include "core/task/task.h"
-#include "core/utilities/deserializer.h"
-#include "core/utilities/dispatch.h"
-#include "core/utilities/type_traits.h"
-#include "core/utilities/typedefs.h"
-#include "legate_defines.h"
+
+void legate_parse_config(void) { legate::Core::parse_config(); }
+
+void legate_shutdown(void) { legate::Core::shutdown(); }

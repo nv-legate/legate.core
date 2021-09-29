@@ -14,17 +14,17 @@
  *
  */
 
-#pragma once
+#include "core/utilities/machine.h"
 
-#include "legion.h"
-// legion.h has to go before these
-#include "core/data/scalar.h"
-#include "core/data/store.h"
-#include "core/legate_c.h"
-#include "core/runtime/runtime.h"
-#include "core/task/task.h"
-#include "core/utilities/deserializer.h"
-#include "core/utilities/dispatch.h"
-#include "core/utilities/type_traits.h"
-#include "core/utilities/typedefs.h"
-#include "legate_defines.h"
+using namespace Legion;
+
+namespace legate {
+
+Memory::Kind find_memory_kind_for_executing_processor()
+{
+  auto proc = Processor::get_executing_processor();
+  return proc.kind() == Processor::Kind::TOC_PROC ? Memory::Kind::Z_COPY_MEM
+                                                  : Memory::Kind::SYSTEM_MEM;
+}
+
+}  // namespace legate

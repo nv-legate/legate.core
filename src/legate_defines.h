@@ -16,12 +16,6 @@
 
 #pragma once
 
-// Use this for type checking packing and unpacking of arguments
-// between Python and C++, normally set to false except for debugging
-#ifndef TYPE_SAFE_LEGATE
-#define TYPE_SAFE_LEGATE false
-#endif
-
 #define LEGATE_ABORT                                                                        \
   {                                                                                         \
     legate::log_legate.error(                                                               \
@@ -55,49 +49,4 @@
 #ifdef REALM_USE_GASNET1
 #define LEGATE_USE_GASNET
 #endif
-#endif
-
-#if LEGION_MAX_DIM == 1
-
-#define LEGATE_FOREACH_N(__func__) __func__(1)
-
-#elif LEGION_MAX_DIM == 2
-
-#define LEGATE_FOREACH_N(__func__) __func__(1) __func__(2)
-
-#elif LEGION_MAX_DIM == 3
-
-#define LEGATE_FOREACH_N(__func__) __func__(1) __func__(2) __func__(3)
-
-#elif LEGION_MAX_DIM == 4
-
-#define LEGATE_FOREACH_N(__func__) __func__(1) __func__(2) __func__(3) __func__(4)
-
-#elif LEGION_MAX_DIM == 5
-
-#define LEGATE_FOREACH_N(__func__) __func__(1) __func__(2) __func__(3) __func__(4) __func__(5)
-
-#elif LEGION_MAX_DIM == 6
-
-#define LEGATE_FOREACH_N(__func__) \
-  __func__(1) __func__(2) __func__(3) __func__(4) __func__(5) __func__(6)
-
-#elif LEGION_MAX_DIM == 7
-
-#define LEGATE_FOREACH_N(__func__) \
-  __func__(1) __func__(2) __func__(3) __func__(4) __func__(5) __func__(6) __func__(7)
-
-#elif LEGION_MAX_DIM == 8
-
-#define LEGATE_FOREACH_N(__func__) \
-  __func__(1) __func__(2) __func__(3) __func__(4) __func__(5) __func__(6) __func__(7) __func__(8)
-
-#elif LEGION_MAX_DIM == 9
-
-#define LEGATE_FOREACH_N(__func__)                                                              \
-  __func__(1) __func__(2) __func__(3) __func__(4) __func__(5) __func__(6) __func__(7) __func__( \
-    8) __func__(9)
-
-#else
-#error "Unsupported LEGION_MAX_DIM"
 #endif
