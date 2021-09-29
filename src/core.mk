@@ -15,58 +15,58 @@
 
 
 # General source files
-GEN_CPU_SRC	= legate_c.cc                 \
-							data/scalar.cc              \
-							data/store.cc               \
-							data/transform.cc           \
-							mapping/base_mapper.cc      \
-							mapping/core_mapper.cc      \
-							mapping/instance_manager.cc \
-							mapping/mapping.cc          \
-							mapping/task.cc             \
-							runtime/context.cc          \
-							runtime/projection.cc       \
-							runtime/runtime.cc          \
-							runtime/shard.cc            \
-							task/return.cc              \
-							task/task.cc                \
-							utilities/deserializer.cc   \
-							utilities/machine.cc        \
-							utilities/linearize.cc
+GEN_CPU_SRC	= core/legate_c.cc                 \
+							core/data/scalar.cc              \
+							core/data/store.cc               \
+							core/data/transform.cc           \
+							core/mapping/base_mapper.cc      \
+							core/mapping/core_mapper.cc      \
+							core/mapping/instance_manager.cc \
+							core/mapping/mapping.cc          \
+							core/mapping/task.cc             \
+							core/runtime/context.cc          \
+							core/runtime/projection.cc       \
+							core/runtime/runtime.cc          \
+							core/runtime/shard.cc            \
+							core/task/return.cc              \
+							core/task/task.cc                \
+							core/utilities/deserializer.cc   \
+							core/utilities/machine.cc        \
+							core/utilities/linearize.cc
 
 ifeq ($(strip $(USE_CUDA)),1)
-GEN_CPU_SRC	+= gpu/cudalibs.cc
+GEN_CPU_SRC	+= core/gpu/cudalibs.cc
 endif
 
 # Header files that we need to have installed for client legate libraries
-INSTALL_PATHS = data      \
-								mapping   \
-								runtime   \
-								task      \
-								utilities
+INSTALL_PATHS = core/data      \
+								core/mapping   \
+								core/runtime   \
+								core/task      \
+								core/utilities
 
-INSTALL_HEADERS = legate.h                   \
-									legate_c.h                 \
-									legate_defines.h           \
-									legate_preamble.h          \
-									data/buffer.h              \
-									data/scalar.h              \
-									data/scalar.inl            \
-									data/store.h               \
-									data/store.inl             \
-									data/transform.h           \
-									mapping/base_mapper.h      \
-									mapping/mapping.h          \
-									mapping/task.h             \
-									mapping/task.inl           \
-									runtime/context.h          \
-									runtime/runtime.h          \
-									task/return.h              \
-									task/task.h                \
-									utilities/deserializer.h   \
-									utilities/deserializer.inl \
-									utilities/dispatch.h       \
-									utilities/machine.h        \
-									utilities/span.h           \
-									utilities/type_traits.h    \
-									utilities/typedefs.h
+INSTALL_HEADERS = legate.h                        \
+									legate_defines.h                \
+									legate_preamble.h               \
+									core/legate_c.h                 \
+									core/data/buffer.h              \
+									core/data/scalar.h              \
+									core/data/scalar.inl            \
+									core/data/store.h               \
+									core/data/store.inl             \
+									core/data/transform.h           \
+									core/mapping/base_mapper.h      \
+									core/mapping/mapping.h          \
+									core/mapping/task.h             \
+									core/mapping/task.inl           \
+									core/runtime/context.h          \
+									core/runtime/runtime.h          \
+									core/task/return.h              \
+									core/task/task.h                \
+									core/utilities/deserializer.h   \
+									core/utilities/deserializer.inl \
+									core/utilities/dispatch.h       \
+									core/utilities/machine.h        \
+									core/utilities/span.h           \
+									core/utilities/type_traits.h    \
+									core/utilities/typedefs.h
