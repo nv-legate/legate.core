@@ -650,10 +650,10 @@ class TaskLauncher(object):
     def build_task(self, launch_domain, argbuf):
         self._req_analyzer.analyze_requirements()
         #print("building task id", self._task_id)
-        for req in self._req_analyzer._requirements:
-            print(req)
-            print(req[0].__dict__)
-            print()
+        #for req in self._req_analyzer._requirements:
+            #print(req)
+            #print(req[0].__dict__)
+            #print()
         self._out_analyzer.analyze_requirements()
 
         self.pack_args(argbuf, self._inputs)

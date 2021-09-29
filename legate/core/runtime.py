@@ -727,7 +727,7 @@ class FusionChecker(object):
 
     def can_fuse(self):
         results = [constraint.apply(self.contexts, self.runtime, self.ops) for constraint in self.constraints]
-        print(results)
+        #print(results)
         return reduce(lambda x,y: x and y, results)
 
 class FusionConstraint(object):
@@ -790,7 +790,7 @@ class IdenticalProjection(FusionConstraint):
                 allEqual = reduce(lambda x,y: x==y, matrices)
                 if not allEqual:
                     return False
-        print(store_to_ops)
+        #print(store_to_ops)
         return True
 
 
@@ -807,7 +807,7 @@ class IdenticalLaunchShapes(FusionConstraint):
             strategy = partitioner.partition_stores()
             launch_shapes.append(strategy._launch_shape)
         first_shape = launch_shapes[0]
-        print(launch_shapes)
+        #print(launch_shapes)
         for launch_shape in launch_shapes:
             if launch_shape!=first_shape:
                 return False
@@ -857,7 +857,7 @@ class Runtime(object):
         # to be dispatched. This list allows cross library introspection for
         # Legate operations.
         self._outstanding_ops = []
-        self._window_size = 2
+        self._window_size = 1
 
         # Now we initialize managers
         self._attachment_manager = AttachmentManager(self)
@@ -962,7 +962,54 @@ class Runtime(object):
             return op.launch(self.legion_runtime, self.legion_context)
 
 
-    def build_fused_binary_numpy_op(self,ops):
+    def serialize_multiop_metadata(self, numpy_runtime, ops):
+        """creates a 'header' for a fused op that denotes metadata
+        on each ops inputs, outputs, reductions and scalars
+        """
+        #generate offset maps for all inputs to serialize metadata
+        input_starts, output_starts, offset_starts, offsets= [],[],[],[]
+        reduction_starts, scalar_starts,op_ids = [], [], [] 
+        input_start, output_start, offset_start = 0,0,0
+        reduction_start, scalar_start = 0,0
+
+        for op in ops:
+            input_starts.append(input_start)
+            output_starts.append(output_start)
+            offset_starts.append(offset_start)
+            reduction_starts.append(reduction_start)
+            scalar_starts.append(scalar_start)
+
+            for i,input in enumerate(op._inputs):
+                offsets.append(i+1)
+            for o,output in enumerate(op._outputs):
+                offsets.append(-(o+1)) 
+            op_ids.append(op._task_id._value_)
+
+            offset_start+=(len(op._inputs)+len(op._outputs))
+            input_start+=len(op._inputs)
+            output_start+=len(op._outputs)
+            reduction_start+=len(op._reductions)
+            scalar_start+=len(op._scalar_args)
+
+        #terminators
+        input_starts.append(input_start)
+        output_starts.append(output_start)
+        offset_starts.append(offset_start)
+        reduction_starts.append(reduction_start)
+        scalar_starts.append(scalar_start)
+
+        #turn metadata maps into deferred arrays
+        #then load them into the task as the initial inputs
+        meta_arrs =  (input_starts, output_starts, offset_starts, offsets, reduction_starts, scalar_starts, op_ids)
+        #inst, oust, offst, offs = map(npo.array, (input_starts, output_starts, offset_starts, offsets))
+        meta_arrs_np =  map(npo.array, meta_arrs)
+        def make_deferred(inst):
+            return numpy_runtime.find_or_create_array_thunk(inst, stacklevel=0, defer=True) 
+        meta_maps = map(make_deferred, meta_arrs_np)
+        return meta_maps
+   
+
+    def build_fused_op(self,ops):
         fusion_checker = FusionChecker(ops, self._contexts, self)
         fusion_checker.register_constraint(NumpyContextExists())
         fusion_checker.register_constraint(AllBinaryOps())
@@ -980,46 +1027,21 @@ class Runtime(object):
         #initialize fused task
         fused_task = numpy_context.create_task(fused_id)
          
-        #generate offset maps for all inputs
-        input_starts, output_starts, offset_starts, offsets= [],[],[],[]
-        input_start, output_start, offset_start = 0,0,0
+        #serialize necessary metadata on all encapsulated ops 
+        #this metadata will be fed into the fused op as inputs
+        meta_maps = self.serialize_multiop_metadata(numpy_runtime, ops)
 
-        for op in ops:
-            input_starts.append(input_start)
-            output_starts.append(output_start)
-            offset_starts.append(offset_start)
+	#add metadata maps to task as inputs
+        for meta_map in meta_maps:
+            fused_task.add_input(meta_map.base)
+            fused_task.add_broadcast(meta_map.base)
 
-            for i,input in enumerate(op._inputs):
-                offsets.append(i+1)
-            for o,output in enumerate(op._outputs):
-                offsets.append(-(o+1))
-
-            offset_start+=(len(op._inputs)+len(op._outputs))
-            input_start+=len(op._inputs)
-            output_start+=len(op._outputs)
-
-        #terminators
-        input_starts.append(input_start)
-        output_starts.append(output_start)
-        offset_starts.append(offset_start)
-
-        #turn offset maps into deferred arrays
-        #then load them into the task as the initial inputs
-       	#print(input_starts, output_starts, offset_starts, offsets)
-        inst, oust, offst, offs = map(npo.array, (input_starts, output_starts, offset_starts, offsets))
-        def make_deferred(inst):
-            return numpy_runtime.find_or_create_array_thunk(inst, stacklevel=0, defer=True) 
-        offset_maps = map(make_deferred, (inst, oust, offst, offs))
-        
-	#add offset maps to task
-        for offset_map in offset_maps:
-            fused_task.add_input(offset_map.base)
-            fused_task.add_broadcast(offset_map.base)
-
-        #add typical inputs and outputs to task
+        #add typical inputs and outputs of all subtasks to fused task
         for op in ops:
             for scalar in op._scalar_args:
                 fused_task.add_scalar_arg(scalar[0], ty.int32)
+            for reduction in op._reductions:
+                fused_task.add_reduction(reduction)
             for input in op._inputs:
                 fused_task.add_input(input)   
             for output in op._outputs:
@@ -1040,7 +1062,7 @@ class Runtime(object):
         #print("current ops", ids)
         #try fusing tasks
         if len(ops)>=2 and (not force_eval):
-            fused_task = self.build_fused_binary_numpy_op(ops)
+            fused_task = self.build_fused_op(ops)
             if fused_task:
                 fused_task.execute() 
                 return
@@ -1050,9 +1072,6 @@ class Runtime(object):
         partitioner = Partitioner(self, ops, must_be_single=must_be_single)
         strategy = partitioner.partition_stores()
         for op in ops:
-            #print("task_id", op._task_id, int(op._task_id))
-            #print("inputs", op._inputs)
-            #print("outputs", op._outputs)
             op.launch(strategy)
 
     def submit(self, op):
