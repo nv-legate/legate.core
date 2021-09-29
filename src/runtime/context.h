@@ -17,11 +17,13 @@
 #pragma once
 
 #include "legion.h"
+#include "data/scalar.h"
 
 namespace legate {
 
 class Store;
 class Scalar;
+struct FusionMetadata;
 
 struct ResourceConfig {
   int64_t max_tasks{1000000};
@@ -30,6 +32,7 @@ struct ResourceConfig {
   int64_t max_projections{0};
   int64_t max_shardings{0};
 };
+
 
 class ResourceScope {
  public:
@@ -111,14 +114,13 @@ class TaskContext {
   std::vector<Store>& outputs() { return outputs_; }
   std::vector<Store>& reductions() { return reductions_; }
   std::vector<Scalar>& scalars() { return scalars_; }
-  //Deserializer dez;
-  //Serializer dez;
 
  public:
   const Legion::Task* task_;
   const std::vector<Legion::PhysicalRegion>& regions_;
   Legion::Context context_;
   Legion::Runtime* runtime_;
+  FusionMetadata fusionMetadata;
 
  private:
   std::vector<Store> inputs_, outputs_, reductions_;

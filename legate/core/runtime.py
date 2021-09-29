@@ -40,7 +40,7 @@ from .legion import (
 from .partition import Restriction
 from .shape import Shape
 from .solver import Partitioner
-from .store import RegionField, Store
+from .store import RegionField, Store, FusionMetadata
 import numpy as npo
 
 # A Field holds a reference to a field in a region tree
@@ -759,6 +759,9 @@ class IdenticalProjection(FusionConstraint):
         partitioners = []
         strategies = []
         must_be_single = any(op._future_output is not None for op in ops)
+
+        # TODO: cache as much as of the partitioner results as possible
+        # so the calls to Partitioner() and partition_stores done kill perf
         for op in ops:
             partitioner = Partitioner(runtime, ops, must_be_single=must_be_single)
             strategy = partitioner.partition_stores()
@@ -766,6 +769,8 @@ class IdenticalProjection(FusionConstraint):
         store_to_ops = {}
         for op in ops:
             bufferSet = {}
+ 
+            # find the set union of input and output buffers for the op
             for input in op._inputs:
                 if input not in bufferSet:
                     proj = strategy.get_projection(input)
@@ -778,6 +783,7 @@ class IdenticalProjection(FusionConstraint):
                     if hasattr(proj, 'part'):
                         bufferSet[output]=proj
 
+            # for each op in the union, record its associated transform
             for buffer in bufferSet.keys():
                 proj = bufferSet[buffer]
                 matrix = proj.part.index_partition.functor.transform.trans
@@ -785,12 +791,14 @@ class IdenticalProjection(FusionConstraint):
                     store_to_ops[buffer] = [matrix]
                 else:
                     store_to_ops[buffer].append(matrix)
+
+        # for each buffer, check all it's associated transforms/partitions
+        # across ops are equivalent 
         for store, matrices in store_to_ops.items():
             if len(matrices)>1:
                 allEqual = reduce(lambda x,y: x==y, matrices)
                 if not allEqual:
                     return False
-        #print(store_to_ops)
         return True
 
 
@@ -803,6 +811,8 @@ class IdenticalLaunchShapes(FusionConstraint):
         launch_shapes = []
         must_be_single = any(op._future_output is not None for op in ops)
         for op in ops:
+            # TODO: cache as much as of the partitioner results as possible
+            # so the calls to Partitioner() and partition_stores done kill perf
             partitioner = Partitioner(runtime, ops, must_be_single=must_be_single)
             strategy = partitioner.partition_stores()
             launch_shapes.append(strategy._launch_shape)
@@ -821,8 +831,8 @@ class Runtime(object):
         This is a class that implements the Legate runtime.
         The Runtime object provides high-level APIs for Legate libraries
         to use services in the Legion runtime. The Runtime centralizes
-        resource management for all the libraries so that they can
-        focus on implementing their domain logic.
+	resource management for all the libraries so that they can
+	       focus on implementing their domain logic.
         """
 
         try:
@@ -857,7 +867,7 @@ class Runtime(object):
         # to be dispatched. This list allows cross library introspection for
         # Legate operations.
         self._outstanding_ops = []
-        self._window_size = 1
+        self._window_size = 5
 
         # Now we initialize managers
         self._attachment_manager = AttachmentManager(self)
@@ -1001,20 +1011,22 @@ class Runtime(object):
         #turn metadata maps into deferred arrays
         #then load them into the task as the initial inputs
         meta_arrs =  (input_starts, output_starts, offset_starts, offsets, reduction_starts, scalar_starts, op_ids)
+        fusion_metadata = FusionMetadata(*meta_arrs)
+
         #inst, oust, offst, offs = map(npo.array, (input_starts, output_starts, offset_starts, offsets))
         meta_arrs_np =  map(npo.array, meta_arrs)
         def make_deferred(inst):
             return numpy_runtime.find_or_create_array_thunk(inst, stacklevel=0, defer=True) 
         meta_maps = map(make_deferred, meta_arrs_np)
-        return meta_maps
+        return meta_maps, fusion_metadata
    
 
     def build_fused_op(self,ops):
         fusion_checker = FusionChecker(ops, self._contexts, self)
         fusion_checker.register_constraint(NumpyContextExists())
         fusion_checker.register_constraint(AllBinaryOps())
-        fusion_checker.register_constraint(IdenticalLaunchShapes())
-        fusion_checker.register_constraint(IdenticalProjection())
+        #fusion_checker.register_constraint(IdenticalLaunchShapes())
+        #fusion_checker.register_constraint(IdenticalProjection())
         can_fuse = fusion_checker.can_fuse()
         
         if not can_fuse:
@@ -1026,15 +1038,16 @@ class Runtime(object):
         numpy_runtime = numpy_context._library.runtime
         #initialize fused task
         fused_task = numpy_context.create_task(fused_id)
-         
+        
         #serialize necessary metadata on all encapsulated ops 
         #this metadata will be fed into the fused op as inputs
-        meta_maps = self.serialize_multiop_metadata(numpy_runtime, ops)
+        meta_maps, fusion_metadata = self.serialize_multiop_metadata(numpy_runtime, ops)
+        fused_task.add_fusion_metadata(fusion_metadata) #sets fused_task._is_fused to true
 
 	#add metadata maps to task as inputs
-        for meta_map in meta_maps:
-            fused_task.add_input(meta_map.base)
-            fused_task.add_broadcast(meta_map.base)
+        #for meta_map in meta_maps:
+        #    fused_task.add_input(meta_map.base)
+        #    fused_task.add_broadcast(meta_map.base)
 
         #add typical inputs and outputs of all subtasks to fused task
         for op in ops:
@@ -1059,7 +1072,7 @@ class Runtime(object):
    
     def _schedule(self, ops, force_eval=False):
         ids = [op._task_id for op in ops]
-        #print("current ops", ids)
+
         #try fusing tasks
         if len(ops)>=2 and (not force_eval):
             fused_task = self.build_fused_op(ops)

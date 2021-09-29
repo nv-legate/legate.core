@@ -441,7 +441,6 @@ class RequirementAnalyzer(object):
         field_set.insert(field_id, req.permission, proj_info)
 
     def analyze_requirements(self):
-        #import pdb; pdb.set_trace()
         for region, field_set in self._field_sets.items():
             perm_map = field_set.coalesce()
             for key, fields in perm_map.items():
@@ -531,6 +530,8 @@ class TaskLauncher(object):
         self._sharding_space = None
         self._point = None
         self._output_regions = list()
+        self._is_fused = False
+        self._fusion_metadata = None
 
     @property
     def library_task_id(self):
@@ -641,11 +642,23 @@ class TaskLauncher(object):
     def set_point(self, point):
         self._point = point
 
+    def add_fusion_metadata(self, is_fused, fusion_metadata):
+        self._is_fused = is_fused
+        self._fusion_metadata = fusion_metadata
+
     @staticmethod
     def pack_args(argbuf, args):
         argbuf.pack_32bit_uint(len(args))
         for arg in args:
             arg.pack(argbuf)
+
+
+    @staticmethod
+    def pack_fusion_metadata(argbuf, is_fused, fusion_metadata):
+        argbuf.pack_bool(is_fused)
+        if is_fused:
+            fusion_metadata.pack(argbuf)
+
 
     def build_task(self, launch_domain, argbuf):
         self._req_analyzer.analyze_requirements()
@@ -655,6 +668,9 @@ class TaskLauncher(object):
             #print(req[0].__dict__)
             #print()
         self._out_analyzer.analyze_requirements()
+
+        #pack fusion metadata
+        self.pack_fusion_metadata(argbuf, self._is_fused, self._fusion_metadata)        
 
         self.pack_args(argbuf, self._inputs)
         self.pack_args(argbuf, self._outputs)
@@ -685,6 +701,9 @@ class TaskLauncher(object):
     def build_single_task(self, argbuf):
         self._req_analyzer.analyze_requirements()
         self._out_analyzer.analyze_requirements()
+ 
+        #pack fusion metadata
+        self.pack_fusion_metadata(argbuf, self._is_fused, self._fusion_metadata)        
 
         self.pack_args(argbuf, self._inputs)
         self.pack_args(argbuf, self._outputs)

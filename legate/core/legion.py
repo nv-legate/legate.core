@@ -4745,7 +4745,6 @@ class BufferBuilder(object):
         if self.string is None or self.arglen != len(self.args):
             fmtstr = "".join(self.fmt)
             assert len(fmtstr) == len(self.args) + 1
-            #print(self.args)
             self.string = struct.pack(fmtstr, *self.args)
             self.arglen = len(self.args)
         return self.string

@@ -33,6 +33,7 @@ class Scalar;
 class FutureWrapper;
 class RegionField;
 class OutputRegionField;
+struct FusionMetadata;
 
 class Deserializer {
  public:
@@ -46,6 +47,8 @@ class Deserializer {
     _unpack(value);
     return std::move(value);
   }
+
+ //void unpackFusionMetadata(bool& isFused);
 
  private:
   template <typename T, std::enable_if_t<legate_type_code_of<T> != MAX_TYPE_NUMBER>* = nullptr>
@@ -70,6 +73,7 @@ class Deserializer {
   void _unpack(FutureWrapper& value);
   void _unpack(RegionField& value);
   void _unpack(OutputRegionField& value);
+  void _unpack(FusionMetadata& value);
 
  private:
   std::unique_ptr<StoreTransform> unpack_transform();

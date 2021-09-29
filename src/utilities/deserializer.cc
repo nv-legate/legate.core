@@ -38,6 +38,56 @@ void Deserializer::_unpack(LegateTypeCode& value)
   value = static_cast<LegateTypeCode>(unpack<int32_t>());
 }
 
+
+void Deserializer::_unpack(FusionMetadata& metadata){
+    metadata.isFused = unpack<bool>();
+    if (!metadata.isFused){
+        return;
+    }
+    //exit out if the this is not a fused op
+    metadata.nOps = unpack<int32_t>();
+    metadata.nBuffers = unpack<int32_t>();
+    int nOps = metadata.nOps;
+    int nBuffers = metadata.nBuffers; 
+
+    metadata.inputStarts.resize(nOps+1);
+    metadata.outputStarts.resize(nOps+1);
+    metadata.offsetStarts.resize(nOps+1);
+    metadata.offsets.resize(nBuffers+1);
+    metadata.reductionStarts.resize(nOps+1);
+    metadata.scalarStarts.resize(nOps+1);
+    metadata.opIDs.resize(nOps);
+    //TODO: wrap this up to reuse code`
+    for (int i=0; i<nOps+1; i++)
+    {
+        metadata.inputStarts[i] = unpack<int32_t>();
+    }   
+    for (int i=0; i<nOps+1; i++)
+    {
+        metadata.outputStarts[i] = unpack<int32_t>();
+    }   
+    for (int i=0; i<nOps+1; i++)
+    {
+        metadata.offsetStarts[i] = unpack<int32_t>();
+    }   
+    for (int i=0; i<nBuffers; i++)
+    {
+        metadata.offsets[i] = unpack<int32_t>();
+    }   
+    for (int i=0; i<nOps+1; i++)
+    {
+        metadata.reductionStarts[i] = unpack<int32_t>();
+    }   
+    for (int i=0; i<nOps+1; i++)
+    {
+        metadata.scalarStarts[i] = unpack<int32_t>();
+    }   
+    for (int i=0; i<nOps; i++)
+    {
+        metadata.opIDs[i] = unpack<int32_t>();
+    }   
+}
+
 void Deserializer::_unpack(Store& value)
 {
   auto is_future = unpack<bool>();

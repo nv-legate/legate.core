@@ -33,6 +33,7 @@ class Operation(object):
         self._future_reduction = None
         self._constraints = EqClass()
         self._broadcasts = set()
+        self._is_fused = False
 
     @property
     def context(self):
@@ -139,6 +140,7 @@ class Task(Operation):
         self._task_id = task_id
         self._scalar_args = []
         self._futures = []
+        self._fusion_metadata = None
 
     def add_scalar_arg(self, value, dtype):
         self._scalar_args.append((value, dtype))
@@ -150,8 +152,16 @@ class Task(Operation):
     def add_future(self, future):
         self._futures.append(future)
 
+    def add_fusion_metadata(self, fusion_metadata):
+        self._is_fused = True
+        self._fusion_metadata = fusion_metadata
+
     def launch(self, strategy):
         launcher = TaskLauncher(self.context, self._task_id, self.mapper_id)
+
+        if self._is_fused:
+            launcher.add_fusion_metadata(self._is_fused, self._fusion_metadata)
+ 
         for input in self._inputs:
             proj = strategy.get_projection(input)
             launcher.add_input(input, proj)

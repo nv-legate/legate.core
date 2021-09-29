@@ -754,3 +754,41 @@ class Store(object):
         part = converted.construct(self.storage.region, complete=complete)
         self._partitions[functor] = (part, proj)
         return part, proj
+
+
+class FusionMetadata(object):
+    def __init__(
+                 self,
+                 input_starts,
+                 output_starts,
+                 offset_starts,
+                 buffer_offsets,
+                 reduction_starts,
+                 scalar_starts,
+                 opIDs
+                 ):
+        self._input_starts = input_starts
+        self._output_starts = output_starts
+        self._offset_starts = offset_starts
+        self._buffer_offsets = buffer_offsets
+        self._reduction_starts = reduction_starts
+        self._scalar_starts = scalar_starts
+        self._opIDs = opIDs 
+
+    def packList(self, meta_list, buf):
+        for elem in meta_list: 
+            buf.pack_32bit_int(elem)
+
+    def pack(self, buf):
+       
+        buf.pack_32bit_int(len(self._opIDs)) #nOps
+        buf.pack_32bit_int(len(self._buffer_offsets)) #nIOBuffers+1
+
+        self.packList(self._input_starts, buf)
+        self.packList(self._output_starts, buf)
+        self.packList(self._offset_starts, buf)
+        self.packList(self._buffer_offsets, buf)
+        self.packList(self._reduction_starts, buf)
+        self.packList(self._scalar_starts, buf)
+        self.packList(self._opIDs, buf)
+

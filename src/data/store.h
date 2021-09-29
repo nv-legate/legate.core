@@ -307,6 +307,25 @@ class Store {
 
  friend class MakeshiftSerializer;
 };
+
+//containts prefix sums for a sub-op
+//to index into its own data
+struct FusionMetadata {
+    public:
+    bool isFused;
+    int32_t nOps;
+    int32_t nBuffers;
+    std::vector<int32_t> inputStarts;
+    std::vector<int32_t> outputStarts;
+    std::vector<int32_t> offsetStarts;
+    std::vector<int32_t> offsets; // can contain negative elements
+    std::vector<int32_t> reductionStarts;
+    std::vector<int32_t> scalarStarts;
+    std::vector<int32_t> opIDs;
+};
+
+
+
 }  // namespace legate
 
 #include "data/store.inl"
