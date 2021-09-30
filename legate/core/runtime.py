@@ -39,7 +39,7 @@ from .legion import (
 )
 from .partition import Restriction
 from .shape import Shape
-from .solver import Partitioner
+from .solver import Partitioner, Strategy
 from .store import RegionField, Store, FusionMetadata
 import numpy as npo
 
@@ -721,17 +721,26 @@ class FusionChecker(object):
         self.ops = ops
         self.contexts = contexts
         self.runtime=runtime
+        self.partitioners = []
+        self.strategies = []
 
     def register_constraint(self, fusion_constraint_rule):
         self.constraints.append(fusion_constraint_rule)
 
     def can_fuse(self):
-        results = [constraint.apply(self.contexts, self.runtime, self.ops) for constraint in self.constraints]
-        #print(results)
-        return reduce(lambda x,y: x and y, results)
+        must_be_single = any(op._future_output is not None for op in self.ops)
+        for op in self.ops:
+            # TODO: cache as much as of the partitioner results as possible
+            # so the calls to Partitioner() and partition_stores done kill perf
+            partitioner = Partitioner(self.runtime, [op], must_be_single=must_be_single)
+            self.partitioners.append( partitioner )
+            strategy = partitioner.partition_stores()
+            self.strategies.append(strategy)
+        results = [constraint.apply(self.contexts, self.runtime, self.ops, self.partitioners, self.strategies) for constraint in self.constraints]
+        return reduce(lambda x,y: x and y, results), self.strategies
 
 class FusionConstraint(object):
-    def apply(self, contexts, runtime, ops):
+    def apply(self, contexts, runtime, ops, partitioners, strategies):
         """"
          Abstract class for determining a rule that constrains
          which legate operations can be fused
@@ -740,14 +749,14 @@ class FusionConstraint(object):
 
 
 class NumpyContextExists(FusionConstraint):
-    def apply(self, contexts, runtime, ops):
+    def apply(self, contexts, runtime, ops, partitioners, strategies):
         return "legate.numpy" in contexts
 
 
 class AllBinaryOps(FusionConstraint):
     """Temporary class for only fusing Binary Ops. 
        This constrains will be removed"""
-    def apply(self, contexts, runtime, ops):
+    def apply(self, contexts, runtime, ops, partitioners, strategies):
         allBinary = reduce(lambda x,y: x and y,[int(op._task_id)==400000 for op in ops])
         return allBinary
 
@@ -755,31 +764,22 @@ class AllBinaryOps(FusionConstraint):
 class IdenticalProjection(FusionConstraint):
     """Fusion rule that only ops with identical
        projection functors can be fused"""
-    def apply(self, contexts, runtime, ops):
-        partitioners = []
-        strategies = []
-        must_be_single = any(op._future_output is not None for op in ops)
-
-        # TODO: cache as much as of the partitioner results as possible
-        # so the calls to Partitioner() and partition_stores done kill perf
-        for op in ops:
-            partitioner = Partitioner(runtime, ops, must_be_single=must_be_single)
-            strategy = partitioner.partition_stores()
+    def apply(self, contexts, runtime, ops, partitioners, strategies):
 
         store_to_ops = {}
-        for op in ops:
+        for i, op in enumerate(ops):
             bufferSet = {}
  
             # find the set union of input and output buffers for the op
             for input in op._inputs:
                 if input not in bufferSet:
-                    proj = strategy.get_projection(input)
+                    proj = strategies[i].get_projection(input)
                     if hasattr(proj, 'part'):
                         bufferSet[input]=proj
 
             for output in op._outputs:
                 if output not in bufferSet:
-                    proj = strategy.get_projection(output)
+                    proj = strategies[i].get_projection(output)
                     if hasattr(proj, 'part'):
                         bufferSet[output]=proj
 
@@ -805,19 +805,11 @@ class IdenticalProjection(FusionConstraint):
 class IdenticalLaunchShapes(FusionConstraint):
     """Fusion rule that only ops with identical
        launch shapes can be fused"""
-    def apply(self, contexts, runtime, ops):
-        partitioners = []
-        strategies = []
+    def apply(self, contexts, runtime, ops, partitioners, strategies):
         launch_shapes = []
-        must_be_single = any(op._future_output is not None for op in ops)
-        for op in ops:
-            # TODO: cache as much as of the partitioner results as possible
-            # so the calls to Partitioner() and partition_stores done kill perf
-            partitioner = Partitioner(runtime, ops, must_be_single=must_be_single)
-            strategy = partitioner.partition_stores()
-            launch_shapes.append(strategy._launch_shape)
+        for i in range(len(ops)):
+            launch_shapes.append(strategies[i]._launch_shape)
         first_shape = launch_shapes[0]
-        #print(launch_shapes)
         for launch_shape in launch_shapes:
             if launch_shape!=first_shape:
                 return False
@@ -867,7 +859,7 @@ class Runtime(object):
         # to be dispatched. This list allows cross library introspection for
         # Legate operations.
         self._outstanding_ops = []
-        self._window_size = 5
+        self._window_size =1
 
         # Now we initialize managers
         self._attachment_manager = AttachmentManager(self)
@@ -1025,20 +1017,27 @@ class Runtime(object):
         fusion_checker = FusionChecker(ops, self._contexts, self)
         fusion_checker.register_constraint(NumpyContextExists())
         fusion_checker.register_constraint(AllBinaryOps())
-        #fusion_checker.register_constraint(IdenticalLaunchShapes())
-        #fusion_checker.register_constraint(IdenticalProjection())
-        can_fuse = fusion_checker.can_fuse()
+        fusion_checker.register_constraint(IdenticalLaunchShapes())
+        fusion_checker.register_constraint(IdenticalProjection())
+        can_fuse, partitions = fusion_checker.can_fuse()
         
         if not can_fuse:
             return None
+        super_strat = {}
+        super_fspace = {}
+        for partition in partitions:
+            super_strat = {**(super_strat.copy()), **partition._strategy}  
+            super_fspace = {**(super_fspace.copy()), **partition._fspaces}
 
+        super_strategy = Strategy(partitions[0]._launch_shape, super_strat, super_fspace)
         #hacky way to get numpy context and designated fused task id
         fused_id = self._contexts["legate.numpy"].fused_id
         numpy_context = self._contexts["legate.numpy"]
         numpy_runtime = numpy_context._library.runtime
         #initialize fused task
         fused_task = numpy_context.create_task(fused_id)
-        
+        fused_task.strategy = super_strategy
+       
         #serialize necessary metadata on all encapsulated ops 
         #this metadata will be fed into the fused op as inputs
         meta_maps, fusion_metadata = self.serialize_multiop_metadata(numpy_runtime, ops)
@@ -1081,9 +1080,14 @@ class Runtime(object):
                 return
 
         #if we cann't fuse op launch them individually
-        must_be_single = any(op._future_output is not None for op in ops)
-        partitioner = Partitioner(self, ops, must_be_single=must_be_single)
-        strategy = partitioner.partition_stores()
+        #fused tasks already have their strategy
+        if len(ops)==1 and ops[0]._task_id==400028:
+            strategy = ops[0].strategy
+            
+        else:
+            must_be_single = any(op._future_output is not None for op in ops)
+            partitioner = Partitioner(self, ops, must_be_single=must_be_single)
+            strategy = partitioner.partition_stores()
         for op in ops:
             op.launch(strategy)
 
