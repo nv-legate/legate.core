@@ -4,6 +4,8 @@
 #include <vector>
 #include "data/store.h"
 #include "data/scalar.h"
+#include "data/transform.h"
+
 namespace legate {
 
 class Scalar;
@@ -12,10 +14,14 @@ class MakeshiftSerializer{
     
     public:
     MakeshiftSerializer(){
-        size=128;
+        size=512;
         raw.resize(size); 
         write_offset=0;
         read_offset=0;
+    }
+    void zero(){
+        //memset ((void*)raw.data(),0,raw.size());
+        write_offset=0;
     }
 /*
     template <typename T> void pack(T&& arg) 
@@ -32,10 +38,11 @@ class MakeshiftSerializer{
         {
             resize(sizeof(T));
         }
-        for (int i=0; i<sizeof(T); i++)
-        {
-           raw[write_offset+i] = *reinterpret_cast<const int8_t*>((argAddr)+i);
-        }
+        //for (int i=0; i<sizeof(T); i++)
+        //{
+        //   raw[write_offset+i] = *reinterpret_cast<const int8_t*>((argAddr)+i);
+        //}
+        memcpy(raw.data()+write_offset, argAddr, sizeof(T));
         //std::cout<<"reint "<<*reinterpret_cast<T*>(raw.data()+write_offset)<<std::endl;;
         write_offset+=sizeof(T);
         //std::cout<<"    "<<write_offset<<std::endl;
@@ -59,6 +66,8 @@ class MakeshiftSerializer{
     void packScalar(const Scalar& scalar);
 
     void packBuffer(const Store& input);
+
+    void packTransform(const StoreTransform* trans);
     
     template <typename T> T read() 
     {

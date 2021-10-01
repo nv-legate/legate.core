@@ -9,6 +9,84 @@ namespace legate{
         packWithoutType(scalar.data_, size);    
     }
 
+    void MakeshiftSerializer::packTransform(const StoreTransform* trans){
+
+        if (trans==nullptr){
+            int32_t neg= -1;
+            pack((int32_t) neg);
+        }
+        else{
+            int32_t code = trans->getTransformCode();
+            switch (code) {
+                case -1: {
+                }
+                case LEGATE_CORE_TRANSFORM_SHIFT: {
+                    Shift * shifter = (Shift*) trans;
+                    pack((int32_t) shifter->dim_);
+                    pack((int64_t) shifter->offset_);
+                    packTransform(trans->parent_.get());
+                }
+                case LEGATE_CORE_TRANSFORM_PROMOTE: {
+                    Promote * promoter = (Promote*) trans;
+                    pack((int32_t) promoter->extra_dim_);
+                    pack((int64_t) promoter->dim_size_);
+                    packTransform(trans->parent_.get());
+                }
+                case LEGATE_CORE_TRANSFORM_PROJECT: {
+                    Project * projector = (Project*) trans;
+                    pack((int32_t) projector->dim_);
+                    pack((int64_t) projector->coord_);
+                    packTransform(trans->parent_.get());
+                }
+                case LEGATE_CORE_TRANSFORM_TRANSPOSE: {
+                    Transpose * projector = (Transpose*) trans;
+                    packTransform(trans->parent_.get());
+                }
+                case LEGATE_CORE_TRANSFORM_DELINEARIZE: {
+                    Delinearize * projector = (Delinearize*) trans;
+                    packTransform(trans->parent_.get());
+                }
+            }
+        }
+    }
+/*
+    case LEGATE_CORE_TRANSFORM_SHIFT: {
+      auto dim    = unpack<int32_t>();
+      auto offset = unpack<int64_t>();
+      auto parent = unpack_transform();
+      return std::make_unique<Shift>(dim, offset, std::move(parent));
+    }
+    case LEGATE_CORE_TRANSFORM_PROMOTE: {
+      auto extra_dim = unpack<int32_t>();
+      auto dim_size  = unpack<int64_t>();
+      auto parent    = unpack_transform();
+      return std::make_unique<Promote>(extra_dim, dim_size, std::move(parent));
+    }
+    case LEGATE_CORE_TRANSFORM_PROJECT: {
+      auto dim    = unpack<int32_t>();
+      auto coord  = unpack<int64_t>();
+      auto parent = unpack_transform();
+      return std::make_unique<Project>(dim, coord, std::move(parent));
+    }
+    case LEGATE_CORE_TRANSFORM_TRANSPOSE: {
+      auto axes   = unpack<std::vector<int32_t>>();
+      auto parent = unpack_transform();
+      return std::make_unique<Transpose>(std::move(axes), std::move(parent));
+    }
+    case LEGATE_CORE_TRANSFORM_DELINEARIZE: {
+      auto dim    = unpack<int32_t>();
+      auto sizes  = unpack<std::vector<int64_t>>();
+      auto parent = unpack_transform();
+      return std::make_unique<Delinearize>(dim, std::move(sizes), std::move(parent));
+    }
+
+    def _serialize_transform(self, buf):
+        if self._parent is not None:
+            self._transform.serialize(buf)
+            self._parent._serialize_transform(buf)
+        else:
+            buf.pack_32bit_int(-1)
+*/
     void MakeshiftSerializer::packBuffer(const Store& buffer)
     {
         pack((bool) buffer.is_future()); //is_future
@@ -17,8 +95,8 @@ namespace legate{
         pack((int32_t)  buffer.code());
         //pack transform:
         //pack trasnform code
-        int32_t neg= -1;
-        pack((int32_t) neg);
+        packTransform(buffer.transform_.get());
+
         //skip the rest for now, assume no transform, for now pack -1
         // no need to implement this for benchmarking purposes 
         // TODO: implement transform packing

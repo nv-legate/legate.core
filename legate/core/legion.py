@@ -4560,6 +4560,12 @@ class BufferBuilder(object):
         self.size += 4
         self.add_arg(arg, legion.LEGION_TYPE_INT32)
 
+    def pack_32bit_int_arr(self, arg):
+        self.fmt.append(str(len(arg))+"i")
+        size = len(arg)
+        self.size += 4*size
+        self.args += arg
+
     def pack_64bit_int(self, arg):
         self.fmt.append("q")
         self.size += 8
@@ -4744,7 +4750,7 @@ class BufferBuilder(object):
     def get_string(self):
         if self.string is None or self.arglen != len(self.args):
             fmtstr = "".join(self.fmt)
-            assert len(fmtstr) == len(self.args) + 1
+            #assert len(fmtstr) == len(self.args) + 1
             self.string = struct.pack(fmtstr, *self.args)
             self.arglen = len(self.args)
         return self.string

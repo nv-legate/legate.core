@@ -19,7 +19,9 @@
 #include <memory>
 
 #include "legion.h"
+#include "legate_c.h"
 
+class MakeshiftSerializer;
 namespace legate {
 
 class StoreTransform {
@@ -31,9 +33,10 @@ class StoreTransform {
  public:
   virtual Legion::Domain transform(const Legion::Domain& input) const           = 0;
   virtual Legion::DomainAffineTransform inverse_transform(int32_t in_dim) const = 0;
-
+  virtual int32_t getTransformCode() const =0;
  protected:
   std::unique_ptr<StoreTransform> parent_{nullptr};
+ friend class MakeshiftSerializer;
 };
 
 class Shift : public StoreTransform {
@@ -44,10 +47,11 @@ class Shift : public StoreTransform {
  public:
   virtual Legion::Domain transform(const Legion::Domain& input) const override;
   virtual Legion::DomainAffineTransform inverse_transform(int32_t in_dim) const override;
-
+  virtual int32_t getTransformCode() const override;
  private:
   int32_t dim_;
-  int64_t offset_;
+  int64_t offset_; 
+ friend class MakeshiftSerializer;
 };
 
 class Promote : public StoreTransform {
@@ -58,10 +62,12 @@ class Promote : public StoreTransform {
  public:
   virtual Legion::Domain transform(const Legion::Domain& input) const override;
   virtual Legion::DomainAffineTransform inverse_transform(int32_t in_dim) const override;
+  virtual int32_t getTransformCode() const override;
 
  private:
   int32_t extra_dim_;
   int64_t dim_size_;
+ friend class MakeshiftSerializer;
 };
 
 class Project : public StoreTransform {
@@ -72,10 +78,12 @@ class Project : public StoreTransform {
  public:
   virtual Legion::Domain transform(const Legion::Domain& domain) const override;
   virtual Legion::DomainAffineTransform inverse_transform(int32_t in_dim) const override;
+  virtual int32_t getTransformCode() const override;
 
  private:
   int32_t dim_;
   int64_t coord_;
+ friend class MakeshiftSerializer;
 };
 
 class Transpose : public StoreTransform {
@@ -86,9 +94,11 @@ class Transpose : public StoreTransform {
  public:
   virtual Legion::Domain transform(const Legion::Domain& domain) const override;
   virtual Legion::DomainAffineTransform inverse_transform(int32_t in_dim) const override;
+  virtual int32_t getTransformCode() const override;
 
  private:
   std::vector<int32_t> axes_;
+ friend class MakeshiftSerializer;
 };
 
 class Delinearize : public StoreTransform {
@@ -101,12 +111,14 @@ class Delinearize : public StoreTransform {
  public:
   virtual Legion::Domain transform(const Legion::Domain& domain) const override;
   virtual Legion::DomainAffineTransform inverse_transform(int32_t in_dim) const override;
+  virtual int32_t getTransformCode() const override;
 
  private:
   int32_t dim_;
   std::vector<int64_t> sizes_;
   std::vector<int64_t> strides_;
   int64_t volume_;
+ friend class MakeshiftSerializer;
 };
 
 }  // namespace legate

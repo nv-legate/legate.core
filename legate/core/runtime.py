@@ -41,7 +41,6 @@ from .partition import Restriction
 from .shape import Shape
 from .solver import Partitioner, Strategy
 from .store import RegionField, Store, FusionMetadata
-import numpy as npo
 
 # A Field holds a reference to a field in a region tree
 # that can be used by many different RegionField objects
@@ -1007,8 +1006,8 @@ class Runtime(object):
 
         #inst, oust, offst, offs = map(npo.array, (input_starts, output_starts, offset_starts, offsets))
         #meta_arrs_np =  map(npo.array, meta_arrs)
-        def make_deferred(inst):
-            return numpy_runtime.find_or_create_array_thunk(inst, stacklevel=0, defer=True) 
+        #def make_deferred(inst):
+        #    return numpy_runtime.find_or_create_array_thunk(inst, stacklevel=0, defer=True) 
         #meta_maps = map(make_deferred, meta_arrs_np)
         meta_maps=None
         return meta_maps, fusion_metadata

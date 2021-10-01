@@ -776,19 +776,28 @@ class FusionMetadata(object):
         self._opIDs = opIDs 
 
     def packList(self, meta_list, buf):
-        for elem in meta_list: 
-            buf.pack_32bit_int(elem)
+        buf.pack_32bit_int_arr(meta_list)
+        #for elem in meta_list: 
+        #    buf.pack_32bit_int(elem)
 
     def pack(self, buf):
        
-        buf.pack_32bit_int(len(self._opIDs)) #nOps
-        buf.pack_32bit_int(len(self._buffer_offsets)) #nIOBuffers+1
-
-        self.packList(self._input_starts, buf)
-        self.packList(self._output_starts, buf)
-        self.packList(self._offset_starts, buf)
-        self.packList(self._buffer_offsets, buf)
-        self.packList(self._reduction_starts, buf)
-        self.packList(self._scalar_starts, buf)
-        self.packList(self._opIDs, buf)
+        #buf.pack_32bit_int(len(self._opIDs)) #nOps
+        #buf.pack_32bit_int(len(self._buffer_offsets)) #nIOBuffers+1
+        superbuff = [len(self._opIDs)]+[len(self._buffer_offsets)]
+        superbuff += self._input_starts
+        superbuff += self._output_starts
+        superbuff += self._offset_starts
+        superbuff += self._buffer_offsets
+        superbuff += self._reduction_starts
+        superbuff += self._scalar_starts
+        superbuff += self._opIDs
+        self.packList(superbuff, buf)
+        #self.packList(self._input_starts, buf)
+        #self.packList(self._output_starts, buf)
+        #self.packList(self._offset_starts, buf)
+        #self.packList(self._buffer_offsets, buf)
+        #self.packList(self._reduction_starts, buf)
+        #self.packList(self._scalar_starts, buf)
+        #self.packList(self._opIDs, buf)
 

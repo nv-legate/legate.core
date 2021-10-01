@@ -22,6 +22,17 @@ using namespace Legion;
 
 using StoreTransformP = std::unique_ptr<StoreTransform>;
 
+/*
+typedef enum legate_core_transform_t {
+  LEGATE_CORE_TRANSFORM_SHIFT = 100,
+  LEGATE_CORE_TRANSFORM_PROMOTE,
+  LEGATE_CORE_TRANSFORM_PROJECT,
+  LEGATE_CORE_TRANSFORM_TRANSPOSE,
+  LEGATE_CORE_TRANSFORM_DELINEARIZE,
+} legate_core_transform_t;
+*/
+
+
 DomainAffineTransform combine(const DomainAffineTransform& lhs, const DomainAffineTransform& rhs)
 {
   DomainAffineTransform result;
@@ -37,6 +48,11 @@ StoreTransform::StoreTransform(StoreTransformP&& parent) : parent_(std::move(par
 Shift::Shift(int32_t dim, int64_t offset, StoreTransformP&& parent)
   : StoreTransform(std::forward<StoreTransformP>(parent)), dim_(dim), offset_(offset)
 {
+}
+
+int32_t Shift::getTransformCode() const
+{
+    return LEGATE_CORE_TRANSFORM_SHIFT;
 }
 
 Domain Shift::transform(const Domain& input) const
@@ -79,6 +95,11 @@ Promote::Promote(int32_t extra_dim, int64_t dim_size, StoreTransformP&& parent)
     extra_dim_(extra_dim),
     dim_size_(dim_size)
 {
+}
+
+int32_t Promote::getTransformCode() const
+{
+    return LEGATE_CORE_TRANSFORM_PROMOTE;
 }
 
 Domain Promote::transform(const Domain& input) const
@@ -134,6 +155,11 @@ DomainAffineTransform Promote::inverse_transform(int32_t in_dim) const
 Project::Project(int32_t dim, int64_t coord, StoreTransformP&& parent)
   : StoreTransform(std::forward<StoreTransformP>(parent)), dim_(dim), coord_(coord)
 {
+}
+
+int32_t Project::getTransformCode() const
+{
+    return LEGATE_CORE_TRANSFORM_PROJECT;
 }
 
 Domain Project::transform(const Domain& input) const
@@ -193,6 +219,11 @@ Transpose::Transpose(std::vector<int32_t>&& axes, StoreTransformP&& parent)
 {
 }
 
+int32_t Transpose::getTransformCode() const
+{
+    return LEGATE_CORE_TRANSFORM_TRANSPOSE;
+}
+
 Domain Transpose::transform(const Domain& input) const
 {
   auto transpose = [](const auto& axes, const Domain& input) {
@@ -244,6 +275,11 @@ Delinearize::Delinearize(int32_t dim, std::vector<int64_t>&& sizes, StoreTransfo
   for (int32_t dim = sizes_.size() - 2; dim >= 0; --dim)
     strides_[dim] = strides_[dim + 1] * sizes_[dim + 1];
   for (auto size : sizes_) volume_ *= size;
+}
+
+int32_t Delinearize::getTransformCode() const
+{
+    return LEGATE_CORE_TRANSFORM_DELINEARIZE;
 }
 
 Domain Delinearize::transform(const Domain& input) const
