@@ -859,7 +859,7 @@ class Runtime(object):
         # to be dispatched. This list allows cross library introspection for
         # Legate operations.
         self._outstanding_ops = []
-        self._window_size =1
+        self._window_size =10
 
         # Now we initialize managers
         self._attachment_manager = AttachmentManager(self)
@@ -1006,10 +1006,11 @@ class Runtime(object):
         fusion_metadata = FusionMetadata(*meta_arrs)
 
         #inst, oust, offst, offs = map(npo.array, (input_starts, output_starts, offset_starts, offsets))
-        meta_arrs_np =  map(npo.array, meta_arrs)
+        #meta_arrs_np =  map(npo.array, meta_arrs)
         def make_deferred(inst):
             return numpy_runtime.find_or_create_array_thunk(inst, stacklevel=0, defer=True) 
-        meta_maps = map(make_deferred, meta_arrs_np)
+        #meta_maps = map(make_deferred, meta_arrs_np)
+        meta_maps=None
         return meta_maps, fusion_metadata
    
 
