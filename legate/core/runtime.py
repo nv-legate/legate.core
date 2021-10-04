@@ -794,10 +794,11 @@ class IdenticalProjection(FusionConstraint):
         # for each buffer, check all it's associated transforms/partitions
         # across ops are equivalent 
         for store, matrices in store_to_ops.items():
-            if len(matrices)>1:
-                allEqual = reduce(lambda x,y: x==y, matrices)
-                if not allEqual:
-                    return False
+            if len(matrices)>1: 
+                first = matrices[0]
+                for matrix in matrices:
+                    if not (matrix==first).all():
+                        return False
         return True
 
 

@@ -5,6 +5,7 @@
 #include "data/store.h"
 #include "data/scalar.h"
 #include "data/transform.h"
+#include <map>
 
 namespace legate {
 
@@ -18,10 +19,14 @@ class MakeshiftSerializer{
         raw.resize(size); 
         write_offset=0;
         read_offset=0;
+        buffer_counter=0;
     }
     void zero(){
         //memset ((void*)raw.data(),0,raw.size());
         write_offset=0;
+        buffer_counter=0;
+        neededReqIds.clear();
+        regionReqIdMap.clear();
     }
 /*
     template <typename T> void pack(T&& arg) 
@@ -103,11 +108,45 @@ class MakeshiftSerializer{
     int buffSize(){
         return write_offset;
     }
+
+    int32_t returnAndIncrCounter(){
+        int32_t old = buffer_counter;
+        buffer_counter++;
+        return old;
+    }
+    
+    //map old reqIdx to new reqIdx
+    void addReqID(int32_t id){
+        //register the region reqID if it hasn't been seen yet for this op
+        if (regionReqIdMap.find(id)==regionReqIdMap.end())
+        {
+            regionReqIdMap.insert(std::pair<int32_t, int32_t>(id, returnAndIncrCounter()));
+            neededReqIds.push_back(id);
+        }
+    }
+
+    int32_t getNewReqID(int32_t oldID)
+    {
+        return regionReqIdMap.find(oldID)->second;
+    }
+
+    std::vector<int32_t> getReqIds (){
+        //could use move semantics here
+        std::vector<int32_t> reqIdsCopy(neededReqIds);
+        return reqIdsCopy;
+    } 
+
     private: 
     size_t size;
     int read_offset;
     int write_offset;
+    int buffer_counter;
     std::vector<int8_t> raw;
+
+    private:
+    std::map<int32_t, int32_t> regionReqIdMap; //maps old reqids to new ones
+    std::vector<int32_t> neededReqIds; //list of old reqIds needed in child op
+
 };
 /*
 int main(){

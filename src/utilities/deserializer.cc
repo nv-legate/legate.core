@@ -140,7 +140,6 @@ void Deserializer::_unpack(RegionField& value)
   auto dim = unpack<int32_t>();
   auto idx = unpack<uint32_t>();
   auto fid = unpack<int32_t>();
-
   value = RegionField(dim, regions_[idx], fid, idx);
 }
 

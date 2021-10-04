@@ -138,6 +138,7 @@ class RegionField {
   template <int32_t DIM>
   Legion::Rect<DIM> shape() const;
   Legion::Domain domain() const;
+  unsigned getReqIdx() const {return reqIdx_; }
 
  public:
   bool is_readable() const { return readable_; }
@@ -271,6 +272,7 @@ class Store {
   template <int32_t DIM>
   Legion::Rect<DIM> shape() const;
   Legion::Domain domain() const;
+  unsigned getReqIdx() const {return region_field_.getReqIdx(); }
 
  public:
   bool is_readable() const { return readable_; }

@@ -113,7 +113,9 @@ namespace legate{
                 //pack dim
                 pack((int32_t) buffer.region_field_.dim()); 
                 //pack idx (req idx) //need to map regions to idx
-                pack((uint32_t) buffer.region_field_.reqIdx_); 
+                unsigned newID = getNewReqID(buffer.region_field_.reqIdx_);
+                //pack((uint32_t) buffer.region_field_.reqIdx_); 
+                pack((uint32_t) newID); 
                 //pack fid (field id)
                 pack((int32_t) buffer.region_field_.fid_); 
         }
@@ -125,7 +127,8 @@ namespace legate{
                 //pack dim; always 1 in an buffer
                 pack((int32_t) 1); 
                 //pack idx (req idx) //need to map regions to idx
-                pack((uint32_t) buffer.region_field_.reqIdx_); 
+                unsigned newID = getNewReqID(buffer.region_field_.reqIdx_);
+                pack((uint32_t) newID); 
                 //pack fid (field id)
                 pack((int32_t) buffer.region_field_.fid_); 
         }   
