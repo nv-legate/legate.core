@@ -133,10 +133,13 @@ GEN_SRC		?=
 GEN_CPU_SRC	?=
 GEN_CPU_SRC	+= $(GEN_SRC)
 
+GEN_CPU_DEPS	:= $(GEN_CPU_SRC:.cc=.cc.d)
 GEN_CPU_OBJS	:= $(GEN_CPU_SRC:.cc=.cc.o)
 ifeq ($(strip $(USE_CUDA)),1)
+GEN_GPU_DEPS	:= $(GEN_GPU_SRC:.cu=.cu.d)
 GEN_GPU_OBJS	:= $(GEN_GPU_SRC:.cu=.cu.o)
 else
+GEN_GPU_DEPS	:=
 GEN_GPU_OBJS	:=
 endif
 
@@ -196,14 +199,18 @@ $(DLIB) : $(GEN_CPU_OBJS) $(GEN_GPU_OBJS)
 	@echo "---> Linking objects into one library: $(DLIB)"
 	$(CXX) -o $(DLIB) $^ $(LD_FLAGS)
 
+-include $(GEN_CPU_DEPS)
+
 $(GEN_CPU_OBJS) : %.cc.o : %.cc $(LEGION_DEFINES_HEADER) $(REALM_DEFINES_HEADER)
-	$(CXX) -o $@ -c $< $(INC_FLAGS) $(OMP_FLAGS) $(CC_FLAGS)
+	$(CXX) -MMD -MP -MF $<.d -o $@ -c $< $(INC_FLAGS) $(OMP_FLAGS) $(CC_FLAGS)
+
+-include $(GEN_GPU_DEPS)
 
 $(GEN_GPU_OBJS) : %.cu.o : %.cu $(LEGION_DEFINES_HEADER) $(REALM_DEFINES_HEADER)
-	$(NVCC) -o $@ -c $< $(INC_FLAGS) $(NVCC_FLAGS)
+	$(NVCC) -MMD -MP -MF $<.d -o $@ -c $< $(INC_FLAGS) $(NVCC_FLAGS)
 
 clean:
-	$(RM) -f $(DLIB) $(GEN_CPU_OBJS) $(GEN_GPU_OBJS)
+	$(RM) -f $(DLIB) $(GEN_CPU_DEPS) $(GEN_CPU_OBJS) $(GEN_GPU_DEPS) $(GEN_GPU_OBJS)
 
 # disable gmake's default rule for building % from %.o
 % : %.o

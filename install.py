@@ -716,7 +716,7 @@ def install(
         openmp,
         spy,
         gasnet,
-        True,
+        clean_first,
         thread_count,
         verbose,
         unknown,
