@@ -22,6 +22,12 @@ using namespace Legion;
 
 using StoreTransformP = std::shared_ptr<StoreTransform>;
 
+std::ostream& operator<<(std::ostream& out, const StoreTransform& transform)
+{
+  transform.print(out);
+  return out;
+}
+
 DomainAffineTransform combine(const DomainAffineTransform& lhs, const DomainAffineTransform& rhs)
 {
   DomainAffineTransform result;
@@ -72,6 +78,17 @@ DomainAffineTransform Shift::inverse_transform(int32_t in_dim) const
     return combine(parent, result);
   } else
     return result;
+}
+
+void Shift::print(std::ostream& out) const
+{
+  out << "Shift(";
+  out << "dim: " << dim_ << ", ";
+  out << "offset: " << offset_ << ")";
+  if (parent_ != nullptr) {
+    out << " . ";
+    parent_->print(out);
+  }
 }
 
 Promote::Promote(int32_t extra_dim, int64_t dim_size, StoreTransformP parent)
@@ -131,6 +148,17 @@ DomainAffineTransform Promote::inverse_transform(int32_t in_dim) const
     return result;
 }
 
+void Promote::print(std::ostream& out) const
+{
+  out << "Promote(";
+  out << "extra_dim: " << extra_dim_ << ", ";
+  out << "dim_size: " << dim_size_ << ")";
+  if (parent_ != nullptr) {
+    out << " . ";
+    parent_->print(out);
+  }
+}
+
 Project::Project(int32_t dim, int64_t coord, StoreTransformP parent)
   : StoreTransform(std::forward<StoreTransformP>(parent)), dim_(dim), coord_(coord)
 {
@@ -188,6 +216,17 @@ DomainAffineTransform Project::inverse_transform(int32_t in_dim) const
     return result;
 }
 
+void Project::print(std::ostream& out) const
+{
+  out << "Project(";
+  out << "dim: " << dim_ << ", ";
+  out << "coord: " << coord_ << ")";
+  if (parent_ != nullptr) {
+    out << " . ";
+    parent_->print(out);
+  }
+}
+
 Transpose::Transpose(std::vector<int32_t>&& axes, StoreTransformP parent)
   : StoreTransform(std::forward<StoreTransformP>(parent)), axes_(std::move(axes))
 {
@@ -232,6 +271,36 @@ DomainAffineTransform Transpose::inverse_transform(int32_t in_dim) const
     return combine(parent, result);
   } else
     return result;
+}
+
+namespace {  // anonymous
+template <typename T>
+void print_vector(std::ostream& out, const std::vector<T>& vec)
+{
+  bool past_first = false;
+  out << "[";
+  for (const T& val : vec) {
+    if (past_first) {
+      out << ", ";
+    } else {
+      past_first = true;
+    }
+    out << val;
+  }
+  out << "]";
+}
+}  // anonymous namespace
+
+void Transpose::print(std::ostream& out) const
+{
+  out << "Transpose(";
+  out << "axes: ";
+  print_vector(out, axes_);
+  out << ")";
+  if (parent_ != nullptr) {
+    out << " . ";
+    parent_->print(out);
+  }
 }
 
 Delinearize::Delinearize(int32_t dim, std::vector<int64_t>&& sizes, StoreTransformP parent)
@@ -303,6 +372,19 @@ DomainAffineTransform Delinearize::inverse_transform(int32_t in_dim) const
     return combine(parent, result);
   } else
     return result;
+}
+
+void Delinearize::print(std::ostream& out) const
+{
+  out << "Delinearize(";
+  out << "dim: " << dim_ << ", ";
+  out << "sizes: ";
+  print_vector(out, sizes_);
+  out << ")";
+  if (parent_ != nullptr) {
+    out << " . ";
+    parent_->print(out);
+  }
 }
 
 }  // namespace legate

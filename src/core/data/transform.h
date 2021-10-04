@@ -31,10 +31,13 @@ class StoreTransform {
  public:
   virtual Legion::Domain transform(const Legion::Domain& input) const           = 0;
   virtual Legion::DomainAffineTransform inverse_transform(int32_t in_dim) const = 0;
+  virtual void print(std::ostream& out) const                                   = 0;
 
  protected:
   std::shared_ptr<StoreTransform> parent_{nullptr};
 };
+
+std::ostream& operator<<(std::ostream& out, const StoreTransform& transform);
 
 class Shift : public StoreTransform {
  public:
@@ -44,6 +47,7 @@ class Shift : public StoreTransform {
  public:
   virtual Legion::Domain transform(const Legion::Domain& input) const override;
   virtual Legion::DomainAffineTransform inverse_transform(int32_t in_dim) const override;
+  virtual void print(std::ostream& out) const override;
 
  private:
   int32_t dim_;
@@ -58,6 +62,7 @@ class Promote : public StoreTransform {
  public:
   virtual Legion::Domain transform(const Legion::Domain& input) const override;
   virtual Legion::DomainAffineTransform inverse_transform(int32_t in_dim) const override;
+  virtual void print(std::ostream& out) const override;
 
  private:
   int32_t extra_dim_;
@@ -72,6 +77,7 @@ class Project : public StoreTransform {
  public:
   virtual Legion::Domain transform(const Legion::Domain& domain) const override;
   virtual Legion::DomainAffineTransform inverse_transform(int32_t in_dim) const override;
+  virtual void print(std::ostream& out) const override;
 
  private:
   int32_t dim_;
@@ -86,6 +92,7 @@ class Transpose : public StoreTransform {
  public:
   virtual Legion::Domain transform(const Legion::Domain& domain) const override;
   virtual Legion::DomainAffineTransform inverse_transform(int32_t in_dim) const override;
+  virtual void print(std::ostream& out) const override;
 
  private:
   std::vector<int32_t> axes_;
@@ -101,6 +108,7 @@ class Delinearize : public StoreTransform {
  public:
   virtual Legion::Domain transform(const Legion::Domain& domain) const override;
   virtual Legion::DomainAffineTransform inverse_transform(int32_t in_dim) const override;
+  virtual void print(std::ostream& out) const override;
 
  private:
   int32_t dim_;
