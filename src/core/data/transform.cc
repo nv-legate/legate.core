@@ -198,8 +198,8 @@ Domain Transpose::transform(const Domain& input) const
   auto transpose = [](const auto& axes, const Domain& input) {
     Domain output;
     output.dim = input.dim;
-    for (int32_t in_dim = 0; in_dim < input.dim; ++in_dim) {
-      auto out_dim                           = axes[in_dim];
+    for (int32_t out_dim = 0; out_dim < output.dim; ++out_dim) {
+      auto in_dim                            = axes[out_dim];
       output.rect_data[out_dim]              = input.rect_data[in_dim];
       output.rect_data[out_dim + output.dim] = input.rect_data[in_dim + input.dim];
     }
@@ -217,7 +217,7 @@ DomainAffineTransform Transpose::inverse_transform(int32_t in_dim) const
   for (int32_t i = 0; i < in_dim; ++i)
     for (int32_t j = 0; j < in_dim; ++j) transform.matrix[i * in_dim + j] = 0;
 
-  for (int32_t i = 0, j = 0; i < in_dim; ++i) transform.matrix[i * in_dim + axes_[i]] = 1;
+  for (int32_t j = 0; j < in_dim; ++j) transform.matrix[axes_[j] * in_dim + j] = 1;
 
   DomainPoint offset;
   offset.dim = in_dim;
