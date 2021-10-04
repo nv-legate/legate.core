@@ -39,12 +39,6 @@ GEN_CPU_SRC	+= core/gpu/cudalibs.cc
 endif
 
 # Header files that we need to have installed for client legate libraries
-INSTALL_PATHS = core/data      \
-								core/mapping   \
-								core/runtime   \
-								core/task      \
-								core/utilities
-
 INSTALL_HEADERS = legate.h                        \
 									legate_defines.h                \
 									legate_preamble.h               \

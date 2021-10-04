@@ -165,30 +165,25 @@ endif
 
 .PHONY: all
 all: $(DLIB)
+
 .PHONY: install
 ifdef PREFIX
-INSTALL_PATHS ?=
 INSTALL_HEADERS ?=
-ifneq ($(strip $(BOOTSTRAP)), 1)
-install: $(DLIB)
-	@echo "Installing $(DLIB) into $(PREFIX)..."
-	@mkdir -p $(PREFIX)/include
-	@$(foreach path,$(INSTALL_PATHS),mkdir -p $(PREFIX)/include/$(path);)
-	@$(foreach file,$(INSTALL_HEADERS),cp $(file) $(PREFIX)/include/$(file);)
-	@mkdir -p $(PREFIX)/lib
-	@cp $(DLIB) $(PREFIX)/lib/$(DLIB)
-	@echo "Installation complete"
-else
-install: $(DLIB)
-	@echo "Installing $(DLIB) into $(PREFIX)..."
-	@mkdir -p $(PREFIX)/include
-	@$(foreach path,$(INSTALL_PATHS),mkdir -p $(PREFIX)/include/$(path);)
-	@$(foreach file,$(INSTALL_HEADERS),cp $(file) $(PREFIX)/include/$(file);)
-	@mkdir -p $(PREFIX)/lib
-	@cp $(DLIB) $(PREFIX)/lib/$(DLIB)
-	@mkdir -p $(PREFIX)/share/legate
-	@cp legate.mk $(PREFIX)/share/legate
-	@echo "Installation complete"
+install: $(PREFIX)/lib/$(DLIB) $(addprefix $(PREFIX)/include/,$(INSTALL_HEADERS))
+$(PREFIX)/include/%.h: %.h
+	mkdir -p $(dir $@)
+	cp $< $@
+$(PREFIX)/include/%.inl: %.inl
+	mkdir -p $(dir $@)
+	cp $< $@
+$(PREFIX)/lib/$(DLIB): $(DLIB)
+	mkdir -p $(dir $@)
+	cp $< $@
+ifeq ($(strip $(BOOTSTRAP)), 1)
+install: $(PREFIX)/share/legate/legate.mk # in addition to items above
+$(PREFIX)/share/legate/legate.mk: legate.mk
+	mkdir -p $(dir $@)
+	cp $< $@
 endif
 else
 install:
