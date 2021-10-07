@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <functional>
 #include <memory>
 
 #include "legion.h"
@@ -269,9 +270,8 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
   bool map_legate_store(const Legion::Mapping::MapperContext ctx,
                         const Legion::Mappable& mappable,
                         const StoreMapping& mapping,
-                        const Legion::RegionRequirement& req,
+                        std::vector<std::reference_wrapper<const Legion::RegionRequirement>> reqs,
                         Legion::Processor target_proc,
-                        const std::vector<Legion::Mapping::PhysicalInstance>& valid,
                         Legion::Mapping::PhysicalInstance& result);
   bool map_raw_array(const Legion::Mapping::MapperContext ctx,
                      const Legion::Mappable& mappable,
