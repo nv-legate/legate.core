@@ -19,6 +19,70 @@ from .shape import Shape
 from .utils import OrderedSet
 
 
+class Expr(object):
+    def __eq__(self, rhs):
+        return Alignment(self, rhs)
+
+    def __le__(self, rhs):
+        return Containment(self, rhs)
+
+    def __add__(self, offset):
+        if not isinstance(offset, tuple):
+            raise ValueError("Offset must be a tuple")
+        elif self.ndim != len(offset):
+            raise ValueError("Dimensions don't match")
+        return Translate(self, offset)
+
+
+class PartSym(Expr):
+    def __init__(self, op, store, id):
+        self._op = op
+        self._store = store
+        self._id = id
+
+    @property
+    def ndim(self):
+        return self._store.ndim
+
+    def __repr__(self):
+        return f"x{self._id}@{self._op.get_name()}"
+
+
+class Translate(Expr):
+    def __init__(self, expr, offset):
+        self._expr = expr
+        self._offset = offset
+
+    @property
+    def ndim(self):
+        return len(self._offset)
+
+    def __repr__(self):
+        return f"{self._expr} + {self._offset}"
+
+
+class Constraint(object):
+    pass
+
+
+class Alignment(Constraint):
+    def __init__(self, lhs, rhs):
+        self._lhs = lhs
+        self._rhs = rhs
+
+    def __repr__(self):
+        return f"{self._lhs} == {self._rhs}"
+
+
+class Containment(Constraint):
+    def __init__(self, lhs, rhs):
+        self._lhs = lhs
+        self._rhs = rhs
+
+    def __repr__(self):
+        return f"{self._lhs} <= {self._rhs}"
+
+
 class EqClass(object):
     def __init__(self):
         # Maps a store to the equivalent class id
