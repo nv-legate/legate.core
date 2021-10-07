@@ -15,8 +15,8 @@
 
 import legate.core.types as ty
 
+from .constraints import PartSym
 from .launcher import CopyLauncher, TaskLauncher
-from .solver import EqClass, PartSym
 from .store import Store
 from .utils import OrderedSet
 
@@ -34,11 +34,9 @@ class Operation(object):
         self._reduction_parts = []
         self._scalar_outputs = []
         self._scalar_reductions = []
-        self._constraints = EqClass()
-        self._broadcasts = OrderedSet()
         self._partitions = {}
-        self._all_constraints = []
-        self._next_symbol_id = 0
+        self._constraints = []
+        self._all_parts = []
 
     @property
     def context(self):
@@ -73,8 +71,8 @@ class Operation(object):
         return self._constraints
 
     @property
-    def broadcasts(self):
-        return self._broadcasts
+    def all_unknowns(self):
+        return self._all_parts
 
     def get_all_stores(self):
         stores = (
@@ -112,7 +110,7 @@ class Operation(object):
         self._check_store(store)
         if store.scalar:
             self._scalar_outputs.append(len(self._outputs))
-        elif partition is None:
+        if partition is None:
             partition = self._get_unique_partition(store)
         self._outputs.append(store)
         self._output_parts.append(partition)
@@ -121,7 +119,7 @@ class Operation(object):
         self._check_store(store)
         if store.scalar:
             self._scalar_reductions.append(len(self._reductions))
-        elif partition is None:
+        if partition is None:
             partition = self._get_unique_partition(store)
         self._reductions.append((store, redop))
         self._reduction_parts.append(partition)
@@ -134,34 +132,43 @@ class Operation(object):
                 "Stores must have the same shape to be aligned, "
                 f"but got {store1.shape} and {store2.shape}"
             )
-        self._constraints.record(store1, store2)
+        part1 = self._get_unique_partition(store1)
+        part2 = self._get_unique_partition(store2)
+        self.add_constraint(part1 == part2)
 
     def add_broadcast(self, store):
-        self._broadcasts.add(store)
+        self._check_store(store)
+        part = self._get_unique_partition(store)
+        self.add_constraint(part.broadcast())
 
     def add_constraint(self, constraint):
-        self._all_constraints.append(constraint)
+        self._constraints.append(constraint)
 
     def execute(self):
         self._context.runtime.submit(self)
 
-    def get_tag(self, strategy, store):
-        if strategy.is_key_store(store):
+    def get_tag(self, strategy, part):
+        if strategy.is_key_part(part):
             return 1  # LEGATE_CORE_KEY_STORE_TAG
         else:
             return 0
 
     def _get_symbol_id(self):
-        id = self._next_symbol_id
-        self._next_symbol_id += 1
-        return id
+        return len(self._all_parts)
 
-    def declare_partition(self, store):
-        sym = PartSym(self, store, self._get_symbol_id())
+    def declare_partition(self, store, disjoint=True, complete=True):
+        sym = PartSym(
+            self,
+            store,
+            self._get_symbol_id(),
+            disjoint=disjoint,
+            complete=complete,
+        )
         if store not in self._partitions:
             self._partitions[store] = [sym]
         else:
             self._partitions[store].append(sym)
+        self._all_parts.append(sym)
         return sym
 
 
@@ -189,32 +196,34 @@ class Task(Operation):
     def launch(self, strategy):
         launcher = TaskLauncher(self.context, self._task_id, self.mapper_id)
 
-        for input in self._inputs:
-            proj = strategy.get_projection(input)
-            tag = self.get_tag(strategy, input)
+        for input, input_part in zip(self._inputs, self._input_parts):
+            proj = strategy.get_projection(input_part)
+            tag = self.get_tag(strategy, input_part)
             launcher.add_input(input, proj, tag=tag)
-        for output in self._outputs:
+        for output, output_part in zip(self._outputs, self._output_parts):
             if output.unbound:
                 continue
-            proj = strategy.get_projection(output)
-            tag = self.get_tag(strategy, output)
+            proj = strategy.get_projection(output_part)
+            tag = self.get_tag(strategy, output_part)
             launcher.add_output(output, proj, tag=tag)
-            partition = strategy.get_partition(output)
+            partition = strategy.get_partition(output_part)
             # We update the key partition of a store only when it gets updated
             output.set_key_partition(partition)
-        for (reduction, redop) in self._reductions:
-            partition = strategy.get_partition(reduction)
+        for ((reduction, redop), reduction_part) in zip(
+            self._reductions, self._reduction_parts
+        ):
+            partition = strategy.get_partition(reduction_part)
             can_read_write = partition.is_disjoint_for(strategy, reduction)
-            proj = strategy.get_projection(reduction)
+            proj = strategy.get_projection(reduction_part)
             proj.redop = reduction.type.reduction_op_id(redop)
             tag = self.get_tag(strategy, reduction)
             launcher.add_reduction(
                 reduction, proj, tag=tag, read_write=can_read_write
             )
-        for output in self._outputs:
+        for (output, output_part) in zip(self._outputs, self._output_parts):
             if not output.unbound:
                 continue
-            fspace = strategy.get_field_space(output)
+            fspace = strategy.get_field_space(output_part)
             field_id = fspace.allocate_field(output.type)
             launcher.add_unbound_output(output, fspace, field_id)
 
