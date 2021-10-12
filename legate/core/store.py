@@ -122,6 +122,7 @@ class RegionField(object):
             else:
                 self.detach_external_allocation(unordered=False)
         # Now we can attach the new one and then do the acquire
+        self.attachment_manager.attach_external_allocation(alloc, self)
         attach = Attach(
             self.region,
             self.field.field_id,
@@ -365,6 +366,7 @@ class Store(object):
         """
         assert isinstance(shape, Shape) or shape is None
         self._runtime = runtime
+        self._attachment_manager = runtime.attachment_manager
         self._partition_manager = runtime.partition_manager
         self._shape = shape
         self._dtype = dtype
@@ -470,6 +472,29 @@ class Store(object):
     @property
     def has_storage(self):
         return self._storage is not None
+
+    def attach_external_allocation(self, context, alloc, share):
+        if self._parent is not None:
+            raise ValueError("Can only attach buffers to top-level Stores")
+        if self._kind is not RegionField:
+            raise ValueError(
+                "Can only attach buffers to RegionField-backed Stores"
+            )
+        if self.unbound:
+            raise ValueError("Cannot attach buffers to variable-size stores")
+        # If the storage has not been set, and this is not a temporary
+        # attachment, we can reuse an existing RegionField that was previously
+        # attached to this buffer.
+        # This is the only situation where we can attach the same buffer to
+        # two Stores, since they are both backed by the same RegionField.
+        if self._storage is None and share:
+            self._storage = self._attachment_manager.reuse_existing_attachment(
+                alloc, self.shape
+            )
+            if self._storage is not None:
+                return
+        # Force the RegionField to be instantiated, do the attachment normally
+        self.storage.attach_external_allocation(context, alloc, share)
 
     def get_root(self):
         if self._parent is None:

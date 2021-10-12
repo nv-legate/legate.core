@@ -195,13 +195,3 @@ class Context(object):
             storage=storage,
             optimize_scalar=optimize_scalar,
         )
-
-    def attach_external_allocation(self, alloc, shape, ty, share):
-        dtype = self.type_system[ty]
-        return self._runtime.attach_external_allocation(
-            self,
-            alloc,
-            shape,
-            dtype,
-            share,
-        )
