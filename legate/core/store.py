@@ -162,7 +162,7 @@ class RegionField(object):
         detach = self.attachment_manager.remove_detachment(self.detach_key)
         detach.unordered = unordered
         self.attachment_manager.detach_external_allocation(
-            self.attached_alloc, self.field, detach, defer
+            self.attached_alloc, detach, defer
         )
         self.physical_region = None
         self.physical_region_mapped = False
@@ -489,7 +489,7 @@ class Store(object):
         # two Stores, since they are both backed by the same RegionField.
         if self._storage is None and share:
             self._storage = self._attachment_manager.reuse_existing_attachment(
-                alloc, self.shape
+                alloc
             )
             if self._storage is not None:
                 return
