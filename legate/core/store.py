@@ -131,9 +131,7 @@ class RegionField(object):
         # If we're not sharing then there is no need to map or restrict the
         # attachment
         if not share:
-            # No need for restriction for us
             attach.set_restricted(False)
-            # No need for mapping in the restricted case
             attach.set_mapped(False)
         else:
             self.physical_region_mapped = True
@@ -142,7 +140,9 @@ class RegionField(object):
         # algorithm we make the detach operation for this now and register it
         # with the runtime so that we know that it won't be collected when the
         # RegionField object is collected
-        detach = Detach(self.physical_region, flush=True)
+        # We don't need to flush the contents back to the attached memory if
+        # this is an internal temporary allocation
+        detach = Detach(self.physical_region, flush=share)
         # Dangle these fields off here to prevent premature collection
         detach.field = self.field
         detach.alloc = alloc
