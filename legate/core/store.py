@@ -197,9 +197,9 @@ class RegionField(object):
             return self.parent.get_inline_mapped_region(context)
 
     def decrement_inline_mapped_ref_count(self, unordered=False):
-        if self.physical_region is None:
-            return
         if self.parent is None:
+            if self.physical_region is None:
+                return
             assert self.physical_region_refs > 0
             self.physical_region_refs -= 1
             if self.physical_region_refs == 0:
@@ -209,7 +209,7 @@ class RegionField(object):
                 self.physical_region = None
                 self.physical_region_mapped = False
         else:
-            self.parent.decrement_inline_mapped_ref_count()
+            self.parent.decrement_inline_mapped_ref_count(unordered=unordered)
 
     def get_inline_allocation(self, shape, context=None, transform=None):
         context = self.runtime.context if context is None else context
