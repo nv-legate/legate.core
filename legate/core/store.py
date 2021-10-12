@@ -115,8 +115,7 @@ class RegionField(object):
 
     def attach_external_allocation(self, context, alloc, share):
         assert self.parent is None
-        # If we already have a numpy array attached
-        # then we have to detach it first
+        # If we already have some memory attached, detach it first
         if self.attached_alloc is not None:
             if self.attached_alloc == alloc:
                 return

@@ -395,8 +395,8 @@ class AttachmentManager(object):
     def attachment_key(alloc):
         return (alloc.address, alloc.memoryview.nbytes)
 
-    def has_attachment(self, array):
-        key = self.attachment_key(array)
+    def has_attachment(self, alloc):
+        key = self.attachment_key(alloc)
         return key in self._attachments
 
     def attach_external_allocation(self, context, alloc, shape, dtype, share):
@@ -413,7 +413,7 @@ class AttachmentManager(object):
                 if other.overlaps(attachment):
                     assert not other.equals(attachment)
                     raise RuntimeError(
-                        "Illegal aliased attachments not supported by Legate"
+                        "Aliased attachments not supported by Legate"
                     )
 
             self._attachments[key] = attachment
@@ -443,7 +443,7 @@ class AttachmentManager(object):
         # Dangle a reference to the field off the future to prevent the
         # field from being recycled until the detach is done
         future.field_reference = field
-        # We also need to tell the core legate library that this array
+        # We also need to tell the core legate library that this buffer
         # is no longer attached
         self.remove_attachment(alloc)
         # If the future is already ready, then no need to track it
@@ -1015,7 +1015,7 @@ class Runtime(object):
     def attach_external_allocation(self, context, alloc, shape, dtype, share):
         if not isinstance(alloc, ExternalAllocation):
             raise ValueError(
-                "Only an ExternalAllocation object can be attached, but got"
+                "Only an ExternalAllocation object can be attached, but got "
                 f"{alloc}"
             )
         if shape is not None and not isinstance(shape, Shape):
@@ -1028,8 +1028,8 @@ class Runtime(object):
             share,
         )
 
-    def has_attachment(self, array):
-        return self._attachment_manager.has_attachment(array)
+    def has_attachment(self, alloc):
+        return self._attachment_manager.has_attachment(alloc)
 
     def find_or_create_index_space(self, bounds):
         if bounds in self.index_spaces:
