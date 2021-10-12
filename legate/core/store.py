@@ -488,6 +488,8 @@ class Store(object):
         if self._shape is None:
             assert isinstance(storage, RegionField)
             self._shape = storage.shape
+        else:
+            assert isinstance(storage, Future)
 
     def invert_partition(self, partition):
         if self._parent is not None:
