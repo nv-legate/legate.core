@@ -314,26 +314,6 @@ class FieldManager(object):
                 self.freed_fields.append((region, field_id))
 
 
-class ExternalAllocation(object):
-    """
-    Any external allocation that a client library wants to attach to
-    a Legate store must be wrapped by an instance of the ExternalAllocation
-    interface. Legate uses this custom interface instead of Python's
-    memoryview interface because it needs to know the exact starting
-    address of the allocation for the alias analysis; an external
-    allocation attached to more than one Legate store can lead to
-    all sorts of undefined behaviors.
-    """
-
-    @property
-    def address(self):
-        raise NotImplementedError("Should be implemented by a subclass")
-
-    @property
-    def memoryview(self):
-        raise NotImplementedError("Should be implemented by a subclass")
-
-
 class Attachment(object):
     def __init__(self, ptr, extent, region_field):
         self.ptr = ptr
