@@ -117,10 +117,7 @@ class RegionField(object):
         assert self.parent is None
         # If we already have some memory attached, detach it first
         if self.attached_alloc is not None:
-            if self.attached_alloc == alloc:
-                return
-            else:
-                self.detach_external_allocation(unordered=False)
+            return RuntimeError("A RegionField cannot be re-attached")
         # Now we can attach the new one and then do the acquire
         self.attachment_manager.attach_external_allocation(alloc, self)
         attach = Attach(
