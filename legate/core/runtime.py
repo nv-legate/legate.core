@@ -355,7 +355,8 @@ class AttachmentManager(object):
 
     @staticmethod
     def attachment_key(alloc):
-        return (alloc.address, alloc.memoryview.nbytes)
+        base_ptr = int(ffi.cast("uintptr_t", ffi.from_buffer(alloc)))
+        return (base_ptr, alloc.nbytes)
 
     def has_attachment(self, alloc):
         key = self.attachment_key(alloc)

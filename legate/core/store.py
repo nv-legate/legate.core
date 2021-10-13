@@ -29,26 +29,6 @@ from .transform import (
 )
 
 
-class ExternalAllocation(object):
-    """
-    Any external allocation that a client library wants to attach to
-    a Legate store must be wrapped by an instance of the ExternalAllocation
-    interface. Legate uses this custom interface instead of Python's
-    memoryview interface because it needs to know the exact starting
-    address of the allocation for the alias analysis; an external
-    allocation attached to more than one Legate store can lead to
-    all sorts of undefined behaviors.
-    """
-
-    @property
-    def address(self):
-        raise NotImplementedError("Should be implemented by a subclass")
-
-    @property
-    def memoryview(self):
-        raise NotImplementedError("Should be implemented by a subclass")
-
-
 class InlineMappedAllocation(object):
     """
     This helper class is to tie the lifecycle of the client object to
@@ -146,7 +126,7 @@ class RegionField(object):
         attach = Attach(
             self.region,
             self.field.field_id,
-            alloc.memoryview,
+            alloc,
             mapper=context.mapper_id,
         )
         # If we're not sharing then there is no need to map or restrict the
@@ -494,10 +474,9 @@ class Store(object):
         return self._storage is not None
 
     def attach_external_allocation(self, context, alloc, share):
-        if not isinstance(alloc, ExternalAllocation):
+        if not isinstance(alloc, memoryview):
             raise ValueError(
-                "Only an ExternalAllocation object can be attached, but got "
-                f"{alloc}"
+                f"Only a memoryview object can be attached, but got {alloc}"
             )
         if self._parent is not None:
             raise ValueError("Can only attach buffers to top-level Stores")
