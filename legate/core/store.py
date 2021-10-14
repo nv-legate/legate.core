@@ -29,6 +29,26 @@ from .transform import (
 )
 
 
+class ExternalAllocation(object):
+    """
+    Any external allocation that a client library wants to attach to
+    a Legate store must be wrapped by an instance of the ExternalAllocation
+    interface. Legate uses this custom interface instead of Python's
+    memoryview interface because it needs to know the exact starting
+    address of the allocation for the alias analysis; an external
+    allocation attached to more than one Legate store can lead to
+    all sorts of undefined behaviors.
+    """
+
+    @property
+    def address(self):
+        raise NotImplementedError("Should be implemented by a subclass")
+
+    @property
+    def memoryview(self):
+        raise NotImplementedError("Should be implemented by a subclass")
+
+
 class InlineMappedAllocation(object):
     """
     This helper class is to tie the lifecycle of the client object to
@@ -115,14 +135,14 @@ class RegionField(object):
 
     def attach_external_allocation(self, context, alloc, share):
         assert self.parent is None
-        # If we already have a numpy array attached
-        # then we have to detach it first
+        # If we already have some memory attached, detach it first
         if self.attached_alloc is not None:
             if self.attached_alloc == alloc:
                 return
             else:
                 self.detach_external_allocation(unordered=False)
         # Now we can attach the new one and then do the acquire
+        self.attachment_manager.attach_external_allocation(alloc, self)
         attach = Attach(
             self.region,
             self.field.field_id,
@@ -132,9 +152,7 @@ class RegionField(object):
         # If we're not sharing then there is no need to map or restrict the
         # attachment
         if not share:
-            # No need for restriction for us
             attach.set_restricted(False)
-            # No need for mapping in the restricted case
             attach.set_mapped(False)
         else:
             self.physical_region_mapped = True
@@ -143,7 +161,9 @@ class RegionField(object):
         # algorithm we make the detach operation for this now and register it
         # with the runtime so that we know that it won't be collected when the
         # RegionField object is collected
-        detach = Detach(self.physical_region, flush=True)
+        # We don't need to flush the contents back to the attached memory if
+        # this is an internal temporary allocation
+        detach = Detach(self.physical_region, flush=share)
         # Dangle these fields off here to prevent premature collection
         detach.field = self.field
         detach.alloc = alloc
@@ -162,7 +182,7 @@ class RegionField(object):
         detach = self.attachment_manager.remove_detachment(self.detach_key)
         detach.unordered = unordered
         self.attachment_manager.detach_external_allocation(
-            self.attached_alloc, self.field, detach, defer
+            self.attached_alloc, detach, defer
         )
         self.physical_region = None
         self.physical_region_mapped = False
@@ -197,9 +217,9 @@ class RegionField(object):
             return self.parent.get_inline_mapped_region(context)
 
     def decrement_inline_mapped_ref_count(self, unordered=False):
-        if self.physical_region is None:
-            return
         if self.parent is None:
+            if self.physical_region is None:
+                return
             assert self.physical_region_refs > 0
             self.physical_region_refs -= 1
             if self.physical_region_refs == 0:
@@ -209,7 +229,7 @@ class RegionField(object):
                 self.physical_region = None
                 self.physical_region_mapped = False
         else:
-            self.parent.decrement_inline_mapped_ref_count()
+            self.parent.decrement_inline_mapped_ref_count(unordered=unordered)
 
     def get_inline_allocation(self, shape, context=None, transform=None):
         context = self.runtime.context if context is None else context
@@ -366,6 +386,7 @@ class Store(object):
         """
         assert isinstance(shape, Shape) or shape is None
         self._runtime = runtime
+        self._attachment_manager = runtime.attachment_manager
         self._partition_manager = runtime.partition_manager
         self._shape = shape
         self._dtype = dtype
@@ -472,6 +493,34 @@ class Store(object):
     def has_storage(self):
         return self._storage is not None
 
+    def attach_external_allocation(self, context, alloc, share):
+        if not isinstance(alloc, ExternalAllocation):
+            raise ValueError(
+                "Only an ExternalAllocation object can be attached, but got "
+                f"{alloc}"
+            )
+        if self._parent is not None:
+            raise ValueError("Can only attach buffers to top-level Stores")
+        if self._kind is not RegionField:
+            raise ValueError(
+                "Can only attach buffers to RegionField-backed Stores"
+            )
+        if self.unbound:
+            raise ValueError("Cannot attach buffers to variable-size stores")
+        # If the storage has not been set, and this is not a temporary
+        # attachment, we can reuse an existing RegionField that was previously
+        # attached to this buffer.
+        # This is the only situation where we can attach the same buffer to
+        # two Stores, since they are both backed by the same RegionField.
+        if self._storage is None and share:
+            self._storage = self._attachment_manager.reuse_existing_attachment(
+                alloc
+            )
+            if self._storage is not None:
+                return
+        # Force the RegionField to be instantiated, do the attachment normally
+        self.storage.attach_external_allocation(context, alloc, share)
+
     def get_root(self):
         if self._parent is None:
             return self
@@ -488,6 +537,8 @@ class Store(object):
         if self._shape is None:
             assert isinstance(storage, RegionField)
             self._shape = storage.shape
+        else:
+            assert isinstance(storage, Future)
 
     def invert_partition(self, partition):
         if self._parent is not None:

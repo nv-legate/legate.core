@@ -314,53 +314,15 @@ class FieldManager(object):
                 self.freed_fields.append((region, field_id))
 
 
-class ExternalAllocation(object):
-    """
-    Any external allocation that a client library wants to attach to
-    a Legate store must be wrapped by an instance of the ExternalAllocation
-    interface. Legate uses this custom interface instead of Python's
-    memoryview interface because it needs to know the exact starting
-    address of the allocation for the alias analysis; an external
-    allocation attached to more than one Legate store can lead to
-    all sorts of undefined behaviors.
-    """
-
-    @property
-    def address(self):
-        raise NotImplementedError("Should be implemented by a subclass")
-
-    @property
-    def memoryview(self):
-        raise NotImplementedError("Should be implemented by a subclass")
-
-
 class Attachment(object):
-    def __init__(self, ptr, extent, region, field):
+    def __init__(self, ptr, extent, region_field):
         self.ptr = ptr
         self.extent = extent
         self.end = ptr + extent - 1
-        self.count = 1
-        self.region = region
-        self.field = field
+        self.region_field = region_field
 
     def overlaps(self, other):
         return not (self.end < other.ptr or other.end < self.ptr)
-
-    def equals(self, other):
-        # Sufficient to check the pointer and extent
-        # as they are used as a key for de-duplication
-        return self.ptr == other.ptr and self.extent == other.extent
-
-    def add_reference(self):
-        self.count += 1
-
-    def remove_reference(self):
-        assert self.count > 0
-        self.count += 1
-
-    @property
-    def collectible(self):
-        return self.count == 0
 
 
 class AttachmentManager(object):
@@ -395,57 +357,46 @@ class AttachmentManager(object):
     def attachment_key(alloc):
         return (alloc.address, alloc.memoryview.nbytes)
 
-    def has_attachment(self, array):
-        key = self.attachment_key(array)
+    def has_attachment(self, alloc):
+        key = self.attachment_key(alloc)
         return key in self._attachments
 
-    def attach_external_allocation(self, context, alloc, shape, dtype, share):
+    def reuse_existing_attachment(self, alloc):
         key = self.attachment_key(alloc)
         if key not in self._attachments:
-            region_field = self._runtime.allocate_field(shape, dtype)
-            region_field.attach_external_allocation(context, alloc, share)
-            attachment = Attachment(
-                *key, region_field.region, region_field.field
-            )
-
-            # iterate over attachments and look for aliases which are bad
-            for other in self._attachments.values():
-                if other.overlaps(attachment):
-                    assert not other.equals(attachment)
-                    raise RuntimeError(
-                        "Illegal aliased attachments not supported by Legate"
-                    )
-
-            self._attachments[key] = attachment
-        else:
-            attachment = self._attachments[key]
-            attachment.add_reference()
-            region = attachment.region
-            field = attachment.field
-            region_field = RegionField(self._runtime, region, field, shape)
-        return self._runtime.create_store(dtype, shape, storage=region_field)
-
-    def remove_attachment(self, alloc):
-        key = self.attachment_key(alloc)
-        if key not in self._attachments:
-            raise RuntimeError("Unable to find attachment to remove")
+            return None
         attachment = self._attachments[key]
-        attachment.remove_reference()
-        if attachment.collectible:
-            del self._attachments[key]
+        return attachment.region_field
 
-    def detach_external_allocation(self, alloc, field, detach, defer):
+    def attach_external_allocation(self, alloc, region_field):
+        key = self.attachment_key(alloc)
+        if key in self._attachments:
+            raise RuntimeError(
+                "Cannot attach two different RegionFields to the same buffer"
+            )
+        attachment = Attachment(*key, region_field)
+        for other in self._attachments.values():
+            if other.overlaps(attachment):
+                raise RuntimeError(
+                    "Aliased attachments not supported by Legate"
+                )
+        self._attachments[key] = attachment
+
+    def detach_external_allocation(self, alloc, detach, defer):
         if defer:
             # If we need to defer this until later do that now
-            self._deferred_detachments.append((alloc, field, detach))
+            self._deferred_detachments.append((alloc, detach))
             return
         future = self._runtime.dispatch(detach)
         # Dangle a reference to the field off the future to prevent the
         # field from being recycled until the detach is done
-        future.field_reference = field
-        # We also need to tell the core legate library that this array
+        future.field_reference = detach.field
+        # We also need to tell the core legate library that this buffer
         # is no longer attached
-        self.remove_attachment(alloc)
+        key = self.attachment_key(alloc)
+        if key not in self._attachments:
+            raise RuntimeError("Unable to find attachment to remove")
+        del self._attachments[key]
         # If the future is already ready, then no need to track it
         if future.is_ready():
             return
@@ -465,8 +416,8 @@ class AttachmentManager(object):
     def perform_detachments(self):
         detachments = self._deferred_detachments
         self._deferred_detachments = list()
-        for alloc, field, detach in detachments:
-            self.detach_external_allocation(alloc, field, detach, defer=False)
+        for alloc, detach in detachments:
+            self.detach_external_allocation(alloc, detach, defer=False)
 
     def prune_detachments(self):
         to_remove = []
@@ -1012,24 +963,8 @@ class Runtime(object):
             fields=fields,
         )
 
-    def attach_external_allocation(self, context, alloc, shape, dtype, share):
-        if not isinstance(alloc, ExternalAllocation):
-            raise ValueError(
-                "Only an ExternalAllocation object can be attached, but got"
-                f"{alloc}"
-            )
-        if shape is not None and not isinstance(shape, Shape):
-            shape = Shape(shape)
-        return self._attachment_manager.attach_external_allocation(
-            context,
-            alloc,
-            shape,
-            dtype,
-            share,
-        )
-
-    def has_attachment(self, array):
-        return self._attachment_manager.has_attachment(array)
+    def has_attachment(self, alloc):
+        return self._attachment_manager.has_attachment(alloc)
 
     def find_or_create_index_space(self, bounds):
         if bounds in self.index_spaces:

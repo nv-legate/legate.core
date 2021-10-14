@@ -3767,8 +3767,16 @@ class FutureMap(object):
         for i in xrange(num_futures):
             points[i] = Point([i]).raw()
             futures[i] = futures[i].handle
-        handle = legion.legion_future_map_construct(
-            runtime, context, domain, points, futures, num_futures, False
+        handle = legion.legion_future_map_construct_from_futures(
+            runtime,
+            context,
+            domain,
+            points,
+            futures,
+            num_futures,
+            False,
+            0,
+            False,
         )
         return cls(handle)
 
