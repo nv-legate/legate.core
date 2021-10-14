@@ -128,7 +128,6 @@ def run_legate(
     cores_per_node,
     launcher,
     verbose,
-    interpreter,
     gasnet_trace,
     eager_alloc,
     launcher_extra,
@@ -375,15 +374,13 @@ def run_legate(
     if memcheck:
         cmd += ["cuda-memcheck"]
     # Now we're ready to build the actual command to run
-    # Give the binary name and make sure we always request one python processor
-    if interpreter:
-        binary_dir = os.path.join(legate_dir, "bin")
-        cmd += [os.path.join(binary_dir, "legion_python")]
-        # This has to go before script name
-        if not_control_replicable:
-            cmd += ["--nocr"]
-        if module is not None:
-            cmd += ["-m", str(module)]
+    binary_dir = os.path.join(legate_dir, "bin")
+    cmd += [os.path.join(binary_dir, "legion_python")]
+    # This has to go before script name
+    if not_control_replicable:
+        cmd += ["--nocr"]
+    if module is not None:
+        cmd += ["-m", str(module)]
     # We always need one python processor per node and no local fields per node
     cmd += ["-ll:py", "1", "-lg:local", "0"]
     # Special run modes
@@ -763,14 +760,6 @@ def driver():
         action="store_true",
         required=False,
         help="print out each shell command before running it",
-    )
-    parser.add_argument(
-        "--no-interpreter",
-        dest="interpreter",
-        action="store_false",
-        default=True,
-        required=False,
-        help="don't go through Legion's Python interpreter (developer option)",
     )
     parser.add_argument(
         "--gasnet-trace",
