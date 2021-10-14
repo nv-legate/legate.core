@@ -51,6 +51,33 @@ class LinearizingFunctor : public ShardingFunctor {
     const size_t chunk = (size + total_shards - 1) / total_shards;
     return linearize(launch_space.lo(), launch_space.hi(), p) / chunk;
   }
+
+  virtual bool is_invertible(void) const { return true; }
+
+  virtual void invert(ShardID shard,
+                      const Domain& shard_domain,
+                      const Domain& full_domain,
+                      const size_t total_shards,
+                      std::vector<DomainPoint>& points)
+  {
+    assert(shard_domain == full_domain);
+    const size_t size  = shard_domain.get_volume();
+    const size_t chunk = (size + total_shards - 1) / total_shards;
+    size_t idx         = shard * chunk;
+    size_t lim         = std::min((shard + 1) * chunk, size);
+    if (idx >= lim) return;
+    DomainPoint point = delinearize(shard_domain.lo(), shard_domain.hi(), idx);
+    for (; idx < lim; ++idx) {
+      points.push_back(point);
+      for (int dim = shard_domain.dim - 1; dim >= 0; --dim) {
+        if (point[dim] < shard_domain.hi()[dim]) {
+          point[dim]++;
+          break;
+        }
+        point[dim] = shard_domain.lo()[dim];
+      }
+    }
+  }
 };
 
 void register_legate_core_sharding_functors(Legion::Runtime* runtime, const LibraryContext& context)
