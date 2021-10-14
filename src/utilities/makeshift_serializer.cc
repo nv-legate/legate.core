@@ -17,34 +17,42 @@ namespace legate{
         }
         else{
             int32_t code = trans->getTransformCode();
+            pack((int32_t) code);
             switch (code) {
                 case -1: {
+                    break;
+  
                 }
                 case LEGATE_CORE_TRANSFORM_SHIFT: {
                     Shift * shifter = (Shift*) trans;
                     pack((int32_t) shifter->dim_);
                     pack((int64_t) shifter->offset_);
                     packTransform(trans->parent_.get());
+                    break;
                 }
                 case LEGATE_CORE_TRANSFORM_PROMOTE: {
                     Promote * promoter = (Promote*) trans;
                     pack((int32_t) promoter->extra_dim_);
                     pack((int64_t) promoter->dim_size_);
                     packTransform(trans->parent_.get());
+                    break;
                 }
                 case LEGATE_CORE_TRANSFORM_PROJECT: {
                     Project * projector = (Project*) trans;
                     pack((int32_t) projector->dim_);
                     pack((int64_t) projector->coord_);
                     packTransform(trans->parent_.get());
+                    break;
                 }
                 case LEGATE_CORE_TRANSFORM_TRANSPOSE: {
                     Transpose * projector = (Transpose*) trans;
                     packTransform(trans->parent_.get());
+                    break;
                 }
                 case LEGATE_CORE_TRANSFORM_DELINEARIZE: {
                     Delinearize * projector = (Delinearize*) trans;
                     packTransform(trans->parent_.get());
+                    break;
                 }
             }
         }
@@ -97,14 +105,16 @@ namespace legate{
         //pack trasnform code
         packTransform(buffer.transform_.get());
 
-        //skip the rest for now, assume no transform, for now pack -1
-        // no need to implement this for benchmarking purposes 
-        // TODO: implement transform packing
-        // TODO: add "code" to transform object
         //if _isfuture
         if(buffer.is_future_)
         {   
             //pack future_wrapper
+            auto dom = buffer.future_.domain();
+            pack((uint32_t) dom.dim);
+            for (int32_t i =0; i<dom.dim; i++)
+            {
+                pack((int64_t) dom.rect_data[i + dom.dim] + 1);
+            }
         }   
         //elif dim>=0
         else if (buffer.dim()>=0){

@@ -765,6 +765,7 @@ class FusionMetadata(object):
                  buffer_offsets,
                  reduction_starts,
                  scalar_starts,
+                 future_starts,
                  opIDs
                  ):
         self._input_starts = input_starts
@@ -773,9 +774,12 @@ class FusionMetadata(object):
         self._buffer_offsets = buffer_offsets
         self._reduction_starts = reduction_starts
         self._scalar_starts = scalar_starts
+        self._future_starts = future_starts
         self._opIDs = opIDs 
 
     def packList(self, meta_list, buf):
+        # aggregate the ints when packing
+        # much faster than individually packing each int
         buf.pack_32bit_int_arr(meta_list)
         #for elem in meta_list: 
         #    buf.pack_32bit_int(elem)
@@ -791,6 +795,7 @@ class FusionMetadata(object):
         superbuff += self._buffer_offsets
         superbuff += self._reduction_starts
         superbuff += self._scalar_starts
+        superbuff += self._future_starts
         superbuff += self._opIDs
         self.packList(superbuff, buf)
         #self.packList(self._input_starts, buf)

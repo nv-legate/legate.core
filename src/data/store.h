@@ -323,6 +323,7 @@ struct FusionMetadata {
     std::vector<int32_t> offsets; // can contain negative elements
     std::vector<int32_t> reductionStarts;
     std::vector<int32_t> scalarStarts;
+    std::vector<int32_t> futureStarts;
     std::vector<int32_t> opIDs;
 };
 

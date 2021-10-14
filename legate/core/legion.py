@@ -3624,7 +3624,6 @@ class Task(object):
         """
         num_outputs = len(self.outputs)
         if num_outputs == 0:
-            return
             return Future(
                 legion.legion_task_launcher_execute(
                     runtime, context, self.launcher

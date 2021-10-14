@@ -56,6 +56,7 @@ void Deserializer::_unpack(FusionMetadata& metadata){
     metadata.offsets.resize(nBuffers+1);
     metadata.reductionStarts.resize(nOps+1);
     metadata.scalarStarts.resize(nOps+1);
+    metadata.futureStarts.resize(nOps+1);
     metadata.opIDs.resize(nOps);
     //TODO: wrap this up to reuse code`
     for (int i=0; i<nOps+1; i++)
@@ -81,6 +82,10 @@ void Deserializer::_unpack(FusionMetadata& metadata){
     for (int i=0; i<nOps+1; i++)
     {
         metadata.scalarStarts[i] = unpack<int32_t>();
+    }   
+    for (int i=0; i<nOps+1; i++)
+    {
+        metadata.futureStarts[i] = unpack<int32_t>();
     }   
     for (int i=0; i<nOps; i++)
     {
@@ -125,6 +130,7 @@ void Deserializer::_unpack(FutureWrapper& value)
   futures_    = futures_.subspan(1);
 
   auto point = unpack<std::vector<int64_t>>();
+  
   Domain domain;
   domain.dim = static_cast<int32_t>(point.size());
   for (int32_t idx = 0; idx < domain.dim; ++idx) {

@@ -38,7 +38,6 @@ class MakeshiftSerializer{
     template <typename T> void pack(T arg) 
     {
         int8_t * argAddr = (int8_t*) &arg;
-        //std::cout<<arg<<std::endl;
         if (size<=write_offset+sizeof(T))
         {
             resize(sizeof(T));
