@@ -384,10 +384,6 @@ def run_legate(
             cmd += ["--nocr"]
         if module is not None:
             cmd += ["-m", str(module)]
-    # If we have a script name from the command, append it now as the launcher
-    # expects it as the first argument
-    if opts:
-        cmd += opts
     # We always need one python processor per node and no local fields per node
     cmd += ["-ll:py", "1", "-lg:local", "0"]
     # Special run modes
@@ -476,6 +472,11 @@ def run_legate(
         print()
 
     cmd += ["-lg:eager_alloc_percentage", eager_alloc]
+
+    # Append all user flags to the command so that they can override whatever
+    # the launcher has come up with.
+    if opts:
+        cmd += opts
 
     # Launch the child process
     if verbose:
