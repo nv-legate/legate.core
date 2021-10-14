@@ -14,16 +14,17 @@
  *
  */
 
-#pragma once
+#include "utilities/machine.h"
 
-#include "context.h"
-#include "legion.h"
+using namespace Legion;
 
 namespace legate {
 
-void register_legate_core_sharding_functors(Legion::Runtime* runtime,
-                                            const LibraryContext& context);
-
-Legion::ShardingID find_sharding_functor_by_projection_functor(Legion::ProjectionID proj_id);
+Memory::Kind find_memory_kind_for_executing_processor()
+{
+  auto proc = Processor::get_executing_processor();
+  return proc.kind() == Processor::Kind::TOC_PROC ? Memory::Kind::Z_COPY_MEM
+                                                  : Memory::Kind::SYSTEM_MEM;
+}
 
 }  // namespace legate

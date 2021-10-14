@@ -16,6 +16,11 @@
 
 namespace legate {
 
+template <typename T>
+Scalar::Scalar(T value) : tuple_(false), code_(legate_type_code_of<T>), data_(new T(value))
+{
+}
+
 template <typename VAL>
 VAL Scalar::value() const
 {

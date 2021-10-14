@@ -19,7 +19,14 @@ from functools import partial
 from .legion import Attach, Detach, Future, InlineMapping, Point, ffi, legion
 from .partition import NoPartition, Restriction, Tiling
 from .shape import Shape
-from .transform import Delinearize, Project, Promote, Shift, Transpose
+from .transform import (
+    Delinearize,
+    NonInvertibleError,
+    Project,
+    Promote,
+    Shift,
+    Transpose,
+)
 
 
 class InlineMappedAllocation(object):
@@ -461,6 +468,10 @@ class Store(object):
 
         return self._storage
 
+    @property
+    def has_storage(self):
+        return self._storage is not None
+
     def get_root(self):
         if self._parent is None:
             return self
@@ -491,7 +502,15 @@ class Store(object):
 
     def _get_tile(self, tiling):
         if self._parent is not None:
-            tiling = self._transform.invert(tiling)
+            try:
+                tiling = self._transform.invert(tiling)
+            except NonInvertibleError:
+                raise RuntimeError(
+                    "This slice corresponds to a non-contiguous subset of the "
+                    "original store before transformation. Please make a copy "
+                    "of the transformed store and slice that copy instead."
+                )
+
             return self._parent._get_tile(tiling)
         else:
             # If the tile covers the entire region, we don't need to create
@@ -725,7 +744,9 @@ class Store(object):
 
     def _compute_projection(self, partition):
         dims = self._invert_dimensions(tuple(range(self.ndim)))
-        if dims == tuple(range(self.ndim)):
+        if len(dims) == self.ndim and all(
+            idx == dim for idx, dim in enumerate(dims)
+        ):
             return 0
         else:
             return self._runtime.get_projection(self.ndim, dims)

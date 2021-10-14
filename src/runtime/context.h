@@ -19,6 +19,8 @@
 #include "legion.h"
 #include "data/scalar.h"
 
+#include "task/return.h"
+
 namespace legate {
 
 class Store;
@@ -52,10 +54,10 @@ class ResourceScope {
 
  public:
   bool valid() const { return base_ != -1; }
-  bool in_scope(int64_t resource_id) const { 
-  std::cout<<"resource_id "<<resource_id<<std::endl;  
-  std::cout<<"max "<<max_<<std::endl;  
-  return base_ <= resource_id && resource_id < max_; }
+  bool in_scope(int64_t resource_id) const
+  {
+    return base_ <= resource_id && resource_id < base_ + max_;
+  }
 
  private:
   int64_t base_{-1};
@@ -70,6 +72,9 @@ class LibraryContext {
 
  public:
   LibraryContext(const LibraryContext&) = default;
+
+ public:
+  const std::string& get_library_name() const;
 
  public:
   Legion::TaskID get_task_id(int64_t local_task_id) const;
@@ -93,6 +98,7 @@ class LibraryContext {
   bool valid_sharding_id(Legion::ShardingID shard_id) const;
 
  private:
+  const std::string library_name_;
   ResourceScope task_scope_;
   ResourceScope mapper_scope_;
   ResourceScope redop_scope_;
@@ -114,6 +120,9 @@ class TaskContext {
   std::vector<Store>& outputs() { return outputs_; }
   std::vector<Store>& reductions() { return reductions_; }
   std::vector<Scalar>& scalars() { return scalars_; }
+
+ public:
+  ReturnValues pack_return_values() const;
 
  public:
   const Legion::Task* task_;

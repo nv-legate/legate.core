@@ -82,26 +82,61 @@ OutputRegionField& OutputRegionField::operator=(OutputRegionField&& other) noexc
   return *this;
 }
 
-FutureWrapper::FutureWrapper(Domain domain, Future future) : domain_(domain), future_(future) {}
+FutureWrapper::FutureWrapper(
+  bool read_only, int32_t field_size, Domain domain, Future future, bool initialize /*= false*/)
+  : read_only_(read_only),
+    field_size_(field_size),
+    domain_(domain),
+    future_(future),
+    uninitialized_(!initialize)
+{
+  assert(field_size > 0);
+  if (!read_only) {
+    auto mem_kind = find_memory_kind_for_executing_processor();
+    assert(!initialize || future_.get_untyped_size() == field_size);
+    auto p_init_value = initialize ? future_.get_buffer(mem_kind) : nullptr;
+    buffer_           = UntypedDeferredValue(field_size, mem_kind, p_init_value);
+  }
+}
 
 FutureWrapper::FutureWrapper(const FutureWrapper& other) noexcept
-  : domain_(other.domain_), future_(other.future_)
+  : read_only_(other.read_only_),
+    field_size_(other.field_size_),
+    domain_(other.domain_),
+    future_(other.future_),
+    buffer_(other.buffer_),
+    uninitialized_(other.uninitialized_),
+    rawptr_(other.rawptr_)
 {
 }
 
 FutureWrapper& FutureWrapper::operator=(const FutureWrapper& other) noexcept
 {
-  domain_ = other.domain_;
-  future_ = other.future_;
+  read_only_     = other.read_only_;
+  field_size_    = other.field_size_;
+  domain_        = other.domain_;
+  future_        = other.future_;
+  buffer_        = other.buffer_;
+  uninitialized_ = other.uninitialized_;
+  rawptr_        = other.rawptr_;
   return *this;
 }
 
 Domain FutureWrapper::domain() const { return domain_; }
 
+ReturnValue FutureWrapper::pack() const
+{
+  if (nullptr == rawptr_) {
+    fprintf(stderr, "Found an uninitialized Legate store\n");
+    assert(false);
+  }
+  return ReturnValue(rawptr_, field_size_);
+}
+
 Store::Store(int32_t dim,
              LegateTypeCode code,
              FutureWrapper future,
-             std::unique_ptr<StoreTransform> transform)
+             std::shared_ptr<StoreTransform> transform)
   : is_future_(true),
     is_output_store_(false),
     dim_(dim),
@@ -117,7 +152,7 @@ Store::Store(int32_t dim,
              LegateTypeCode code,
              int32_t redop_id,
              RegionField&& region_field,
-             std::unique_ptr<StoreTransform> transform)
+             std::shared_ptr<StoreTransform> transform)
   : is_future_(false),
     is_output_store_(false),
     dim_(dim),
@@ -133,7 +168,7 @@ Store::Store(int32_t dim,
 
 Store::Store(LegateTypeCode code,
              OutputRegionField&& output,
-             std::unique_ptr<StoreTransform> transform)
+             std::shared_ptr<StoreTransform> transform)
   : is_future_(false),
     is_output_store_(true),
     dim_(-1),

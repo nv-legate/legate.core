@@ -26,6 +26,7 @@ from legate.core import types as ty
 
 from .context import Context
 from .corelib import CoreLib
+from .launcher import TaskLauncher
 from .legion import (
     FieldSpace,
     Future,
@@ -1016,8 +1017,12 @@ class Runtime(object):
         self.max_field_reuse_frequency = 32
         self._empty_argmap = legion.legion_argument_map_create()
 
-        self._next_projection_id = 1
+        # A projection functor and its corresponding sharding functor
+        # have the same local id
+        self._next_projection_id = 10
+        self._next_sharding_id = 10
         self._registered_projections = {}
+        self._registered_shardings = {}
 
     @property
     def legion_runtime(self):
@@ -1325,6 +1330,15 @@ class Runtime(object):
             proj_id,
         )
 
+        shard_id = self.core_context.get_projection_id(self._next_sharding_id)
+        self._next_sharding_id += 1
+        self._registered_shardings[spec] = shard_id
+
+        self.core_library.legate_create_sharding_functor_using_projection(
+            shard_id,
+            proj_id,
+        )
+
         return proj_id
 
     def get_transform_code(self, name):
@@ -1475,6 +1489,30 @@ class Runtime(object):
         self._partition_manager.record_partition(
             index_space, functor, index_partition
         )
+
+    def extract_scalar(self, future, idx, launch_domain=None):
+        launcher = TaskLauncher(
+            self.core_context,
+            self.core_library.LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,
+            tag=self.core_library.LEGATE_CPU_VARIANT,
+        )
+        launcher.add_future(future)
+        launcher.add_scalar_arg(idx, ty.int32)
+        if launch_domain is None:
+            return launcher.execute_single()
+        else:
+            return launcher.execute(launch_domain)
+
+    def reduce_future_map(self, future_map, redop):
+        if isinstance(future_map, Future):
+            return future_map
+        else:
+            return future_map.reduce(
+                self.legion_context,
+                self.legion_runtime,
+                redop,
+                mapper=self.core_context.get_mapper_id(0),
+            )
 
 
 _runtime = Runtime(CoreLib())

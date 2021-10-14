@@ -17,6 +17,7 @@
 #pragma once
 
 #include "utilities/span.h"
+#include "utilities/type_traits.h"
 #include "utilities/typedefs.h"
 #include "utilities/makeshift_serializer.h"
 
@@ -27,6 +28,10 @@ class Scalar {
   Scalar()              = default;
   Scalar(const Scalar&) = default;
   Scalar(bool tuple, LegateTypeCode code, const void* data);
+
+ public:
+  template <typename T>
+  Scalar(T value);
 
  public:
   Scalar& operator=(const Scalar&) = default;
@@ -40,6 +45,7 @@ class Scalar {
   VAL value() const;
   template <typename VAL>
   Span<const VAL> values() const;
+  const void* ptr() const { return data_; }
 
  private:
   bool tuple_{false};

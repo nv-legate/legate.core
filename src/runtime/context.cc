@@ -28,6 +28,7 @@ namespace legate {
 LibraryContext::LibraryContext(Legion::Runtime* runtime,
                                const std::string& library_name,
                                const ResourceConfig& config)
+  : library_name_(library_name)
 {
   task_scope_ = ResourceScope(
     runtime->generate_library_task_ids(library_name.c_str(), config.max_tasks), config.max_tasks);
@@ -44,6 +45,8 @@ LibraryContext::LibraryContext(Legion::Runtime* runtime,
     runtime->generate_library_sharding_ids(library_name.c_str(), config.max_shardings),
     config.max_shardings);
 }
+
+const std::string& LibraryContext::get_library_name() const { return library_name_; }
 
 Legion::TaskID LibraryContext::get_task_id(int64_t local_task_id) const
 {
@@ -144,13 +147,30 @@ TaskContext::TaskContext(const Legion::Task* task,
                          Legion::Runtime* runtime)
   : task_(task), regions_(regions), context_(context), runtime_(runtime)
 {
-  Deserializer dez(task, regions);
+  TaskDeserializer dez(task, regions);
   fusionMetadata = dez.unpack<FusionMetadata>(); 
+
   inputs_     = dez.unpack<std::vector<Store>>();
   outputs_    = dez.unpack<std::vector<Store>>();
   reductions_ = dez.unpack<std::vector<Store>>();
   scalars_    = dez.unpack<std::vector<Scalar>>();
 
+}
+
+ReturnValues TaskContext::pack_return_values() const
+{
+  std::vector<ReturnValue> return_values;
+
+  for (auto& output : outputs_) {
+    if (!output.is_future()) continue;
+    return_values.push_back(output.pack());
+  }
+  for (auto& reduction : reductions_) {
+    if (!reduction.is_future()) continue;
+    return_values.push_back(reduction.pack());
+  }
+
+  return ReturnValues(std::move(return_values));
 }
 
 }  // namespace legate

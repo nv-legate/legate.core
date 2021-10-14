@@ -27,7 +27,7 @@ namespace legate {
 class StoreTransform {
  public:
   StoreTransform() {}
-  StoreTransform(std::unique_ptr<StoreTransform>&& parent);
+  StoreTransform(std::shared_ptr<StoreTransform> parent);
   virtual ~StoreTransform() {}
 
  public:
@@ -35,13 +35,13 @@ class StoreTransform {
   virtual Legion::DomainAffineTransform inverse_transform(int32_t in_dim) const = 0;
   virtual int32_t getTransformCode() const =0;
  protected:
-  std::unique_ptr<StoreTransform> parent_{nullptr};
- friend class MakeshiftSerializer;
+  friend class MakeshiftSerializer;
+  std::shared_ptr<StoreTransform> parent_{nullptr};
 };
 
 class Shift : public StoreTransform {
  public:
-  Shift(int32_t dim, int64_t offset, std::unique_ptr<StoreTransform>&& parent = nullptr);
+  Shift(int32_t dim, int64_t offset, std::shared_ptr<StoreTransform> parent = nullptr);
   virtual ~Shift() {}
 
  public:
@@ -56,7 +56,7 @@ class Shift : public StoreTransform {
 
 class Promote : public StoreTransform {
  public:
-  Promote(int32_t extra_dim, int64_t dim_size, std::unique_ptr<StoreTransform>&& parent = nullptr);
+  Promote(int32_t extra_dim, int64_t dim_size, std::shared_ptr<StoreTransform> parent = nullptr);
   virtual ~Promote() {}
 
  public:
@@ -72,7 +72,7 @@ class Promote : public StoreTransform {
 
 class Project : public StoreTransform {
  public:
-  Project(int32_t dim, int64_t coord, std::unique_ptr<StoreTransform>&& parent = nullptr);
+  Project(int32_t dim, int64_t coord, std::shared_ptr<StoreTransform> parent = nullptr);
   virtual ~Project() {}
 
  public:
@@ -88,7 +88,7 @@ class Project : public StoreTransform {
 
 class Transpose : public StoreTransform {
  public:
-  Transpose(std::vector<int32_t>&& axes, std::unique_ptr<StoreTransform>&& parent = nullptr);
+  Transpose(std::vector<int32_t>&& axes, std::shared_ptr<StoreTransform> parent = nullptr);
   virtual ~Transpose() {}
 
  public:
@@ -105,7 +105,7 @@ class Delinearize : public StoreTransform {
  public:
   Delinearize(int32_t dim,
               std::vector<int64_t>&& sizes,
-              std::unique_ptr<StoreTransform>&& parent = nullptr);
+              std::shared_ptr<StoreTransform> parent = nullptr);
   virtual ~Delinearize() {}
 
  public:

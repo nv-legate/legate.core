@@ -16,6 +16,7 @@
 from .legion import Future, Rect
 from .partition import NoPartition
 from .shape import Shape
+from .utils import OrderedSet
 
 
 class EqClass(object):
@@ -95,14 +96,20 @@ class EqClass(object):
 
 
 class Strategy(object):
-    def __init__(self, launch_shape, strategy, fspaces):
+    def __init__(self, launch_shape, strategy, fspaces, key_stores):
         self._launch_shape = launch_shape
         self._strategy = strategy
         self._fspaces = fspaces
+        self._key_stores = key_stores
 
     @property
     def parallel(self):
         return self._launch_shape is not None
+
+    @property
+    def launch_domain(self):
+        assert self.parallel
+        return Rect(self._launch_shape)
 
     def get_projection(self, store):
         partition = self.get_partition(store)
@@ -120,19 +127,14 @@ class Strategy(object):
             raise ValueError(f"No strategy is found for {store}")
         return self._fspaces[store]
 
-    def launch(self, launcher, output=None, redop=None):
-        if output is None:
-            if self._launch_shape is None:
-                launcher.execute_single()
-            else:
-                launcher.execute(Rect(self._launch_shape))
+    def is_key_store(self, store):
+        return store in self._key_stores
+
+    def launch(self, launcher):
+        if self.parallel:
+            return launcher.execute(self.launch_domain)
         else:
-            if self._launch_shape is None:
-                result = launcher.execute_single()
-            else:
-                assert redop is not None
-                result = launcher.execute(Rect(self._launch_shape), redop)
-            output.set_storage(result)
+            return launcher.execute_single()
 
     def __str__(self):
         st = "[Strategy]"
@@ -155,7 +157,7 @@ class Partitioner(object):
     def _solve_broadcast_constraints(
         self, stores, constraints, broadcasts, partitions
     ):
-        to_remove = set()
+        to_remove = OrderedSet()
         for store in stores:
             if not (store.kind is Future or store in broadcasts):
                 continue
@@ -177,7 +179,7 @@ class Partitioner(object):
     def _solve_unbound_constraints(
         self, stores, constraints, partitions, fspaces
     ):
-        to_remove = set()
+        to_remove = OrderedSet()
         for store in stores:
             if not store.unbound:
                 continue
@@ -220,9 +222,9 @@ class Partitioner(object):
         return all_restrictions
 
     def partition_stores(self):
-        stores = set()
+        stores = OrderedSet()
         constraints = EqClass()
-        broadcasts = set()
+        broadcasts = OrderedSet()
         for op in self._ops:
             stores.update(op.get_all_stores())
             constraints.union(op.constraints)
@@ -258,6 +260,8 @@ class Partitioner(object):
             ),
         )
 
+        key_stores = set()
+
         prev_part = None
         for store in stores:
             if store in partitions:
@@ -269,6 +273,7 @@ class Partitioner(object):
                 partition = prev_part
             else:
                 partition = store.compute_key_partition(restrictions)
+                key_stores.add(store)
 
             cls = constraints.find(store)
             for to_align in cls:
@@ -283,4 +288,4 @@ class Partitioner(object):
         if must_be_1d_launch and color_shape is not None:
             color_shape = Shape((color_shape.volume(),))
 
-        return Strategy(color_shape, partitions, fspaces)
+        return Strategy(color_shape, partitions, fspaces, key_stores)

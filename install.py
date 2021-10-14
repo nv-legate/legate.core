@@ -32,6 +32,8 @@ sys.stdout.reconfigure(line_buffering=True)
 
 os_name = platform.system()
 
+default_legion_branch = "control_replication"
+
 
 class BooleanFlag(argparse.Action):
     def __init__(
@@ -85,6 +87,12 @@ def verbose_check_call(*args, **kwargs):
     subprocess.check_call(*args, **kwargs)
 
 
+def verbose_check_output(*args, **kwargs):
+    if verbose_global:
+        print('Executing: "', " ".join(*args), '" with ', kwargs)
+    return subprocess.check_output(*args, **kwargs)
+
+
 def find_active_python_version_and_path():
     # Launching a sub-process to do this in a general way seems hard
     version = (
@@ -105,6 +113,21 @@ def find_active_python_version_and_path():
     e = "Error: could not auto-locate python library."
     assert paths, e
     return version, paths[0]
+
+
+def find_default_legion_branch(core_dir):
+    try:
+        branch = verbose_check_output(
+            ["git", "symbolic-ref", "--short", "HEAD"], cwd=core_dir
+        )
+    except subprocess.CalledProcessError:
+        return default_legion_branch
+
+    branch = branch.decode().strip()
+    if branch in ("master", "main"):
+        return "legate_stable"
+    else:
+        return default_legion_branch
 
 
 def git_clone(repo_dir, url, branch=None, tag=None, commit=None):
@@ -465,6 +488,7 @@ def build_legate_core(
         "DEBUG=%s" % (1 if debug else 0),
         "DEBUG_RELEASE=%s" % (1 if debug_release else 0),
         "USE_CUDA=%s" % (1 if cuda else 0),
+        "USE_OPENMP=%s" % (1 if openmp else 0),
         "GPU_ARCH=%s" % arch,
         "PREFIX=%s" % str(install_dir),
         "USE_GASNET=%s" % (1 if gasnet else 0),
@@ -483,7 +507,7 @@ def build_legate_core(
         debug_release=repr(1 if debug_release else 0),
         cuda=repr(1 if cuda else 0),
         arch=(arch if arch is not None else ""),
-        cudadir=(cuda_dir if cuda_dir is not None else ""),
+        cuda_dir=(cuda_dir if cuda_dir is not None else ""),
         openmp=repr(1 if openmp else 0),
         gasnet=repr(1 if gasnet else 0),
     )
@@ -537,6 +561,9 @@ def install(
     verbose_global = verbose
 
     legate_core_dir = os.path.dirname(os.path.realpath(__file__))
+
+    if legion_branch is None:
+        legion_branch = find_default_legion_branch(legate_core_dir)
 
     cmake_config = os.path.join(legate_core_dir, ".cmake.json")
     dump_json_config(cmake_config, cmake)
@@ -689,7 +716,7 @@ def install(
         openmp,
         spy,
         gasnet,
-        clean_first,
+        True,
         thread_count,
         verbose,
         unknown,
@@ -735,7 +762,8 @@ def driver():
         action="store_true",
         required=False,
         default=os.environ.get("DEBUG", "0") == "1",
-        help="Build Legate with debugging enabled.",
+        help="Build Legate and Legion with no optimizations, and full "
+        "debugging checks.",
     )
     parser.add_argument(
         "--debug-release",
@@ -743,7 +771,8 @@ def driver():
         action="store_true",
         required=False,
         default=os.environ.get("DEBUG_RELEASE", "0") == "1",
-        help="Build Legate with debugging symbols enabled.",
+        help="Build Legate and Legion with optimizations enabled, but include "
+        "debugging symbols.",
     )
     parser.add_argument(
         "--check-bounds",
@@ -751,7 +780,7 @@ def driver():
         action="store_true",
         required=False,
         default=os.environ.get("CHECK_BOUNDS", "0") == "1",
-        help="Build Legate with bounds checkin enabled (warning: expensive).",
+        help="Build Legion with bounds checking enabled (warning: expensive).",
     )
     parser.add_argument(
         "--max-dim",
@@ -787,7 +816,7 @@ def driver():
     parser.add_argument(
         "--cuda",
         action=BooleanFlag,
-        default=os.environ.get("USE_CUDA", "1") == "1",
+        default=os.environ.get("USE_CUDA", "0") == "1",
         help="Build Legate with CUDA support.",
     )
     parser.add_argument(
@@ -809,7 +838,7 @@ def driver():
     parser.add_argument(
         "--openmp",
         action=BooleanFlag,
-        default=os.environ.get("USE_OPENMP", "1") == "1",
+        default=os.environ.get("USE_OPENMP", "0") == "1",
         help="Build Legate with OpenMP support.",
     )
     parser.add_argument(
@@ -929,7 +958,7 @@ def driver():
         dest="legion_branch",
         action="store",
         required=False,
-        default="legate_stable",
+        default=None,
         help="Legion branch to build Legate with.",
     )
     args, unknown = parser.parse_known_args()

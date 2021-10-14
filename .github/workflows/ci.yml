@@ -12,10 +12,12 @@ env:
   REF: ${{ github.event.pull_request.head.ref || github.ref }}
   EVENT_NAME: ${{ github.event_name }}
   LABEL: ${{ github.event.pull_request.head.label }}
+  REPO_URL: ${{ github.event.pull_request.head.repo.html_url || github.event.repository.html_url }}
   # Prevent output buffering
   PYTHONUNBUFFERED: 1
 jobs:
   build:
+    if: ${{ github.repository == 'nv-legate/legate.core' }}
     runs-on: self-hosted
     steps:
       - name: Dump GitHub context

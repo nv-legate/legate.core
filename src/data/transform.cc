@@ -20,7 +20,7 @@ namespace legate {
 
 using namespace Legion;
 
-using StoreTransformP = std::unique_ptr<StoreTransform>;
+using StoreTransformP = std::shared_ptr<StoreTransform>;
 
 /*
 typedef enum legate_core_transform_t {
@@ -43,9 +43,9 @@ DomainAffineTransform combine(const DomainAffineTransform& lhs, const DomainAffi
   return result;
 }
 
-StoreTransform::StoreTransform(StoreTransformP&& parent) : parent_(std::move(parent)) {}
+StoreTransform::StoreTransform(StoreTransformP parent) : parent_(std::move(parent)) {}
 
-Shift::Shift(int32_t dim, int64_t offset, StoreTransformP&& parent)
+Shift::Shift(int32_t dim, int64_t offset, StoreTransformP parent)
   : StoreTransform(std::forward<StoreTransformP>(parent)), dim_(dim), offset_(offset)
 {
 }
@@ -90,7 +90,7 @@ DomainAffineTransform Shift::inverse_transform(int32_t in_dim) const
     return result;
 }
 
-Promote::Promote(int32_t extra_dim, int64_t dim_size, StoreTransformP&& parent)
+Promote::Promote(int32_t extra_dim, int64_t dim_size, StoreTransformP parent)
   : StoreTransform(std::forward<StoreTransformP>(parent)),
     extra_dim_(extra_dim),
     dim_size_(dim_size)
@@ -152,7 +152,7 @@ DomainAffineTransform Promote::inverse_transform(int32_t in_dim) const
     return result;
 }
 
-Project::Project(int32_t dim, int64_t coord, StoreTransformP&& parent)
+Project::Project(int32_t dim, int64_t coord, StoreTransformP parent)
   : StoreTransform(std::forward<StoreTransformP>(parent)), dim_(dim), coord_(coord)
 {
 }
@@ -214,7 +214,7 @@ DomainAffineTransform Project::inverse_transform(int32_t in_dim) const
     return result;
 }
 
-Transpose::Transpose(std::vector<int32_t>&& axes, StoreTransformP&& parent)
+Transpose::Transpose(std::vector<int32_t>&& axes, StoreTransformP parent)
   : StoreTransform(std::forward<StoreTransformP>(parent)), axes_(std::move(axes))
 {
 }
@@ -265,7 +265,7 @@ DomainAffineTransform Transpose::inverse_transform(int32_t in_dim) const
     return result;
 }
 
-Delinearize::Delinearize(int32_t dim, std::vector<int64_t>&& sizes, StoreTransformP&& parent)
+Delinearize::Delinearize(int32_t dim, std::vector<int64_t>&& sizes, StoreTransformP parent)
   : StoreTransform(std::forward<StoreTransformP>(parent)),
     dim_(dim),
     sizes_(std::move(sizes)),
@@ -284,27 +284,31 @@ int32_t Delinearize::getTransformCode() const
 
 Domain Delinearize::transform(const Domain& input) const
 {
-  Domain output;
-  output.dim     = input.dim - 1 + sizes_.size();
-  int32_t in_dim = 0;
-  for (int32_t in_dim = 0, out_dim = 0; in_dim < input.dim; ++in_dim) {
-    if (in_dim == dim_) {
-      auto lo = input.rect_data[in_dim];
-      auto hi = input.rect_data[input.dim + in_dim];
-      for (auto stride : strides_) {
-        output.rect_data[out_dim]              = lo / stride;
-        output.rect_data[output.dim + out_dim] = hi / stride;
-        lo                                     = lo % stride;
-        hi                                     = hi % stride;
+  auto delinearize = [](const auto dim, const auto ndim, const auto& strides, const Domain& input) {
+    Domain output;
+    output.dim     = input.dim - 1 + ndim;
+    int32_t in_dim = 0;
+    for (int32_t in_dim = 0, out_dim = 0; in_dim < input.dim; ++in_dim) {
+      if (in_dim == dim) {
+        auto lo = input.rect_data[in_dim];
+        auto hi = input.rect_data[input.dim + in_dim];
+        for (auto stride : strides) {
+          output.rect_data[out_dim]              = lo / stride;
+          output.rect_data[output.dim + out_dim] = hi / stride;
+          lo                                     = lo % stride;
+          hi                                     = hi % stride;
+          ++out_dim;
+        }
+      } else {
+        output.rect_data[out_dim]              = input.rect_data[in_dim];
+        output.rect_data[output.dim + out_dim] = input.rect_data[input.dim + in_dim];
         ++out_dim;
       }
-    } else {
-      output.rect_data[out_dim]              = input.rect_data[in_dim];
-      output.rect_data[output.dim + out_dim] = input.rect_data[input.dim + in_dim];
-      ++out_dim;
     }
-  }
-  return output;
+    return output;
+  };
+  return delinearize(
+    dim_, sizes_.size(), strides_, nullptr != parent_ ? parent_->transform(input) : input);
 }
 
 DomainAffineTransform Delinearize::inverse_transform(int32_t in_dim) const

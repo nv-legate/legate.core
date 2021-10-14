@@ -20,6 +20,8 @@
 
 #include "data/buffer.h"
 #include "data/transform.h"
+#include "task/return.h"
+#include "utilities/machine.h"
 #include "utilities/typedefs.h"
 #include "utilities/makeshift_serializer.h"
 
@@ -188,7 +190,11 @@ class OutputRegionField {
 class FutureWrapper {
  public:
   FutureWrapper() {}
-  FutureWrapper(Legion::Domain domain, Legion::Future future);
+  FutureWrapper(bool read_only,
+                int32_t field_size,
+                Legion::Domain domain,
+                Legion::Future future,
+                bool initialize = false);
 
  public:
   FutureWrapper(const FutureWrapper& other) noexcept;
@@ -200,10 +206,23 @@ class FutureWrapper {
  public:
   template <typename T, int32_t DIM>
   AccessorRO<T, DIM> read_accessor() const;
+  template <typename T, int32_t DIM>
+  AccessorWO<T, DIM> write_accessor() const;
+  template <typename T, int32_t DIM>
+  AccessorRW<T, DIM> read_write_accessor() const;
+  template <typename OP, bool EXCLUSIVE, int32_t DIM>
+  AccessorRD<OP, EXCLUSIVE, DIM> reduce_accessor(int32_t redop_id) const;
 
  public:
   template <typename T, int32_t DIM>
   AccessorRO<T, DIM> read_accessor(const Legion::Rect<DIM>& bounds) const;
+  template <typename T, int32_t DIM>
+  AccessorWO<T, DIM> write_accessor(const Legion::Rect<DIM>& bounds) const;
+  template <typename T, int32_t DIM>
+  AccessorRW<T, DIM> read_write_accessor(const Legion::Rect<DIM>& bounds) const;
+  template <typename OP, bool EXCLUSIVE, int32_t DIM>
+  AccessorRD<OP, EXCLUSIVE, DIM> reduce_accessor(int32_t redop_id,
+                                                 const Legion::Rect<DIM>& bounds) const;
 
  public:
   template <typename VAL>
@@ -214,9 +233,19 @@ class FutureWrapper {
   Legion::Rect<DIM> shape() const;
   Legion::Domain domain() const;
 
+ public:
+  ReturnValue pack() const;
+
  private:
+  bool read_only_{true};
+  size_t field_size_{0};
   Legion::Domain domain_{};
   Legion::Future future_{};
+  Legion::UntypedDeferredValue buffer_{};
+
+ private:
+  mutable bool uninitialized_{true};
+  mutable void* rawptr_{nullptr};
 };
 
 class Store {
@@ -225,15 +254,15 @@ class Store {
   Store(int32_t dim,
         LegateTypeCode code,
         FutureWrapper future,
-        std::unique_ptr<StoreTransform> transform = nullptr);
+        std::shared_ptr<StoreTransform> transform = nullptr);
   Store(int32_t dim,
         LegateTypeCode code,
         int32_t redop_id,
         RegionField&& region_field,
-        std::unique_ptr<StoreTransform> transform = nullptr);
+        std::shared_ptr<StoreTransform> transform = nullptr);
   Store(LegateTypeCode code,
         OutputRegionField&& output,
-        std::unique_ptr<StoreTransform> transform = nullptr);
+        std::shared_ptr<StoreTransform> transform = nullptr);
 
  public:
   Store(Store&& other) noexcept;
@@ -287,6 +316,10 @@ class Store {
   template <typename VAL>
   void return_data(Buffer<VAL>& buffer, size_t num_elements);
 
+ public:
+  bool is_future() const { return is_future_; }
+  ReturnValue pack() const { return future_.pack(); }
+
  private:
   bool is_future_{false};
   bool is_output_store_{false};
@@ -300,7 +333,7 @@ class Store {
   OutputRegionField output_field_;
 
  private:
-  std::unique_ptr<StoreTransform> transform_{nullptr};
+  std::shared_ptr<StoreTransform> transform_{nullptr};
 
  private:
   bool readable_{false};

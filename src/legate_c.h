@@ -20,16 +20,13 @@
 typedef enum legate_core_task_id_t {
   LEGATE_CORE_INITIALIZE_TASK_ID,
   LEGATE_CORE_FINALIZE_TASK_ID,
+  LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,
   LEGATE_CORE_NUM_TASK_IDS,  // must be last
 } legate_core_task_id_t;
 
 typedef enum legate_core_proj_id_t {
-  // The last reduction functor in a 9D space has an id 0x01FF99
-  LEGATE_CORE_FIRST_REDUCTION_FUNCTOR = 0,
-  // The last transpose functor in a 9D space has an id 0x15897F9
-  LEGATE_CORE_FIRST_TRANSPOSE_FUNCTOR = 0x01000000,
-  LEGATE_CORE_DELINEARIZE_FUNCTOR     = 0x02000000,
-  LEGATE_CORE_MAX_FUNCTOR_ID          = 0x03000000,
+  LEGATE_CORE_DELINEARIZE_FUNCTOR = 2,
+  LEGATE_CORE_MAX_FUNCTOR_ID      = 3000000,
 } legate_core_proj_id_t;
 
 typedef enum legate_core_tunable_t {
@@ -45,16 +42,6 @@ typedef enum legate_core_variant_t {
   LEGATE_GPU_VARIANT,
   LEGATE_OMP_VARIANT,
 } legate_core_variant_t;
-
-typedef enum legate_core_partition_t {
-  PID_ALL_CPUS,
-  PID_ALL_GPUS,
-  PID_ALL_NUMA,
-  PID_ALL_NODES,
-  PID_NODE_CPUS,  // sub-partition of PID_ALL_NODES
-  PID_NODE_GPUS,  // sub-partition of PID_ALL_NODES
-  PID_NODE_NUMA,  // sub-partition of PID_ALL_NODES
-} legate_core_partition_t;
 
 // Match these to numpy_field_type_offsets in legate/numpy/config.py
 typedef enum legate_core_type_code_t {
@@ -90,6 +77,10 @@ typedef enum legate_core_transform_t {
   LEGATE_CORE_TRANSFORM_DELINEARIZE,
 } legate_core_transform_t;
 
+typedef enum legate_core_mapping_tag_t {
+  LEGATE_CORE_KEY_STORE_TAG = 1,
+} legate_core_mapping_tag_t;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -100,6 +91,8 @@ void legate_shutdown(void);
 void legate_core_perform_registration(void);
 
 void legate_register_projection_functor(int32_t, int32_t, int32_t*, legion_projection_id_t);
+
+void legate_create_sharding_functor_using_projection(legion_sharding_id_t, legion_projection_id_t);
 
 #ifdef __cplusplus
 }

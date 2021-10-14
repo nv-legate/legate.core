@@ -46,6 +46,7 @@ class CoreLib(Library):
         config = ResourceConfig()
         config.max_tasks = self._lib.LEGATE_CORE_NUM_TASK_IDS
         config.max_projections = self._lib.LEGATE_CORE_MAX_FUNCTOR_ID
+        config.max_shardings = self._lib.LEGATE_CORE_MAX_FUNCTOR_ID
         return config
 
     def destroy(self):
