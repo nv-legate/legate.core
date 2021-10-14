@@ -152,7 +152,7 @@ BaseMapper::~BaseMapper(void)
 std::string BaseMapper::create_name(AddressSpace node) const
 {
   std::stringstream ss;
-  ss << context.get_library_name() << " Mapper on Node " << node;
+  ss << context.get_library_name() << " on Node " << node;
   return ss.str();
 }
 
