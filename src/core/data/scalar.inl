@@ -17,8 +17,22 @@
 namespace legate {
 
 template <typename T>
-Scalar::Scalar(T value) : tuple_(false), code_(legate_type_code_of<T>), data_(new T(value))
+Scalar::Scalar(T value) : own_(true), tuple_(false), code_(legate_type_code_of<T>)
 {
+  auto buffer = malloc(sizeof(T));
+  memcpy(buffer, &value, sizeof(T));
+  data_ = buffer;
+}
+
+template <typename T>
+Scalar::Scalar(const std::vector<T>& values)
+  : own_(true), tuple_(true), code_(legate_type_code_of<T>)
+{
+  auto data_size                  = sizeof(T) * values.size();
+  auto buffer                     = malloc(sizeof(uint32_t) + data_size);
+  *static_cast<uint32_t*>(buffer) = values.size();
+  memcpy(static_cast<int8_t*>(buffer) + sizeof(uint32_t), values.data(), data_size);
+  data_ = buffer;
 }
 
 template <typename VAL>
