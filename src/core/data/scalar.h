@@ -24,16 +24,22 @@ namespace legate {
 
 class Scalar {
  public:
-  Scalar()              = default;
-  Scalar(const Scalar&) = default;
+  Scalar() = default;
+  Scalar(const Scalar& other);
   Scalar(bool tuple, LegateTypeCode code, const void* data);
+  ~Scalar();
 
  public:
   template <typename T>
   Scalar(T value);
+  template <typename T>
+  Scalar(const std::vector<T>& values);
 
  public:
-  Scalar& operator=(const Scalar&) = default;
+  Scalar& operator=(const Scalar& other);
+
+ private:
+  void copy(const Scalar& other);
 
  public:
   bool is_tuple() const { return tuple_; }
@@ -47,6 +53,7 @@ class Scalar {
   const void* ptr() const { return data_; }
 
  private:
+  bool own_{false};
   bool tuple_{false};
   LegateTypeCode code_{MAX_TYPE_NUMBER};
   const void* data_;
