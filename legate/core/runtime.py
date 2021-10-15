@@ -43,7 +43,7 @@ from .shape import Shape
 from .solver import Partitioner, Strategy
 from .store import RegionField, Store, FusionMetadata
 
-debugPrint = False
+debugPrint = True
 
 #debug printing
 def zprint(*args):
@@ -703,7 +703,7 @@ class FusionChecker(object):
         return fusable, final_set
 
     def can_fuse(self):
-        must_be_single = any(op._future_output is not None for op in self.ops)
+        must_be_single = any(len(op.scalar_outputs) > 0 for op in self.ops)
         for op in self.ops:
             # TODO: cache as much as of the partitioner results as possible
             # so the calls to Partitioner() and partition_stores done kill perf
@@ -782,6 +782,32 @@ class NumpyContextExists(FusionConstraint):
   NUMPY_NONZERO          = 400026,
   NUMPY_DOUBLE_BINARY_OP = 400027,
   NUMPY_FUSED_OP         = 400028,
+enum NumPyOpCode {
+  NUMPY_ARANGE           = 1,
+  NUMPY_BINARY_OP        = 2,
+  NUMPY_BINARY_RED       = 3,
+  NUMPY_BINCOUNT         = 4,
+  NUMPY_CONVERT          = 5,
+  NUMPY_DIAG             = 6,
+  NUMPY_DOT              = 7,
+  NUMPY_EYE              = 8,
+  NUMPY_FILL             = 9,
+  NUMPY_MATMUL           = 10,
+  NUMPY_MATVECMUL        = 11,
+  NUMPY_NONZERO          = 12,
+  NUMPY_RAND             = 13,
+  NUMPY_READ             = 14,
+  NUMPY_SCALAR_UNARY_RED = 15,
+  NUMPY_TILE             = 16,
+  NUMPY_TRANSPOSE        = 17,
+  NUMPY_UNARY_OP         = 18,
+  NUMPY_UNARY_RED        = 19,
+  NUMPY_WHERE            = 20,
+  NUMPY_WRITE            = 21,
+  NUMPY_DOUBLE_BINARY_OP  = 23,
+  NUMPY_FUSED_OP            = 24,
+}
+
 """
 class AllValidOps(FusionConstraint):
     """
@@ -792,8 +818,8 @@ class AllValidOps(FusionConstraint):
         self.validIDs = set()
 
         #these ops are always fusable
-        self.validIDs.add(400000) #Binary op
-        self.validIDs.add(400006) #Unary op
+        self.validIDs.add(2) #Binary op
+        self.validIDs.add(18) #Unary op
 
         # the following are conditionally fusable
         # they will be processed in the a subsequent level of filtering
@@ -952,8 +978,8 @@ class Runtime(object):
         # to be dispatched. This list allows cross library introspection for
         # Legate operations.
         self._outstanding_ops = []
-        self._window_size =1
-        self._fusion_threshold =10
+        self._window_size =10
+        self._fusion_threshold =4
         self._clearing_pipe = False
 
         # Now we initialize managers
@@ -1135,19 +1161,23 @@ class Runtime(object):
         super_strats = []
         super_fspaces = []
         super_strategies = []
+        super_keystores = []
         for fusable_set in fusable_sets:   
             #create super strategy for this fusable set
             super_strat = {}
             super_fspace = {}
+            super_keystore = set()
             start,end = fusable_set
             dprint("creating fusable set for", start, end)
             for j in range(start,end):
                 super_strat = {**(super_strat.copy()), **partitions[j]._strategy}
                 super_fspace = {**(super_fspace.copy()), **partitions[j]._fspaces}
+                super_keystore = super_keystore.union(partitions[j]._key_stores)
             super_strats.append(super_strat)
             super_fspaces.append(super_fspace)
-            super_strategies.append(Strategy(partitions[start]._launch_shape, super_strat, super_fspace))
-        dprint("lens", len(super_strats), len(super_fspaces), len(super_strategies))
+            super_keystores.append(super_keystore)
+            super_strategies.append(Strategy(partitions[start]._launch_shape, super_strat, super_fspace, super_keystore))
+        dprint("lens", len(super_strats), len(super_fspaces), len(super_strategies), len(super_keystore))
         """
         super_strat = {}
         super_fspace = {}
@@ -1226,7 +1256,7 @@ class Runtime(object):
         if len(ops)==1 and self._clearing_pipe:
             strategy = ops[0].strategy
         else: #else do to the partition
-            must_be_single = any(op._future_output is not None for op in ops)
+            must_be_single = any(len(op.scalar_outputs) > 0 for op in ops)
             partitioner = Partitioner(self, ops, must_be_single=must_be_single)
             strategy = partitioner.partition_stores()
         for op in ops:

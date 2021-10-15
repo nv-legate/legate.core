@@ -830,7 +830,7 @@ def driver():
         args.cores_per_node,
         args.launcher,
         args.verbose,
-        args.interpreter,
+        #args.interpreter,
         args.gasnet_trace,
         args.eager_alloc,
         args.launcher_extra,

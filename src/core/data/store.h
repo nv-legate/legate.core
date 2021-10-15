@@ -273,7 +273,7 @@ class Store {
 
  public:
   int32_t dim() const { return dim_; }
-  bool is_future() const { return is_future_; }
+  bool is_future2() const { return is_future_; }
   LegateTypeCode code() const { return code_; }
 
  public:

@@ -30,7 +30,6 @@
 
 namespace legate {
 
-struct FusionMetadata;
 template <typename Deserializer>
 class BaseDeserializer {
  public:
@@ -111,6 +110,7 @@ class MapperDeserializer : public BaseDeserializer<MapperDeserializer> {
   void _unpack(Store& value);
   void _unpack(FutureWrapper& value);
   void _unpack(RegionField& value, bool is_output_region);
+  void _unpack(FusionMetadata& value);
 
  private:
   Legion::Mapping::MapperRuntime* runtime_;

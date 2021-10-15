@@ -19,7 +19,7 @@
 #include <memory>
 
 #include "legion.h"
-#include "legate_c.h"
+#include "core/legate_c.h"
 
 class MakeshiftSerializer;
 namespace legate {
@@ -85,11 +85,8 @@ class Project : public StoreTransform {
  public:
   virtual Legion::Domain transform(const Legion::Domain& domain) const override;
   virtual Legion::DomainAffineTransform inverse_transform(int32_t in_dim) const override;
-<<<<<<< HEAD:src/data/transform.h
   virtual int32_t getTransformCode() const override;
-=======
   virtual void print(std::ostream& out) const override;
->>>>>>> source/branch-21.10:src/core/data/transform.h
 
  private:
   int32_t dim_;

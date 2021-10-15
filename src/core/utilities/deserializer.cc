@@ -40,8 +40,8 @@ TaskDeserializer::TaskDeserializer(const LegionTask* task,
   first_task_ = !task->is_index_space || (task->index_point == task->index_domain.lo());
 }
 
-/*
-void Deserializer::_unpack(FusionMetadata& metadata){
+
+void TaskDeserializer::_unpack(FusionMetadata& metadata){
     metadata.isFused = unpack<bool>();
     if (!metadata.isFused){
         return;
@@ -94,7 +94,7 @@ void Deserializer::_unpack(FusionMetadata& metadata){
         metadata.opIDs[i] = unpack<int32_t>();
     }   
 }
-*/
+
 void TaskDeserializer::_unpack(Store& value)
 {
   auto is_future = unpack<bool>();
@@ -189,6 +189,62 @@ void MapperDeserializer::_unpack(Store& value)
       Store(runtime_, context_, dim, code, redop_id, rf, is_output_region, std::move(transform));
   }
 }
+
+void MapperDeserializer::_unpack(FusionMetadata& metadata){
+    metadata.isFused = unpack<bool>();
+    if (!metadata.isFused){
+        return;
+    }
+    //exit out if the this is not a fused op
+    metadata.nOps = unpack<int32_t>();
+    metadata.nBuffers = unpack<int32_t>();
+    int nOps = metadata.nOps;
+    int nBuffers = metadata.nBuffers; 
+
+    metadata.inputStarts.resize(nOps+1);
+    metadata.outputStarts.resize(nOps+1);
+    metadata.offsetStarts.resize(nOps+1);
+    metadata.offsets.resize(nBuffers+1);
+    metadata.reductionStarts.resize(nOps+1);
+    metadata.scalarStarts.resize(nOps+1);
+    metadata.futureStarts.resize(nOps+1);
+    metadata.opIDs.resize(nOps);
+    //TODO: wrap this up to reuse code`
+    for (int i=0; i<nOps+1; i++)
+    {
+        metadata.inputStarts[i] = unpack<int32_t>();
+    }   
+    for (int i=0; i<nOps+1; i++)
+    {
+        metadata.outputStarts[i] = unpack<int32_t>();
+    }   
+    for (int i=0; i<nOps+1; i++)
+    {
+        metadata.offsetStarts[i] = unpack<int32_t>();
+    }   
+    for (int i=0; i<nBuffers; i++)
+    {
+        metadata.offsets[i] = unpack<int32_t>();
+    }   
+    for (int i=0; i<nOps+1; i++)
+    {
+        metadata.reductionStarts[i] = unpack<int32_t>();
+    }   
+    for (int i=0; i<nOps+1; i++)
+    {
+        metadata.scalarStarts[i] = unpack<int32_t>();
+    }   
+    for (int i=0; i<nOps+1; i++)
+    {
+        metadata.futureStarts[i] = unpack<int32_t>();
+    }   
+    for (int i=0; i<nOps; i++)
+    {
+        metadata.opIDs[i] = unpack<int32_t>();
+    }   
+}
+
+
 
 void MapperDeserializer::_unpack(FutureWrapper& value)
 {

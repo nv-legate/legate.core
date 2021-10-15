@@ -288,4 +288,5 @@ class Partitioner(object):
         if must_be_1d_launch and color_shape is not None:
             color_shape = Shape((color_shape.volume(),))
 
+        print("key_stores", key_stores)    
         return Strategy(color_shape, partitions, fspaces, key_stores)

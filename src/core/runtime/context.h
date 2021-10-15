@@ -17,7 +17,7 @@
 #pragma once
 
 #include "legion.h"
-#include "data/scalar.h"
+#include "core/data/scalar.h"
 
 #include "core/task/return.h"
 
