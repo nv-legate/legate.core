@@ -1209,7 +1209,7 @@ class Runtime(object):
                 #this metadata will be fed into the fused op as inputs
                 meta_maps, fusion_metadata = self.serialize_multiop_metadata(numpy_context, op_subset)
                 fused_task.add_fusion_metadata(fusion_metadata) #sets fused_task._is_fused to true
-
+                
                 #add typical inputs and outputs of all subtasks to fused task
                 for op in op_subset:
                     for scalar in op._scalar_args:
@@ -1222,6 +1222,8 @@ class Runtime(object):
                         fused_task.add_output(output)   
                     for future in op._futures:
                         fused_task.add_future(future)
+                print(fused_task)
+                print(fused_task.__dict__)
                 new_op_list.append(fused_task)
         dprint("new op list", new_op_list)
         return new_op_list        

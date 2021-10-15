@@ -245,6 +245,8 @@ class FutureWrapper {
  private:
   mutable bool uninitialized_{true};
   mutable void* rawptr_{nullptr};
+
+ friend class MakeshiftSerializer;
 };
 
 class Store {

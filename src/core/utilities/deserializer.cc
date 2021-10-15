@@ -137,7 +137,6 @@ void TaskDeserializer::_unpack(FutureWrapper& value)
     future   = futures_[0];
     futures_ = futures_.subspan(1);
   }
-
   value = FutureWrapper(read_only, field_size, domain, future, has_storage && first_task_);
 }
 
