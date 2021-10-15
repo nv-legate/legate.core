@@ -829,6 +829,7 @@ def driver():
         args.not_control_replicable,
         args.cores_per_node,
         args.launcher,
+        args.verbose,
         args.gasnet_trace,
         args.eager_alloc,
         args.launcher_extra,

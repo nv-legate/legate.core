@@ -43,7 +43,7 @@ from .shape import Shape
 from .solver import Partitioner, Strategy
 from .store import RegionField, Store, FusionMetadata
 
-debugPrint = True
+debugPrint = False
 
 #debug printing
 def zprint(*args):
@@ -1222,18 +1222,16 @@ class Runtime(object):
                         fused_task.add_output(output)   
                     for future in op._futures:
                         fused_task.add_future(future)
-                print(fused_task)
-                print(fused_task.__dict__)
                 new_op_list.append(fused_task)
         dprint("new op list", new_op_list)
         return new_op_list        
 
     def _launch_outstanding(self):
-        dprint("launching final outstanding ops")
+        print("launching final outstanding ops")
         if len(self._outstanding_ops):
             ops = self._outstanding_ops
             self._outstanding_ops = []
-            self._schedule(ops, force_eval=True)
+            #self._schedule(ops, force_eval=True)
                
    
     def _schedule(self, ops, force_eval=False):
@@ -1258,11 +1256,11 @@ class Runtime(object):
         if len(ops)==1 and self._clearing_pipe:
             strategy = ops[0].strategy
         else: #else do to the partition
-            must_be_single = any(len(op.scalar_outputs) > 0 for op in ops)
-            partitioner = Partitioner(self, ops, must_be_single=must_be_single)
-            strategy = partitioner.partition_stores()
-        for op in ops:
-            op.launch(strategy)
+            for op in ops:
+                must_be_single = any(len(op.scalar_outputs) > 0 for op in [op])
+                partitioner = Partitioner(self, [op], must_be_single=must_be_single)
+                strategy = partitioner.partition_stores()
+                op.launch(strategy)
 
     def submit(self, op):
         #always launch ops that've been processed for fusion

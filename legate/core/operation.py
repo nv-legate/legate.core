@@ -98,10 +98,6 @@ class Operation(object):
         self._check_store(store)
         self._temps.append(store) #this may not be necessary
 
-    def add_output(self, store):
-        self._check_store(store)
-        self._outputs.append(store)
-
     def add_reduction(self, store, redop):
         self._check_store(store)
         if store.scalar:
