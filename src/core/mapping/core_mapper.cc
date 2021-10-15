@@ -288,7 +288,7 @@ void CoreMapper::select_sharding_functor(const MapperContext ctx,
   assert(task.regions.empty());
   const int launch_dim = task.index_domain.get_dim();
   assert(launch_dim == 1);
-  output.chosen_functor = context.get_sharding_id(0);
+  output.chosen_functor = context.get_sharding_id(LEGATE_CORE_TOPLEVEL_TASK_SHARD_ID);
 }
 
 void CoreMapper::select_steal_targets(const MapperContext ctx,

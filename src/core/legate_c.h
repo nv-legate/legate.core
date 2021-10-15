@@ -25,9 +25,19 @@ typedef enum legate_core_task_id_t {
 } legate_core_task_id_t;
 
 typedef enum legate_core_proj_id_t {
-  LEGATE_CORE_DELINEARIZE_FUNCTOR = 2,
-  LEGATE_CORE_MAX_FUNCTOR_ID      = 3000000,
+  // local id 0 always maps to the identity projection (global id 0)
+  LEGATE_CORE_DELINEARIZE_PROJ_ID      = 2,
+  LEGATE_CORE_FIRST_DYNAMIC_FUNCTOR_ID = 10,
+  LEGATE_CORE_MAX_FUNCTOR_ID           = 3000000,
 } legate_core_proj_id_t;
+
+typedef enum legate_core_shard_id_t {
+  LEGATE_CORE_TOPLEVEL_TASK_SHARD_ID = 0,
+  LEGATE_CORE_LINEARIZE_SHARD_ID     = 1,
+  // All sharding functors starting from LEGATE_CORE_FIRST_DYNAMIC_FUNCTOR should match the
+  // projection functor of the same id. The sharding functor limit is thus the same as the
+  // projection functor limit.
+} legate_core_shard_id_t;
 
 typedef enum legate_core_tunable_t {
   LEGATE_CORE_TUNABLE_TOTAL_CPUS = 12345,

@@ -722,8 +722,12 @@ class Runtime(object):
 
         # A projection functor and its corresponding sharding functor
         # have the same local id
-        self._next_projection_id = 10
-        self._next_sharding_id = 10
+        self._next_projection_id = (
+            core_library._lib.LEGATE_CORE_FIRST_DYNAMIC_FUNCTOR_ID
+        )
+        self._next_sharding_id = (
+            core_library._lib.LEGATE_CORE_FIRST_DYNAMIC_FUNCTOR_ID
+        )
         self._registered_projections = {}
         self._registered_shardings = {}
 
@@ -839,9 +843,9 @@ class Runtime(object):
             self.legion_runtime, self.legion_context, unordered=unordered
         )
 
-    def get_deliearize_functor(self):
+    def get_delinearize_functor(self):
         return self.core_context.get_projection_id(
-            self.core_library.LEGATE_CORE_DELINEARIZE_FUNCTOR
+            self.core_library.LEGATE_CORE_DELINEARIZE_PROJ_ID
         )
 
     def get_projection(self, src_ndim, dims):

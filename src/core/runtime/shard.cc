@@ -82,14 +82,15 @@ class LinearizingFunctor : public ShardingFunctor {
 
 void register_legate_core_sharding_functors(Legion::Runtime* runtime, const LibraryContext& context)
 {
-  runtime->register_sharding_functor(context.get_sharding_id(0), new ToplevelTaskShardingFunctor());
+  runtime->register_sharding_functor(context.get_sharding_id(LEGATE_CORE_TOPLEVEL_TASK_SHARD_ID),
+                                     new ToplevelTaskShardingFunctor());
 
-  auto sharding_id = context.get_sharding_id(1);
+  auto sharding_id = context.get_sharding_id(LEGATE_CORE_LINEARIZE_SHARD_ID);
   runtime->register_sharding_functor(sharding_id, new LinearizingFunctor());
   // Use linearizing functor for identity projections
   functor_id_table[0] = sharding_id;
   // and for the delinearizing projection
-  functor_id_table[context.get_projection_id(LEGATE_CORE_DELINEARIZE_FUNCTOR)] = sharding_id;
+  functor_id_table[context.get_projection_id(LEGATE_CORE_DELINEARIZE_PROJ_ID)] = sharding_id;
 }
 
 class LegateShardingFunctor : public ShardingFunctor {
