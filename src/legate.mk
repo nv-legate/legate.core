@@ -133,10 +133,13 @@ GEN_SRC		?=
 GEN_CPU_SRC	?=
 GEN_CPU_SRC	+= $(GEN_SRC)
 
+GEN_CPU_DEPS	:= $(GEN_CPU_SRC:.cc=.cc.d)
 GEN_CPU_OBJS	:= $(GEN_CPU_SRC:.cc=.cc.o)
 ifeq ($(strip $(USE_CUDA)),1)
+GEN_GPU_DEPS	:= $(GEN_GPU_SRC:.cu=.cu.d)
 GEN_GPU_OBJS	:= $(GEN_GPU_SRC:.cu=.cu.o)
 else
+GEN_GPU_DEPS	:=
 GEN_GPU_OBJS	:=
 endif
 
@@ -162,30 +165,25 @@ endif
 
 .PHONY: all
 all: $(DLIB)
+
 .PHONY: install
 ifdef PREFIX
-INSTALL_PATHS ?=
 INSTALL_HEADERS ?=
-ifneq ($(strip $(BOOTSTRAP)), 1)
-install: $(DLIB)
-	@echo "Installing $(DLIB) into $(PREFIX)..."
-	@mkdir -p $(PREFIX)/include
-	@$(foreach path,$(INSTALL_PATHS),mkdir -p $(PREFIX)/include/$(path);)
-	@$(foreach file,$(INSTALL_HEADERS),cp $(file) $(PREFIX)/include/$(file);)
-	@mkdir -p $(PREFIX)/lib
-	@cp $(DLIB) $(PREFIX)/lib/$(DLIB)
-	@echo "Installation complete"
-else
-install: $(DLIB)
-	@echo "Installing $(DLIB) into $(PREFIX)..."
-	@mkdir -p $(PREFIX)/include
-	@$(foreach path,$(INSTALL_PATHS),mkdir -p $(PREFIX)/include/$(path);)
-	@$(foreach file,$(INSTALL_HEADERS),cp $(file) $(PREFIX)/include/$(file);)
-	@mkdir -p $(PREFIX)/lib
-	@cp $(DLIB) $(PREFIX)/lib/$(DLIB)
-	@mkdir -p $(PREFIX)/share/legate
-	@cp legate.mk $(PREFIX)/share/legate
-	@echo "Installation complete"
+install: $(PREFIX)/lib/$(DLIB) $(addprefix $(PREFIX)/include/,$(INSTALL_HEADERS))
+$(PREFIX)/include/%.h: %.h
+	mkdir -p $(dir $@)
+	cp $< $@
+$(PREFIX)/include/%.inl: %.inl
+	mkdir -p $(dir $@)
+	cp $< $@
+$(PREFIX)/lib/$(DLIB): $(DLIB)
+	mkdir -p $(dir $@)
+	cp $< $@
+ifeq ($(strip $(BOOTSTRAP)), 1)
+install: $(PREFIX)/share/legate/legate.mk # in addition to items above
+$(PREFIX)/share/legate/legate.mk: legate.mk
+	mkdir -p $(dir $@)
+	cp $< $@
 endif
 else
 install:
@@ -196,14 +194,18 @@ $(DLIB) : $(GEN_CPU_OBJS) $(GEN_GPU_OBJS)
 	@echo "---> Linking objects into one library: $(DLIB)"
 	$(CXX) -o $(DLIB) $^ $(LD_FLAGS)
 
+-include $(GEN_CPU_DEPS)
+
 $(GEN_CPU_OBJS) : %.cc.o : %.cc $(LEGION_DEFINES_HEADER) $(REALM_DEFINES_HEADER)
-	$(CXX) -o $@ -c $< $(INC_FLAGS) $(OMP_FLAGS) $(CC_FLAGS)
+	$(CXX) -MMD -MP -MF $<.d -o $@ -c $< $(INC_FLAGS) $(OMP_FLAGS) $(CC_FLAGS)
+
+-include $(GEN_GPU_DEPS)
 
 $(GEN_GPU_OBJS) : %.cu.o : %.cu $(LEGION_DEFINES_HEADER) $(REALM_DEFINES_HEADER)
-	$(NVCC) -o $@ -c $< $(INC_FLAGS) $(NVCC_FLAGS)
+	$(NVCC) -MMD -MP -MF $<.d -o $@ -c $< $(INC_FLAGS) $(NVCC_FLAGS)
 
 clean:
-	$(RM) -f $(DLIB) $(GEN_CPU_OBJS) $(GEN_GPU_OBJS)
+	$(RM) -f $(DLIB) $(GEN_CPU_DEPS) $(GEN_CPU_OBJS) $(GEN_GPU_DEPS) $(GEN_GPU_OBJS)
 
 # disable gmake's default rule for building % from %.o
 % : %.o

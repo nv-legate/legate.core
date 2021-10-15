@@ -344,7 +344,7 @@ class Transpose(Transform):
     def get_inverse_transform(self, shape, parent_transform=None):
         result = AffineTransform(shape.ndim, shape.ndim, False)
         for dim in range(shape.ndim):
-            result.trans[dim, self._axes[dim]] = 1
+            result.trans[self._axes[dim], dim] = 1
         if parent_transform is not None:
             result = result.compose(parent_transform)
         return result

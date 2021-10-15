@@ -256,7 +256,6 @@ def build_legion(
     pylib_name,
     maxdim,
     maxfields,
-    clean_first,
     extra_flags,
     thread_count,
     verbose,
@@ -270,11 +269,10 @@ def build_legion(
 
     if cmake:
         build_dir = os.path.join(legion_src_dir, "build")
-        if clean_first:
-            try:
-                shutil.rmtree(build_dir)
-            except FileNotFoundError:
-                pass
+        try:
+            shutil.rmtree(build_dir)
+        except FileNotFoundError:
+            pass
         if not os.path.exists(build_dir):
             os.mkdir(build_dir)
         flags = (
@@ -392,10 +390,7 @@ def build_legion(
         )
 
         legion_python_dir = os.path.join(legion_src_dir, "bindings", "python")
-        if clean_first:
-            verbose_check_call(
-                ["make"] + flags + ["clean"], cwd=legion_python_dir
-            )
+        verbose_check_call(["make"] + flags + ["clean"], cwd=legion_python_dir)
         verbose_check_call(
             ["make"] + flags + ["-j", str(thread_count), "install"],
             cwd=legion_python_dir,
@@ -666,42 +661,38 @@ def install(
 
     # Build Legion from scratch.
     legion_src_dir = os.path.join(legate_core_dir, "legion")
-    # Check to see if Legion is up-to-date or get it if it isn't
-    if os.path.exists(legion_src_dir):
-        if clean_first:
-            # Don't update Legion if not doing a clean build, to avoid
-            # spurious build errors.
+    if clean_first or not os.path.exists(legion_src_dir):
+        if os.path.exists(legion_src_dir):
             update_legion(legion_src_dir, branch=legion_branch)
-    else:
-        install_legion(legion_src_dir, branch=legion_branch)
-    build_legion(
-        legion_src_dir,
-        install_dir,
-        cmake,
-        cmake_exe,
-        cuda_dir,
-        debug,
-        debug_release,
-        check_bounds,
-        cuda,
-        arch,
-        openmp,
-        llvm,
-        hdf,
-        spy,
-        gasnet,
-        gasnet_dir,
-        conduit,
-        no_hijack,
-        pyversion,
-        pylib_name,
-        maxdim,
-        maxfields,
-        clean_first,
-        extra_flags,
-        thread_count,
-        verbose,
-    )
+        else:
+            install_legion(legion_src_dir, branch=legion_branch)
+        build_legion(
+            legion_src_dir,
+            install_dir,
+            cmake,
+            cmake_exe,
+            cuda_dir,
+            debug,
+            debug_release,
+            check_bounds,
+            cuda,
+            arch,
+            openmp,
+            llvm,
+            hdf,
+            spy,
+            gasnet,
+            gasnet_dir,
+            conduit,
+            no_hijack,
+            pyversion,
+            pylib_name,
+            maxdim,
+            maxfields,
+            extra_flags,
+            thread_count,
+            verbose,
+        )
 
     build_legate_core(
         install_dir,
@@ -716,7 +707,7 @@ def install(
         openmp,
         spy,
         gasnet,
-        True,
+        clean_first,
         thread_count,
         verbose,
         unknown,
