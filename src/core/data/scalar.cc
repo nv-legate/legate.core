@@ -19,9 +19,40 @@
 
 namespace legate {
 
+Scalar::Scalar(const Scalar& other) : own_(other.own_), tuple_(other.tuple_), code_(other.code_)
+{
+  copy(other);
+}
+
 Scalar::Scalar(bool tuple, LegateTypeCode code, const void* data)
   : tuple_(tuple), code_(code), data_(data)
 {
+}
+
+Scalar::~Scalar()
+{
+  if (own_)
+    // We know we own this buffer
+    free(const_cast<void*>(data_));
+}
+
+Scalar& Scalar::operator=(const Scalar& other)
+{
+  own_   = other.own_;
+  tuple_ = other.tuple_;
+  code_  = other.code_;
+  copy(other);
+}
+
+void Scalar::copy(const Scalar& other)
+{
+  if (other.own_) {
+    auto size   = other.size();
+    auto buffer = malloc(size);
+    memcpy(buffer, other.data_, size);
+    data_ = buffer;
+  } else
+    data_ = other.data_;
 }
 
 struct elem_size_fn {
