@@ -121,13 +121,33 @@ uint32_t StoreMapping::requirement_index() const
   return result;
 }
 
+std::set<uint32_t> StoreMapping::requirement_indices() const
+{
+  std::set<uint32_t> indices;
+  for (auto& store : stores) {
+    if (store.is_future()) continue;
+    indices.insert(store.region_field().index());
+  }
+  return std::move(indices);
+}
+
 void StoreMapping::populate_layout_constraints(
   Legion::LayoutConstraintSet& layout_constraints) const
 {
   policy.populate_layout_constraints(stores.front(), layout_constraints);
 
   std::vector<FieldID> fields{};
-  for (auto& store : stores) fields.push_back(store.region_field().field_id());
+  if (stores.size() > 1) {
+    std::set<FieldID> field_set{};
+    for (auto& store : stores) {
+      auto field_id = store.region_field().field_id();
+      if (field_set.find(field_id) == field_set.end()) {
+        fields.push_back(field_id);
+        field_set.insert(field_id);
+      }
+    }
+  } else
+    fields.push_back(stores.front().region_field().field_id());
   layout_constraints.add_constraint(FieldConstraint(fields, true /*contiguous*/));
 }
 
