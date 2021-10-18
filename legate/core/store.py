@@ -423,6 +423,13 @@ class Store(object):
 
     @property
     def shape(self):
+        if self._shape is None:
+            # If someone wants to access the shape of an unbound
+            # store before it is set, that means the producer task is
+            # sitting in the queue, so we should flush the queue.
+            self._runtime.flush_scheduling_window()
+            # At this point, we should have the shape set.
+            assert self._shape is not None
         return self._shape
 
     @property
@@ -461,6 +468,10 @@ class Store(object):
         Return the Legion storage objects actually backing the data for this
         Store. These will have exactly the type specified by `.kind`.
         """
+        # If someone is trying to retreive the storage of a store,
+        # we need to execute outstanding operations so that we know
+        # it has been initialized correctly.
+        self._runtime.flush_scheduling_window()
         if self._storage is None:
             if self.unbound:
                 raise RuntimeError(
@@ -491,7 +502,9 @@ class Store(object):
 
     @property
     def has_storage(self):
-        return self._storage is not None
+        return self._storage is not None or (
+            self._parent is not None and self._parent.has_storage
+        )
 
     def attach_external_allocation(self, context, alloc, share):
         if not isinstance(alloc, ExternalAllocation):
@@ -601,7 +614,7 @@ class Store(object):
             self._runtime,
             self._dtype,
             shape=shape,
-            storage=self._storage if self._kind is Future else None,
+            storage=None,
             parent=self,
             transform=transform,
         )
@@ -618,7 +631,7 @@ class Store(object):
             self._runtime,
             self._dtype,
             shape=shape,
-            storage=self._storage if self._kind is Future else None,
+            storage=None,
             parent=self,
             transform=transform,
         )
@@ -649,7 +662,7 @@ class Store(object):
             self._runtime,
             self._dtype,
             shape=shape,
-            storage=self._storage if self._kind is Future else None,
+            storage=None,
             parent=self,
             transform=transform,
         )
@@ -692,7 +705,7 @@ class Store(object):
             self._runtime,
             self._dtype,
             shape=shape,
-            storage=self._storage if self._kind is Future else None,
+            storage=None,
             parent=self,
             transform=transform,
         )

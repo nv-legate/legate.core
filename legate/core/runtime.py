@@ -705,7 +705,10 @@ class Runtime(object):
         # to be dispatched. This list allows cross library introspection for
         # Legate operations.
         self._outstanding_ops = []
-        self._window_size = 1
+        self._window_size = self._core_context.get_tunable(
+            legion.LEGATE_CORE_TUNABLE_WINDOW_SIZE,
+            ty.uint32,
+        )
 
         # Now we initialize managers
         self._attachment_manager = AttachmentManager(self)
@@ -786,6 +789,10 @@ class Runtime(object):
             library.initialize()
 
     def destroy(self):
+        # Before we clean up the runtime, we should execute all outstanding
+        # operations.
+        self.flush_scheduling_window()
+
         # Destroy all libraries. Note that we should do this
         # from the lastly added one to the first one
         for context in reversed(self._context_list):
@@ -814,19 +821,31 @@ class Runtime(object):
             return op.launch(self.legion_runtime, self.legion_context)
 
     def _schedule(self, ops):
-        must_be_single = any(len(op.scalar_outputs) > 0 for op in ops)
-        partitioner = Partitioner(self, ops, must_be_single=must_be_single)
-        strategy = partitioner.partition_stores()
-
+        # TODO: For now we run the partitioner for each operation separately.
+        #       We will eventually want to compute a trace-wide partitioning
+        #       strategy.
+        strategies = []
         for op in ops:
+            must_be_single = len(op.scalar_outputs) > 0
+            partitioner = Partitioner(
+                self, [op], must_be_single=must_be_single
+            )
+            strategies.append(partitioner.partition_stores())
+
+        for op, strategy in zip(ops, strategies):
             op.launch(strategy)
+
+    def flush_scheduling_window(self):
+        if len(self._outstanding_ops) == 0:
+            return
+        ops = self._outstanding_ops
+        self._outstanding_ops = []
+        self._schedule(ops)
 
     def submit(self, op):
         self._outstanding_ops.append(op)
         if len(self._outstanding_ops) >= self._window_size:
-            ops = self._outstanding_ops
-            self._outstanding_ops = []
-            self._schedule(ops)
+            self.flush_scheduling_window()
 
     def _progress_unordered_operations(self):
         legion.legion_context_progress_unordered_operations(
