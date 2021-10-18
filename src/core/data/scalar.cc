@@ -42,6 +42,7 @@ Scalar& Scalar::operator=(const Scalar& other)
   tuple_ = other.tuple_;
   code_  = other.code_;
   copy(other);
+  return *this;
 }
 
 void Scalar::copy(const Scalar& other)
