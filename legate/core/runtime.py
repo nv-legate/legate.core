@@ -705,7 +705,10 @@ class Runtime(object):
         # to be dispatched. This list allows cross library introspection for
         # Legate operations.
         self._outstanding_ops = []
-        self._window_size = 1
+        self._window_size = self._core_context.get_tunable(
+            legion.LEGATE_CORE_TUNABLE_WINDOW_SIZE,
+            ty.uint32,
+        )
 
         # Now we initialize managers
         self._attachment_manager = AttachmentManager(self)
