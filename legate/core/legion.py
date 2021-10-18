@@ -206,6 +206,10 @@ class Point(object):
     def __len__(self):
         return self.dim
 
+    def __iter__(self):
+        for idx in range(self.dim):
+            yield self[idx]
+
     def __repr__(self):
         p_strs = [str(self[i]) for i in range(self.dim)]
         return "Point(p=[" + ",".join(p_strs) + "])"
@@ -215,6 +219,12 @@ class Point(object):
         return "<" + ",".join(p_strs) + ">"
 
     def set_point(self, p):
+        try:
+            if ffi.typeof(p).cname == "legion_domain_point_t":
+                ffi.addressof(self.point)[0] = p
+                return
+        except TypeError:
+            pass
         try:
             if len(p) > LEGATE_MAX_DIM:
                 raise ValueError(
@@ -280,6 +290,20 @@ class Rect(object):
             result = result ^ hash(self.lo[idx])
             result = result ^ hash(self.hi[idx])
         return result
+
+    def __iter__(self):
+        p = Point(self._lo)
+        dim = self.dim
+        yield Point(p)
+        while True:
+            for idx in range(dim - 1, -2, -1):
+                if idx < 0:
+                    return
+                if p[idx] < self._hi[idx]:
+                    p[idx] += 1
+                    yield Point(p)
+                    break
+                p[idx] = self._lo[idx]
 
     def __repr__(self):
         return f"Rect(lo={repr(self._lo)},hi={repr(self._hi)},exclusive=False)"
