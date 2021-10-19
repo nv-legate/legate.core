@@ -133,6 +133,8 @@ def legate_task_progress(runtime, context):
                 legion.legion_argument_map_destroy(handle)
             elif type is OutputRegion:
                 legion.legion_output_requirement_destroy(handle)
+            elif type is ExternalResources:
+                legion.legion_external_resources_destroy(handle)
             else:
                 raise TypeError(
                     "Internal legate type error on pending deletions"
@@ -936,6 +938,54 @@ class PartitionByWeights(PartitionFunctor):
             )
         else:
             raise TypeError("Unsupported type for PartitionByWeights")
+
+
+class PartitionByDomain(PartitionFunctor):
+    def __init__(self, domains):
+        """
+        PartitionByDomain will construct an IndexPartition given an explicit
+        mapping of colors to domains.
+
+        Parameters
+        ----------
+        domains : FutureMap | dict[Point, Rect]
+        """
+        self.domains = domains
+
+    def partition(self, runtime, context, parent, color_space, kind, part_id):
+        if isinstance(self.domains, FutureMap):
+            return legion.legion_index_partition_create_by_domain_future_map(
+                runtime,
+                context,
+                parent.handle,
+                self.domains.handle,
+                color_space.handle,
+                True,  # perform_intersections
+                kind,
+                part_id,
+            )
+        elif isinstance(self.domains, dict):
+            num_domains = len(self.domains)
+            assert num_domains <= color_space.get_volume()
+            colors = ffi.new("legion_domain_point_t[%d]" % num_domains)
+            domains = ffi.new("legion_domain_t[%d]" % num_domains)
+            for (i, (point, rect)) in enumerate(self.domains.items()):
+                colors[i] = point.raw()
+                domains[i] = rect.raw()
+            return legion.legion_index_partition_create_by_domain(
+                runtime,
+                context,
+                parent.handle,
+                colors,
+                domains,
+                num_domains,
+                color_space.handle,
+                True,  # perform_intersections
+                kind,
+                part_id,
+            )
+        else:
+            raise TypeError("Unsupported type for PartitionByDomain")
 
 
 # TODO more kinds of partition functors here
@@ -2557,6 +2607,172 @@ class Detach(object):
             )
 
 
+class ExternalResources(object):
+    def __init__(self, handle):
+        """
+        Stores a collection of physical regions that were attached together
+        using the same IndexAttach operation. Wraps a
+        `legion_external_resources_t` object from the Legion C API.
+        """
+        self.handle = handle
+
+    def __del__(self):
+        self.destroy(unordered=True)
+
+    def destroy(self, unordered):
+        """
+        Eagerly destroy this object before the garbage collector does.
+        It is illegal to use the object after this call.
+
+        Parameters
+        ----------
+        unordered : bool
+            Whether this object is being destroyed outside of the scope
+            of the execution of a Legion task or not
+        """
+        if self.handle is None:
+            return
+        if unordered:
+            _pending_deletions.append((self.handle, type(self)))
+        else:
+            legion.legion_external_resources_destroy(self.handle)
+        self.handle = None
+
+
+class IndexAttach(object):
+    def __init__(
+        self,
+        parent,
+        field,
+        shard_local_data,
+        mapper=0,
+        tag=0,
+    ):
+        """
+        A variant of Attach that allows attaching multiple pieces of external
+        data as sub-regions of the same parent region. Each piece may reside
+        on a different address space.
+
+        Parameters
+        ----------
+        parent : Region
+            The parent region to which external data will be attached as
+            sub-regions
+        field : int | FieldID
+            The field ID to which the data will be attached
+        shard_local_data : dict[Region, memoryview]
+            Maps sub-regions to buffers on the shard's local address space.
+            Each sub-region will be attached to the corresponding buffer.
+            Each shard should pass a set of distinct subregions, and all
+            sub-regions must be disjoint.
+        mapper : int
+            ID of the mapper to use for mapping the operation
+        tag : int
+            Tag to pass to the mapper to provide context for any mapper calls
+        """
+        self.launcher = legion.legion_index_attach_launcher_create(
+            parent.handle,
+            legion.LEGION_EXTERNAL_INSTANCE,
+            True,  # restricted
+        )
+        self._launcher = ffi.gc(
+            self.launcher, legion.legion_index_attach_launcher_destroy
+        )
+        fields = ffi.new("legion_field_id_t[1]")
+        fields[0] = field.fid if isinstance(field, FieldID) else field
+        # Find a local system memory
+        machine = legion.legion_machine_create()
+        query = legion.legion_memory_query_create(machine)
+        legion.legion_memory_query_only_kind(query, legion.SYSTEM_MEM)
+        legion.legion_memory_query_local_address_space(query)
+        assert legion.legion_memory_query_count(query) > 0
+        mem = legion.legion_memory_query_first(query)
+        legion.legion_memory_query_destroy(query)
+        legion.legion_machine_destroy(machine)
+        for (sub_region, buf) in shard_local_data:
+            assert sub_region.parent.parent is parent
+            legion.legion_index_attach_launcher_attach_array_soa(
+                self.launcher,
+                sub_region.handle,
+                ffi.from_buffer(buf),
+                buf.f_contiguous,
+                fields,
+                1,  # num_fields
+                mem,
+            )
+
+    def set_restricted(self, restricted):
+        """
+        Set whether restricted coherence should be used on the logical region.
+        If restricted coherence is enabled, changes to the data in the logical
+        region will be eagerly reflected back to the external buffers.
+        """
+        legion.legion_index_attach_launcher_set_restricted(
+            self.launcher, restricted
+        )
+
+    def set_deduplicate_across_shards(self, deduplicate):
+        """
+        Set whether the runtime should check for duplicate resources
+        """
+        legion.legion_index_attach_launcher_set_deduplicate_across_shards(
+            self.launcher, deduplicate
+        )
+
+    @dispatch
+    def launch(self, runtime, context):
+        """
+        Dispatch the operation to the runtime
+
+        Returns
+        -------
+        An ExternalResources object that names the attached resources
+        """
+        return ExternalResources(
+            legion.legion_attach_external_resources(
+                runtime, context, self.launcher
+            )
+        )
+
+
+class IndexDetach(object):
+    def __init__(self, external_resources, flush=True):
+        """
+        An IndexDetach operation will unbind a collection of external resources
+        that were attached together to a logical region through an IndexAttach.
+        This will also allow any outstanding mutations to the logical region to
+        be flushed back to the external memory allocations.
+
+        Parameters
+        ----------
+        external_resources : ExternalResources
+            The external resources to be detached
+        flush : bool
+            Whether to flush changes to the logical region to the external
+            allocations
+        """
+        self.external_resources = external_resources
+        self.flush = flush
+
+    def launch(self, runtime, context):
+        """
+        Dispatch the operation to the runtime
+
+        Returns
+        -------
+        Future containing no data that completes when the operation is done
+        """
+        return Future(
+            legion.legion_detach_external_resources(
+                runtime,
+                context,
+                self.external_resources.handle,
+                self.flush,
+                False,  # unordered
+            )
+        )
+
+
 class Acquire(object):
     def __init__(self, region, fields, mapper=0, tag=0):
         """
@@ -3803,6 +4019,50 @@ class FutureMap(object):
             False,
             0,
             False,
+        )
+        return cls(handle)
+
+    @classmethod
+    def from_dict(cls, context, runtime, domain, futures, collective=False):
+        """
+        Construct a FutureMap from a Point-to-Future dict
+
+        Parameters
+        ----------
+        context : legion_context_t
+            The context handle for the enclosing parent task
+        runtime : legion_runtime_t
+            The Legion runtime handle
+        domain : Rect
+            A dense Rect enumerating all the Futures that will be included in
+            the created future map
+        futures : dict[Point, Future]
+            Futures to use to construct a future map
+        collective : bool
+            If True then each shard can specify a different subset of the
+            Futures to include. The runtime will combine all the Futures
+            provided by the different shards into a single future map.
+
+        Returns
+        -------
+        FutureMap that contains all the Futures
+        """
+        num_futures = len(futures)
+        points = ffi.new("legion_domain_point_t[%d]" % num_futures)
+        futures_ = ffi.new("legion_future_t[%d]" % num_futures)
+        for (i, (point, future)) in enumerate(futures.items()):
+            points[i] = point.raw()
+            futures_[i] = future.handle
+        handle = legion.legion_future_map_construct_from_futures(
+            runtime,
+            context,
+            domain.raw(),
+            points,
+            futures_,
+            num_futures,
+            collective,
+            0,
+            True,
         )
         return cls(handle)
 

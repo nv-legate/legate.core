@@ -27,7 +27,7 @@ from legate.core.runtime import (
     get_legion_runtime,
     legate_add_library,
 )
-from legate.core.store import Store
+from legate.core.store import DistributedAllocation, Store
 from legate.core.legion import (
     LEGATE_MAX_DIM,
     LEGATE_MAX_FIELDS,

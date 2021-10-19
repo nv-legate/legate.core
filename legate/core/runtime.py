@@ -319,6 +319,7 @@ class Attachment(object):
         self.ptr = ptr
         self.extent = extent
         self.end = ptr + extent - 1
+        # can be None, if this attachment is part of an IndexAttach
         self.region_field = region_field
 
     def overlaps(self, other):
@@ -354,23 +355,27 @@ class AttachmentManager(object):
         self._attachments = None
 
     @staticmethod
-    def attachment_key(alloc):
-        base_ptr = int(ffi.cast("uintptr_t", ffi.from_buffer(alloc)))
-        return (base_ptr, alloc.nbytes)
+    def attachment_key(buf):
+        assert isinstance(buf, memoryview)
+        base_ptr = int(ffi.cast("uintptr_t", ffi.from_buffer(buf)))
+        return (base_ptr, buf.nbytes)
 
-    def has_attachment(self, alloc):
-        key = self.attachment_key(alloc)
+    def has_attachment(self, buf):
+        key = self.attachment_key(buf)
         return key in self._attachments
 
-    def reuse_existing_attachment(self, alloc):
-        key = self.attachment_key(alloc)
+    def reuse_existing_attachment(self, buf):
+        key = self.attachment_key(buf)
         if key not in self._attachments:
             return None
         attachment = self._attachments[key]
+        # This will return None if the buffer is part of an IndexAttach,
+        # rather than a single Attach covering the entire region.
         return attachment.region_field
 
-    def attach_external_allocation(self, alloc, region_field):
-        key = self.attachment_key(alloc)
+    def _add_attachment(self, buf, region_field):
+        # region_field should be None if this buffer is part of an IndexAttach
+        key = self.attachment_key(buf)
         if key in self._attachments:
             raise RuntimeError(
                 "Cannot attach two different RegionFields to the same buffer"
@@ -383,6 +388,21 @@ class AttachmentManager(object):
                 )
         self._attachments[key] = attachment
 
+    def attach_external_allocation(self, alloc, region_field):
+        if isinstance(alloc, memoryview):
+            self._add_attachment(alloc, region_field)
+        else:
+            # Don't record the RegionField on each sub-buffer, since we can't
+            # reuse any of them individually to cover the entire RegionField.
+            for buf in alloc.shard_local_buffers.values():
+                self._add_attachment(buf, None)
+
+    def _remove_attachment(self, buf):
+        key = self.attachment_key(buf)
+        if key not in self._attachments:
+            raise RuntimeError("Unable to find attachment to remove")
+        del self._attachments[key]
+
     def detach_external_allocation(self, alloc, detach, defer):
         if defer:
             # If we need to defer this until later do that now
@@ -394,10 +414,11 @@ class AttachmentManager(object):
         future.field_reference = detach.field
         # We also need to tell the core legate library that this buffer
         # is no longer attached
-        key = self.attachment_key(alloc)
-        if key not in self._attachments:
-            raise RuntimeError("Unable to find attachment to remove")
-        del self._attachments[key]
+        if isinstance(alloc, memoryview):
+            self._remove_attachment(alloc)
+        else:
+            for buf in alloc.shard_local_buffers.values():
+                self._remove_attachment(buf)
         # If the future is already ready, then no need to track it
         if future.is_ready():
             return
@@ -975,7 +996,10 @@ class Runtime(object):
         if bounds in self.index_spaces:
             return self.index_spaces[bounds]
         # Haven't seen this before so make it now
-        rect = Rect(bounds)
+        if isinstance(bounds, Rect):
+            rect = bounds
+        else:
+            rect = Rect(bounds)
         handle = legion.legion_index_space_create_domain(
             self.legion_runtime, self.legion_context, rect.raw()
         )
