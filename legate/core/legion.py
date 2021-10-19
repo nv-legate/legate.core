@@ -347,6 +347,11 @@ class Domain(object):
         IndexSpace as well as optional sparsity map describing the actual
         non-dense set of points. If there is no sparsity map then the domain
         is purely the set of dense points represented by the rectangle bounds.
+
+        Note that Domain objects do not copy the contents of the provided
+        `legion_domain_t` handle, nor do they take ownership of if. It is up
+        to the calling code to ensure that the memory backing the original
+        handle will not be collected while this object is in use.
         """
 
         self.domain = domain
@@ -564,7 +569,7 @@ class IndexSpace(object):
 
         Parameters
         ----------
-        context : legion_context_
+        context : legion_context_t
             The Legion context from get_legion_context()
         runtime : legion_runtime_t
             Handle for the Legion runtime from get_legion_runtime()
@@ -2446,14 +2451,11 @@ class Attach(object):
         data : memoryview
             Input data in a memoryview
         mapper : int
-            ID of the mapper to use for mapping the copy operation
+            ID of the mapper to use for mapping the operation
         tag : int
             Tag to pass to the mapper to provide context for any mapper calls
         read_only : bool
             Whether this buffer should only be accessed read-only
-        row_major : bool
-            If data is a buffer, indicate whether dimensions should interpreted
-            as row-major or column-major
         """
         self.launcher = legion.legion_attach_launcher_create(
             region.handle, region.handle, legion.LEGION_EXTERNAL_INSTANCE
@@ -3773,7 +3775,7 @@ class FutureMap(object):
 
         Parameters
         ----------
-        context : legion_context_
+        context : legion_context_t
             The context handle for the enclosing parent task
         runtime : legion_runtime_t
             The Legion runtime handle
@@ -3787,10 +3789,10 @@ class FutureMap(object):
         num_futures = len(futures)
         domain = Rect([num_futures]).raw()
         points = ffi.new("legion_domain_point_t[%d]" % num_futures)
-        futures = ffi.new("legion_future_t[%d]" % num_futures)
+        futures_ = ffi.new("legion_future_t[%d]" % num_futures)
         for i in xrange(num_futures):
             points[i] = Point([i]).raw()
-            futures[i] = futures[i].handle
+            futures_[i] = futures[i].handle
         handle = legion.legion_future_map_construct_from_futures(
             runtime,
             context,
