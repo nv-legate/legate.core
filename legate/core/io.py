@@ -15,11 +15,12 @@
 
 from legion_cffi import ffi  # Make sure we only have one ffi instance
 
-from .legion import Point, legion
+from .legion import Point, Rect, legion
 from .runtime import _runtime
+from .store import DistributedAllocation
 
 
-def ingest(colors, get_buffer, get_local_colors=None):
+def ingest(dtype, shape, colors, get_buffer, get_local_colors=None):
     """
     Construct a Store backed by a collection of buffers distributed across the
     machine.
@@ -31,9 +32,14 @@ def ingest(colors, get_buffer, get_local_colors=None):
 
     Parameters
     ----------
-    colors : Rect
-        An m-dimensional rectangle containing all the colors of buffers to
-        ingest
+    dtype : numpy.dtype
+        Type of the data to ingest
+
+    shape : int | Tuple[int]
+        N-dimensional dense rectangular domain of the data to ingest
+
+    colors : int | Tuple[int]
+        M-dimensional dense rectangle indexing all the buffers to ingest
 
     get_buffer: Callable[[Point], Tuple[Rect,memoryview]]
         This function will be called on the appropriate process for each color
@@ -80,6 +86,7 @@ def ingest(colors, get_buffer, get_local_colors=None):
     -------
     A Store backed by the provided buffers
     """
+
     if get_local_colors is None:
 
         def get_local_colors():
@@ -108,8 +115,15 @@ def ingest(colors, get_buffer, get_local_colors=None):
             _runtime.core_library.free(points_ptr)
             return points
 
+    shard_local_domains = {}
+    shard_local_buffers = {}
     for c in get_local_colors():
         rect, buf = get_buffer(c)
-        # TODO: now actually pass into attach_external_allocation
-
-    return None
+        shard_local_domains[c] = rect
+        shard_local_buffers[c] = buf
+    alloc = DistributedAllocation(
+        Rect(colors), shard_local_domains, shard_local_buffers
+    )
+    store = _runtime.create_store(dtype, shape)
+    store.attach_external_allocation(_runtime.core_context, alloc, False)
+    return store
