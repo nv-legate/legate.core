@@ -195,8 +195,10 @@ class RegionField(object):
             # Distributed attachment
             fut_size = ffi.sizeof("legion_domain_t")
             futures = {
-                p: self.runtime.create_future(ffi.buffer(rect.raw()), fut_size)
-                for (p, rect) in alloc.shard_local_domains.items()
+                c: self.runtime.create_future(
+                    ffi.buffer(ffi.addressof(rect.raw())), fut_size
+                )
+                for (c, rect) in alloc.shard_local_domains.items()
             }
             domains = FutureMap.from_dict(
                 self.runtime.legion_context,
@@ -213,10 +215,10 @@ class RegionField(object):
                 PartitionByDomain(domains),
             )
             partition = self.region.get_child(index_partition)
-            shard_local_data = {}
-            for c in alloc.colors:
-                sub_region = partition.get_child(c)
-                shard_local_data[sub_region] = alloc.shard_local_buffers[c]
+            shard_local_data = {
+                partition.get_child(c): buf
+                for (c, buf) in alloc.shard_local_buffers.items()
+            }
             attach = IndexAttach(
                 self.region,
                 self.field.field_id,

@@ -2695,7 +2695,7 @@ class IndexAttach(object):
         mem = legion.legion_memory_query_first(query)
         legion.legion_memory_query_destroy(query)
         legion.legion_machine_destroy(machine)
-        for (sub_region, buf) in shard_local_data:
+        for (sub_region, buf) in shard_local_data.items():
             assert sub_region.parent.parent is parent
             legion.legion_index_attach_launcher_attach_array_soa(
                 self.launcher,
