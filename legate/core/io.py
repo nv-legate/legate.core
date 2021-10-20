@@ -86,7 +86,7 @@ def ingest(dtype, shape, colors, get_buffer, get_local_colors=None):
     -------
     A Store backed by the provided buffers
     """
-
+    colors = Rect(colors)
     if get_local_colors is None:
 
         def get_local_colors():
@@ -101,18 +101,20 @@ def ingest(dtype, shape, colors, get_buffer, get_local_colors=None):
                 _runtime.legion_runtime, _runtime.legion_context
             )
             points_size = ffi.new("size_t *")
-            points_ptr = legion.legion_sharding_functor_invert(
+            points_size[0] = colors.get_volume()
+            points_ptr = ffi.new("legion_domain_point_t[%s]" % points_size[0])
+            legion.legion_sharding_functor_invert(
                 sid,
                 shard,
                 domain,
                 domain,
                 total_shards,
+                points_ptr,
                 points_size,
             )
             points = []
             for i in range(points_size[0]):
                 points.append(Point(points_ptr[i]))
-            _runtime.core_library.free(points_ptr)
             return points
 
     shard_local_domains = {}
@@ -122,8 +124,8 @@ def ingest(dtype, shape, colors, get_buffer, get_local_colors=None):
         shard_local_domains[c] = rect
         shard_local_buffers[c] = buf
     alloc = DistributedAllocation(
-        Rect(colors), shard_local_domains, shard_local_buffers
+        colors, shard_local_domains, shard_local_buffers
     )
-    store = _runtime.create_store(dtype, shape)
+    store = _runtime.core_context.create_store(dtype, shape)
     store.attach_external_allocation(_runtime.core_context, alloc, False)
     return store

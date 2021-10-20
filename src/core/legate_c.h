@@ -104,8 +104,6 @@ void legate_register_projection_functor(int32_t, int32_t, int32_t*, legion_proje
 
 void legate_create_sharding_functor_using_projection(legion_sharding_id_t, legion_projection_id_t);
 
-void free(void* ptr);  // from stdlib.h
-
 #ifdef __cplusplus
 }
 #endif

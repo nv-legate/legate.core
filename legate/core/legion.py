@@ -276,6 +276,12 @@ class Rect(object):
         assert self._lo.dim == self._hi.dim
         return self._lo.dim
 
+    def get_volume(self):
+        volume = 1
+        for i in range(self.dim):
+            volume *= self.hi[i] - self.lo[i] + 1
+        return volume
+
     def __eq__(self, other):
         try:
             if self.lo != other.lo:
