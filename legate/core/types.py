@@ -121,7 +121,7 @@ class _Dtype(object):
         return str(self._dtype)
 
     def __repr__(self):
-        return f"Dtype({self._dtype}, {self.code}, {self.size})"
+        return f"_Dtype({self._dtype}, {self.size}, {self.code})"
 
 
 @unique

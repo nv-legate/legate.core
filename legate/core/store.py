@@ -444,7 +444,7 @@ class Store(object):
             The Legate runtime
         shape : legate.core.Shape
             A Shape object representing the shape of this store
-        dtype : numpy.dtype
+        dtype : legate.core.types._DType
             Data type of this store
         storage : Any[RegionField, Future, FutureMap]
             A backing storage of this store

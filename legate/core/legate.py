@@ -27,11 +27,9 @@ class Array(object):
         An Array is a collection of one or more Store objects that can
         represent a uniformly typed set of potentially nullable data values.
 
-        Construct an Array from a DataType and a list of Store objects
-
         Parameters
         ----------
-        dtype : DataType
+        dtype : pyarrow.DataType
             The type for the constructed array
         stores : List[Store]
             List of storage objects
@@ -116,7 +114,7 @@ class Array(object):
 class Table(object):
     def __init__(self, schema, columns):
         """
-        A Table is collection of top-level, equal-length Store
+        A Table is a collection of top-level, equal-length Array
         objects. It is designed to be as close as possible to the PyArrow
         Table datatype with the only exception being that its data is backed
         by Store object instead of buffers in memory.
