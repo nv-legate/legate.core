@@ -18,7 +18,6 @@ import platform
 import pyarrow
 
 from .context import ResourceConfig
-from .legion import FieldID, Region
 
 
 class Array(object):
@@ -58,20 +57,6 @@ class Array(object):
                 "({1}).".format(dtype.num_buffers, len(self._stores))
             )
 
-        # Check that all the stores are the same type and logical region
-        all_stores = self.stores()
-        all_store_types = set(type(store) for store in all_stores) - {
-            type(None)
-        }
-        if len(all_store_types) > 1:
-            raise TypeError("All stores of an Array must be the same type")
-
-        # By convention, we have a valid store at 1.
-        if stores[1].kind in ((Region, FieldID), (Region, int)):
-            self._region = stores[1].storage[0]
-        else:
-            self._region = None
-
     def stores(self):
         """
         Return a list of the Store object that represent
@@ -106,9 +91,8 @@ class Array(object):
     def type(self):
         return self._type
 
-    @property
-    def region(self):
-        return self._region
+    def __len__(self):
+        raise NotImplementedError("Array.__len__")
 
 
 class Table(object):
@@ -127,12 +111,6 @@ class Table(object):
             )
         self._schema = schema
         self._columns = columns
-        region = self._columns[0].region
-        for column in self._columns:
-            if column.region is not region:
-                raise ValueError(
-                    "All Arrays in a Table must have the same logical region"
-                )
 
     @property
     def __legate_data_interface__(self):
@@ -473,11 +451,7 @@ class Table(object):
         """
         if len(self._columns) == 0:
             return 0
-        stores = self._columns[0][1].stores()
-        assert len(stores) > 0
-        if stores[0].is_future:
-            return 1
-        return stores[0].region.index_space.get_volume()
+        return len(self._columns[0])
 
     @property
     def schema(self):
