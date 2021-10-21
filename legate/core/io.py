@@ -15,6 +15,7 @@
 
 from legion_cffi import ffi  # Make sure we only have one ffi instance
 
+from .legate import Array, Table
 from .legion import Point, Rect, legion
 from .runtime import _runtime
 from .store import DistributedAllocation
@@ -22,8 +23,8 @@ from .store import DistributedAllocation
 
 def ingest(dtype, shape, colors, get_buffer, get_local_colors=None):
     """
-    Construct a Store backed by a collection of buffers distributed across the
-    machine.
+    Construct a single-column Table backed by a collection of buffers
+    distributed across the machine.
 
     Each buffer is assumed to cover a disjoint dense subset of a rectangular
     n-dimensional domain, and is identified by its "color", an m-dimensional
@@ -32,7 +33,7 @@ def ingest(dtype, shape, colors, get_buffer, get_local_colors=None):
 
     Parameters
     ----------
-    dtype : numpy.dtype
+    dtype : pyarrow.DataType
         Type of the data to ingest
 
     shape : int | Tuple[int]
@@ -84,7 +85,7 @@ def ingest(dtype, shape, colors, get_buffer, get_local_colors=None):
 
     Returns
     -------
-    A Store backed by the provided buffers
+    A single-column Table backed by the provided buffers
     """
     colors = Rect(colors)
     if get_local_colors is None:
@@ -128,4 +129,6 @@ def ingest(dtype, shape, colors, get_buffer, get_local_colors=None):
     )
     store = _runtime.core_context.create_store(dtype, shape)
     store.attach_external_allocation(_runtime.core_context, alloc, False)
-    return store
+    # first store is the (non-existent) mask
+    array = Array(dtype, [None, store])
+    return Table.from_arrays([array], ["ingested"])
