@@ -570,12 +570,13 @@ class TaskLauncher(object):
         if store.kind is Future:
             if store.has_storage:
                 self.add_future(store.storage)
-            elif perm == Permission.READ or perm == Permission.REDUCTION:
+            elif (perm == Permission.READ or perm == Permission.REDUCTION):
                 raise RuntimeError(
                     "Read access to an uninitialized store is disallowed"
                 )
             read_only = perm == Permission.READ
             args.append(FutureStoreArg(store, read_only, store.has_storage))
+            #args.append(FutureStoreArg(store, perm, store.has_storage))
 
         else:
             region = store.storage.region

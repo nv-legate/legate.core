@@ -119,6 +119,7 @@ namespace legate{
             pack((uint32_t) dom.dim);
             for (int32_t i =0; i<dom.dim; i++)
             {
+                std::cout<<"packing "<<i<<" "<<dom.rect_data[i + dom.dim]+1<<std::endl;
                 pack((int64_t) dom.rect_data[i + dom.dim] + 1);
             }
         }   

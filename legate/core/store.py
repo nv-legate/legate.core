@@ -423,6 +423,13 @@ class Store(object):
 
     @property
     def shape(self):
+        if self._shape is None:
+            # If someone wants to access the shape of an unbound
+            # store before it is set, that means the producer task is
+            # sitting in the queue, so we should flush the queue.
+            self._runtime._launch_outstanding(False)
+            # At this point, we should have the shape set.
+            assert self._shape is not None
         return self._shape
 
     @property
@@ -462,6 +469,28 @@ class Store(object):
         Store. These will have exactly the type specified by `.kind`.
         """
         if self._storage is None:
+            print("store none, launching", [op._task_id for op in self._runtime._outstanding_ops])
+            self._runtime._launch_outstanding(False)
+            """
+            if self._kind ==Future:
+                print("future")
+            while(self._storage is None and len(self._runtime._outstanding_ops)):
+                print("launch_one")
+                print([op._task_id for op in self._runtime._outstanding_ops])
+                #self._runtime._launch_outstanding()
+                self._runtime._launch_one()
+            """ 
+            """
+            if True:
+                import pdb; pdb.set_trace()
+                start = self
+                while start._storage is None and start._parent:
+                    start=start._parent
+                if start._storage:
+                    self._storage = start._storage
+                else:
+                    self._runtime._launch_outstanding()
+            """
             if self.unbound:
                 raise RuntimeError(
                     "Storage of a variable size store cannot be retrieved "
@@ -471,6 +500,7 @@ class Store(object):
             #       if necessary
             if self._parent is None:
                 if self._kind is Future:
+                    print("supressing in store.py")
                     raise ValueError(
                         "Illegal to access the storage of an uninitialized "
                         "Legate store of volume 1 with scalar optimization"
