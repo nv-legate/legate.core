@@ -59,6 +59,9 @@ class NoPartition(object):
     def satisfies_restriction(self, restrictions):
         return True
 
+    def translate(self, offset):
+        return self
+
 
 class Interval(object):
     def __init__(self, lo, extent):
@@ -87,6 +90,10 @@ class Tiling(object):
             and self._color_shape == other._color_shape
             and self._offset == other._offset
         )
+
+    @property
+    def runtime(self):
+        return self._runtime
 
     @property
     def tile_shape(self):
@@ -156,6 +163,14 @@ class Tiling(object):
     def is_disjoint_for(self, strategy, store):
         inverted = store.invert_partition(self)
         return inverted.color_shape.volume() == self.color_shape.volume()
+
+    def translate(self, offset):
+        return Tiling(
+            self._runtime,
+            self._tile_shape,
+            self._color_shape,
+            self._offset + offset,
+        )
 
     def construct(self, region, complete=False):
         index_space = region.index_space

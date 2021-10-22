@@ -130,6 +130,7 @@ struct StoreMapping {
  public:
   bool for_unbound_stores() const;
   uint32_t requirement_index() const;
+  std::set<uint32_t> requirement_indices() const;
 
  public:
   void populate_layout_constraints(Legion::LayoutConstraintSet& layout_constraints) const;

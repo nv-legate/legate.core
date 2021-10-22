@@ -985,6 +985,9 @@ class Runtime(object):
         self._window_size =10
         self._fusion_threshold =2
         self._clearing_pipe = False
+        self._window_size = self._core_context.get_tunable(
+            legion.LEGATE_CORE_TUNABLE_WINDOW_SIZE,
+            ty.uint32,
 
         # Now we initialize managers
         self._attachment_manager = AttachmentManager(self)
@@ -1065,6 +1068,10 @@ class Runtime(object):
             library.initialize()
 
     def destroy(self):
+        # Before we clean up the runtime, we should execute all outstanding
+        # operations.
+        self.flush_scheduling_window()
+
         # Destroy all libraries. Note that we should do this
         # from the lastly added one to the first one
         for context in reversed(self._context_list):
@@ -1329,6 +1336,33 @@ class Runtime(object):
                 ops = self._outstanding_ops
                 self._outstanding_ops = []
                 self._schedule(ops)
+
+    def _scheduleNew(self, ops):
+        # TODO: For now we run the partitioner for each operation separately.
+        #       We will eventually want to compute a trace-wide partitioning
+        #       strategy.
+        strategies = []
+        for op in ops:
+            must_be_single = len(op.scalar_outputs) > 0
+            partitioner = Partitioner(
+                self, [op], must_be_single=must_be_single
+            )
+            strategies.append(partitioner.partition_stores())
+
+        for op, strategy in zip(ops, strategies):
+            op.launch(strategy)
+
+    def flush_scheduling_window(self):
+        if len(self._outstanding_ops) == 0:
+            return
+        ops = self._outstanding_ops
+        self._outstanding_ops = []
+        self._schedule(ops)
+
+    def submitNew(self, op):
+        self._outstanding_ops.append(op)
+        if len(self._outstanding_ops) >= self._window_size:
+            self.flush_scheduling_window()
 
     def _progress_unordered_operations(self):
         legion.legion_context_progress_unordered_operations(

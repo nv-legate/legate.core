@@ -27,12 +27,14 @@ using namespace Legion::Mapping;
 
 uint32_t extract_env(const char* env_name, const uint32_t default_value, const uint32_t test_value)
 {
-  const char* legate_test = getenv("LEGATE_TEST");
-  if (legate_test != NULL) return test_value;
   const char* env_value = getenv(env_name);
-  if (env_value == NULL)
-    return default_value;
-  else
+  if (env_value == NULL) {
+    const char* legate_test = getenv("LEGATE_TEST");
+    if (legate_test != NULL)
+      return test_value;
+    else
+      return default_value;
+  } else
     return atoi(env_value);
 }
 
@@ -99,6 +101,7 @@ class CoreMapper : public Legion::Mapping::NullMapper {
   const unsigned min_gpu_chunk;
   const unsigned min_cpu_chunk;
   const unsigned min_omp_chunk;
+  const unsigned window_size;
 
  protected:
   std::vector<Processor> local_cpus;
@@ -118,7 +121,8 @@ CoreMapper::CoreMapper(MapperRuntime* rt, Machine m, const LibraryContext& c)
     context(c),
     min_gpu_chunk(extract_env("LEGATE_MIN_GPU_CHUNK", 1 << 20, 2)),
     min_cpu_chunk(extract_env("LEGATE_MIN_CPU_CHUNK", 1 << 14, 2)),
-    min_omp_chunk(extract_env("LEGATE_MIN_OMP_CHUNK", 1 << 17, 2))
+    min_omp_chunk(extract_env("LEGATE_MIN_OMP_CHUNK", 1 << 17, 2)),
+    window_size(extract_env("LEGATE_WINDOW_SIZE", 1, 1))
 {
   // Query to find all our local processors
   Machine::ProcessorQuery local_procs(machine);
@@ -361,6 +365,10 @@ void CoreMapper::select_tunable_value(const MapperContext ctx,
       else
         // Make sure we can get at least 8KB elements on each CPU
         pack_tunable(min_cpu_chunk, output);
+      return;
+    }
+    case LEGATE_CORE_TUNABLE_WINDOW_SIZE: {
+      pack_tunable(window_size, output);
       return;
     }
   }
