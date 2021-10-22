@@ -87,7 +87,7 @@ from legate.core.types import (
     complex128,
     ReductionOp,
 )
-from legate.core.io import ingest
+from legate.core.io import CustomSplit, TiledSplit, ingest
 from legion_cffi import ffi, lib as legion
 
 # Import the PyArrow type system

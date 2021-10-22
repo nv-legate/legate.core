@@ -15,17 +15,15 @@
 
 import weakref
 from functools import partial
+from math import prod
 
 from .legion import (
     Attach,
     Detach,
     Future,
-    FutureMap,
     IndexAttach,
     IndexDetach,
-    IndexPartition,
     InlineMapping,
-    PartitionByDomain,
     Point,
     ffi,
     legion,
@@ -40,6 +38,7 @@ from .transform import (
     Shift,
     Transpose,
 )
+from .types import _Dtype
 
 
 class InlineMappedAllocation(object):
@@ -65,7 +64,7 @@ class InlineMappedAllocation(object):
 
 
 class DistributedAllocation(object):
-    def __init__(self, colors, shard_local_domains, shard_local_buffers):
+    def __init__(self, partition, shard_local_buffers):
         """
         Represents a distributed collection of buffers, to be
         collectively attached as sub-regions of the same
@@ -77,15 +76,14 @@ class DistributedAllocation(object):
 
         Parameters
         ----------
-        colors : Rect
-            A dense domain naming all the buffers to attach to
-        shard_local_domains : dict[Point, Rect]
-            The domain covered by each sub-region local to the shard
+        partition : Partition
+            The partition to use in the IndexAttach operation
         shard_local_buffers : dict[Point, memoryview]
-            The buffer that will back each sub-region local to the shard
+            Map from color to buffer that should back the sub-region of that
+            color. This map will only cover the buffers local to the current
+            shard.
         """
-        self.colors = colors
-        self.shard_local_domains = shard_local_domains
+        self.partition = partition
         self.shard_local_buffers = shard_local_buffers
 
 
@@ -193,32 +191,25 @@ class RegionField(object):
             detach = Detach(self.physical_region, flush=share)
         else:
             # Distributed attachment
-            fut_size = ffi.sizeof("legion_domain_t")
-            futures = {
-                c: self.runtime.create_future(
-                    ffi.buffer(ffi.addressof(rect.raw())), fut_size
-                )
-                for (c, rect) in alloc.shard_local_domains.items()
-            }
-            domains = FutureMap.from_dict(
-                self.runtime.legion_context,
-                self.runtime.legion_runtime,
-                alloc.colors,
-                futures,
-                collective=True,
+            assert alloc.partition.parent is self.region
+            field_type = self.region.field_space.get_type(self.field.field_id)
+            field_size = (
+                field_type.size
+                if isinstance(field_type, _Dtype)
+                else field_type
             )
-            index_partition = IndexPartition(
-                self.runtime.legion_context,
-                self.runtime.legion_runtime,
-                self.region.index_space,
-                self.runtime.find_or_create_index_space(alloc.colors),
-                PartitionByDomain(domains),
-            )
-            partition = self.region.get_child(index_partition)
-            shard_local_data = {
-                partition.get_child(c): buf
-                for (c, buf) in alloc.shard_local_buffers.items()
-            }
+            shard_local_data = {}
+            for (c, buf) in alloc.shard_local_buffers.items():
+                subregion = alloc.partition.get_child(c)
+                if prod(buf.shape) != subregion.index_space.get_volume():
+                    raise RuntimeError(
+                        "Subregion size does not match attached buffer"
+                    )
+                if buf.itemsize != field_size:
+                    raise RuntimeError(
+                        "Field type does not match attached buffer"
+                    )
+                shard_local_data[subregion] = buf
             attach = IndexAttach(
                 self.region,
                 self.field.field_id,
