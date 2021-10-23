@@ -270,7 +270,7 @@ class Partitioner(object):
         def cost(unknown):
             store = unknown._store
             return (
-                store.comm_volume(),
+                -store.comm_volume(),
                 not store.has_key_partition(all_restrictions[unknown]),
             )
 
