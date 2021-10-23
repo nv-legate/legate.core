@@ -97,7 +97,8 @@ def find_python_home(python_cmd):
 
 
 def run_legate(
-    nodes,
+    ranks,
+    ranks_per_node,
     cpus,
     gpus,
     openmp,
@@ -125,7 +126,7 @@ def run_legate(
     no_tensor_cores,
     mem_usage,
     not_control_replicable,
-    cores_per_node,
+    cores,
     launcher,
     verbose,
     gasnet_trace,
@@ -214,7 +215,7 @@ def run_legate(
     if openmp > 0:
         assert "LEGATE_NEED_OPENMP" not in cmd_env
         cmd_env["LEGATE_NEED_OPENMP"] = str(1)
-    if nodes > 1:
+    if ranks > 1:
         assert "LEGATE_NEED_GASNET" not in cmd_env
         cmd_env["LEGATE_NEED_GASNET"] = str(1)
     if progress:
@@ -259,13 +260,13 @@ def run_legate(
         # Spectrum MPI. Intel MPI and MPICH use $PMI_RANK, MVAPICH2 uses
         # $MV2_COMM_WORLD_RANK. Figure out which one to use based on the
         # output of `mpirun --version`.
-        node_id = "%q{OMPI_COMM_WORLD_RANK}"
+        rank_id = "%q{OMPI_COMM_WORLD_RANK}"
         cmd = [
             "mpirun",
             "-n",
-            str(nodes),
+            str(ranks),
             "--npernode",
-            "1",
+            str(ranks_per_node),
             "--bind-to",
             "none",
             "--mca",
@@ -287,52 +288,52 @@ def run_legate(
             ):
                 cmd += ["-x", var]
     elif launcher == "jsrun":
-        if cores_per_node is None:
-            raise Exception("jsrun requires cores-per-node to be specified")
-        node_id = "%q{OMPI_COMM_WORLD_RANK}"
+        if cores is None:
+            raise Exception("jsrun requires --cores to be provided explicitly")
+        rank_id = "%q{OMPI_COMM_WORLD_RANK}"
         cmd = [
             "jsrun",
             "-n",
-            str(nodes),
+            str(ranks),
             "-r",
-            "1",
+            str(ranks_per_node),
             "-a",
             "1",
             "-c",
-            str(cores_per_node),
+            str(cores),
             "-g",
             str(gpus),
             "-b",
             "none",
         ]
     elif launcher == "srun":
-        node_id = "%q{SLURM_NODEID}"
+        rank_id = "%q{SLURM_PROCID}"
         cmd = [
             "srun",
             "-n",
-            str(nodes),
+            str(ranks),
             "--ntasks-per-node",
-            "1",
+            str(ranks_per_node),
         ]
         if gdb or cuda_gdb:
             # Execute in pseudo-terminal mode when we need to be interactive
             cmd += ["--pty"]
     elif launcher == "none":
-        if nodes == 1:
-            node_id = "0"
+        if ranks == 1:
+            rank_id = "0"
         else:
             for v in [
                 "OMPI_COMM_WORLD_RANK",
                 "PMI_RANK",
                 "MV2_COMM_WORLD_RANK",
-                "SLURM_NODEID",
+                "SLURM_PROCID",
             ]:
                 if v in os.environ:
-                    node_id = os.environ[v]
+                    rank_id = os.environ[v]
                     break
-        if node_id is None:
+        if rank_id is None:
             raise Exception(
-                "Could not detect node ID on multi-node run with "
+                "Could not detect rank ID on multi-rank run with "
                 "externally-managed launching"
             )
         cmd = []
@@ -340,16 +341,16 @@ def run_legate(
         raise Exception("Unsupported launcher: %s" % launcher)
     cmd += launcher_extra
     if gdb:
-        if nodes > 1:
-            print("WARNING: Legate does not support gdb for multi-node runs")
+        if ranks > 1:
+            print("WARNING: Legate does not support gdb for multi-rank runs")
         elif os_name == "Darwin":
             cmd += ["lldb", "--"]
         else:
             cmd += ["gdb", "--args"]
     if cuda_gdb:
-        if nodes > 1:
+        if ranks > 1:
             print(
-                "WARNING: Legate does not support cuda-gdb for multi-node runs"
+                "WARNING: Legate does not support cuda-gdb for multi-rank runs"
             )
         else:
             cmd += ["cuda-gdb", "--args"]
@@ -357,7 +358,7 @@ def run_legate(
         cmd += [
             "nvprof",
             "-o",
-            os.path.join(log_dir, "legate_%s.nvvp" % node_id),
+            os.path.join(log_dir, "legate_%s.nvvp" % rank_id),
         ]
     if nsys:
         cmd += [
@@ -368,7 +369,7 @@ def run_legate(
             "-s",
             "none",
             "-o",
-            os.path.join(log_dir, "legate_%s" % node_id),
+            os.path.join(log_dir, "legate_%s" % rank_id),
         ]
     # Add memcheck right before the binary
     if memcheck:
@@ -381,7 +382,7 @@ def run_legate(
         cmd += ["--nocr"]
     if module is not None:
         cmd += ["-m", str(module)]
-    # We always need one python processor per node and no local fields per node
+    # We always need one python processor per rank and no local fields
     cmd += ["-ll:py", "1", "-lg:local", "0"]
     # Special run modes
     if freeze_on_error or gdb or cuda_gdb:
@@ -410,10 +411,10 @@ def run_legate(
             )
     if utility != 1:
         cmd += ["-ll:util", str(utility)]
-        # If we are running multi-node then make the number of active
+        # If we are running multi-rank then make the number of active
         # message handler threads equal to our number of utility
         # processors in order to prevent head-of-line blocking
-        if nodes > 1:
+        if ranks > 1:
             cmd += ["-ll:bgwork", str(utility)]
     # Always specify the csize
     cmd += ["-ll:csize", str(sysmem)]
@@ -428,7 +429,7 @@ def run_legate(
     if profile:
         cmd += [
             "-lg:prof",
-            str(nodes),
+            str(ranks),
             "-lg:prof_logfile",
             os.path.join(log_dir, "legate_%.prof"),
         ]
@@ -484,15 +485,15 @@ def run_legate(
     # Wait for it to finish running
     result = child_proc.wait()
     # If we're profiling post process the logfiles and then clean them up when
-    # we're done; make sure we only do this once if on a multi-node run with
+    # we're done; make sure we only do this once if on a multi-rank run with
     # externally-managed launching
-    if profile and (launcher != "none" or node_id == "0"):
+    if profile and (launcher != "none" or rank_id == "0"):
         tools_dir = os.path.join(legate_dir, "share", "legate")
         prof_py = os.path.join(tools_dir, "legion_prof.py")
         prof_cmd = [str(prof_py), "-o", "legate_prof"]
-        for n in range(nodes):
+        for n in range(ranks):
             prof_cmd += ["legate_" + str(n) + ".prof"]
-        if nodes > 4:
+        if ranks // ranks_per_node > 4:
             print(
                 "Skipping the processing of profiler output, to avoid wasting "
                 "resources in a large allocation. Please manually run: "
@@ -507,10 +508,10 @@ def run_legate(
                 )
             subprocess.check_call(prof_cmd, cwd=log_dir)
             # Clean up our mess of Legion Prof files
-            for n in range(nodes):
+            for n in range(ranks):
                 os.remove(os.path.join(log_dir, "legate_" + str(n) + ".prof"))
     # Similarly for spy runs
-    if (dataflow or event) and (launcher != "none" or node_id == "0"):
+    if (dataflow or event) and (launcher != "none" or rank_id == "0"):
         tools_dir = os.path.join(legate_dir, "share", "legate")
         spy_py = os.path.join(tools_dir, "legion_spy.py")
         spy_cmd = [str(spy_py)]
@@ -520,9 +521,9 @@ def run_legate(
             spy_cmd += ["-d"]
         else:
             spy_cmd += ["-e"]
-        for n in range(nodes):
+        for n in range(ranks):
             spy_cmd += ["legate_" + str(n) + ".spy"]
-        if nodes > 4:
+        if ranks // ranks_per_node > 4:
             print(
                 "Skipping the processing of spy output, to avoid wasting "
                 "resources in a large allocation. Please manually run: "
@@ -537,7 +538,7 @@ def run_legate(
                 )
             subprocess.check_call(spy_cmd, cwd=log_dir)
             # Clean up our mess of Legion Spy files
-            for n in range(nodes):
+            for n in range(ranks):
                 os.remove(os.path.join(log_dir, "legate_" + str(n) + ".spy"))
     return result
 
@@ -554,6 +555,15 @@ def driver():
         help="Number of nodes to use",
     )
     parser.add_argument(
+        "--ranks-per-node",
+        type=int,
+        default=1,
+        dest="ranks_per_node",
+        help="Number of ranks (processes running copies of the program) to "
+        "launch per node. The default (1 rank per node) will typically result "
+        "in the best performance.",
+    )
+    parser.add_argument(
         "--no-replicate",
         dest="not_control_replicable",
         action="store_true",
@@ -568,49 +578,49 @@ def driver():
         type=int,
         default=4,
         dest="cpus",
-        help="Number of CPUs per node to use",
+        help="Number of CPUs to use per rank",
     )
     parser.add_argument(
         "--gpus",
         type=int,
         default=0,
         dest="gpus",
-        help="Number of GPUs per node to use",
+        help="Number of GPUs to use per rank",
     )
     parser.add_argument(
         "--omps",
         type=int,
         default=(int(os.environ.get("LEGATE_OMP_PROCS", 0))),
         dest="openmp",
-        help="Number OpenMP processors per node to use",
+        help="Number of OpenMP groups to use per rank",
     )
     parser.add_argument(
         "--ompthreads",
         type=int,
         default=(int(os.environ.get("LEGATE_OMP_THREADS", 4))),
         dest="ompthreads",
-        help="Number of threads per OpenMP processor",
+        help="Number of threads per OpenMP group",
     )
     parser.add_argument(
         "--utility",
         type=int,
         default=(int(os.environ.get("LEGATE_UTILITY_CORES", 2))),
         dest="utility",
-        help="Number of Utility processors per node to request for meta-work",
+        help="Number of Utility processors per rank to request for meta-work",
     )
     parser.add_argument(
         "--sysmem",
         type=int,
         default=(int(os.environ.get("LEGATE_SYSMEM", 4000))),
         dest="sysmem",
-        help="Amount of DRAM memory per node (in MBs)",
+        help="Amount of DRAM memory per rank (in MBs)",
     )
     parser.add_argument(
         "--numamem",
         type=int,
         default=(int(os.environ.get("LEGATE_NUMAMEM", 0))),
         dest="numamem",
-        help="Amount of DRAM memory per NUMA domain (in MBs)",
+        help="Amount of DRAM memory per NUMA domain per rank (in MBs)",
     )
     parser.add_argument(
         "--fbmem",
@@ -624,14 +634,14 @@ def driver():
         type=int,
         default=(int(os.environ.get("LEGATE_ZCMEM", 32))),
         dest="zcmem",
-        help="Amount of zero-copy memory per node (in MBs)",
+        help="Amount of zero-copy memory per rank (in MBs)",
     )
     parser.add_argument(
         "--regmem",
         type=int,
         default=(int(os.environ.get("LEGATE_REGMEM", 0))),
         dest="regmem",
-        help="Amount of registered CPU-side pinned memory per node (in MBs)",
+        help="Amount of registered CPU-side pinned memory per rank (in MBs)",
     )
     parser.add_argument(
         "--profile",
@@ -740,11 +750,12 @@ def driver():
         help="report the memory usage by Legate in every memory",
     )
     parser.add_argument(
-        "--cores-per-node",
-        dest="cores_per_node",
+        "--cores",
+        dest="cores",
         type=int,
         required=False,
-        help="total number of CPU cores available to legate on each node",
+        help="total number of CPU cores per rank (usually this is computed "
+        "implicitly)",
     )
     parser.add_argument(
         "--launcher",
@@ -798,8 +809,10 @@ def driver():
     if console and not args.not_control_replicable:
         print("WARNING: Disabling control replication for interactive run")
         args.not_control_replicable = True
+    ranks = args.nodes * args.ranks_per_node
     return run_legate(
-        args.nodes,
+        ranks,
+        args.ranks_per_node,
         args.cpus,
         args.gpus,
         args.openmp,
@@ -827,7 +840,7 @@ def driver():
         args.no_tensor_cores,
         args.mem_usage,
         args.not_control_replicable,
-        args.cores_per_node,
+        args.cores,
         args.launcher,
         args.verbose,
         args.gasnet_trace,
