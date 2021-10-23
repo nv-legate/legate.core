@@ -104,6 +104,8 @@ class Context(object):
             config.max_shardings,
         )
 
+        self._unique_op_id = 0
+
     def destroy(self):
         self._library.destroy()
 
@@ -172,8 +174,13 @@ class Context(object):
         buf = fut.get_buffer(dtype.itemsize)
         return np.frombuffer(buf, dtype=dtype)[0]
 
+    def get_unique_op_id(self):
+        op_id = self._unique_op_id
+        self._unique_op_id += 1
+        return op_id
+
     def create_task(self, task_id, mapper_id=0):
-        return Task(self, task_id, mapper_id)
+        return Task(self, task_id, mapper_id, op_id=self.get_unique_op_id())
 
     def create_copy(self, mapper_id=0):
         return Copy(self, mapper_id)

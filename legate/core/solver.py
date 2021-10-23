@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 
+from .constraints import Alignment, Broadcast, Containment
 from .legion import Future, Rect
 from .partition import NoPartition
 from .shape import Shape
@@ -21,7 +22,7 @@ from .utils import OrderedSet
 
 class EqClass(object):
     def __init__(self):
-        # Maps a store to the equivalent class id
+        # Maps a variable to the equivalent class id
         self._class_ids = {}
         self._next_class_id = 0
         # Maps an equivalent class id to the class
@@ -31,42 +32,42 @@ class EqClass(object):
     def empty(self):
         return self._next_class_id == 0
 
-    def _add(self, store1, store2):
-        cls = set([store1, store2])
+    def _add(self, var1, var2):
+        cls = set([var1, var2])
         cls_id = self._next_class_id
         self._next_class_id + 1
         self._classes[cls_id] = cls
-        self._class_ids[store1] = cls_id
-        self._class_ids[store2] = cls_id
+        self._class_ids[var1] = cls_id
+        self._class_ids[var2] = cls_id
 
-    def _update(self, store1, store2):
-        cls_id = self._class_ids[store1]
+    def _update(self, var1, var2):
+        cls_id = self._class_ids[var1]
         cls = self._classes[cls_id]
-        cls.add(store2)
-        self._class_ids[store2] = cls_id
+        cls.add(var2)
+        self._class_ids[var2] = cls_id
 
-    def _merge(self, store1, store2):
-        cls_id1 = self._class_ids[store1]
-        cls_id2 = self._class_ids[store2]
+    def _merge(self, var1, var2):
+        cls_id1 = self._class_ids[var1]
+        cls_id2 = self._class_ids[var2]
         cls = self._classes[cls_id1] | self._classes[cls_id2]
         self._classes[cls_id1] = cls
         self._classes[cls_id2] = cls
 
-    def record(self, store1, store2):
+    def record(self, var1, var2):
         """
-        Record an equivalence relation between two stores
+        Record an equivalence relation between two vars
         """
-        found1 = store1 in self._class_ids
-        found2 = store2 in self._class_ids
+        found1 = var1 in self._class_ids
+        found2 = var2 in self._class_ids
 
         if not found1 and not found2:
-            self._add(store1, store2)
+            self._add(var1, var2)
         elif found1:
-            self._update(store1, store2)
+            self._update(var1, var2)
         elif found2:
-            self._update(store2, store1)
+            self._update(var2, var1)
         else:
-            self._merge(store1, store2)
+            self._merge(var1, var2)
 
     def copy(self):
         new = EqClass()
@@ -81,26 +82,26 @@ class EqClass(object):
         else:
             for other_class in other._classes.values():
                 cls = other_class.copy()
-                store1 = cls.pop()
-                for store2 in cls:
-                    self.record(store1, store2)
+                var1 = cls.pop()
+                for var2 in cls:
+                    self.record(var1, var2)
 
-    def find(self, store):
+    def find(self, var):
         """
-        Return an equivalence class for a given store.
+        Return an equivalence class for a given var.
         """
-        if store not in self._class_ids:
-            return set([store])
+        if var not in self._class_ids:
+            return set([var])
         else:
-            return self._classes[self._class_ids[store]]
+            return self._classes[self._class_ids[var]]
 
 
 class Strategy(object):
-    def __init__(self, launch_shape, strategy, fspaces, key_stores):
+    def __init__(self, launch_shape, strategy, fspaces, key_parts):
         self._launch_shape = launch_shape
         self._strategy = strategy
         self._fspaces = fspaces
-        self._key_stores = key_stores
+        self._key_parts = key_parts
 
     @property
     def parallel(self):
@@ -111,24 +112,24 @@ class Strategy(object):
         assert self.parallel
         return Rect(self._launch_shape)
 
-    def get_projection(self, store):
-        partition = self.get_partition(store)
-        return partition.get_requirement(self._launch_shape, store)
+    def get_projection(self, part):
+        partition = self.get_partition(part)
+        return partition.get_requirement(self._launch_shape, part._store)
 
-    def get_partition(self, store):
-        assert not store.unbound
-        if store not in self._strategy:
-            raise ValueError(f"No strategy is found for {store}")
-        return self._strategy[store]
+    def get_partition(self, part):
+        assert not part._store.unbound
+        if part not in self._strategy:
+            raise ValueError(f"No strategy is found for {part}")
+        return self._strategy[part]
 
-    def get_field_space(self, store):
-        assert store.unbound
-        if store not in self._fspaces:
-            raise ValueError(f"No strategy is found for {store}")
-        return self._fspaces[store]
+    def get_field_space(self, part):
+        assert part._store.unbound
+        if part not in self._fspaces:
+            raise ValueError(f"No strategy is found for {part}")
+        return self._fspaces[part]
 
-    def is_key_store(self, store):
-        return store in self._key_stores
+    def is_key_part(self, part):
+        return part in self._key_parts
 
     def launch(self, launcher):
         if self.parallel:
@@ -138,10 +139,10 @@ class Strategy(object):
 
     def __str__(self):
         st = "[Strategy]"
-        for store, partition in self._strategy.items():
-            st += f"\n{store} ~~> {partition}"
-        for store, fspace in self._fspaces.items():
-            st += f"\n{store} ~~> {fspace}"
+        for part, partition in self._strategy.items():
+            st += f"\n{part} ~~> {partition}"
+        for part, fspace in self._fspaces.items():
+            st += f"\n{part} ~~> {fspace}"
         return st
 
     def __repr__(self):
@@ -155,54 +156,57 @@ class Partitioner(object):
         self._must_be_single = must_be_single
 
     def _solve_broadcast_constraints(
-        self, stores, constraints, broadcasts, partitions
+        self, unknowns, constraints, broadcasts, partitions
     ):
         to_remove = OrderedSet()
-        for store in stores:
-            if not (store.kind is Future or store in broadcasts):
+        for unknown in unknowns:
+            store = unknown._store
+            if not (store.kind is Future or unknown in broadcasts):
                 continue
 
-            to_remove.add(store)
+            to_remove.add(unknown)
 
-            if store in partitions:
+            if unknown in partitions:
                 continue
 
             if store.kind is Future:
-                partitions[store] = NoPartition()
+                partitions[unknown] = NoPartition()
             else:
-                cls = constraints.find(store)
+                cls = constraints.find(unknown)
                 for to_align in cls:
                     partitions[to_align] = NoPartition()
 
-        return stores - to_remove
+        return unknowns - to_remove
 
     def _solve_unbound_constraints(
-        self, stores, constraints, partitions, fspaces
+        self, unknowns, constraints, partitions, fspaces
     ):
         to_remove = OrderedSet()
-        for store in stores:
+        for unknown in unknowns:
+            store = unknown._store
             if not store.unbound:
                 continue
 
-            to_remove.add(store)
+            to_remove.add(unknown)
 
-            if store in partitions:
+            if unknown in partitions:
                 continue
 
-            cls = constraints.find(store)
-            assert all(to_align.unbound for to_align in cls)
+            cls = constraints.find(unknown)
+            assert all(to_align._store.unbound for to_align in cls)
 
             fspace = self._runtime.create_field_space()
             for to_align in cls:
-                partitions[to_align] = NoPartition()
-                fspaces[to_align] = fspace
+                partitions[unknown] = NoPartition()
+                fspaces[unknown] = fspace
 
-        return stores - to_remove, len(to_remove) > 0
+        return unknowns - to_remove, len(to_remove) > 0
 
     @staticmethod
     def _find_restrictions(cls):
         merged = None
-        for store in cls:
+        for unknown in cls:
+            store = unknown._store
             restrictions = store.find_restrictions()
             if merged is None:
                 merged = restrictions
@@ -210,72 +214,86 @@ class Partitioner(object):
                 merged = tuple(min(a, b) for a, b in zip(merged, restrictions))
         return merged
 
-    def _find_all_restrictions(self, stores, constraints):
+    def _find_all_restrictions(self, unknowns, constraints):
         all_restrictions = {}
-        for store in stores:
-            if store in all_restrictions:
+        for unknown in unknowns:
+            if unknown in all_restrictions:
                 continue
-            cls = constraints.find(store)
+            cls = constraints.find(unknown)
             restrictions = self._find_restrictions(cls)
             for store in cls:
-                all_restrictions[store] = restrictions
+                all_restrictions[unknown] = restrictions
         return all_restrictions
 
     def partition_stores(self):
-        stores = OrderedSet()
+        unknowns = OrderedSet()
         constraints = EqClass()
         broadcasts = OrderedSet()
+        dependent = {}
         for op in self._ops:
-            stores.update(op.get_all_stores())
-            constraints.union(op.constraints)
-            broadcasts.update(op.broadcasts)
+            unknowns.update(op.all_unknowns)
+            for c in op.constraints:
+                if isinstance(c, Alignment):
+                    constraints.record(c._lhs, c._rhs)
+                elif isinstance(c, Broadcast):
+                    broadcasts.add(c._expr)
+                elif isinstance(c, Containment):
+                    if c._rhs in dependent:
+                        raise NotImplementedError(
+                            "Partitions constrained by multiple constraints "
+                            "are not supported yet"
+                        )
+                    dependent[c._rhs] = c._lhs
 
-        if self._must_be_single or len(stores) == 0:
-            broadcasts = stores
+        if self._must_be_single or len(unknowns) == 0:
+            broadcasts = unknowns
 
         partitions = {}
         fspaces = {}
 
-        stores = self._solve_broadcast_constraints(
-            stores,
+        unknowns = self._solve_broadcast_constraints(
+            unknowns,
             constraints,
             broadcasts,
             partitions,
         )
 
-        stores, must_be_1d_launch = self._solve_unbound_constraints(
-            stores,
+        unknowns, must_be_1d_launch = self._solve_unbound_constraints(
+            unknowns,
             constraints,
             partitions,
             fspaces,
         )
 
-        all_restrictions = self._find_all_restrictions(stores, constraints)
+        all_restrictions = self._find_all_restrictions(unknowns, constraints)
 
-        stores = sorted(
-            stores,
-            key=lambda store: (
-                -store.comm_volume(),
-                not store.has_key_partition(all_restrictions[store]),
-            ),
-        )
+        def cost(unknown):
+            store = unknown._store
+            return (
+                store.comm_volume(),
+                not store.has_key_partition(all_restrictions[unknown]),
+            )
 
-        key_stores = set()
+        unknowns = sorted(unknowns, key=cost)
 
+        key_parts = set()
         prev_part = None
-        for store in stores:
-            if store in partitions:
+        for unknown in unknowns:
+            if unknown in partitions:
+                continue
+            elif unknown in dependent:
                 continue
 
-            restrictions = all_restrictions[store]
+            store = unknown._store
+            restrictions = all_restrictions[unknown]
 
             if isinstance(prev_part, NoPartition):
                 partition = prev_part
             else:
                 partition = store.compute_key_partition(restrictions)
-                key_stores.add(store)
+                key_parts.add(unknown)
 
-            cls = constraints.find(store)
+            cls = constraints.find(unknown)
             for to_align in cls:
                 if to_align in partitions:
                     continue
@@ -283,9 +301,13 @@ class Partitioner(object):
 
             prev_part = partition
 
+        for lhs, rhs in dependent.items():
+            rhs = rhs.subst(partitions).reduce()
+            partitions[lhs] = rhs._part
+
         color_shape = None if prev_part is None else prev_part.color_shape
 
         if must_be_1d_launch and color_shape is not None:
             color_shape = Shape((color_shape.volume(),))
 
-        return Strategy(color_shape, partitions, fspaces, key_stores)
+        return Strategy(color_shape, partitions, fspaces, key_parts)
