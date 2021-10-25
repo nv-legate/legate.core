@@ -437,7 +437,7 @@ class PartitionManager(object):
         )
         self._min_shard_volume = runtime.core_context.get_tunable(
             runtime.core_library.LEGATE_CORE_TUNABLE_MIN_SHARD_VOLUME,
-            ty.int32,
+            ty.int64,
         )
 
         self._launch_spaces = {}
@@ -718,8 +718,14 @@ class Runtime(object):
         self.field_managers = {}  # map from (shape,dtype) to field managers
 
         self.destroyed = False
-        self.max_field_reuse_size = 256
-        self.max_field_reuse_frequency = 32
+        self.max_field_reuse_size = self._core_context.get_tunable(
+            legion.LEGATE_CORE_TUNABLE_FIELD_REUSE_SIZE,
+            ty.uint64,
+        )
+        self.max_field_reuse_frequency = self._core_context.get_tunable(
+            legion.LEGATE_CORE_TUNABLE_FIELD_REUSE_FREQUENCY,
+            ty.uint32,
+        )
         self._empty_argmap = legion.legion_argument_map_create()
 
         # A projection functor and its corresponding sharding functor
