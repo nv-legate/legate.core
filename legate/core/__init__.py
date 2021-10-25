@@ -18,7 +18,17 @@ import os
 
 # Perform a check to see if we're running inside of Legion Python
 # If we're not then we should raise an error message
-if "LEGATE_MAX_DIM" not in os.environ:
+try:
+    from legion_cffi import ffi, lib as legion
+
+    # Now confirm that we are actually inside of a task
+    if legion.legion_runtime_has_context():
+        using_legion_python = True
+    else:
+        using_legion_python = False
+except ModuleNotFoundError:
+    using_legion_python = False
+if not using_legion_python:
     raise RuntimeError(
         "All Legate programs must be run with a legion_python interperter. We "
         'recommend that you use the Legate driver script "bin/legate" found '
@@ -102,7 +112,6 @@ from legate.core.types import (
     complex128,
     ReductionOp,
 )
-from legion_cffi import ffi, lib as legion
 
 # Import the PyArrow type system
 from pyarrow import (
