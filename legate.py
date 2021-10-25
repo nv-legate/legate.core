@@ -126,7 +126,6 @@ def run_legate(
     no_tensor_cores,
     mem_usage,
     not_control_replicable,
-    cores,
     launcher,
     verbose,
     gasnet_trace,
@@ -288,21 +287,21 @@ def run_legate(
             ):
                 cmd += ["-x", var]
     elif launcher == "jsrun":
-        if cores is None:
-            raise Exception("jsrun requires --cores to be provided explicitly")
         rank_id = "%q{OMPI_COMM_WORLD_RANK}"
         cmd = [
             "jsrun",
             "-n",
-            str(ranks),
+            str(ranks // ranks_per_node),
             "-r",
-            str(ranks_per_node),
-            "-a",
             "1",
+            "-a",
+            str(ranks_per_node),
             "-c",
-            str(cores),
+            "ALL_CPUS",
             "-g",
-            str(gpus),
+            "ALL_GPUS",
+            "-m",
+            "ALL_MEM",
             "-b",
             "none",
         ]
@@ -750,14 +749,6 @@ def driver():
         help="report the memory usage by Legate in every memory",
     )
     parser.add_argument(
-        "--cores",
-        dest="cores",
-        type=int,
-        required=False,
-        help="total number of CPU cores per rank (usually this is computed "
-        "implicitly)",
-    )
-    parser.add_argument(
         "--launcher",
         dest="launcher",
         choices=["mpirun", "jsrun", "srun", "none"],
@@ -840,7 +831,6 @@ def driver():
         args.no_tensor_cores,
         args.mem_usage,
         args.not_control_replicable,
-        args.cores,
         args.launcher,
         args.verbose,
         args.gasnet_trace,
