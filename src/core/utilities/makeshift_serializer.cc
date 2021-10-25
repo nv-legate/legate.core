@@ -108,18 +108,20 @@ namespace legate{
         //if _isfuture
         if(buffer.is_future_)
         {   
-
+            //std::cout<<"packing future"<<std::endl;
             //pack future_wrapper
             pack((bool) buffer.future_.read_only_);
-
-            pack((bool) !buffer.future_.uninitialized_);
+            bool good = true;
+            //std::cout<<"uninit "<<buffer.future_.uninitialized_<<std::endl;
+            //pack((bool) !buffer.future_.uninitialized_);
+            pack((bool) good);
 
             pack((int32_t) buffer.future_.field_size_);
             auto dom = buffer.future_.domain();
             pack((uint32_t) dom.dim);
             for (int32_t i =0; i<dom.dim; i++)
             {
-                std::cout<<"packing "<<i<<" "<<dom.rect_data[i + dom.dim]+1<<std::endl;
+                //std::cout<<"packing "<<i<<" "<<dom.rect_data[i + dom.dim]+1<<std::endl;
                 pack((int64_t) dom.rect_data[i + dom.dim] + 1);
             }
         }   

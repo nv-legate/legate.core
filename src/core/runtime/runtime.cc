@@ -32,6 +32,11 @@ Logger log_legate("legate");
 
 // This is the unique string name for our library which can be used
 // from both C++ and Python to generate IDs
+
+using LegateVariantImpl = void (*)(TaskContext&);
+/*static */ std::vector<std::pair<int64_t, LegateVariantImpl> > Core::opIDs = *(new std::vector<std::pair<int64_t, LegateVariantImpl> >());
+/*static */ std::unordered_map<long, LegateVariantImpl> Core::cpuDescriptors = *(new std::unordered_map<long, LegateVariantImpl>());
+
 static const char* const core_library_name = "legate.core";
 
 /*static*/ bool Core::show_progress = false;

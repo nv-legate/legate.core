@@ -180,12 +180,9 @@ class Tiling(object):
             transform = Transform(tile_shape.ndim, tile_shape.ndim)
             for idx, size in enumerate(tile_shape):
                 transform.trans[idx, idx] = size
-            print(self)
-            print("ndim" , tile_shape.ndim, "offset", self._offset, "tile_shape", self._tile_shape)
             lo = Shape((0,) * tile_shape.ndim) + self._offset
             hi = self._tile_shape - 1 + self._offset
             extent = Rect(hi, lo, exclusive=False)
-            print("extent", extent)
 
             color_space = self._runtime.find_or_create_index_space(
                 self.color_shape

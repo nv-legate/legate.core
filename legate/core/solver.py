@@ -271,6 +271,7 @@ class Partitioner(object):
             store = unknown._store
             return (
                 store.comm_volume(),
+                store._key_partition is None,
                 not store.has_key_partition(all_restrictions[unknown]),
             )
 
@@ -278,6 +279,7 @@ class Partitioner(object):
 
         key_parts = set()
         prev_part = None
+        #import pdb; pdb.set_trace()
         for unknown in unknowns:
             if unknown in partitions:
                 continue
@@ -290,7 +292,10 @@ class Partitioner(object):
             if isinstance(prev_part, NoPartition):
                 partition = prev_part
             else:
-                partition = store.compute_key_partition(restrictions)
+                if store._key_partition is not None:
+                    partition=store._key_partition
+                else:
+                    partition = store.compute_key_partition(restrictions)
                 key_parts.add(unknown)
 
             cls = constraints.find(unknown)
@@ -298,7 +303,7 @@ class Partitioner(object):
                 if to_align in partitions:
                     continue
                 partitions[to_align] = partition
-
+                #print("ptype", to_align, (partition))
             prev_part = partition
 
         for lhs, rhs in dependent.items():

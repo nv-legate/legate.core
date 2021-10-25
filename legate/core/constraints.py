@@ -56,7 +56,7 @@ class Lit(Expr):
 
 class PartSym(Expr):
     def __init__(self, op, store, id, disjoint, complete):
-        self._op = op
+        #self._op = op
         self._store = store
         self._id = id
         self._disjoint = disjoint
@@ -73,9 +73,11 @@ class PartSym(Expr):
     def __repr__(self):
         disj = "D" if self._disjoint else "A"
         comp = "C" if self._complete else "I"
+        return f"X{self._id}({disj},{comp})"
         return f"X{self._id}({disj},{comp})@{self._op.get_name()}"
 
     def __hash__(self):
+        return hash(self._id)
         return hash((self._op, self._id))
 
     def subst(self, mapping):

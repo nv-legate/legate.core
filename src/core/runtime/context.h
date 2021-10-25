@@ -110,10 +110,22 @@ class LibraryContext {
 // of the Legion API.
 class TaskContext {
  public:
+  TaskContext() = default;
+
   TaskContext(const Legion::Task* task,
               const std::vector<Legion::PhysicalRegion>& regions,
               Legion::Context context,
               Legion::Runtime* runtime);
+
+  TaskContext(const Legion::Task* task, const std::vector<Legion::PhysicalRegion> regions)
+//             std::vector<Store>& inputs, std::vector<Store>& outputs, std::vector<Scalar>& scalars)
+  : task_(task), regions_(regions) 
+ {
+    //inputs_=inputs;  
+    //outputs_=outputs;
+    //scalars_=scalars;
+}
+
 
  public:
   std::vector<Store>& inputs() { return inputs_; }
@@ -131,7 +143,7 @@ class TaskContext {
   Legion::Runtime* runtime_;
   FusionMetadata fusionMetadata;
 
- private:
+ public:
   std::vector<Store> inputs_, outputs_, reductions_;
   std::vector<Scalar> scalars_;
 };

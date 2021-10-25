@@ -154,6 +154,17 @@ TaskContext::TaskContext(const Legion::Task* task,
   scalars_    = dez.unpack<std::vector<Scalar>>();
 
 }
+/*
+  TaskContext::TaskContext(std::vector<Store>& inputs, std::vector<Store>& outputs,
+              std::vector<Store>& reductions, std::vector<Scalar>& scalars) 
+  : inputs_(inputs), outputs_(outputs), reductions_(reductions), scalars_(scalars) 
+{
+    regions_ = NULL;
+    context_ = NULL;
+    runtime_ = NULL;
+    task_ = NULL;
+}
+*/
 
 ReturnValues TaskContext::pack_return_values() const
 {

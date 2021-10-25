@@ -19,8 +19,11 @@
 #include "legion.h"
 
 #include "core/utilities/typedefs.h"
-
+#include "core/runtime/context.h"
+#include <unordered_map>
 namespace legate {
+
+using LegateVariantImpl = void (*)(TaskContext&);
 
 extern uint32_t extract_env(const char* env_name,
                             const uint32_t default_value,
@@ -30,6 +33,8 @@ class Core {
  public:
   static void parse_config(void);
   static void shutdown(void);
+  static std::unordered_map<int64_t, LegateVariantImpl> cpuDescriptors; 
+  static std::vector<std::pair<int64_t, LegateVariantImpl> > opIDs;
 
  public:
   // Configuration settings

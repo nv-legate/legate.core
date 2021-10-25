@@ -42,9 +42,9 @@ from .partition import Restriction
 from .shape import Shape
 from .solver import Partitioner, Strategy
 from .store import RegionField, Store, FusionMetadata
-
-debugPrint = True
-futureBugPrint = True
+import numpy as np
+debugPrint = False
+futureBugPrint = False
 
 def zprint(*args):
     return
@@ -708,17 +708,20 @@ class FusionChecker(object):
         return fusable, final_set
 
     def can_fuse(self):
-        must_be_single = any(len(op.scalar_outputs) > 0 for op in self.ops)
         for op in self.ops:
-            # TODO: cache as much as of the partitioner results as possible
-            # so the calls to Partitioner() and partition_stores done kill perf
+            must_be_single = any(len(gop.scalar_outputs) > 0 for gop in [op])
             partitioner = Partitioner(self.runtime, [op], must_be_single=must_be_single)
             self.partitioners.append( partitioner )
-            print(op._inputs)
-            import pdb; pdb.set_trace()
             strategy = partitioner.partition_stores()
+            for output, part, in zip(op._outputs, op._output_parts):
+                partition = strategy.get_partition(part)
+                output.set_key_partition(partition)
+                key_part = partition
+                for input in op._inputs:
+                    if input.shape==output.shape:
+                        input.set_key_partition(key_part)
             if len(op.inputs)>1:
-                proj = strategy.get_projection(op._inputs[1])
+                proj = strategy.get_projection(op._input_parts[1])
             self.strategies.append(strategy)
 
         results = [constraint.apply(self.contexts, self.runtime, self.ops, self.partitioners, self.strategies) for constraint in self.constraints]
@@ -803,8 +806,9 @@ class AllValidOps(FusionConstraint):
         #these ops are always fusable
         self.validIDs.add(2) #Binary op
         #self.validIDs.add(5) #convert op
-        #self.validIDs.add(18) #Unary op
-        #self.validIDs.add(9) #Fill op
+        self.validIDs.add(18) #Unary op
+        self.validIDs.add(9) #Fill op
+        self.validIDs.add(14) #Fill op
 
         # the following are conditionally fusable
         # they will be processed in the a subsequent level of filtering
@@ -871,54 +875,65 @@ class IdenticalProjection(FusionConstraint):
         store_to_ops = {}
         base_window = [0, len(ops)]
         
-        for i, op in enumerate(ops):
+        intervals = []
+        start=0
+        end = len(ops)
+        i=0
+        #for i, op in enumerate(ops):
+        while i<end:
+            op=ops[i]
             bufferSet = {}
             # find the set union of input and output buffers for the op
-            for input in op._inputs:
+            for input, part in zip(op._inputs, op._input_parts):
                 if input not in bufferSet:
-                    print(input)
-                    proj = strategies[i].get_projection(input)
+                    proj = strategies[i].get_projection(part)
                     if hasattr(proj, 'part'):
+                        #bufferSet[input]=proj
                         bufferSet[input]=proj
                         if input not in linkset:
                             linkset[input] = [i]
                         else:
                             linkset[input].append(i)
-            for output in op._outputs:
+            for output, part in zip(op._outputs, op._output_parts):
                 if output not in bufferSet:
-                    proj = strategies[i].get_projection(output)
+                    proj = strategies[i].get_projection(part)
                     if hasattr(proj, 'part'):
                         bufferSet[output]=proj
                         if output not in linkset:
                             linkset[output] = [i]
                         else:
                             linkset[output].append(i)
-
+            if i==0: #we only iterate from i==1 onwards
+                i+=1
+                continue
             # for each op in the union, record its associated transform
             for buffer in bufferSet.keys():
                 proj = bufferSet[buffer]
                 matrix = proj.part.index_partition.functor.transform.trans
                 if buffer not in store_to_ops:
-                    store_to_ops[buffer] = [matrix]
-                else:
-                    store_to_ops[buffer].append(matrix)
-        
-        for keys, vals in linkset.items():
-            print("key", keys)
-            print("\t val, ", vals)
-            
- 
-        print()
+                    store_to_ops[buffer] = matrix
+                else: #we see a new projection for the same buffer
+                    if not np.array_equal(matrix, store_to_ops[buffer]):
+                        intervals.append((start, i))
+                        start=i
+                        i=start+1
+                        store_to_ops={}
+                        continue
+            i+=1
+        if start<end:
+            intervals.append((start,end))
+        return True, intervals
+         
+        #TODO: remove me    
         # for each buffer, check all it's associated transforms/partitions
         # across ops are equivalent 
+        seperators = []
         for store, matrices in store_to_ops.items():
             if len(matrices)>1: 
                 first = matrices[0]
-                print(store, matrices)
                 for matrix in matrices:
                     if not (matrix==first).all():
                         indices = linkset[store]
-                        print("must split", indices)
                         return True, [(0,indices[1]), (indices[1],len(ops))]
         return True, [(0,len(ops))]
 
@@ -931,11 +946,29 @@ class IdenticalLaunchShapes(FusionConstraint):
         launch_shapes = []
         for i in range(len(ops)):
             launch_shapes.append(strategies[i]._launch_shape)
-        drint('launch shapes', launch_shapes)
+        #print(launch_shapes)
+        """
         first_shape = launch_shapes[0]
         for launch_shape in launch_shapes:
             if launch_shape!=first_shape:
                 return True, [(0,1),(1,len(ops))]
+        """
+        intervals =[]
+        i=1
+        start=0
+        end = len(launch_shapes)
+        while i<end:
+            leftNone = launch_shapes[i] is None and (launch_shapes[i-1] is not None)
+            rightNone = launch_shapes[i-1] is None and (launch_shapes[i] is not None)
+            if leftNone or rightNone or launch_shapes[i]!=launch_shapes[i-1]:
+                intervals.append((start, i))
+                start=i
+                i=start+1
+            else:
+                i+=1
+        if start<end:
+            intervals.append((start, end))
+        return True, intervals
         return True, [(0,len(ops))]
 
 
@@ -985,9 +1018,9 @@ class Runtime(object):
         self._window_size =10
         self._fusion_threshold =2
         self._clearing_pipe = False
-        self._window_size = self._core_context.get_tunable(
-            legion.LEGATE_CORE_TUNABLE_WINDOW_SIZE,
-            ty.uint32,
+        #self._window_size = self._core_context.get_tunable(
+        #    legion.LEGATE_CORE_TUNABLE_WINDOW_SIZE,
+        #    ty.uint32,
 
         # Now we initialize managers
         self._attachment_manager = AttachmentManager(self)
@@ -1178,7 +1211,7 @@ class Runtime(object):
             for j in range(start,end):
                 super_strat = {**(super_strat.copy()), **partitions[j]._strategy}
                 super_fspace = {**(super_fspace.copy()), **partitions[j]._fspaces}
-                super_keystore = super_keystore.union(partitions[j]._key_stores)
+                super_keystore = super_keystore.union(partitions[j]._key_parts)
             super_strats.append(super_strat)
             super_fspaces.append(super_fspace)
             super_keystores.append(super_keystore)
@@ -1196,7 +1229,7 @@ class Runtime(object):
         fused_id = self._contexts["legate.numpy"].fused_id
         numpy_context = self._contexts["legate.numpy"]
         numpy_runtime = numpy_context._library.runtime
-
+        z=0
         new_op_list = []
         for i,fusable_set in enumerate(fusable_sets):
             start, end = fusable_set
@@ -1209,14 +1242,13 @@ class Runtime(object):
             elif end-start > 1:
                 #initialize fused task
                 fused_task = numpy_context.create_task(fused_id)
-                fused_task.strategy = super_strategies[i]
-       
-                #serialize necessary metadata on all encapsulated ops 
+
+               #serialize necessary metadata on all encapsulated ops 
                 #this metadata will be fed into the fused op as inputs
                 meta_maps, fusion_metadata = self.serialize_multiop_metadata(numpy_context, op_subset)
                 fused_task.add_fusion_metadata(fusion_metadata) #sets fused_task._is_fused to true
-                
                 #add typical inputs and outputs of all subtasks to fused task
+                key_part = None
                 for j,op in enumerate(op_subset):
                     for scalar in op._scalar_args:
                         fused_task.add_scalar_arg(scalar[0], ty.int32)
@@ -1225,21 +1257,27 @@ class Runtime(object):
 
                     for input in op._inputs:
                         #if input._storage is None:
-                        if i==1:
-                            frint("building fused in", i,j,op._task_id, input)
                         fused_task.add_input(input)   
-                    for output in op._outputs:
-                        if i==1:
-                            frint("building fused out", i,j,op._task_id, output)
+                    for output,part in zip(op._outputs, op._output_parts):
                         fused_task.add_output(output)   
-                    self.propogateFuture(op)
+                        if key_part==None:
+                            key_part = partitions[z].get_partition(part)
+                          
+                    self.propogateFuture(fused_task)
                     for future in op._futures:
                         fused_task.add_future(future)
+                    z+=1
                 new_op_list.append(fused_task)
+        for i,fused_task in enumerate(new_op_list):
+            must_be_single = any(len(gop.scalar_outputs) > 0 for gop in [fused_task])
+            partitioner = Partitioner(self, [fused_task], must_be_single=must_be_single)
+            strategy = partitioner.partition_stores()
+            #fused_task.strategy = super_strategies[i]
+            fused_task.strategy = strategy
+
         return new_op_list, True       
 
     def _launch_outstanding(self, force_eval=True):
-        print("launching final outstanding ops", [op._task_id for op in self._outstanding_ops])
         if len(self._outstanding_ops):
             ops = self._outstanding_ops
             self._outstanding_ops = []
@@ -1252,11 +1290,10 @@ class Runtime(object):
             self._schedule([op], force_eval=True)
 
     def propogateFuture(self,op):
-        return
+        return 
         for input in op._inputs:
             start = input
-            if input._storage is None: 
-                print("needs healing", input, op._task_id)
+            if input._kind is Future and input._storage is None: 
                 while start._storage is None and start._parent:
                     start=start._parent
                 input._storage = start._storage
@@ -1270,6 +1307,11 @@ class Runtime(object):
         #if partially or fully fusable, 
         #schedule the new set of tasks
         strats = False
+        #for op in ops:
+        #     must_be_single = any(len(gop.scalar_outputs) > 0 for gop in [op])
+        #     partitioner = Partitioner(self, [op], must_be_single=must_be_single)
+        #     strategy = partitioner.partition_stores()
+
         if len(ops)>=2 and (not force_eval):
             fused_task_list,strats = self.build_fused_op(ops)
             if fused_task_list:
@@ -1287,13 +1329,9 @@ class Runtime(object):
         # them when testing fusion legality (in case 1)
         if len(ops)==1 and self._clearing_pipe:
             strategy = ops[0].strategy
-            for input in ops[0]._inputs:
-                #if input._storage is None:
+            for input, part in zip(ops[0]._inputs, ops[0]._input_parts):
                 frint("launch fused input", ops[0]._task_id, input)
-                proj = ops[0].strategy.get_projection(input)
-                if hasattr(proj, 'part'):
-                   frint("strat", proj.part.index_partition.functor.transform.trans)
-                   frint("strat1", proj.part.index_partition.functor.__dict__)
+                proj = ops[0].strategy.get_projection(part)
             self.propogateFuture(ops[0])
 
             for output in ops[0]._outputs:
@@ -1316,7 +1354,6 @@ class Runtime(object):
                     op.strategy = strats[i]
             for i,op in enumerate(ops):
                 for input in op._inputs:
-                    print("in", input)
                     if input._storage is None:
                         frint("launch ufused input", op._task_id, input)
                 self.propogateFuture(op)

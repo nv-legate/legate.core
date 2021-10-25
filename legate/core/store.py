@@ -472,10 +472,9 @@ class Store(object):
         # If someone is trying to retreive the storage of a store,
         # we need to execute outstanding operations so that we know
         # it has been initialized correctly.
-        self._runtime.flush_scheduling_window()
+        self._runtime._launch_outstanding(False)
         if self._storage is None:
-            print("store none, launching", [op._task_id for op in self._runtime._outstanding_ops])
-            self._runtime._launch_outstanding(False)
+            #print("store none, launching", [op._task_id for op in self._runtime._outstanding_ops])
             """
             if self._kind ==Future:
                 print("future")

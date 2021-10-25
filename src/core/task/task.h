@@ -127,6 +127,8 @@ class LegateTask {
                                bool inner      = false,
                                bool idempotent = false)
   {
+    
+    
     // Construct the code descriptor for this task so that the library
     // can register it later when it is ready
     Legion::CodeDescriptor desc(
@@ -134,6 +136,7 @@ class LegateTask {
         legion_task_wrapper<ReturnValues, LegateTask<T>::template legate_task_wrapper<TASK_PTR>>);
     auto task_id = T::TASK_ID;
 
+    Core::opIDs.push_back(std::pair<int64_t, LegateVariantImpl>((int64_t)task_id, TASK_PTR));
     T::Registrar::record_variant(task_id,
                                  T::task_name(),
                                  desc,
