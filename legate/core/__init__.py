@@ -28,6 +28,8 @@ try:
         using_legion_python = False
 except ModuleNotFoundError:
     using_legion_python = False
+except AttributeError:
+    using_legion_python = False
 if not using_legion_python:
     raise RuntimeError(
         "All Legate programs must be run with a legion_python interperter. We "
