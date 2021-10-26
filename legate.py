@@ -68,6 +68,14 @@ def read_c_define(header_path, def_name):
         return None
 
 
+def read_conduit(legate_dir):
+    realm_defines = os.path.join(legate_dir, "include", "realm_defines.h")
+    for conduit in ["ibv", "ucx", "aries", "mpi", "udp"]:
+        if read_c_define(realm_defines, f"GASNET_CONDUIT_{conduit.upper()}"):
+            return conduit
+    raise Exception("Could not detect a supported GASNet conduit")
+
+
 def find_python_module(legate_dir):
     lib_dir = os.path.join(legate_dir, "lib")
     python_lib = None
@@ -130,6 +138,10 @@ def run_legate(
     verbose,
     gasnet_trace,
     eager_alloc,
+    cpu_bind,
+    mem_bind,
+    gpu_bind,
+    nic_bind,
     launcher_extra,
 ):
     # Build the environment for the subprocess invocation
@@ -253,7 +265,7 @@ def run_legate(
     cmd_env["REALM_BACKTRACE"] = str(1)
     if gasnet_trace:
         cmd_env["GASNET_TRACEFILE"] = os.path.join(log_dir, "gasnet_%.log")
-    # Add any wrappers before the executable
+    # Add launcher
     if launcher == "mpirun":
         # TODO: $OMPI_COMM_WORLD_RANK will only work for OpenMPI and IBM
         # Spectrum MPI. Intel MPI and MPICH use $PMI_RANK, MVAPICH2 uses
@@ -339,6 +351,39 @@ def run_legate(
     else:
         raise Exception("Unsupported launcher: %s" % launcher)
     cmd += launcher_extra
+    # Add any wrappers before the executable
+    binary_dir = os.path.join(legate_dir, "bin")
+    if any(f is not None for f in [cpu_bind, mem_bind, gpu_bind, nic_bind]):
+        conduit = read_conduit(legate_dir)
+        cmd += [os.path.join(binary_dir, "bind.sh"), launcher, conduit]
+        if cpu_bind is not None:
+            if len(cpu_bind.split("/")) != ranks_per_node:
+                raise Exception(
+                    "Number of groups in --cpu-bind not equal to "
+                    "--ranks-per-node"
+                )
+            cmd += ["--cpus", cpu_bind]
+        if gpu_bind is not None:
+            if len(gpu_bind.split("/")) != ranks_per_node:
+                raise Exception(
+                    "Number of groups in --gpu-bind not equal to "
+                    "--ranks-per-node"
+                )
+            cmd += ["--gpus", gpu_bind]
+        if mem_bind is not None:
+            if len(mem_bind.split("/")) != ranks_per_node:
+                raise Exception(
+                    "Number of groups in --mem-bind not equal to "
+                    "--ranks-per-node"
+                )
+            cmd += ["--mems", mem_bind]
+        if nic_bind is not None:
+            if len(nic_bind.split("/")) != ranks_per_node:
+                raise Exception(
+                    "Number of groups in --nic-bind not equal to "
+                    "--ranks-per-node"
+                )
+            cmd += ["--nics", nic_bind]
     if gdb:
         if ranks > 1:
             print("WARNING: Legate does not support gdb for multi-rank runs")
@@ -374,7 +419,6 @@ def run_legate(
     if memcheck:
         cmd += ["cuda-memcheck"]
     # Now we're ready to build the actual command to run
-    binary_dir = os.path.join(legate_dir, "bin")
     cmd += [os.path.join(binary_dir, "legion_python")]
     # This has to go before script name
     if not_control_replicable:
@@ -782,6 +826,31 @@ def driver():
         help="Specify the size of eager allocation pool in percentage",
     )
     parser.add_argument(
+        "--cpu-bind",
+        help="CPU cores to bind each rank to. Comma-separated core IDs as "
+        "well as ranges are accepted, as reported by `numactl`. Binding "
+        "instructions for all ranks should be listed in one string, separated "
+        "by `/`.",
+    )
+    parser.add_argument(
+        "--mem-bind",
+        help="NUMA memories to bind each rank to. Use comma-separated integer "
+        "IDs as reported by `numactl`. Binding instructions for all ranks "
+        "should be listed in one string, separated by `/`.",
+    )
+    parser.add_argument(
+        "--gpu-bind",
+        help="GPUs to bind each rank to. Use comma-separated integer IDs as "
+        "reported by `nvidia-smi`. Binding instructions for all ranks "
+        "should be listed in one string, separated by `/`.",
+    )
+    parser.add_argument(
+        "--nic-bind",
+        help="NICs to bind each rank to. Use comma-separated device names as "
+        "appropriate for the GASNet conduit in use. Binding instructions for "
+        "all ranks should be listed in one string, separated by `/`.",
+    )
+    parser.add_argument(
         "--launcher-extra",
         dest="launcher_extra",
         action="append",
@@ -835,6 +904,10 @@ def driver():
         args.verbose,
         args.gasnet_trace,
         args.eager_alloc,
+        args.cpu_bind,
+        args.mem_bind,
+        args.gpu_bind,
+        args.nic_bind,
         args.launcher_extra,
     )
 

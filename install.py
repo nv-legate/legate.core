@@ -717,6 +717,10 @@ def install(
         ["cp", "legate.py", os.path.join(install_dir, "bin", "legate")],
         cwd=legate_core_dir,
     )
+    verbose_check_call(
+        ["cp", "bind.sh", os.path.join(install_dir, "bin", "bind.sh")],
+        cwd=legate_core_dir,
+    )
     if cuda:
         # Copy CUDA configuration that the launcher needs to find CUDA path
         verbose_check_call(
