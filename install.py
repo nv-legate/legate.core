@@ -220,7 +220,7 @@ def install_legion(legion_src_dir, branch, commit="3141d7c0"):
         legion_src_dir,
         url="https://gitlab.com/StanfordLegion/legion.git",
         branch=branch,
-        commit=commit
+        commit=commit,
     )
 
 
@@ -562,8 +562,10 @@ def install(
 
     legate_core_dir = os.path.dirname(os.path.realpath(__file__))
 
-    if legion_branch is None:
-        legion_branch = find_default_legion_branch(legate_core_dir)
+    # For the release, we will use a hardcoded commit unless user asks for
+    # a branch
+    #    if legion_branch is None:
+    #        legion_branch = find_default_legion_branch(legate_core_dir)
 
     cmake_config = os.path.join(legate_core_dir, ".cmake.json")
     dump_json_config(cmake_config, cmake)
