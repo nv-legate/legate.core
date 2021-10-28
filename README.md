@@ -221,7 +221,7 @@ no support for Windows.
 
 The Legate Core currently requires Python >= 3.7 and the following packages:
 
-  - `pyarrow=1.0.1`
+  - `pyarrow=5.0.0`
   - `numpy`
   - `cffi`
   - [CUDA](https://developer.nvidia.com/cuda-downloads) >= 8.0
