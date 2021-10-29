@@ -15,7 +15,6 @@
 
 import weakref
 from functools import partial
-from math import prod
 
 from .legion import (
     Attach,
@@ -201,9 +200,12 @@ class RegionField(object):
             shard_local_data = {}
             for (c, buf) in alloc.shard_local_buffers.items():
                 subregion = alloc.partition.get_child(c)
-                if prod(buf.shape) != subregion.index_space.get_volume():
+                bounds = subregion.index_space.get_bounds()
+                if buf.shape != tuple(
+                    bounds.hi[i] - bounds.lo[i] + 1 for i in range(bounds.dim)
+                ):
                     raise RuntimeError(
-                        "Subregion size does not match attached buffer"
+                        "Subregion shape does not match attached buffer"
                     )
                 if buf.itemsize != field_size:
                     raise RuntimeError(
