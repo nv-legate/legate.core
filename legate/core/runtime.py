@@ -807,8 +807,8 @@ class AllValidOps(FusionConstraint):
         self.validIDs.add(2) #Binary op
         #self.validIDs.add(5) #convert op
         self.validIDs.add(18) #Unary op
-        self.validIDs.add(9) #Fill op
-        self.validIDs.add(14) #Fill op
+        #self.validIDs.add(9) #Fill op
+        #self.validIDs.add(14) #Fill op
 
         # the following are conditionally fusable
         # they will be processed in the a subsequent level of filtering
@@ -1302,7 +1302,7 @@ class Runtime(object):
    
     def _schedule(self, ops, force_eval=False):
         ids = [op._task_id for op in ops]
-        print(force_eval, "ids", ids)
+        #print(force_eval, "ids", ids)
         #case 1: try fusing current window of tasks
         #if partially or fully fusable, 
         #schedule the new set of tasks
@@ -1311,7 +1311,6 @@ class Runtime(object):
         #     must_be_single = any(len(gop.scalar_outputs) > 0 for gop in [op])
         #     partitioner = Partitioner(self, [op], must_be_single=must_be_single)
         #     strategy = partitioner.partition_stores()
-
         if len(ops)>=2 and (not force_eval):
             fused_task_list,strats = self.build_fused_op(ops)
             if fused_task_list:

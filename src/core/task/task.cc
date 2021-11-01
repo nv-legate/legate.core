@@ -62,6 +62,13 @@ void LegateTaskRegistrar::register_all_tasks(Runtime* runtime, LibraryContext& c
     Core::cpuDescriptors.insert(std::pair<int64_t, LegateVariantImpl>((int64_t) newID, taskIdx.second));
   }
 
+  for (auto& taskIdx : Core::gpuOpIDs){
+    auto newID = context.get_task_id(taskIdx.first);
+    Core::gpuDescriptors.insert(std::pair<int64_t, LegateVariantImpl>((int64_t) newID, taskIdx.second));
+  }
+
+
+
   // Do all our registrations
   for (auto& task : pending_task_variants_) {
     task.task_id =

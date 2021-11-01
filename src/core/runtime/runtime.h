@@ -34,7 +34,9 @@ class Core {
   static void parse_config(void);
   static void shutdown(void);
   static std::unordered_map<int64_t, LegateVariantImpl> cpuDescriptors; 
+  static std::unordered_map<int64_t, LegateVariantImpl> gpuDescriptors; 
   static std::vector<std::pair<int64_t, LegateVariantImpl> > opIDs;
+  static std::vector<std::pair<int64_t, LegateVariantImpl> > gpuOpIDs;
 
  public:
   // Configuration settings

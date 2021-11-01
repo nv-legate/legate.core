@@ -136,7 +136,11 @@ class LegateTask {
         legion_task_wrapper<ReturnValues, LegateTask<T>::template legate_task_wrapper<TASK_PTR>>);
     auto task_id = T::TASK_ID;
 
-    Core::opIDs.push_back(std::pair<int64_t, LegateVariantImpl>((int64_t)task_id, TASK_PTR));
+    if (kind ==Legion::Processor::LOC_PROC){
+        Core::opIDs.push_back(std::pair<int64_t, LegateVariantImpl>((int64_t)task_id, TASK_PTR));
+    }else if (kind ==Legion::Processor::TOC_PROC){
+        Core::gpuOpIDs.push_back(std::pair<int64_t, LegateVariantImpl>((int64_t)task_id, TASK_PTR));
+    }
     T::Registrar::record_variant(task_id,
                                  T::task_name(),
                                  desc,

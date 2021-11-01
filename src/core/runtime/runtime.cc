@@ -35,7 +35,9 @@ Logger log_legate("legate");
 
 using LegateVariantImpl = void (*)(TaskContext&);
 /*static */ std::vector<std::pair<int64_t, LegateVariantImpl> > Core::opIDs = *(new std::vector<std::pair<int64_t, LegateVariantImpl> >());
+/*static */ std::vector<std::pair<int64_t, LegateVariantImpl> > Core::gpuOpIDs = *(new std::vector<std::pair<int64_t, LegateVariantImpl> >());
 /*static */ std::unordered_map<long, LegateVariantImpl> Core::cpuDescriptors = *(new std::unordered_map<long, LegateVariantImpl>());
+/*static */ std::unordered_map<long, LegateVariantImpl> Core::gpuDescriptors = *(new std::unordered_map<long, LegateVariantImpl>());
 
 static const char* const core_library_name = "legate.core";
 
