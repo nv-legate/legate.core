@@ -76,7 +76,7 @@ class RegionField {
 class FutureWrapper {
  public:
   FutureWrapper() {}
-  FutureWrapper(const Legion::Domain& domain);
+  FutureWrapper(uint32_t idx, const Legion::Domain& domain);
 
  public:
   FutureWrapper(const FutureWrapper& other)            = default;
@@ -84,6 +84,7 @@ class FutureWrapper {
 
  public:
   int32_t dim() const { return domain_.dim; }
+  uint32_t index() const { return idx_; }
 
  public:
   template <int32_t DIM>
@@ -91,6 +92,7 @@ class FutureWrapper {
   Legion::Domain domain() const;
 
  private:
+  uint32_t idx_{-1U};
   Legion::Domain domain_{};
 };
 
@@ -126,6 +128,7 @@ class Store {
  public:
   bool can_colocate_with(const Store& other) const;
   const RegionField& region_field() const;
+  const FutureWrapper& future() const;
 
  public:
   template <int32_t DIM>

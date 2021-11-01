@@ -115,6 +115,7 @@ class MapperDeserializer : public BaseDeserializer<MapperDeserializer> {
  private:
   Legion::Mapping::MapperRuntime* runtime_;
   Legion::Mapping::MapperContext context_;
+  uint32_t future_index_;
 };
 
 }  // namespace mapping
