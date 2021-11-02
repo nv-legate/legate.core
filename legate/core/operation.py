@@ -158,7 +158,8 @@ class Operation(object):
 
     def declare_partition(self, store, disjoint=True, complete=True):
         sym = PartSym(
-            self,
+            self._op_id,
+            self.get_name(),
             store,
             self._get_symbol_id(),
             disjoint=disjoint,
