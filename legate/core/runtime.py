@@ -16,6 +16,7 @@
 import gc
 import math
 import struct
+import weakref
 from collections import deque
 from functools import reduce
 
@@ -315,23 +316,33 @@ class FieldManager(object):
 
 
 class Attachment(object):
-    def __init__(self, ptr, extent, region_field):
+    def __init__(self, ptr, extent, shareable, region_field):
         self.ptr = ptr
         self.extent = extent
         self.end = ptr + extent - 1
-        # can be None, if this attachment is part of an IndexAttach
-        self.region_field = region_field
+        # Catch a case where we try to (individually) re-attach a buffer that
+        # was used in an IndexAttach. In that case it would be wrong to return
+        # the RegionField produced by that IndexAttach, since the buffer in
+        # question only covers a part of that.
+        self.shareable = shareable
+        self._region_field = weakref.ref(region_field)
 
     def overlaps(self, other):
         return not (self.end < other.ptr or other.end < self.ptr)
+
+    @property
+    def region_field(self):
+        return self._region_field()
+
+    @region_field.setter
+    def region_field(self, region_field):
+        self._region_field = weakref.ref(region_field)
 
 
 class AttachmentManager(object):
     def __init__(self, runtime):
         self._runtime = runtime
-
         self._attachments = dict()
-
         self._next_detachment_key = 0
         self._registered_detachments = dict()
         self._deferred_detachments = list()
@@ -362,25 +373,34 @@ class AttachmentManager(object):
 
     def has_attachment(self, buf):
         key = self.attachment_key(buf)
-        return key in self._attachments
+        attachment = self._attachments.get(key, None)
+        return attachment is not None and attachment.region_field is not None
 
     def reuse_existing_attachment(self, buf):
         key = self.attachment_key(buf)
-        if key not in self._attachments:
+        attachment = self._attachments.get(key, None)
+        if attachment is None:
             return None
-        attachment = self._attachments[key]
-        # This will return None if the buffer is part of an IndexAttach,
-        # rather than a single Attach covering the entire region.
-        return attachment.region_field
+        rf = attachment.region_field
+        # If the region field is already collected, we don't need to keep
+        # track of it for de-duplication.
+        if rf is None:
+            del self._attachments[key]
+            return None
+        return rf if attachment.shareable else None
 
-    def _add_attachment(self, buf, region_field):
-        # region_field should be None if this buffer is part of an IndexAttach
+    def _add_attachment(self, buf, shareable, region_field):
         key = self.attachment_key(buf)
-        if key in self._attachments:
+        attachment = self._attachments.get(key, None)
+        if not (attachment is None or attachment.region_field is None):
             raise RuntimeError(
                 "Cannot attach two different RegionFields to the same buffer"
             )
-        attachment = Attachment(*key, region_field)
+        # If the region field is already collected, we don't need to keep
+        # track of it for de-duplication.
+        if attachment is not None:
+            del self._attachments[key]
+        attachment = Attachment(*key, shareable, region_field)
         for other in self._attachments.values():
             if other.overlaps(attachment):
                 raise RuntimeError(
@@ -390,12 +410,10 @@ class AttachmentManager(object):
 
     def attach_external_allocation(self, alloc, region_field):
         if isinstance(alloc, memoryview):
-            self._add_attachment(alloc, region_field)
+            self._add_attachment(alloc, True, region_field)
         else:
-            # Don't record the RegionField on each sub-buffer, since we can't
-            # reuse any of them individually to cover the entire RegionField.
             for buf in alloc.shard_local_buffers.values():
-                self._add_attachment(buf, None)
+                self._add_attachment(buf, False, region_field)
 
     def _remove_attachment(self, buf):
         key = self.attachment_key(buf)
@@ -403,7 +421,20 @@ class AttachmentManager(object):
             raise RuntimeError("Unable to find attachment to remove")
         del self._attachments[key]
 
-    def detach_external_allocation(self, alloc, detach, defer):
+    def _remove_allocation(self, alloc):
+        if isinstance(alloc, memoryview):
+            self._remove_attachment(alloc)
+        else:
+            for buf in alloc.shard_local_buffers.values():
+                self._remove_attachment(buf)
+
+    def detach_external_allocation(
+        self, alloc, detach, defer=False, previously_deferred=False
+    ):
+        # If the detachment was previously deferred, then we don't
+        # need to remove the allocation from the map again.
+        if not previously_deferred:
+            self._remove_allocation(alloc)
         if defer:
             # If we need to defer this until later do that now
             self._deferred_detachments.append((alloc, detach))
@@ -412,13 +443,6 @@ class AttachmentManager(object):
         # Dangle a reference to the field off the future to prevent the
         # field from being recycled until the detach is done
         future.field_reference = detach.field
-        # We also need to tell the core legate library that this buffer
-        # is no longer attached
-        if isinstance(alloc, memoryview):
-            self._remove_attachment(alloc)
-        else:
-            for buf in alloc.shard_local_buffers.values():
-                self._remove_attachment(buf)
         # If the future is already ready, then no need to track it
         if future.is_ready():
             return
@@ -439,7 +463,9 @@ class AttachmentManager(object):
         detachments = self._deferred_detachments
         self._deferred_detachments = list()
         for alloc, detach in detachments:
-            self.detach_external_allocation(alloc, detach, defer=False)
+            self.detach_external_allocation(
+                alloc, detach, defer=False, previously_deferred=True
+            )
 
     def prune_detachments(self):
         to_remove = []

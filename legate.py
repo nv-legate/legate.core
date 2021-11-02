@@ -252,12 +252,6 @@ def run_legate(
             defines_path, "LEGION_MAX_FIELDS"
         )
         assert cmd_env["LEGATE_MAX_FIELDS"] is not None
-    if "GASNET_PHYSMEM_MAX" not in cmd_env:
-        # We bound how much memory GASNet is allowed to reserve, otherwise it
-        # may over-reserve, limiting the amount of memory that can be used for
-        # the application. Note that regmem/rsize and ib_rsize are allocated
-        # out of this chunk.
-        cmd_env["GASNET_PHYSMEM_MAX"] = "1G"
     # Special run modes
     if freeze_on_error:
         cmd_env["LEGION_FREEZE_ON_ERROR"] = str(1)
