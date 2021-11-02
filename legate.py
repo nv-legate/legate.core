@@ -514,7 +514,7 @@ def run_legate(
         cmd += opts
 
     # Launch the child process
-    if verbose:
+    if verbose and (launcher != "none" or rank_id == "0"):
         print(
             "Running: " + " ".join([shlex.quote(t) for t in cmd]), flush=True
         )
