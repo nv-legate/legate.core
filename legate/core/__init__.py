@@ -27,7 +27,7 @@ from legate.core.runtime import (
     get_legion_runtime,
     legate_add_library,
 )
-from legate.core.store import ExternalAllocation, Store
+from legate.core.store import DistributedAllocation, Store
 from legate.core.legion import (
     LEGATE_MAX_DIM,
     LEGATE_MAX_FIELDS,
@@ -87,6 +87,7 @@ from legate.core.types import (
     complex128,
     ReductionOp,
 )
+from legate.core.io import CustomSplit, TiledSplit, ingest
 from legion_cffi import ffi, lib as legion
 
 # Import the PyArrow type system

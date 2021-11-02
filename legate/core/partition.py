@@ -210,5 +210,5 @@ class Tiling(object):
         part, proj_id = store.find_or_create_partition(self)
         if self.color_shape.ndim != launch_space.ndim:
             assert launch_space.ndim == 1
-            proj_id = self._runtime.get_deliearize_functor()
+            proj_id = self._runtime.get_delinearize_functor()
         return Partition(part, proj_id)

@@ -30,7 +30,7 @@ struct linearize_fn {
     Point<DIM> point   = point_dp;
     Point<DIM> extents = hi - lo + Point<DIM>::ONES();
     size_t idx         = 0;
-    for (int32_t dim = 0; dim < DIM; ++dim) idx = idx * extents[dim] + point[dim];
+    for (int32_t dim = 0; dim < DIM; ++dim) idx = idx * extents[dim] + point[dim] - lo[dim];
     return idx;
   }
 };
@@ -38,6 +38,27 @@ struct linearize_fn {
 size_t linearize(const DomainPoint& lo, const DomainPoint& hi, const DomainPoint& point)
 {
   return dim_dispatch(point.dim, linearize_fn{}, lo, hi, point);
+}
+
+struct delinearize_fn {
+  template <int32_t DIM>
+  DomainPoint operator()(const DomainPoint& lo_dp, const DomainPoint& hi_dp, size_t idx)
+  {
+    Point<DIM> lo      = lo_dp;
+    Point<DIM> hi      = hi_dp;
+    Point<DIM> extents = hi - lo + Point<DIM>::ONES();
+    Point<DIM> point;
+    for (int32_t dim = DIM - 1; dim >= 0; --dim) {
+      point[dim] = idx % extents[dim] + lo[dim];
+      idx /= extents[dim];
+    }
+    return point;
+  }
+};
+
+DomainPoint delinearize(const DomainPoint& lo, const DomainPoint& hi, size_t idx)
+{
+  return dim_dispatch(lo.dim, delinearize_fn{}, lo, hi, idx);
 }
 
 }  // namespace legate

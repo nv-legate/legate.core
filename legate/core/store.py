@@ -16,7 +16,17 @@
 import weakref
 from functools import partial
 
-from .legion import Attach, Detach, Future, InlineMapping, Point, ffi, legion
+from .legion import (
+    Attach,
+    Detach,
+    Future,
+    IndexAttach,
+    IndexDetach,
+    InlineMapping,
+    Point,
+    ffi,
+    legion,
+)
 from .partition import NoPartition, Restriction, Tiling
 from .shape import Shape
 from .transform import (
@@ -27,26 +37,7 @@ from .transform import (
     Shift,
     Transpose,
 )
-
-
-class ExternalAllocation(object):
-    """
-    Any external allocation that a client library wants to attach to
-    a Legate store must be wrapped by an instance of the ExternalAllocation
-    interface. Legate uses this custom interface instead of Python's
-    memoryview interface because it needs to know the exact starting
-    address of the allocation for the alias analysis; an external
-    allocation attached to more than one Legate store can lead to
-    all sorts of undefined behaviors.
-    """
-
-    @property
-    def address(self):
-        raise NotImplementedError("Should be implemented by a subclass")
-
-    @property
-    def memoryview(self):
-        raise NotImplementedError("Should be implemented by a subclass")
+from .types import _Dtype
 
 
 class InlineMappedAllocation(object):
@@ -71,6 +62,30 @@ class InlineMappedAllocation(object):
         return result
 
 
+class DistributedAllocation(object):
+    def __init__(self, partition, shard_local_buffers):
+        """
+        Represents a distributed collection of buffers, to be
+        collectively attached as sub-regions of the same
+        parent region.
+
+        This is a rare case of a data structure that is allowed (and expected)
+        to have a different value on different shards; each shard should
+        specify a distinct set of resources.
+
+        Parameters
+        ----------
+        partition : Partition
+            The partition to use in the IndexAttach operation
+        shard_local_buffers : dict[Point, memoryview]
+            Map from color to buffer that should back the sub-region of that
+            color. This map will only cover the buffers local to the current
+            shard.
+        """
+        self.partition = partition
+        self.shard_local_buffers = shard_local_buffers
+
+
 # A region field holds a reference to a field in a logical region
 class RegionField(object):
     def __init__(
@@ -91,6 +106,7 @@ class RegionField(object):
         self.launch_space = None  # Parallel launch space for this region_field
         # External allocation we attached to this field
         self.attached_alloc = None
+        self.detach_key = None
         self.inline_consumers = []
         self.physical_region = None  # Physical region for attach
         self.physical_region_refs = 0
@@ -137,48 +153,93 @@ class RegionField(object):
         assert self.parent is None
         # If we already have some memory attached, detach it first
         if self.attached_alloc is not None:
-            if self.attached_alloc == alloc:
-                return
-            else:
-                self.detach_external_allocation(unordered=False)
-        # Now we can attach the new one and then do the acquire
+            return RuntimeError("A RegionField cannot be re-attached")
+        # All inline mappings should have been unmapped by now
+        assert self.physical_region_refs == 0
+        # Record the attached memory ranges, and confirm no overlaps with
+        # previously encountered ranges.
         self.attachment_manager.attach_external_allocation(alloc, self)
-        attach = Attach(
-            self.region,
-            self.field.field_id,
-            alloc.memoryview,
-            mapper=context.mapper_id,
-        )
-        # If we're not sharing then there is no need to map or restrict the
-        # attachment
-        if not share:
-            attach.set_restricted(False)
-            attach.set_mapped(False)
+        if isinstance(alloc, memoryview):
+            # Singleton attachment
+            attach = Attach(
+                self.region,
+                self.field.field_id,
+                alloc,
+                mapper=context.mapper_id,
+            )
+            # If we're not sharing then there is no need to map or restrict the
+            # attachment
+            if not share:
+                attach.set_restricted(False)
+                attach.set_mapped(False)
+            else:
+                self.physical_region_mapped = True
+            # Singleton allocations return a physical region for the entire
+            # domain, that can be inline-mapped directly.
+            self.physical_region = self.runtime.dispatch(attach)
+            # Add a reference here to prevent collection in inline mapped
+            # cases. This reference will never be removed, we'll delete the
+            # physical region once the object is deleted.
+            self.physical_region_refs = 1
+            # Due to the working of the Python interpreter's garbage collection
+            # algorithm we make the detach operation for this now and register
+            # it with the runtime so that we know that it won't be collected
+            # when the RegionField object is collected.
+            # We don't need to flush the contents back to the attached memory
+            # if this is an internal temporary allocation.
+            detach = Detach(self.physical_region, flush=share)
         else:
-            self.physical_region_mapped = True
-        self.physical_region = self.runtime.dispatch(attach)
-        # Due to the working of the Python interpreter's garbage collection
-        # algorithm we make the detach operation for this now and register it
-        # with the runtime so that we know that it won't be collected when the
-        # RegionField object is collected
-        # We don't need to flush the contents back to the attached memory if
-        # this is an internal temporary allocation
-        detach = Detach(self.physical_region, flush=share)
-        # Dangle these fields off here to prevent premature collection
+            # Distributed attachment
+            assert alloc.partition.parent is self.region
+            field_type = self.region.field_space.get_type(self.field.field_id)
+            field_size = (
+                field_type.size
+                if isinstance(field_type, _Dtype)
+                else field_type
+            )
+            shard_local_data = {}
+            for (c, buf) in alloc.shard_local_buffers.items():
+                subregion = alloc.partition.get_child(c)
+                bounds = subregion.index_space.get_bounds()
+                if buf.shape != tuple(
+                    bounds.hi[i] - bounds.lo[i] + 1 for i in range(bounds.dim)
+                ):
+                    raise RuntimeError(
+                        "Subregion shape does not match attached buffer"
+                    )
+                if buf.itemsize != field_size:
+                    raise RuntimeError(
+                        "Field type does not match attached buffer"
+                    )
+                shard_local_data[subregion] = buf
+            attach = IndexAttach(
+                self.region,
+                self.field.field_id,
+                shard_local_data,
+                mapper=context.mapper_id,
+            )
+            attach.set_deduplicate_across_shards(True)
+            # If we're not sharing there is no need to restrict the attachment
+            if not share:
+                attach.set_restricted(False)
+            external_resources = self.runtime.dispatch(attach)
+            # We don't need to flush the contents back to the attached memory
+            # if this is an internal temporary allocation.
+            detach = IndexDetach(external_resources, flush=share)
+        # Record the attachment
+        self.attached_alloc = alloc
+        # Dangle these fields off the detachment operation, to prevent
+        # premature collection
         detach.field = self.field
         detach.alloc = alloc
+        # Don't store the detachment operation here, instead register it on the
+        # attachment manager and record its unique key
+        # TODO: This might not be necessary anymore
         self.detach_key = self.attachment_manager.register_detachment(detach)
-        # Add a reference here to prevent collection in for inline mapped cases
-        assert self.physical_region_refs == 0
-        # This reference will never be removed, we'll delete the
-        # physical region once the object is deleted
-        self.physical_region_refs = 1
-        self.attached_alloc = alloc
 
     def detach_external_allocation(self, unordered, defer=False):
         assert self.parent is None
         assert self.attached_alloc is not None
-        assert self.physical_region is not None
         detach = self.attachment_manager.remove_detachment(self.detach_key)
         detach.unordered = unordered
         self.attachment_manager.detach_external_allocation(
@@ -376,7 +437,7 @@ class Store(object):
             The Legate runtime
         shape : legate.core.Shape
             A Shape object representing the shape of this store
-        dtype : numpy.dtype
+        dtype : legate.core.types._DType
             Data type of this store
         storage : Any[RegionField, Future, FutureMap]
             A backing storage of this store
@@ -507,10 +568,12 @@ class Store(object):
         )
 
     def attach_external_allocation(self, context, alloc, share):
-        if not isinstance(alloc, ExternalAllocation):
+        if not isinstance(alloc, memoryview) and not isinstance(
+            alloc, DistributedAllocation
+        ):
             raise ValueError(
-                "Only an ExternalAllocation object can be attached, but got "
-                f"{alloc}"
+                f"Only a memoryview or DistributedAllocation object can be "
+                f"attached, but got {alloc}"
             )
         if self._parent is not None:
             raise ValueError("Can only attach buffers to top-level Stores")
@@ -520,12 +583,12 @@ class Store(object):
             )
         if self.unbound:
             raise ValueError("Cannot attach buffers to variable-size stores")
-        # If the storage has not been set, and this is not a temporary
-        # attachment, we can reuse an existing RegionField that was previously
-        # attached to this buffer.
+        # If the storage has not been set, and this is a non-temporary
+        # singleton attachment, we can reuse an existing RegionField that was
+        # previously attached to this buffer.
         # This is the only situation where we can attach the same buffer to
         # two Stores, since they are both backed by the same RegionField.
-        if self._storage is None and share:
+        if self._storage is None and share and isinstance(alloc, memoryview):
             self._storage = self._attachment_manager.reuse_existing_attachment(
                 alloc
             )

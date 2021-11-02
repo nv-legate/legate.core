@@ -24,4 +24,8 @@ size_t linearize(const Legion::DomainPoint& lo,
                  const Legion::DomainPoint& hi,
                  const Legion::DomainPoint& point);
 
+Legion::DomainPoint delinearize(const Legion::DomainPoint& lo,
+                                const Legion::DomainPoint& hi,
+                                size_t idx);
+
 }  // namespace legate
