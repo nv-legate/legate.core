@@ -429,7 +429,7 @@ void BaseMapper::map_task(const MapperContext ctx,
 
   // Map each field separately for each of the logical regions
   std::vector<PhysicalInstance> needed_acquires;
-  std::map<PhysicalInstance, uint32_t> instances_to_mappings;
+  std::map<PhysicalInstance, std::set<uint32_t>> instances_to_mappings;
   for (uint32_t mapping_idx = 0; mapping_idx < mappings.size(); ++mapping_idx) {
     auto& mapping    = mappings[mapping_idx];
     auto req_indices = mapping.requirement_indices();
@@ -457,7 +457,7 @@ void BaseMapper::map_task(const MapperContext ctx,
       needed_acquires.push_back(result);
 
     for (auto req_idx : req_indices) output.chosen_instances[req_idx].push_back(result);
-    instances_to_mappings[result] = mapping_idx;
+    instances_to_mappings[result].insert(mapping_idx);
   }
 
   // Do an acquire on all the instances so we have our result
@@ -471,27 +471,31 @@ void BaseMapper::map_task(const MapperContext ctx,
     filter_failed_acquires(needed_acquires, failed_acquires);
 
     for (auto failed_acquire : failed_acquires) {
-      auto mapping_idx = instances_to_mappings[failed_acquire];
-      auto& mapping    = mappings[mapping_idx];
-      auto req_indices = mapping.requirement_indices();
+      auto affected_mappings = instances_to_mappings[failed_acquire];
+      instances_to_mappings.erase(failed_acquire);
 
-      std::vector<std::reference_wrapper<const RegionRequirement>> reqs;
-      for (auto req_idx : req_indices) reqs.push_back(std::cref(task.regions[req_idx]));
+      for (auto& mapping_idx : affected_mappings) {
+        auto& mapping    = mappings[mapping_idx];
+        auto req_indices = mapping.requirement_indices();
 
-      for (auto req_idx : req_indices) {
-        auto& instances   = output.chosen_instances[req_idx];
-        uint32_t inst_idx = 0;
-        for (; inst_idx < instances.size(); ++inst_idx)
-          if (instances[inst_idx] == failed_acquire) break;
-        instances.erase(instances.begin() + inst_idx);
+        std::vector<std::reference_wrapper<const RegionRequirement>> reqs;
+        for (auto req_idx : req_indices) reqs.push_back(std::cref(task.regions[req_idx]));
+
+        for (auto req_idx : req_indices) {
+          auto& instances   = output.chosen_instances[req_idx];
+          uint32_t inst_idx = 0;
+          for (; inst_idx < instances.size(); ++inst_idx)
+            if (instances[inst_idx] == failed_acquire) break;
+          instances.erase(instances.begin() + inst_idx);
+        }
+
+        PhysicalInstance result;
+        if (map_legate_store(ctx, task, mapping, reqs, task.target_proc, result))
+          needed_acquires.push_back(result);
+
+        for (auto req_idx : req_indices) output.chosen_instances[req_idx].push_back(result);
+        instances_to_mappings[result].insert(mapping_idx);
       }
-
-      PhysicalInstance result;
-      if (map_legate_store(ctx, task, mapping, reqs, task.target_proc, result))
-        needed_acquires.push_back(result);
-
-      for (auto req_idx : req_indices) output.chosen_instances[req_idx].push_back(result);
-      instances_to_mappings[result] = mapping_idx;
     }
   }
 }
