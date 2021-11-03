@@ -13,7 +13,6 @@
 # limitations under the License.
 #
 
-from itertools import product as prod
 from typing import Iterable, Tuple, Union
 
 from legion_cffi import ffi  # Make sure we only have one ffi instance
@@ -208,7 +207,9 @@ def ingest(
                 _runtime.legion_runtime, _runtime.legion_context
             )
             points_size = ffi.new("size_t *")
-            points_size[0] = prod(colors)
+            points_size[0] = 1
+            for c in colors:
+                points_size[0] *= c
             points_ptr = ffi.new("legion_domain_point_t[%s]" % points_size[0])
             legion.legion_sharding_functor_invert(
                 sid,
