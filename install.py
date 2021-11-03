@@ -32,8 +32,6 @@ sys.stdout.reconfigure(line_buffering=True)
 
 os_name = platform.system()
 
-default_legion_branch = "control_replication"
-
 
 class BooleanFlag(argparse.Action):
     def __init__(
@@ -115,21 +113,6 @@ def find_active_python_version_and_path():
     return version, paths[0]
 
 
-def find_default_legion_branch(core_dir):
-    try:
-        branch = verbose_check_output(
-            ["git", "symbolic-ref", "--short", "HEAD"], cwd=core_dir
-        )
-    except subprocess.CalledProcessError:
-        return default_legion_branch
-
-    branch = branch.decode().strip()
-    if branch in ("master", "main"):
-        return "legate_stable"
-    else:
-        return default_legion_branch
-
-
 def git_clone(repo_dir, url, branch=None, tag=None, commit=None):
     assert branch is not None or tag is not None or commit is not None
     if branch is not None:
@@ -209,7 +192,7 @@ def install_gasnet(gasnet_dir, conduit, thread_count):
     shutil.rmtree(temp_dir)
 
 
-def install_legion(legion_src_dir, branch="legate_stable"):
+def install_legion(legion_src_dir, branch):
     print("Legate is installing Legion into a local directory...")
     # For now all we have to do is clone legion since we build it with Legate
     git_clone(
@@ -228,7 +211,7 @@ def install_thrust(thrust_dir):
     )
 
 
-def update_legion(legion_src_dir, branch="legate_stable"):
+def update_legion(legion_src_dir, branch):
     # Make sure we are on the right branch for single/multi-node
     git_update(legion_src_dir, branch=branch)
 
@@ -556,9 +539,6 @@ def install(
     verbose_global = verbose
 
     legate_core_dir = os.path.dirname(os.path.realpath(__file__))
-
-    if legion_branch is None:
-        legion_branch = find_default_legion_branch(legate_core_dir)
 
     cmake_config = os.path.join(legate_core_dir, ".cmake.json")
     dump_json_config(cmake_config, cmake)
@@ -950,9 +930,8 @@ def driver():
     parser.add_argument(
         "--legion-branch",
         dest="legion_branch",
-        action="store",
         required=False,
-        default=None,
+        default="control_replication",
         help="Legion branch to build Legate with.",
     )
     args, unknown = parser.parse_known_args()
