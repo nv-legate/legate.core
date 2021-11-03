@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-from math import prod
+from itertools import product as prod
 from typing import Iterable, Tuple, Union
 
 from legion_cffi import ffi  # Make sure we only have one ffi instance
