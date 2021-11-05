@@ -14,7 +14,6 @@
 #
 
 import weakref
-from functools import partial
 
 from .legion import (
     Attach,
@@ -107,7 +106,6 @@ class RegionField(object):
         # External allocation we attached to this field
         self.attached_alloc = None
         self.detach_key = None
-        self.inline_consumers = []
         self.physical_region = None  # Physical region for attach
         self.physical_region_refs = 0
         self.physical_region_mapped = False
@@ -348,15 +346,18 @@ class RegionField(object):
         )
 
     def register_consumer(self, consumer):
-        # This will be the unmap call that will be invoked once the weakref is
-        # removed
-        # We will use it to unmap the inline mapping that was performed
-        def decrement(region_field, ref):
-            region_field.decrement_inline_mapped_ref_count()
+        # We add a callback that will be triggered when the consumer object is
+        # collected. This callback carries a (captured) reference to the source
+        # RegionField, keeping it alive while any consumers remain. Note that
+        # weakref.ref() would not work for this purpose, because callbacks
+        # passed to weakref.ref() do NOT keep their pointed objects alive. We
+        # avoid storing references from the source RegionField to the consumer,
+        # so that we don't create reference cycles.
 
-        callback = partial(decrement, self)
+        def callback():
+            self.decrement_inline_mapped_ref_count()
 
-        self.inline_consumers.append(weakref.ref(consumer, callback))
+        weakref.finalize(consumer, callback)
 
     def get_tile(self, shape, tiling):
         tile_shape = tiling.tile_shape
