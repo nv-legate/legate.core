@@ -873,6 +873,8 @@ class Runtime(object):
         self.destroyed = True
 
     def dispatch(self, op, redop=None):
+        self._attachment_manager.perform_detachments()
+        self._attachment_manager.prune_detachments()
         if redop:
             return op.launch(self.legion_runtime, self.legion_context, redop)
         else:
