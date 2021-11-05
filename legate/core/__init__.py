@@ -19,10 +19,10 @@ import os
 # Perform a check to see if we're running inside of Legion Python
 # If we're not then we should raise an error message
 try:
-    from legion_cffi import ffi, lib as legion
+    from legion_cffi import lib as _legion
 
     # Now confirm that we are actually inside of a task
-    if legion.legion_runtime_has_context():
+    if _legion.legion_runtime_has_context():
         using_legion_python = True
     else:
         using_legion_python = False
@@ -115,6 +115,9 @@ from legate.core.types import (
     ReductionOp,
 )
 from legate.core.io import CustomSplit, TiledSplit, ingest
+
+# NOTE: This needs to come after the imports from legate.core.legion, as we
+# are overriding that module's name.
 from legion_cffi import ffi, lib as legion
 
 # Import the PyArrow type system
