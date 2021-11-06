@@ -146,9 +146,9 @@ def git_reset(repo_dir, refspec):
 
 
 def git_update(repo_dir, branch=None):
-    verbose_check_call(["git", "pull", "--ff-only"], cwd=repo_dir)
     if branch is not None:
         verbose_check_call(["git", "checkout", branch], cwd=repo_dir)
+    verbose_check_call(["git", "pull", "--ff-only"], cwd=repo_dir)
 
 
 def load_json_config(filename):
