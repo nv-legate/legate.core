@@ -807,8 +807,8 @@ class AllValidOps(FusionConstraint):
         self.validIDs.add(2) #Binary op
         #self.validIDs.add(5) #convert op
         self.validIDs.add(18) #Unary op
-        #self.validIDs.add(9) #Fill op
-        #self.validIDs.add(14) #Fill op
+        self.validIDs.add(9) #Fill op
+        #self.validIDs.add(14) #read op
 
         # the following are conditionally fusable
         # they will be processed in the a subsequent level of filtering
@@ -969,7 +969,6 @@ class IdenticalLaunchShapes(FusionConstraint):
         if start<end:
             intervals.append((start, end))
         return True, intervals
-        return True, [(0,len(ops))]
 
 
    
@@ -1017,6 +1016,7 @@ class Runtime(object):
         self._outstanding_ops = []
         self._window_size =10
         self._fusion_threshold =2
+        self._opLens = []
         self._clearing_pipe = False
         #self._window_size = self._core_context.get_tunable(
         #    legion.LEGATE_CORE_TUNABLE_WINDOW_SIZE,
@@ -1104,7 +1104,7 @@ class Runtime(object):
         # Before we clean up the runtime, we should execute all outstanding
         # operations.
         self.flush_scheduling_window()
-
+        #print(self._opLens)
         # Destroy all libraries. Note that we should do this
         # from the lastly added one to the first one
         for context in reversed(self._context_list):
@@ -1157,6 +1157,9 @@ class Runtime(object):
                     future_start+=1
             for o,output in enumerate(op._outputs):
                 offsets.append(-(o+1)) 
+            for r,reduction in enumerate(op._reductions):
+                offsets.append(-(r+1)) 
+ 
             op_ids.append(numpy_context.get_task_id(op._task_id._value_))
 
             offset_start+=(len(op._inputs)+len(op._outputs))
@@ -1277,8 +1280,10 @@ class Runtime(object):
 
         return new_op_list, True       
 
-    def _launch_outstanding(self, force_eval=True):
+    def _launch_outstanding(self, force_eval=True):        
         if len(self._outstanding_ops):
+            #print("launching outstanding", ops)
+            self._opLens.append(len(self._outstanding_ops))
             ops = self._outstanding_ops
             self._outstanding_ops = []
             self._schedule(ops, force_eval)
@@ -1369,6 +1374,7 @@ class Runtime(object):
         else:
             self._outstanding_ops.append(op)
             if len(self._outstanding_ops) >= self._window_size:
+                self._opLens.append(len(self._outstanding_ops))
                 ops = self._outstanding_ops
                 self._outstanding_ops = []
                 self._schedule(ops)
@@ -1391,6 +1397,7 @@ class Runtime(object):
     def flush_scheduling_window(self):
         if len(self._outstanding_ops) == 0:
             return
+        self._opLens.append(len(self._outstanding_ops))
         ops = self._outstanding_ops
         self._outstanding_ops = []
         self._schedule(ops)
