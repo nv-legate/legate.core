@@ -40,7 +40,7 @@ class my_build_py(build_py):
             # into legate_core_cffi.py so that it is installed with
             # the python library directly
             root_dir = os.path.dirname(os.path.realpath(__file__))
-            header_src = os.path.join(root_dir, "src", "legate_c.h")
+            header_src = os.path.join(root_dir, "src", "core", "legate_c.h")
             output_dir = os.path.join(root_dir, "legate", "core")
             include_dir = os.path.join(args.prefix, "include")
             header = subprocess.check_output(
@@ -69,8 +69,8 @@ if args.recurse:
     # Remove the recurse argument from the list
     sys.argv.remove("--recurse")
     setup(
-        name="legate.core",
-        version="0.1",
+        name="legate-core",
+        version="21.10.00",
         packages=["legate", "legate.core", "legate.timing"],
         cmdclass={"build_py": my_build_py},
     )

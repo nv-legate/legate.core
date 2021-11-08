@@ -14,8 +14,7 @@
  *
  */
 
-#ifndef __LEGATE_CUDALIBS_H__
-#define __LEGATE_CUDALIBS_H__
+#pragma once
 
 //#include <cublas_v2.h>
 // We can't include cublas_v2.h because it sucks in half precision
@@ -32,17 +31,15 @@ struct CUDALibraries {
 
  private:
   // Prevent copying and overwriting
-  CUDALibraries(const CUDALibraries &rhs);
-  CUDALibraries &operator=(const CUDALibraries &rhs);
+  CUDALibraries(const CUDALibraries& rhs);
+  CUDALibraries& operator=(const CUDALibraries& rhs);
 
  public:
   void finalize(void);
-  cublasContext *get_cublas(void);
+  cublasContext* get_cublas(void);
 
  protected:
-  cublasContext *cublas;  // this is synonymous with cublasHandle_t
+  cublasContext* cublas;  // this is synonymous with cublasHandle_t
 };
 
 }  // namespace legate
-
-#endif  // __LEGATE_CUDALIBS_H__

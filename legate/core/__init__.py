@@ -14,20 +14,47 @@
 #
 
 from __future__ import absolute_import, division, print_function
+import os
+
+# Perform a check to see if we're running inside of Legion Python
+# If we're not then we should raise an error message
+try:
+    from legion_cffi import lib as _legion
+
+    # Now confirm that we are actually inside of a task
+    if _legion.legion_runtime_has_context():
+        using_legion_python = True
+    else:
+        using_legion_python = False
+except ModuleNotFoundError:
+    using_legion_python = False
+except AttributeError:
+    using_legion_python = False
+if not using_legion_python:
+    raise RuntimeError(
+        "All Legate programs must be run with a legion_python interperter. We "
+        'recommend that you use the Legate driver script "bin/legate" found '
+        "in the installation directory to launch Legate programs as it "
+        "provides easy-to-use flags for invoking legion_python. You can see "
+        'options for using the driver script with "bin/legate --help". You '
+        "can also invoke legion_python directly. "
+        'Use "bin/legate --verbose ..." to see some examples of how to call '
+        "legion_python directly."
+    )
 
 # Import select types for Legate library construction
+from legate.core.context import ResourceConfig
 from legate.core.legate import (
-    LegateArray,
-    LegateLibrary,
-    LegateStore,
+    Array,
+    Library,
+)
+from legate.core.runtime import (
+    get_legate_runtime,
     get_legion_context,
     get_legion_runtime,
-    legate_add_attachment,
     legate_add_library,
-    legate_find_attachment,
-    legate_initialize_cuda_library,
-    legate_remove_attachment,
 )
+from legate.core.store import ExternalAllocation, Store
 from legate.core.legion import (
     LEGATE_MAX_DIM,
     LEGATE_MAX_FIELDS,
@@ -70,6 +97,26 @@ from legate.core.legion import (
     legate_task_progress,
     legate_task_postamble,
 )
+from legate.core.types import (
+    bool_,
+    int8,
+    int16,
+    int32,
+    int64,
+    uint8,
+    uint16,
+    uint32,
+    uint64,
+    float16,
+    float32,
+    float64,
+    complex64,
+    complex128,
+    ReductionOp,
+)
+
+# NOTE: This needs to come after the imports from legate.core.legion, as we
+# are overriding that module's name.
 from legion_cffi import ffi, lib as legion
 
 # Import the PyArrow type system
@@ -88,18 +135,6 @@ from pyarrow import (
     Field,
     Schema,
     null,
-    bool_,
-    int8,
-    int16,
-    int32,
-    int64,
-    uint8,
-    uint16,
-    uint32,
-    uint64,
-    float16,
-    float32,
-    float64,
     time32,
     time64,
     timestamp,
@@ -120,5 +155,4 @@ from pyarrow import (
     field,
     schema,
     from_numpy_dtype,
-    types,
 )

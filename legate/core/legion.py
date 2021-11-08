@@ -24,6 +24,8 @@ import numpy as np
 
 from legion_cffi import ffi, lib as legion
 
+from .types import _Dtype
+
 assert "LEGATE_MAX_DIM" in os.environ
 LEGATE_MAX_DIM = int(os.environ["LEGATE_MAX_DIM"])
 assert "LEGATE_MAX_FIELDS" in os.environ
@@ -214,7 +216,7 @@ class Point(object):
 
     def set_point(self, p):
         try:
-            if len(p) >= LEGATE_MAX_DIM:
+            if len(p) > LEGATE_MAX_DIM:
                 raise ValueError(
                     "Point cannot exceed "
                     + str(LEGATE_MAX_DIM)
@@ -286,7 +288,7 @@ class Rect(object):
         return str(self._lo) + ".." + str(self._hi)
 
     def set_bounds(self, lo, hi, exclusive=True):
-        if len(hi) >= LEGATE_MAX_DIM:
+        if len(hi) > LEGATE_MAX_DIM:
             raise ValueError(
                 "Point cannot exceed "
                 + str(LEGATE_MAX_DIM)
@@ -1118,9 +1120,7 @@ class FieldSpace(object):
                 + str(LEGATE_MAX_FIELDS)
                 + " in field space"
             )
-        if isinstance(size_or_type, np.dtype) or hasattr(
-            size_or_type, "itemsize"
-        ):
+        if isinstance(size_or_type, _Dtype):
             return self.allocate_field_dtype(size_or_type, field_id=field_id)
         elif isinstance(size_or_type, Future):
             return self.allocate_field_from_future(
@@ -1174,7 +1174,7 @@ class FieldSpace(object):
                 + " in field space"
             )
         field_id = legion.legion_field_allocator_allocate_field(
-            self.alloc, dtype.itemsize, field_id
+            self.alloc, dtype.size, field_id
         )
         self.fields[field_id] = dtype
         return field_id
@@ -1365,6 +1365,22 @@ class Region(object):
     def __del__(self):
         if self.owned and self.parent is None:
             self.destroy(unordered=True)
+
+    def same_handle(self, other):
+        return (
+            type(self) == type(other)
+            and self.handle.tree_id == other.handle.tree_id
+            and self.handle.index_space.id == other.handle.index_space.id
+            and self.handle.field_space.id == other.handle.field_space.id
+        )
+
+    def __str__(self):
+        return (
+            f"Region("
+            f"tid: {self.handle.tree_id}, "
+            f"is: {self.handle.index_space.id}, "
+            f"fs: {self.handle.field_space.id})"
+        )
 
     def destroy(self, unordered=False):
         """
@@ -1746,6 +1762,7 @@ class Copy(object):
         parent=None,
         tag=0,
         coherence=legion.LEGION_EXCLUSIVE,
+        **kwargs,
     ):
         """
         Add a source region requirement to the copy operation
@@ -1794,6 +1811,7 @@ class Copy(object):
         tag=0,
         redop=0,
         coherence=legion.LEGION_EXCLUSIVE,
+        **kwargs,
     ):
         """
         Add a destination region requirement to the copy operation
@@ -1855,6 +1873,7 @@ class Copy(object):
         tag=0,
         is_range=False,
         coherence=legion.LEGION_EXCLUSIVE,
+        **kwargs,
     ):
         """
         Add a source indirection region requirement to the copy operation
@@ -1897,6 +1916,7 @@ class Copy(object):
         tag=0,
         is_range=False,
         coherence=legion.LEGION_EXCLUSIVE,
+        **kwargs,
     ):
         """
         Add a destination indirection region requirement to the copy operation
@@ -2040,6 +2060,7 @@ class IndexCopy(object):
         parent=None,
         tag=0,
         coherence=legion.LEGION_EXCLUSIVE,
+        **kwargs,
     ):
         """
         Add a source region requirement to the index copy operation
@@ -2112,6 +2133,7 @@ class IndexCopy(object):
         tag=0,
         redop=0,
         coherence=legion.LEGION_EXCLUSIVE,
+        **kwargs,
     ):
         """
         Add a destination region requirement to the index copy operation
@@ -2214,6 +2236,7 @@ class IndexCopy(object):
         tag=0,
         is_range=False,
         coherence=legion.LEGION_EXCLUSIVE,
+        **kwargs,
     ):
         """
         Add a source indirection region requirement to the index copy operation
@@ -2285,6 +2308,7 @@ class IndexCopy(object):
         tag=0,
         is_range=False,
         coherence=legion.LEGION_EXCLUSIVE,
+        **kwargs,
     ):
         """
         Add a destination indirection region requirement
@@ -2383,7 +2407,6 @@ class Attach(object):
         mapper=0,
         tag=0,
         read_only=False,
-        row_major=True,
     ):
         """
         An Attach object provides a mechanism for attaching external data to
@@ -2396,9 +2419,8 @@ class Attach(object):
             The logical region to which external data will be attached
         field : int or FieldID
             The field ID to which the data will be attached
-        data : numpy.ndarray or buffer
-            Input data in the form of a numpy array or an object that
-            implements the Python buffer protocol
+        data : memoryview
+            Input data in a memoryview
         mapper : int
             ID of the mapper to use for mapping the copy operation
         tag : int
@@ -2416,34 +2438,15 @@ class Attach(object):
         self._launcher = ffi.gc(
             self.launcher, legion.legion_attach_launcher_destroy
         )
-        if isinstance(data, np.ndarray):
-            if not (
-                not read_only
-                and (data.flags["CARRAY"] or data.flags["FARRAY"])
-            ) and not (
-                read_only
-                and (data.flags["C_CONTIGUOUS"] or data.flags["F_CONTIGUOUS"])
-            ):
-                raise ValueError("NumPy array cannot be attached")
-            legion.legion_attach_launcher_add_cpu_soa_field(
-                self.launcher,
-                ffi.cast(
-                    "legion_field_id_t",
-                    field.fid if isinstance(field, FieldID) else field,
-                ),
-                ffi.from_buffer(data.data),
-                data.flags["FARRAY"] or data.flags["F_CONTIGUOUS"],
-            )
-        else:
-            legion.legion_attach_launcher_add_cpu_soa_field(
-                self.launcher,
-                ffi.cast(
-                    "legion_field_id_t",
-                    field.fid if isinstance(field, FieldID) else field,
-                ),
-                ffi.from_buffer(data),
-                not row_major,
-            )
+        legion.legion_attach_launcher_add_cpu_soa_field(
+            self.launcher,
+            ffi.cast(
+                "legion_field_id_t",
+                field.fid if isinstance(field, FieldID) else field,
+            ),
+            ffi.from_buffer(data),
+            data.f_contiguous,
+        )
 
     def set_restricted(self, restricted):
         """
@@ -2641,6 +2644,16 @@ class Future(object):
 
     def __del__(self):
         self.destroy(unordered=True)
+
+    # We cannot use this as __eq__ because then we would have to define a
+    # compatible __hash__, which would not be sound because self.handle can
+    # change during the lifetime of a Future object, and thus so would the
+    # object's hash. So we just leave the default `f1 == f2 <==> f1 is f2`.
+    def same_handle(self, other):
+        return type(self) == type(other) and self.handle == other.handle
+
+    def __str__(self):
+        return f"Future({str(self.handle.impl)[16:-1]})"
 
     def destroy(self, unordered):
         """
@@ -3247,6 +3260,7 @@ class Task(object):
             self.launcher, legion.legion_task_launcher_destroy
         )
         self.req_index = 0
+        self.outputs = []
 
     def add_no_access_requirement(
         self,
@@ -3532,6 +3546,28 @@ class Task(object):
         """
         legion.legion_task_launcher_add_future(self.launcher, future.handle)
 
+    def add_output(self, output):
+        """
+        Add an output region to the region requirements for this task
+
+        Parameters
+        ----------
+        output : OutputRegion
+            The output region that will be determined by this index launch
+        """
+        self.outputs.append(output)
+
+    def add_outputs(self, outputs):
+        """
+        Add a output regions to the region requirements for this task
+
+        Parameters
+        ----------
+        outputs : List[OutputRegion]
+            The output regions that will be determined by this index launch
+        """
+        self.outputs.extend(outputs)
+
     def set_point(self, point):
         """
         Set the point to describe this task for sharding
@@ -3585,11 +3621,26 @@ class Task(object):
         Future that will complete when the task is done and carries
         the return value of the task if any
         """
-        return Future(
-            legion.legion_task_launcher_execute(
-                runtime, context, self.launcher
+        num_outputs = len(self.outputs)
+        if num_outputs == 0:
+            return Future(
+                legion.legion_task_launcher_execute(
+                    runtime, context, self.launcher
+                )
             )
-        )
+        else:
+            outputs = ffi.new("legion_output_requirement_t[%d]" % num_outputs)
+            for i, output in enumerate(self.outputs):
+                outputs[i] = output.handle
+            return Future(
+                legion.legion_task_launcher_execute_outputs(
+                    runtime,
+                    context,
+                    self.launcher,
+                    outputs,
+                    len(self.outputs),
+                )
+            )
 
 
 class FutureMap(object):
@@ -3716,8 +3767,16 @@ class FutureMap(object):
         for i in xrange(num_futures):
             points[i] = Point([i]).raw()
             futures[i] = futures[i].handle
-        handle = legion.legion_future_map_construct(
-            runtime, context, domain, points, futures, num_futures, False
+        handle = legion.legion_future_map_construct_from_futures(
+            runtime,
+            context,
+            domain,
+            points,
+            futures,
+            num_futures,
+            False,
+            0,
+            False,
         )
         return cls(handle)
 
@@ -4209,7 +4268,7 @@ class IndexTask(object):
 
     def add_output(self, output):
         """
-        Add an output region to the regoin requirements for this task
+        Add an output region to the region requirements for this task
 
         Parameters
         ----------
@@ -4220,7 +4279,7 @@ class IndexTask(object):
 
     def add_outputs(self, outputs):
         """
-        Add a output regions to the regoin requirements for this task
+        Add a output regions to the region requirements for this task
 
         Parameters
         ----------

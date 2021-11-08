@@ -14,8 +14,30 @@
  *
  */
 
-#include "legate.h"
+#pragma once
 
-void legate_parse_config(void) { legate::Core::parse_config(); }
+#include "legion.h"
 
-void legate_shutdown(void) { legate::Core::shutdown(); }
+#include "core/utilities/typedefs.h"
+
+namespace legate {
+
+extern uint32_t extract_env(const char* env_name,
+                            const uint32_t default_value,
+                            const uint32_t test_value);
+
+class Core {
+ public:
+  static void parse_config(void);
+  static void shutdown(void);
+
+ public:
+  // Configuration settings
+  static bool show_progress;
+#ifdef LEGATE_USE_CUDA
+ public:
+  static cublasContext* get_cublas(void);
+#endif
+};
+
+}  // namespace legate

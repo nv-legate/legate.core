@@ -14,7 +14,7 @@
  *
  */
 
-#include "cudalibs.h"
+#include "core/gpu/cudalibs.h"
 #include <cublas_v2.h>
 #include <cstdio>
 #include <cstdlib>

@@ -13,9 +13,10 @@
 #   * config.mk.in is used as an input to string.format()
 #   * config.mk is a generated file and should not be modified by hand
 
-DEBUG ?= {debug}
-CUDA ?= {cudadir}
-USE_CUDA ?= {cuda}
-GPU_ARCH ?= {arch}
-USE_OPENMP ?= {openmp}
-USE_GASNET ?= {gasnet}
+DEBUG := {debug}
+DEBUG_RELEASE := {debug_release}
+CUDA := {cuda_dir}
+USE_CUDA := {cuda}
+GPU_ARCH := {arch}
+USE_OPENMP := {openmp}
+USE_GASNET := {gasnet}

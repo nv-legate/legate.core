@@ -113,6 +113,7 @@ def run_legate(
     dataflow,
     event,
     log_dir,
+    user_logging_levels,
     gdb,
     cuda_gdb,
     memcheck,
@@ -127,7 +128,6 @@ def run_legate(
     cores_per_node,
     launcher,
     verbose,
-    interpreter,
     gasnet_trace,
     eager_alloc,
     launcher_extra,
@@ -314,6 +314,9 @@ def run_legate(
             "--ntasks-per-node",
             "1",
         ]
+        if gdb or cuda_gdb:
+            # Execute in pseudo-terminal mode when we need to be interactive
+            cmd += ["--pty"]
     elif launcher == "none":
         if nodes == 1:
             node_id = "0"
@@ -371,19 +374,13 @@ def run_legate(
     if memcheck:
         cmd += ["cuda-memcheck"]
     # Now we're ready to build the actual command to run
-    # Give the binary name and make sure we always request one python processor
-    if interpreter:
-        binary_dir = os.path.join(legate_dir, "bin")
-        cmd += [os.path.join(binary_dir, "legion_python")]
-        # This has to go before script name
-        if not_control_replicable:
-            cmd += ["--nocr"]
-        if module is not None:
-            cmd += ["-m", str(module)]
-    # If we have a script name from the command, append it now as the launcher
-    # expects it as the first argument
-    if opts:
-        cmd += opts
+    binary_dir = os.path.join(legate_dir, "bin")
+    cmd += [os.path.join(binary_dir, "legion_python")]
+    # This has to go before script name
+    if not_control_replicable:
+        cmd += ["--nocr"]
+    if module is not None:
+        cmd += ["-m", str(module)]
     # We always need one python processor per node and no local fields per node
     cmd += ["-ll:py", "1", "-lg:local", "0"]
     # Special run modes
@@ -447,7 +444,10 @@ def run_legate(
             os.path.join(log_dir, "legate_%.spy"),
         ]
         logging_levels.append("legion_spy=2")
-    cmd += ["-level", ",".join(logging_levels)]
+    logging_levels = ",".join(logging_levels)
+    if user_logging_levels is not None:
+        logging_levels += "," + user_logging_levels
+    cmd += ["-level", logging_levels]
     if gdb and os_name == "Darwin":
         print(
             "WARNING: You must start the debugging session with the following "
@@ -469,6 +469,11 @@ def run_legate(
         print()
 
     cmd += ["-lg:eager_alloc_percentage", eager_alloc]
+
+    # Append all user flags to the command so that they can override whatever
+    # the launcher has come up with.
+    if opts:
+        cmd += opts
 
     # Launch the child process
     if verbose:
@@ -665,6 +670,13 @@ def driver():
         help="Directory for Legate log files (defaults to current directory)",
     )
     parser.add_argument(
+        "--logging",
+        type=str,
+        default=None,
+        dest="user_logging_levels",
+        help="extra loggers to turn on",
+    )
+    parser.add_argument(
         "--gdb",
         dest="gdb",
         action="store_true",
@@ -750,14 +762,6 @@ def driver():
         help="print out each shell command before running it",
     )
     parser.add_argument(
-        "--no-interpreter",
-        dest="interpreter",
-        action="store_false",
-        default=True,
-        required=False,
-        help="don't go through Legion's Python interpreter (developer option)",
-    )
-    parser.add_argument(
         "--gasnet-trace",
         dest="gasnet_trace",
         action="store_true",
@@ -811,6 +815,7 @@ def driver():
         args.dataflow,
         args.event,
         args.logdir,
+        args.user_logging_levels,
         args.gdb,
         args.cuda_gdb,
         args.memcheck,
@@ -825,7 +830,6 @@ def driver():
         args.cores_per_node,
         args.launcher,
         args.verbose,
-        args.interpreter,
         args.gasnet_trace,
         args.eager_alloc,
         args.launcher_extra,
