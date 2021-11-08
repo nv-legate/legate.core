@@ -36,14 +36,15 @@ void LegateTaskRegistrar::record_variant(TaskID tid,
          (kind == Processor::OMP_PROC));
 
   // Buffer these up until we can do our actual registration with the runtime
-  pending_task_variants_.push_back(PendingTaskVariant(
-    tid,
-    false /*global*/,
-    (kind == Processor::LOC_PROC) ? "CPU" : (kind == Processor::TOC_PROC) ? "GPU" : "OpenMP",
-    task_name,
-    descriptor,
-    var,
-    ret_size));
+  pending_task_variants_.push_back(PendingTaskVariant(tid,
+                                                      false /*global*/,
+                                                      (kind == Processor::LOC_PROC)   ? "CPU"
+                                                      : (kind == Processor::TOC_PROC) ? "GPU"
+                                                                                      : "OpenMP",
+                                                      task_name,
+                                                      descriptor,
+                                                      var,
+                                                      ret_size));
 
   auto& registrar = pending_task_variants_.back();
   registrar.execution_constraints.swap(execution_constraints);
