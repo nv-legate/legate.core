@@ -197,7 +197,7 @@ $(DLIB) : $(GEN_CPU_OBJS) $(GEN_GPU_OBJS)
 -include $(GEN_CPU_DEPS)
 
 $(GEN_CPU_OBJS) : %.cc.o : %.cc $(LEGION_DEFINES_HEADER) $(REALM_DEFINES_HEADER)
-	$(CXX) -MMD -MP -MF $<.d -o $@ -c $< $(INC_FLAGS) $(OMP_FLAGS) $(CC_FLAGS)
+	$(CXX) -MMD -o $@ -c $< $(INC_FLAGS) $(OMP_FLAGS) $(CC_FLAGS)
 
 -include $(GEN_GPU_DEPS)
 
