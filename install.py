@@ -645,10 +645,10 @@ def install(
 
     # Build Legion from scratch.
     legion_src_dir = os.path.join(legate_core_dir, "legion")
-    if os.path.exists(legion_src_dir):
-        update_legion(legion_src_dir, branch=legion_branch)
-    else:
+    if not os.path.exists(legion_src_dir):
         install_legion(legion_src_dir, branch=legion_branch)
+    elif clean_first:
+        update_legion(legion_src_dir, branch=legion_branch)
     build_legion(
         legion_src_dir,
         install_dir,
