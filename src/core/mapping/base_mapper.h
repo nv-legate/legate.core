@@ -56,209 +56,205 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
 
  public:
   virtual const char* get_mapper_name(void) const override;
-  virtual Legion::Mapping::Mapper::MapperSyncModel get_mapper_sync_model(void) const;
-  virtual bool request_valid_instances(void) const { return false; }
+  virtual Legion::Mapping::Mapper::MapperSyncModel get_mapper_sync_model(void) const override;
+  virtual bool request_valid_instances(void) const override { return false; }
 
  public:  // Task mapping calls
   virtual void select_task_options(const Legion::Mapping::MapperContext ctx,
                                    const Legion::Task& task,
-                                   TaskOptions& output);
+                                   TaskOptions& output) override;
   virtual void premap_task(const Legion::Mapping::MapperContext ctx,
                            const Legion::Task& task,
                            const PremapTaskInput& input,
-                           PremapTaskOutput& output);
+                           PremapTaskOutput& output) override;
   virtual void slice_task(const Legion::Mapping::MapperContext ctx,
                           const Legion::Task& task,
                           const SliceTaskInput& input,
-                          SliceTaskOutput& output);
+                          SliceTaskOutput& output) override;
   virtual void map_task(const Legion::Mapping::MapperContext ctx,
                         const Legion::Task& task,
                         const MapTaskInput& input,
-                        MapTaskOutput& output);
+                        MapTaskOutput& output) override;
   virtual void map_replicate_task(const Legion::Mapping::MapperContext ctx,
                                   const Legion::Task& task,
                                   const MapTaskInput& input,
                                   const MapTaskOutput& default_output,
-                                  MapReplicateTaskOutput& output);
+                                  MapReplicateTaskOutput& output) override;
   virtual void select_task_variant(const Legion::Mapping::MapperContext ctx,
                                    const Legion::Task& task,
                                    const SelectVariantInput& input,
-                                   SelectVariantOutput& output);
+                                   SelectVariantOutput& output) override;
   virtual void postmap_task(const Legion::Mapping::MapperContext ctx,
                             const Legion::Task& task,
                             const PostMapInput& input,
-                            PostMapOutput& output);
+                            PostMapOutput& output) override;
   virtual void select_task_sources(const Legion::Mapping::MapperContext ctx,
                                    const Legion::Task& task,
                                    const SelectTaskSrcInput& input,
-                                   SelectTaskSrcOutput& output);
+                                   SelectTaskSrcOutput& output) override;
   virtual void speculate(const Legion::Mapping::MapperContext ctx,
                          const Legion::Task& task,
-                         SpeculativeOutput& output);
+                         SpeculativeOutput& output) override;
   virtual void report_profiling(const Legion::Mapping::MapperContext ctx,
                                 const Legion::Task& task,
-                                const TaskProfilingInfo& input);
+                                const TaskProfilingInfo& input) override;
   virtual void select_sharding_functor(const Legion::Mapping::MapperContext ctx,
                                        const Legion::Task& task,
                                        const SelectShardingFunctorInput& input,
-                                       SelectShardingFunctorOutput& output);
+                                       SelectShardingFunctorOutput& output) override;
 
  public:  // Inline mapping calls
   virtual void map_inline(const Legion::Mapping::MapperContext ctx,
                           const Legion::InlineMapping& inline_op,
                           const MapInlineInput& input,
-                          MapInlineOutput& output);
+                          MapInlineOutput& output) override;
   virtual void select_inline_sources(const Legion::Mapping::MapperContext ctx,
                                      const Legion::InlineMapping& inline_op,
                                      const SelectInlineSrcInput& input,
-                                     SelectInlineSrcOutput& output);
+                                     SelectInlineSrcOutput& output) override;
   virtual void report_profiling(const Legion::Mapping::MapperContext ctx,
                                 const Legion::InlineMapping& inline_op,
-                                const InlineProfilingInfo& input);
+                                const InlineProfilingInfo& input) override;
 
  public:  // Copy mapping calls
   virtual void map_copy(const Legion::Mapping::MapperContext ctx,
                         const Legion::Copy& copy,
                         const MapCopyInput& input,
-                        MapCopyOutput& output);
+                        MapCopyOutput& output) override;
   virtual void select_copy_sources(const Legion::Mapping::MapperContext ctx,
                                    const Legion::Copy& copy,
                                    const SelectCopySrcInput& input,
-                                   SelectCopySrcOutput& output);
+                                   SelectCopySrcOutput& output) override;
   virtual void speculate(const Legion::Mapping::MapperContext ctx,
                          const Legion::Copy& copy,
-                         SpeculativeOutput& output);
+                         SpeculativeOutput& output) override;
   virtual void report_profiling(const Legion::Mapping::MapperContext ctx,
                                 const Legion::Copy& copy,
-                                const CopyProfilingInfo& input);
+                                const CopyProfilingInfo& input) override;
   virtual void select_sharding_functor(const Legion::Mapping::MapperContext ctx,
                                        const Legion::Copy& copy,
                                        const SelectShardingFunctorInput& input,
-                                       SelectShardingFunctorOutput& output);
+                                       SelectShardingFunctorOutput& output) override;
 
  public:  // Close mapping calls
-  virtual void map_close(const Legion::Mapping::MapperContext ctx,
-                         const Legion::Close& close,
-                         const MapCloseInput& input,
-                         MapCloseOutput& output);
   virtual void select_close_sources(const Legion::Mapping::MapperContext ctx,
                                     const Legion::Close& close,
                                     const SelectCloseSrcInput& input,
-                                    SelectCloseSrcOutput& output);
+                                    SelectCloseSrcOutput& output) override;
   virtual void report_profiling(const Legion::Mapping::MapperContext ctx,
                                 const Legion::Close& close,
-                                const CloseProfilingInfo& input);
+                                const CloseProfilingInfo& input) override;
   virtual void select_sharding_functor(const Legion::Mapping::MapperContext ctx,
                                        const Legion::Close& close,
                                        const SelectShardingFunctorInput& input,
-                                       SelectShardingFunctorOutput& output);
+                                       SelectShardingFunctorOutput& output) override;
 
  public:  // Acquire mapping calls
   virtual void map_acquire(const Legion::Mapping::MapperContext ctx,
                            const Legion::Acquire& acquire,
                            const MapAcquireInput& input,
-                           MapAcquireOutput& output);
+                           MapAcquireOutput& output) override;
   virtual void speculate(const Legion::Mapping::MapperContext ctx,
                          const Legion::Acquire& acquire,
-                         SpeculativeOutput& output);
+                         SpeculativeOutput& output) override;
   virtual void report_profiling(const Legion::Mapping::MapperContext ctx,
                                 const Legion::Acquire& acquire,
-                                const AcquireProfilingInfo& input);
+                                const AcquireProfilingInfo& input) override;
   virtual void select_sharding_functor(const Legion::Mapping::MapperContext ctx,
                                        const Legion::Acquire& acquire,
                                        const SelectShardingFunctorInput& input,
-                                       SelectShardingFunctorOutput& output);
+                                       SelectShardingFunctorOutput& output) override;
 
  public:  // Release mapping calls
   virtual void map_release(const Legion::Mapping::MapperContext ctx,
                            const Legion::Release& release,
                            const MapReleaseInput& input,
-                           MapReleaseOutput& output);
+                           MapReleaseOutput& output) override;
   virtual void select_release_sources(const Legion::Mapping::MapperContext ctx,
                                       const Legion::Release& release,
                                       const SelectReleaseSrcInput& input,
-                                      SelectReleaseSrcOutput& output);
+                                      SelectReleaseSrcOutput& output) override;
   virtual void speculate(const Legion::Mapping::MapperContext ctx,
                          const Legion::Release& release,
-                         SpeculativeOutput& output);
+                         SpeculativeOutput& output) override;
   virtual void report_profiling(const Legion::Mapping::MapperContext ctx,
                                 const Legion::Release& release,
-                                const ReleaseProfilingInfo& input);
+                                const ReleaseProfilingInfo& input) override;
   virtual void select_sharding_functor(const Legion::Mapping::MapperContext ctx,
                                        const Legion::Release& release,
                                        const SelectShardingFunctorInput& input,
-                                       SelectShardingFunctorOutput& output);
+                                       SelectShardingFunctorOutput& output) override;
 
  public:  // Partition mapping calls
   virtual void select_partition_projection(const Legion::Mapping::MapperContext ctx,
                                            const Legion::Partition& partition,
                                            const SelectPartitionProjectionInput& input,
-                                           SelectPartitionProjectionOutput& output);
+                                           SelectPartitionProjectionOutput& output) override;
   virtual void map_partition(const Legion::Mapping::MapperContext ctx,
                              const Legion::Partition& partition,
                              const MapPartitionInput& input,
-                             MapPartitionOutput& output);
+                             MapPartitionOutput& output) override;
   virtual void select_partition_sources(const Legion::Mapping::MapperContext ctx,
                                         const Legion::Partition& partition,
                                         const SelectPartitionSrcInput& input,
-                                        SelectPartitionSrcOutput& output);
+                                        SelectPartitionSrcOutput& output) override;
   virtual void report_profiling(const Legion::Mapping::MapperContext ctx,
                                 const Legion::Partition& partition,
-                                const PartitionProfilingInfo& input);
+                                const PartitionProfilingInfo& input) override;
   virtual void select_sharding_functor(const Legion::Mapping::MapperContext ctx,
                                        const Legion::Partition& partition,
                                        const SelectShardingFunctorInput& input,
-                                       SelectShardingFunctorOutput& output);
+                                       SelectShardingFunctorOutput& output) override;
 
  public:  // Fill mapper calls
   virtual void select_sharding_functor(const Legion::Mapping::MapperContext ctx,
                                        const Legion::Fill& fill,
                                        const SelectShardingFunctorInput& input,
-                                       SelectShardingFunctorOutput& output);
+                                       SelectShardingFunctorOutput& output) override;
 
  public:  // Task execution mapping calls
   virtual void configure_context(const Legion::Mapping::MapperContext ctx,
                                  const Legion::Task& task,
-                                 ContextConfigOutput& output);
+                                 ContextConfigOutput& output) override;
   virtual void select_tunable_value(const Legion::Mapping::MapperContext ctx,
                                     const Legion::Task& task,
                                     const SelectTunableInput& input,
-                                    SelectTunableOutput& output);
+                                    SelectTunableOutput& output) override;
 
  public:  // Must epoch mapping
   virtual void select_sharding_functor(const Legion::Mapping::MapperContext ctx,
                                        const Legion::MustEpoch& epoch,
                                        const SelectShardingFunctorInput& input,
-                                       MustEpochShardingFunctorOutput& output);
+                                       MustEpochShardingFunctorOutput& output) override;
   virtual void memoize_operation(const Legion::Mapping::MapperContext ctx,
                                  const Legion::Mappable& mappable,
                                  const MemoizeInput& input,
-                                 MemoizeOutput& output);
+                                 MemoizeOutput& output) override;
   virtual void map_must_epoch(const Legion::Mapping::MapperContext ctx,
                               const MapMustEpochInput& input,
-                              MapMustEpochOutput& output);
+                              MapMustEpochOutput& output) override;
 
  public:  // Dataflow graph mapping
   virtual void map_dataflow_graph(const Legion::Mapping::MapperContext ctx,
                                   const MapDataflowGraphInput& input,
-                                  MapDataflowGraphOutput& output);
+                                  MapDataflowGraphOutput& output) override;
 
  public:  // Mapping control and stealing
   virtual void select_tasks_to_map(const Legion::Mapping::MapperContext ctx,
                                    const SelectMappingInput& input,
-                                   SelectMappingOutput& output);
+                                   SelectMappingOutput& output) override;
   virtual void select_steal_targets(const Legion::Mapping::MapperContext ctx,
                                     const SelectStealingInput& input,
-                                    SelectStealingOutput& output);
+                                    SelectStealingOutput& output) override;
   virtual void permit_steal_request(const Legion::Mapping::MapperContext ctx,
                                     const StealRequestInput& intput,
-                                    StealRequestOutput& output);
+                                    StealRequestOutput& output) override;
 
  public:  // handling
   virtual void handle_message(const Legion::Mapping::MapperContext ctx,
-                              const MapperMessage& message);
+                              const MapperMessage& message) override;
   virtual void handle_task_result(const Legion::Mapping::MapperContext ctx,
-                                  const MapperTaskResult& result);
+                                  const MapperTaskResult& result) override;
 
  protected:
   Legion::Memory get_target_memory(Legion::Processor proc, StoreTarget target);
