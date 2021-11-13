@@ -104,7 +104,7 @@ def find_active_python_version_and_path():
     paths = [os.path.join(cv[p], cv["LDLIBRARY"]) for p in ("LIBDIR", "LIBPL")]
     # ensure that static libraries are replaced with the dynamic version
     paths = [
-        p.replace(".a", ".dylib" if os_name == "Darwin" else ".so")
+        os.path.splitext(p)[0] + (".dylib" if os_name == "Darwin" else ".so")
         for p in paths
     ]
     paths = [p for p in paths if os.path.isfile(p)]
