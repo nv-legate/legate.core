@@ -708,7 +708,7 @@ class FusionChecker(object):
         return fusable, final_set
 
     def can_fuse(self):
-        for op in self.ops:
+        for op in reversed(self.ops):
             must_be_single = any(len(gop.scalar_outputs) > 0 for gop in [op])
             partitioner = Partitioner(self.runtime, [op], must_be_single=must_be_single)
             self.partitioners.append( partitioner )
@@ -723,6 +723,7 @@ class FusionChecker(object):
             if len(op.inputs)>1:
                 proj = strategy.get_projection(op._input_parts[1])
             self.strategies.append(strategy)
+        self.strategies.reverse()
 
         results = [constraint.apply(self.contexts, self.runtime, self.ops, self.partitioners, self.strategies) for constraint in self.constraints]
         drint("fuse results", results)
@@ -763,7 +764,7 @@ class FusionConstraint(object):
 
 class NumpyContextExists(FusionConstraint):
     def apply(self, contexts, runtime, ops, partitioners, strategies):
-        if "legate.numpy" in contexts:
+        if "cunumeric" in contexts:
             return True, [(0, len(ops))]
         else:
            return False, [(0,0)]
@@ -803,12 +804,13 @@ class AllValidOps(FusionConstraint):
     def __init__(self):
         self.validIDs = set()
 
-        #these ops are always fusable
+        #these ops are almost always fusable
         self.validIDs.add(2) #Binary op
-        #self.validIDs.add(5) #convert op
         self.validIDs.add(18) #Unary op
         self.validIDs.add(9) #Fill op
+        self.validIDs.add(20) #Where op
         #self.validIDs.add(14) #read op
+        #self.validIDs.add(5) #convert op
 
         # the following are conditionally fusable
         # they will be processed in the a subsequent level of filtering
@@ -924,20 +926,6 @@ class IdenticalProjection(FusionConstraint):
             intervals.append((start,end))
         return True, intervals
          
-        #TODO: remove me    
-        # for each buffer, check all it's associated transforms/partitions
-        # across ops are equivalent 
-        seperators = []
-        for store, matrices in store_to_ops.items():
-            if len(matrices)>1: 
-                first = matrices[0]
-                for matrix in matrices:
-                    if not (matrix==first).all():
-                        indices = linkset[store]
-                        return True, [(0,indices[1]), (indices[1],len(ops))]
-        return True, [(0,len(ops))]
-
-
 
 class IdenticalLaunchShapes(FusionConstraint):
     """Fusion rule that only ops with identical
@@ -969,6 +957,52 @@ class IdenticalLaunchShapes(FusionConstraint):
         if start<end:
             intervals.append((start, end))
         return True, intervals
+
+
+
+class ValidProducerConsumer(FusionConstraint):
+    """In a fused op, there cannot be a producer consumer
+        relationship between different views of the same buffers"""
+
+    def apply(self, contexts, runtime, ops, partitioners, strategies):
+        childMap = {}
+        intervals = []
+        i, start=0, 0
+        end = len(ops)
+        def getRoot(store):
+            while store._parent:
+                store = store._parent
+            return store
+        
+        while i<end:
+            op = ops[i] 
+
+            #check consumers view of root array
+            #is the same as the producers view
+            isSame = True
+            for input in op._inputs:
+                inputRoot = getRoot(input) 
+                if inputRoot in childMap:
+                    isSame = isSame and childMap[inputRoot] == input
+
+            if not isSame:                     
+                intervals.append((start, i))
+                start=i
+                i=start+1
+                childMap = {}
+            else:
+                i=i+1 
+
+            #register producers view of buffer
+            for output in op._outputs:
+                outputRoot = getRoot(output)
+                if outputRoot not in childMap:  
+                    childMap[outputRoot] = output
+            #end while
+        if start<end:
+           intervals.append((start,end))
+        return True, intervals
+ 
 
 
    
@@ -1014,13 +1048,14 @@ class Runtime(object):
         # to be dispatched. This list allows cross library introspection for
         # Legate operations.
         self._outstanding_ops = []
-        self._window_size =10
+        self._window_size=10
         self._fusion_threshold =2
         self._opLens = []
+        self._fusedOpLens = []
         self._clearing_pipe = False
         #self._window_size = self._core_context.get_tunable(
         #    legion.LEGATE_CORE_TUNABLE_WINDOW_SIZE,
-        #    ty.uint32,
+        #    ty.uint32,)
 
         # Now we initialize managers
         self._attachment_manager = AttachmentManager(self)
@@ -1104,7 +1139,16 @@ class Runtime(object):
         # Before we clean up the runtime, we should execute all outstanding
         # operations.
         self.flush_scheduling_window()
+        #print("opLens")
         #print(self._opLens)
+        #print("fusedOpLens")
+        #print(self._fusedOpLens)
+        #import pickle
+        #with open('fusedOpLens.pkl', 'wb') as f:
+        #    pickle.dump(self._fusedOpLens, f)
+        #with open('flushOpLens.pkl', 'wb') as f:
+        #    pickle.dump(self._fusedOpLens, f)
+ 
         # Destroy all libraries. Note that we should do this
         # from the lastly added one to the first one
         for context in reversed(self._context_list):
@@ -1193,12 +1237,13 @@ class Runtime(object):
         fusion_checker.register_constraint(AllValidOps())
         fusion_checker.register_constraint(IdenticalLaunchShapes())
         fusion_checker.register_constraint(IdenticalProjection())
+        fusion_checker.register_constraint(ValidProducerConsumer())
         can_fuse,fusable_sets, partitions = fusion_checker.can_fuse()
-
+        #print("flag 1")
         #short circuit         
-        if not can_fuse:
-            drint("CANNOT FUSE!")
-            return False, partitions
+        #if not can_fuse:
+        ##    drint("CANNOT FUSE!")
+        #    return False, partitions
 
         super_strats = []
         super_fspaces = []
@@ -1219,7 +1264,8 @@ class Runtime(object):
             super_fspaces.append(super_fspace)
             super_keystores.append(super_keystore)
             super_strategies.append(Strategy(partitions[start]._launch_shape, super_strat, super_fspace, super_keystore))
-        drint("lens", len(super_strats), len(super_fspaces), len(super_strategies), len(super_keystore))
+        #print("created supers")
+        #drint("lens", len(super_strats), len(super_fspaces), len(super_strategies), len(super_keystore))
         """
         super_strat = {}
         super_fspace = {}
@@ -1229,15 +1275,17 @@ class Runtime(object):
         """
         #super_strategy = Strategy(partitions[0]._launch_shape, super_strat, super_fspace)
         #hacky way to get numpy context and designated fused task id
-        fused_id = self._contexts["legate.numpy"].fused_id
-        numpy_context = self._contexts["legate.numpy"]
+        fused_id = self._contexts["cunumeric"].fused_id
+        numpy_context = self._contexts["cunumeric"]
         numpy_runtime = numpy_context._library.runtime
         z=0
+        #print("fsets", fusable_sets)
         new_op_list = []
         for i,fusable_set in enumerate(fusable_sets):
             start, end = fusable_set
             op_subset = ops[start:end]
             #if nothing to fuse, just use the original op
+            #self._fusedOpLens.append(len(op_subset))
             if end-start==1:
                 normal_op = ops[start]
                 normal_op.strategy =  super_strategies[i]
@@ -1263,27 +1311,31 @@ class Runtime(object):
                         fused_task.add_input(input)   
                     for output,part in zip(op._outputs, op._output_parts):
                         fused_task.add_output(output)   
-                        if key_part==None:
-                            key_part = partitions[z].get_partition(part)
+                        #if key_part==None:
+                        #    key_part = partitions[z].get_partition(part)
                           
-                    self.propogateFuture(fused_task)
+                    #self.propogateFuture(fused_task)
                     for future in op._futures:
                         fused_task.add_future(future)
                     z+=1
                 new_op_list.append(fused_task)
+        #print("flag 2")
+        strats=[]
         for i,fused_task in enumerate(new_op_list):
             must_be_single = any(len(gop.scalar_outputs) > 0 for gop in [fused_task])
             partitioner = Partitioner(self, [fused_task], must_be_single=must_be_single)
             strategy = partitioner.partition_stores()
             #fused_task.strategy = super_strategies[i]
             fused_task.strategy = strategy
-
-        return new_op_list, True       
+            strats.append(strategy)
+            #print("star",strategy)
+        #print("flag 3")
+        return new_op_list, strats       
 
     def _launch_outstanding(self, force_eval=True):        
         if len(self._outstanding_ops):
             #print("launching outstanding", ops)
-            self._opLens.append(len(self._outstanding_ops))
+            #self._opLens.append(len(self._outstanding_ops))
             ops = self._outstanding_ops
             self._outstanding_ops = []
             self._schedule(ops, force_eval)
@@ -1318,6 +1370,7 @@ class Runtime(object):
         #     strategy = partitioner.partition_stores()
         if len(ops)>=2 and (not force_eval):
             fused_task_list,strats = self.build_fused_op(ops)
+            #print("flist", fused_task_list)
             if fused_task_list:
                 frint("created fused list", [op._task_id for op in fused_task_list])
                 drint("start clearing pipe")
@@ -1347,6 +1400,7 @@ class Runtime(object):
         # if we already checked the ops for fusability,
         # then the ops' buffers have already been partitioned
         else:
+            #print("normal execution", ids)
             if not strats: #ops were not check for fusability, so partition them
                 for op in ops:
                     must_be_single = any(len(gop.scalar_outputs) > 0 for gop in [op])
@@ -1374,7 +1428,7 @@ class Runtime(object):
         else:
             self._outstanding_ops.append(op)
             if len(self._outstanding_ops) >= self._window_size:
-                self._opLens.append(len(self._outstanding_ops))
+                #self._opLens.append(len(self._outstanding_ops))
                 ops = self._outstanding_ops
                 self._outstanding_ops = []
                 self._schedule(ops)
@@ -1397,7 +1451,7 @@ class Runtime(object):
     def flush_scheduling_window(self):
         if len(self._outstanding_ops) == 0:
             return
-        self._opLens.append(len(self._outstanding_ops))
+        #self._opLens.append(len(self._outstanding_ops))
         ops = self._outstanding_ops
         self._outstanding_ops = []
         self._schedule(ops)

@@ -19,7 +19,11 @@ from .constraints import PartSym
 from .launcher import CopyLauncher, TaskLauncher
 from .store import Store
 from .utils import OrderedSet
-
+from .legion import (
+    FieldSpace,
+    Future
+)
+ 
 
 class Operation(object):
     def __init__(self, context, mapper_id=0, op_id=0):
@@ -165,7 +169,8 @@ class Operation(object):
 
     def declare_partition(self, store, disjoint=True, complete=True):
         sym = PartSym(
-            self,
+            self._op_id,
+            self.get_name(),
             store,
             self._get_symbol_id(),
             disjoint=disjoint,
@@ -177,6 +182,7 @@ class Operation(object):
             self._partitions[store].append(sym)
         self._all_parts.append(sym)
         return sym
+
 
 
 class Task(Operation):
@@ -222,19 +228,26 @@ class Task(Operation):
             # We update the key partition of a store only when it gets updated
             temp.set_key_partition(partition)
         """
+        #print("inputs")
         for input, input_part in zip(self._inputs, self._input_parts):
             proj = strategy.get_projection(input_part)
+            #if (input._kind==Future):
+            #    print(input, proj)
             tag = self.get_tag(strategy, input_part)
             launcher.add_input(input, proj, tag=tag)
+        #print("outputs", len(self._outputs))
         for output, output_part in zip(self._outputs, self._output_parts):
             if output.unbound:
                 continue
             proj = strategy.get_projection(output_part)
+            #if (output._kind==Future):
+            #    print(output, proj)
             tag = self.get_tag(strategy, output_part)
             launcher.add_output(output, proj, tag=tag)
             partition = strategy.get_partition(output_part)
             # We update the key partition of a store only when it gets updated
             output.set_key_partition(partition)
+        #print()
         for ((reduction, redop), reduction_part) in zip(
             self._reductions, self._reduction_parts
         ):
