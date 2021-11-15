@@ -1315,15 +1315,6 @@ void BaseMapper::select_sharding_functor(const MapperContext ctx,
   output.chosen_functor = 0;
 }
 
-void BaseMapper::map_close(const MapperContext ctx,
-                           const Close& close,
-                           const MapCloseInput& input,
-                           MapCloseOutput& output)
-{
-  // Map everything with composite instances for now
-  output.chosen_instances.push_back(PhysicalInstance::get_virtual_instance());
-}
-
 void BaseMapper::select_close_sources(const MapperContext ctx,
                                       const Close& close,
                                       const SelectCloseSrcInput& input,
