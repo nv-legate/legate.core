@@ -807,9 +807,10 @@ class AllValidOps(FusionConstraint):
         #these ops are almost always fusable
         self.validIDs.add(2) #Binary op
         self.validIDs.add(18) #Unary op
+        #self.validIDs.add(5) #Convert op
         self.validIDs.add(9) #Fill op
         self.validIDs.add(20) #Where op
-        #self.validIDs.add(14) #read op
+        self.validIDs.add(14) #read op
         #self.validIDs.add(5) #convert op
 
         # the following are conditionally fusable
@@ -934,13 +935,6 @@ class IdenticalLaunchShapes(FusionConstraint):
         launch_shapes = []
         for i in range(len(ops)):
             launch_shapes.append(strategies[i]._launch_shape)
-        #print(launch_shapes)
-        """
-        first_shape = launch_shapes[0]
-        for launch_shape in launch_shapes:
-            if launch_shape!=first_shape:
-                return True, [(0,1),(1,len(ops))]
-        """
         intervals =[]
         i=1
         start=0
@@ -948,6 +942,11 @@ class IdenticalLaunchShapes(FusionConstraint):
         while i<end:
             leftNone = launch_shapes[i] is None and (launch_shapes[i-1] is not None)
             rightNone = launch_shapes[i-1] is None and (launch_shapes[i] is not None)
+            #leftRead = leftNone and int(ops[i]._task_id)==14
+            #rightRead = rightNone and int(ops[i-1]._task_id)==14
+            #if leftRead or rightRead:
+            #    i=i+1
+            #elif leftNone or rightNone or launch_shapes[i]!=launch_shapes[i-1]:
             if leftNone or rightNone or launch_shapes[i]!=launch_shapes[i-1]:
                 intervals.append((start, i))
                 start=i
@@ -956,6 +955,7 @@ class IdenticalLaunchShapes(FusionConstraint):
                 i+=1
         if start<end:
             intervals.append((start, end))
+        #print("intervals", intervals, launch_shapes)
         return True, intervals
 
 
@@ -976,7 +976,6 @@ class ValidProducerConsumer(FusionConstraint):
         
         while i<end:
             op = ops[i] 
-
             #check consumers view of root array
             #is the same as the producers view
             isSame = True
@@ -984,6 +983,8 @@ class ValidProducerConsumer(FusionConstraint):
                 inputRoot = getRoot(input) 
                 if inputRoot in childMap:
                     isSame = isSame and childMap[inputRoot] == input
+                    #if input!= childMap[inputRoot]:
+                    #    print(input, childMap[inputRoot])
 
             if not isSame:                     
                 intervals.append((start, i))
@@ -992,7 +993,6 @@ class ValidProducerConsumer(FusionConstraint):
                 childMap = {}
             else:
                 i=i+1 
-
             #register producers view of buffer
             for output in op._outputs:
                 outputRoot = getRoot(output)
@@ -1001,6 +1001,7 @@ class ValidProducerConsumer(FusionConstraint):
             #end while
         if start<end:
            intervals.append((start,end))
+        #print("v", intervals)
         return True, intervals
  
 
@@ -1048,7 +1049,7 @@ class Runtime(object):
         # to be dispatched. This list allows cross library introspection for
         # Legate operations.
         self._outstanding_ops = []
-        self._window_size=10
+        self._window_size=1
         self._fusion_threshold =2
         self._opLens = []
         self._fusedOpLens = []
@@ -1205,7 +1206,6 @@ class Runtime(object):
                 offsets.append(-(r+1)) 
  
             op_ids.append(numpy_context.get_task_id(op._task_id._value_))
-
             offset_start+=(len(op._inputs)+len(op._outputs))
             input_start+=len(op._inputs)
             output_start+=len(op._outputs)
@@ -1235,20 +1235,19 @@ class Runtime(object):
         fusion_checker = FusionChecker(ops, self._contexts, self)
         fusion_checker.register_constraint(NumpyContextExists())
         fusion_checker.register_constraint(AllValidOps())
-        fusion_checker.register_constraint(IdenticalLaunchShapes())
+        #fusion_checker.register_constraint(IdenticalLaunchShapes())
         fusion_checker.register_constraint(IdenticalProjection())
         fusion_checker.register_constraint(ValidProducerConsumer())
         can_fuse,fusable_sets, partitions = fusion_checker.can_fuse()
-        #print("flag 1")
         #short circuit         
         #if not can_fuse:
         ##    drint("CANNOT FUSE!")
         #    return False, partitions
-
+        
         super_strats = []
         super_fspaces = []
         super_strategies = []
-        super_keystores = []
+        super_keystores = [] 
         for fusable_set in fusable_sets:   
             #create super strategy for this fusable set
             super_strat = {}
@@ -1264,8 +1263,8 @@ class Runtime(object):
             super_fspaces.append(super_fspace)
             super_keystores.append(super_keystore)
             super_strategies.append(Strategy(partitions[start]._launch_shape, super_strat, super_fspace, super_keystore))
-        #print("created supers")
         #drint("lens", len(super_strats), len(super_fspaces), len(super_strategies), len(super_keystore))
+       
         """
         super_strat = {}
         super_fspace = {}
@@ -1279,7 +1278,6 @@ class Runtime(object):
         numpy_context = self._contexts["cunumeric"]
         numpy_runtime = numpy_context._library.runtime
         z=0
-        #print("fsets", fusable_sets)
         new_op_list = []
         for i,fusable_set in enumerate(fusable_sets):
             start, end = fusable_set
@@ -1288,7 +1286,7 @@ class Runtime(object):
             #self._fusedOpLens.append(len(op_subset))
             if end-start==1:
                 normal_op = ops[start]
-                normal_op.strategy =  super_strategies[i]
+                normal_op.strategy =  partitions[z]._strategy#uper_strategies[i]
                 new_op_list.append(normal_op)
             elif end-start > 1:
                 #initialize fused task
@@ -1305,21 +1303,18 @@ class Runtime(object):
                         fused_task.add_scalar_arg(scalar[0], ty.int32)
                     for reduction in op._reductions:
                         fused_task.add_reduction(reduction)
-
+                    isScalarConversion = len(op._outputs) ==1 and len(op._inputs)==1
+                    if int(op._task_id)==14 and isScalarConversion: #for handling scalars
+                        op._outputs[0]._storage = op._inputs[0]._storage    
                     for input in op._inputs:
-                        #if input._storage is None:
                         fused_task.add_input(input)   
                     for output,part in zip(op._outputs, op._output_parts):
                         fused_task.add_output(output)   
-                        #if key_part==None:
-                        #    key_part = partitions[z].get_partition(part)
-                          
                     #self.propogateFuture(fused_task)
                     for future in op._futures:
                         fused_task.add_future(future)
                     z+=1
                 new_op_list.append(fused_task)
-        #print("flag 2")
         strats=[]
         for i,fused_task in enumerate(new_op_list):
             must_be_single = any(len(gop.scalar_outputs) > 0 for gop in [fused_task])
@@ -1328,8 +1323,7 @@ class Runtime(object):
             #fused_task.strategy = super_strategies[i]
             fused_task.strategy = strategy
             strats.append(strategy)
-            #print("star",strategy)
-        #print("flag 3")
+            #strats.append( super_strategies[i])
         return new_op_list, strats       
 
     def _launch_outstanding(self, force_eval=True):        
@@ -1339,12 +1333,7 @@ class Runtime(object):
             ops = self._outstanding_ops
             self._outstanding_ops = []
             self._schedule(ops, force_eval)
- 
-    def _launch_one(self):
-        if len(self._outstanding_ops):
-            op = self._outstanding_ops[0]
-            self._outstanding_ops = self._outstanding_ops[1:]
-            self._schedule([op], force_eval=True)
+
 
     def propogateFuture(self,op):
         return 
@@ -1354,8 +1343,6 @@ class Runtime(object):
                 while start._storage is None and start._parent:
                     start=start._parent
                 input._storage = start._storage
-                
-     
    
     def _schedule(self, ops, force_eval=False):
         ids = [op._task_id for op in ops]
@@ -1364,10 +1351,6 @@ class Runtime(object):
         #if partially or fully fusable, 
         #schedule the new set of tasks
         strats = False
-        #for op in ops:
-        #     must_be_single = any(len(gop.scalar_outputs) > 0 for gop in [op])
-        #     partitioner = Partitioner(self, [op], must_be_single=must_be_single)
-        #     strategy = partitioner.partition_stores()
         if len(ops)>=2 and (not force_eval):
             fused_task_list,strats = self.build_fused_op(ops)
             #print("flist", fused_task_list)

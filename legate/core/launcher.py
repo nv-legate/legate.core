@@ -263,6 +263,8 @@ class RegionReq(object):
         self.region = region
         self.permission = permission
         self.proj = proj
+        #print(proj.__dict__)
+        #print(region)
         self.tag = tag
         self.flags = flags
 

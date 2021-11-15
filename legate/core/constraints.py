@@ -76,7 +76,7 @@ class PartSym(Expr):
         disj = "D" if self._disjoint else "A"
         comp = "C" if self._complete else "I"
         #return f"X{self._id}({disj},{comp})"
-        return f"X{self._id}({disj},{comp})@{self._op.get_name()}"
+        return f"X{self._id}({disj},{comp})@{self._op_name}"
 
     def __hash__(self):
         #return hash(self._id)

@@ -474,7 +474,6 @@ class Store(object):
         # it has been initialized correctly.
         self._runtime._launch_outstanding(False)
         if self._storage is None:
-            #print("store none, launching", [op._task_id for op in self._runtime._outstanding_ops])
             """
             if self._kind ==Future:
                 print("future")
