@@ -232,8 +232,6 @@ void BaseMapper::slice_task(const MapperContext ctx,
   if (task.sharding_space.exists())
     sharding_domain = runtime->get_index_space_domain(ctx, task.sharding_space);
 
-  assert(input.domain.dense());
-
   auto round_robin = [&](auto& procs) {
     if (nullptr != key_functor) {
       auto lo = key_functor->project_point(sharding_domain.lo(), sharding_domain);
