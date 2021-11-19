@@ -601,7 +601,7 @@ class TaskLauncher(object):
         )
 
     def add_reduction(self, store, proj, tag=0, flags=0, read_write=False):
-        if read_write and not store.scalar:
+        if read_write and store.kind is not Future:
             self.add_store(
                 self._reductions,
                 store,

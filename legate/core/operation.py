@@ -17,6 +17,7 @@ import legate.core.types as ty
 
 from .constraints import PartSym
 from .launcher import CopyLauncher, TaskLauncher
+from .legion import Future
 from .store import Store
 from .utils import OrderedSet
 
@@ -108,7 +109,7 @@ class Operation(object):
 
     def add_output(self, store, partition=None):
         self._check_store(store)
-        if store.scalar:
+        if store.kind is Future:
             self._scalar_outputs.append(len(self._outputs))
         if partition is None:
             partition = self._get_unique_partition(store)
@@ -117,7 +118,7 @@ class Operation(object):
 
     def add_reduction(self, store, redop, partition=None):
         self._check_store(store)
-        if store.scalar:
+        if store.kind is Future:
             self._scalar_reductions.append(len(self._reductions))
         if partition is None:
             partition = self._get_unique_partition(store)
