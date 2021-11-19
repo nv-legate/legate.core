@@ -609,13 +609,18 @@ class Store(object):
         return my_tile.tile_shape.volume()
 
     def set_storage(self, storage):
-        assert type(storage) is self._kind
+        # We should never set region fields manually
+        assert (
+            self._kind is Future and type(storage) is Future
+        ) or self._storage is None
         self._storage = storage
         if self._shape is None:
             assert isinstance(storage, RegionField)
             self._shape = storage.shape
         else:
             assert isinstance(storage, Future)
+        if self._parent is not None:
+            self._parent.set_storage(storage)
 
     def invert_partition(self, partition):
         if self._parent is not None:
