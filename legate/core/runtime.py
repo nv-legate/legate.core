@@ -803,15 +803,18 @@ class AllValidOps(FusionConstraint):
     """
     def __init__(self):
         self.validIDs = set()
-
+        self.terminals = set()
         #these ops are almost always fusable
         self.validIDs.add(2) #Binary op
         self.validIDs.add(18) #Unary op
         self.validIDs.add(5) #Convert op
         self.validIDs.add(9) #Fill op
         self.validIDs.add(20) #Where op
-        self.validIDs.add(14) #read op
+        self.validIDs.add(7)
+        #self.validIDs.add(14) #read op
         #self.validIDs.add(5) #convert op
+
+        self.terminals.add(7)
 
         # the following are conditionally fusable
         # they will be processed in the a subsequent level of filtering
@@ -843,18 +846,24 @@ class AllValidOps(FusionConstraint):
 
     def apply(self, contexts, runtime, ops, partitioners, strategies):
         results = [int(op._task_id) in self.validIDs for op in ops]
+
         drint("valids", results)
         fusable_intervals = []
         start, end =0,0
         while end<len(results):
             result = results[end]
-            if result:
+            if result and (ops[end]._task_id not in self.terminals):
                 end=end+1
             else:
                 if start<end:
-                    fusable_intervals.append((start,end))
-                    start=end 
-                    end=start
+                    if ops[end]._task_id in self.terminals:
+                        fusable_intervals.append((start,end+1))
+                        start=end+1
+                        end=start
+                    else:
+                        fusable_intervals.append((start,end))
+                        start=end 
+                        end=start
                 else:
                     fusable_intervals.append((start, start+1))
                     start=start+1
@@ -1235,7 +1244,7 @@ class Runtime(object):
         fusion_checker = FusionChecker(ops, self._contexts, self)
         fusion_checker.register_constraint(NumpyContextExists())
         fusion_checker.register_constraint(AllValidOps())
-        #fusion_checker.register_constraint(IdenticalLaunchShapes())
+        fusion_checker.register_constraint(IdenticalLaunchShapes())
         fusion_checker.register_constraint(IdenticalProjection())
         fusion_checker.register_constraint(ValidProducerConsumer())
         can_fuse,fusable_sets, partitions = fusion_checker.can_fuse()
@@ -1308,11 +1317,11 @@ class Runtime(object):
                         #continue
                     for scalar in op._scalar_args:
                         fused_task.add_scalar_arg(scalar[0], ty.int32)
-                    for reduction in op._reductions:
-                        fused_task.add_reduction(reduction)
+                    for (reduction, redop) in op._reductions:
+                        fused_task.add_reduction(reduction, redop)
                     isScalarConversion = len(op._outputs) ==1 and len(op._inputs)==1
-                    if int(op._task_id)==14 and isScalarConversion: #for handling scalars
-                        op._outputs[0]._storage = op._inputs[0]._storage    
+                    #if int(op._task_id)==14 and isScalarConversion: #for handling scalars
+                    #    op._outputs[0]._storage = op._inputs[0]._storage    
                     for input in op._inputs:
                         fused_task.add_input(input)   
                     for output,part in zip(op._outputs, op._output_parts):
