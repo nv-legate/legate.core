@@ -77,7 +77,7 @@ LogicalRegion DelinearizationFunctor::project(LogicalPartition upper_bound,
 void register_legate_core_projection_functors(Legion::Runtime* runtime,
                                               const LibraryContext& context)
 {
-  auto proj_id = context.get_projection_id(LEGATE_CORE_DELINEARIZE_FUNCTOR);
+  auto proj_id = context.get_projection_id(LEGATE_CORE_DELINEARIZE_PROJ_ID);
   auto functor = new DelinearizationFunctor(runtime);
   runtime->register_projection_functor(proj_id, functor, true /*silence warnings*/);
 }

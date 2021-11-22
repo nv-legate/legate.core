@@ -54,7 +54,7 @@ from legate.core.runtime import (
     get_legion_runtime,
     legate_add_library,
 )
-from legate.core.store import ExternalAllocation, Store
+from legate.core.store import DistributedAllocation, Store
 from legate.core.legion import (
     LEGATE_MAX_DIM,
     LEGATE_MAX_FIELDS,
@@ -114,6 +114,11 @@ from legate.core.types import (
     complex128,
     ReductionOp,
 )
+from legate.core.io import CustomSplit, TiledSplit, ingest
+
+# NOTE: This needs to come after the imports from legate.core.legion, as we
+# are overriding that module's name.
+from legion_cffi import ffi, lib as legion
 
 # NOTE: This needs to come after the imports from legate.core.legion, as we
 # are overriding that module's name.

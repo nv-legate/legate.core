@@ -83,11 +83,10 @@ class LegateTask {
   static void show_progress(const Legion::Task* task, Legion::Context ctx, Legion::Runtime* runtime)
   {
     if (!Core::show_progress) return;
-    const auto exec_proc = runtime->get_executing_processor(ctx);
-    const auto proc_kind_str =
-      (exec_proc.kind() == Legion::Processor::LOC_PROC)
-        ? "CPU"
-        : (exec_proc.kind() == Legion::Processor::TOC_PROC) ? "GPU" : "OpenMP";
+    const auto exec_proc     = runtime->get_executing_processor(ctx);
+    const auto proc_kind_str = (exec_proc.kind() == Legion::Processor::LOC_PROC)   ? "CPU"
+                               : (exec_proc.kind() == Legion::Processor::TOC_PROC) ? "GPU"
+                                                                                   : "OpenMP";
 
     std::stringstream point_str;
     const auto& point = task->index_point;

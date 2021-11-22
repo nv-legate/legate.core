@@ -208,10 +208,17 @@ as though they are running on a single processor.
 
 ## How Do I Install Legate?
 
+Legate Core is available on conda:
+
+```
+conda install -c nvidia -c conda-forge -c legate legate-core
+```
+
 Pre-built docker images containing all Legate libraries, as well as specialized
 install scripts for supported clusters are available on the
-[quickstart](https://github.com/nv-legate/quickstart) repo. Read on for instructions
-on how to build Legate Core from source.
+[quickstart](https://github.com/nv-legate/quickstart) repo.
+
+Read on for general instructions on building Legate Core from source.
 
 ### Dependencies
 
