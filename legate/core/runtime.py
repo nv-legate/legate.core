@@ -16,6 +16,7 @@
 import gc
 import math
 import struct
+import weakref
 from collections import deque
 from functools import reduce
 
@@ -334,10 +335,18 @@ class Attachment(object):
         self.ptr = ptr
         self.extent = extent
         self.end = ptr + extent - 1
-        self.region_field = region_field
+        self._region_field = weakref.ref(region_field)
 
     def overlaps(self, other):
         return not (self.end < other.ptr or other.end < self.ptr)
+
+    @property
+    def region_field(self):
+        return self._region_field()
+
+    @region_field.setter
+    def region_field(self, region_field):
+        self._region_field = weakref.ref(region_field)
 
 
 class AttachmentManager(object):
@@ -374,22 +383,35 @@ class AttachmentManager(object):
 
     def has_attachment(self, alloc):
         key = self.attachment_key(alloc)
-        return key in self._attachments
+        attachment = self._attachments.get(key, None)
+        return attachment is not None and attachment.region_field
 
     def reuse_existing_attachment(self, alloc):
         key = self.attachment_key(alloc)
-        if key not in self._attachments:
+        attachment = self._attachments.get(key, None)
+        if attachment is None:
             return None
-        attachment = self._attachments[key]
-        return attachment.region_field
+        rf = attachment.region_field
+        # If the region field is already collected, we don't need to keep
+        # track of it for de-duplication.
+        if rf is None:
+            del self._attachments[key]
+        return rf
 
     def attach_external_allocation(self, alloc, region_field):
         key = self.attachment_key(alloc)
-        if key in self._attachments:
+        attachment = self._attachments.get(key, None)
+        if not (attachment is None or attachment.region_field is None):
             raise RuntimeError(
                 "Cannot attach two different RegionFields to the same buffer"
             )
-        attachment = Attachment(*key, region_field)
+        if attachment is None:
+            attachment = Attachment(*key, region_field)
+        else:
+            attachment.region_field = region_field
+            # We temporary remove the attachment from the map for
+            # the following alias checking
+            del self._attachments[key]
         for other in self._attachments.values():
             if other.overlaps(attachment):
                 raise RuntimeError(
@@ -397,7 +419,19 @@ class AttachmentManager(object):
                 )
         self._attachments[key] = attachment
 
-    def detach_external_allocation(self, alloc, detach, defer):
+    def _remove_allocation(self, alloc):
+        key = self.attachment_key(alloc)
+        if key not in self._attachments:
+            raise RuntimeError("Unable to find attachment to remove")
+        del self._attachments[key]
+
+    def detach_external_allocation(
+        self, alloc, detach, defer=False, previously_deferred=False
+    ):
+        # If the detachment was previously deferred, then we don't
+        # need to remove the allocation from the map again.
+        if not previously_deferred:
+            self._remove_allocation(alloc)
         if defer:
             # If we need to defer this until later do that now
             self._deferred_detachments.append((alloc, detach))
@@ -406,12 +440,6 @@ class AttachmentManager(object):
         # Dangle a reference to the field off the future to prevent the
         # field from being recycled until the detach is done
         future.field_reference = detach.field
-        # We also need to tell the core legate library that this buffer
-        # is no longer attached
-        key = self.attachment_key(alloc)
-        if key not in self._attachments:
-            raise RuntimeError("Unable to find attachment to remove")
-        del self._attachments[key]
         # If the future is already ready, then no need to track it
         if future.is_ready():
             return
@@ -432,7 +460,9 @@ class AttachmentManager(object):
         detachments = self._deferred_detachments
         self._deferred_detachments = list()
         for alloc, detach in detachments:
-            self.detach_external_allocation(alloc, detach, defer=False)
+            self.detach_external_allocation(
+                alloc, detach, defer=False, previously_deferred=True
+            )
 
     def prune_detachments(self):
         to_remove = []
@@ -452,7 +482,7 @@ class PartitionManager(object):
         )
         self._min_shard_volume = runtime.core_context.get_tunable(
             runtime.core_library.LEGATE_CORE_TUNABLE_MIN_SHARD_VOLUME,
-            ty.int32,
+            ty.int64,
         )
 
         self._launch_spaces = {}
@@ -1075,8 +1105,14 @@ class Runtime(object):
         self.field_managers = {}  # map from (shape,dtype) to field managers
 
         self.destroyed = False
-        self.max_field_reuse_size = 256
-        self.max_field_reuse_frequency = 32
+        self.max_field_reuse_size = self._core_context.get_tunable(
+            legion.LEGATE_CORE_TUNABLE_FIELD_REUSE_SIZE,
+            ty.uint64,
+        )
+        self.max_field_reuse_frequency = self._core_context.get_tunable(
+            legion.LEGATE_CORE_TUNABLE_FIELD_REUSE_FREQUENCY,
+            ty.uint32,
+        )
         self._empty_argmap = legion.legion_argument_map_create()
 
         # A projection functor and its corresponding sharding functor
@@ -1181,6 +1217,8 @@ class Runtime(object):
         self.destroyed = True
 
     def dispatch(self, op, redop=None):
+        self._attachment_manager.perform_detachments()
+        self._attachment_manager.prune_detachments()
         if redop:
             return op.launch(self.legion_runtime, self.legion_context, redop)
         else:

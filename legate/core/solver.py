@@ -114,16 +114,16 @@ class Strategy(object):
 
     def get_projection(self, part):
         partition = self.get_partition(part)
-        return partition.get_requirement(self._launch_shape, part._store)
+        return partition.get_requirement(self._launch_shape, part.store)
 
     def get_partition(self, part):
-        assert not part._store.unbound
+        assert not part.store.unbound
         if part not in self._strategy:
             raise ValueError(f"No strategy is found for {part}")
         return self._strategy[part]
 
     def get_field_space(self, part):
-        assert part._store.unbound
+        assert part.store.unbound
         if part not in self._fspaces:
             raise ValueError(f"No strategy is found for {part}")
         return self._fspaces[part]
@@ -160,7 +160,7 @@ class Partitioner(object):
     ):
         to_remove = OrderedSet()
         for unknown in unknowns:
-            store = unknown._store
+            store = unknown.store
             if not (store.kind is Future or unknown in broadcasts):
                 continue
 
@@ -183,7 +183,7 @@ class Partitioner(object):
     ):
         to_remove = OrderedSet()
         for unknown in unknowns:
-            store = unknown._store
+            store = unknown.store
             if not store.unbound:
                 continue
 
@@ -193,7 +193,7 @@ class Partitioner(object):
                 continue
 
             cls = constraints.find(unknown)
-            assert all(to_align._store.unbound for to_align in cls)
+            assert all(to_align.store.unbound for to_align in cls)
 
             fspace = self._runtime.create_field_space()
             for to_align in cls:
@@ -206,7 +206,7 @@ class Partitioner(object):
     def _find_restrictions(cls):
         merged = None
         for unknown in cls:
-            store = unknown._store
+            store = unknown.store
             restrictions = store.find_restrictions()
             if merged is None:
                 merged = restrictions
@@ -268,7 +268,7 @@ class Partitioner(object):
         all_restrictions = self._find_all_restrictions(unknowns, constraints)
 
         def cost(unknown):
-            store = unknown._store
+            store = unknown.store
             return (
                 -store.comm_volume(),
                 not store.has_key_partition(all_restrictions[unknown]),
@@ -290,7 +290,7 @@ class Partitioner(object):
             elif unknown in dependent:
                 continue
 
-            store = unknown._store
+            store = unknown.store
             restrictions = all_restrictions[unknown]
 
             if isinstance(prev_part, NoPartition):

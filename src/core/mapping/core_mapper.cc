@@ -89,7 +89,6 @@ class CoreMapper : public Legion::Mapping::NullMapper {
                                     const Task& task,
                                     const SelectTunableInput& input,
                                     SelectTunableOutput& output);
-  void pack_tunable(const int value, Mapper::SelectTunableOutput& output);
 
  public:
   const AddressSpace local_node;
@@ -98,10 +97,12 @@ class CoreMapper : public Legion::Mapping::NullMapper {
   LibraryContext context;
 
  protected:
-  const unsigned min_gpu_chunk;
-  const unsigned min_cpu_chunk;
-  const unsigned min_omp_chunk;
-  const unsigned window_size;
+  const uint32_t min_gpu_chunk;
+  const uint32_t min_cpu_chunk;
+  const uint32_t min_omp_chunk;
+  const uint32_t window_size;
+  const uint32_t field_reuse_frac;
+  const uint32_t field_reuse_freq;
 
  protected:
   std::vector<Processor> local_cpus;
@@ -111,6 +112,7 @@ class CoreMapper : public Legion::Mapping::NullMapper {
  protected:
   Memory local_system_memory, local_zerocopy_memory;
   std::map<Processor, Memory> local_frame_buffers;
+  std::map<Processor, Memory> local_numa_domains;
 };
 
 CoreMapper::CoreMapper(MapperRuntime* rt, Machine m, const LibraryContext& c)
@@ -122,7 +124,9 @@ CoreMapper::CoreMapper(MapperRuntime* rt, Machine m, const LibraryContext& c)
     min_gpu_chunk(extract_env("LEGATE_MIN_GPU_CHUNK", 1 << 20, 2)),
     min_cpu_chunk(extract_env("LEGATE_MIN_CPU_CHUNK", 1 << 14, 2)),
     min_omp_chunk(extract_env("LEGATE_MIN_OMP_CHUNK", 1 << 17, 2)),
-    window_size(extract_env("LEGATE_WINDOW_SIZE", 1, 1))
+    window_size(extract_env("LEGATE_WINDOW_SIZE", 1, 1)),
+    field_reuse_frac(extract_env("LEGATE_FIELD_REUSE_FRAC", 256, 256)),
+    field_reuse_freq(extract_env("LEGATE_FIELD_REUSE_FREQ", 32, 32))
 {
   // Query to find all our local processors
   Machine::ProcessorQuery local_procs(machine);
@@ -157,14 +161,23 @@ CoreMapper::CoreMapper(MapperRuntime* rt, Machine m, const LibraryContext& c)
     assert(local_zcmem.count() > 0);
     local_zerocopy_memory = local_zcmem.first();
   }
-  for (std::vector<Processor>::const_iterator it = local_gpus.begin(); it != local_gpus.end();
-       it++) {
+  for (auto local_gpu : local_gpus) {
     Machine::MemoryQuery local_framebuffer(machine);
     local_framebuffer.local_address_space();
     local_framebuffer.only_kind(Memory::GPU_FB_MEM);
-    local_framebuffer.best_affinity_to(*it);
+    local_framebuffer.best_affinity_to(local_gpu);
     assert(local_framebuffer.count() > 0);
-    local_frame_buffers[*it] = local_framebuffer.first();
+    local_frame_buffers[local_gpu] = local_framebuffer.first();
+  }
+  for (auto local_omp : local_omps) {
+    Machine::MemoryQuery local_numa(machine);
+    local_numa.local_address_space();
+    local_numa.only_kind(Memory::SOCKET_MEM);
+    local_numa.best_affinity_to(local_omp);
+    if (local_numa.count() > 0)  // if we have NUMA memories then use them
+      local_numa_domains[local_omp] = local_numa.first();
+    else  // Otherwise we just use the local system memory
+      local_numa_domains[local_omp] = local_system_memory;
   }
 }
 
@@ -317,9 +330,10 @@ void CoreMapper::configure_context(const MapperContext ctx,
   // Use the defaults currently
 }
 
-void CoreMapper::pack_tunable(const int value, Mapper::SelectTunableOutput& output)
+template <typename T>
+void pack_tunable(const T value, Mapper::SelectTunableOutput& output)
 {
-  int* result  = (int*)malloc(sizeof(value));
+  T* result    = static_cast<T*>(malloc(sizeof(value)));
   *result      = value;
   output.value = result;
   output.size  = sizeof(value);
@@ -338,37 +352,60 @@ void CoreMapper::select_tunable_value(const MapperContext ctx,
 {
   switch (input.tunable_id) {
     case LEGATE_CORE_TUNABLE_TOTAL_CPUS: {
-      pack_tunable(local_cpus.size() * total_nodes, output);  // assume symmetry
+      pack_tunable<int32_t>(local_cpus.size() * total_nodes, output);  // assume symmetry
       return;
     }
     case LEGATE_CORE_TUNABLE_TOTAL_GPUS: {
-      pack_tunable(local_gpus.size() * total_nodes, output);  // assume symmetry
+      pack_tunable<int32_t>(local_gpus.size() * total_nodes, output);  // assume symmetry
       return;
     }
     case LEGATE_CORE_TUNABLE_NUM_PIECES: {
       if (!local_gpus.empty())  // If we have GPUs, use those
-        pack_tunable(local_gpus.size() * total_nodes, output);
+        pack_tunable<int32_t>(local_gpus.size() * total_nodes, output);
       else if (!local_omps.empty())  // Otherwise use OpenMP procs
-        pack_tunable(local_omps.size() * total_nodes, output);
+        pack_tunable<int32_t>(local_omps.size() * total_nodes, output);
       else  // Otherwise use the CPUs
-        pack_tunable(local_cpus.size() * total_nodes, output);
+        pack_tunable<int32_t>(local_cpus.size() * total_nodes, output);
       return;
     }
     case LEGATE_CORE_TUNABLE_MIN_SHARD_VOLUME: {
       // TODO: make these profile guided
       if (!local_gpus.empty())
         // Make sure we can get at least 1M elements on each GPU
-        pack_tunable(min_gpu_chunk, output);
+        pack_tunable<int64_t>(min_gpu_chunk, output);
       else if (!local_omps.empty())
         // Make sure we get at least 128K elements on each OpenMP
-        pack_tunable(min_omp_chunk, output);
+        pack_tunable<int64_t>(min_omp_chunk, output);
       else
         // Make sure we can get at least 8KB elements on each CPU
-        pack_tunable(min_cpu_chunk, output);
+        pack_tunable<int64_t>(min_cpu_chunk, output);
       return;
     }
     case LEGATE_CORE_TUNABLE_WINDOW_SIZE: {
-      pack_tunable(window_size, output);
+      pack_tunable<uint32_t>(window_size, output);
+      return;
+    }
+    case LEGATE_CORE_TUNABLE_FIELD_REUSE_SIZE: {
+      // We assume that all memories of the same kind are symmetric in size
+      size_t local_mem_size = 0;
+      if (!local_gpus.empty()) {
+        assert(!local_frame_buffers.empty());
+        local_mem_size = local_frame_buffers.begin()->second.capacity();
+        local_mem_size *= local_frame_buffers.size();
+      } else if (!local_omps.empty()) {
+        assert(!local_numa_domains.empty());
+        local_mem_size = local_numa_domains.begin()->second.capacity();
+        local_mem_size *= local_numa_domains.size();
+      } else
+        local_mem_size = local_system_memory.capacity();
+      // Multiply this by the total number of nodes and then scale by the frac
+      const uint64_t global_mem_size  = local_mem_size * total_nodes;
+      const uint64_t field_reuse_size = global_mem_size / field_reuse_frac;
+      pack_tunable<uint64_t>(field_reuse_size, output);
+      return;
+    }
+    case LEGATE_CORE_TUNABLE_FIELD_REUSE_FREQUENCY: {
+      pack_tunable<uint32_t>(field_reuse_freq, output);
       return;
     }
   }

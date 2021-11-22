@@ -69,19 +69,20 @@ class PartSym(Expr):
         return self._store.ndim
 
     @property
+    def store(self):
+        return self._store
+
+    @property
     def closed(self):
         return False
 
     def __repr__(self):
         disj = "D" if self._disjoint else "A"
         comp = "C" if self._complete else "I"
-        #return f"X{self._id}({disj},{comp})"
         return f"X{self._id}({disj},{comp})@{self._op_name}"
 
     def __hash__(self):
-        #return hash(self._id)
         return hash((self._op_hash, self._id))
-        return hash((self._op, self._id))
 
     def subst(self, mapping):
         return Lit(mapping[self])
