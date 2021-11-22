@@ -807,7 +807,7 @@ class AllValidOps(FusionConstraint):
         #these ops are almost always fusable
         self.validIDs.add(2) #Binary op
         self.validIDs.add(18) #Unary op
-        #self.validIDs.add(5) #Convert op
+        self.validIDs.add(5) #Convert op
         self.validIDs.add(9) #Fill op
         self.validIDs.add(20) #Where op
         self.validIDs.add(14) #read op
@@ -1049,7 +1049,7 @@ class Runtime(object):
         # to be dispatched. This list allows cross library introspection for
         # Legate operations.
         self._outstanding_ops = []
-        self._window_size=1
+        self._window_size=50
         self._fusion_threshold =2
         self._opLens = []
         self._fusedOpLens = []
@@ -1248,6 +1248,7 @@ class Runtime(object):
         super_fspaces = []
         super_strategies = []
         super_keystores = [] 
+        z=0
         for fusable_set in fusable_sets:   
             #create super strategy for this fusable set
             super_strat = {}
@@ -1299,6 +1300,12 @@ class Runtime(object):
                 #add typical inputs and outputs of all subtasks to fused task
                 key_part = None
                 for j,op in enumerate(op_subset):
+                    #if int(op._task_id) == 5:
+                        #fused_task.add_output(op._outputs[0])
+                        #fused_task.add_input(op._inputs[0])
+                        #fused_task.add_broadcast(op._inputs[0])
+                        #fused_task.add_broadcast(op._outputs[0])
+                        #continue
                     for scalar in op._scalar_args:
                         fused_task.add_scalar_arg(scalar[0], ty.int32)
                     for reduction in op._reductions:
@@ -1322,6 +1329,7 @@ class Runtime(object):
             strategy = partitioner.partition_stores()
             #fused_task.strategy = super_strategies[i]
             fused_task.strategy = strategy
+            #print("\t q ",i, strategy)
             strats.append(strategy)
             #strats.append( super_strategies[i])
         return new_op_list, strats       
@@ -1371,7 +1379,7 @@ class Runtime(object):
             strategy = ops[0].strategy
             for input, part in zip(ops[0]._inputs, ops[0]._input_parts):
                 frint("launch fused input", ops[0]._task_id, input)
-                proj = ops[0].strategy.get_projection(part)
+                #proj = ops[0].strategy.get_projection(part)
             self.propogateFuture(ops[0])
 
             for output in ops[0]._outputs:
