@@ -38,7 +38,6 @@ ifeq ($(strip $(USE_CUDA)),1)
 ifndef CUDA
 $(error CUDA variable is not defined, aborting build)
 endif
-LD_FLAGS	+= -lcublas
 endif
 
 BOOTSTRAP = 1
