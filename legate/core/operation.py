@@ -161,6 +161,7 @@ class Operation(object):
 
     def get_tag(self, strategy, part):
         if strategy.is_key_part(part):
+            return 0
             return 1  # LEGATE_CORE_KEY_STORE_TAG
         else:
             return 0
@@ -217,40 +218,30 @@ class Task(Operation):
 
         if self._is_fused:
             launcher.add_fusion_metadata(self._is_fused, self._fusion_metadata)
-        """
-        for input in self._inputs:
-            proj = strategy.get_projection(input)
-            tag = self.get_tag(strategy, input)
-            launcher.add_input(input, proj, tag=tag)
-        for temp in self._temps:
-            proj = strategy.get_projection(temp)
-            launcher.add_temp(temp, proj)
-            partition = strategy.get_partition(temp)
-            # We update the key partition of a store only when it gets updated
-            temp.set_key_partition(partition)
-        """
-        #print("inputs")
-        for input, input_part in zip(self._inputs, self._input_parts):
+        if  self._is_fused: #fused ops re-use encapsulated unfused partitions
+            input_parts = self._unfused_input_parts
+            output_parts = self._unfused_output_parts
+            reduction_parts = self._unfused_reduction_parts
+        else:
+            input_parts = self._input_parts
+            output_parts = self._output_parts
+            reduction_parts = self._reduction_parts
+
+        for input, input_part in zip(self._inputs, input_parts):
             proj = strategy.get_projection(input_part)
-            #if (input._kind==Future):
-            #    print(input, proj)
             tag = self.get_tag(strategy, input_part)
             launcher.add_input(input, proj, tag=tag)
-        #print("outputs", len(self._outputs))
-        for output, output_part in zip(self._outputs, self._output_parts):
+        for output, output_part in zip(self._outputs, output_parts):
             if output.unbound:
                 continue
             proj = strategy.get_projection(output_part)
-            #if (output._kind==Future):
-            #    print(output, proj)
             tag = self.get_tag(strategy, output_part)
             launcher.add_output(output, proj, tag=tag)
             partition = strategy.get_partition(output_part)
             # We update the key partition of a store only when it gets updated
             output.set_key_partition(partition)
-        #print()
         for ((reduction, redop), reduction_part) in zip(
-            self._reductions, self._reduction_parts
+            self._reductions, reduction_parts
         ):
             partition = strategy.get_partition(reduction_part)
             can_read_write = partition.is_disjoint_for(strategy, reduction)
