@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+#/home/shiv1/pypy/pypy3.8-v7.3.7-linux64/bin/python3.8
 
 # Copyright 2021 NVIDIA Corporation
 #
@@ -377,6 +378,7 @@ def build_legion(
 
         legion_python_dir = os.path.join(legion_src_dir, "bindings", "python")
         if clean_first:
+            print("cleaning!\n")
             verbose_check_call(
                 ["make"] + flags + ["clean"], cwd=legion_python_dir
             )
@@ -897,7 +899,6 @@ def driver():
         "--clean",
         dest="clean_first",
         action=BooleanFlag,
-        #default=False,
         default=False,
         help="Clean before build, and pull latest Legion.",
     )
