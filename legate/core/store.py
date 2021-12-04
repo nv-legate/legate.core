@@ -368,6 +368,7 @@ class RegionField(object):
             shape % tile_shape
         ).sum() == 0
 
+        can_tile_completely = False
         if can_tile_completely and self.partition_manager.use_complete_tiling(
             shape, tile_shape
         ):
