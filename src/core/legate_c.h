@@ -18,8 +18,6 @@
 #define __LEGATE_C_H__
 
 typedef enum legate_core_task_id_t {
-  LEGATE_CORE_INITIALIZE_TASK_ID,
-  LEGATE_CORE_FINALIZE_TASK_ID,
   LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,
   LEGATE_CORE_NUM_TASK_IDS,  // must be last
 } legate_core_task_id_t;
@@ -74,13 +72,6 @@ typedef enum legate_core_type_code_t {
   COMPLEX128_LT   = LEGION_TYPE_COMPLEX128,
   MAX_TYPE_NUMBER = LEGION_TYPE_TOTAL,  // this must be last
 } legate_core_type_code_t;
-
-typedef enum legate_core_resource_t {
-  LEGATE_CORE_RESOURCE_CUBLAS,
-  LEGATE_CORE_RESOURCE_CUDNN,
-  LEGATE_CORE_RESOURCE_CUDF,
-  LEGATE_CORE_RESOURCE_CUML,
-} legate_core_resource_t;
 
 typedef enum legate_core_transform_t {
   LEGATE_CORE_TRANSFORM_SHIFT = 100,

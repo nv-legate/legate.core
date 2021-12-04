@@ -34,10 +34,6 @@ class Core {
  public:
   // Configuration settings
   static bool show_progress;
-#ifdef LEGATE_USE_CUDA
- public:
-  static cublasContext* get_cublas(void);
-#endif
 };
 
 }  // namespace legate

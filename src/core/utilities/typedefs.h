@@ -20,10 +20,6 @@
 
 #include "core/legate_c.h"
 
-#ifdef LEGATE_USE_CUDA
-struct cublasContext;  // Use this as replacement for cublasHandle_t
-#endif
-
 namespace legate {
 
 extern Legion::Logger log_legate;
@@ -49,7 +45,6 @@ using TunableID = Legion::TunableID;
 // C enum typedefs
 using LegateVariantCode = legate_core_variant_t;
 using LegateTypeCode    = legate_core_type_code_t;
-using LegateResource    = legate_core_resource_t;
 using LegateMappingTag  = legate_core_mapping_tag_t;
 
 }  // namespace legate
