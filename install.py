@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-#/home/shiv1/pypy/pypy3.8-v7.3.7-linux64/bin/python3.8
 
 # Copyright 2021 NVIDIA Corporation
 #
@@ -126,7 +125,6 @@ def git_clone(repo_dir, url, branch=None, tag=None, commit=None):
         verbose_check_call(
             ["git", "submodule", "update", "--init"], cwd=repo_dir
         )
-        git_reset(repo_dir, commit)
     else:
         verbose_check_call(
             [
@@ -201,7 +199,6 @@ def install_legion(legion_src_dir, branch):
         legion_src_dir,
         url="https://gitlab.com/StanfordLegion/legion.git",
         branch=branch,
-        commit=commit,
     )
 
 
@@ -216,7 +213,7 @@ def install_thrust(thrust_dir):
 
 def update_legion(legion_src_dir, branch):
     # Make sure we are on the right branch for single/multi-node
-    git_update(legion_src_dir, branch=branch, commit=commit)
+    git_update(legion_src_dir, branch=branch)
 
 
 def build_legion(
@@ -378,7 +375,6 @@ def build_legion(
 
         legion_python_dir = os.path.join(legion_src_dir, "bindings", "python")
         if clean_first:
-            print("cleaning!\n")
             verbose_check_call(
                 ["make"] + flags + ["clean"], cwd=legion_python_dir
             )

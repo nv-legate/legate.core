@@ -369,7 +369,6 @@ class ProjectionSet(object):
         # promote them to read write permission.
         if len(all_perms - set([Permission.NO_ACCESS])) > 1:
             perm = Permission.READ_WRITE
-            #perm = Permission.WRITE
 
             # When the field requires read write permission,
             # all projections must be the same
