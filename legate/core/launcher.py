@@ -263,8 +263,6 @@ class RegionReq(object):
         self.region = region
         self.permission = permission
         self.proj = proj
-        #print(proj.__dict__)
-        #print(region)
         self.tag = tag
         self.flags = flags
 
@@ -572,13 +570,12 @@ class TaskLauncher(object):
         if store.kind is Future:
             if store.has_storage:
                 self.add_future(store.storage)
-            elif (perm == Permission.READ or perm == Permission.REDUCTION):
+            elif perm == Permission.READ or perm == Permission.REDUCTION:
                 raise RuntimeError(
                     "Read access to an uninitialized store is disallowed"
                 )
             read_only = perm == Permission.READ
             args.append(FutureStoreArg(store, read_only, store.has_storage))
-            #args.append(FutureStoreArg(store, perm, store.has_storage))
 
         else:
             region = store.storage.region
@@ -601,12 +598,6 @@ class TaskLauncher(object):
         self.add_store(self._inputs, store, proj, Permission.READ, tag, flags)
 
     def add_output(self, store, proj, tag=0, flags=0):
-        self.add_store(
-            self._outputs, store, proj, Permission.WRITE, tag, flags
-        )
-
-    # currently this is adding to outputs but we can have a seperate "temps" array in the core
-    def add_temp(self, store, proj, tag=0, flags=0):
         self.add_store(
             self._outputs, store, proj, Permission.WRITE, tag, flags
         )
@@ -674,11 +665,6 @@ class TaskLauncher(object):
 
     def build_task(self, launch_domain, argbuf):
         self._req_analyzer.analyze_requirements()
-        #print("building task id", self._task_id)
-        #for req in self._req_analyzer._requirements:
-        #    print(req)
-        #    print(req[0].__dict__)
-        #    print()
         self._out_analyzer.analyze_requirements()
 
         #pack fusion metadata

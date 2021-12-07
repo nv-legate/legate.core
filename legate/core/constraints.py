@@ -63,7 +63,6 @@ class PartSym(Expr):
         self._disjoint = disjoint
         self._complete = complete
 
-
     @property
     def ndim(self):
         return self._store.ndim

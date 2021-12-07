@@ -283,7 +283,6 @@ class Partitioner(object):
 
         key_parts = set()
         prev_part = None
-        #import pdb; pdb.set_trace()
         for unknown in unknowns:
             if unknown in partitions:
                 continue
@@ -307,7 +306,6 @@ class Partitioner(object):
                 if to_align in partitions:
                     continue
                 partitions[to_align] = partition
-                #print("ptype", to_align, (partition))
             prev_part = partition
 
         for lhs, rhs in dependent.items():

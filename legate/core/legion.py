@@ -157,7 +157,6 @@ def legate_task_postamble(runtime, context):
 # This is a decorator for wrapping the launch method on launchers
 # to dispatch any unordered deletions while the task is live
 def dispatch(func):
-    #print("dispatching")
     def launch(launcher, runtime, context, *args):
         # This context should always be in the dictionary
         legate_task_progress(runtime, context)

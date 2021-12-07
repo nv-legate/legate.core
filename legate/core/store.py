@@ -536,26 +536,6 @@ class Store(object):
         # it has been initialized correctly.
         self._runtime._launch_outstanding(False)
         if self._storage is None:
-            """
-            if self._kind ==Future:
-                print("future")
-            while(self._storage is None and len(self._runtime._outstanding_ops)):
-                print("launch_one")
-                print([op._task_id for op in self._runtime._outstanding_ops])
-                #self._runtime._launch_outstanding()
-                self._runtime._launch_one()
-            """ 
-            """
-            if True:
-                import pdb; pdb.set_trace()
-                start = self
-                while start._storage is None and start._parent:
-                    start=start._parent
-                if start._storage:
-                    self._storage = start._storage
-                else:
-                    self._runtime._launch_outstanding()
-            """
             if self.unbound:
                 raise RuntimeError(
                     "Storage of a variable size store cannot be retrieved "
@@ -565,7 +545,6 @@ class Store(object):
             #       if necessary
             if self._parent is None:
                 if self._kind is Future:
-                    print("supressing in store.py")
                     raise ValueError(
                         "Illegal to access the storage of an uninitialized "
                         "Legate store of volume 1 with scalar optimization"
@@ -957,13 +936,8 @@ class FusionMetadata(object):
         # aggregate the ints when packing
         # much faster than individually packing each int
         buf.pack_32bit_int_arr(meta_list)
-        #for elem in meta_list: 
-        #    buf.pack_32bit_int(elem)
 
     def pack(self, buf):
-       
-        #buf.pack_32bit_int(len(self._opIDs)) #nOps
-        #buf.pack_32bit_int(len(self._buffer_offsets)) #nIOBuffers+1
         superbuff = [len(self._opIDs)]+[len(self._buffer_offsets)]
         superbuff += self._input_starts
         superbuff += self._output_starts
@@ -974,11 +948,4 @@ class FusionMetadata(object):
         superbuff += self._future_starts
         superbuff += self._opIDs
         self.packList(superbuff, buf)
-        #self.packList(self._input_starts, buf)
-        #self.packList(self._output_starts, buf)
-        #self.packList(self._offset_starts, buf)
-        #self.packList(self._buffer_offsets, buf)
-        #self.packList(self._reduction_starts, buf)
-        #self.packList(self._scalar_starts, buf)
-        #self.packList(self._opIDs, buf)
 
