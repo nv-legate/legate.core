@@ -41,7 +41,7 @@ class NoPartition(object):
     def is_disjoint_for(self, strategy, store):
         return not strategy.parallel
 
-    def get_requirement(self, launch_space, store):
+    def get_requirement(self, ndim, store, proj_fn=None):
         return Broadcast()
 
     def __hash__(self):
@@ -61,6 +61,9 @@ class NoPartition(object):
 
     def translate(self, offset):
         return self
+
+    def get_child_store(self, store, point):
+        return store
 
 
 class Interval(object):
@@ -206,9 +209,25 @@ class Tiling(object):
             self._runtime.record_partition(index_space, self, index_partition)
         return region.get_child(index_partition)
 
-    def get_requirement(self, launch_space, store):
+    def get_requirement(self, launch_ndim, store, proj_fn=None):
         part, proj_id = store.find_or_create_partition(self)
-        if self.color_shape.ndim != launch_space.ndim:
-            assert launch_space.ndim == 1
+        if proj_fn is not None:
+            assert proj_id == 0
+            assert self.color_shape.ndim == launch_ndim
+            proj_id = self.runtime.get_projection_from_callable(
+                launch_ndim, proj_fn
+            )
+        if self.color_shape.ndim != launch_ndim:
+            assert launch_ndim == 1
             proj_id = self._runtime.get_delinearize_functor()
         return Partition(part, proj_id)
+
+    def get_child_store(self, store, point):
+        offset = self._tile_shape * point + self._offset
+        child = store
+        for dim, (off, tile_ext, max_ext) in enumerate(
+            zip(offset, self._tile_shape, store.shape)
+        ):
+            sl = slice(max(off, 0), min(off + tile_ext, max_ext))
+            child = child.slice(dim, sl)
+        return child

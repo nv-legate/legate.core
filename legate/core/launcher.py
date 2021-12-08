@@ -181,8 +181,12 @@ class Broadcast(object):
 
     def add(self, task, req, fields, methods):
         f = methods[req.permission]
+        parent = req.region
+        if parent.parent is not None:
+            assert parent.parent.parent is not None
+            parent = parent.parent.parent
         if req.permission != Permission.REDUCTION:
-            f(task, req.region, fields, 0, parent=req.region, tag=req.tag)
+            f(task, req.region, fields, 0, parent=parent, tag=req.tag)
         else:
             f(
                 task,
@@ -190,7 +194,7 @@ class Broadcast(object):
                 fields,
                 self.redop,
                 0,
-                parent=req.region,
+                parent=parent,
                 tag=req.tag,
             )
 
@@ -360,7 +364,7 @@ class ProjectionSet(object):
             else:
                 self._create(perm, proj_info)
 
-    def coalesce(self):
+    def coalesce(self, error_on_interference):
         if len(self._entries) == 1:
             perm = list(self._entries.keys())[0]
             return [(perm, *entry) for entry in self._entries[perm]]
@@ -376,9 +380,15 @@ class ProjectionSet(object):
             for entry in self._entries.values():
                 all_entries = all_entries | entry
             if len(all_entries) > 1:
-                raise ValueError(
-                    f"Interfering requirements found: {all_entries}"
-                )
+                if error_on_interference:
+                    raise ValueError(
+                        f"Interfering requirements found: {all_entries}"
+                    )
+                else:
+                    results = []
+                    for entry in all_entries:
+                        results.append((perm, *entry))
+                    return results
 
             return [(perm, *all_entries.pop())]
 
@@ -403,10 +413,10 @@ class FieldSet(object):
             self._fields[field_id] = proj_set
         proj_set.insert(perm, proj_info)
 
-    def coalesce(self):
+    def coalesce(self, error_on_interference):
         coalesced = {}
         for field_id, proj_set in self._fields.items():
-            proj_infos = proj_set.coalesce()
+            proj_infos = proj_set.coalesce(error_on_interference)
             for key in proj_infos:
                 if key in coalesced:
                     coalesced[key].append(field_id)
@@ -417,10 +427,11 @@ class FieldSet(object):
 
 
 class RequirementAnalyzer(object):
-    def __init__(self):
+    def __init__(self, error_on_interference=True):
         self._field_sets = {}
         self._requirements = []
         self._requirement_map = {}
+        self._error_on_interference = error_on_interference
 
     @property
     def requirements(self):
@@ -446,7 +457,7 @@ class RequirementAnalyzer(object):
 
     def analyze_requirements(self):
         for region, field_set in self._field_sets.items():
-            perm_map = field_set.coalesce()
+            perm_map = field_set.coalesce(self._error_on_interference)
             for key, fields in perm_map.items():
                 req_idx = len(self._requirements)
                 req = RegionReq(region, *key)
@@ -515,7 +526,9 @@ class OutputAnalyzer(object):
 
 
 class TaskLauncher(object):
-    def __init__(self, context, task_id, mapper_id=0, tag=0):
+    def __init__(
+        self, context, task_id, mapper_id=0, tag=0, error_on_interference=True
+    ):
         assert type(tag) != bool
         self._context = context
         self._runtime = context.runtime
@@ -526,7 +539,7 @@ class TaskLauncher(object):
         self._outputs = []
         self._reductions = []
         self._scalars = []
-        self._req_analyzer = RequirementAnalyzer()
+        self._req_analyzer = RequirementAnalyzer(error_on_interference)
         self._out_analyzer = OutputAnalyzer(context.runtime)
         self._future_args = list()
         self._future_map_args = list()
@@ -534,6 +547,7 @@ class TaskLauncher(object):
         self._sharding_space = None
         self._point = None
         self._output_regions = list()
+        self._error_on_interference = error_on_interference
 
     @property
     def library_task_id(self):

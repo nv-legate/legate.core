@@ -17,8 +17,8 @@ import legate.core.types as ty
 
 from .constraints import PartSym
 from .launcher import CopyLauncher, TaskLauncher
-from .legion import Future
-from .store import Store
+from .legion import Future, Rect
+from .store import Store, StorePartition
 from .utils import OrderedSet
 
 
@@ -38,6 +38,9 @@ class Operation(object):
         self._partitions = {}
         self._constraints = []
         self._all_parts = []
+        self._launch_domain = None
+        self._input_projections = []
+        self._error_on_interference = True
 
     @property
     def context(self):
@@ -75,18 +78,55 @@ class Operation(object):
     def all_unknowns(self):
         return self._all_parts
 
+    def input_stores(self):
+        return [store for store in self._inputs if isinstance(store, Store)]
+
+    @property
+    def output_stores(self):
+        return [store for store in self._outputs if isinstance(store, Store)]
+
+    @property
+    def reduction_stores(self):
+        return [
+            store
+            for (store, _) in self._reductions
+            if isinstance(store, Store)
+        ]
+
+    @property
+    def launch_domain(self):
+        if self._launch_domain is None:
+            raise RuntimeError(
+                "Launch domain must be set for manually partitioned stores"
+            )
+        return self._launch_domain
+
+    @property
+    def launch_ndim(self):
+        return self.launch_domain.dim
+
+    def require_interference_check(self, needs_check):
+        self._error_on_interference = needs_check
+
     def get_all_stores(self):
         stores = (
-            OrderedSet(self._inputs)
-            | OrderedSet(self._outputs)
-            | OrderedSet(store for (store, _) in self._reductions)
+            OrderedSet(self.input_stores)
+            | OrderedSet(self.output_stores)
+            | OrderedSet(self.reduction_stores)
         )
         return stores
 
     @staticmethod
+    def _check_argument(obj):
+        if not isinstance(obj, (Store, StorePartition)):
+            raise ValueError(
+                f"Expected a Store or StorePartition, but got {type(obj)}"
+            )
+
+    @staticmethod
     def _check_store(store):
         if not isinstance(store, Store):
-            raise ValueError(f"Expected a Store object, but got {type(store)}")
+            raise ValueError(f"Expected a Store, but got {type(store)}")
 
     def _get_unique_partition(self, store):
         if store not in self._partitions:
@@ -100,30 +140,44 @@ class Operation(object):
             )
         return parts[0]
 
-    def add_input(self, store, partition=None):
-        self._check_store(store)
-        if partition is None:
-            partition = self._get_unique_partition(store)
-        self._inputs.append(store)
-        self._input_parts.append(partition)
+    def add_input(self, arg, partition=None, proj=None):
+        self._check_argument(arg)
+        if isinstance(arg, Store):
+            if partition is None:
+                partition = self._get_unique_partition(arg)
+            self._inputs.append(arg)
+            self._input_parts.append(partition)
+        else:
+            assert proj is None or callable(proj)
+            self._inputs.append(arg.store)
+            self._input_parts.append(arg.partition)
+        self._input_projections.append(proj)
 
-    def add_output(self, store, partition=None):
-        self._check_store(store)
-        if store.kind is Future:
-            self._scalar_outputs.append(len(self._outputs))
-        if partition is None:
-            partition = self._get_unique_partition(store)
-        self._outputs.append(store)
-        self._output_parts.append(partition)
+    def add_output(self, arg, partition=None):
+        self._check_argument(arg)
+        if isinstance(arg, Store):
+            if arg.kind is Future:
+                self._scalar_outputs.append(len(self._outputs))
+            if partition is None:
+                partition = self._get_unique_partition(arg)
+            self._outputs.append(arg)
+            self._output_parts.append(partition)
+        else:
+            self._outputs.append(arg.store)
+            self._output_parts.append(arg.partition)
 
-    def add_reduction(self, store, redop, partition=None):
-        self._check_store(store)
-        if store.kind is Future:
-            self._scalar_reductions.append(len(self._reductions))
-        if partition is None:
-            partition = self._get_unique_partition(store)
-        self._reductions.append((store, redop))
-        self._reduction_parts.append(partition)
+    def add_reduction(self, arg, redop, partition=None):
+        self._check_argument(arg)
+        if isinstance(arg, Store):
+            if arg.kind is Future:
+                self._scalar_reductions.append(len(self._reductions))
+            if partition is None:
+                partition = self._get_unique_partition(arg)
+            self._reductions.append((arg, redop))
+            self._reduction_parts.append(partition)
+        else:
+            self._reductions.append((arg.store, redop))
+            self._reduction_parts.append(arg.partition)
 
     def add_alignment(self, store1, store2):
         self._check_store(store1)
@@ -144,6 +198,13 @@ class Operation(object):
 
     def add_constraint(self, constraint):
         self._constraints.append(constraint)
+
+    def set_launch_domain(self, lo, hi=None):
+        if hi is None:
+            hi = lo
+        if not isinstance(lo, tuple) or not isinstance(hi, tuple):
+            raise TypeError("Launch domain must be a pair of tuples")
+        self._launch_domain = Rect(lo=lo, hi=hi)
 
     def execute(self):
         self._context.runtime.submit(self)
@@ -196,27 +257,52 @@ class Task(Operation):
         self._futures.append(future)
 
     def launch(self, strategy):
-        launcher = TaskLauncher(self.context, self._task_id, self.mapper_id)
+        launcher = TaskLauncher(
+            self.context,
+            self._task_id,
+            self.mapper_id,
+            error_on_interference=self._error_on_interference,
+        )
 
-        for input, input_part in zip(self._inputs, self._input_parts):
-            proj = strategy.get_projection(input_part)
+        for input, input_part, input_proj in zip(
+            self._inputs, self._input_parts, self._input_projections
+        ):
+            if isinstance(input_part, PartSym):
+                proj = strategy.get_projection(input_part)
+            else:
+                proj = input_part.get_requirement(
+                    self.launch_ndim, input, input_proj
+                )
             tag = self.get_tag(strategy, input_part)
             launcher.add_input(input, proj, tag=tag)
         for output, output_part in zip(self._outputs, self._output_parts):
             if output.unbound:
                 continue
-            proj = strategy.get_projection(output_part)
+            if isinstance(output_part, PartSym):
+                proj = strategy.get_projection(output_part)
+                partition = strategy.get_partition(output_part)
+            else:
+                proj = output_part.get_requirement(self.launch_ndim, output)
+                partition = output_part
             tag = self.get_tag(strategy, output_part)
             launcher.add_output(output, proj, tag=tag)
-            partition = strategy.get_partition(output_part)
             # We update the key partition of a store only when it gets updated
             output.set_key_partition(partition)
         for ((reduction, redop), reduction_part) in zip(
             self._reductions, self._reduction_parts
         ):
-            partition = strategy.get_partition(reduction_part)
-            can_read_write = partition.is_disjoint_for(strategy, reduction)
-            proj = strategy.get_projection(reduction_part)
+            if isinstance(reduction_part, PartSym):
+                partition = strategy.get_partition(reduction_part)
+                can_read_write = partition.is_disjoint_for(strategy, reduction)
+                proj = strategy.get_projection(reduction_part)
+            else:
+                can_read_write = reduction_part.is_disjoint_for(
+                    strategy, reduction
+                )
+                proj = reduction_part.get_requirement(
+                    self.launch_ndim,
+                    reduction,
+                )
             proj.redop = reduction.type.reduction_op_id(redop)
             tag = self.get_tag(strategy, reduction)
             launcher.add_reduction(
@@ -235,6 +321,8 @@ class Task(Operation):
         for future in self._futures:
             launcher.add_future(future)
 
+        if self._launch_domain is not None:
+            strategy.set_launch_domain(self._launch_domain)
         result = strategy.launch(launcher)
 
         num_scalar_outs = len(self.scalar_outputs)

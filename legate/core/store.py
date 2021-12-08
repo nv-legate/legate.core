@@ -368,7 +368,6 @@ class RegionField(object):
             shape % tile_shape
         ).sum() == 0
 
-        can_tile_completely = False
         if can_tile_completely and self.partition_manager.use_complete_tiling(
             shape, tile_shape
         ):
@@ -412,6 +411,24 @@ class _LegateNDarray(object):
             "data": (base_ptr, read_only),
             "strides": strides,
         }
+
+
+class StorePartition(object):
+    def __init__(self, store, partition):
+        self._store = store
+        self._partition = partition
+
+    @property
+    def store(self):
+        return self._store
+
+    @property
+    def partition(self):
+        return self._partition
+
+    def get_child_store(self, *indices):
+        point = Shape(indices)
+        return self._partition.get_child_store(self._store, point)
 
 
 class Store(object):
@@ -914,3 +931,14 @@ class Store(object):
         part = converted.construct(self.storage.region, complete=complete)
         self._partitions[functor] = (part, proj)
         return part, proj
+
+    def partition_by_tiling(self, tile_shape):
+        if self.unbound:
+            raise TypeError(
+                "Unbound store cannot be partitioned without being initailized"
+            )
+        if not isinstance(tile_shape, Shape):
+            tile_shape = Shape(tile_shape)
+        launch_shape = (self.shape + tile_shape - 1) // tile_shape
+        partition = Tiling(self._runtime, tile_shape, launch_shape)
+        return StorePartition(self, partition)

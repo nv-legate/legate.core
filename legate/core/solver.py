@@ -98,23 +98,41 @@ class EqClass(object):
 
 class Strategy(object):
     def __init__(self, launch_shape, strategy, fspaces, key_parts):
-        self._launch_shape = launch_shape
+        if launch_shape is not None:
+            self._launch_domain = Rect(hi=launch_shape)
+        else:
+            self._launch_domain = None
         self._strategy = strategy
         self._fspaces = fspaces
         self._key_parts = key_parts
 
     @property
     def parallel(self):
-        return self._launch_shape is not None
+        return self._launch_domain is not None
 
     @property
     def launch_domain(self):
         assert self.parallel
-        return Rect(self._launch_shape)
+        return self._launch_domain
+
+    @property
+    def launch_ndim(self):
+        if self._launch_domain is None:
+            return 1
+        else:
+            return self._launch_domain.dim
+
+    def set_launch_domain(self, launch_domain):
+        if self._launch_domain is not None:
+            raise RuntimeError(
+                "Manual task launch cannot be used when some stores are "
+                "auto-partitioned"
+            )
+        self._launch_domain = launch_domain
 
     def get_projection(self, part):
         partition = self.get_partition(part)
-        return partition.get_requirement(self._launch_shape, part.store)
+        return partition.get_requirement(self.launch_ndim, part.store)
 
     def get_partition(self, part):
         assert not part.store.unbound

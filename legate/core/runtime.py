@@ -40,6 +40,7 @@ from .legion import (
     legion,
 )
 from .partition import Restriction
+from .projection import analyze_projection, pack_projection_spec
 from .shape import Shape
 from .solver import Partitioner
 from .store import RegionField, Store
@@ -949,6 +950,23 @@ class Runtime(object):
 
         self.core_library.legate_create_sharding_functor_using_projection(
             shard_id,
+            proj_id,
+        )
+
+        return proj_id
+
+    def get_projection_from_callable(self, launch_ndim, proj_fn):
+        spec = analyze_projection(launch_ndim, proj_fn)
+
+        if spec in self._registered_projections:
+            return self._registered_projections[spec]
+
+        proj_id = self.core_context.get_projection_id(self._next_projection_id)
+        self._next_projection_id += 1
+        self._registered_projections[spec] = proj_id
+
+        self.core_library.legate_register_affine_projection_functor(
+            *pack_projection_spec(launch_ndim, spec),
             proj_id,
         )
 
