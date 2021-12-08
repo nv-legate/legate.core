@@ -126,7 +126,7 @@ COMMA=,
 NVCC_FLAGS += $(foreach X,$(subst $(COMMA), ,$(GPU_ARCH)),-gencode arch=compute_$(X)$(COMMA)code=sm_$(X))
 CC_FLAGS	+= -DLEGATE_USE_CUDA -I$(CUDA)/include
 NVCC_FLAGS	+= -DLEGATE_USE_CUDA -I$(CUDA)/include
-LD_FLAGS	+= -lcublas -L$(CUDA)/lib -L$(CUDA)/lib64
+LD_FLAGS	+= -L$(CUDA)/lib -L$(CUDA)/lib64
 endif
 
 GEN_SRC		?=

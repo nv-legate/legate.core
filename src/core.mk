@@ -34,10 +34,6 @@ GEN_CPU_SRC	= core/legate_c.cc                 \
 							core/utilities/machine.cc        \
 							core/utilities/linearize.cc
 
-ifeq ($(strip $(USE_CUDA)),1)
-GEN_CPU_SRC	+= core/gpu/cudalibs.cc
-endif
-
 # Header files that we need to have installed for client legate libraries
 INSTALL_HEADERS = legate.h                        \
 									legate_defines.h                \

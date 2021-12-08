@@ -605,6 +605,11 @@ class Store(object):
         else:
             return self._parent.get_root()
 
+    def has_fake_dims(self):
+        if self._parent is None:
+            return False
+        return self._parent.has_fake_dims() or self._transform.adds_fake_dims()
+
     def comm_volume(self):
         my_tile = self._get_tile_shape()
         return my_tile.tile_shape.volume()

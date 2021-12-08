@@ -24,7 +24,6 @@ import platform
 import shlex
 import subprocess
 import sys
-from distutils.spawn import find_executable
 
 _version = sys.version_info.major
 
@@ -95,13 +94,6 @@ def find_python_module(legate_dir):
     if python_lib is None:
         raise Exception("Cannot find a Legate python library")
     return python_lib
-
-
-def find_python_home(python_cmd):
-    path_str = find_executable(python_cmd)
-    if path_str is None:
-        return None
-    return os.path.dirname(os.path.dirname(os.path.normpath(path_str)))
 
 
 def run_legate(
@@ -184,21 +176,18 @@ def run_legate(
     else:
         cmd_env["PYTHONPATH"] = ""
     cmd_env["PYTHONPATH"] += os.pathsep + find_python_module(legate_dir)
-    # Find the right Python installation if the user hasn't given one.
-    # TODO: We need to make sure that the version of the Python used by Realm
-    #       is the same as that we find below. The Python version better be
-    #       exposed in realm_defines.h so that we do not need to second-guess.
-    if os_name == "Darwin":
-        if "PYTHONHOME" not in cmd_env:
-            # We first check if python3 is available
-            python_home = find_python_home("python3")
-            # Otherwise, we fall back to python. If Python 2 is installed in
-            # /usr, which is the case with the default Python 2 on Mac, we will
-            # be in trouble.
-            if python_home is None:
-                python_home = find_python_home("python")
-            assert python_home is not None
-            cmd_env["PYTHONHOME"] = python_home
+    # Make sure the version of Python used by Realm is the same as what the
+    # user is using currently.
+    curr_pyhome = os.path.dirname(os.path.dirname(sys.executable))
+    realm_defines = os.path.join(legate_dir, "include", "realm_defines.h")
+    realm_pylib = read_c_define(realm_defines, "REALM_PYTHON_LIB")
+    realm_pyhome = os.path.dirname(os.path.dirname(realm_pylib.strip()[1:-1]))
+    if curr_pyhome != realm_pyhome:
+        print(
+            "WARNING: Legate was compiled against the Python installation at "
+            f"{realm_pyhome}, but you are currently using the Python "
+            f"installation at {curr_pyhome}"
+        )
     # If using NCCL prefer parallel launch mode over cooperative groups, as the
     # former plays better with Realm.
     cmd_env["NCCL_LAUNCH_MODE"] = "PARALLEL"

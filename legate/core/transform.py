@@ -53,6 +53,9 @@ class Shift(Transform):
     def __hash__(self):
         return hash((type(self), self._dim, self._offset))
 
+    def adds_fake_dims(self):
+        return False
+
     @property
     def invertible(self):
         return True
@@ -131,6 +134,9 @@ class Promote(Transform):
 
     def __hash__(self):
         return hash((type(self), self._extra_dim, self._dim_size))
+
+    def adds_fake_dims(self):
+        return True
 
     @property
     def invertible(self):
@@ -216,6 +222,9 @@ class Project(Transform):
     def __hash__(self):
         return hash((type(self), self._dim, self._index))
 
+    def adds_fake_dims(self):
+        return False
+
     @property
     def invertible(self):
         return True
@@ -300,6 +309,9 @@ class Transpose(Transform):
     def __hash__(self):
         return hash((type(self), tuple(self._axes)))
 
+    def adds_fake_dims(self):
+        return False
+
     @property
     def invertible(self):
         return True
@@ -376,6 +388,9 @@ class Delinearize(Transform):
 
     def __hash__(self):
         return hash((type(self), self._shape, self._strides))
+
+    def adds_fake_dims(self):
+        return False
 
     @property
     def invertible(self):
