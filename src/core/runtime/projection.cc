@@ -96,48 +96,6 @@ LogicalRegion LegateProjectionFunctor::project(LogicalPartition upper_bound,
 }
 
 template <int32_t SRC_DIM, int32_t TGT_DIM>
-class ReductionFunctor : public LegateProjectionFunctor {
- public:
-  ReductionFunctor(Runtime* runtime, int32_t* dims);
-
- public:
-  virtual DomainPoint project_point(const DomainPoint& point,
-                                    const Domain& launch_domain) const override
-  {
-    return DomainPoint(transform_ * Point<SRC_DIM>(point));
-  }
-
- public:
-  static Transform<TGT_DIM, SRC_DIM> create_transform(int32_t* dims);
-
- private:
-  const Transform<TGT_DIM, SRC_DIM> transform_;
-};
-
-template <int32_t SRC_DIM, int32_t TGT_DIM>
-ReductionFunctor<SRC_DIM, TGT_DIM>::ReductionFunctor(Runtime* runtime, int32_t* dims)
-  : LegateProjectionFunctor(runtime), transform_(create_transform(dims))
-{
-}
-
-template <int32_t SRC_DIM, int32_t TGT_DIM>
-/*static*/ Transform<TGT_DIM, SRC_DIM> ReductionFunctor<SRC_DIM, TGT_DIM>::create_transform(
-  int32_t* dims)
-{
-  Transform<TGT_DIM, SRC_DIM> transform;
-
-  for (int32_t tgt_dim = 0; tgt_dim < TGT_DIM; ++tgt_dim)
-    for (int32_t src_dim = 0; src_dim < SRC_DIM; ++src_dim) transform[tgt_dim][src_dim] = 0;
-
-  for (int32_t tgt_dim = 0; tgt_dim < TGT_DIM; ++tgt_dim) {
-    int32_t src_dim = dims[tgt_dim];
-    if (src_dim != -1) transform[tgt_dim][src_dim] = 1;
-  }
-
-  return transform;
-}
-
-template <int32_t SRC_DIM, int32_t TGT_DIM>
 class AffineFunctor : public LegateProjectionFunctor {
  public:
   AffineFunctor(Runtime* runtime, int32_t* dims, int32_t* offsets);
@@ -184,18 +142,6 @@ template <int32_t SRC_DIM, int32_t TGT_DIM>
 static std::unordered_map<ProjectionID, LegateProjectionFunctor*> functor_table;
 static std::mutex functor_table_lock;
 
-struct create_reduction_functor_fn {
-  template <int32_t SRC_DIM, int32_t TGT_DIM>
-  void operator()(Runtime* runtime, int32_t* dims, ProjectionID proj_id)
-  {
-    auto functor = new ReductionFunctor<SRC_DIM, TGT_DIM>(runtime, dims);
-    runtime->register_projection_functor(proj_id, functor, true /*silence warnings*/);
-
-    const std::lock_guard<std::mutex> lock(functor_table_lock);
-    functor_table[proj_id] = functor;
-  }
-};
-
 struct create_affine_functor_fn {
   template <int32_t SRC_DIM, int32_t TGT_DIM>
   void operator()(Runtime* runtime, int32_t* dims, int32_t* offsets, ProjectionID proj_id)
@@ -218,16 +164,6 @@ LegateProjectionFunctor* find_legate_projection_functor(ProjectionID proj_id)
 }  // namespace legate
 
 extern "C" {
-
-void legate_register_projection_functor(int32_t src_ndim,
-                                        int32_t tgt_ndim,
-                                        int32_t* dims,
-                                        legion_projection_id_t proj_id)
-{
-  auto runtime = Runtime::get_runtime();
-  legate::double_dispatch(
-    src_ndim, tgt_ndim, legate::create_reduction_functor_fn{}, runtime, dims, proj_id);
-}
 
 void legate_register_affine_projection_functor(int32_t src_ndim,
                                                int32_t tgt_ndim,

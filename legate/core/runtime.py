@@ -923,24 +923,18 @@ class Runtime(object):
             self.core_library.LEGATE_CORE_DELINEARIZE_PROJ_ID
         )
 
-    def get_projection(self, src_ndim, dims):
-        spec = (src_ndim, dims)
-        if spec in self._registered_projections:
-            return self._registered_projections[spec]
-
-        tgt_ndim = len(dims)
-        dims_c = ffi.new(f"int32_t[{tgt_ndim}]")
-        for idx, dim in enumerate(dims):
-            dims_c[idx] = dim
-
+    def _register_projection_functor(
+        self, spec, src_ndim, tgt_ndim, dims_c, offsets_c
+    ):
         proj_id = self.core_context.get_projection_id(self._next_projection_id)
         self._next_projection_id += 1
         self._registered_projections[spec] = proj_id
 
-        self.core_library.legate_register_projection_functor(
+        self.core_library.legate_register_affine_projection_functor(
             src_ndim,
             tgt_ndim,
             dims_c,
+            offsets_c,
             proj_id,
         )
 
@@ -955,22 +949,31 @@ class Runtime(object):
 
         return proj_id
 
+    def get_projection(self, src_ndim, dims):
+        spec = (src_ndim, dims)
+        if spec in self._registered_projections:
+            return self._registered_projections[spec]
+
+        tgt_ndim = len(dims)
+        dims_c = ffi.new(f"int32_t[{tgt_ndim}]")
+        offsets_c = ffi.new(f"int32_t[{tgt_ndim}]")
+        for idx, dim in enumerate(dims):
+            dims_c[idx] = dim
+            offsets_c[idx] = 0
+
+        return self._register_projection_functor(
+            spec, src_ndim, tgt_ndim, dims_c, offsets_c
+        )
+
     def get_projection_from_callable(self, launch_ndim, proj_fn):
         spec = analyze_projection(launch_ndim, proj_fn)
 
         if spec in self._registered_projections:
             return self._registered_projections[spec]
 
-        proj_id = self.core_context.get_projection_id(self._next_projection_id)
-        self._next_projection_id += 1
-        self._registered_projections[spec] = proj_id
-
-        self.core_library.legate_register_affine_projection_functor(
-            *pack_projection_spec(launch_ndim, spec),
-            proj_id,
+        return self._register_projection_functor(
+            spec, *pack_projection_spec(launch_ndim, spec)
         )
-
-        return proj_id
 
     def get_transform_code(self, name):
         return getattr(
