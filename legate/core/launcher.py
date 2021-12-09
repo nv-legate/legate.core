@@ -182,9 +182,8 @@ class Broadcast(object):
     def add(self, task, req, fields, methods):
         f = methods[req.permission]
         parent = req.region
-        if parent.parent is not None:
-            assert parent.parent.parent is not None
-            parent = parent.parent.parent
+        while parent.parent is not None:
+            parent = parent.parent
         if req.permission != Permission.REDUCTION:
             f(task, req.region, fields, 0, parent=parent, tag=req.tag)
         else:
