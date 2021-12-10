@@ -202,7 +202,7 @@ $(GEN_CPU_OBJS) : %.cc.o : %.cc $(LEGION_DEFINES_HEADER) $(REALM_DEFINES_HEADER)
 -include $(GEN_GPU_DEPS)
 
 $(GEN_GPU_OBJS) : %.cu.o : %.cu $(LEGION_DEFINES_HEADER) $(REALM_DEFINES_HEADER)
-	$(NVCC) -o $<.d -M $< $(INC_FLAGS) $(NVCC_FLAGS)
+	$(NVCC) -o $<.d -M -MT $@ $< $(INC_FLAGS) $(NVCC_FLAGS)
 	$(NVCC) -o $@ -c $< $(INC_FLAGS) $(NVCC_FLAGS)
 
 clean:
