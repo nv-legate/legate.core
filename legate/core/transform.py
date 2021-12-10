@@ -74,6 +74,9 @@ class Shift(Transform):
                 f"Unsupported partition: {type(partition).__name__}"
             )
 
+    def invert_color(self, color):
+        return color
+
     def invert_dimensions(self, dims):
         return dims
 
@@ -99,12 +102,10 @@ class Shift(Transform):
     def convert_restrictions(self, restrictions):
         return restrictions
 
-    def get_inverse_transform(self, shape, parent_transform=None):
-        result = AffineTransform(shape.ndim, shape.ndim, True)
+    def get_inverse_transform(self, ndim):
+        result = AffineTransform(ndim, ndim, True)
         result.offset[self._dim] = -self._offset
-        if parent_transform is not None:
-            result = result.compose(parent_transform)
-        return result
+        return result, ndim
 
     def serialize(self, buf):
         super(Shift, self).serialize(buf)
@@ -155,6 +156,9 @@ class Promote(Transform):
                 f"Unsupported partition: {type(partition).__name__}"
             )
 
+    def invert_color(self, color):
+        return color.drop(self._extra_dim)
+
     def invert_dimensions(self, dims):
         return dims[: self._extra_dim] + dims[self._extra_dim + 1 :]
 
@@ -184,17 +188,15 @@ class Promote(Transform):
         new = (Restriction.AVOIDED,)
         return left + new + right
 
-    def get_inverse_transform(self, shape, parent_transform=None):
-        parent_ndim = shape.ndim - 1
-        result = AffineTransform(parent_ndim, shape.ndim, False)
+    def get_inverse_transform(self, ndim):
+        parent_ndim = ndim - 1
+        result = AffineTransform(parent_ndim, ndim, False)
         parent_dim = 0
-        for child_dim in range(shape.ndim):
+        for child_dim in range(ndim):
             if child_dim != self._extra_dim:
                 result.trans[parent_dim, child_dim] = 1
                 parent_dim += 1
-        if parent_transform is not None:
-            result = result.compose(parent_transform)
-        return result
+        return result, parent_ndim
 
     def serialize(self, buf):
         super(Promote, self).serialize(buf)
@@ -242,6 +244,9 @@ class Project(Transform):
                 f"Unsupported partition: {type(partition).__name__}"
             )
 
+    def invert_color(self, color):
+        return color.insert(self._dim, 0)
+
     def invert_dimensions(self, dims):
         return dims[: self._dim] + (-1,) + dims[self._dim :]
 
@@ -269,18 +274,16 @@ class Project(Transform):
     def convert_restrictions(self, restrictions):
         return restrictions[: self._dim] + restrictions[self._dim + 1 :]
 
-    def get_inverse_transform(self, shape, parent_transform=None):
-        parent_ndim = shape.ndim + 1
-        result = AffineTransform(parent_ndim, shape.ndim, False)
+    def get_inverse_transform(self, ndim):
+        parent_ndim = ndim + 1
+        result = AffineTransform(parent_ndim, ndim, False)
         result.offset[self._dim] = self._index
         child_dim = 0
         for parent_dim in range(parent_ndim):
             if parent_dim != self._dim:
                 result.trans[parent_dim, child_dim] = 1
                 child_dim += 1
-        if parent_transform is not None:
-            result = result.compose(parent_transform)
-        return result
+        return result, parent_ndim
 
     def serialize(self, buf):
         super(Project, self).serialize(buf)
@@ -329,6 +332,9 @@ class Transpose(Transform):
                 f"Unsupported partition: {type(partition).__name__}"
             )
 
+    def invert_color(self, color):
+        return color.map(self._inverse)
+
     def invert_dimensions(self, dims):
         return tuple(dims[idx] for idx in self._inverse)
 
@@ -353,13 +359,11 @@ class Transpose(Transform):
     def convert_restrictions(self, restrictions):
         return tuple(restrictions[idx] for idx in self._axes)
 
-    def get_inverse_transform(self, shape, parent_transform=None):
-        result = AffineTransform(shape.ndim, shape.ndim, False)
-        for dim in range(shape.ndim):
+    def get_inverse_transform(self, ndim):
+        result = AffineTransform(ndim, ndim, False)
+        for dim in range(ndim):
             result.trans[self._axes[dim], dim] = 1
-        if parent_transform is not None:
-            result = result.compose(parent_transform)
-        return result
+        return result, ndim
 
     def serialize(self, buf):
         super(Transpose, self).serialize(buf)
@@ -441,6 +445,9 @@ class Delinearize(Transform):
                 f"Unsupported partition: {type(partition).__name__}"
             )
 
+    def invert_color(self, color):
+        raise NonInvertibleError()
+
     def invert_dimensions(self, dims):
         left = dims[: self._dim + 1]
         right = dims[self._dim + self._shape.ndim :]
@@ -459,10 +466,10 @@ class Delinearize(Transform):
         )
         return left + new + right
 
-    def get_inverse_transform(self, shape, parent_transform=None):
-        assert shape.ndim >= self._strides.ndim
-        out_ndim = shape.ndim - self._strides.ndim + 1
-        result = AffineTransform(out_ndim, shape.ndim, False)
+    def get_inverse_transform(self, ndim):
+        assert ndim >= self._strides.ndim
+        out_ndim = ndim - self._strides.ndim + 1
+        result = AffineTransform(out_ndim, ndim, False)
 
         in_dim = 0
         for out_dim in range(out_ndim):
@@ -474,9 +481,7 @@ class Delinearize(Transform):
                 result.trans[out_dim, in_dim] = 1
                 in_dim += 1
 
-        if parent_transform is not None:
-            result = result.compose(parent_transform)
-        return result
+        return result, out_ndim
 
     def serialize(self, buf):
         super(Delinearize, self).serialize(buf)
@@ -484,3 +489,80 @@ class Delinearize(Transform):
         buf.pack_32bit_uint(self._shape.ndim)
         for extent in self._shape:
             buf.pack_64bit_int(extent)
+
+
+class TransformStack(object):
+    def __init__(self, transform, parent=None):
+        self._transform = transform
+        self._parent = parent
+        self._inverse_transform = {}
+
+    def __str__(self):
+        if self._parent is None:
+            return str(self._transform)
+        else:
+            return f"{self._transform} >> {self._parent}"
+
+    def __repr__(self):
+        return str(self)
+
+    def add_fake_dims(self):
+        if self._parent is None:
+            return False
+        return self._transform.adds_fake_dims()
+
+    @property
+    def invertible(self):
+        return self._transform.invertible and (
+            True if self._parent is None else self._parent.invertible
+        )
+
+    def invert_color(self, point):
+        partition = self._transform.invert_color(point)
+        if self._parent is not None:
+            partition = self._parent.invert_color(partition)
+        return partition
+
+    def invert_partition(self, partition):
+        partition = self._transform.invert(partition)
+        if self._parent is not None:
+            partition = self._parent.invert_partition(partition)
+        return partition
+
+    def invert_dimensions(self, dims):
+        dims = self._transform.invert_dimensions(dims)
+        if self._parent is not None:
+            dims = self._parent.invert_dimensions(dims)
+        return dims
+
+    def convert_restrictions(self, restrictions):
+        if self._parent is not None:
+            restrictions = self._parent.convert_restrictions(restrictions)
+        return self._transform.convert_restrictions(restrictions)
+
+    def invert_restrictions(self, restrictions):
+        restrictions = self._transform.invert_restrictions(restrictions)
+        if self._parent is not None:
+            restrictions = self._parent.invert_restrictions(restrictions)
+        return restrictions
+
+    def get_inverse_transform(self, ndim):
+        if ndim not in self._inverse_transform:
+            transform, ndim = self._transform.get_inverse_transform(ndim)
+            if self._parent is not None:
+                parent = self._parent.get_inverse_transform(ndim)
+                transform = transform.compose(parent)
+            self._inverse_transform[ndim] = transform
+            return transform
+        else:
+            return self._inverse_transform[ndim]
+
+    def stack(self, transform):
+        return TransformStack(transform, self)
+
+    def serialize(self, buf):
+        self._transform.serialize(buf)
+        if self._parent is not None:
+            self._parent.serialize(buf)
+        else:
+            buf.pack_32bit_int(-1)

@@ -110,7 +110,7 @@ class FutureStoreArg(object):
         buf.pack_bool(self._read_only)
         buf.pack_bool(self._has_storage)
         buf.pack_32bit_int(self._store.type.size)
-        _pack(buf, self._store.get_root().shape, ty.int64, True)
+        _pack(buf, self._store.extents, ty.int64, True)
 
     def __str__(self):
         return f"FutureStoreArg({self._store})"
@@ -578,14 +578,11 @@ class TaskLauncher(object):
 
     def add_store(self, args, store, proj, perm, tag, flags):
         if store.kind is Future:
-            if store.has_storage:
-                self.add_future(store.storage)
-            elif perm == Permission.READ or perm == Permission.REDUCTION:
-                raise RuntimeError(
-                    "Read access to an uninitialized store is disallowed"
-                )
+            has_storage = perm != Permission.WRITE
             read_only = perm == Permission.READ
-            args.append(FutureStoreArg(store, read_only, store.has_storage))
+            if has_storage:
+                self.add_future(store.storage)
+            args.append(FutureStoreArg(store, read_only, has_storage))
 
         else:
             region = store.storage.region

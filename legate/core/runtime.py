@@ -43,7 +43,7 @@ from .partition import Restriction
 from .projection import analyze_projection, pack_projection_spec
 from .shape import Shape
 from .solver import Partitioner
-from .store import RegionField, Store
+from .store import RegionField, Storage, Store
 
 
 # A Field holds a reference to a field in a region tree
@@ -994,12 +994,19 @@ class Runtime(object):
     ):
         if shape is not None and not isinstance(shape, Shape):
             shape = Shape(shape)
+        if storage is None:
+            if not optimize_scalar or shape.volume() > 1:
+                kind = RegionField
+            else:
+                kind = Future
+        else:
+            kind = type(storage)
+        storage = Storage(self, shape, 0, dtype, data=storage, kind=kind)
         return Store(
             self,
             dtype,
+            storage,
             shape=shape,
-            storage=storage,
-            optimize_scalar=optimize_scalar,
         )
 
     def find_or_create_region_manager(self, shape, region=None):

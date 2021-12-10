@@ -30,10 +30,10 @@ from .partition import NoPartition, Restriction, Tiling
 from .shape import Shape
 from .transform import (
     Delinearize,
-    NonInvertibleError,
     Project,
     Promote,
     Shift,
+    TransformStack,
     Transpose,
 )
 from .types import _Dtype
@@ -359,39 +359,19 @@ class RegionField(object):
 
         weakref.finalize(consumer, callback)
 
-    def get_tile(self, shape, tiling):
-        tile_shape = tiling.tile_shape
-        # As an interesting optimization, if we can evenly tile the
-        # region in all dimensions of the parent region, then we'll make
-        # a disjoint tiled partition with as many children as possible
-        can_tile_completely = (tiling.offset % tile_shape).sum() == 0 and (
-            shape % tile_shape
-        ).sum() == 0
-
-        if can_tile_completely and self.partition_manager.use_complete_tiling(
-            shape, tile_shape
-        ):
-            color_shape = shape // tile_shape
-            new_tiling = Tiling(self.runtime, tile_shape, color_shape)
-            color = tiling.offset // tile_shape
-            tiling = new_tiling
-            complete = True
+    def get_child(self, functor, color, complete=False):
+        if functor in self._partitions:
+            partition = self._partitions[functor]
         else:
-            color = (0,) * shape.ndim
-            complete = False
-
-        if tiling in self._partitions:
-            partition = self._partitions[tiling]
-        else:
-            partition = tiling.construct(self.region, complete=complete)
-            self._partitions[tiling] = partition
+            partition = functor.construct(self.region, complete=complete)
+            self._partitions[functor] = partition
 
         child_region = partition.get_child(Point(color))
         return RegionField(
             self.runtime,
             child_region,
             self.field,
-            tiling.tile_shape,
+            functor.get_subregion_size(self.shape, color),
             self,
         )
 
@@ -413,8 +393,275 @@ class _LegateNDarray(object):
         }
 
 
+class StoragePartition(object):
+    def __init__(self, runtime, level, parent, partition, complete=True):
+        self._runtime = runtime
+        self._level = level
+        self._parent = parent
+        self._partition = partition
+        self._complete = complete
+        self._child_data = {}
+        self._child_sizes = {}
+
+    @property
+    def parent(self):
+        return self._parent
+
+    @property
+    def level(self):
+        return self._level
+
+    def get_root(self):
+        return self._parent.get_root()
+
+    def get_child(self, color):
+        if not self._partition.has_color(color):
+            raise ValueError(
+                f"{color} is not a valid color for {self._partition}"
+            )
+        shape = self.get_child_size(color)
+        return Storage(
+            self._runtime,
+            shape,
+            self._level + 1,
+            self._parent.dtype,
+            parent=self,
+            color=color,
+        )
+
+    def get_child_size(self, color):
+        if color not in self._child_sizes:
+            size = self._partition.get_subregion_size(
+                self._parent.extents, color
+            )
+            self._child_sizes[color] = size
+            return size
+        else:
+            return self._child_sizes[color]
+
+    def get_child_data(self, color):
+        if color not in self._child_data:
+            data = self._parent.data.get_child(
+                self._partition, color, self._complete
+            )
+            self._child_data[color] = data
+            return data
+        else:
+            return self._child_data[color]
+
+    def get_requirement(self, launch_ndim, store, proj_fn=None):
+        return self._partition.get_requirement(launch_ndim, store, proj_fn)
+
+
+class Storage(object):
+    def __init__(
+        self,
+        runtime,
+        extents,
+        level,
+        dtype,
+        data=None,
+        kind=RegionField,
+        parent=None,
+        color=None,
+    ):
+        assert (
+            data is None
+            or isinstance(data, RegionField)
+            or isinstance(data, Future)
+        )
+        assert not isinstance(data, Future) or parent is None
+        assert parent is None or color is not None
+        self._runtime = runtime
+        self._attachment_manager = runtime.attachment_manager
+        self._partition_manager = runtime.partition_manager
+        self._extents = extents
+        self._level = level
+        self._dtype = dtype
+        self._data = data
+        self._kind = kind
+        self._parent = parent
+        self._color = color
+
+    def __str__(self):
+        return (
+            f"{self._kind.__name__}(uninitialized)"
+            if self._data is None
+            else str(self._data)
+        )
+
+    def __repr__(self):
+        return str(self)
+
+    @property
+    def extents(self):
+        return self._extents
+
+    @property
+    def kind(self):
+        return self._kind
+
+    @property
+    def dtype(self):
+        return self._dtype
+
+    @property
+    def data(self):
+        """
+        Return the Legion container of this Storage, which is of
+        the type `self.kind`.
+        """
+        # If someone is trying to retreive the storage of a store,
+        # we need to execute outstanding operations so that we know
+        # it has been initialized correctly.
+        self._runtime.flush_scheduling_window()
+        if self._data is None:
+            if self._kind is Future:
+                raise ValueError("Illegal to access the uninitialize storage")
+            if self._parent is None:
+                self._data = self._runtime.allocate_field(
+                    self._extents, self._dtype
+                )
+            else:
+                self._data = self._parent.get_child_data(self._color)
+
+        return self._data
+
+    @property
+    def has_data(self):
+        return self._data is not None
+
+    def set_data(self, data):
+        assert (
+            self._kind is Future and type(data) is Future
+        ) or self._data is None
+        self._data = data
+
+    @property
+    def has_parent(self):
+        return self._parent is not None
+
+    @property
+    def parent(self):
+        return self._parent
+
+    @property
+    def level(self):
+        return self._level
+
+    @property
+    def color(self):
+        return self._color
+
+    def get_root(self):
+        if self._parent is None:
+            return self
+        else:
+            return self._parent.get_root()
+
+    def volume(self):
+        return self._extents.volume()
+
+    def overlaps(self, other):
+        if self is other:
+            return True
+
+        lhs = self
+        rhs = other
+
+        lhs_root = lhs.get_root()
+        rhs_root = rhs.get_root()
+
+        if lhs_root is not rhs_root:
+            return False
+
+        lhs_lvl = lhs.level
+        rhs_lvl = rhs.level
+
+        if lhs_lvl > rhs_lvl:
+            lhs, rhs = rhs, lhs
+            lhs_lvl, rhs_lvl = rhs_lvl, lhs_lvl
+
+        while lhs_lvl < rhs_lvl:
+            rhs = rhs.parent
+            rhs_lvl -= 1
+
+        if lhs is rhs:
+            return True
+        else:
+            assert lhs.has_parent and rhs.has_parent
+            # Legion doesn't allow passing aliased partitions to a task
+            if lhs.parent is not rhs.parent:
+                return True
+            else:
+                # TODO: This check is incorrect if the partition is aliased.
+                #       Since we only have a tiling, which is a disjoint
+                #       partition, we put this assertion here to remember
+                #       that we need to exdtend this logic if we have other
+                #       partitions. (We need to carry around the disjointness
+                #       of each partition.)
+                assert isinstance(self.parent._partition, Tiling)
+                return lhs.color == rhs.color
+
+    def attach_external_allocation(self, context, alloc, share):
+        # If the storage has not been set, and this is a non-temporary
+        # singleton attachment, we can reuse an existing RegionField that was
+        # previously attached to this buffer.
+        # This is the only situation where we can attach the same buffer to
+        # two Stores, since they are both backed by the same RegionField.
+        if self._data is None and share and isinstance(alloc, memoryview):
+            self._data = self._attachment_manager.reuse_existing_attachment(
+                alloc
+            )
+            if self._data is not None:
+                return
+        # Force the RegionField to be instantiated, do the attachment normally
+        self.data.attach_external_allocation(context, alloc, share)
+
+    def slice(self, shape, tile_shape, offsets, transform=None):
+        if self.kind is Future:
+            return self
+
+        # As an interesting optimization, if we can evenly tile the
+        # region in all dimensions of the parent region, then we'll make
+        # a disjoint tiled partition with as many children as possible
+        can_tile_completely = (offsets % tile_shape).sum() == 0 and (
+            shape % tile_shape
+        ).sum() == 0
+
+        if (
+            can_tile_completely
+            and self._partition_manager.use_complete_tiling(shape, tile_shape)
+        ):
+            color_shape = shape // tile_shape
+            color = offsets // tile_shape
+            offsets = Shape((0,) * shape.ndim)
+            complete = True
+        else:
+            color_shape = Shape((1,) * shape.ndim)
+            color = Shape((0,) * shape.ndim)
+            complete = False
+
+        tiling = Tiling(self._runtime, tile_shape, color_shape, offsets)
+        if transform is not None:
+            tiling = transform.invert_partition(tiling)
+            color = transform.invert_color(color)
+        return self.partition(tiling, complete).get_child(color)
+
+    def partition(self, partition, complete=False):
+        return StoragePartition(
+            self._runtime, self.level + 1, self, partition, complete=complete
+        )
+
+    def get_inline_allocation(self, shape, context=None, transform=None):
+        return self.data.get_inline_allocation(
+            shape, context=context, transform=transform
+        )
+
+
 class StorePartition(object):
-    def __init__(self, store, partition):
+    def __init__(self, runtime, store, partition):
+        self._runtime = runtime
         self._store = store
         self._partition = partition
 
@@ -426,9 +673,21 @@ class StorePartition(object):
     def partition(self):
         return self._partition
 
+    @property
+    def transform(self):
+        return self._store.transform
+
     def get_child_store(self, *indices):
-        point = Shape(indices)
-        return self._partition.get_child_store(self._store, point)
+        color = Shape(indices)
+        if self.transform is not None:
+            color = self.transform.invert_color(color)
+        return Store(
+            self._runtime,
+            self._store.type,
+            self._partition.get_child(color),
+            shape=self._partition.get_child_size(color),
+            transform=self._store.transform,
+        )
 
 
 class Store(object):
@@ -436,10 +695,8 @@ class Store(object):
         self,
         runtime,
         dtype,
+        storage,
         shape=None,
-        storage=None,
-        optimize_scalar=False,
-        parent=None,
         transform=None,
     ):
         """
@@ -458,42 +715,19 @@ class Store(object):
             A Shape object representing the shape of this store
         dtype : legate.core.types._DType
             Data type of this store
-        storage : Any[RegionField, Future, FutureMap]
+        storage : Storage
             A backing storage of this store
-        optimize_scalar : bool
-            Whether to use a Future for the storage when the volume is 1
+        trasnform : TransformStack
+            A stack of transforms that describe a view to the storage
 
         """
         assert isinstance(shape, Shape) or shape is None
         self._runtime = runtime
-        self._attachment_manager = runtime.attachment_manager
         self._partition_manager = runtime.partition_manager
         self._shape = shape
         self._dtype = dtype
-        assert (
-            storage is None
-            or isinstance(storage, RegionField)
-            or isinstance(storage, Future)
-        )
         self._storage = storage
-        assert (parent is None and transform is None) or (
-            parent is not None and transform is not None
-        )
-        self._parent = parent
         self._transform = transform
-        if isinstance(storage, Future):
-            assert shape is not None
-            assert self.get_root().shape.volume() <= 1
-            self._kind = Future
-        elif isinstance(storage, RegionField):
-            self._kind = RegionField
-        elif parent is not None:
-            self._kind = parent._kind
-        elif optimize_scalar and shape is not None and shape.volume() <= 1:
-            self._kind = Future
-        else:
-            self._kind = RegionField
-        self._inverse_transform = None
         self._partitions = {}
         self._key_partition = None
 
@@ -530,9 +764,9 @@ class Store(object):
     def kind(self):
         """
         Return the type of the Legion storage object backing the data in this
-        storage object: either Future, FutureMap, or RegionField.
+        storage object: either Future, or RegionField.
         """
-        return self._kind
+        return self._storage.kind
 
     @property
     def unbound(self):
@@ -540,157 +774,70 @@ class Store(object):
 
     @property
     def scalar(self):
-        return self._kind is Future and self._shape.volume() == 1
+        return self.kind is Future and self.shape.volume() == 1
 
     @property
     def storage(self):
         """
-        Return the Legion storage objects actually backing the data for this
-        Store. These will have exactly the type specified by `.kind`.
+        Return the Legion container backing this Store.
         """
-        # If someone is trying to retreive the storage of a store,
-        # we need to execute outstanding operations so that we know
-        # it has been initialized correctly.
-        self._runtime.flush_scheduling_window()
-        if self._storage is None:
-            if self.unbound:
-                raise RuntimeError(
-                    "Storage of a variable size store cannot be retrieved "
-                    "until it is passed to an operation"
-                )
-            # TODO: We should keep track of thunks and evaluate them
-            #       if necessary
-            if self._parent is None:
-                if self._kind is Future:
-                    raise ValueError(
-                        "Illegal to access the storage of an uninitialized "
-                        "Legate store of volume 1 with scalar optimization"
-                    )
-                else:
-                    self._storage = self._runtime.allocate_field(
-                        self._shape, self._dtype
-                    )
-            elif self._kind is Future:
-                self._storage = self._parent.storage
-            else:
-                tiling = Tiling(
-                    self._runtime, self.shape, Shape((1,) * self.ndim)
-                )
-                self._storage = self._get_tile(tiling)
-
-        return self._storage
+        if self.unbound:
+            raise RuntimeError(
+                "Storage of a variable size store cannot be retrieved "
+                "until it is passed to an operation"
+            )
+        return self._storage.data
 
     @property
-    def has_storage(self):
-        return self._storage is not None or (
-            self._parent is not None and self._parent.has_storage
-        )
+    def extents(self):
+        return self._storage.extents
+
+    @property
+    def transform(self):
+        return self._transform
 
     def attach_external_allocation(self, context, alloc, share):
-        if not isinstance(alloc, memoryview) and not isinstance(
-            alloc, DistributedAllocation
-        ):
+        if not isinstance(alloc, (memoryview, DistributedAllocation)):
             raise ValueError(
                 f"Only a memoryview or DistributedAllocation object can be "
                 f"attached, but got {alloc}"
             )
-        if self._parent is not None:
+        elif self._storage.has_parent:
             raise ValueError("Can only attach buffers to top-level Stores")
-        if self._kind is not RegionField:
+        elif self.kind is not RegionField:
             raise ValueError(
                 "Can only attach buffers to RegionField-backed Stores"
             )
-        if self.unbound:
+        elif self.unbound:
             raise ValueError("Cannot attach buffers to variable-size stores")
-        # If the storage has not been set, and this is a non-temporary
-        # singleton attachment, we can reuse an existing RegionField that was
-        # previously attached to this buffer.
-        # This is the only situation where we can attach the same buffer to
-        # two Stores, since they are both backed by the same RegionField.
-        if self._storage is None and share and isinstance(alloc, memoryview):
-            self._storage = self._attachment_manager.reuse_existing_attachment(
-                alloc
-            )
-            if self._storage is not None:
-                return
-        # Force the RegionField to be instantiated, do the attachment normally
-        self.storage.attach_external_allocation(context, alloc, share)
 
-    def get_root(self):
-        if self._parent is None:
-            return self
-        else:
-            return self._parent.get_root()
+        self._storage.attach_external_allocation(context, alloc, share)
 
     def has_fake_dims(self):
-        if self._parent is None:
-            return False
-        return self._parent.has_fake_dims() or self._transform.adds_fake_dims()
+        return self._transform.add_fake_dims()
 
     def comm_volume(self):
-        my_tile = self._get_tile_shape()
-        return my_tile.tile_shape.volume()
+        return self._storage.volume()
 
-    def set_storage(self, storage):
-        # We should never set region fields manually
-        assert (
-            self._kind is Future and type(storage) is Future
-        ) or self._storage is None
-        self._storage = storage
+    def set_storage(self, data):
+        self._storage.set_data(data)
         if self._shape is None:
-            assert isinstance(storage, RegionField)
-            self._shape = storage.shape
+            assert isinstance(data, RegionField)
+            self._shape = data.shape
         else:
-            assert isinstance(storage, Future)
-        if self._parent is not None:
-            self._parent.set_storage(storage)
+            assert isinstance(data, Future)
 
     def invert_partition(self, partition):
-        if self._parent is not None:
-            partition = self._transform.invert(partition)
-            return self._parent.invert_partition(partition)
-        else:
-            return partition
-
-    def _get_tile_shape(self):
-        tile = Tiling(self._runtime, self.shape, Shape((1,) * self.ndim))
-        return self.invert_partition(tile)
-
-    def _get_tile(self, tiling):
-        if self._parent is not None:
-            try:
-                tiling = self._transform.invert(tiling)
-            except NonInvertibleError:
-                raise RuntimeError(
-                    "This slice corresponds to a non-contiguous subset of the "
-                    "original store before transformation. Please make a copy "
-                    "of the transformed store and slice that copy instead."
-                )
-
-            return self._parent._get_tile(tiling)
-        else:
-            # If the tile covers the entire region, we don't need to create
-            # a subregion
-            if self.shape == tiling.tile_shape:
-                return self.storage
-            else:
-                return self.storage.get_tile(self.shape, tiling)
+        return self._transform.invert_partition(partition)
 
     def __str__(self):
-        storage = (
-            f"{self._kind.__name__}(uninitialized)"
-            if self._storage is None
-            else str(self._storage)
-        )
-        result = (
+        return (
             f"Store("
             f"shape: {self._shape}, "
             f"type: {self._dtype}, "
-            f"storage: {storage})"
+            f"storage: {self._storage}), "
+            f"transform: {self._transform})"
         )
-        if self._parent is not None:
-            result += f" <<=={self._transform}== {self._parent}"
-        return result
 
     def __repr__(self):
         return str(self)
@@ -699,15 +846,16 @@ class Store(object):
     # The extra_dim specifies the added dimension
     def promote(self, extra_dim, dim_size=1):
         transform = Promote(self._runtime, extra_dim, dim_size)
-        shape = transform.compute_shape(self._shape)
-        if self._shape == shape:
+        old_shape = self._shape
+        shape = transform.compute_shape(old_shape)
+        if old_shape == shape:
             return self
+        transform = TransformStack(transform, self._transform)
         return Store(
             self._runtime,
             self._dtype,
+            self._storage,
             shape=shape,
-            storage=None,
-            parent=self,
             transform=transform,
         )
 
@@ -716,15 +864,23 @@ class Store(object):
     def project(self, dim, index):
         assert dim < self.ndim
         transform = Project(self._runtime, dim, index)
-        shape = transform.compute_shape(self._shape)
-        if self._shape == shape:
+        old_shape = self._shape
+        shape = transform.compute_shape(old_shape)
+        if old_shape == shape:
             return self
+
+        transform = TransformStack(transform, self._transform)
+        tile_shape = old_shape.update(dim, 1)
+        offsets = Shape((0,) * self.ndim).update(dim, index)
+
+        storage = self._storage.slice(
+            old_shape, tile_shape, offsets, self._transform
+        )
         return Store(
             self._runtime,
             self._dtype,
+            storage,
             shape=shape,
-            storage=None,
-            parent=self,
             transform=transform,
         )
 
@@ -747,15 +903,22 @@ class Store(object):
             raise ValueError(f"Out of bounds: {sl} for a shape {self.shape}")
 
         transform = Shift(self._runtime, dim, -start)
-        shape = self._shape.update(dim, stop - start)
-        if self._shape == shape:
+        shape = self.shape
+        tile_shape = shape.update(dim, stop - start)
+        if shape == tile_shape:
             return self
+
+        transform = TransformStack(transform, self._transform)
+        offsets = Shape((0,) * self.ndim).update(dim, start)
+
+        storage = self._storage.slice(
+            shape, tile_shape, offsets, self._transform
+        )
         return Store(
             self._runtime,
             self._dtype,
-            shape=shape,
-            storage=None,
-            parent=self,
+            storage,
+            shape=tile_shape,
             transform=transform,
         )
 
@@ -772,13 +935,13 @@ class Store(object):
             return self
 
         transform = Transpose(self._runtime, axes)
-        shape = transform.compute_shape(self._shape)
+        shape = transform.compute_shape(self.shape)
+        transform = TransformStack(transform, self._transform)
         return Store(
             self._runtime,
             self._dtype,
+            self._storage,
             shape=shape,
-            storage=self._storage if self._kind is Future else None,
-            parent=self,
             transform=transform,
         )
 
@@ -787,97 +950,84 @@ class Store(object):
             return self
         s = Shape(shape)
         transform = Delinearize(self._runtime, dim, s)
-        if self._shape[dim] != s.volume():
+        shape = self.shape
+        if shape[dim] != s.volume():
             raise ValueError(
-                f"Dimension of size {self._shape[dim]} "
+                f"Dimension of size {shape[dim]} "
                 f"cannot be delinearized into {shape}"
             )
-        shape = transform.compute_shape(self._shape)
+        shape = transform.compute_shape(shape)
+        transform = TransformStack(transform, self._transform)
         return Store(
             self._runtime,
             self._dtype,
+            self._storage,
             shape=shape,
-            storage=None,
-            parent=self,
             transform=transform,
         )
 
     def get_inverse_transform(self):
-        if self._parent is None:
+        if self._transform is None:
             return None
         else:
-            if self._inverse_transform is None:
-                self._inverse_transform = (
-                    self._transform.get_inverse_transform(
-                        self.shape,
-                        self._parent.get_inverse_transform(),
-                    )
-                )
-            return self._inverse_transform
+            return self._transform.get_inverse_transform(self.shape.ndim)
 
     def get_inline_allocation(self, context=None):
-        assert self._kind is RegionField
+        assert self.kind is RegionField
         transform = self.get_inverse_transform()
-        return self.storage.get_inline_allocation(
-            self.shape, context=context, transform=transform
+        return self._storage.get_inline_allocation(
+            self.shape,
+            context=context,
+            transform=transform,
         )
 
     def overlaps(self, other):
-        my_root = self.get_root()
-        other_root = other.get_root()
-        if my_root is not other_root:
-            return False
+        return self._storage.overlaps(other._storage)
 
-        my_tile = self._get_tile_shape()
-        other_tile = other._get_tile_shape()
-
-        return my_tile.overlaps(other_tile)
-
-    def _serialize_transform(self, buf):
-        if self._parent is not None:
+    def serialize(self, buf):
+        buf.pack_bool(self.kind is Future)
+        buf.pack_32bit_int(self.ndim)
+        buf.pack_32bit_int(self._dtype.code)
+        if self._transform is not None:
             self._transform.serialize(buf)
-            self._parent._serialize_transform(buf)
         else:
             buf.pack_32bit_int(-1)
 
-    def serialize(self, buf):
-        buf.pack_bool(self._kind is Future)
-        buf.pack_32bit_int(self.ndim)
-        buf.pack_32bit_int(self._dtype.code)
-        self._serialize_transform(buf)
-
     def has_key_partition(self, restrictions):
-        if (
-            self._key_partition is not None
-            and self._key_partition.satisfies_restriction(restrictions)
-        ):
-            return True
-        elif self._parent is not None and self._transform.invertible:
-            restrictions = self._transform.invert_restrictions(restrictions)
-            return self._parent.has_key_partition(restrictions)
-        else:
-            return False
+        return False
+        # if (
+        #    self._key_partition is not None
+        #    and self._key_partition.satisfies_restriction(restrictions)
+        # ):
+        #    return True
+        # elif self._transform is not None and self._transform.invertible:
+        #    restrictions = self._transform.invert_restrictions(restrictions)
+        #    return self._parent.has_key_partition(restrictions)
+        # else:
+        #    return False
 
     def set_key_partition(self, key_partition):
-        self._key_partition = key_partition
+        pass
+        # self._key_partition = key_partition
 
     def reset_key_partition(self):
-        self._key_partition = None
+        pass
+        # self._key_partition = None
 
     def compute_key_partition(self, restrictions):
         # If this is effectively a scalar store, we don't need to partition it
-        if self._kind is Future or self.ndim == 0:
+        if self.kind is Future or self.ndim == 0:
             return NoPartition()
 
-        if (
-            self._key_partition is not None
-            and self._key_partition.satisfies_restriction(restrictions)
-        ):
-            return self._key_partition
-        elif self._parent is not None and self._transform.invertible:
-            restrictions = self._transform.invert_restrictions(restrictions)
-            partition = self._parent.compute_key_partition(restrictions)
-            return self._transform.convert(partition)
+        # if (
+        #    self._key_partition is not None
+        #    and self._key_partition.satisfies_restriction(restrictions)
+        # ):
+        #    return self._key_partition
+        # elif self._parent is not None and self._transform.invertible:
+        #    restrictions = self._transform.invert_restrictions(restrictions)
+        #    partition = self._parent.compute_key_partition(restrictions)
+        #    return self._transform.convert(partition)
 
         launch_shape = self._partition_manager.compute_launch_shape(
             self,
@@ -891,15 +1041,10 @@ class Store(object):
             )
             return Tiling(self._runtime, tile_shape, launch_shape)
 
-    def _invert_dimensions(self, dims):
-        if self._parent is None:
-            return dims
-        else:
-            dims = self._transform.invert_dimensions(dims)
-            return self._parent._invert_dimensions(dims)
-
     def _compute_projection(self, partition):
-        dims = self._invert_dimensions(tuple(range(self.ndim)))
+        dims = tuple(range(self.ndim))
+        if self._transform is not None:
+            dims = self._transform.invert_dimensions(dims)
         if len(dims) == self.ndim and all(
             idx == dim for idx, dim in enumerate(dims)
         ):
@@ -908,20 +1053,22 @@ class Store(object):
             return self._runtime.get_projection(self.ndim, dims)
 
     def find_restrictions(self):
-        if self._parent is None:
-            return (Restriction.UNRESTRICTED,) * self.ndim
-        else:
-            restrictions = self._parent.find_restrictions()
-            return self._transform.convert_restrictions(restrictions)
+        restrictions = (Restriction.UNRESTRICTED,) * self.extents.ndim
+        if self._transform is not None:
+            restrictions = self._transform.convert_restrictions(restrictions)
+        assert self.ndim == len(restrictions)
+        return restrictions
 
     def find_or_create_partition(self, functor):
-        assert self._kind is RegionField
+        assert self.kind is RegionField
         if functor in self._partitions:
             return self._partitions[functor]
 
         # Convert the partition to use the root's coordinate space
-        converted = self.invert_partition(functor)
-        complete = converted.is_complete_for(self._get_tile_shape())
+        converted = functor
+        if self._transform is not None:
+            converted = self._transform.invert_partition(functor)
+        complete = False  # converted.is_complete_for(self._get_tile_shape())
 
         # Then, find the right projection functor that maps points in the color
         # space of the child's partition to subregions of the converted
@@ -940,5 +1087,7 @@ class Store(object):
         if not isinstance(tile_shape, Shape):
             tile_shape = Shape(tile_shape)
         launch_shape = (self.shape + tile_shape - 1) // tile_shape
-        partition = Tiling(self._runtime, tile_shape, launch_shape)
-        return StorePartition(self, partition)
+        partition = self._storage.partition(
+            Tiling(self._runtime, tile_shape, launch_shape)
+        )
+        return StorePartition(self._runtime, self, partition)

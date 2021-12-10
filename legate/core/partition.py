@@ -167,6 +167,16 @@ class Tiling(object):
         inverted = store.invert_partition(self)
         return inverted.color_shape.volume() == self.color_shape.volume()
 
+    def has_color(self, color):
+        return color >= 0 and color < self._color_shape
+
+    def get_subregion_size(self, extents, color):
+        lo = self._tile_shape * color + self._offset
+        hi = self._tile_shape * (color + 1) + self._offset
+        lo = Shape(max(0, coord) for coord in lo)
+        hi = Shape(min(max, coord) for (max, coord) in zip(extents, hi))
+        return Shape(hi - lo)
+
     def translate(self, offset):
         return Tiling(
             self._runtime,
@@ -221,13 +231,3 @@ class Tiling(object):
             assert launch_ndim == 1
             proj_id = self._runtime.get_delinearize_functor()
         return Partition(part, proj_id)
-
-    def get_child_store(self, store, point):
-        offset = self._tile_shape * point + self._offset
-        child = store
-        for dim, (off, tile_ext, max_ext) in enumerate(
-            zip(offset, self._tile_shape, store.shape)
-        ):
-            sl = slice(max(off, 0), min(off + tile_ext, max_ext))
-            child = child.slice(dim, sl)
-        return child
