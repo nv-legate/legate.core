@@ -492,66 +492,50 @@ class Delinearize(Transform):
 
 
 class TransformStack(object):
-    def __init__(self, transform, parent=None):
+    def __init__(self, transform, parent):
         self._transform = transform
         self._parent = parent
         self._inverse_transform = {}
 
     def __str__(self):
-        if self._parent is None:
-            return str(self._transform)
-        else:
-            return f"{self._transform} >> {self._parent}"
+        return f"{self._transform} >> {self._parent}"
 
     def __repr__(self):
         return str(self)
 
     def add_fake_dims(self):
-        if self._parent is None:
-            return False
-        return self._transform.adds_fake_dims()
+        return self._transform.adds_fake_dims() or self._parent.add_fake_dims()
 
     @property
     def invertible(self):
-        return self._transform.invertible and (
-            True if self._parent is None else self._parent.invertible
-        )
+        return self._transform.invertible and self._parent.invertible
 
-    def invert_color(self, point):
-        partition = self._transform.invert_color(point)
-        if self._parent is not None:
-            partition = self._parent.invert_color(partition)
-        return partition
+    def invert_color(self, color):
+        return self._parent.invert_color(self._transform.invert_color(color))
 
     def invert_partition(self, partition):
-        partition = self._transform.invert(partition)
-        if self._parent is not None:
-            partition = self._parent.invert_partition(partition)
-        return partition
+        return self._parent.invert_partition(self._transform.invert(partition))
 
     def invert_dimensions(self, dims):
-        dims = self._transform.invert_dimensions(dims)
-        if self._parent is not None:
-            dims = self._parent.invert_dimensions(dims)
-        return dims
+        return self._parent.invert_dimensions(
+            self._transform.invert_dimensions(dims)
+        )
 
     def convert_restrictions(self, restrictions):
-        if self._parent is not None:
-            restrictions = self._parent.convert_restrictions(restrictions)
-        return self._transform.convert_restrictions(restrictions)
+        return self._transform.convert_restrictions(
+            self._parent.convert_restrictions(restrictions)
+        )
 
     def invert_restrictions(self, restrictions):
-        restrictions = self._transform.invert_restrictions(restrictions)
-        if self._parent is not None:
-            restrictions = self._parent.invert_restrictions(restrictions)
-        return restrictions
+        return self._parent.invert_restrictions(
+            self._transform.invert_restrictions(restrictions)
+        )
 
     def get_inverse_transform(self, ndim):
         if ndim not in self._inverse_transform:
             transform, ndim = self._transform.get_inverse_transform(ndim)
-            if self._parent is not None:
-                parent = self._parent.get_inverse_transform(ndim)
-                transform = transform.compose(parent)
+            parent = self._parent.get_inverse_transform(ndim)
+            transform = transform.compose(parent)
             self._inverse_transform[ndim] = transform
             return transform
         else:
@@ -562,7 +546,46 @@ class TransformStack(object):
 
     def serialize(self, buf):
         self._transform.serialize(buf)
-        if self._parent is not None:
-            self._parent.serialize(buf)
-        else:
-            buf.pack_32bit_int(-1)
+        self._parent.serialize(buf)
+
+
+class IdentityTransform(object):
+    def __init__(self):
+        pass
+
+    def __str__(self):
+        return "id"
+
+    def __repr__(self):
+        return str(self)
+
+    def add_fake_dims(self):
+        return False
+
+    @property
+    def invertible(self):
+        return True
+
+    def invert_color(self, color):
+        return color
+
+    def invert_partition(self, partition):
+        return partition
+
+    def invert_dimensions(self, dims):
+        return dims
+
+    def convert_restrictions(self, restrictions):
+        return restrictions
+
+    def invert_restrictions(self, restrictions):
+        return restrictions
+
+    def get_inverse_transform(self, ndim):
+        return AffineTransform(ndim, ndim, True)
+
+    def stack(self, transform):
+        return TransformStack(transform, self)
+
+    def serialize(self, buf):
+        buf.pack_32bit_int(-1)

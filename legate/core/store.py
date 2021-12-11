@@ -685,8 +685,8 @@ class StorePartition(object):
             self._runtime,
             self._store.type,
             self._partition.get_child(color),
+            self._store.transform,
             shape=self._partition.get_child_size(color),
-            transform=self._store.transform,
         )
 
 
@@ -696,8 +696,8 @@ class Store(object):
         runtime,
         dtype,
         storage,
+        transform,
         shape=None,
-        transform=None,
     ):
         """
         Unlike in Arrow where all data is backed by objects that
@@ -855,8 +855,8 @@ class Store(object):
             self._runtime,
             self._dtype,
             self._storage,
+            transform,
             shape=shape,
-            transform=transform,
         )
 
     # Take a hyperplane of an N-D store for a given index
@@ -880,8 +880,8 @@ class Store(object):
             self._runtime,
             self._dtype,
             storage,
+            transform,
             shape=shape,
-            transform=transform,
         )
 
     def slice(self, dim, sl):
@@ -918,8 +918,8 @@ class Store(object):
             self._runtime,
             self._dtype,
             storage,
+            transform,
             shape=tile_shape,
-            transform=transform,
         )
 
     def transpose(self, axes):
@@ -941,8 +941,8 @@ class Store(object):
             self._runtime,
             self._dtype,
             self._storage,
+            transform,
             shape=shape,
-            transform=transform,
         )
 
     def delinearize(self, dim, shape):
@@ -962,23 +962,16 @@ class Store(object):
             self._runtime,
             self._dtype,
             self._storage,
+            transform,
             shape=shape,
-            transform=transform,
         )
-
-    def get_inverse_transform(self):
-        if self._transform is None:
-            return None
-        else:
-            return self._transform.get_inverse_transform(self.shape.ndim)
 
     def get_inline_allocation(self, context=None):
         assert self.kind is RegionField
-        transform = self.get_inverse_transform()
         return self._storage.get_inline_allocation(
             self.shape,
             context=context,
-            transform=transform,
+            transform=self._transform.get_inverse_transform(self.shape.ndim),
         )
 
     def overlaps(self, other):
@@ -988,10 +981,7 @@ class Store(object):
         buf.pack_bool(self.kind is Future)
         buf.pack_32bit_int(self.ndim)
         buf.pack_32bit_int(self._dtype.code)
-        if self._transform is not None:
-            self._transform.serialize(buf)
-        else:
-            buf.pack_32bit_int(-1)
+        self._transform.serialize(buf)
 
     def has_key_partition(self, restrictions):
         return False
@@ -1042,9 +1032,7 @@ class Store(object):
             return Tiling(self._runtime, tile_shape, launch_shape)
 
     def _compute_projection(self, partition):
-        dims = tuple(range(self.ndim))
-        if self._transform is not None:
-            dims = self._transform.invert_dimensions(dims)
+        dims = self._transform.invert_dimensions(tuple(range(self.ndim)))
         if len(dims) == self.ndim and all(
             idx == dim for idx, dim in enumerate(dims)
         ):
@@ -1053,9 +1041,9 @@ class Store(object):
             return self._runtime.get_projection(self.ndim, dims)
 
     def find_restrictions(self):
-        restrictions = (Restriction.UNRESTRICTED,) * self.extents.ndim
-        if self._transform is not None:
-            restrictions = self._transform.convert_restrictions(restrictions)
+        restrictions = self._transform.convert_restrictions(
+            (Restriction.UNRESTRICTED,) * self.extents.ndim
+        )
         assert self.ndim == len(restrictions)
         return restrictions
 
@@ -1065,9 +1053,7 @@ class Store(object):
             return self._partitions[functor]
 
         # Convert the partition to use the root's coordinate space
-        converted = functor
-        if self._transform is not None:
-            converted = self._transform.invert_partition(functor)
+        converted = self._transform.invert_partition(functor)
         complete = False  # converted.is_complete_for(self._get_tile_shape())
 
         # Then, find the right projection functor that maps points in the color
@@ -1081,9 +1067,7 @@ class Store(object):
 
     def partition_by_tiling(self, tile_shape):
         if self.unbound:
-            raise TypeError(
-                "Unbound store cannot be partitioned without being initailized"
-            )
+            raise TypeError("Unbound store cannot be manually partitioned")
         if not isinstance(tile_shape, Shape):
             tile_shape = Shape(tile_shape)
         launch_shape = (self.shape + tile_shape - 1) // tile_shape

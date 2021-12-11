@@ -44,6 +44,7 @@ from .projection import analyze_projection, pack_projection_spec
 from .shape import Shape
 from .solver import Partitioner
 from .store import RegionField, Storage, Store
+from .transform import IdentityTransform
 
 
 # A Field holds a reference to a field in a region tree
@@ -1006,6 +1007,7 @@ class Runtime(object):
             self,
             dtype,
             storage,
+            IdentityTransform(),
             shape=shape,
         )
 
