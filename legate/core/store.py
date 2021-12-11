@@ -1,4 +1,4 @@
-# Copyright 2021 NVIDIA Corporation
+# uCopyright 2021 NVIDIA Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ from .legion import (
     ffi,
     legion,
 )
-from .partition import NoPartition, Restriction, Tiling
+from .partition import NoPartition, PartitionBase, Restriction, Tiling
 from .shape import Shape
 from .transform import (
     Delinearize,
@@ -452,6 +452,12 @@ class StoragePartition(object):
     def get_requirement(self, launch_ndim, store, proj_fn=None):
         return self._partition.get_requirement(launch_ndim, store, proj_fn)
 
+    def has_key_partition(self, restrictions):
+        return self._parent.has_key_partition(restrictions)
+
+    def find_key_partition(self, restrictions):
+        return self._parent.find_key_partition(restrictions)
+
 
 class Storage(object):
     def __init__(
@@ -482,6 +488,8 @@ class Storage(object):
         self._kind = kind
         self._parent = parent
         self._color = color
+        self._partitions = {}
+        self._key_partition = None
 
     def __str__(self):
         return (
@@ -504,6 +512,10 @@ class Storage(object):
     @property
     def dtype(self):
         return self._dtype
+
+    @property
+    def restrictions(self):
+        return (Restriction.UNRESTRICTED,) * self._extents.ndim
 
     @property
     def data(self):
@@ -658,6 +670,35 @@ class Storage(object):
             shape, context=context, transform=transform
         )
 
+    def find_key_partition(self, restrictions):
+        if (
+            self._key_partition is not None
+            and self._key_partition.satisfies_restriction(restrictions)
+        ):
+            return self._key_partition
+        elif self._parent is not None:
+            return self._parent.find_key_partition(restrictions)
+        else:
+            return None
+
+    def set_key_partition(self, partition):
+        self._key_partition = partition
+
+    def reset_key_partition(self):
+        self._key_partition = None
+
+    def find_or_create_legion_partition(self, functor):
+        assert self.kind is RegionField
+
+        if functor in self._partitions:
+            return self._partitions[functor]
+
+        complete = False  # converted.is_complete_for(self._get_tile_shape())
+        part = functor.construct(self.data.region, complete=complete)
+        self._partitions[functor] = part
+
+        return part
+
 
 class StorePartition(object):
     def __init__(self, runtime, store, partition):
@@ -730,6 +771,7 @@ class Store(object):
         self._transform = transform
         self._partitions = {}
         self._key_partition = None
+        self._projection = None
 
         if not self.unbound:
             if any(extent < 0 for extent in self._shape.extents):
@@ -984,86 +1026,90 @@ class Store(object):
         self._transform.serialize(buf)
 
     def has_key_partition(self, restrictions):
-        return False
-        # if (
-        #    self._key_partition is not None
-        #    and self._key_partition.satisfies_restriction(restrictions)
-        # ):
-        #    return True
-        # elif self._transform is not None and self._transform.invertible:
-        #    restrictions = self._transform.invert_restrictions(restrictions)
-        #    return self._parent.has_key_partition(restrictions)
-        # else:
-        #    return False
+        restrictions = self._transform.invert_restrictions(restrictions)
+        return self._storage.find_key_partition(restrictions) is not None
 
-    def set_key_partition(self, key_partition):
-        pass
-        # self._key_partition = key_partition
+    def set_key_partition(self, partition):
+        assert isinstance(partition, PartitionBase)
+        self._key_partition = partition
+        # We also update the storage's key partition for other stores
+        # sharing the same storage
+        self._storage.set_key_partition(
+            self._transform.invert_partition(partition)
+        )
 
     def reset_key_partition(self):
-        pass
-        # self._key_partition = None
+        self._storage.reset_partition()
 
     def compute_key_partition(self, restrictions):
+        if (
+            self._key_partition is not None
+            and self._key_partition.satisfies_restriction(restrictions)
+        ):
+            return self._key_partition
+
         # If this is effectively a scalar store, we don't need to partition it
         if self.kind is Future or self.ndim == 0:
-            return NoPartition()
+            self._key_partition = NoPartition()
+            return self._key_partition
 
-        # if (
-        #    self._key_partition is not None
-        #    and self._key_partition.satisfies_restriction(restrictions)
-        # ):
-        #    return self._key_partition
-        # elif self._parent is not None and self._transform.invertible:
-        #    restrictions = self._transform.invert_restrictions(restrictions)
-        #    partition = self._parent.compute_key_partition(restrictions)
-        #    return self._transform.convert(partition)
-
-        launch_shape = self._partition_manager.compute_launch_shape(
-            self,
-            restrictions,
-        )
-        if launch_shape is None:
-            return NoPartition()
-        else:
-            tile_shape = self._partition_manager.compute_tile_shape(
-                self.shape, launch_shape
+        # We need the transformations to be convertible so that we can map
+        # the storage partition to this store's coordinate space
+        if self._transform.convertible:
+            partition = self._storage.find_key_partition(
+                self._transform.invert_restrictions(restrictions)
             )
-            return Tiling(self._runtime, tile_shape, launch_shape)
-
-    def _compute_projection(self, partition):
-        dims = self._transform.invert_dimensions(tuple(range(self.ndim)))
-        if len(dims) == self.ndim and all(
-            idx == dim for idx, dim in enumerate(dims)
-        ):
-            return 0
         else:
-            return self._runtime.get_projection(self.ndim, dims)
+            partition = None
+
+        if partition is not None:
+            partition = self._transform.convert_partition(partition)
+            self._key_partition = partition
+            return partition
+        else:
+            launch_shape = self._partition_manager.compute_launch_shape(
+                self,
+                restrictions,
+            )
+            if launch_shape is None:
+                partition = NoPartition()
+            else:
+                tile_shape = self._partition_manager.compute_tile_shape(
+                    self.shape, launch_shape
+                )
+                partition = Tiling(self._runtime, tile_shape, launch_shape)
+            self._key_partition = partition
+            return partition
+
+    def _compute_projection(self):
+        if self._projection is None:
+            dims = self._transform.invert_dimensions(tuple(range(self.ndim)))
+            if len(dims) == self.ndim and all(
+                idx == dim for idx, dim in enumerate(dims)
+            ):
+                self._projection = 0
+            else:
+                self._projection = self._runtime.get_projection(
+                    self.ndim, dims
+                )
+
+        return self._projection
 
     def find_restrictions(self):
-        restrictions = self._transform.convert_restrictions(
-            (Restriction.UNRESTRICTED,) * self.extents.ndim
+        return self._transform.convert_restrictions(self._storage.restrictions)
+
+    def find_or_create_legion_partition(self, partition):
+        # Create a Legion partition for a given functor.
+        # Before we do that, we need to map the partition back
+        # to the original coordinate space.
+        legion_partition = self._storage.find_or_create_legion_partition(
+            self._transform.invert_partition(partition)
         )
-        assert self.ndim == len(restrictions)
-        return restrictions
-
-    def find_or_create_partition(self, functor):
-        assert self.kind is RegionField
-        if functor in self._partitions:
-            return self._partitions[functor]
-
-        # Convert the partition to use the root's coordinate space
-        converted = self._transform.invert_partition(functor)
-        complete = False  # converted.is_complete_for(self._get_tile_shape())
-
         # Then, find the right projection functor that maps points in the color
         # space of the child's partition to subregions of the converted
         # partition
-        proj = self._compute_projection(converted)
-
-        part = converted.construct(self.storage.region, complete=complete)
-        self._partitions[functor] = (part, proj)
-        return part, proj
+        proj = self._compute_projection()
+        return (legion_partition, proj)
 
     def partition_by_tiling(self, tile_shape):
         if self.unbound:

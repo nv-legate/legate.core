@@ -369,11 +369,8 @@ class ManualTask(Task):
             proj = output_part.get_requirement(
                 self.launch_ndim, output, output_proj
             )
-            partition = output_part
             tag = self.get_tag(strategy, output_part)
             launcher.add_output(output, proj, tag=tag)
-            # We update the key partition of a store only when it gets updated
-            output.set_key_partition(partition)
         for ((reduction, redop), reduction_part, reduction_proj) in zip(
             self._reductions, self._reduction_parts, self._reduction_projs
         ):

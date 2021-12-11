@@ -111,7 +111,7 @@ class TiledSplit(DataSplit):
             Shape(colors),
         )
         store.set_key_partition(functor)
-        part, proj = store.find_or_create_partition(functor)
+        part, proj = store.find_or_create_legion_partition(functor)
         assert proj == 0  # identity
         return part
 

@@ -33,7 +33,11 @@ class Restriction(IntEnum):
     UNRESTRICTED = 1
 
 
-class NoPartition(object):
+class PartitionBase(object):
+    pass
+
+
+class NoPartition(PartitionBase):
     @property
     def color_shape(self):
         return None
@@ -75,7 +79,7 @@ class Interval(object):
         return not (other._hi <= self._lo or self._hi <= other._lo)
 
 
-class Tiling(object):
+class Tiling(PartitionBase):
     def __init__(self, runtime, tile_shape, color_shape, offset=None):
         assert len(tile_shape) == len(color_shape)
         if offset is None:
@@ -220,7 +224,7 @@ class Tiling(object):
         return region.get_child(index_partition)
 
     def get_requirement(self, launch_ndim, store, proj_fn=None):
-        part, proj_id = store.find_or_create_partition(self)
+        part, proj_id = store.find_or_create_legion_partition(self)
         if proj_fn is not None:
             assert proj_id == 0
             assert self.color_shape.ndim == launch_ndim

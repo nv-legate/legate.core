@@ -57,7 +57,7 @@ class Shift(Transform):
         return False
 
     @property
-    def invertible(self):
+    def convertible(self):
         return True
 
     def invert(self, partition):
@@ -140,7 +140,7 @@ class Promote(Transform):
         return True
 
     @property
-    def invertible(self):
+    def convertible(self):
         return True
 
     def invert(self, partition):
@@ -228,7 +228,7 @@ class Project(Transform):
         return False
 
     @property
-    def invertible(self):
+    def convertible(self):
         return True
 
     def invert(self, partition):
@@ -316,7 +316,7 @@ class Transpose(Transform):
         return False
 
     @property
-    def invertible(self):
+    def convertible(self):
         return True
 
     def invert(self, partition):
@@ -397,7 +397,7 @@ class Delinearize(Transform):
         return False
 
     @property
-    def invertible(self):
+    def convertible(self):
         return False
 
     def invert(self, partition):
@@ -495,7 +495,6 @@ class TransformStack(object):
     def __init__(self, transform, parent):
         self._transform = transform
         self._parent = parent
-        self._inverse_transform = {}
 
     def __str__(self):
         return f"{self._transform} >> {self._parent}"
@@ -507,14 +506,28 @@ class TransformStack(object):
         return self._transform.adds_fake_dims() or self._parent.add_fake_dims()
 
     @property
-    def invertible(self):
-        return self._transform.invertible and self._parent.invertible
+    def convertible(self):
+        return self._transform.convertible and self._parent.convertible
 
     def invert_color(self, color):
         return self._parent.invert_color(self._transform.invert_color(color))
 
+    def convert_partition(self, partition):
+        return self._transform.convert(
+            self._parent.convert_partition(partition)
+        )
+
+    def _invert_partition(self, partition):
+        return self._parent._invert_partition(
+            self._transform.invert(partition)
+        )
+
     def invert_partition(self, partition):
-        return self._parent.invert_partition(self._transform.invert(partition))
+        if isinstance(partition, NoPartition):
+            return partition
+        return self._parent._invert_partition(
+            self._transform.invert(partition)
+        )
 
     def invert_dimensions(self, dims):
         return self._parent.invert_dimensions(
@@ -532,14 +545,9 @@ class TransformStack(object):
         )
 
     def get_inverse_transform(self, ndim):
-        if ndim not in self._inverse_transform:
-            transform, ndim = self._transform.get_inverse_transform(ndim)
-            parent = self._parent.get_inverse_transform(ndim)
-            transform = transform.compose(parent)
-            self._inverse_transform[ndim] = transform
-            return transform
-        else:
-            return self._inverse_transform[ndim]
+        transform, ndim = self._transform.get_inverse_transform(ndim)
+        parent = self._parent.get_inverse_transform(ndim)
+        return transform.compose(parent)
 
     def stack(self, transform):
         return TransformStack(transform, self)
@@ -563,11 +571,17 @@ class IdentityTransform(object):
         return False
 
     @property
-    def invertible(self):
+    def convertible(self):
         return True
 
     def invert_color(self, color):
         return color
+
+    def convert_partition(self, partition):
+        return partition
+
+    def _invert_partition(self, partition):
+        return partition
 
     def invert_partition(self, partition):
         return partition
