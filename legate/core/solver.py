@@ -273,11 +273,6 @@ class Partitioner(object):
                 -store.comm_volume(),
                 not store.has_key_partition(all_restrictions[unknown]),
             )
-            #return (
-            #    store.comm_volume(),
-            #    store._key_partition is None,
-            #    not store.has_key_partition(all_restrictions[unknown]),
-            #)
 
         unknowns = sorted(unknowns, key=cost)
 

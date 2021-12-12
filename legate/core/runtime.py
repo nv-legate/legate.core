@@ -757,10 +757,9 @@ class FusionChecker(object):
                 output.set_key_partition(partition)
                 key_part = partition
                 for input in op._inputs:
-                    if input.shape==output.shape:
+                    #check if input and output should be aligned
+                    if op.has_constraint(input, output):
                         input.set_key_partition(key_part)
-            #if len(op.inputs)>1:
-            #    proj = strategy.get_projection(op._input_parts[1])
             self.strategies.append(strategy)
         self.strategies.reverse()
         """
@@ -771,16 +770,16 @@ class FusionChecker(object):
         """  
         #TODO: have all constraints use "streamApply"
         # this is a more efficient way/interface for generating fusable intervals   
-        streamApply = False
+        streamApply = True
         #starttime = datetime.datetime.now()
         if not streamApply:
             results = [constraint.apply(self.contexts, self.runtime, self.ops, self.partitioners, self.strategies) for constraint in self.constraints]
             all_fusable = [result[0] for result in results]
             interval_sets = [result[1] for result in results]
         else:
-            alpha = self.constraints[0].apply(self.contexts, self.runtime, self.ops, self.partitioners, self.strategies)
-            beta = self.constraints[1].apply2(self.contexts, self.runtime, self.ops, alpha[1],self.partitioners, self.strategies)
-            beta = self.constraints[2].apply2(self.contexts, self.runtime, self.ops, beta[1], self.partitioners, self.strategies)
+            windows = [(0, len(self.ops))]
+            for constraint in self.constraints:
+                windows = constraint.apply2(self.contexts, self.runtime, self.ops, windows, self.partitioners, self.strategies)
         """
         stoptime = datetime.datetime.now()
         delta=stoptime-starttime
@@ -804,7 +803,7 @@ class FusionChecker(object):
                 curr_set=newset
             fusable,final_set = self.supress_small_fusions(curr_set, self.runtime._fusion_threshold)
         else:
-            fusable,final_set = self.supress_small_fusions(beta[1], self.runtime._fusion_threshold)
+            fusable,final_set = self.supress_small_fusions(windows, self.runtime._fusion_threshold)
          
         """
         stoptime = datetime.datetime.now()
@@ -862,14 +861,42 @@ class AllValidOps(FusionConstraint):
         fusability_exists = reduce(lambda x,y: x or y,[int(op._task_id) in self.validIDs for op in ops])
         return (fusability_exists, fusable_intervals)
 
+    def apply2(self, contexts, runtime, ops, baseIntervals, partitioners, strategies):
+        fusable_intervals = []
+        results = [int(op._task_id) in self.validIDs for op in ops]
+        for baseInterval in baseIntervals:
+            start, end = baseInterval[0], baseInterval[0]
+            while end<baseInterval[1]:
+                result = results[end]
+                if result and (ops[end]._task_id not in self.terminals):
+                    end=end+1
+                else:
+                    if start<end:
+                        if ops[end]._task_id in self.terminals:
+                            fusable_intervals.append((start,end+1))
+                            start=end+1
+                            end=start
+                        else:
+                            fusable_intervals.append((start,end))
+                            start=end 
+                            end=start
+                    else:
+                        fusable_intervals.append((start, start+1))
+                        start=start+1
+                        end = start
+            if start<end:
+                fusable_intervals.append((start,end))
+        return fusable_intervals
+
+
+
+
 class IdenticalProjection(FusionConstraint):
     """Fusion rule that only ops with identical
        projection functors can be fused"""
 
     def apply(self, contexts, runtime, ops, partitioners, strategies):
-        linkset = {}
         store_to_ops = {}
-        base_window = [0, len(ops)]
         
         intervals = []
         start=0
@@ -910,7 +937,53 @@ class IdenticalProjection(FusionConstraint):
         if start<end:
             intervals.append((start,end))
         return True, intervals
-         
+     
+    
+    def apply2(self, contexts, runtime, ops, baseIntervals,  partitioners, strategies):
+        store_to_ops = {}
+        
+        intervals = []
+        i=0
+        #for i, op in enumerate(ops):
+        for baseInterval in baseIntervals:
+            start, end = baseInterval
+            i=start
+            while i<end:
+                op=ops[i]
+                bufferSet = {}
+                # find the set union of input and output buffers for the op
+                for input, part in zip(op._inputs, op._input_parts):
+                    if input not in bufferSet:
+                        proj = strategies[i].get_projection(part)
+                        if hasattr(proj, 'part'):
+                            bufferSet[input]=proj
+                for output, part in zip(op._outputs, op._output_parts):
+                    if output not in bufferSet:
+                        proj = strategies[i].get_projection(part)
+                        if hasattr(proj, 'part'):
+                            bufferSet[output]=proj
+                if i==0: #we only iterate from i==1 onwards
+                    i+=1
+                    continue
+                # for each op in the union, record its associated transform
+                for buffer in bufferSet.keys():
+                    proj = bufferSet[buffer]
+                    matrix = proj.part.index_partition.functor.transform.trans
+                    if buffer not in store_to_ops:
+                        store_to_ops[buffer] = matrix
+                    else: #we see a new projection for the same buffer
+                        if not np.array_equal(matrix, store_to_ops[buffer]):
+                            intervals.append((start, i))
+                            start=i
+                            i=start+1
+                            store_to_ops={}
+                            continue
+                i+=1
+            if start<end:
+                intervals.append((start,end))
+        return intervals
+
+
 
 class IdenticalLaunchShapes(FusionConstraint):
     """Fusion rule that only ops with identical
@@ -956,7 +1029,7 @@ class IdenticalLaunchShapes(FusionConstraint):
                     i+=1
             if start<end:
                 intervals.append((start, end))
-        return True, intervals
+        return intervals
 
 class ValidProducerConsumer(FusionConstraint):
     """In a fused op, there cannot be a producer consumer
@@ -1036,7 +1109,7 @@ class ValidProducerConsumer(FusionConstraint):
             #end while
             if start<end:
                 intervals.append((start,end))
-        return True, intervals
+        return intervals
  
 
 
@@ -1241,6 +1314,7 @@ class Runtime(object):
             for r,reduction in enumerate(op._reductions):
                 offsets.append(-(r+1)) 
  
+            #todo: this will have to be generalized to work with any library
             op_ids.append(numpy_context.get_task_id(op._task_id._value_))
             offset_start+=(len(op._inputs)+len(op._outputs))
             input_start+=len(op._inputs)
@@ -1287,10 +1361,15 @@ class Runtime(object):
                 super_keystore = super_keystore.union(partitions[j]._key_parts)
             super_strategies.append(Strategy(partitions[start]._launch_shape, super_strat, super_fspace, super_keystore))
        
-        #hacky way to get numpy context and designated fused task id
+       
+        #once fusion in the core is playing nicely with the mapepr
+        #the following two lines will be removed, and be replaced 
+        #with the 2 subsequent (commented out) lines
         fused_id = self._contexts["cunumeric"].fused_id
         numpy_context = self._contexts["cunumeric"]
-        numpy_runtime = numpy_context._library.runtime
+        #fused_id = self._contexts["legate.core"]._library.fused_id
+        #numpy_context = self._contexts["legate.core"]
+
         opID=0
         new_op_list = []
         for i,fusable_set in enumerate(fusable_sets):
@@ -1366,6 +1445,7 @@ class Runtime(object):
    
     def _schedule(self, ops, force_eval=False):
         ids = [op._task_id for op in ops]
+        #print(ids)
         #case 1: try fusing current window of tasks
         strats = False
         if len(ops)>=2 and (not force_eval):

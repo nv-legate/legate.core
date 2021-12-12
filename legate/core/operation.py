@@ -151,6 +151,12 @@ class Operation(object):
     def add_constraint(self, constraint):
         self._constraints.append(constraint)
 
+    def has_constraint(self, store1, store2):
+        part1 = self._get_unique_partition(store1)
+        part2 = self._get_unique_partition(store2)
+        cons = [str(con) for con in self._constraints]
+        return (str(part1 == part2) in cons) or (str(part2==part1) in cons)
+
     def execute(self):
         self._context.runtime.submit(self)
 
