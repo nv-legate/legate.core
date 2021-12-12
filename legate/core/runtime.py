@@ -746,7 +746,6 @@ class FusionChecker(object):
         return fusable, final_set
 
     def can_fuse(self):
-        #starttime = datetime.datetime.now()
         for op in reversed(self.ops):
             must_be_single = any(len(gop.scalar_outputs) > 0 for gop in [op])
             partitioner = Partitioner(self.runtime, [op], must_be_single=must_be_single)
@@ -756,70 +755,29 @@ class FusionChecker(object):
                 partition = strategy.get_partition(part)
                 output.set_key_partition(partition)
                 key_part = partition
+                #check if input and output should be aligned
                 for input in op._inputs:
-                    #check if input and output should be aligned
                     if op.has_constraint(input, output):
                         input.set_key_partition(key_part)
             self.strategies.append(strategy)
         self.strategies.reverse()
-        """
-        stoptime = datetime.datetime.now()
-        delta=stoptime-starttime
-        total = delta.total_seconds() * 1000.0
-        print("partime", total, len(self.ops))
-        """  
-        #TODO: have all constraints use "streamApply"
-        # this is a more efficient way/interface for generating fusable intervals   
-        streamApply = True
-        #starttime = datetime.datetime.now()
-        if not streamApply:
-            results = [constraint.apply(self.contexts, self.runtime, self.ops, self.partitioners, self.strategies) for constraint in self.constraints]
-            all_fusable = [result[0] for result in results]
-            interval_sets = [result[1] for result in results]
-        else:
-            windows = [(0, len(self.ops))]
-            for constraint in self.constraints:
-                windows = constraint.apply2(self.contexts, self.runtime, self.ops, windows, self.partitioners, self.strategies)
-        """
-        stoptime = datetime.datetime.now()
-        delta=stoptime-starttime
-        total = delta.total_seconds() * 1000.0
-        print("applytime", total)
-        """
-        starttime = datetime.datetime.now()
+
+        windows = [(0, len(self.ops))]
+        for constraint in self.constraints:
+            windows = constraint.apply(self.contexts, self.runtime, self.ops, windows, self.partitioners, self.strategies)
   
-        #intersect intervals
-        #this is an inefficent way of doing this,
-        if not streamApply:
-            curr_set = interval_sets[0]
-            for interval_set in interval_sets[1:]:
-                newset = []
-                for aset in curr_set:
-                    for bset in interval_set:
-                        if not (aset[0] > bset[1] or bset[0] > aset[1]): 
-                            news = max(aset[0], bset[0])
-                            newe = min(aset[1], bset[1])
-                            newset.append((news, newe))
-                curr_set=newset
-            fusable,final_set = self.supress_small_fusions(curr_set, self.runtime._fusion_threshold)
-        else:
-            fusable,final_set = self.supress_small_fusions(windows, self.runtime._fusion_threshold)
-         
-        """
-        stoptime = datetime.datetime.now()
-        delta=stoptime-starttime
-        total = delta.total_seconds() * 1000.0
-        print("filtertime", total)
-        """
+        fusable,final_set = self.supress_small_fusions(windows, self.runtime._fusion_threshold)
         return fusable, final_set, self.strategies
 
+
 class FusionConstraint(object):
-    def apply(self, contexts, runtime, ops, partitioners, strategies):
+    def apply(self, contexts, runtime, ops, baseIntervals, partitioners, strategies):
         """"
          Abstract class for determining a rule that constrains
          which legate operations can be fused
          """
         raise NotImplementedError("Implement in derived classes")
+
 
 class AllValidOps(FusionConstraint):
     """
@@ -833,35 +791,7 @@ class AllValidOps(FusionConstraint):
         self.validIDs.add(10) #Fill op
         self.validIDs.add(20) #Unary op
 
-    def apply(self, contexts, runtime, ops, partitioners, strategies):
-        results = [int(op._task_id) in self.validIDs for op in ops]
-
-        fusable_intervals = []
-        start, end =0,0
-        while end<len(results):
-            result = results[end]
-            if result and (ops[end]._task_id not in self.terminals):
-                end=end+1
-            else:
-                if start<end:
-                    if ops[end]._task_id in self.terminals:
-                        fusable_intervals.append((start,end+1))
-                        start=end+1
-                        end=start
-                    else:
-                        fusable_intervals.append((start,end))
-                        start=end 
-                        end=start
-                else:
-                    fusable_intervals.append((start, start+1))
-                    start=start+1
-                    end = start
-        if start<end:
-            fusable_intervals.append((start,end))
-        fusability_exists = reduce(lambda x,y: x or y,[int(op._task_id) in self.validIDs for op in ops])
-        return (fusability_exists, fusable_intervals)
-
-    def apply2(self, contexts, runtime, ops, baseIntervals, partitioners, strategies):
+    def apply(self, contexts, runtime, ops, baseIntervals, partitioners, strategies):
         fusable_intervals = []
         results = [int(op._task_id) in self.validIDs for op in ops]
         for baseInterval in baseIntervals:
@@ -889,62 +819,15 @@ class AllValidOps(FusionConstraint):
         return fusable_intervals
 
 
-
-
 class IdenticalProjection(FusionConstraint):
     """Fusion rule that only ops with identical
        projection functors can be fused"""
 
-    def apply(self, contexts, runtime, ops, partitioners, strategies):
-        store_to_ops = {}
-        
-        intervals = []
-        start=0
-        end = len(ops)
-        i=0
-        #for i, op in enumerate(ops):
-        while i<end:
-            op=ops[i]
-            bufferSet = {}
-            # find the set union of input and output buffers for the op
-            for input, part in zip(op._inputs, op._input_parts):
-                if input not in bufferSet:
-                    proj = strategies[i].get_projection(part)
-                    if hasattr(proj, 'part'):
-                        bufferSet[input]=proj
-            for output, part in zip(op._outputs, op._output_parts):
-                if output not in bufferSet:
-                    proj = strategies[i].get_projection(part)
-                    if hasattr(proj, 'part'):
-                        bufferSet[output]=proj
-            if i==0: #we only iterate from i==1 onwards
-                i+=1
-                continue
-            # for each op in the union, record its associated transform
-            for buffer in bufferSet.keys():
-                proj = bufferSet[buffer]
-                matrix = proj.part.index_partition.functor.transform.trans
-                if buffer not in store_to_ops:
-                    store_to_ops[buffer] = matrix
-                else: #we see a new projection for the same buffer
-                    if not np.array_equal(matrix, store_to_ops[buffer]):
-                        intervals.append((start, i))
-                        start=i
-                        i=start+1
-                        store_to_ops={}
-                        continue
-            i+=1
-        if start<end:
-            intervals.append((start,end))
-        return True, intervals
-     
-    
-    def apply2(self, contexts, runtime, ops, baseIntervals,  partitioners, strategies):
+    def apply(self, contexts, runtime, ops, baseIntervals,  partitioners, strategies):
         store_to_ops = {}
         
         intervals = []
         i=0
-        #for i, op in enumerate(ops):
         for baseInterval in baseIntervals:
             start, end = baseInterval
             i=start
@@ -984,32 +867,11 @@ class IdenticalProjection(FusionConstraint):
         return intervals
 
 
-
 class IdenticalLaunchShapes(FusionConstraint):
     """Fusion rule that only ops with identical
        launch shapes can be fused"""
-    def apply(self, contexts, runtime, ops, partitioners, strategies):
-        launch_shapes = []
-        for i in range(len(ops)):
-            launch_shapes.append(strategies[i]._launch_shape)
-        intervals =[]
-        i=1
-        start=0
-        end = len(launch_shapes)
-        while i<end:
-            leftNone = launch_shapes[i] is None and (launch_shapes[i-1] is not None)
-            rightNone = launch_shapes[i-1] is None and (launch_shapes[i] is not None)
-            if leftNone or rightNone or launch_shapes[i]!=launch_shapes[i-1]:
-                intervals.append((start, i))
-                start=i
-                i=start+1
-            else:
-                i+=1
-        if start<end:
-            intervals.append((start, end))
-        return True, intervals
 
-    def apply2(self, contexts, runtime, ops, baseIntervals, partitioners, strategies):
+    def apply(self, contexts, runtime, ops, baseIntervals, partitioners, strategies):
         launch_shapes = []
         for i in range(len(ops)):
             launch_shapes.append(strategies[i]._launch_shape)
@@ -1031,49 +893,12 @@ class IdenticalLaunchShapes(FusionConstraint):
                 intervals.append((start, end))
         return intervals
 
+
 class ValidProducerConsumer(FusionConstraint):
     """In a fused op, there cannot be a producer consumer
         relationship between different views of the same buffers"""
 
-    def apply(self, contexts, runtime, ops, partitioners, strategies):
-        childMap = {}
-        intervals = []
-        i, start=0, 0
-        end = len(ops)
-        def getRoot(store):
-            while store._parent:
-                store = store._parent
-            return store
-        
-        while i<end:
-            op = ops[i] 
-            #check consumers view of root array
-            #is the same as the producers view
-            isSame = True
-            for input in op._inputs:
-                inputRoot = getRoot(input) 
-                if inputRoot in childMap:
-                    isSame = isSame and childMap[inputRoot] == input
-
-            if not isSame:                     
-                intervals.append((start, i))
-                start=i
-                i=start+1
-                childMap = {}
-            else:
-                i=i+1 
-            #register producers view of buffer
-            for output in op._outputs:
-                outputRoot = getRoot(output)
-                if outputRoot not in childMap:  
-                    childMap[outputRoot] = output
-            #end while
-        if start<end:
-           intervals.append((start,end))
-        return True, intervals
- 
-
-    def apply2(self, contexts, runtime, ops, baseIntervals,  partitioners, strategies):
+    def apply(self, contexts, runtime, ops, baseIntervals,  partitioners, strategies):
         childMap = {}
         intervals = []
         i, start=0, 0
@@ -1157,9 +982,9 @@ class Runtime(object):
         # Legate operations.
         self._outstanding_ops = []
 
-        #self._window_size = self._core_context.get_tunable(
-        #    legion.LEGATE_CORE_TUNABLE_WINDOW_SIZE,
-        #    ty.uint32,)
+        self._window_size = self._core_context.get_tunable(
+            legion.LEGATE_CORE_TUNABLE_WINDOW_SIZE,
+            ty.uint32,)
         self._window_size=50
         self._fusion_threshold =2
         #used for logging window and fusion lengths
@@ -1342,8 +1167,7 @@ class Runtime(object):
         fusion_checker = FusionChecker(ops, self._contexts, self)
         fusion_checker.register_constraint(AllValidOps())
         fusion_checker.register_constraint(IdenticalLaunchShapes())
-        #this constraints doesn't seem to be necessary?
-        #fusion_checker.register_constraint(IdenticalProjection())
+        fusion_checker.register_constraint(IdenticalProjection())
         fusion_checker.register_constraint(ValidProducerConsumer())
         can_fuse,fusable_sets, partitions = fusion_checker.can_fuse()
                 
@@ -1410,15 +1234,8 @@ class Runtime(object):
                     opID+=1
                 new_op_list.append(fused_task)
         strats=[]
-        """
-        stoptime = datetime.datetime.now()
-        delta=stoptime-starttime
-        total = delta.total_seconds() * 1000.0
-        print("buildtime", total)
-        """
    
         redoPar=False
-        #starttime = datetime.datetime.now()
         for i,fused_task in enumerate(new_op_list):
             if redoPar:
                 must_be_single = any(len(gop.scalar_outputs) > 0 for gop in [fused_task])
@@ -1429,11 +1246,6 @@ class Runtime(object):
             else:
                 fused_task.strategy = super_strategies[i]
                 strats.append( super_strategies[i])
-        #stoptime = datetime.datetime.now()
-        #delta=stoptime-starttime
-        #total = delta.total_seconds() * 1000.0
-        #print("repartime", total)
-        #pr.disable()
         return new_op_list, strats       
 
     def _launch_outstanding(self, force_eval=True):        
