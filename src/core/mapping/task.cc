@@ -121,6 +121,7 @@ Task::Task(const LegionTask* task,
   : task_(task), library_(library)
 {
   MapperDeserializer dez(task, runtime, context);
+  fusionMetadata = dez.unpack<FusionMetadata>(); 
   inputs_     = dez.unpack<std::vector<Store>>();
   outputs_    = dez.unpack<std::vector<Store>>();
   reductions_ = dez.unpack<std::vector<Store>>();

@@ -20,7 +20,11 @@ from .launcher import CopyLauncher, TaskLauncher
 from .legion import Future
 from .store import Store
 from .utils import OrderedSet
-
+from .legion import (
+    FieldSpace,
+    Future
+)
+ 
 
 class Operation(object):
     def __init__(self, context, mapper_id=0, op_id=0):
@@ -30,6 +34,7 @@ class Operation(object):
         self._inputs = []
         self._outputs = []
         self._reductions = []
+        self._is_fused = False
         self._input_parts = []
         self._output_parts = []
         self._reduction_parts = []
@@ -145,11 +150,18 @@ class Operation(object):
     def add_constraint(self, constraint):
         self._constraints.append(constraint)
 
+    def has_constraint(self, store1, store2):
+        part1 = self._get_unique_partition(store1)
+        part2 = self._get_unique_partition(store2)
+        cons = [str(con) for con in self._constraints]
+        return (str(part1 == part2) in cons) or (str(part2==part1) in cons)
+
     def execute(self):
         self._context.runtime.submit(self)
 
     def get_tag(self, strategy, part):
         if strategy.is_key_part(part):
+            return 0
             return 1  # LEGATE_CORE_KEY_STORE_TAG
         else:
             return 0
@@ -180,6 +192,7 @@ class Task(Operation):
         self._task_id = task_id
         self._scalar_args = []
         self._futures = []
+        self._fusion_metadata = None
 
     def get_name(self):
         libname = self.context.library.get_name()
@@ -195,14 +208,29 @@ class Task(Operation):
     def add_future(self, future):
         self._futures.append(future)
 
+    def add_fusion_metadata(self, fusion_metadata):
+        self._is_fused = True
+        self._fusion_metadata = fusion_metadata
+
     def launch(self, strategy):
         launcher = TaskLauncher(self.context, self._task_id, self.mapper_id)
 
-        for input, input_part in zip(self._inputs, self._input_parts):
+        if self._is_fused:
+            launcher.add_fusion_metadata(self._is_fused, self._fusion_metadata)
+        if  self._is_fused: #fused ops re-use encapsulated unfused partitions
+            input_parts = self._unfused_input_parts
+            output_parts = self._unfused_output_parts
+            reduction_parts = self._unfused_reduction_parts
+        else:
+            input_parts = self._input_parts
+            output_parts = self._output_parts
+            reduction_parts = self._reduction_parts
+
+        for input, input_part in zip(self._inputs, input_parts):
             proj = strategy.get_projection(input_part)
             tag = self.get_tag(strategy, input_part)
             launcher.add_input(input, proj, tag=tag)
-        for output, output_part in zip(self._outputs, self._output_parts):
+        for output, output_part in zip(self._outputs, output_parts):
             if output.unbound:
                 continue
             proj = strategy.get_projection(output_part)
@@ -212,7 +240,7 @@ class Task(Operation):
             # We update the key partition of a store only when it gets updated
             output.set_key_partition(partition)
         for ((reduction, redop), reduction_part) in zip(
-            self._reductions, self._reduction_parts
+            self._reductions, reduction_parts
         ):
             partition = strategy.get_partition(reduction_part)
             can_read_write = partition.is_disjoint_for(strategy, reduction)

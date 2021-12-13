@@ -45,6 +45,7 @@ RegionField& RegionField::operator=(RegionField&& other) noexcept
   dim_       = other.dim_;
   pr_        = other.pr_;
   fid_       = other.fid_;
+
   readable_  = other.readable_;
   writable_  = other.writable_;
   reducible_ = other.reducible_;

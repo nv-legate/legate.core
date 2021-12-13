@@ -51,7 +51,7 @@ class Shift : public StoreTransform {
 
  private:
   int32_t dim_;
-  int64_t offset_;
+  int64_t offset_; 
 };
 
 class Promote : public StoreTransform {

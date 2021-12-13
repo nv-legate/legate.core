@@ -69,8 +69,8 @@ if args.recurse:
     # Remove the recurse argument from the list
     sys.argv.remove("--recurse")
     setup(
-        name="legate.core",
-        version="0.1",
+        name="legate-core",
+        version="21.10.00",
         packages=["legate", "legate.core", "legate.timing"],
         cmdclass={"build_py": my_build_py},
     )

@@ -87,6 +87,7 @@ class TaskDeserializer : public BaseDeserializer<TaskDeserializer> {
   void _unpack(FutureWrapper& value);
   void _unpack(RegionField& value);
   void _unpack(OutputRegionField& value);
+  void _unpack(FusionMetadata& value);
 
  private:
   Span<const Legion::Future> futures_;
@@ -109,6 +110,7 @@ class MapperDeserializer : public BaseDeserializer<MapperDeserializer> {
   void _unpack(Store& value);
   void _unpack(FutureWrapper& value);
   void _unpack(RegionField& value, bool is_output_region);
+  void _unpack(FusionMetadata& value);
 
  private:
   Legion::Mapping::MapperRuntime* runtime_;

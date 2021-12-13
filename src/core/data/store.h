@@ -17,7 +17,6 @@
 #pragma once
 
 #include "legion.h"
-
 #include "core/data/buffer.h"
 #include "core/data/transform.h"
 #include "core/task/return.h"
@@ -154,6 +153,7 @@ class RegionField {
   bool readable_{false};
   bool writable_{false};
   bool reducible_{false};
+
 };
 
 class OutputRegionField {
@@ -177,6 +177,7 @@ class OutputRegionField {
   bool bound_{false};
   Legion::OutputRegion out_{};
   Legion::FieldID fid_{-1U};
+
 };
 
 class FutureWrapper {
@@ -238,6 +239,7 @@ class FutureWrapper {
  private:
   mutable bool uninitialized_{true};
   mutable void* rawptr_{nullptr};
+
 };
 
 class Store {
@@ -329,7 +331,27 @@ class Store {
   bool readable_{false};
   bool writable_{false};
   bool reducible_{false};
+
 };
+
+//containts prefix sums for a sub-op
+//to index into its own data
+struct FusionMetadata {
+    public:
+    bool isFused;
+    int32_t nOps;
+    int32_t nBuffers;
+    std::vector<int32_t> inputStarts;
+    std::vector<int32_t> outputStarts;
+    std::vector<int32_t> offsetStarts;
+    std::vector<int32_t> offsets; // can contain negative elements
+    std::vector<int32_t> reductionStarts;
+    std::vector<int32_t> scalarStarts;
+    std::vector<int32_t> futureStarts;
+    std::vector<int32_t> opIDs;
+};
+
+
 
 }  // namespace legate
 

@@ -17,6 +17,8 @@
 #pragma once
 
 #include "legion.h"
+#include "core/data/scalar.h"
+#include "core/data/store.h"
 
 #include "core/task/return.h"
 
@@ -24,6 +26,7 @@ namespace legate {
 
 class Store;
 class Scalar;
+//struct FusionMetadata;
 
 struct ResourceConfig {
   int64_t max_tasks{1000000};
@@ -32,6 +35,7 @@ struct ResourceConfig {
   int64_t max_projections{0};
   int64_t max_shardings{0};
 };
+
 
 class ResourceScope {
  public:
@@ -107,10 +111,17 @@ class LibraryContext {
 // of the Legion API.
 class TaskContext {
  public:
+  TaskContext() = default;
+
   TaskContext(const Legion::Task* task,
               const std::vector<Legion::PhysicalRegion>& regions,
               Legion::Context context,
               Legion::Runtime* runtime);
+
+  TaskContext(const Legion::Task* task, const std::vector<Legion::PhysicalRegion> regions)
+  : task_(task), regions_(regions) 
+ {}
+
 
  public:
   std::vector<Store>& inputs() { return inputs_; }
@@ -121,13 +132,14 @@ class TaskContext {
  public:
   ReturnValues pack_return_values() const;
 
- private:
+ public:
   const Legion::Task* task_;
   const std::vector<Legion::PhysicalRegion>& regions_;
   Legion::Context context_;
   Legion::Runtime* runtime_;
+  FusionMetadata fusionMetadata;
 
- private:
+ public:
   std::vector<Store> inputs_, outputs_, reductions_;
   std::vector<Scalar> scalars_;
 };

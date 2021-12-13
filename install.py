@@ -794,8 +794,8 @@ def driver():
     )
     parser.add_argument(
         "--cuda",
-        action=BooleanFlag,
-        default=os.environ.get("USE_CUDA", "0") == "1",
+        action= BooleanFlag,
+        default=True,#os.environ.get("USE_CUDA", "0") == "1",
         help="Build Legate with CUDA support.",
     )
     parser.add_argument(
@@ -895,7 +895,7 @@ def driver():
         "--clean",
         dest="clean_first",
         action=BooleanFlag,
-        default=True,
+        default=False,
         help="Clean before build, and pull latest Legion.",
     )
     parser.add_argument(

@@ -215,7 +215,8 @@ Mapper::MapperSyncModel CoreMapper::get_mapper_sync_model(void) const
 
 void CoreMapper::select_task_options(const MapperContext ctx, const Task& task, TaskOptions& output)
 {
-  assert(context.valid_task_id(task.task_id));
+  //std::cout<<"task_id "<<task.task_id<<std::endl;
+  //assert(context.valid_task_id(task.task_id));
   if (task.tag == LEGATE_CPU_VARIANT) {
     assert(!local_cpus.empty());
     output.initial_proc = local_cpus.front();

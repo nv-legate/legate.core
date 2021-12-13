@@ -489,7 +489,8 @@ class Store(object):
             # If someone wants to access the shape of an unbound
             # store before it is set, that means the producer task is
             # sitting in the queue, so we should flush the queue.
-            self._runtime.flush_scheduling_window()
+            self._runtime._launch_outstanding(False)
+            #self._runtime.flush_scheduling_window()
             # At this point, we should have the shape set.
             assert self._shape is not None
         return self._shape
@@ -533,7 +534,7 @@ class Store(object):
         # If someone is trying to retreive the storage of a store,
         # we need to execute outstanding operations so that we know
         # it has been initialized correctly.
-        self._runtime.flush_scheduling_window()
+        self._runtime._launch_outstanding(False)
         if self._storage is None:
             if self.unbound:
                 raise RuntimeError(
@@ -913,3 +914,43 @@ class Store(object):
         part = converted.construct(self.storage.region, complete=complete)
         self._partitions[functor] = (part, proj)
         return part, proj
+
+
+class FusionMetadata(object):
+    def __init__(
+                 self,
+                 input_starts,
+                 output_starts,
+                 offset_starts,
+                 buffer_offsets,
+                 reduction_starts,
+                 scalar_starts,
+                 future_starts,
+                 opIDs
+                 ):
+        self._input_starts = input_starts
+        self._output_starts = output_starts
+        self._offset_starts = offset_starts
+        self._buffer_offsets = buffer_offsets
+        self._reduction_starts = reduction_starts
+        self._scalar_starts = scalar_starts
+        self._future_starts = future_starts
+        self._opIDs = opIDs 
+
+    def packList(self, meta_list, buf):
+        # aggregate the ints when packing
+        # much faster than individually packing each int
+        buf.pack_32bit_int_arr(meta_list)
+
+    def pack(self, buf):
+        superbuff = [len(self._opIDs)]+[len(self._buffer_offsets)]
+        superbuff += self._input_starts
+        superbuff += self._output_starts
+        superbuff += self._offset_starts
+        superbuff += self._buffer_offsets
+        superbuff += self._reduction_starts
+        superbuff += self._scalar_starts
+        superbuff += self._future_starts
+        superbuff += self._opIDs
+        self.packList(superbuff, buf)
+

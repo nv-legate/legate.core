@@ -32,6 +32,7 @@ GEN_CPU_SRC	= core/legate_c.cc                 \
 							core/task/task.cc                \
 							core/utilities/debug.cc          \
 							core/utilities/deserializer.cc   \
+							core/utilities/makeshift_serializer.cc \
 							core/utilities/machine.cc        \
 							core/utilities/linearize.cc
 
@@ -60,5 +61,6 @@ INSTALL_HEADERS = legate.h                        \
 									core/utilities/dispatch.h       \
 									core/utilities/machine.h        \
 									core/utilities/span.h           \
+									core/utilities/makeshift_serializer.h  \
 									core/utilities/type_traits.h    \
 									core/utilities/typedefs.h

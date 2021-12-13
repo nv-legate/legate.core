@@ -290,7 +290,10 @@ class Partitioner(object):
             if isinstance(prev_part, NoPartition):
                 partition = prev_part
             else:
-                partition = store.compute_key_partition(restrictions)
+                if store._key_partition is not None:
+                    partition=store._key_partition
+                else:
+                    partition = store.compute_key_partition(restrictions)
                 key_parts.add(unknown)
 
             cls = constraints.find(unknown)
@@ -298,7 +301,6 @@ class Partitioner(object):
                 if to_align in partitions:
                     continue
                 partitions[to_align] = partition
-
             prev_part = partition
 
         for lhs, rhs in dependent.items():

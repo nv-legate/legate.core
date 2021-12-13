@@ -20,6 +20,7 @@
 #include <tuple>
 
 #include "core/data/scalar.h"
+#include "core/data/store.h"
 #include "core/data/transform.h"
 #include "core/runtime/context.h"
 
@@ -176,7 +177,8 @@ class Task {
   const LibraryContext& library_;
   const Legion::Task* task_;
 
- private:
+ public:
+  FusionMetadata fusionMetadata;
   std::vector<Store> inputs_, outputs_, reductions_;
   std::vector<Scalar> scalars_;
 };
