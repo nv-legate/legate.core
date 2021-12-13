@@ -182,7 +182,6 @@ void register_legate_core_tasks(Machine machine, Runtime* runtime, const Library
   runtime->attach_name(
     extract_scalar_task_id, extract_scalar_task_name, false /*mutable*/, true /*local only*/);
 
-
   auto make_registrar = [&](auto task_id, auto* task_name, auto proc_kind) {
     TaskVariantRegistrar registrar(task_id, task_name);
     registrar.add_constraint(ProcessorConstraint(proc_kind));
@@ -206,8 +205,6 @@ void register_legate_core_tasks(Machine machine, Runtime* runtime, const Library
     runtime->register_task_variant<ReturnValues, extract_scalar_task>(registrar,
                                                                       LEGATE_CPU_VARIANT);
   }
-
-
 #ifdef LEGATE_USE_CUDA
   {
     auto registrar = make_registrar(initialize_task_id, initialize_task_name, Processor::TOC_PROC);
@@ -249,7 +246,6 @@ void register_legate_core_tasks(Machine machine, Runtime* runtime, const Library
   register_legate_core_projection_functors(runtime, context);
 
   register_legate_core_sharding_functors(runtime, context);
-
 }
 
 }  // namespace legate

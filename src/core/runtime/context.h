@@ -26,7 +26,6 @@ namespace legate {
 
 class Store;
 class Scalar;
-//struct FusionMetadata;
 
 struct ResourceConfig {
   int64_t max_tasks{1000000};
@@ -35,7 +34,6 @@ struct ResourceConfig {
   int64_t max_projections{0};
   int64_t max_shardings{0};
 };
-
 
 class ResourceScope {
  public:

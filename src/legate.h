@@ -27,6 +27,4 @@
 #include "core/utilities/dispatch.h"
 #include "core/utilities/type_traits.h"
 #include "core/utilities/typedefs.h"
-//#include "core/fused/fused_op.h"
-//#include "core/fused/fused_op_wrapper.h"
 #include "legate_defines.h"

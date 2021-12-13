@@ -126,8 +126,6 @@ class LegateTask {
                                bool inner      = false,
                                bool idempotent = false)
   {
-    
-    
     // Construct the code descriptor for this task so that the library
     // can register it later when it is ready
     Legion::CodeDescriptor desc(

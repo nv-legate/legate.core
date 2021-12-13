@@ -57,7 +57,6 @@ class Scalar {
   bool tuple_{false};
   LegateTypeCode code_{MAX_TYPE_NUMBER};
   const void* data_;
-
 };
 
 }  // namespace legate
