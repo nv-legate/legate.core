@@ -35,7 +35,6 @@ class Operation(object):
         self._outputs = []
         self._reductions = []
         self._is_fused = False
-        self._temps = []
         self._input_parts = []
         self._output_parts = []
         self._reduction_parts = []

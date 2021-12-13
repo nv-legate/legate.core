@@ -122,8 +122,8 @@ Domain FutureWrapper::domain() const { return domain_; }
 ReturnValue FutureWrapper::pack() const
 {
   if (nullptr == rawptr_) {
-    //fprintf(stderr, "Found an uninitialized Legate store\n");
-    //assert(false);
+    fprintf(stderr, "Found an uninitialized Legate store\n");
+    assert(false);
   }
   return ReturnValue(rawptr_, field_size_);
 }
