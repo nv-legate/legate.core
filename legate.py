@@ -295,8 +295,6 @@ def run_legate(
             "ALL_CPUS",
             "-g",
             "ALL_GPUS",
-            "-m",
-            "ALL_MEM",
             "-b",
             "none",
         ]
