@@ -32,9 +32,7 @@ GEN_CPU_SRC	= core/legate_c.cc                 \
 							core/task/task.cc                \
 							core/utilities/deserializer.cc   \
 							core/utilities/machine.cc        \
-							core/utilities/linearize.cc    # \
-							#core/fused/fused_op_gpu.cc     \
-							#core/fused/fused_op.cc
+							core/utilities/linearize.cc    
 
 ifeq ($(strip $(USE_CUDA)),1)
 GEN_CPU_SRC	+= core/gpu/cudalibs.cc 
@@ -65,6 +63,4 @@ INSTALL_HEADERS = legate.h                        \
 									core/utilities/machine.h        \
 									core/utilities/span.h           \
 									core/utilities/type_traits.h    \
-									core/utilities/typedefs.h      #\
-							                #core/fused/fused_op.h           \
-							                #core/fused/fused_op_wrapper.h
+									core/utilities/typedefs.h      

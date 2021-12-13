@@ -21,7 +21,6 @@ typedef enum legate_core_task_id_t {
   LEGATE_CORE_INITIALIZE_TASK_ID,
   LEGATE_CORE_FINALIZE_TASK_ID,
   LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,
-  //LEGATE_CORE_FUSED_TASK_ID,
   LEGATE_CORE_NUM_TASK_IDS,  // must be last
 } legate_core_task_id_t;
 
