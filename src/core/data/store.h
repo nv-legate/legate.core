@@ -22,14 +22,13 @@
 #include "core/task/return.h"
 #include "core/utilities/machine.h"
 #include "core/utilities/typedefs.h"
-#include "core/utilities/makeshift_serializer.h"
 
 namespace legate {
 
 class RegionField {
  public:
   RegionField() {}
-  RegionField(int32_t dim, const Legion::PhysicalRegion& pr, Legion::FieldID fid, unsigned reqIdx);
+  RegionField(int32_t dim, const Legion::PhysicalRegion& pr, Legion::FieldID fid);
 
  public:
   RegionField(RegionField&& other) noexcept;
@@ -139,7 +138,6 @@ class RegionField {
   template <int32_t DIM>
   Legion::Rect<DIM> shape() const;
   Legion::Domain domain() const;
-  unsigned getReqIdx() const {return reqIdx_; }
 
  public:
   bool is_readable() const { return readable_; }
@@ -150,20 +148,18 @@ class RegionField {
   int32_t dim_{-1};
   Legion::PhysicalRegion pr_{};
   Legion::FieldID fid_{-1U};
-  unsigned reqIdx_; //this gets packed as an unsigned
 
  private:
   bool readable_{false};
   bool writable_{false};
   bool reducible_{false};
 
-  friend class MakeshiftSerializer;
 };
 
 class OutputRegionField {
  public:
   OutputRegionField() {}
-  OutputRegionField(const Legion::OutputRegion& out, Legion::FieldID fid, unsigned reqIdx);
+  OutputRegionField(const Legion::OutputRegion& out, Legion::FieldID fid);
 
  public:
   OutputRegionField(OutputRegionField&& other) noexcept;
@@ -181,9 +177,7 @@ class OutputRegionField {
   bool bound_{false};
   Legion::OutputRegion out_{};
   Legion::FieldID fid_{-1U};
-  unsigned reqIdx_;  //this gets packed as an unsigned
 
-  friend class MakeshiftSerializer;
 };
 
 class FutureWrapper {
@@ -246,7 +240,6 @@ class FutureWrapper {
   mutable bool uninitialized_{true};
   mutable void* rawptr_{nullptr};
 
- friend class MakeshiftSerializer;
 };
 
 class Store {
@@ -275,7 +268,6 @@ class Store {
 
  public:
   int32_t dim() const { return dim_; }
-  bool is_future2() const { return is_future_; }
   LegateTypeCode code() const { return code_; }
 
  public:
@@ -302,7 +294,6 @@ class Store {
   template <int32_t DIM>
   Legion::Rect<DIM> shape() const;
   Legion::Domain domain() const;
-  unsigned getReqIdx() const {return region_field_.getReqIdx(); }
 
  public:
   bool is_readable() const { return readable_; }
@@ -341,7 +332,6 @@ class Store {
   bool writable_{false};
   bool reducible_{false};
 
- friend class MakeshiftSerializer;
 };
 
 //containts prefix sums for a sub-op

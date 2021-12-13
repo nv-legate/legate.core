@@ -45,11 +45,6 @@ Shift::Shift(int32_t dim, int64_t offset, StoreTransformP parent)
 {
 }
 
-int32_t Shift::getTransformCode() const
-{
-    return LEGATE_CORE_TRANSFORM_SHIFT;
-}
-
 Domain Shift::transform(const Domain& input) const
 {
   auto result = nullptr != parent_ ? parent_->transform(input) : input;
@@ -101,11 +96,6 @@ Promote::Promote(int32_t extra_dim, int64_t dim_size, StoreTransformP parent)
     extra_dim_(extra_dim),
     dim_size_(dim_size)
 {
-}
-
-int32_t Promote::getTransformCode() const
-{
-    return LEGATE_CORE_TRANSFORM_PROMOTE;
 }
 
 Domain Promote::transform(const Domain& input) const
@@ -174,11 +164,6 @@ Project::Project(int32_t dim, int64_t coord, StoreTransformP parent)
 {
 }
 
-int32_t Project::getTransformCode() const
-{
-    return LEGATE_CORE_TRANSFORM_PROJECT;
-}
-
 Domain Project::transform(const Domain& input) const
 {
   auto project = [](int32_t collapsed_dim, const Domain& input) {
@@ -245,11 +230,6 @@ void Project::print(std::ostream& out) const
 Transpose::Transpose(std::vector<int32_t>&& axes, StoreTransformP parent)
   : StoreTransform(std::forward<StoreTransformP>(parent)), axes_(std::move(axes))
 {
-}
-
-int32_t Transpose::getTransformCode() const
-{
-    return LEGATE_CORE_TRANSFORM_TRANSPOSE;
 }
 
 Domain Transpose::transform(const Domain& input) const
@@ -333,11 +313,6 @@ Delinearize::Delinearize(int32_t dim, std::vector<int64_t>&& sizes, StoreTransfo
   for (int32_t dim = sizes_.size() - 2; dim >= 0; --dim)
     strides_[dim] = strides_[dim + 1] * sizes_[dim + 1];
   for (auto size : sizes_) volume_ *= size;
-}
-
-int32_t Delinearize::getTransformCode() const
-{
-    return LEGATE_CORE_TRANSFORM_DELINEARIZE;
 }
 
 Domain Delinearize::transform(const Domain& input) const

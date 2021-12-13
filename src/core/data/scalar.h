@@ -19,7 +19,6 @@
 #include "core/utilities/span.h"
 #include "core/utilities/type_traits.h"
 #include "core/utilities/typedefs.h"
-#include "core/utilities/makeshift_serializer.h"
 
 namespace legate {
 
@@ -59,7 +58,6 @@ class Scalar {
   LegateTypeCode code_{MAX_TYPE_NUMBER};
   const void* data_;
 
-  friend class MakeshiftSerializer;
 };
 
 }  // namespace legate

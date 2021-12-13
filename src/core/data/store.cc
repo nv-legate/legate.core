@@ -21,8 +21,8 @@ namespace legate {
 
 using namespace Legion;
 
-RegionField::RegionField(int32_t dim, const PhysicalRegion& pr, FieldID fid, unsigned reqIdx)
-  : dim_(dim), pr_(pr), fid_(fid), reqIdx_(reqIdx)
+RegionField::RegionField(int32_t dim, const PhysicalRegion& pr, FieldID fid)
+  : dim_(dim), pr_(pr), fid_(fid)
 {
   auto priv  = pr.get_privilege();
   readable_  = static_cast<bool>(priv & LEGION_READ_PRIV);
@@ -34,7 +34,6 @@ RegionField::RegionField(RegionField&& other) noexcept
   : dim_(other.dim_),
     pr_(other.pr_),
     fid_(other.fid_),
-    reqIdx_(other.reqIdx_),
     readable_(other.readable_),
     writable_(other.writable_),
     reducible_(other.reducible_)
@@ -46,7 +45,6 @@ RegionField& RegionField::operator=(RegionField&& other) noexcept
   dim_       = other.dim_;
   pr_        = other.pr_;
   fid_       = other.fid_;
-  reqIdx_    = other.reqIdx_; 
 
   readable_  = other.readable_;
   writable_  = other.writable_;
@@ -56,15 +54,14 @@ RegionField& RegionField::operator=(RegionField&& other) noexcept
 
 Domain RegionField::domain() const { return dim_dispatch(dim_, get_domain_fn{}, pr_); }
 
-OutputRegionField::OutputRegionField(const OutputRegion& out, FieldID fid, unsigned reqIdx) : out_(out), fid_(fid), reqIdx_(reqIdx) {}
+OutputRegionField::OutputRegionField(const OutputRegion& out, FieldID fid) : out_(out), fid_(fid) {}
 
 OutputRegionField::OutputRegionField(OutputRegionField&& other) noexcept
-  : bound_(other.bound_), out_(other.out_), fid_(other.fid_), reqIdx_(other.reqIdx_)
+  : bound_(other.bound_), out_(other.out_), fid_(other.fid_)
 {
   other.bound_ = false;
   other.out_   = OutputRegion();
   other.fid_   = -1;
-  //TODO, how should we invalidate reqIdx
 }
 
 OutputRegionField& OutputRegionField::operator=(OutputRegionField&& other) noexcept
@@ -72,12 +69,10 @@ OutputRegionField& OutputRegionField::operator=(OutputRegionField&& other) noexc
   bound_ = other.bound_;
   out_   = other.out_;
   fid_   = other.fid_;
-  reqIdx_= other.reqIdx_;
 
   other.bound_ = false;
   other.out_   = OutputRegion();
   other.fid_   = -1;
-  //TODO, how should we invalidate reqIdx
 
   return *this;
 }

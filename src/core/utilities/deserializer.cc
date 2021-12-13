@@ -145,7 +145,7 @@ void TaskDeserializer::_unpack(RegionField& value)
   auto dim = unpack<int32_t>();
   auto idx = unpack<uint32_t>();
   auto fid = unpack<int32_t>();
-  value = RegionField(dim, regions_[idx], fid, idx);
+  value = RegionField(dim, regions_[idx], fid);
 }
 
 void TaskDeserializer::_unpack(OutputRegionField& value)
@@ -155,7 +155,7 @@ void TaskDeserializer::_unpack(OutputRegionField& value)
   auto idx = unpack<uint32_t>();
   auto fid = unpack<int32_t>();
 
-  value = OutputRegionField(outputs_[idx], fid, idx);
+  value = OutputRegionField(outputs_[idx], fid);
 }
 
 namespace mapping {

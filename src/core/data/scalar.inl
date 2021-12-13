@@ -44,7 +44,6 @@ VAL Scalar::value() const
 template <typename VAL>
 Span<const VAL> Scalar::values() const
 {
-
   if (tuple_) {
     auto size = *static_cast<const uint32_t*>(data_);
     auto data = static_cast<const uint8_t*>(data_) + sizeof(uint32_t);
