@@ -31,12 +31,13 @@ GEN_CPU_SRC	= core/legate_c.cc                 \
 							core/task/return.cc              \
 							core/task/task.cc                \
 							core/utilities/deserializer.cc   \
-							core/utilities/makeshift_serializer.cc \
 							core/utilities/machine.cc        \
-							core/utilities/linearize.cc
+							core/utilities/linearize.cc    # \
+							#core/fused/fused_op_gpu.cc     \
+							#core/fused/fused_op.cc
 
 ifeq ($(strip $(USE_CUDA)),1)
-GEN_CPU_SRC	+= core/gpu/cudalibs.cc
+GEN_CPU_SRC	+= core/gpu/cudalibs.cc 
 endif
 
 # Header files that we need to have installed for client legate libraries
@@ -63,6 +64,7 @@ INSTALL_HEADERS = legate.h                        \
 									core/utilities/dispatch.h       \
 									core/utilities/machine.h        \
 									core/utilities/span.h           \
-									core/utilities/makeshift_serializer.h  \
 									core/utilities/type_traits.h    \
-									core/utilities/typedefs.h
+									core/utilities/typedefs.h      #\
+							                #core/fused/fused_op.h           \
+							                #core/fused/fused_op_wrapper.h

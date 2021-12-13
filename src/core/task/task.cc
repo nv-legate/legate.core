@@ -35,7 +35,6 @@ void LegateTaskRegistrar::record_variant(TaskID tid,
   assert((kind == Processor::LOC_PROC) || (kind == Processor::TOC_PROC) ||
          (kind == Processor::OMP_PROC));
 
-
   // Buffer these up until we can do our actual registration with the runtime
   pending_task_variants_.push_back(PendingTaskVariant(tid,
                                                       false /*global*/,
@@ -66,6 +65,11 @@ void LegateTaskRegistrar::register_all_tasks(Runtime* runtime, LibraryContext& c
   for (auto& taskIdx : Core::gpuOpIDs){
     auto newID = context.get_task_id(taskIdx.first);
     Core::gpuDescriptors.insert(std::pair<int64_t, LegateVariantImpl>((int64_t) newID, taskIdx.second));
+  }
+
+  for (auto& taskIdx : Core::ompOpIDs){
+    auto newID = context.get_task_id(taskIdx.first);
+    Core::ompDescriptors.insert(std::pair<int64_t, LegateVariantImpl>((int64_t) newID, taskIdx.second));
   }
 
 

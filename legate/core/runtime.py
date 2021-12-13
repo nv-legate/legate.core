@@ -778,6 +778,17 @@ class FusionConstraint(object):
          """
         raise NotImplementedError("Implement in derived classes")
 
+class cuNumericContextExists(FusionConstraint):
+    """
+    Fusion currently exists as a cuNumeric operation
+    This can be removed once fusion becomes a core task
+    """
+    def apply(self, contexts, runtime, ops, baseIntervals, partitioners, strategies):
+        if "cunumeric" in contexts:
+            return baseIntervals
+        else:
+           return [(i, i+1) for i in range(len(ops))]
+
 
 class AllValidOps(FusionConstraint):
     """
@@ -789,7 +800,7 @@ class AllValidOps(FusionConstraint):
         self.terminals = set()
         self.validIDs.add(2) #Binary op
         self.validIDs.add(10) #Fill op
-        self.validIDs.add(20) #Unary op
+        self.validIDs.add(21) #Unary op
 
     def apply(self, contexts, runtime, ops, baseIntervals, partitioners, strategies):
         fusable_intervals = []
@@ -1165,6 +1176,7 @@ class Runtime(object):
     def build_fused_op(self,ops):
 
         fusion_checker = FusionChecker(ops, self._contexts, self)
+        fusion_checker.register_constraint(cuNumericContextExists())
         fusion_checker.register_constraint(AllValidOps())
         fusion_checker.register_constraint(IdenticalLaunchShapes())
         fusion_checker.register_constraint(IdenticalProjection())
@@ -1254,10 +1266,8 @@ class Runtime(object):
             self._outstanding_ops = []
             self._schedule(ops, force_eval)
 
-   
     def _schedule(self, ops, force_eval=False):
         ids = [op._task_id for op in ops]
-        #print(ids)
         #case 1: try fusing current window of tasks
         strats = False
         if len(ops)>=2 and (not force_eval):
@@ -1267,30 +1277,26 @@ class Runtime(object):
                 for task in fused_task_list:
                     task.execute() 
                 self._clearing_pipe = False
-                return
 
         # case 2: tasks  processed for fusion already have  
         # their strategy "baked in", as we already partitioned
         # them when testing fusion legality (in case 1)
-        if len(ops)==1 and self._clearing_pipe:
+        elif len(ops)==1 and self._clearing_pipe:
             strategy = ops[0].strategy
             ops[0].launch(strategy)
 
         # case 3: execute the ops normally 
-        # if we already checked the ops for fusability,
-        # then the ops' buffers have already been partitioned
+        # partition if op wasn't checked for fusability
         else:
             if not strats: #ops were not check for fusability, so partition them
+                strats = []
                 for op in ops:
                     must_be_single = any(len(gop.scalar_outputs) > 0 for gop in [op])
                     partitioner = Partitioner(self, [op], must_be_single=must_be_single)
                     strategy = partitioner.partition_stores()
-                    op.strategy = strategy
-            else: #strategies already calculated during failed attempt to fuse 
-                for i,op in enumerate(ops):
-                    op.strategy = strats[i]
+                    strats.append(strategy)
             for i,op in enumerate(ops):
-                op.launch(op.strategy)
+                op.launch(strats[i])
 
 
     def submit(self, op):

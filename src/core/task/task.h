@@ -140,6 +140,9 @@ class LegateTask {
     }else if (kind ==Legion::Processor::TOC_PROC){
         Core::gpuOpIDs.push_back(std::pair<int64_t, LegateVariantImpl>((int64_t)task_id, TASK_PTR));
     }
+    else if (kind ==Legion::Processor::OMP_PROC){
+        Core::ompOpIDs.push_back(std::pair<int64_t, LegateVariantImpl>((int64_t)task_id, TASK_PTR));
+    }
     T::Registrar::record_variant(task_id,
                                  T::task_name(),
                                  desc,

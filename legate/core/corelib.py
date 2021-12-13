@@ -24,7 +24,7 @@ from .legate import Library
 class CoreLib(Library):
     def __init__(self):
         self._lib = None
-
+        
     def get_name(self):
         return "legate.core"
 
@@ -38,6 +38,7 @@ class CoreLib(Library):
     def initialize(self, shared_lib):
         self._lib = shared_lib
         shared_lib.legate_parse_config()
+        #self.fused_id = self._lib.LEGATE_CORE_FUSED_TASK_ID
 
     def get_registration_callback(self):
         return "legate_core_perform_registration"

@@ -18,6 +18,7 @@
 #include "core/runtime/context.h"
 #include "core/runtime/projection.h"
 #include "core/runtime/shard.h"
+#include "core/fused/fused_op.h"
 #include "core/utilities/deserializer.h"
 #include "legate.h"
 #ifdef LEGATE_USE_CUDA
@@ -36,8 +37,10 @@ Logger log_legate("legate");
 using LegateVariantImpl = void (*)(TaskContext&);
 /*static */ std::vector<std::pair<int64_t, LegateVariantImpl> > Core::opIDs = *(new std::vector<std::pair<int64_t, LegateVariantImpl> >());
 /*static */ std::vector<std::pair<int64_t, LegateVariantImpl> > Core::gpuOpIDs = *(new std::vector<std::pair<int64_t, LegateVariantImpl> >());
+/*static */ std::vector<std::pair<int64_t, LegateVariantImpl> > Core::ompOpIDs = *(new std::vector<std::pair<int64_t, LegateVariantImpl> >());
 /*static */ std::unordered_map<long, LegateVariantImpl> Core::cpuDescriptors = *(new std::unordered_map<long, LegateVariantImpl>());
 /*static */ std::unordered_map<long, LegateVariantImpl> Core::gpuDescriptors = *(new std::unordered_map<long, LegateVariantImpl>());
+/*static */ std::unordered_map<long, LegateVariantImpl> Core::ompDescriptors = *(new std::unordered_map<long, LegateVariantImpl>());
 
 static const char* const core_library_name = "legate.core";
 
@@ -180,6 +183,12 @@ void register_legate_core_tasks(Machine machine, Runtime* runtime, const Library
   runtime->attach_name(
     extract_scalar_task_id, extract_scalar_task_name, false /*mutable*/, true /*local only*/);
 
+  //const TaskID fused_task_id  = context.get_task_id(LEGATE_CORE_FUSED_TASK2_ID);
+  //const char* fused_task_name = "Legate Core Task Fusion";
+  //runtime->attach_name(
+  //  fused_task_id, fused_task_name, false /*mutable*/, true /*local only*/);
+
+
   auto make_registrar = [&](auto task_id, auto* task_name, auto proc_kind) {
     TaskVariantRegistrar registrar(task_id, task_name);
     registrar.add_constraint(ProcessorConstraint(proc_kind));
@@ -203,6 +212,19 @@ void register_legate_core_tasks(Machine machine, Runtime* runtime, const Library
     runtime->register_task_variant<ReturnValues, extract_scalar_task>(registrar,
                                                                       LEGATE_CPU_VARIANT);
   }
+  /*
+  {
+    auto registrar = make_registrar(fused_task_id, fused_task_name, Processor::LOC_PROC);
+    runtime->register_task_variant<legate::FusedOpTask2>(registrar, LEGATE_CPU_VARIANT);
+  }
+  {
+    auto registrar = make_registrar(fused_task_id, fused_task_name, Processor::TOC_PROC);
+    runtime->register_task_variant<legate::FusedOpTask2>(registrar, LEGATE_GPU_VARIANT);
+  }
+  */
+
+
+
 #ifdef LEGATE_USE_CUDA
   {
     auto registrar = make_registrar(initialize_task_id, initialize_task_name, Processor::TOC_PROC);
@@ -244,6 +266,9 @@ void register_legate_core_tasks(Machine machine, Runtime* runtime, const Library
   register_legate_core_projection_functors(runtime, context);
 
   register_legate_core_sharding_functors(runtime, context);
+
+  std::cout<<"performing legate core registration callback"<<std::endl;
+  CoreFused::get_registrar().register_all_tasks(runtime, context);
 }
 
 }  // namespace legate
