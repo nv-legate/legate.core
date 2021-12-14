@@ -17,6 +17,7 @@ import numpy as np
 
 from .legion import AffineTransform
 from .partition import NoPartition, Restriction, Tiling
+from .projection import CoordinateSym
 from .shape import Shape
 
 
@@ -248,7 +249,7 @@ class Project(Transform):
         return color.insert(self._dim, 0)
 
     def invert_dimensions(self, dims):
-        return dims[: self._dim] + (-1,) + dims[self._dim :]
+        return dims[: self._dim] + (CoordinateSym(-1),) + dims[self._dim :]
 
     def invert_restrictions(self, restrictions):
         left = restrictions[: self._dim]
@@ -509,6 +510,10 @@ class TransformStack(object):
     def convertible(self):
         return self._transform.convertible and self._parent.convertible
 
+    @property
+    def bottom(self):
+        return False
+
     def invert_color(self, color):
         return self._parent.invert_color(self._transform.invert_color(color))
 
@@ -572,6 +577,10 @@ class IdentityTransform(object):
 
     @property
     def convertible(self):
+        return True
+
+    @property
+    def bottom(self):
         return True
 
     def invert_color(self, color):

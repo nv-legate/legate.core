@@ -27,6 +27,7 @@ from .legion import (
     legion,
 )
 from .partition import NoPartition, PartitionBase, Restriction, Tiling
+from .projection import execute_functor_symbolically
 from .shape import Shape
 from .transform import (
     Delinearize,
@@ -771,6 +772,8 @@ class Store(object):
         self._transform = transform
         self._partitions = {}
         self._key_partition = None
+        # This is a cache for the projection functor id
+        # when no custom functor is given
         self._projection = None
 
         if not self.unbound:
@@ -1081,19 +1084,30 @@ class Store(object):
             self._key_partition = partition
             return partition
 
-    def _compute_projection(self):
-        if self._projection is None:
-            dims = self._transform.invert_dimensions(tuple(range(self.ndim)))
-            if len(dims) == self.ndim and all(
-                idx == dim for idx, dim in enumerate(dims)
-            ):
-                self._projection = 0
-            else:
+    def compute_projection(self, proj_fn=None, launch_ndim=None):
+        assert proj_fn is None or launch_ndim is not None
+        # Handle the most common case before we do any analysis
+        if self._transform.bottom and proj_fn is None:
+            return 0
+        # If the store is transformed in some way, we need to compute
+        # find the right projection functor that maps points in the color
+        # space of the child's partition to subregions of the converted
+        # partition
+
+        # For the next common case, we cache the projection functor id
+        if proj_fn is None:
+            if self._projection is None:
+                dims = execute_functor_symbolically(self.ndim)
+                dims = self._transform.invert_dimensions(dims)
                 self._projection = self._runtime.get_projection(
                     self.ndim, dims
                 )
-
-        return self._projection
+            return self._projection
+        # For more general cases, don't bother to cache anything
+        else:
+            dims = execute_functor_symbolically(launch_ndim, proj_fn)
+            dims = self._transform.invert_dimensions(dims)
+            return self._runtime.get_projection(launch_ndim, dims)
 
     def find_restrictions(self):
         return self._transform.convert_restrictions(self._storage.restrictions)
@@ -1102,14 +1116,9 @@ class Store(object):
         # Create a Legion partition for a given functor.
         # Before we do that, we need to map the partition back
         # to the original coordinate space.
-        legion_partition = self._storage.find_or_create_legion_partition(
+        return self._storage.find_or_create_legion_partition(
             self._transform.invert_partition(partition)
         )
-        # Then, find the right projection functor that maps points in the color
-        # space of the child's partition to subregions of the converted
-        # partition
-        proj = self._compute_projection()
-        return (legion_partition, proj)
 
     def partition_by_tiling(self, tile_shape):
         if self.unbound:

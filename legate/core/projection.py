@@ -29,28 +29,39 @@ class CoordinateSym(object):
         return f"COORD{self._index}"
 
     def __hash__(self):
-        return hash(repr(self))
+        return hash((type(self), self._index))
+
+    def __eq__(self, other):
+        return isinstance(other, CoordinateSym) and self._index == other._index
 
 
-def analyze_projection(ndim, proj_fn):
+def execute_functor_symbolically(ndim, proj_fn=None):
     point = tuple(CoordinateSym(i) for i in range(ndim))
-    projected = proj_fn(point)
-    if not isinstance(projected, tuple):
-        raise ValueError("Projection function must return a tuple")
-    elif any(not isinstance(c, (CoordinateSym, int)) for c in projected):
-        raise ValueError(
-            "Each coordinate must be either a constant or "
-            "one of the input coordinates"
-        )
+    if proj_fn is not None:
+        point = proj_fn(point)
+        if not isinstance(point, tuple):
+            raise ValueError("Projection function must return a tuple")
+        elif any(not isinstance(c, (CoordinateSym, int)) for c in point):
+            raise ValueError(
+                "Each coordinate must be either a constant or "
+                "one of the input coordinates"
+            )
 
-    return projected
+    return point
 
 
-def pack_projection_spec(src_ndim, spec):
-    tgt_ndim = len(spec)
+def is_identity_projection(src_ndims, dims):
+    return src_ndims == len(dims) and all(
+        isinstance(coord, CoordinateSym) and dim == coord.dim
+        for dim, coord in enumerate(dims)
+    )
+
+
+def pack_symbolic_projection_repr(src_ndim, dims):
+    tgt_ndim = len(dims)
     dims_c = ffi.new(f"int32_t[{tgt_ndim}]")
     offsets_c = ffi.new(f"int32_t[{tgt_ndim}]")
-    for dim, coord in enumerate(spec):
+    for dim, coord in enumerate(dims):
         if isinstance(coord, CoordinateSym):
             dims_c[dim] = coord.dim
             offsets_c[dim] = 0

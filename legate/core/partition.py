@@ -224,14 +224,11 @@ class Tiling(PartitionBase):
         return region.get_child(index_partition)
 
     def get_requirement(self, launch_ndim, store, proj_fn=None):
-        part, proj_id = store.find_or_create_legion_partition(self)
-        if proj_fn is not None:
-            assert proj_id == 0
-            assert self.color_shape.ndim == launch_ndim
-            proj_id = self.runtime.get_projection_from_callable(
-                launch_ndim, proj_fn
-            )
+        part = store.find_or_create_legion_partition(self)
+        proj_id = store.compute_projection(proj_fn, launch_ndim)
         if self.color_shape.ndim != launch_ndim:
+            assert proj_fn is None
+            assert proj_id == 0
             assert launch_ndim == 1
             proj_id = self._runtime.get_delinearize_functor()
         return Partition(part, proj_id)
