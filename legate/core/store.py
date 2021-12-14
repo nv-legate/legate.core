@@ -657,11 +657,15 @@ class Storage(object):
             complete = False
 
         tiling = Tiling(self._runtime, tile_shape, color_shape, offsets)
-        return self.partition(tiling, complete).get_child(color)
+        # We create a slice partition directly off of the root
+        partition = StoragePartition(
+            self._runtime, 1, self.get_root(), tiling, complete=complete
+        )
+        return partition.get_child(color)
 
     def partition(self, partition, complete=False):
         return StoragePartition(
-            self._runtime, 1, self.get_root(), partition, complete=complete
+            self._runtime, self._level + 1, self, partition, complete=complete
         )
 
     def get_inline_allocation(self, shape, context=None, transform=None):
@@ -700,10 +704,11 @@ class Storage(object):
 
 
 class StorePartition(object):
-    def __init__(self, runtime, store, partition):
+    def __init__(self, runtime, store, partition, storage_partition):
         self._runtime = runtime
         self._store = store
         self._partition = partition
+        self._storage_partition = storage_partition
 
     @property
     def store(self):
@@ -718,15 +723,13 @@ class StorePartition(object):
         return self._store.transform
 
     def get_child_store(self, *indices):
-        color = Shape(indices)
-        if self.transform is not None:
-            color = self.transform.invert_color(color)
+        color = self.transform.invert_color(Shape(indices))
         return Store(
             self._runtime,
             self._store.type,
-            self._partition.get_child(color),
+            self._storage_partition.get_child(color),
             self._store.transform,
-            shape=self._partition.get_child_size(color),
+            shape=self._storage_partition.get_child_size(color),
         )
 
 
@@ -1123,7 +1126,10 @@ class Store(object):
         if not isinstance(tile_shape, Shape):
             tile_shape = Shape(tile_shape)
         launch_shape = (self.shape + tile_shape - 1) // tile_shape
-        partition = self._storage.partition(
-            Tiling(self._runtime, tile_shape, launch_shape)
+        partition = Tiling(self._runtime, tile_shape, launch_shape)
+        storage_partition = self._storage.partition(
+            self.invert_partition(partition), complete=True
         )
-        return StorePartition(self._runtime, self, partition)
+        return StorePartition(
+            self._runtime, self, partition, storage_partition
+        )
