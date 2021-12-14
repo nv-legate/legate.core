@@ -631,13 +631,14 @@ class Storage(object):
         # Force the RegionField to be instantiated, do the attachment normally
         self.data.attach_external_allocation(context, alloc, share)
 
-    def slice(self, shape, tile_shape, offsets, transform=None):
+    def slice(self, tile_shape, offsets):
         if self.kind is Future:
             return self
 
         # As an interesting optimization, if we can evenly tile the
         # region in all dimensions of the parent region, then we'll make
         # a disjoint tiled partition with as many children as possible
+        shape = self.get_root().extents
         can_tile_completely = (offsets % tile_shape).sum() == 0 and (
             shape % tile_shape
         ).sum() == 0
@@ -656,14 +657,11 @@ class Storage(object):
             complete = False
 
         tiling = Tiling(self._runtime, tile_shape, color_shape, offsets)
-        if transform is not None:
-            tiling = transform.invert_partition(tiling)
-            color = transform.invert_color(color)
         return self.partition(tiling, complete).get_child(color)
 
     def partition(self, partition, complete=False):
         return StoragePartition(
-            self._runtime, self.level + 1, self, partition, complete=complete
+            self._runtime, 1, self.get_root(), partition, complete=complete
         )
 
     def get_inline_allocation(self, shape, context=None, transform=None):
@@ -895,12 +893,11 @@ class Store(object):
         shape = transform.compute_shape(old_shape)
         if old_shape == shape:
             return self
-        transform = TransformStack(transform, self._transform)
         return Store(
             self._runtime,
             self._dtype,
             self._storage,
-            transform,
+            TransformStack(transform, self._transform),
             shape=shape,
         )
 
@@ -914,18 +911,18 @@ class Store(object):
         if old_shape == shape:
             return self
 
-        transform = TransformStack(transform, self._transform)
         tile_shape = old_shape.update(dim, 1)
         offsets = Shape((0,) * self.ndim).update(dim, index)
 
         storage = self._storage.slice(
-            old_shape, tile_shape, offsets, self._transform
+            self._transform.invert_extent(tile_shape),
+            self._transform.invert_point(offsets),
         )
         return Store(
             self._runtime,
             self._dtype,
             storage,
-            transform,
+            TransformStack(transform, self._transform),
             shape=shape,
         )
 
@@ -953,17 +950,17 @@ class Store(object):
         if shape == tile_shape:
             return self
 
-        transform = TransformStack(transform, self._transform)
         offsets = Shape((0,) * self.ndim).update(dim, start)
 
         storage = self._storage.slice(
-            shape, tile_shape, offsets, self._transform
+            self._transform.invert_extent(tile_shape),
+            self._transform.invert_point(offsets),
         )
         return Store(
             self._runtime,
             self._dtype,
             storage,
-            transform,
+            TransformStack(transform, self._transform),
             shape=tile_shape,
         )
 

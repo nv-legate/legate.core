@@ -78,6 +78,12 @@ class Shift(Transform):
     def invert_color(self, color):
         return color
 
+    def invert_extent(self, extent):
+        return extent
+
+    def invert_point(self, point):
+        return point.update(self._dim, point[self._dim] - self._offset)
+
     def invert_dimensions(self, dims):
         return dims
 
@@ -159,6 +165,12 @@ class Promote(Transform):
 
     def invert_color(self, color):
         return color.drop(self._extra_dim)
+
+    def invert_extent(self, extent):
+        return extent.drop(self._extra_dim)
+
+    def invert_point(self, point):
+        return point.drop(self._extra_dim)
 
     def invert_dimensions(self, dims):
         return dims[: self._extra_dim] + dims[self._extra_dim + 1 :]
@@ -248,6 +260,12 @@ class Project(Transform):
     def invert_color(self, color):
         return color.insert(self._dim, 0)
 
+    def invert_extent(self, extent):
+        return extent.insert(self._dim, 1)
+
+    def invert_point(self, point):
+        return point.insert(self._dim, self._index)
+
     def invert_dimensions(self, dims):
         return dims[: self._dim] + (CoordinateSym(-1),) + dims[self._dim :]
 
@@ -335,6 +353,12 @@ class Transpose(Transform):
 
     def invert_color(self, color):
         return color.map(self._inverse)
+
+    def invert_extent(self, extent):
+        return extent.map(self._inverse)
+
+    def invert_point(self, point):
+        return point.map(self._inverse)
 
     def invert_dimensions(self, dims):
         return tuple(dims[idx] for idx in self._inverse)
@@ -449,6 +473,12 @@ class Delinearize(Transform):
     def invert_color(self, color):
         raise NonInvertibleError()
 
+    def invert_extent(self, extent):
+        raise NonInvertibleError()
+
+    def invert_point(self, point):
+        raise NonInvertibleError()
+
     def invert_dimensions(self, dims):
         left = dims[: self._dim + 1]
         right = dims[self._dim + self._shape.ndim :]
@@ -516,6 +546,14 @@ class TransformStack(object):
 
     def invert_color(self, color):
         return self._parent.invert_color(self._transform.invert_color(color))
+
+    def invert_extent(self, extent):
+        return self._parent.invert_extent(
+            self._transform.invert_extent(extent)
+        )
+
+    def invert_point(self, point):
+        return self._parent.invert_point(self._transform.invert_point(point))
 
     def convert_partition(self, partition):
         return self._transform.convert(
@@ -585,6 +623,12 @@ class IdentityTransform(object):
 
     def invert_color(self, color):
         return color
+
+    def invert_extent(self, extent):
+        return extent
+
+    def invert_point(self, point):
+        return point
 
     def convert_partition(self, partition):
         return partition
