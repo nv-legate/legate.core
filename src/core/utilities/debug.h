@@ -30,7 +30,7 @@ using namespace Legion;
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #endif
 
-bool is_device_only_ptr(const void* ptr)
+inline bool is_device_only_ptr(const void* ptr)
 {
   cudaPointerAttributes attrs;
   cudaError_t res = cudaPointerGetAttributes(&attrs, ptr);
