@@ -56,6 +56,7 @@ If you have questions, please contact us at legate(at)nvidia.com.
 1. [How Do I Install Legate?](#how-do-i-install-legate)
 1. [How Do I Use Legate?](#how-do-i-use-legate)
 1. [Other FAQs](#other-faqs)
+1. [Contributing](#contributing)
 1. [Documentation](#documentation)
 1. [Next Steps](#next-steps)
 
@@ -459,6 +460,10 @@ that can adversely effect the performance of the application.
   If you are interested in pursuing this approach please open an issue
   on the [Legion github issue tracker](https://github.com/StanfordLegion/legion/issues)
   as it will be almost entirely orthogonal to how you use Legate.
+
+## Contributing
+
+See the discussion of contributing in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Documentation
 
