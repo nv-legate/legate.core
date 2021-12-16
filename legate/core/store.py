@@ -758,12 +758,18 @@ class StorePartition(object):
 
     def get_child_store(self, *indices):
         color = self.transform.invert_color(Shape(indices))
+        child_storage = self._storage_partition.get_child(color)
+        child_transform = self.transform
+        for dim, offset in enumerate(child_storage.offsets):
+            child_transform = TransformStack(
+                Shift(self._runtime, dim, -offset), child_transform
+            )
         return Store(
             self._runtime,
             self._store.type,
-            self._storage_partition.get_child(color),
-            self._store.transform,
-            shape=self._storage_partition.get_child_size(color),
+            child_storage,
+            child_transform,
+            shape=child_storage.extents,
         )
 
     def get_requirement(self, launch_ndim, proj_fn=None):
