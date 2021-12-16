@@ -18,7 +18,8 @@ import legate.core.types as ty
 from .constraints import PartSym
 from .launcher import CopyLauncher, TaskLauncher
 from .legion import Future
-from .store import Store
+from .partition import REPLICATE
+from .store import Store, StorePartition
 from .utils import OrderedSet
 
 
@@ -38,6 +39,8 @@ class Operation(object):
         self._partitions = {}
         self._constraints = []
         self._all_parts = []
+        self._launch_domain = None
+        self._error_on_interference = True
 
     @property
     def context(self):
@@ -86,7 +89,7 @@ class Operation(object):
     @staticmethod
     def _check_store(store):
         if not isinstance(store, Store):
-            raise ValueError(f"Expected a Store object, but got {type(store)}")
+            raise ValueError(f"Expected a Store, but got {type(store)}")
 
     def _get_unique_partition(self, store):
         if store not in self._partitions:
@@ -179,7 +182,6 @@ class Task(Operation):
         Operation.__init__(self, context, mapper_id=mapper_id, op_id=op_id)
         self._task_id = task_id
         self._scalar_args = []
-        self._futures = []
 
     def get_name(self):
         libname = self.context.library.get_name()
@@ -192,51 +194,11 @@ class Task(Operation):
         code = self._context.type_system[dtype].code
         self._scalar_args.append((code, ty.int32))
 
-    def add_future(self, future):
-        self._futures.append(future)
-
-    def launch(self, strategy):
-        launcher = TaskLauncher(self.context, self._task_id, self.mapper_id)
-
-        for input, input_part in zip(self._inputs, self._input_parts):
-            proj = strategy.get_projection(input_part)
-            tag = self.get_tag(strategy, input_part)
-            launcher.add_input(input, proj, tag=tag)
-        for output, output_part in zip(self._outputs, self._output_parts):
-            if output.unbound:
-                continue
-            proj = strategy.get_projection(output_part)
-            tag = self.get_tag(strategy, output_part)
-            launcher.add_output(output, proj, tag=tag)
-            partition = strategy.get_partition(output_part)
-            # We update the key partition of a store only when it gets updated
-            output.set_key_partition(partition)
-        for ((reduction, redop), reduction_part) in zip(
-            self._reductions, self._reduction_parts
-        ):
-            partition = strategy.get_partition(reduction_part)
-            can_read_write = partition.is_disjoint_for(strategy, reduction)
-            proj = strategy.get_projection(reduction_part)
-            proj.redop = reduction.type.reduction_op_id(redop)
-            tag = self.get_tag(strategy, reduction)
-            launcher.add_reduction(
-                reduction, proj, tag=tag, read_write=can_read_write
-            )
-        for (output, output_part) in zip(self._outputs, self._output_parts):
-            if not output.unbound:
-                continue
-            fspace = strategy.get_field_space(output_part)
-            field_id = fspace.allocate_field(output.type)
-            launcher.add_unbound_output(output, fspace, field_id)
-
+    def _add_scalar_args_to_launcher(self, launcher):
         for (arg, dtype) in self._scalar_args:
             launcher.add_scalar_arg(arg, dtype)
 
-        for future in self._futures:
-            launcher.add_future(future)
-
-        result = strategy.launch(launcher)
-
+    def _demux_scalar_stores(self, result, launch_domain):
         num_scalar_outs = len(self.scalar_outputs)
         num_scalar_reds = len(self.scalar_reductions)
         runtime = self.context.runtime
@@ -252,9 +214,6 @@ class Task(Operation):
                 output.set_storage(runtime.reduce_future_map(result, redop_id))
         else:
             idx = 0
-            launch_domain = (
-                strategy.launch_domain if strategy.parallel else None
-            )
             for out_idx in self.scalar_outputs:
                 output = self.outputs[out_idx]
                 output.set_storage(
@@ -271,6 +230,156 @@ class Task(Operation):
                     )
                 )
                 idx += 1
+
+
+class AutoTask(Task):
+    def __init__(self, context, task_id, mapper_id=0, op_id=0):
+        Task.__init__(self, context, task_id, mapper_id, op_id)
+
+    def launch(self, strategy):
+        launcher = TaskLauncher(self.context, self._task_id, self.mapper_id)
+
+        def get_requirement(store, part_symb):
+            store_part = store.partition(strategy.get_partition(part_symb))
+            req = store_part.get_requirement(strategy.launch_ndim)
+            tag = self.get_tag(strategy, part_symb)
+            return req, tag, store_part
+
+        for store, part_symb in zip(self._inputs, self._input_parts):
+            req, tag, _ = get_requirement(store, part_symb)
+            launcher.add_input(store, req, tag=tag)
+
+        for store, part_symb in zip(self._outputs, self._output_parts):
+            if store.unbound:
+                continue
+            req, tag, store_part = get_requirement(store, part_symb)
+            launcher.add_output(store, req, tag=tag)
+            # We update the key partition of a store only when it gets updated
+            store.set_key_partition(store_part.partition)
+
+        for ((store, redop), part_symb) in zip(
+            self._reductions, self._reduction_parts
+        ):
+            req, tag, store_part = get_requirement(store, part_symb)
+
+            can_read_write = store_part.is_disjoint_for(strategy.launch_domain)
+            req.redop = store.type.reduction_op_id(redop)
+
+            launcher.add_reduction(
+                store, req, tag=tag, read_write=can_read_write
+            )
+
+        for (store, part_symb) in zip(self._outputs, self._output_parts):
+            if not store.unbound:
+                continue
+            fspace = strategy.get_field_space(part_symb)
+            field_id = fspace.allocate_field(store.type)
+            launcher.add_unbound_output(store, fspace, field_id)
+
+        self._add_scalar_args_to_launcher(launcher)
+
+        result = strategy.launch(launcher)
+        launch_domain = strategy.launch_domain if strategy.parallel else None
+        self._demux_scalar_stores(result, launch_domain)
+
+
+class ManualTask(Task):
+    def __init__(self, context, task_id, launch_domain, mapper_id=0, op_id=0):
+        Task.__init__(self, context, task_id, mapper_id, op_id)
+        self._launch_domain = launch_domain
+        self._input_projs = []
+        self._output_projs = []
+        self._reduction_projs = []
+
+    @property
+    def launch_ndim(self):
+        return self._launch_domain.dim
+
+    def get_all_stores(self):
+        return OrderedSet()
+
+    @staticmethod
+    def _check_arg(arg):
+        if not isinstance(arg, (Store, StorePartition)):
+            raise ValueError(
+                f"Expected a Store or StorePartition, but got {type(arg)}"
+            )
+
+    def add_input(self, arg, proj=None):
+        self._check_arg(arg)
+        if isinstance(arg, Store):
+            self._input_parts.append(arg.partition(REPLICATE))
+        else:
+            self._input_parts.append(arg)
+        self._input_projs.append(proj)
+
+    def add_output(self, arg, proj=None):
+        self._check_arg(arg)
+        if isinstance(arg, Store):
+            if arg.unbound:
+                raise ValueError(
+                    "Unbound store cannot be used with "
+                    "manually parallelized task"
+                )
+            if arg.kind is Future:
+                self._scalar_outputs.append(len(self._outputs))
+            self._output_parts.append(arg.partition(REPLICATE))
+        else:
+            self._output_parts.append(arg)
+        self._output_projs.append(proj)
+
+    def add_reduction(self, arg, redop, proj=None):
+        self._check_arg(arg)
+        if isinstance(arg, Store):
+            if arg.kind is Future:
+                self._scalar_reductions.append(len(self._reductions))
+            self._reduction_parts.append((arg.partition(REPLICATE), redop))
+        else:
+            self._reduction_parts.append((arg, redop))
+        self._reduction_projs.append(proj)
+
+    def add_alignment(self, store1, store2):
+        raise TypeError(
+            "Partitioning constraints are not allowed for "
+            "manually parallelized tasks"
+        )
+
+    def add_broadcast(self, store):
+        raise TypeError(
+            "Partitioning constraints are not allowed for "
+            "manually parallelized tasks"
+        )
+
+    def launch(self, strategy):
+        launcher = TaskLauncher(
+            self.context,
+            self._task_id,
+            self.mapper_id,
+            error_on_interference=False,
+        )
+
+        for part, proj_fn in zip(self._input_parts, self._input_projs):
+            req = part.get_requirement(self.launch_ndim, proj_fn)
+            launcher.add_input(part.store, req, tag=0)
+
+        for part, proj_fn in zip(self._output_parts, self._output_projs):
+            req = part.get_requirement(self.launch_ndim, proj_fn)
+            launcher.add_output(part.store, req, tag=0)
+
+        for (part, redop), proj_fn in zip(
+            self._reduction_parts, self._reduction_projs
+        ):
+            req = part.get_requirement(self.launch_ndim, proj_fn)
+            req.redop = part.store.type.reduction_op_id(redop)
+            can_read_write = part.is_disjoint_for(self.launch_domain)
+            launcher.add_reduction(
+                part.store, req, tag=0, read_write=can_read_write
+            )
+
+        self._add_scalar_args_to_launcher(launcher)
+
+        result = launcher.execute(self._launch_domain)
+        self._demux_scalar_stores(result, self._launch_domain)
 
 
 class Copy(Operation):

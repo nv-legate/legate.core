@@ -68,6 +68,16 @@ void DimOrdering::populate_dimension_ordering(const Store& store,
   }
 }
 
+void DimOrdering::c_order() { kind = Kind::C; }
+
+void DimOrdering::fortran_order() { kind = Kind::FORTRAN; }
+
+void DimOrdering::custom_order(std::vector<int32_t>&& dims)
+{
+  kind = Kind::CUSTOM;
+  dims = std::forward<std::vector<int32_t>&&>(dims);
+}
+
 bool InstanceMappingPolicy::operator==(const InstanceMappingPolicy& other) const
 {
   return target == other.target && allocation == other.allocation && layout == other.layout &&

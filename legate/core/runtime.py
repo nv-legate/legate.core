@@ -40,9 +40,11 @@ from .legion import (
     legion,
 )
 from .partition import Restriction
+from .projection import is_identity_projection, pack_symbolic_projection_repr
 from .shape import Shape
 from .solver import Partitioner
-from .store import RegionField, Store
+from .store import RegionField, Storage, Store
+from .transform import IdentityTransform
 
 
 # A Field holds a reference to a field in a region tree
@@ -922,24 +924,18 @@ class Runtime(object):
             self.core_library.LEGATE_CORE_DELINEARIZE_PROJ_ID
         )
 
-    def get_projection(self, src_ndim, dims):
-        spec = (src_ndim, dims)
-        if spec in self._registered_projections:
-            return self._registered_projections[spec]
-
-        tgt_ndim = len(dims)
-        dims_c = ffi.new(f"int32_t[{tgt_ndim}]")
-        for idx, dim in enumerate(dims):
-            dims_c[idx] = dim
-
+    def _register_projection_functor(
+        self, spec, src_ndim, tgt_ndim, dims_c, offsets_c
+    ):
         proj_id = self.core_context.get_projection_id(self._next_projection_id)
         self._next_projection_id += 1
         self._registered_projections[spec] = proj_id
 
-        self.core_library.legate_register_projection_functor(
+        self.core_library.legate_register_affine_projection_functor(
             src_ndim,
             tgt_ndim,
             dims_c,
+            offsets_c,
             proj_id,
         )
 
@@ -953,6 +949,19 @@ class Runtime(object):
         )
 
         return proj_id
+
+    def get_projection(self, src_ndim, dims):
+        spec = (src_ndim, dims)
+        if spec in self._registered_projections:
+            return self._registered_projections[spec]
+
+        if is_identity_projection(src_ndim, dims):
+            self._registered_projections[spec] = 0
+            return 0
+        else:
+            return self._register_projection_functor(
+                spec, *pack_symbolic_projection_repr(src_ndim, dims)
+            )
 
     def get_transform_code(self, name):
         return getattr(
@@ -973,12 +982,20 @@ class Runtime(object):
     ):
         if shape is not None and not isinstance(shape, Shape):
             shape = Shape(shape)
+        if storage is None:
+            if not optimize_scalar or shape.volume() > 1:
+                kind = RegionField
+            else:
+                kind = Future
+        else:
+            kind = type(storage)
+        storage = Storage(self, shape, 0, dtype, data=storage, kind=kind)
         return Store(
             self,
             dtype,
+            storage,
+            IdentityTransform(),
             shape=shape,
-            storage=storage,
-            optimize_scalar=optimize_scalar,
         )
 
     def find_or_create_region_manager(self, shape, region=None):

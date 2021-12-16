@@ -71,6 +71,11 @@ struct DimOrdering {
                                    std::vector<Legion::DimensionKind>& ordering) const;
 
  public:
+  void c_order();
+  void fortran_order();
+  void custom_order(std::vector<int32_t>&& dims);
+
+ public:
   Kind kind{Kind::C};
   // When relative is true, 'dims' specifies the order of dimensions
   // for the store's local coordinate space, which will be mapped
