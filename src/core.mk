@@ -30,6 +30,7 @@ GEN_CPU_SRC	= core/legate_c.cc                 \
 							core/runtime/shard.cc            \
 							core/task/return.cc              \
 							core/task/task.cc                \
+							core/utilities/debug.cc          \
 							core/utilities/deserializer.cc   \
 							core/utilities/machine.cc        \
 							core/utilities/linearize.cc
@@ -53,6 +54,7 @@ INSTALL_HEADERS = legate.h                        \
 									core/runtime/runtime.h          \
 									core/task/return.h              \
 									core/task/task.h                \
+									core/utilities/debug.h          \
 									core/utilities/deserializer.h   \
 									core/utilities/deserializer.inl \
 									core/utilities/dispatch.h       \
