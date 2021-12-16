@@ -18,7 +18,7 @@ import legate.core.types as ty
 from .constraints import PartSym
 from .launcher import CopyLauncher, TaskLauncher
 from .legion import Future
-from .partition import NoPartition
+from .partition import REPLICATE
 from .store import Store, StorePartition
 from .utils import OrderedSet
 
@@ -239,36 +239,42 @@ class AutoTask(Task):
     def launch(self, strategy):
         launcher = TaskLauncher(self.context, self._task_id, self.mapper_id)
 
-        for input, input_part in zip(self._inputs, self._input_parts):
-            proj = strategy.get_projection(input_part)
-            tag = self.get_tag(strategy, input_part)
-            launcher.add_input(input, proj, tag=tag)
-        for output, output_part in zip(self._outputs, self._output_parts):
-            if output.unbound:
+        def get_requirement(store, part_symb):
+            store_part = store.partition(strategy.get_partition(part_symb))
+            req = store_part.get_requirement(strategy.launch_ndim)
+            tag = self.get_tag(strategy, part_symb)
+            return req, tag, store_part
+
+        for store, part_symb in zip(self._inputs, self._input_parts):
+            req, tag, _ = get_requirement(store, part_symb)
+            launcher.add_input(store, req, tag=tag)
+
+        for store, part_symb in zip(self._outputs, self._output_parts):
+            if store.unbound:
                 continue
-            proj = strategy.get_projection(output_part)
-            partition = strategy.get_partition(output_part)
-            tag = self.get_tag(strategy, output_part)
-            launcher.add_output(output, proj, tag=tag)
+            req, tag, store_part = get_requirement(store, part_symb)
+            launcher.add_output(store, req, tag=tag)
             # We update the key partition of a store only when it gets updated
-            output.set_key_partition(partition)
-        for ((reduction, redop), reduction_part) in zip(
+            store.set_key_partition(store_part.partition)
+
+        for ((store, redop), part_symb) in zip(
             self._reductions, self._reduction_parts
         ):
-            partition = strategy.get_partition(reduction_part)
-            can_read_write = partition.is_disjoint_for(strategy, reduction)
-            proj = strategy.get_projection(reduction_part)
-            proj.redop = reduction.type.reduction_op_id(redop)
-            tag = self.get_tag(strategy, reduction)
+            req, tag, store_part = get_requirement(store, part_symb)
+
+            can_read_write = store_part.is_disjoint_for(strategy.launch_domain)
+            req.redop = store.type.reduction_op_id(redop)
+
             launcher.add_reduction(
-                reduction, proj, tag=tag, read_write=can_read_write
+                store, req, tag=tag, read_write=can_read_write
             )
-        for (output, output_part) in zip(self._outputs, self._output_parts):
-            if not output.unbound:
+
+        for (store, part_symb) in zip(self._outputs, self._output_parts):
+            if not store.unbound:
                 continue
-            fspace = strategy.get_field_space(output_part)
-            field_id = fspace.allocate_field(output.type)
-            launcher.add_unbound_output(output, fspace, field_id)
+            fspace = strategy.get_field_space(part_symb)
+            field_id = fspace.allocate_field(store.type)
+            launcher.add_unbound_output(store, fspace, field_id)
 
         self._add_scalar_args_to_launcher(launcher)
 
@@ -302,23 +308,24 @@ class ManualTask(Task):
     def add_input(self, arg, proj=None):
         self._check_arg(arg)
         if isinstance(arg, Store):
-            self._inputs.append(arg)
-            self._input_parts.append(NoPartition())
+            self._input_parts.append(arg.partition(REPLICATE))
         else:
-            self._inputs.append(arg.store)
-            self._input_parts.append(arg.partition)
+            self._input_parts.append(arg)
         self._input_projs.append(proj)
 
     def add_output(self, arg, proj=None):
         self._check_arg(arg)
         if isinstance(arg, Store):
+            if arg.unbound:
+                raise ValueError(
+                    "Unbound store cannot be used with "
+                    "manually parallelized task"
+                )
             if arg.kind is Future:
                 self._scalar_outputs.append(len(self._outputs))
-            self._outputs.append(arg)
-            self._output_parts.append(NoPartition())
+            self._output_parts.append(arg.partition(REPLICATE))
         else:
-            self._outputs.append(arg.store)
-            self._output_parts.append(arg.partition)
+            self._output_parts.append(arg)
         self._output_projs.append(proj)
 
     def add_reduction(self, arg, redop, proj=None):
@@ -326,11 +333,9 @@ class ManualTask(Task):
         if isinstance(arg, Store):
             if arg.kind is Future:
                 self._scalar_reductions.append(len(self._reductions))
-            self._reductions.append((arg, redop))
-            self._reduction_parts.append(NoPartition())
+            self._reduction_parts.append((arg.partition(REPLICATE), redop))
         else:
-            self._reductions.append((arg.store, redop))
-            self._reduction_parts.append(arg.partition)
+            self._reduction_parts.append((arg, redop))
         self._reduction_projs.append(proj)
 
     def add_alignment(self, store1, store2):
@@ -353,49 +358,23 @@ class ManualTask(Task):
             error_on_interference=False,
         )
 
-        for input, input_part, input_proj in zip(
-            self._inputs, self._input_parts, self._input_projs
+        for part, proj_fn in zip(self._input_parts, self._input_projs):
+            req = part.get_requirement(self.launch_ndim, proj_fn)
+            launcher.add_input(part.store, req, tag=0)
+
+        for part, proj_fn in zip(self._output_parts, self._output_projs):
+            req = part.get_requirement(self.launch_ndim, proj_fn)
+            launcher.add_output(part.store, req, tag=0)
+
+        for (part, redop), proj_fn in zip(
+            self._reduction_parts, self._reduction_projs
         ):
-            proj = input_part.get_requirement(
-                self.launch_ndim, input, input_proj
-            )
-            tag = self.get_tag(strategy, input_part)
-            launcher.add_input(input, proj, tag=tag)
-        for (output, output_part, output_proj) in zip(
-            self._outputs, self._output_parts, self._output_projs
-        ):
-            if output.unbound:
-                continue
-            proj = output_part.get_requirement(
-                self.launch_ndim, output, output_proj
-            )
-            partition = output_part
-            tag = self.get_tag(strategy, output_part)
-            launcher.add_output(output, proj, tag=tag)
-            # We update the key partition of a store only when it gets updated
-            output.set_key_partition(partition)
-        for ((reduction, redop), reduction_part, reduction_proj) in zip(
-            self._reductions, self._reduction_parts, self._reduction_projs
-        ):
-            can_read_write = reduction_part.is_disjoint_for(
-                strategy, reduction
-            )
-            proj = reduction_part.get_requirement(
-                self.launch_ndim,
-                reduction,
-                reduction_proj,
-            )
-            proj.redop = reduction.type.reduction_op_id(redop)
-            tag = self.get_tag(strategy, reduction)
+            req = part.get_requirement(self.launch_ndim, proj_fn)
+            req.redop = part.store.type.reduction_op_id(redop)
+            can_read_write = part.is_disjoint_for(self.launch_domain)
             launcher.add_reduction(
-                reduction, proj, tag=tag, read_write=can_read_write
+                part.store, req, tag=0, read_write=can_read_write
             )
-        for (output, output_part) in zip(self._outputs, self._output_parts):
-            if not output.unbound:
-                continue
-            fspace = strategy.get_field_space(output_part)
-            field_id = fspace.allocate_field(output.type)
-            launcher.add_unbound_output(output, fspace, field_id)
 
         self._add_scalar_args_to_launcher(launcher)
 

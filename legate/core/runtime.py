@@ -40,10 +40,11 @@ from .legion import (
     legion,
 )
 from .partition import Restriction
-from .projection import analyze_projection, pack_projection_spec
+from .projection import is_identity_projection, pack_symbolic_projection_repr
 from .shape import Shape
 from .solver import Partitioner
-from .store import RegionField, Store
+from .store import RegionField, Storage, Store
+from .transform import IdentityTransform
 
 
 # A Field holds a reference to a field in a region tree
@@ -954,26 +955,13 @@ class Runtime(object):
         if spec in self._registered_projections:
             return self._registered_projections[spec]
 
-        tgt_ndim = len(dims)
-        dims_c = ffi.new(f"int32_t[{tgt_ndim}]")
-        offsets_c = ffi.new(f"int32_t[{tgt_ndim}]")
-        for idx, dim in enumerate(dims):
-            dims_c[idx] = dim
-            offsets_c[idx] = 0
-
-        return self._register_projection_functor(
-            spec, src_ndim, tgt_ndim, dims_c, offsets_c
-        )
-
-    def get_projection_from_callable(self, launch_ndim, proj_fn):
-        spec = analyze_projection(launch_ndim, proj_fn)
-
-        if spec in self._registered_projections:
-            return self._registered_projections[spec]
-
-        return self._register_projection_functor(
-            spec, *pack_projection_spec(launch_ndim, spec)
-        )
+        if is_identity_projection(src_ndim, dims):
+            self._registered_projections[spec] = 0
+            return 0
+        else:
+            return self._register_projection_functor(
+                spec, *pack_symbolic_projection_repr(src_ndim, dims)
+            )
 
     def get_transform_code(self, name):
         return getattr(
@@ -994,12 +982,20 @@ class Runtime(object):
     ):
         if shape is not None and not isinstance(shape, Shape):
             shape = Shape(shape)
+        if storage is None:
+            if not optimize_scalar or shape.volume() > 1:
+                kind = RegionField
+            else:
+                kind = Future
+        else:
+            kind = type(storage)
+        storage = Storage(self, shape, 0, dtype, data=storage, kind=kind)
         return Store(
             self,
             dtype,
+            storage,
+            IdentityTransform(),
             shape=shape,
-            storage=storage,
-            optimize_scalar=optimize_scalar,
         )
 
     def find_or_create_region_manager(self, shape, region=None):

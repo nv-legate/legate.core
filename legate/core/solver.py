@@ -15,7 +15,7 @@
 
 from .constraints import Alignment, Broadcast, Containment
 from .legion import Future, Rect
-from .partition import NoPartition
+from .partition import REPLICATE, Replicate
 from .shape import Shape
 from .utils import OrderedSet
 
@@ -112,7 +112,6 @@ class Strategy(object):
 
     @property
     def launch_domain(self):
-        assert self.parallel
         return self._launch_domain
 
     @property
@@ -188,11 +187,11 @@ class Partitioner(object):
                 continue
 
             if store.kind is Future:
-                partitions[unknown] = NoPartition()
+                partitions[unknown] = REPLICATE
             else:
                 cls = constraints.find(unknown)
                 for to_align in cls:
-                    partitions[to_align] = NoPartition()
+                    partitions[to_align] = REPLICATE
 
         return unknowns - to_remove
 
@@ -215,7 +214,7 @@ class Partitioner(object):
 
             fspace = self._runtime.create_field_space()
             for to_align in cls:
-                partitions[unknown] = NoPartition()
+                partitions[unknown] = REPLICATE
                 fspaces[unknown] = fspace
 
         return unknowns - to_remove, len(to_remove) > 0
@@ -305,7 +304,7 @@ class Partitioner(object):
             store = unknown.store
             restrictions = all_restrictions[unknown]
 
-            if isinstance(prev_part, NoPartition):
+            if isinstance(prev_part, Replicate):
                 partition = prev_part
             else:
                 partition = store.compute_key_partition(restrictions)
