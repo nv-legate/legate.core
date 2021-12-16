@@ -26,7 +26,7 @@ from .legion import (
     ffi,
     legion,
 )
-from .partition import NoPartition, PartitionBase, Restriction, Tiling
+from .partition import REPLICATE, PartitionBase, Restriction, Tiling
 from .projection import execute_functor_symbolically
 from .shape import Shape
 from .transform import (
@@ -395,7 +395,7 @@ class _LegateNDarray(object):
 
 
 class StoragePartition(object):
-    def __init__(self, runtime, level, parent, partition, complete=True):
+    def __init__(self, runtime, level, parent, partition, complete=False):
         self._runtime = runtime
         self._level = level
         self._parent = parent
@@ -450,14 +450,19 @@ class StoragePartition(object):
         else:
             return self._child_data[color]
 
-    def get_requirement(self, launch_ndim, store, proj_fn=None):
-        return self._partition.get_requirement(launch_ndim, store, proj_fn)
-
     def has_key_partition(self, restrictions):
         return self._parent.has_key_partition(restrictions)
 
     def find_key_partition(self, restrictions):
         return self._parent.find_key_partition(restrictions)
+
+    def find_or_create_legion_partition(self):
+        return self._parent.find_or_create_legion_partition(
+            self._partition, self._complete
+        )
+
+    def is_disjoint_for(self, launch_domain):
+        return self._partition.is_disjoint_for(launch_domain)
 
 
 class Storage(object):
@@ -659,11 +664,16 @@ class Storage(object):
         tiling = Tiling(self._runtime, tile_shape, color_shape, offsets)
         # We create a slice partition directly off of the root
         partition = StoragePartition(
-            self._runtime, 1, self.get_root(), tiling, complete=complete
+            self._runtime,
+            1,
+            self.get_root(),
+            tiling,
+            complete=complete,
         )
         return partition.get_child(color)
 
-    def partition(self, partition, complete=False):
+    def partition(self, partition):
+        complete = partition.is_complete_for(self.extents)
         return StoragePartition(
             self._runtime, self._level + 1, self, partition, complete=complete
         )
@@ -690,13 +700,13 @@ class Storage(object):
     def reset_key_partition(self):
         self._key_partition = None
 
-    def find_or_create_legion_partition(self, functor):
-        assert self.kind is RegionField
+    def find_or_create_legion_partition(self, functor, complete):
+        if self.kind is not RegionField:
+            return None
 
         if functor in self._partitions:
             return self._partitions[functor]
 
-        complete = False  # converted.is_complete_for(self._get_tile_shape())
         part = functor.construct(self.data.region, complete=complete)
         self._partitions[functor] = part
 
@@ -731,6 +741,20 @@ class StorePartition(object):
             self._store.transform,
             shape=self._storage_partition.get_child_size(color),
         )
+
+    def get_requirement(self, launch_ndim, proj_fn=None):
+        part = self._storage_partition.find_or_create_legion_partition()
+        if part is not None:
+            proj_id = self._store.compute_projection(proj_fn, launch_ndim)
+            if self._partition.needs_delinearization(launch_ndim):
+                assert proj_id == 0
+                proj_id = self._runtime.get_delinearize_functor()
+        else:
+            proj_id = None
+        return self._partition.requirement(part, proj_id)
+
+    def is_disjoint_for(self, launch_domain):
+        return self._storage_partition.is_disjoint_for(launch_domain)
 
 
 class Store(object):
@@ -1053,8 +1077,7 @@ class Store(object):
 
         # If this is effectively a scalar store, we don't need to partition it
         if self.kind is Future or self.ndim == 0:
-            self._key_partition = NoPartition()
-            return self._key_partition
+            return REPLICATE
 
         # We need the transformations to be convertible so that we can map
         # the storage partition to this store's coordinate space
@@ -1067,7 +1090,6 @@ class Store(object):
 
         if partition is not None:
             partition = self._transform.convert_partition(partition)
-            self._key_partition = partition
             return partition
         else:
             launch_shape = self._partition_manager.compute_launch_shape(
@@ -1075,13 +1097,12 @@ class Store(object):
                 restrictions,
             )
             if launch_shape is None:
-                partition = NoPartition()
+                partition = REPLICATE
             else:
                 tile_shape = self._partition_manager.compute_tile_shape(
                     self.shape, launch_shape
                 )
                 partition = Tiling(self._runtime, tile_shape, launch_shape)
-            self._key_partition = partition
             return partition
 
     def compute_projection(self, proj_fn=None, launch_ndim=None):
@@ -1112,17 +1133,18 @@ class Store(object):
     def find_restrictions(self):
         return self._transform.convert_restrictions(self._storage.restrictions)
 
-    def find_or_create_legion_partition(self, partition):
+    def find_or_create_legion_partition(self, partition, complete=False):
         # Create a Legion partition for a given functor.
         # Before we do that, we need to map the partition back
         # to the original coordinate space.
         return self._storage.find_or_create_legion_partition(
-            self._transform.invert_partition(partition)
+            self._transform.invert_partition(partition),
+            complete=complete,
         )
 
     def partition(self, partition):
         storage_partition = self._storage.partition(
-            self.invert_partition(partition), complete=True
+            self.invert_partition(partition),
         )
         return StorePartition(
             self._runtime, self, partition, storage_partition

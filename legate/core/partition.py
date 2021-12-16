@@ -37,28 +37,35 @@ class PartitionBase(object):
     pass
 
 
-class NoPartition(PartitionBase):
+class Replicate(PartitionBase):
     @property
     def color_shape(self):
         return None
 
-    def is_disjoint_for(self, strategy, store):
-        return not strategy.parallel
+    @property
+    def requirement(self):
+        return Broadcast
 
-    def get_requirement(self, ndim, store, proj_fn=None):
-        return Broadcast()
+    def is_complete_for(self, extents):
+        return True
+
+    def is_disjoint_for(self, launch_domain):
+        return launch_domain is None
 
     def __hash__(self):
         return hash(self.__class__)
 
     def __eq__(self, other):
-        return isinstance(other, NoPartition)
+        return isinstance(other, Replicate)
 
     def __str__(self):
-        return "NoPartition"
+        return "Replicate"
 
     def __repr__(self):
         return str(self)
+
+    def needs_delinearization(self, launch_ndim):
+        return False
 
     def satisfies_restriction(self, restrictions):
         return True
@@ -66,8 +73,11 @@ class NoPartition(PartitionBase):
     def translate(self, offset):
         return self
 
-    def get_child_store(self, store, point):
-        return store
+    def construct(self, region, complete=False):
+        return None
+
+
+REPLICATE = Replicate()
 
 
 class Interval(object):
@@ -111,6 +121,10 @@ class Tiling(PartitionBase):
         return self._color_shape
 
     @property
+    def requirement(self):
+        return Partition
+
+    @property
     def offset(self):
         return self._offset
 
@@ -136,18 +150,8 @@ class Tiling(PartitionBase):
     def __repr__(self):
         return str(self)
 
-    def overlaps(self, other):
-        assert self.tile_shape.ndim == other.tile_shape.ndim
-        assert self.color_shape.volume() == 1
-        assert other.color_shape.volume() == 1
-
-        for dim in range(self.tile_shape.ndim):
-            my_interval = Interval(self.offset[dim], self.tile_shape[dim])
-            other_interval = Interval(other.offset[dim], other.tile_shape[dim])
-            if not my_interval.overlaps(other_interval):
-                return False
-
-        return True
+    def needs_delinearization(self, launch_ndim):
+        return launch_ndim != self._color_shape.ndim
 
     def satisfies_restriction(self, restrictions):
         for dim, restriction in enumerate(restrictions):
@@ -158,18 +162,14 @@ class Tiling(PartitionBase):
                 return False
         return True
 
-    def is_complete_for(self, tile):
+    def is_complete_for(self, extents):
         my_lo = self._offset
         my_hi = self._offset + self.tile_shape * self.color_shape
 
-        tile_lo = tile._offset
-        tile_hi = tile._offset + tile.tile_shape * tile.color_shape
+        return my_lo <= 0 and extents <= my_hi
 
-        return my_lo <= tile_lo and tile_hi <= my_hi
-
-    def is_disjoint_for(self, strategy, store):
-        inverted = store.invert_partition(self)
-        return inverted.color_shape.volume() == self.color_shape.volume()
+    def is_disjoint_for(self, launch_domain):
+        return launch_domain.get_volume() <= self.color_shape.volume()
 
     def has_color(self, color):
         return color >= 0 and color < self._color_shape
@@ -222,13 +222,3 @@ class Tiling(PartitionBase):
             )
             self._runtime.record_partition(index_space, self, index_partition)
         return region.get_child(index_partition)
-
-    def get_requirement(self, launch_ndim, store, proj_fn=None):
-        part = store.find_or_create_legion_partition(self)
-        proj_id = store.compute_projection(proj_fn, launch_ndim)
-        if self.color_shape.ndim != launch_ndim:
-            assert proj_fn is None
-            assert proj_id == 0
-            assert launch_ndim == 1
-            proj_id = self._runtime.get_delinearize_functor()
-        return Partition(part, proj_id)

@@ -16,7 +16,7 @@
 import numpy as np
 
 from .legion import AffineTransform
-from .partition import NoPartition, Restriction, Tiling
+from .partition import Replicate, Restriction, Tiling
 from .projection import CoordinateSym
 from .shape import Shape
 
@@ -99,7 +99,7 @@ class Shift(Transform):
                 partition.color_shape,
                 partition.offset.update(self._dim, offset),
             )
-        elif isinstance(partition, NoPartition):
+        elif isinstance(partition, Replicate):
             return partition
         else:
             raise ValueError(
@@ -188,7 +188,7 @@ class Promote(Transform):
                 partition.color_shape.insert(self._extra_dim, 1),
                 partition.offset.insert(self._extra_dim, 0),
             )
-        elif isinstance(partition, NoPartition):
+        elif isinstance(partition, Replicate):
             return partition
         else:
             raise ValueError(
@@ -283,7 +283,7 @@ class Project(Transform):
                 partition.color_shape.drop(self._dim),
                 partition.offset.drop(self._dim),
             )
-        elif isinstance(partition, NoPartition):
+        elif isinstance(partition, Replicate):
             return partition
         else:
             raise ValueError(
@@ -374,7 +374,7 @@ class Transpose(Transform):
                 partition.color_shape.map(self._axes),
                 partition.offset.map(self._axes),
             )
-        elif isinstance(partition, NoPartition):
+        elif isinstance(partition, Replicate):
             return partition
         else:
             raise ValueError(
@@ -566,7 +566,7 @@ class TransformStack(object):
         )
 
     def invert_partition(self, partition):
-        if isinstance(partition, NoPartition):
+        if isinstance(partition, Replicate):
             return partition
         return self._parent._invert_partition(
             self._transform.invert(partition)

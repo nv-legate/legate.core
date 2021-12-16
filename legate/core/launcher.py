@@ -176,8 +176,14 @@ _single_copy_calls = {
 
 
 class Broadcast(object):
-    def __init__(self, redop=None):
-        self.redop = redop
+    __slots__ = ["part", "proj", "redop"]
+
+    # Use the same signature as Partition's constructor
+    # so that the caller can construct projection objects in a uniform way
+    def __init__(self, part, proj):
+        self.part = part
+        self.proj = proj
+        self.redop = None
 
     def add(self, task, req, fields, methods):
         f = methods[req.permission]
@@ -219,10 +225,12 @@ class Broadcast(object):
 
 
 class Partition(object):
-    def __init__(self, part, proj=0, redop=None):
+    __slots__ = ["part", "proj", "redop"]
+
+    def __init__(self, part, proj):
         self.part = part
         self.proj = proj
-        self.redop = redop
+        self.redop = None
 
     def add(self, task, req, fields, methods):
         f = methods[req.permission]
