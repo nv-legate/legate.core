@@ -46,7 +46,7 @@ class Replicate(PartitionBase):
     def requirement(self):
         return Broadcast
 
-    def is_complete_for(self, extents):
+    def is_complete_for(self, extents, offsets):
         return True
 
     def is_disjoint_for(self, launch_domain):
@@ -162,11 +162,11 @@ class Tiling(PartitionBase):
                 return False
         return True
 
-    def is_complete_for(self, extents):
+    def is_complete_for(self, extents, offsets):
         my_lo = self._offset
         my_hi = self._offset + self.tile_shape * self.color_shape
 
-        return my_lo <= 0 and extents <= my_hi
+        return my_lo <= offsets and offsets + extents <= my_hi
 
     def is_disjoint_for(self, launch_domain):
         return launch_domain.get_volume() <= self.color_shape.volume()
@@ -180,6 +180,9 @@ class Tiling(PartitionBase):
         lo = Shape(max(0, coord) for coord in lo)
         hi = Shape(min(max, coord) for (max, coord) in zip(extents, hi))
         return Shape(hi - lo)
+
+    def get_subregion_offsets(self, color):
+        return self._tile_shape * color + self._offset
 
     def translate(self, offset):
         return Tiling(

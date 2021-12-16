@@ -403,6 +403,7 @@ class StoragePartition(object):
         self._complete = complete
         self._child_data = {}
         self._child_sizes = {}
+        self._child_offsets = {}
 
     @property
     def parent(self):
@@ -420,14 +421,16 @@ class StoragePartition(object):
             raise ValueError(
                 f"{color} is not a valid color for {self._partition}"
             )
-        shape = self.get_child_size(color)
+        extents = self.get_child_size(color)
+        offsets = self.get_child_offsets(color)
         return Storage(
             self._runtime,
-            shape,
+            extents,
             self._level + 1,
             self._parent.dtype,
             parent=self,
             color=color,
+            offsets=offsets,
         )
 
     def get_child_size(self, color):
@@ -439,6 +442,14 @@ class StoragePartition(object):
             return size
         else:
             return self._child_sizes[color]
+
+    def get_child_offsets(self, color):
+        if color not in self._child_offsets:
+            offsets = self._partition.get_subregion_offsets(color)
+            self._child_offsets[color] = offsets
+            return offsets
+        else:
+            return self._child_offsets[color]
 
     def get_child_data(self, color):
         if color not in self._child_data:
@@ -476,6 +487,7 @@ class Storage(object):
         kind=RegionField,
         parent=None,
         color=None,
+        offsets=None,
     ):
         assert (
             data is None
@@ -488,6 +500,7 @@ class Storage(object):
         self._attachment_manager = runtime.attachment_manager
         self._partition_manager = runtime.partition_manager
         self._extents = extents
+        self._offsets = offsets
         self._level = level
         self._dtype = dtype
         self._data = data
@@ -496,6 +509,9 @@ class Storage(object):
         self._color = color
         self._partitions = {}
         self._key_partition = None
+
+        if self._offsets is None and self._extents is not None:
+            self._offsets = Shape((0,) * self._extents.ndim)
 
     def __str__(self):
         return (
@@ -510,6 +526,10 @@ class Storage(object):
     @property
     def extents(self):
         return self._extents
+
+    @property
+    def offsets(self):
+        return self._offsets
 
     @property
     def kind(self):
@@ -554,6 +574,10 @@ class Storage(object):
             self._kind is Future and type(data) is Future
         ) or self._data is None
         self._data = data
+
+    def set_extents(self, extents):
+        self._extents = extents
+        self._offsets = Shape((0,) * extents.ndim)
 
     @property
     def has_parent(self):
@@ -673,7 +697,7 @@ class Storage(object):
         return partition.get_child(color)
 
     def partition(self, partition):
-        complete = partition.is_complete_for(self.extents)
+        complete = partition.is_complete_for(self.extents, self.offsets)
         return StoragePartition(
             self._runtime, self._level + 1, self, partition, complete=complete
         )
@@ -894,6 +918,7 @@ class Store(object):
         if self._shape is None:
             assert isinstance(data, RegionField)
             self._shape = data.shape
+            self._storage.set_extents(self._shape)
         else:
             assert isinstance(data, Future)
 
