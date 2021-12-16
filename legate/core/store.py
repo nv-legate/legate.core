@@ -1120,6 +1120,14 @@ class Store(object):
             self._transform.invert_partition(partition)
         )
 
+    def partition(self, partition):
+        storage_partition = self._storage.partition(
+            self.invert_partition(partition), complete=True
+        )
+        return StorePartition(
+            self._runtime, self, partition, storage_partition
+        )
+
     def partition_by_tiling(self, tile_shape):
         if self.unbound:
             raise TypeError("Unbound store cannot be manually partitioned")
@@ -1127,9 +1135,4 @@ class Store(object):
             tile_shape = Shape(tile_shape)
         launch_shape = (self.shape + tile_shape - 1) // tile_shape
         partition = Tiling(self._runtime, tile_shape, launch_shape)
-        storage_partition = self._storage.partition(
-            self.invert_partition(partition), complete=True
-        )
-        return StorePartition(
-            self._runtime, self, partition, storage_partition
-        )
+        return self.partition(partition)
