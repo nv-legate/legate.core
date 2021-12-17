@@ -36,8 +36,9 @@ using namespace Legion::Mapping;
 namespace legate {
 namespace mapping {
 
-BaseMapper::BaseMapper(MapperRuntime* rt, Machine m, const LibraryContext& ctx)
-  : Mapper(rt),
+BaseMapper::BaseMapper(Runtime* rt, Machine m, const LibraryContext& ctx)
+  : Mapper(rt->get_mapper_runtime()),
+    legion_runtime(rt),
     machine(m),
     context(ctx),
     local_node(get_local_node()),
@@ -105,6 +106,7 @@ BaseMapper::BaseMapper(MapperRuntime* rt, Machine m, const LibraryContext& ctx)
     else  // Otherwise we just use the local system memory
       local_numa_domains[local_omp] = local_system_memory;
   }
+  generate_prime_factors();
 }
 
 BaseMapper::~BaseMapper(void)
@@ -210,10 +212,10 @@ void BaseMapper::premap_task(const MapperContext ctx,
   // NO-op since we know that all our futures should be mapped in the system memory
 }
 
-void BaseMapper::slice_task(const MapperContext ctx,
-                            const LegionTask& task,
-                            const SliceTaskInput& input,
-                            SliceTaskOutput& output)
+void BaseMapper::slice_auto_task(const MapperContext ctx,
+                                 const LegionTask& task,
+                                 const SliceTaskInput& input,
+                                 SliceTaskOutput& output)
 {
   LegateProjectionFunctor* key_functor = nullptr;
   for (auto& req : task.regions)
@@ -268,6 +270,125 @@ void BaseMapper::slice_task(const MapperContext ctx,
     }
     default: LEGATE_ABORT
   }
+}
+
+void BaseMapper::generate_prime_factor(const std::vector<Processor>& processors,
+                                       Processor::Kind kind)
+{
+  std::vector<int32_t>& factors = all_factors[kind];
+  int32_t num_procs             = static_cast<int32_t>(processors.size());
+
+  auto generate_factors = [&](int32_t factor) {
+    while (num_procs % factor == 0) {
+      factors.push_back(factor);
+      num_procs /= factor;
+    }
+  };
+  generate_factors(2);
+  generate_factors(3);
+  generate_factors(5);
+  generate_factors(7);
+  generate_factors(11);
+}
+
+void BaseMapper::generate_prime_factors()
+{
+  if (local_gpus.size() > 0) generate_prime_factor(local_gpus, Processor::TOC_PROC);
+  if (local_omps.size() > 0) generate_prime_factor(local_omps, Processor::OMP_PROC);
+  if (local_cpus.size() > 0) generate_prime_factor(local_cpus, Processor::LOC_PROC);
+}
+
+const std::vector<int32_t> BaseMapper::get_processor_grid(Legion::Processor::Kind kind,
+                                                          int32_t ndim)
+{
+  auto key    = std::make_pair(kind, ndim);
+  auto finder = proc_grids.find(key);
+  if (finder != proc_grids.end()) return finder->second;
+
+  int32_t num_procs = 1;
+  switch (kind) {
+    case Processor::LOC_PROC: {
+      num_procs = static_cast<int32_t>(local_cpus.size());
+      break;
+    }
+    case Processor::TOC_PROC: {
+      num_procs = static_cast<int32_t>(local_gpus.size());
+      break;
+    }
+    case Processor::OMP_PROC: {
+      num_procs = static_cast<int32_t>(local_omps.size());
+      break;
+    }
+    default: LEGATE_ABORT
+  }
+
+  std::vector<int32_t> grid;
+  auto factor_it = all_factors[kind].begin();
+  grid.resize(ndim, 1);
+
+  while (num_procs > 1) {
+    auto min_it = std::min_element(grid.begin(), grid.end());
+    auto factor = *factor_it++;
+    (*min_it) *= factor;
+    num_procs /= factor;
+  }
+
+  auto& pitches = proc_grids[key];
+  pitches.resize(ndim, 1);
+  for (int32_t dim = 1; dim < ndim; ++dim) pitches[dim] = pitches[dim - 1] * grid[dim - 1];
+
+  return pitches;
+}
+
+void BaseMapper::slice_manual_task(const MapperContext ctx,
+                                   const LegionTask& task,
+                                   const SliceTaskInput& input,
+                                   SliceTaskOutput& output)
+{
+  output.slices.reserve(input.domain.get_volume());
+
+  // Get the domain for the sharding space also
+  Domain sharding_domain = task.index_domain;
+  if (task.sharding_space.exists())
+    sharding_domain = runtime->get_index_space_domain(ctx, task.sharding_space);
+
+  auto distribute = [&](auto& procs) {
+    auto ndim       = input.domain.dim;
+    auto& proc_grid = get_processor_grid(task.target_proc.kind(), ndim);
+    for (Domain::DomainPointIterator itr(input.domain); itr; itr++) {
+      int32_t idx = 0;
+      for (int32_t dim = 0; dim < ndim; ++dim) idx += proc_grid[dim] * itr.p[dim];
+      output.slices.push_back(TaskSlice(
+        Domain(itr.p, itr.p), procs[idx % procs.size()], false /*recurse*/, false /*stealable*/));
+    }
+  };
+
+  switch (task.target_proc.kind()) {
+    case Processor::LOC_PROC: {
+      distribute(local_cpus);
+      break;
+    }
+    case Processor::TOC_PROC: {
+      distribute(local_gpus);
+      break;
+    }
+    case Processor::OMP_PROC: {
+      distribute(local_omps);
+      break;
+    }
+    default: LEGATE_ABORT
+  }
+}
+
+void BaseMapper::slice_task(const MapperContext ctx,
+                            const LegionTask& task,
+                            const SliceTaskInput& input,
+                            SliceTaskOutput& output)
+{
+  if (task.tag == LEGATE_CORE_MANUAL_PARALLEL_LAUNCH_TAG)
+    slice_manual_task(ctx, task, input, output);
+  else
+    slice_auto_task(ctx, task, input, output);
 }
 
 bool BaseMapper::has_variant(const MapperContext ctx, const LegionTask& task, Processor::Kind kind)
