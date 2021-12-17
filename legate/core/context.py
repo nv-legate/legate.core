@@ -118,6 +118,10 @@ class Context(object):
         return self._library
 
     @property
+    def core_library(self):
+        return self._runtime.core_library
+
+    @property
     def first_mapper_id(self):
         return self._mapper_scope._base
 

@@ -351,11 +351,13 @@ class ManualTask(Task):
         )
 
     def launch(self, strategy):
+        tag = self.context.core_library.LEGATE_CORE_MANUAL_PARALLEL_LAUNCH_TAG
         launcher = TaskLauncher(
             self.context,
             self._task_id,
             self.mapper_id,
             error_on_interference=False,
+            tag=tag,
         )
 
         for part, proj_fn in zip(self._input_parts, self._input_projs):
