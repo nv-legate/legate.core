@@ -572,15 +572,11 @@ def install(
     # Save the maxdim config
     maxdim_config = os.path.join(legate_core_dir, ".maxdim.json")
     # Check the max dimensions
-    # Legion could actually go up to 9 dimensions, but we leave an extra
-    # free dimension for libraries to use as a free dimension
-    if maxdim < 1 or maxdim > 8:
+    if maxdim < 1 or maxdim > 9:
         raise Exception(
-            "The maximum number of Legate dimensions must be between 1 and 8 "
+            "The maximum number of Legate dimensions must be between 1 and 9 "
             "inclusive"
         )
-    # Convert back to legion max dimensions
-    maxdim += 1
     dump_json_config(maxdim_config, str(maxdim))
 
     # Save the maxfields config
@@ -765,8 +761,7 @@ def driver():
         "--max-dim",
         dest="maxdim",
         type=int,
-        # One less than Legion's max dim, default 3
-        default=int(os.environ.get("LEGION_MAX_DIM", 4)) - 1,
+        default=int(os.environ.get("LEGION_MAX_DIM", 4)),
         help="Maximum number of dimensions that Legate will support",
     )
     parser.add_argument(
