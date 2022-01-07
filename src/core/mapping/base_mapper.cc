@@ -360,7 +360,7 @@ void BaseMapper::slice_manual_task(const MapperContext ctx,
     for (Domain::DomainPointIterator itr(input.domain); itr; itr++) {
       int32_t idx = 0;
       for (int32_t dim = 0; dim < ndim; ++dim) idx += proc_grid[dim] * itr.p[dim];
-      //fprintf(stderr, "(%d, %d) --> proc %d\n", itr.p[0], itr.p[1], idx % procs.size());
+      // fprintf(stderr, "(%d, %d) --> proc %d\n", itr.p[0], itr.p[1], idx % procs.size());
       output.slices.push_back(TaskSlice(
         Domain(itr.p, itr.p), procs[idx % procs.size()], false /*recurse*/, false /*stealable*/));
     }
@@ -1191,7 +1191,7 @@ ShardingID BaseMapper::get_sharding_id(Legion::Processor::Kind kind, int32_t ndi
   }
 
   // Register a new sharding functor
-  auto& proc_grid = get_processor_grid(kind, ndim);
+  auto& proc_grid  = get_processor_grid(kind, ndim);
   auto sharding_id = context.get_sharding_id(next_sharding_id++);
   register_new_tiling_functor(legion_runtime, sharding_id, proc_grid, num_procs);
   sharding_ids[key] = sharding_id;
@@ -1203,15 +1203,15 @@ void BaseMapper::select_sharding_functor(const MapperContext ctx,
                                          const SelectShardingFunctorInput& input,
                                          SelectShardingFunctorOutput& output)
 {
-  if (task.tag == LEGATE_CORE_MANUAL_PARALLEL_LAUNCH_TAG)
-  {
-    auto ndim = task.index_domain.dim;
+  if (task.tag == LEGATE_CORE_MANUAL_PARALLEL_LAUNCH_TAG) {
+    auto ndim            = task.index_domain.dim;
     Processor::Kind kind = Processor::Kind::LOC_PROC;
-    if (!local_gpus.empty()) kind = Processor::Kind::TOC_PROC;
-    else if (!local_omps.empty()) kind = Processor::Kind::OMP_PROC;
+    if (!local_gpus.empty())
+      kind = Processor::Kind::TOC_PROC;
+    else if (!local_omps.empty())
+      kind = Processor::Kind::OMP_PROC;
     output.chosen_functor = get_sharding_id(kind, ndim);
-  }
-  else
+  } else
     for (auto& req : task.regions)
       if (req.tag == LEGATE_CORE_KEY_STORE_TAG) {
         output.chosen_functor = find_sharding_functor_by_projection_functor(req.projection);

@@ -99,17 +99,19 @@ class TilingFunctor : public ShardingFunctor {
     : proc_grid_(proc_grid), num_procs_(num_procs)
   {
   }
+
  public:
   virtual ShardID shard(const DomainPoint& p, const Domain& launch_space, const size_t total_shards)
   {
-    auto ndim = static_cast<int32_t>(proc_grid_.size());
+    auto ndim   = static_cast<int32_t>(proc_grid_.size());
     int32_t idx = 0;
     for (int32_t dim = 0; dim < ndim; ++dim) idx += proc_grid_[dim] * p[dim];
     auto shard_id = (idx / num_procs_) % total_shards;
     assert(0 <= shard_id && static_cast<size_t>(shard_id) < total_shards);
-    //fprintf(stderr, "(%d, %d) --> %d\n", p[0], p[1], shard_id);
+    // fprintf(stderr, "(%d, %d) --> %d\n", p[0], p[1], shard_id);
     return shard_id;
   }
+
  private:
   std::vector<int32_t> proc_grid_;
   int32_t num_procs_;
