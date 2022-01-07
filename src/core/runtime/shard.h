@@ -25,6 +25,11 @@ namespace legate {
 void register_legate_core_sharding_functors(Legion::Runtime* runtime,
                                             const LibraryContext& context);
 
+void register_new_tiling_functor(Legion::Runtime* runtime,
+                                 Legion::ShardingID sharding_id,
+                                 const std::vector<int32_t>& proc_grid,
+                                 int32_t num_procs);
+
 Legion::ShardingID find_sharding_functor_by_projection_functor(Legion::ProjectionID proj_id);
 
 }  // namespace legate

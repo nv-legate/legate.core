@@ -45,7 +45,8 @@ BaseMapper::BaseMapper(Runtime* rt, Machine m, const LibraryContext& ctx)
     total_nodes(get_total_nodes(m)),
     mapper_name(std::move(create_name(local_node))),
     logger(create_logger_name().c_str()),
-    local_instances(std::make_unique<InstanceManager>())
+    local_instances(std::make_unique<InstanceManager>()),
+    next_sharding_id(0)
 {
   // Query to find all our local processors
   Machine::ProcessorQuery local_procs(machine);
@@ -276,7 +277,7 @@ void BaseMapper::generate_prime_factor(const std::vector<Processor>& processors,
                                        Processor::Kind kind)
 {
   std::vector<int32_t>& factors = all_factors[kind];
-  int32_t num_procs             = static_cast<int32_t>(processors.size());
+  int32_t num_procs             = static_cast<int32_t>(processors.size() * total_nodes);
 
   auto generate_factors = [&](int32_t factor) {
     while (num_procs % factor == 0) {
@@ -298,8 +299,8 @@ void BaseMapper::generate_prime_factors()
   if (local_cpus.size() > 0) generate_prime_factor(local_cpus, Processor::LOC_PROC);
 }
 
-const std::vector<int32_t> BaseMapper::get_processor_grid(Legion::Processor::Kind kind,
-                                                          int32_t ndim)
+const std::vector<int32_t>& BaseMapper::get_processor_grid(Legion::Processor::Kind kind,
+                                                           int32_t ndim)
 {
   auto key    = std::make_pair(kind, ndim);
   auto finder = proc_grids.find(key);
@@ -321,6 +322,7 @@ const std::vector<int32_t> BaseMapper::get_processor_grid(Legion::Processor::Kin
     }
     default: LEGATE_ABORT;
   }
+  num_procs *= total_nodes;
 
   std::vector<int32_t> grid;
   auto factor_it = all_factors[kind].begin();
@@ -358,6 +360,7 @@ void BaseMapper::slice_manual_task(const MapperContext ctx,
     for (Domain::DomainPointIterator itr(input.domain); itr; itr++) {
       int32_t idx = 0;
       for (int32_t dim = 0; dim < ndim; ++dim) idx += proc_grid[dim] * itr.p[dim];
+      //fprintf(stderr, "(%d, %d) --> proc %d\n", itr.p[0], itr.p[1], idx % procs.size());
       output.slices.push_back(TaskSlice(
         Domain(itr.p, itr.p), procs[idx % procs.size()], false /*recurse*/, false /*stealable*/));
     }
@@ -1164,18 +1167,56 @@ void BaseMapper::report_profiling(const MapperContext ctx,
   LEGATE_ABORT;
 }
 
+ShardingID BaseMapper::get_sharding_id(Legion::Processor::Kind kind, int32_t ndim)
+{
+  auto key    = std::make_pair(kind, ndim);
+  auto finder = sharding_ids.find(key);
+  if (finder != sharding_ids.end()) return finder->second;
+
+  int32_t num_procs = 1;
+  switch (kind) {
+    case Processor::LOC_PROC: {
+      num_procs = static_cast<int32_t>(local_cpus.size());
+      break;
+    }
+    case Processor::TOC_PROC: {
+      num_procs = static_cast<int32_t>(local_gpus.size());
+      break;
+    }
+    case Processor::OMP_PROC: {
+      num_procs = static_cast<int32_t>(local_omps.size());
+      break;
+    }
+    default: LEGATE_ABORT
+  }
+
+  // Register a new sharding functor
+  auto& proc_grid = get_processor_grid(kind, ndim);
+  auto sharding_id = context.get_sharding_id(next_sharding_id++);
+  register_new_tiling_functor(legion_runtime, sharding_id, proc_grid, num_procs);
+  sharding_ids[key] = sharding_id;
+  return sharding_id;
+}
+
 void BaseMapper::select_sharding_functor(const MapperContext ctx,
                                          const LegionTask& task,
                                          const SelectShardingFunctorInput& input,
                                          SelectShardingFunctorOutput& output)
 {
-  for (auto& req : task.regions)
-    if (req.tag == LEGATE_CORE_KEY_STORE_TAG) {
-      output.chosen_functor = find_sharding_functor_by_projection_functor(req.projection);
-      return;
-    }
-
-  output.chosen_functor = 0;
+  if (task.tag == LEGATE_CORE_MANUAL_PARALLEL_LAUNCH_TAG)
+  {
+    auto ndim = task.index_domain.dim;
+    Processor::Kind kind = Processor::Kind::LOC_PROC;
+    if (!local_gpus.empty()) kind = Processor::Kind::TOC_PROC;
+    else if (!local_omps.empty()) kind = Processor::Kind::OMP_PROC;
+    output.chosen_functor = get_sharding_id(kind, ndim);
+  }
+  else
+    for (auto& req : task.regions)
+      if (req.tag == LEGATE_CORE_KEY_STORE_TAG) {
+        output.chosen_functor = find_sharding_functor_by_projection_functor(req.projection);
+        return;
+      }
 }
 
 void BaseMapper::map_inline(const MapperContext ctx,

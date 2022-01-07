@@ -31,7 +31,7 @@ struct ResourceConfig {
   int64_t max_mappers{1};
   int64_t max_reduction_ops{0};
   int64_t max_projections{0};
-  int64_t max_shardings{0};
+  int64_t max_shardings{100};
 };
 
 class ResourceScope {

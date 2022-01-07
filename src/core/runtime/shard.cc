@@ -93,6 +93,36 @@ void register_legate_core_sharding_functors(Legion::Runtime* runtime, const Libr
   functor_id_table[context.get_projection_id(LEGATE_CORE_DELINEARIZE_PROJ_ID)] = sharding_id;
 }
 
+class TilingFunctor : public ShardingFunctor {
+ public:
+  TilingFunctor(const std::vector<int32_t>& proc_grid, int32_t num_procs)
+    : proc_grid_(proc_grid), num_procs_(num_procs)
+  {
+  }
+ public:
+  virtual ShardID shard(const DomainPoint& p, const Domain& launch_space, const size_t total_shards)
+  {
+    auto ndim = static_cast<int32_t>(proc_grid_.size());
+    int32_t idx = 0;
+    for (int32_t dim = 0; dim < ndim; ++dim) idx += proc_grid_[dim] * p[dim];
+    auto shard_id = (idx / num_procs_) % total_shards;
+    assert(0 <= shard_id && static_cast<size_t>(shard_id) < total_shards);
+    //fprintf(stderr, "(%d, %d) --> %d\n", p[0], p[1], shard_id);
+    return shard_id;
+  }
+ private:
+  std::vector<int32_t> proc_grid_;
+  int32_t num_procs_;
+};
+
+void register_new_tiling_functor(Legion::Runtime* runtime,
+                                 Legion::ShardingID sharding_id,
+                                 const std::vector<int32_t>& proc_grid,
+                                 int32_t num_procs)
+{
+  runtime->register_sharding_functor(sharding_id, new TilingFunctor(proc_grid, num_procs));
+}
+
 class LegateShardingFunctor : public ShardingFunctor {
  public:
   LegateShardingFunctor(LegateProjectionFunctor* proj_functor) : proj_functor_(proj_functor) {}

@@ -303,7 +303,7 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
                              Legion::Processor::Kind kind);
 
  protected:
-  const std::vector<int32_t> get_processor_grid(Legion::Processor::Kind kind, int32_t ndim);
+  const std::vector<int32_t>& get_processor_grid(Legion::Processor::Kind kind, int32_t ndim);
   void slice_auto_task(const Legion::Mapping::MapperContext ctx,
                        const Legion::Task& task,
                        const SliceTaskInput& input,
@@ -312,6 +312,9 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
                          const Legion::Task& task,
                          const SliceTaskInput& input,
                          SliceTaskOutput& output);
+
+ protected:
+  Legion::ShardingID get_sharding_id(Legion::Processor::Kind kind, int32_t ndim);
 
  protected:
   static inline bool physical_sort_func(
@@ -352,6 +355,10 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
   // Used for n-D cyclic distribution
   std::map<Legion::Processor::Kind, std::vector<int32_t>> all_factors;
   std::map<std::pair<Legion::Processor::Kind, int32_t>, std::vector<int32_t>> proc_grids;
+
+ protected:
+  std::map<std::pair<Legion::Processor::Kind, int32_t>, Legion::ShardingID> sharding_ids;
+  int64_t next_sharding_id;
 
  protected:
   // These are used for computing sharding functions
