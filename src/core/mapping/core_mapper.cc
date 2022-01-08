@@ -280,7 +280,7 @@ void CoreMapper::slice_task(const MapperContext ctx,
         }
         break;
       }
-      default: LEGATE_ABORT
+      default: LEGATE_ABORT;
     }
   }
 }
@@ -409,7 +409,7 @@ void CoreMapper::select_tunable_value(const MapperContext ctx,
     }
   }
   // Illegal tunable variable
-  LEGATE_ABORT
+  LEGATE_ABORT;
 }
 
 void register_legate_core_mapper(Machine machine, Runtime* runtime, const LibraryContext& context)

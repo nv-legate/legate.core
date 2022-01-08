@@ -32,7 +32,7 @@ Memory::Kind get_memory_kind(StoreTarget target)
     case StoreTarget::FBMEM: return Memory::Kind::GPU_FB_MEM;
     case StoreTarget::ZCMEM: return Memory::Kind::Z_COPY_MEM;
     case StoreTarget::SOCKETMEM: return Memory::Kind::SOCKET_MEM;
-    default: LEGATE_ABORT
+    default: LEGATE_ABORT;
   }
   assert(false);
   return Memory::Kind::SYSTEM_MEM;
