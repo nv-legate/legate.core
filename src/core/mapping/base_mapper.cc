@@ -268,7 +268,7 @@ void BaseMapper::slice_auto_task(const MapperContext ctx,
       round_robin(local_omps);
       break;
     }
-    default: LEGATE_ABORT
+    default: LEGATE_ABORT;
   }
 }
 
@@ -319,7 +319,7 @@ const std::vector<int32_t> BaseMapper::get_processor_grid(Legion::Processor::Kin
       num_procs = static_cast<int32_t>(local_omps.size());
       break;
     }
-    default: LEGATE_ABORT
+    default: LEGATE_ABORT;
   }
 
   std::vector<int32_t> grid;
@@ -376,7 +376,7 @@ void BaseMapper::slice_manual_task(const MapperContext ctx,
       distribute(local_omps);
       break;
     }
-    default: LEGATE_ABORT
+    default: LEGATE_ABORT;
   }
 }
 
@@ -411,8 +411,8 @@ bool BaseMapper::has_variant(const MapperContext ctx, const LegionTask& task, Pr
         leaf_variants[key] = vid;
         break;
       }
-      default:        // TODO: handle vectorized variants
-        LEGATE_ABORT  // unhandled variant kind
+      default:         // TODO: handle vectorized variants
+        LEGATE_ABORT;  // unhandled variant kind
     }
   }
   if (!has_leaf) leaf_variants[key] = 0;
@@ -443,8 +443,8 @@ VariantID BaseMapper::find_variant(const MapperContext ctx,
         result             = vid;
         break;
       }
-      default:        // TODO: handle vectorized variants
-        LEGATE_ABORT  // unhandled variant kind
+      default:         // TODO: handle vectorized variants
+        LEGATE_ABORT;  // unhandled variant kind
     }
   }
   if (!has_leaf) leaf_variants[key] = 0;
@@ -482,7 +482,7 @@ void BaseMapper::map_task(const MapperContext ctx,
       options = {StoreTarget::SOCKETMEM, StoreTarget::SYSMEM};
       break;
     }
-    default: LEGATE_ABORT
+    default: LEGATE_ABORT;
   }
 
   auto mappings = store_mappings(legate_task, options);
@@ -495,13 +495,13 @@ void BaseMapper::map_task(const MapperContext ctx,
     for (uint32_t store_idx = 1; store_idx < mapping.stores.size(); ++store_idx) {
       if (!mapping.stores[store_idx].can_colocate_with(mapping.stores[0])) {
         logger.error("Mapper %s tried to colocate stores that cannot colocate", get_mapper_name());
-        LEGATE_ABORT
+        LEGATE_ABORT;
       }
     }
 
     if (mapping.stores.size() > 1 && mapping.policy.ordering.relative) {
       logger.error("Colocation with relative dimension ordering is illegal");
-      LEGATE_ABORT
+      LEGATE_ABORT;
     }
 
     for (auto& store : mapping.stores) {
@@ -522,7 +522,7 @@ void BaseMapper::map_task(const MapperContext ctx,
         auto& other_mapping = mappings[finder->second];
         if (mapping.policy != other_mapping.policy) {
           logger.error("Mapper %s returned inconsistent store mappings", get_mapper_name());
-          LEGATE_ABORT
+          LEGATE_ABORT;
         }
       }
     }
@@ -625,7 +625,7 @@ void BaseMapper::map_replicate_task(const MapperContext ctx,
                                     const MapTaskOutput& def_output,
                                     MapReplicateTaskOutput& output)
 {
-  LEGATE_ABORT
+  LEGATE_ABORT;
 }
 
 bool BaseMapper::find_existing_instance(LogicalRegion region,
@@ -659,7 +659,7 @@ Memory BaseMapper::get_target_memory(Processor proc, StoreTarget target)
     case StoreTarget::FBMEM: return local_frame_buffers[proc];
     case StoreTarget::ZCMEM: return local_zerocopy_memory;
     case StoreTarget::SOCKETMEM: return local_numa_domains[proc];
-    default: LEGATE_ABORT
+    default: LEGATE_ABORT;
   }
   assert(false);
   return Memory::NO_MEMORY;
@@ -687,7 +687,7 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
         logger.error(
           "Colocated stores should be either non-reduction arguments "
           "or reductions with the same reduction operator.");
-        LEGATE_ABORT
+        LEGATE_ABORT;
       }
     }
   }
@@ -767,7 +767,7 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
                                                   &footprint);
       break;
     }
-    default: LEGATE_ABORT  // should never get here
+    default: LEGATE_ABORT;  // should never get here
   }
 
   if (success) {
@@ -1057,9 +1057,9 @@ void BaseMapper::report_failed_mapping(const Mappable& mappable,
         target_memory.id);
       break;
     }
-    default: LEGATE_ABORT  // should never get here
+    default: LEGATE_ABORT;  // should never get here
   }
-  LEGATE_ABORT
+  LEGATE_ABORT;
 }
 
 void BaseMapper::select_task_variant(const MapperContext ctx,
@@ -1076,7 +1076,7 @@ void BaseMapper::postmap_task(const MapperContext ctx,
                               PostMapOutput& output)
 {
   // We should currently never get this call in Legate
-  LEGATE_ABORT
+  LEGATE_ABORT;
 }
 
 void BaseMapper::select_task_sources(const MapperContext ctx,
@@ -1161,7 +1161,7 @@ void BaseMapper::report_profiling(const MapperContext ctx,
                                   const TaskProfilingInfo& input)
 {
   // Shouldn't get any profiling feedback currently
-  LEGATE_ABORT
+  LEGATE_ABORT;
 }
 
 void BaseMapper::select_sharding_functor(const MapperContext ctx,
@@ -1241,7 +1241,7 @@ void BaseMapper::report_profiling(const MapperContext ctx,
                                   const InlineProfilingInfo& input)
 {
   // No profiling yet for inline mappings
-  LEGATE_ABORT
+  LEGATE_ABORT;
 }
 
 void BaseMapper::map_copy(const MapperContext ctx,
@@ -1423,7 +1423,7 @@ void BaseMapper::report_profiling(const MapperContext ctx,
                                   const CopyProfilingInfo& input)
 {
   // No profiling for copies yet
-  LEGATE_ABORT
+  LEGATE_ABORT;
 }
 
 void BaseMapper::select_sharding_functor(const MapperContext ctx,
@@ -1447,7 +1447,7 @@ void BaseMapper::report_profiling(const MapperContext ctx,
                                   const CloseProfilingInfo& input)
 {
   // No profiling yet for legate
-  LEGATE_ABORT
+  LEGATE_ABORT;
 }
 
 void BaseMapper::select_sharding_functor(const MapperContext ctx,
@@ -1455,7 +1455,7 @@ void BaseMapper::select_sharding_functor(const MapperContext ctx,
                                          const SelectShardingFunctorInput& input,
                                          SelectShardingFunctorOutput& output)
 {
-  LEGATE_ABORT
+  LEGATE_ABORT;
 }
 
 void BaseMapper::map_acquire(const MapperContext ctx,
@@ -1478,7 +1478,7 @@ void BaseMapper::report_profiling(const MapperContext ctx,
                                   const AcquireProfilingInfo& input)
 {
   // No profiling for legate yet
-  LEGATE_ABORT
+  LEGATE_ABORT;
 }
 
 void BaseMapper::select_sharding_functor(const MapperContext ctx,
@@ -1486,7 +1486,7 @@ void BaseMapper::select_sharding_functor(const MapperContext ctx,
                                          const SelectShardingFunctorInput& input,
                                          SelectShardingFunctorOutput& output)
 {
-  LEGATE_ABORT
+  LEGATE_ABORT;
 }
 
 void BaseMapper::map_release(const MapperContext ctx,
@@ -1517,7 +1517,7 @@ void BaseMapper::report_profiling(const MapperContext ctx,
                                   const ReleaseProfilingInfo& input)
 {
   // No profiling for legate yet
-  LEGATE_ABORT
+  LEGATE_ABORT;
 }
 
 void BaseMapper::select_sharding_functor(const MapperContext ctx,
@@ -1525,7 +1525,7 @@ void BaseMapper::select_sharding_functor(const MapperContext ctx,
                                          const SelectShardingFunctorInput& input,
                                          SelectShardingFunctorOutput& output)
 {
-  LEGATE_ABORT
+  LEGATE_ABORT;
 }
 
 void BaseMapper::select_partition_projection(const MapperContext ctx,
@@ -1609,7 +1609,7 @@ void BaseMapper::report_profiling(const MapperContext ctx,
                                   const PartitionProfilingInfo& input)
 {
   // No profiling yet
-  LEGATE_ABORT
+  LEGATE_ABORT;
 }
 
 void BaseMapper::select_sharding_functor(const MapperContext ctx,
@@ -1652,7 +1652,7 @@ void BaseMapper::select_sharding_functor(const MapperContext ctx,
                                          MustEpochShardingFunctorOutput& output)
 {
   // No must epoch launches in legate
-  LEGATE_ABORT
+  LEGATE_ABORT;
 }
 
 void BaseMapper::memoize_operation(const MapperContext ctx,
@@ -1660,7 +1660,7 @@ void BaseMapper::memoize_operation(const MapperContext ctx,
                                    const MemoizeInput& input,
                                    MemoizeOutput& output)
 {
-  LEGATE_ABORT
+  LEGATE_ABORT;
 }
 
 void BaseMapper::map_must_epoch(const MapperContext ctx,
@@ -1668,7 +1668,7 @@ void BaseMapper::map_must_epoch(const MapperContext ctx,
                                 MapMustEpochOutput& output)
 {
   // No must epoch launches in legate
-  LEGATE_ABORT
+  LEGATE_ABORT;
 }
 
 void BaseMapper::map_dataflow_graph(const MapperContext ctx,
@@ -1676,7 +1676,7 @@ void BaseMapper::map_dataflow_graph(const MapperContext ctx,
                                     MapDataflowGraphOutput& output)
 {
   // Not supported yet
-  LEGATE_ABORT
+  LEGATE_ABORT;
 }
 
 void BaseMapper::select_tasks_to_map(const MapperContext ctx,
@@ -1699,19 +1699,19 @@ void BaseMapper::permit_steal_request(const MapperContext ctx,
                                       StealRequestOutput& output)
 {
   // Nothing to do, no stealing in the legate mapper currently
-  LEGATE_ABORT
+  LEGATE_ABORT;
 }
 
 void BaseMapper::handle_message(const MapperContext ctx, const MapperMessage& message)
 {
   // We shouldn't be receiving any messages currently
-  LEGATE_ABORT
+  LEGATE_ABORT;
 }
 
 void BaseMapper::handle_task_result(const MapperContext ctx, const MapperTaskResult& result)
 {
   // Nothing to do since we should never get one of these
-  LEGATE_ABORT
+  LEGATE_ABORT;
 }
 
 }  // namespace mapping
