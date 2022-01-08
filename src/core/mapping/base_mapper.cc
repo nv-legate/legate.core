@@ -1187,7 +1187,7 @@ ShardingID BaseMapper::get_sharding_id(Legion::Processor::Kind kind, int32_t ndi
       num_procs = static_cast<int32_t>(local_omps.size());
       break;
     }
-    default: LEGATE_ABORT
+    default: LEGATE_ABORT;
   }
 
   // Register a new sharding functor
