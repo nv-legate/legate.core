@@ -4692,7 +4692,7 @@ class IndexTask(object):
 
 
 class Fence(object):
-    def __init__(self, mapping):
+    def __init__(self, mapping=False):
         """
         A Fence operation provides a mechanism for inserting either
         mapping or execution fences into the stream of tasks and
