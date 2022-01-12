@@ -29,6 +29,7 @@ from .context import Context
 from .corelib import CoreLib
 from .launcher import TaskLauncher
 from .legion import (
+    Fence,
     FieldSpace,
     Future,
     IndexSpace,
@@ -1130,6 +1131,12 @@ class Runtime(object):
                 redop,
                 mapper=self.core_context.get_mapper_id(0),
             )
+
+    def issue_execution_fence(self, block=False):
+        fence = Fence(mapping=False)
+        future = fence.launch(self.legion_runtime, self.legion_context)
+        if block:
+            future.wait()
 
 
 _runtime = Runtime(CoreLib())
