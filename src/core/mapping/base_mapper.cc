@@ -620,6 +620,13 @@ void BaseMapper::map_task(const MapperContext ctx,
       }
     }
   }
+
+  // For now we don't track read-only requirements of manually parallelized tasks
+  if (task.tag == LEGATE_CORE_MANUAL_PARALLEL_LAUNCH_TAG)
+    for (uint32_t req_idx = 0; req_idx < task.regions.size(); ++req_idx) {
+      auto& req = task.regions[req_idx];
+      if (req.privilege == READ_ONLY) output.untracked_valid_regions.insert(req_idx);
+    }
 }
 
 void BaseMapper::map_replicate_task(const MapperContext ctx,
