@@ -34,6 +34,7 @@ class Core {
  public:
   // Configuration settings
   static bool show_progress;
+  static bool use_empty_task;
 };
 
 }  // namespace legate

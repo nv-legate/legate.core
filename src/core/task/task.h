@@ -110,7 +110,7 @@ class LegateTask {
     show_progress(task, legion_context, runtime);
 
     TaskContext context(task, regions, legion_context, runtime);
-    (*TASK_PTR)(context);
+    if (!Core::use_empty_task) (*TASK_PTR)(context);
 
     return context.pack_return_values();
   }

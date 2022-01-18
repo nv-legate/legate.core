@@ -33,6 +33,8 @@ static const char* const core_library_name = "legate.core";
 
 /*static*/ bool Core::show_progress = false;
 
+/*static*/ bool Core::use_empty_task = false;
+
 /*static*/ void Core::parse_config(void)
 {
 #ifndef LEGATE_USE_CUDA
@@ -64,6 +66,9 @@ static const char* const core_library_name = "legate.core";
 #endif
   const char* progress = getenv("LEGATE_SHOW_PROGRESS");
   if (progress != NULL) show_progress = true;
+
+  const char* empty_task = getenv("LEGATE_EMPTY_TASK");
+  if (empty_task != NULL && atoi(empty_task) > 0) use_empty_task = true;
 }
 
 static ReturnValues extract_scalar_task(const Task* task,
