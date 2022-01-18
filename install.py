@@ -564,6 +564,16 @@ def install(
             install_dir = os.path.join(legate_core_dir, "install")
     install_dir = os.path.realpath(install_dir)
     dump_json_config(install_dir_config, install_dir)
+
+    # easy install will install into <install_dir>/lib/pythonX.Y/site-packages/
+    # this path needs to be added to PYTHONPATH for easy install to accept it as
+    # a valid target for installation
+    current_python_path = os.environ["PYTHONPATH"]
+    install_sitedir = install_dir + os.sep + "lib" + os.sep + "python" \
+                            + str(sys.version_info[0]) + "." + str(sys.version_info[1]) \
+                            + os.sep + "site-packages" + os.sep
+    os.environ["PYTHONPATH"] = current_python_path + os.pathsep + install_sitedir
+
     os.makedirs(os.path.join(install_dir, "share", "legate"), exist_ok=True)
 
     if thread_count is None:
