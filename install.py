@@ -569,10 +569,22 @@ def install(
     # this path needs to be added to PYTHONPATH for easy install to accept it as
     # a valid target for installation
     current_python_path = os.environ["PYTHONPATH"]
-    install_sitedir = install_dir + os.sep + "lib" + os.sep + "python" \
-                            + str(sys.version_info[0]) + "." + str(sys.version_info[1]) \
-                            + os.sep + "site-packages" + os.sep
-    os.environ["PYTHONPATH"] = current_python_path + os.pathsep + install_sitedir
+    install_sitedir = (
+        install_dir
+        + os.sep
+        + "lib"
+        + os.sep
+        + "python"
+        + str(sys.version_info[0])
+        + "."
+        + str(sys.version_info[1])
+        + os.sep
+        + "site-packages"
+        + os.sep
+    )
+    os.environ["PYTHONPATH"] = (
+        current_python_path + os.pathsep + install_sitedir
+    )
 
     os.makedirs(os.path.join(install_dir, "share", "legate"), exist_ok=True)
 
