@@ -566,8 +566,8 @@ def install(
     dump_json_config(install_dir_config, install_dir)
 
     # easy install will install into <install_dir>/lib/pythonX.Y/site-packages/
-    # this path needs to be added to PYTHONPATH for easy install to accept it as
-    # a valid target for installation
+    # this path needs to be added to PYTHONPATH for easy install to accept it
+    # as a valid target for installation
     current_python_path = os.environ["PYTHONPATH"]
     install_sitedir = install_dir + os.sep + "lib" + os.sep + "python" \
                             + str(sys.version_info[0]) + "." + str(sys.version_info[1]) \
