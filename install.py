@@ -387,6 +387,8 @@ def build_legion(
                 sys.executable,
                 "setup.py",
                 "install",
+                "--single-version-externally-managed",
+                "--root=/",
                 "--prefix",
                 str(os.path.realpath(install_dir)),
             ],
@@ -498,7 +500,14 @@ def build_legate_core(
     cmd = ["cp", "config.mk", os.path.join(install_dir, "share", "legate")]
     verbose_check_call(cmd, cwd=src_dir)
     # Then run setup.py
-    cmd = [sys.executable, "setup.py", "install", "--recurse"]
+    cmd = [
+        sys.executable,
+        "setup.py",
+        "install",
+        "--recurse",
+        "--single-version-externally-managed",
+        "--root=/",
+    ]
     if unknown is not None:
         try:
             prefix_loc = unknown.index("--prefix")
