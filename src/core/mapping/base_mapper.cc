@@ -299,8 +299,26 @@ void BaseMapper::generate_prime_factors()
   if (local_cpus.size() > 0) generate_prime_factor(local_cpus, Processor::LOC_PROC);
 }
 
-const std::vector<int32_t>& BaseMapper::get_processor_grid(Legion::Processor::Kind kind,
-                                                           int32_t ndim)
+static std::vector<int32_t> compute_grid(const std::vector<int32_t>& factors,
+                                         int32_t ndim,
+                                         int32_t num_procs)
+{
+  std::vector<int32_t> grid(ndim, 1);
+  auto factor_it = factors.begin();
+
+  while (num_procs > 1) {
+    auto min_it = std::min_element(grid.begin(), grid.end());
+    while (num_procs % *factor_it != 0 && factor_it != factors.end()) ++factor_it;
+    if (factor_it == factors.end()) break;
+    auto factor = *factor_it++;
+    (*min_it) *= factor;
+    num_procs /= factor;
+  }
+  assert(num_procs == 1);
+  return std::move(grid);
+}
+
+const Grid& BaseMapper::get_processor_grid(Legion::Processor::Kind kind, int32_t ndim)
 {
   auto key    = std::make_pair(kind, ndim);
   auto finder = proc_grids.find(key);
@@ -324,22 +342,9 @@ const std::vector<int32_t>& BaseMapper::get_processor_grid(Legion::Processor::Ki
   }
   num_procs *= total_nodes;
 
-  std::vector<int32_t> grid;
-  auto factor_it = all_factors[kind].begin();
-  grid.resize(ndim, 1);
-
-  while (num_procs > 1) {
-    auto min_it = std::min_element(grid.begin(), grid.end());
-    auto factor = *factor_it++;
-    (*min_it) *= factor;
-    num_procs /= factor;
-  }
-
-  auto& pitches = proc_grids[key];
-  pitches.resize(ndim, 1);
-  for (int32_t dim = 1; dim < ndim; ++dim) pitches[dim] = pitches[dim - 1] * grid[dim - 1];
-
-  return pitches;
+  auto& proc_grid = proc_grids[key];
+  proc_grid.initialize(compute_grid(all_factors[kind], ndim, num_procs));
+  return proc_grid;
 }
 
 void BaseMapper::slice_manual_task(const MapperContext ctx,
@@ -355,14 +360,16 @@ void BaseMapper::slice_manual_task(const MapperContext ctx,
     sharding_domain = runtime->get_index_space_domain(ctx, task.sharding_space);
 
   auto distribute = [&](auto& procs) {
-    auto ndim       = input.domain.dim;
-    auto& proc_grid = get_processor_grid(task.target_proc.kind(), ndim);
+    auto ndim = input.domain.dim;
+    Grid local_grid;
+    local_grid.initialize(compute_grid(all_factors[task.target_proc.kind()], ndim, procs.size()));
     for (Domain::DomainPointIterator itr(input.domain); itr; itr++) {
       int32_t idx = 0;
-      for (int32_t dim = 0; dim < ndim; ++dim) idx += proc_grid[dim] * itr.p[dim];
-      // fprintf(stderr, "(%d, %d) --> proc %d\n", itr.p[0], itr.p[1], idx % procs.size());
-      output.slices.push_back(TaskSlice(
-        Domain(itr.p, itr.p), procs[idx % procs.size()], false /*recurse*/, false /*stealable*/));
+      for (int32_t dim = 0; dim < ndim; ++dim)
+        idx += (itr.p[dim] % local_grid.grid[dim]) * local_grid.pitches[dim];
+      assert(0 <= idx && idx < procs.size());
+      output.slices.push_back(
+        TaskSlice(Domain(itr.p, itr.p), procs[idx], false /*recurse*/, false /*stealable*/));
     }
   };
 
@@ -1198,9 +1205,13 @@ ShardingID BaseMapper::get_sharding_id(Legion::Processor::Kind kind, int32_t ndi
   }
 
   // Register a new sharding functor
-  auto& proc_grid  = get_processor_grid(kind, ndim);
+  auto& proc_grid = get_processor_grid(kind, ndim);
+  Grid local_grid;
+  local_grid.initialize(compute_grid(all_factors[kind], ndim, num_procs));
+  Grid shard_grid = proc_grid.tile(local_grid);
+
   auto sharding_id = context.get_sharding_id(next_sharding_id++);
-  register_new_tiling_functor(legion_runtime, sharding_id, proc_grid, num_procs);
+  register_new_tiling_functor(legion_runtime, sharding_id, local_grid, shard_grid);
   sharding_ids[key] = sharding_id;
   return sharding_id;
 }

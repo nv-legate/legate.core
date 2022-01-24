@@ -1,4 +1,4 @@
-/* Copyright 2021-2022 NVIDIA Corporation
+/* Copyright 2021 NVIDIA Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,21 +16,32 @@
 
 #pragma once
 
-#include "legion.h"
-
-#include "core/mapping/grid.h"
-#include "core/runtime/context.h"
+#include <stdint.h>
+#include <vector>
 
 namespace legate {
+namespace mapping {
 
-void register_legate_core_sharding_functors(Legion::Runtime* runtime,
-                                            const LibraryContext& context);
+class Grid {
+ public:
+  Grid() {}
 
-void register_new_tiling_functor(Legion::Runtime* runtime,
-                                 Legion::ShardingID sharding_id,
-                                 const mapping::Grid& proc_grid,
-                                 const mapping::Grid& shard_grid);
+ public:
+  Grid(const Grid&) = default;
+  Grid(Grid&&)      = default;
 
-Legion::ShardingID find_sharding_functor_by_projection_functor(Legion::ProjectionID proj_id);
+ public:
+  Grid& operator=(const Grid&) = default;
+  Grid& operator=(Grid&&) = default;
 
+ public:
+  void initialize(std::vector<int32_t>&& grid);
+  Grid tile(const Grid& subgrid) const;
+
+ public:
+  std::vector<int32_t> grid{};
+  std::vector<int32_t> pitches{};
+};
+
+}  // namespace mapping
 }  // namespace legate

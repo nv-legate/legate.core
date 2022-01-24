@@ -22,6 +22,7 @@
 #include "legion.h"
 
 #include "core/data/scalar.h"
+#include "core/mapping/grid.h"
 #include "core/mapping/mapping.h"
 #include "core/runtime/context.h"
 #include "core/utilities/typedefs.h"
@@ -303,7 +304,7 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
                              Legion::Processor::Kind kind);
 
  protected:
-  const std::vector<int32_t>& get_processor_grid(Legion::Processor::Kind kind, int32_t ndim);
+  const Grid& get_processor_grid(Legion::Processor::Kind kind, int32_t ndim);
   void slice_auto_task(const Legion::Mapping::MapperContext ctx,
                        const Legion::Task& task,
                        const SliceTaskInput& input,
@@ -354,7 +355,7 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
  protected:
   // Used for n-D cyclic distribution
   std::map<Legion::Processor::Kind, std::vector<int32_t>> all_factors;
-  std::map<std::pair<Legion::Processor::Kind, int32_t>, std::vector<int32_t>> proc_grids;
+  std::map<std::pair<Legion::Processor::Kind, int32_t>, Grid> proc_grids;
 
  protected:
   std::map<std::pair<Legion::Processor::Kind, int32_t>, Legion::ShardingID> sharding_ids;

@@ -22,6 +22,7 @@ GEN_CPU_SRC	= core/legate_c.cc                 \
 							core/data/transform.cc           \
 							core/mapping/base_mapper.cc      \
 							core/mapping/core_mapper.cc      \
+							core/mapping/grid.cc             \
 							core/mapping/instance_manager.cc \
 							core/mapping/mapping.cc          \
 							core/mapping/task.cc             \
@@ -52,6 +53,7 @@ INSTALL_HEADERS = legate.h                        \
 									core/data/store.inl             \
 									core/data/transform.h           \
 									core/mapping/base_mapper.h      \
+									core/mapping/grid.h             \
 									core/mapping/mapping.h          \
 									core/mapping/task.h             \
 									core/mapping/task.inl           \

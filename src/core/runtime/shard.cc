@@ -95,34 +95,40 @@ void register_legate_core_sharding_functors(Legion::Runtime* runtime, const Libr
 
 class TilingFunctor : public ShardingFunctor {
  public:
-  TilingFunctor(const std::vector<int32_t>& proc_grid, int32_t num_procs)
-    : proc_grid_(proc_grid), num_procs_(num_procs)
+  TilingFunctor(const mapping::Grid& proc_grid, const mapping::Grid& shard_grid)
+    : proc_grid_(proc_grid), shard_grid_(shard_grid)
   {
   }
 
  public:
   virtual ShardID shard(const DomainPoint& p, const Domain& launch_space, const size_t total_shards)
   {
-    auto ndim   = static_cast<int32_t>(proc_grid_.size());
-    int32_t idx = 0;
-    for (int32_t dim = 0; dim < ndim; ++dim) idx += proc_grid_[dim] * p[dim];
-    auto shard_id = (idx / num_procs_) % total_shards;
+    DomainPoint pt = p;
+    auto ndim      = pt.dim;
+    for (int32_t dim = 0; dim < ndim; ++dim)
+      pt[dim] = (pt[dim] / proc_grid_.grid[dim]) % shard_grid_.grid[dim];
+
+    int32_t shard_id = 0;
+    for (int32_t dim = 0; dim < ndim; ++dim) shard_id += pt[dim] * shard_grid_.pitches[dim];
     assert(0 <= shard_id && static_cast<size_t>(shard_id) < total_shards);
-    // fprintf(stderr, "(%d, %d) --> %d\n", p[0], p[1], shard_id);
+
+    // if (ndim == 2)
+    //   fprintf(stderr, "( %ld %ld ) (%ld %ld) --> %d\n", p[0], p[1], pt[0], pt[1], shard_id);
     return shard_id;
   }
 
  private:
-  std::vector<int32_t> proc_grid_;
+  mapping::Grid proc_grid_;
+  mapping::Grid shard_grid_;
   int32_t num_procs_;
 };
 
 void register_new_tiling_functor(Legion::Runtime* runtime,
                                  Legion::ShardingID sharding_id,
-                                 const std::vector<int32_t>& proc_grid,
-                                 int32_t num_procs)
+                                 const mapping::Grid& proc_grid,
+                                 const mapping::Grid& shard_grid)
 {
-  runtime->register_sharding_functor(sharding_id, new TilingFunctor(proc_grid, num_procs));
+  runtime->register_sharding_functor(sharding_id, new TilingFunctor(proc_grid, shard_grid));
 }
 
 class LegateShardingFunctor : public ShardingFunctor {
