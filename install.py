@@ -27,10 +27,17 @@ import sys
 import tempfile
 from distutils import sysconfig
 
+import setuptools
+
 # Flush output on newlines
 sys.stdout.reconfigure(line_buffering=True)
 
 os_name = platform.system()
+
+# Work around breaking change in setuptools 60
+setup_py_flags = []
+if int(setuptools.__version__.split(".")[0]) >= 60:
+    setup_py_flags = ["--single-version-externally-managed", "--root=/"]
 
 
 class BooleanFlag(argparse.Action):
@@ -387,11 +394,10 @@ def build_legion(
                 sys.executable,
                 "setup.py",
                 "install",
-                "--single-version-externally-managed",
-                "--root=/",
                 "--prefix",
                 str(os.path.realpath(install_dir)),
-            ],
+            ]
+            + setup_py_flags,
             cwd=legion_python_dir,
         )
     verbose_check_call(
@@ -505,9 +511,7 @@ def build_legate_core(
         "setup.py",
         "install",
         "--recurse",
-        "--single-version-externally-managed",
-        "--root=/",
-    ]
+    ] + setup_py_flags
     if unknown is not None:
         try:
             prefix_loc = unknown.index("--prefix")
