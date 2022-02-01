@@ -358,7 +358,7 @@ to use per node, while the `--fbmem` flag controls how many MBs of framebuffer
 memory Legate is allowed to use per GPU. For example, when running on a DGX 
 station, you might run your application as follows:
 ```
-installdir/bin/legate --cpus 16 --gpus 4 --sysmem 100000 -fbmem 15000 my_python_program.py
+installdir/bin/legate --cpus 16 --gpus 4 --sysmem 100000 --fbmem 15000 my_python_program.py
 ```
 This will make 16 CPU processors and all 4 GPUs available for use by Legate.
 It will also allow Legate to consume up to 100 GB of DRAM memory and 15 GB of
@@ -380,7 +380,7 @@ mode by simply not passing any `*py` files on the command line. You can still
 request resources just as you would though with a normal file. Legate will 
 still use all the resources available to it, including doing multi-node execution.
 ```
-installdir/bin/legate --cpus 16 --gpus 4 --sysmem 100000 -fbmem 15000
+installdir/bin/legate --cpus 16 --gpus 4 --sysmem 100000 --fbmem 15000
 Welcome to Legion Python interactive console
 >>>
 ```
