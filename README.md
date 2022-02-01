@@ -223,17 +223,39 @@ Read on for general instructions on building Legate Core from source.
 
 ### Dependencies
 
-Legate has been tested on both Linux and Darwin operating systems, although only
-a few flavors of Linux such as Ubuntu have been thoroughly tested. There is currently
-no support for Windows.
+Legate has been tested on Linux and MacOS, although only a few flavors of Linux
+such as Ubuntu have been thoroughly tested. There is currently no support for
+Windows.
 
-The Legate Core currently requires Python >= 3.7 and the following packages:
+Legate Core requires the following:
 
-  - `pyarrow=5.0.0`
-  - `numpy`
-  - `cffi`
+  - Python >= 3.7
   - [CUDA](https://developer.nvidia.com/cuda-downloads) >= 8.0
   - C++14 compatible compiler (g++, clang, or nvc++)
+  - the Python packages listed in the [conda environment file](conda/core_dev.yml)
+
+You can install the required Python packages by creating a new conda environment:
+
+```
+conda env create -n legate -f conda/core_dev.yml
+```
+
+or by updating an existing environment:
+
+```
+conda env update -f conda/core_dev.yml
+```
+
+Note that conda will need to install an environment-local copy of the CUDA
+toolkit, and by default it will choose the latest available version. To avoid
+versioning conflicts, however, it is safer to match the version of CUDA
+installed system-wide on your machine. Therefore, we suggest that you add this
+as an explicit dependency at the bottom of the conda environment file. For
+example, if your system-wide CUDA installation is at version 10.2, add:
+
+```
+  - cudatoolkit=10.2
+```
 
 ### Installation
 
