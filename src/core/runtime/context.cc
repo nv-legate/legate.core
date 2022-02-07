@@ -152,6 +152,12 @@ TaskContext::TaskContext(const Legion::Task* task,
   scalars_    = dez.unpack<std::vector<Scalar>>();
 }
 
+bool TaskContext::is_single_task() const { return !task_->is_index_space; }
+
+Legion::DomainPoint TaskContext::get_task_index() const { return task_->index_point; }
+
+Legion::Domain TaskContext::get_launch_domain() const { return task_->index_domain; }
+
 ReturnValues TaskContext::pack_return_values() const
 {
   std::vector<ReturnValue> return_values;
