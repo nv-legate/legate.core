@@ -132,6 +132,7 @@ def git_clone(repo_dir, url, branch=None, tag=None, commit=None):
         verbose_check_call(
             ["git", "submodule", "update", "--init"], cwd=repo_dir
         )
+        git_reset(repo_dir, commit)
     else:
         verbose_check_call(
             [
@@ -152,10 +153,13 @@ def git_reset(repo_dir, refspec):
     verbose_check_call(["git", "reset", "--hard", refspec], cwd=repo_dir)
 
 
-def git_update(repo_dir, branch=None):
+def git_update(repo_dir, branch=None, tag=None, commit=None):
     if branch is not None:
         verbose_check_call(["git", "checkout", branch], cwd=repo_dir)
-    verbose_check_call(["git", "pull", "--ff-only"], cwd=repo_dir)
+        verbose_check_call(["git", "pull", "--ff-only"], cwd=repo_dir)
+    else:
+        verbose_check_call(["git", "fetch"], cwd=repo_dir)
+        verbose_check_call(["git", "checkout", commit or tag], cwd=repo_dir)
 
 
 def load_json_config(filename):
@@ -199,13 +203,14 @@ def install_gasnet(gasnet_dir, conduit, thread_count):
     shutil.rmtree(temp_dir)
 
 
-def install_legion(legion_src_dir, branch):
+def install_legion(legion_src_dir, branch, commit="c7ca2dbc"):
     print("Legate is installing Legion into a local directory...")
     # For now all we have to do is clone legion since we build it with Legate
     git_clone(
         legion_src_dir,
         url="https://gitlab.com/StanfordLegion/legion.git",
         branch=branch,
+        commit=commit,
     )
 
 
@@ -218,9 +223,9 @@ def install_thrust(thrust_dir):
     )
 
 
-def update_legion(legion_src_dir, branch):
+def update_legion(legion_src_dir, branch, commit="c7ca2dbc"):
     # Make sure we are on the right branch for single/multi-node
-    git_update(legion_src_dir, branch=branch)
+    git_update(legion_src_dir, branch=branch, commit=commit)
 
 
 def build_legion(
@@ -556,6 +561,11 @@ def install(
     verbose_global = verbose
 
     legate_core_dir = os.path.dirname(os.path.realpath(__file__))
+
+    # For the release, we will use a hardcoded commit unless user asks for
+    # a branch
+    #    if legion_branch is None:
+    #        legion_branch = find_default_legion_branch(legate_core_dir)
 
     cmake_config = os.path.join(legate_core_dir, ".cmake.json")
     dump_json_config(cmake_config, cmake)
