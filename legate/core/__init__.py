@@ -120,6 +120,10 @@ from legate.core.io import CustomSplit, TiledSplit, ingest
 # are overriding that module's name.
 from legion_cffi import ffi, lib as legion
 
+# NOTE: This needs to come after the imports from legate.core.legion, as we
+# are overriding that module's name.
+from legion_cffi import ffi, lib as legion
+
 # Import the PyArrow type system
 from pyarrow import (
     DataType,

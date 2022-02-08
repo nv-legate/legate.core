@@ -230,6 +230,9 @@ Windows.
 Legate Core requires the following:
 
   - Python >= 3.7
+  - `pyarrow=5.0.0`
+  - `numpy`
+  - `cffi`
   - [CUDA](https://developer.nvidia.com/cuda-downloads) >= 8.0
   - C++14 compatible compiler (g++, clang, or nvc++)
   - the Python packages listed in the [conda environment file](conda/core_dev.yml)
