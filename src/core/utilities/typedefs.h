@@ -1,4 +1,4 @@
-/* Copyright 2021 NVIDIA Corporation
+/* Copyright 2021-2022 NVIDIA Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,10 +19,6 @@
 #include "legion.h"
 
 #include "core/legate_c.h"
-
-#ifdef LEGATE_USE_CUDA
-struct cublasContext;  // Use this as replacement for cublasHandle_t
-#endif
 
 namespace legate {
 
@@ -49,7 +45,6 @@ using TunableID = Legion::TunableID;
 // C enum typedefs
 using LegateVariantCode = legate_core_variant_t;
 using LegateTypeCode    = legate_core_type_code_t;
-using LegateResource    = legate_core_resource_t;
 using LegateMappingTag  = legate_core_mapping_tag_t;
 
 }  // namespace legate

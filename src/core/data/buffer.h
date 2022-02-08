@@ -1,4 +1,4 @@
-/* Copyright 2021 NVIDIA Corporation
+/* Copyright 2021-2022 NVIDIA Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ Buffer<VAL> create_buffer(size_t size, Legion::Memory::Kind kind = Legion::Memor
   if (Memory::Kind::NO_MEMKIND == kind) {
     auto proc = Processor::get_executing_processor();
     kind      = proc.kind() == Processor::Kind::TOC_PROC ? Memory::Kind::GPU_FB_MEM
-                                                    : Memory::Kind::SYSTEM_MEM;
+                                                         : Memory::Kind::SYSTEM_MEM;
   }
   // We just avoid creating empty buffers, as they cause all sorts of headaches.
   auto hi = std::max<int64_t>(0, static_cast<int64_t>(size) - 1);

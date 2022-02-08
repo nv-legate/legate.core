@@ -1,4 +1,4 @@
-/* Copyright 2021 NVIDIA Corporation
+/* Copyright 2021-2022 NVIDIA Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ Memory::Kind get_memory_kind(StoreTarget target)
     case StoreTarget::FBMEM: return Memory::Kind::GPU_FB_MEM;
     case StoreTarget::ZCMEM: return Memory::Kind::Z_COPY_MEM;
     case StoreTarget::SOCKETMEM: return Memory::Kind::SOCKET_MEM;
-    default: LEGATE_ABORT
+    default: LEGATE_ABORT;
   }
   assert(false);
   return Memory::Kind::SYSTEM_MEM;
@@ -66,6 +66,16 @@ void DimOrdering::populate_dimension_ordering(const Store& store,
       break;
     }
   }
+}
+
+void DimOrdering::c_order() { kind = Kind::C; }
+
+void DimOrdering::fortran_order() { kind = Kind::FORTRAN; }
+
+void DimOrdering::custom_order(std::vector<int32_t>&& dims)
+{
+  kind = Kind::CUSTOM;
+  dims = std::forward<std::vector<int32_t>&&>(dims);
 }
 
 bool InstanceMappingPolicy::operator==(const InstanceMappingPolicy& other) const

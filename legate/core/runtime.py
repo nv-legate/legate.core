@@ -1,4 +1,4 @@
-# Copyright 2021 NVIDIA Corporation
+# Copyright 2021-2022 NVIDIA Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ from .context import Context
 from .corelib import CoreLib
 from .launcher import TaskLauncher
 from .legion import (
+    Fence,
     FieldSpace,
     Future,
     IndexSpace,
@@ -40,9 +41,11 @@ from .legion import (
     legion,
 )
 from .partition import Restriction
+from .projection import is_identity_projection, pack_symbolic_projection_repr
 from .shape import Shape
 from .solver import Partitioner
-from .store import RegionField, Store
+from .store import RegionField, Storage, Store
+from .transform import IdentityTransform
 
 
 # A Field holds a reference to a field in a region tree
@@ -316,10 +319,15 @@ class FieldManager(object):
 
 
 class Attachment(object):
-    def __init__(self, ptr, extent, region_field):
+    def __init__(self, ptr, extent, shareable, region_field):
         self.ptr = ptr
         self.extent = extent
         self.end = ptr + extent - 1
+        # Catch a case where we try to (individually) re-attach a buffer that
+        # was used in an IndexAttach. In that case it would be wrong to return
+        # the RegionField produced by that IndexAttach, since the buffer in
+        # question only covers a part of that.
+        self.shareable = shareable
         self._region_field = weakref.ref(region_field)
 
     def overlaps(self, other):
@@ -337,9 +345,7 @@ class Attachment(object):
 class AttachmentManager(object):
     def __init__(self, runtime):
         self._runtime = runtime
-
         self._attachments = dict()
-
         self._next_detachment_key = 0
         self._registered_detachments = dict()
         self._deferred_detachments = list()
@@ -363,16 +369,18 @@ class AttachmentManager(object):
         self._attachments = None
 
     @staticmethod
-    def attachment_key(alloc):
-        return (alloc.address, alloc.memoryview.nbytes)
+    def attachment_key(buf):
+        assert isinstance(buf, memoryview)
+        base_ptr = int(ffi.cast("uintptr_t", ffi.from_buffer(buf)))
+        return (base_ptr, buf.nbytes)
 
-    def has_attachment(self, alloc):
-        key = self.attachment_key(alloc)
+    def has_attachment(self, buf):
+        key = self.attachment_key(buf)
         attachment = self._attachments.get(key, None)
-        return attachment is not None and attachment.region_field
+        return attachment is not None and attachment.region_field is not None
 
-    def reuse_existing_attachment(self, alloc):
-        key = self.attachment_key(alloc)
+    def reuse_existing_attachment(self, buf):
+        key = self.attachment_key(buf)
         attachment = self._attachments.get(key, None)
         if attachment is None:
             return None
@@ -381,22 +389,21 @@ class AttachmentManager(object):
         # track of it for de-duplication.
         if rf is None:
             del self._attachments[key]
-        return rf
+            return None
+        return rf if attachment.shareable else None
 
-    def attach_external_allocation(self, alloc, region_field):
-        key = self.attachment_key(alloc)
+    def _add_attachment(self, buf, shareable, region_field):
+        key = self.attachment_key(buf)
         attachment = self._attachments.get(key, None)
         if not (attachment is None or attachment.region_field is None):
             raise RuntimeError(
                 "Cannot attach two different RegionFields to the same buffer"
             )
-        if attachment is None:
-            attachment = Attachment(*key, region_field)
-        else:
-            attachment.region_field = region_field
-            # We temporary remove the attachment from the map for
-            # the following alias checking
+        # If the region field is already collected, we don't need to keep
+        # track of it for de-duplication.
+        if attachment is not None:
             del self._attachments[key]
+        attachment = Attachment(*key, shareable, region_field)
         for other in self._attachments.values():
             if other.overlaps(attachment):
                 raise RuntimeError(
@@ -404,11 +411,25 @@ class AttachmentManager(object):
                 )
         self._attachments[key] = attachment
 
-    def _remove_allocation(self, alloc):
-        key = self.attachment_key(alloc)
+    def attach_external_allocation(self, alloc, region_field):
+        if isinstance(alloc, memoryview):
+            self._add_attachment(alloc, True, region_field)
+        else:
+            for buf in alloc.shard_local_buffers.values():
+                self._add_attachment(buf, False, region_field)
+
+    def _remove_attachment(self, buf):
+        key = self.attachment_key(buf)
         if key not in self._attachments:
             raise RuntimeError("Unable to find attachment to remove")
         del self._attachments[key]
+
+    def _remove_allocation(self, alloc):
+        if isinstance(alloc, memoryview):
+            self._remove_attachment(alloc)
+        else:
+            for buf in alloc.shard_local_buffers.values():
+                self._remove_attachment(buf)
 
     def detach_external_allocation(
         self, alloc, detach, defer=False, previously_deferred=False
@@ -760,8 +781,12 @@ class Runtime(object):
 
         # A projection functor and its corresponding sharding functor
         # have the same local id
-        self._next_projection_id = 10
-        self._next_sharding_id = 10
+        self._next_projection_id = (
+            core_library._lib.LEGATE_CORE_FIRST_DYNAMIC_FUNCTOR_ID
+        )
+        self._next_sharding_id = (
+            core_library._lib.LEGATE_CORE_FIRST_DYNAMIC_FUNCTOR_ID
+        )
         self._registered_projections = {}
         self._registered_shardings = {}
 
@@ -895,29 +920,23 @@ class Runtime(object):
             self.legion_runtime, self.legion_context, unordered=unordered
         )
 
-    def get_deliearize_functor(self):
+    def get_delinearize_functor(self):
         return self.core_context.get_projection_id(
-            self.core_library.LEGATE_CORE_DELINEARIZE_FUNCTOR
+            self.core_library.LEGATE_CORE_DELINEARIZE_PROJ_ID
         )
 
-    def get_projection(self, src_ndim, dims):
-        spec = (src_ndim, dims)
-        if spec in self._registered_projections:
-            return self._registered_projections[spec]
-
-        tgt_ndim = len(dims)
-        dims_c = ffi.new(f"int32_t[{tgt_ndim}]")
-        for idx, dim in enumerate(dims):
-            dims_c[idx] = dim
-
+    def _register_projection_functor(
+        self, spec, src_ndim, tgt_ndim, dims_c, offsets_c
+    ):
         proj_id = self.core_context.get_projection_id(self._next_projection_id)
         self._next_projection_id += 1
         self._registered_projections[spec] = proj_id
 
-        self.core_library.legate_register_projection_functor(
+        self.core_library.legate_register_affine_projection_functor(
             src_ndim,
             tgt_ndim,
             dims_c,
+            offsets_c,
             proj_id,
         )
 
@@ -931,6 +950,19 @@ class Runtime(object):
         )
 
         return proj_id
+
+    def get_projection(self, src_ndim, dims):
+        spec = (src_ndim, dims)
+        if spec in self._registered_projections:
+            return self._registered_projections[spec]
+
+        if is_identity_projection(src_ndim, dims):
+            self._registered_projections[spec] = 0
+            return 0
+        else:
+            return self._register_projection_functor(
+                spec, *pack_symbolic_projection_repr(src_ndim, dims)
+            )
 
     def get_transform_code(self, name):
         return getattr(
@@ -951,12 +983,20 @@ class Runtime(object):
     ):
         if shape is not None and not isinstance(shape, Shape):
             shape = Shape(shape)
+        if storage is None:
+            if not optimize_scalar or shape.volume() > 1:
+                kind = RegionField
+            else:
+                kind = Future
+        else:
+            kind = type(storage)
+        storage = Storage(self, shape, 0, dtype, data=storage, kind=kind)
         return Store(
             self,
             dtype,
+            storage,
+            IdentityTransform(),
             shape=shape,
-            storage=storage,
-            optimize_scalar=optimize_scalar,
         )
 
     def find_or_create_region_manager(self, shape, region=None):
@@ -1027,7 +1067,10 @@ class Runtime(object):
         if bounds in self.index_spaces:
             return self.index_spaces[bounds]
         # Haven't seen this before so make it now
-        rect = Rect(bounds)
+        if isinstance(bounds, Rect):
+            rect = bounds
+        else:
+            rect = Rect(bounds)
         handle = legion.legion_index_space_create_domain(
             self.legion_runtime, self.legion_context, rect.raw()
         )
@@ -1088,6 +1131,12 @@ class Runtime(object):
                 redop,
                 mapper=self.core_context.get_mapper_id(0),
             )
+
+    def issue_execution_fence(self, block=False):
+        fence = Fence(mapping=False)
+        future = fence.launch(self.legion_runtime, self.legion_context)
+        if block:
+            future.wait()
 
 
 _runtime = Runtime(CoreLib())

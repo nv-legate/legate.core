@@ -1,4 +1,4 @@
-# Copyright 2021 NVIDIA Corporation
+# Copyright 2021-2022 NVIDIA Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -120,6 +120,21 @@ class Shape(object):
         lh = _cast_tuple(self, self.ndim)
         rh = _cast_tuple(other, self.ndim)
         return len(lh) == len(rh) and lh <= rh
+
+    def __lt__(self, other):
+        lh = _cast_tuple(self, self.ndim)
+        rh = _cast_tuple(other, self.ndim)
+        return len(lh) == len(rh) and lh < rh
+
+    def __ge__(self, other):
+        lh = _cast_tuple(self, self.ndim)
+        rh = _cast_tuple(other, self.ndim)
+        return len(lh) == len(rh) and lh >= rh
+
+    def __gt__(self, other):
+        lh = _cast_tuple(self, self.ndim)
+        rh = _cast_tuple(other, self.ndim)
+        return len(lh) == len(rh) and lh > rh
 
     def __add__(self, other):
         lh = _cast_tuple(self, self.ndim)

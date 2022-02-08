@@ -1,4 +1,4 @@
-# Copyright 2021 NVIDIA Corporation
+# Copyright 2021-2022 NVIDIA Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 import numpy as np
 
 from .legion import Future, legion
-from .operation import Copy, Task
+from .operation import AutoTask, Copy, ManualTask
 from .types import TypeSystem
 
 
@@ -118,6 +118,10 @@ class Context(object):
         return self._library
 
     @property
+    def core_library(self):
+        return self._runtime.core_library
+
+    @property
     def first_mapper_id(self):
         return self._mapper_scope._base
 
@@ -179,8 +183,25 @@ class Context(object):
         self._unique_op_id += 1
         return op_id
 
-    def create_task(self, task_id, mapper_id=0):
-        return Task(self, task_id, mapper_id, op_id=self.get_unique_op_id())
+    def create_task(
+        self, task_id, mapper_id=0, manual=False, launch_domain=None
+    ):
+        unique_op_id = self.get_unique_op_id()
+        if not manual:
+            return AutoTask(self, task_id, mapper_id, unique_op_id)
+        else:
+            if launch_domain is None:
+                raise RuntimeError(
+                    "Launch domain must be specified for "
+                    "manual parallelization"
+                )
+            return ManualTask(
+                self,
+                task_id,
+                launch_domain,
+                mapper_id,
+                unique_op_id,
+            )
 
     def create_copy(self, mapper_id=0):
         return Copy(self, mapper_id)

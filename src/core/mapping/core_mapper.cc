@@ -1,4 +1,4 @@
-/* Copyright 2021 NVIDIA Corporation
+/* Copyright 2021-2022 NVIDIA Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -280,7 +280,7 @@ void CoreMapper::slice_task(const MapperContext ctx,
         }
         break;
       }
-      default: LEGATE_ABORT
+      default: LEGATE_ABORT;
     }
   }
 }
@@ -305,7 +305,7 @@ void CoreMapper::select_sharding_functor(const MapperContext ctx,
   assert(task.regions.empty());
   const int launch_dim = task.index_domain.get_dim();
   assert(launch_dim == 1);
-  output.chosen_functor = context.get_sharding_id(0);
+  output.chosen_functor = context.get_sharding_id(LEGATE_CORE_TOPLEVEL_TASK_SHARD_ID);
 }
 
 void CoreMapper::select_steal_targets(const MapperContext ctx,
@@ -409,7 +409,7 @@ void CoreMapper::select_tunable_value(const MapperContext ctx,
     }
   }
   // Illegal tunable variable
-  LEGATE_ABORT
+  LEGATE_ABORT;
 }
 
 void register_legate_core_mapper(Machine machine, Runtime* runtime, const LibraryContext& context)

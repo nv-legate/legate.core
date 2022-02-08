@@ -1,4 +1,4 @@
-/* Copyright 2021 NVIDIA Corporation
+/* Copyright 2021-2022 NVIDIA Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,5 +23,9 @@ namespace legate {
 size_t linearize(const Legion::DomainPoint& lo,
                  const Legion::DomainPoint& hi,
                  const Legion::DomainPoint& point);
+
+Legion::DomainPoint delinearize(const Legion::DomainPoint& lo,
+                                const Legion::DomainPoint& hi,
+                                size_t idx);
 
 }  // namespace legate

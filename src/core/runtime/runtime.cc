@@ -1,4 +1,4 @@
-/* Copyright 2021 NVIDIA Corporation
+/* Copyright 2021-2022 NVIDIA Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,9 +20,6 @@
 #include "core/runtime/shard.h"
 #include "core/utilities/deserializer.h"
 #include "legate.h"
-#ifdef LEGATE_USE_CUDA
-#include "core/gpu/cudalibs.h"
-#endif
 
 namespace legate {
 
@@ -35,6 +32,8 @@ Logger log_legate("legate");
 static const char* const core_library_name = "legate.core";
 
 /*static*/ bool Core::show_progress = false;
+
+/*static*/ bool Core::use_empty_task = false;
 
 /*static*/ void Core::parse_config(void)
 {
@@ -67,46 +66,9 @@ static const char* const core_library_name = "legate.core";
 #endif
   const char* progress = getenv("LEGATE_SHOW_PROGRESS");
   if (progress != NULL) show_progress = true;
-}
 
-#ifdef LEGATE_USE_CUDA
-static CUDALibraries& get_cuda_libraries(Processor proc, bool check)
-{
-  if (proc.kind() != Processor::TOC_PROC) {
-    fprintf(stderr, "Illegal request for CUDA libraries for non-GPU processor");
-    LEGATE_ABORT
-  }
-  static std::map<Processor, CUDALibraries> cuda_libraries;
-  std::map<Processor, CUDALibraries>::iterator finder = cuda_libraries.find(proc);
-  if (finder == cuda_libraries.end()) {
-    assert(!check);
-    return cuda_libraries[proc];
-  } else
-    return finder->second;
-}
-
-/*static*/ cublasContext* Core::get_cublas(void)
-{
-  const Processor executing_processor = Processor::get_executing_processor();
-  CUDALibraries& lib                  = get_cuda_libraries(executing_processor, true /*check*/);
-  return lib.get_cublas();
-}
-#endif
-
-static void initialize_cpu_resource_task(const Task* task,
-                                         const std::vector<PhysicalRegion>& regions,
-                                         Context ctx,
-                                         Runtime* runtime)
-{
-  // Nothing to do here yet...
-}
-
-static void finalize_cpu_resource_task(const Task* task,
-                                       const std::vector<PhysicalRegion>& regions,
-                                       Context ctx,
-                                       Runtime* runtime)
-{
-  // Nothing to do here yet...
+  const char* empty_task = getenv("LEGATE_EMPTY_TASK");
+  if (empty_task != NULL && atoi(empty_task) > 0) use_empty_task = true;
 }
 
 static ReturnValues extract_scalar_task(const Task* task,
@@ -120,37 +82,6 @@ static ReturnValues extract_scalar_task(const Task* task,
   return ReturnValues({values[idx]});
 }
 
-#ifdef LEGATE_USE_CUDA
-static void initialize_gpu_resource_task(const Task* task,
-                                         const std::vector<PhysicalRegion>& regions,
-                                         Context ctx,
-                                         Runtime* runtime)
-{
-  const LegateResource resource = *((const LegateResource*)task->args);
-  switch (resource) {
-    case LEGATE_CORE_RESOURCE_CUBLAS: {
-      // This call will initialize cublas
-      Core::get_cublas();
-      break;
-    }
-    // TODO: implement support for other libraries
-    case LEGATE_CORE_RESOURCE_CUDNN:
-    case LEGATE_CORE_RESOURCE_CUDF:
-    case LEGATE_CORE_RESOURCE_CUML:
-    default: LEGATE_ABORT
-  }
-}
-
-static void finalize_gpu_resource_task(const Task* task,
-                                       const std::vector<PhysicalRegion>& regions,
-                                       Context ctx,
-                                       Runtime* runtime)
-{
-  CUDALibraries& libs = get_cuda_libraries(task->current_proc, true /*check*/);
-  libs.finalize();
-}
-#endif  // LEGATE_USE_CUDA
-
 /*static*/ void Core::shutdown(void)
 {
   // Nothing to do here yet...
@@ -158,16 +89,6 @@ static void finalize_gpu_resource_task(const Task* task,
 
 void register_legate_core_tasks(Machine machine, Runtime* runtime, const LibraryContext& context)
 {
-  const TaskID initialize_task_id  = context.get_task_id(LEGATE_CORE_INITIALIZE_TASK_ID);
-  const char* initialize_task_name = "Legate Core Resource Initialization";
-  runtime->attach_name(
-    initialize_task_id, initialize_task_name, false /*mutable*/, true /*local only*/);
-
-  const TaskID finalize_task_id  = context.get_task_id(LEGATE_CORE_FINALIZE_TASK_ID);
-  const char* finalize_task_name = "Legate Core Resource Finalization";
-  runtime->attach_name(
-    finalize_task_id, finalize_task_name, false /*mutable*/, true /*local only*/);
-
   const TaskID extract_scalar_task_id  = context.get_task_id(LEGATE_CORE_EXTRACT_SCALAR_TASK_ID);
   const char* extract_scalar_task_name = "Legate Core Scalar Extraction";
   runtime->attach_name(
@@ -181,42 +102,13 @@ void register_legate_core_tasks(Machine machine, Runtime* runtime, const Library
     return registrar;
   };
 
-  // Register the task variant for both CPUs and GPUs
-  {
-    auto registrar = make_registrar(initialize_task_id, initialize_task_name, Processor::LOC_PROC);
-    runtime->register_task_variant<initialize_cpu_resource_task>(registrar, LEGATE_CPU_VARIANT);
-  }
-  {
-    auto registrar = make_registrar(finalize_task_id, finalize_task_name, Processor::LOC_PROC);
-    runtime->register_task_variant<finalize_cpu_resource_task>(registrar, LEGATE_CPU_VARIANT);
-  }
+  // Register the task variants
   {
     auto registrar =
       make_registrar(extract_scalar_task_id, extract_scalar_task_name, Processor::LOC_PROC);
     runtime->register_task_variant<ReturnValues, extract_scalar_task>(registrar,
                                                                       LEGATE_CPU_VARIANT);
   }
-#ifdef LEGATE_USE_CUDA
-  {
-    auto registrar = make_registrar(initialize_task_id, initialize_task_name, Processor::TOC_PROC);
-    runtime->register_task_variant<initialize_gpu_resource_task>(registrar, LEGATE_GPU_VARIANT);
-  }
-  {
-    auto registrar = make_registrar(finalize_task_id, finalize_task_name, Processor::TOC_PROC);
-    runtime->register_task_variant<finalize_gpu_resource_task>(registrar, LEGATE_GPU_VARIANT);
-  }
-  {
-    // Make sure we fill in all the cuda libraries entries for the
-    // local processors so we don't have races later
-    Machine::ProcessorQuery local_gpus(machine);
-    local_gpus.local_address_space();
-    local_gpus.only_kind(Processor::TOC_PROC);
-    for (auto local_gpu : local_gpus)
-      // This call will make an entry for the CUDA libraries but not
-      // initialize any of them
-      get_cuda_libraries(local_gpu, false /*check*/);
-  }
-#endif
 }
 
 /*static*/ void core_registration_callback(Machine machine,

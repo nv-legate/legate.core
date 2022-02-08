@@ -1,4 +1,4 @@
-# Copyright 2021 NVIDIA Corporation
+# Copyright 2021-2022 NVIDIA Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 
 from .constraints import Alignment, Broadcast, Containment
 from .legion import Future, Rect
-from .partition import NoPartition
+from .partition import REPLICATE, Replicate
 from .shape import Shape
 from .utils import OrderedSet
 
@@ -98,23 +98,40 @@ class EqClass(object):
 
 class Strategy(object):
     def __init__(self, launch_shape, strategy, fspaces, key_parts):
-        self._launch_shape = launch_shape
+        if launch_shape is not None:
+            self._launch_domain = Rect(hi=launch_shape)
+        else:
+            self._launch_domain = None
         self._strategy = strategy
         self._fspaces = fspaces
         self._key_parts = key_parts
 
     @property
     def parallel(self):
-        return self._launch_shape is not None
+        return self._launch_domain is not None
 
     @property
     def launch_domain(self):
-        assert self.parallel
-        return Rect(self._launch_shape)
+        return self._launch_domain
+
+    @property
+    def launch_ndim(self):
+        if self._launch_domain is None:
+            return 1
+        else:
+            return self._launch_domain.dim
+
+    def set_launch_domain(self, launch_domain):
+        if self._launch_domain is not None:
+            raise RuntimeError(
+                "Manual task launch cannot be used when some stores are "
+                "auto-partitioned"
+            )
+        self._launch_domain = launch_domain
 
     def get_projection(self, part):
         partition = self.get_partition(part)
-        return partition.get_requirement(self._launch_shape, part.store)
+        return partition.get_requirement(self.launch_ndim, part.store)
 
     def get_partition(self, part):
         assert not part.store.unbound
@@ -170,11 +187,11 @@ class Partitioner(object):
                 continue
 
             if store.kind is Future:
-                partitions[unknown] = NoPartition()
+                partitions[unknown] = REPLICATE
             else:
                 cls = constraints.find(unknown)
                 for to_align in cls:
-                    partitions[to_align] = NoPartition()
+                    partitions[to_align] = REPLICATE
 
         return unknowns - to_remove
 
@@ -197,7 +214,7 @@ class Partitioner(object):
 
             fspace = self._runtime.create_field_space()
             for to_align in cls:
-                partitions[unknown] = NoPartition()
+                partitions[unknown] = REPLICATE
                 fspaces[unknown] = fspace
 
         return unknowns - to_remove, len(to_remove) > 0
@@ -287,7 +304,7 @@ class Partitioner(object):
             store = unknown.store
             restrictions = all_restrictions[unknown]
 
-            if isinstance(prev_part, NoPartition):
+            if isinstance(prev_part, Replicate):
                 partition = prev_part
             else:
                 partition = store.compute_key_partition(restrictions)

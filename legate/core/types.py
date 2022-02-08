@@ -1,4 +1,4 @@
-# Copyright 2021 NVIDIA Corporation
+# Copyright 2021-2022 NVIDIA Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -121,7 +121,7 @@ class _Dtype(object):
         return str(self._dtype)
 
     def __repr__(self):
-        return f"Dtype({self._dtype}, {self.code}, {self.size})"
+        return f"_Dtype({self._dtype}, {self.size}, {self.code})"
 
 
 @unique

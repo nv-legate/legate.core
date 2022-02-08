@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright 2021 NVIDIA Corporation
+# Copyright 2021-2022 NVIDIA Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,12 +27,17 @@ import sys
 import tempfile
 from distutils import sysconfig
 
+import setuptools
+
 # Flush output on newlines
 sys.stdout.reconfigure(line_buffering=True)
 
 os_name = platform.system()
 
-default_legion_branch = "control_replication"
+# Work around breaking change in setuptools 60
+setup_py_flags = []
+if int(setuptools.__version__.split(".")[0]) >= 60:
+    setup_py_flags = ["--single-version-externally-managed", "--root=/"]
 
 
 class BooleanFlag(argparse.Action):
@@ -106,28 +111,13 @@ def find_active_python_version_and_path():
     paths = [os.path.join(cv[p], cv["LDLIBRARY"]) for p in ("LIBDIR", "LIBPL")]
     # ensure that static libraries are replaced with the dynamic version
     paths = [
-        p.replace(".a", ".dylib" if os_name == "Darwin" else ".so")
+        os.path.splitext(p)[0] + (".dylib" if os_name == "Darwin" else ".so")
         for p in paths
     ]
     paths = [p for p in paths if os.path.isfile(p)]
     e = "Error: could not auto-locate python library."
     assert paths, e
     return version, paths[0]
-
-
-def find_default_legion_branch(core_dir):
-    try:
-        branch = verbose_check_output(
-            ["git", "symbolic-ref", "--short", "HEAD"], cwd=core_dir
-        )
-    except subprocess.CalledProcessError:
-        return default_legion_branch
-
-    branch = branch.decode().strip()
-    if branch in ("master", "main"):
-        return "legate_stable"
-    else:
-        return default_legion_branch
 
 
 def git_clone(repo_dir, url, branch=None, tag=None, commit=None):
@@ -213,7 +203,7 @@ def install_gasnet(gasnet_dir, conduit, thread_count):
     shutil.rmtree(temp_dir)
 
 
-def install_legion(legion_src_dir, branch, commit="d0907f4c"):
+def install_legion(legion_src_dir, branch, commit="c7ca2dbc"):
     print("Legate is installing Legion into a local directory...")
     # For now all we have to do is clone legion since we build it with Legate
     git_clone(
@@ -233,7 +223,7 @@ def install_thrust(thrust_dir):
     )
 
 
-def update_legion(legion_src_dir, branch, commit="d0907f4c"):
+def update_legion(legion_src_dir, branch, commit="c7ca2dbc"):
     # Make sure we are on the right branch for single/multi-node
     git_update(legion_src_dir, branch=branch, commit=commit)
 
@@ -261,6 +251,7 @@ def build_legion(
     pylib_name,
     maxdim,
     maxfields,
+    clean_first,
     extra_flags,
     thread_count,
     verbose,
@@ -395,7 +386,10 @@ def build_legion(
         )
 
         legion_python_dir = os.path.join(legion_src_dir, "bindings", "python")
-        verbose_check_call(["make"] + flags + ["clean"], cwd=legion_python_dir)
+        if clean_first:
+            verbose_check_call(
+                ["make"] + flags + ["clean"], cwd=legion_python_dir
+            )
         verbose_check_call(
             ["make"] + flags + ["-j", str(thread_count), "install"],
             cwd=legion_python_dir,
@@ -407,7 +401,8 @@ def build_legion(
                 "install",
                 "--prefix",
                 str(os.path.realpath(install_dir)),
-            ],
+            ]
+            + setup_py_flags,
             cwd=legion_python_dir,
         )
     verbose_check_call(
@@ -516,7 +511,12 @@ def build_legate_core(
     cmd = ["cp", "config.mk", os.path.join(install_dir, "share", "legate")]
     verbose_check_call(cmd, cwd=src_dir)
     # Then run setup.py
-    cmd = [sys.executable, "setup.py", "install", "--recurse"]
+    cmd = [
+        sys.executable,
+        "setup.py",
+        "install",
+        "--recurse",
+    ] + setup_py_flags
     if unknown is not None:
         try:
             prefix_loc = unknown.index("--prefix")
@@ -595,15 +595,11 @@ def install(
     # Save the maxdim config
     maxdim_config = os.path.join(legate_core_dir, ".maxdim.json")
     # Check the max dimensions
-    # Legion could actually go up to 9 dimensions, but we leave an extra
-    # free dimension for libraries to use as a free dimension
-    if maxdim < 1 or maxdim > 8:
+    if maxdim < 1 or maxdim > 9:
         raise Exception(
-            "The maximum number of Legate dimensions must be between 1 and 8 "
+            "The maximum number of Legate dimensions must be between 1 and 9 "
             "inclusive"
         )
-    # Convert back to legion max dimensions
-    maxdim += 1
     dump_json_config(maxdim_config, str(maxdim))
 
     # Save the maxfields config
@@ -668,38 +664,38 @@ def install(
 
     # Build Legion from scratch.
     legion_src_dir = os.path.join(legate_core_dir, "legion")
-    if clean_first or not os.path.exists(legion_src_dir):
-        if os.path.exists(legion_src_dir):
-            update_legion(legion_src_dir, branch=legion_branch)
-        else:
-            install_legion(legion_src_dir, branch=legion_branch)
-        build_legion(
-            legion_src_dir,
-            install_dir,
-            cmake,
-            cmake_exe,
-            cuda_dir,
-            debug,
-            debug_release,
-            check_bounds,
-            cuda,
-            arch,
-            openmp,
-            llvm,
-            hdf,
-            spy,
-            gasnet,
-            gasnet_dir,
-            conduit,
-            no_hijack,
-            pyversion,
-            pylib_name,
-            maxdim,
-            maxfields,
-            extra_flags,
-            thread_count,
-            verbose,
-        )
+    if not os.path.exists(legion_src_dir):
+        install_legion(legion_src_dir, branch=legion_branch)
+    elif clean_first:
+        update_legion(legion_src_dir, branch=legion_branch)
+    build_legion(
+        legion_src_dir,
+        install_dir,
+        cmake,
+        cmake_exe,
+        cuda_dir,
+        debug,
+        debug_release,
+        check_bounds,
+        cuda,
+        arch,
+        openmp,
+        llvm,
+        hdf,
+        spy,
+        gasnet,
+        gasnet_dir,
+        conduit,
+        no_hijack,
+        pyversion,
+        pylib_name,
+        maxdim,
+        maxfields,
+        clean_first,
+        extra_flags,
+        thread_count,
+        verbose,
+    )
 
     build_legate_core(
         install_dir,
@@ -722,6 +718,10 @@ def install(
     # Copy any executables that we need for legate functionality
     verbose_check_call(
         ["cp", "legate.py", os.path.join(install_dir, "bin", "legate")],
+        cwd=legate_core_dir,
+    )
+    verbose_check_call(
+        ["cp", "bind.sh", os.path.join(install_dir, "bin", "bind.sh")],
         cwd=legate_core_dir,
     )
     if cuda:
@@ -784,8 +784,7 @@ def driver():
         "--max-dim",
         dest="maxdim",
         type=int,
-        # One less than Legion's max dim, default 3
-        default=int(os.environ.get("LEGION_MAX_DIM", 4)) - 1,
+        default=int(os.environ.get("LEGION_MAX_DIM", 4)),
         help="Maximum number of dimensions that Legate will support",
     )
     parser.add_argument(
@@ -953,9 +952,8 @@ def driver():
     parser.add_argument(
         "--legion-branch",
         dest="legion_branch",
-        action="store",
         required=False,
-        default=None,
+        default="control_replication",
         help="Legion branch to build Legate with.",
     )
     args, unknown = parser.parse_known_args()

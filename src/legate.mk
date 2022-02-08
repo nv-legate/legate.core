@@ -1,4 +1,4 @@
-# Copyright 2021 NVIDIA Corporation
+# Copyright 2021-2022 NVIDIA Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -126,7 +126,7 @@ COMMA=,
 NVCC_FLAGS += $(foreach X,$(subst $(COMMA), ,$(GPU_ARCH)),-gencode arch=compute_$(X)$(COMMA)code=sm_$(X))
 CC_FLAGS	+= -DLEGATE_USE_CUDA -I$(CUDA)/include
 NVCC_FLAGS	+= -DLEGATE_USE_CUDA -I$(CUDA)/include
-LD_FLAGS	+= -lcublas -L$(CUDA)/lib -L$(CUDA)/lib64
+LD_FLAGS	+= -L$(CUDA)/lib -L$(CUDA)/lib64
 endif
 
 GEN_SRC		?=
@@ -197,12 +197,13 @@ $(DLIB) : $(GEN_CPU_OBJS) $(GEN_GPU_OBJS)
 -include $(GEN_CPU_DEPS)
 
 $(GEN_CPU_OBJS) : %.cc.o : %.cc $(LEGION_DEFINES_HEADER) $(REALM_DEFINES_HEADER)
-	$(CXX) -MMD -MP -MF $<.d -o $@ -c $< $(INC_FLAGS) $(OMP_FLAGS) $(CC_FLAGS)
+	$(CXX) -MMD -o $@ -c $< $(INC_FLAGS) $(OMP_FLAGS) $(CC_FLAGS)
 
 -include $(GEN_GPU_DEPS)
 
 $(GEN_GPU_OBJS) : %.cu.o : %.cu $(LEGION_DEFINES_HEADER) $(REALM_DEFINES_HEADER)
-	$(NVCC) -MMD -MP -MF $<.d -o $@ -c $< $(INC_FLAGS) $(NVCC_FLAGS)
+	$(NVCC) -o $<.d -M -MT $@ $< $(INC_FLAGS) $(NVCC_FLAGS)
+	$(NVCC) -o $@ -c $< $(INC_FLAGS) $(NVCC_FLAGS)
 
 clean:
 	$(RM) -f $(DLIB) $(GEN_CPU_DEPS) $(GEN_CPU_OBJS) $(GEN_GPU_DEPS) $(GEN_GPU_OBJS)

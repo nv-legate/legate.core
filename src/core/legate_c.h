@@ -1,4 +1,4 @@
-/* Copyright 2021 NVIDIA Corporation
+/* Copyright 2021-2022 NVIDIA Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,16 +18,24 @@
 #define __LEGATE_C_H__
 
 typedef enum legate_core_task_id_t {
-  LEGATE_CORE_INITIALIZE_TASK_ID,
-  LEGATE_CORE_FINALIZE_TASK_ID,
   LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,
   LEGATE_CORE_NUM_TASK_IDS,  // must be last
 } legate_core_task_id_t;
 
 typedef enum legate_core_proj_id_t {
-  LEGATE_CORE_DELINEARIZE_FUNCTOR = 2,
-  LEGATE_CORE_MAX_FUNCTOR_ID      = 3000000,
+  // local id 0 always maps to the identity projection (global id 0)
+  LEGATE_CORE_DELINEARIZE_PROJ_ID      = 2,
+  LEGATE_CORE_FIRST_DYNAMIC_FUNCTOR_ID = 10,
+  LEGATE_CORE_MAX_FUNCTOR_ID           = 3000000,
 } legate_core_proj_id_t;
+
+typedef enum legate_core_shard_id_t {
+  LEGATE_CORE_TOPLEVEL_TASK_SHARD_ID = 0,
+  LEGATE_CORE_LINEARIZE_SHARD_ID     = 1,
+  // All sharding functors starting from LEGATE_CORE_FIRST_DYNAMIC_FUNCTOR should match the
+  // projection functor of the same id. The sharding functor limit is thus the same as the
+  // projection functor limit.
+} legate_core_shard_id_t;
 
 typedef enum legate_core_tunable_t {
   LEGATE_CORE_TUNABLE_TOTAL_CPUS = 12345,
@@ -65,13 +73,6 @@ typedef enum legate_core_type_code_t {
   MAX_TYPE_NUMBER = LEGION_TYPE_TOTAL,  // this must be last
 } legate_core_type_code_t;
 
-typedef enum legate_core_resource_t {
-  LEGATE_CORE_RESOURCE_CUBLAS,
-  LEGATE_CORE_RESOURCE_CUDNN,
-  LEGATE_CORE_RESOURCE_CUDF,
-  LEGATE_CORE_RESOURCE_CUML,
-} legate_core_resource_t;
-
 typedef enum legate_core_transform_t {
   LEGATE_CORE_TRANSFORM_SHIFT = 100,
   LEGATE_CORE_TRANSFORM_PROMOTE,
@@ -81,7 +82,8 @@ typedef enum legate_core_transform_t {
 } legate_core_transform_t;
 
 typedef enum legate_core_mapping_tag_t {
-  LEGATE_CORE_KEY_STORE_TAG = 1,
+  LEGATE_CORE_KEY_STORE_TAG              = 1,
+  LEGATE_CORE_MANUAL_PARALLEL_LAUNCH_TAG = 2,
 } legate_core_mapping_tag_t;
 
 #ifdef __cplusplus
@@ -93,7 +95,8 @@ void legate_shutdown(void);
 
 void legate_core_perform_registration(void);
 
-void legate_register_projection_functor(int32_t, int32_t, int32_t*, legion_projection_id_t);
+void legate_register_affine_projection_functor(
+  int32_t, int32_t, int32_t*, int32_t*, legion_projection_id_t);
 
 void legate_create_sharding_functor_using_projection(legion_sharding_id_t, legion_projection_id_t);
 

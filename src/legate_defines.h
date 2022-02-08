@@ -1,4 +1,4 @@
-/* Copyright 2021 NVIDIA Corporation
+/* Copyright 2021-2022 NVIDIA Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,11 +17,11 @@
 #pragma once
 
 #define LEGATE_ABORT                                                                        \
-  {                                                                                         \
+  do {                                                                                      \
     legate::log_legate.error(                                                               \
       "Legate called abort in %s at line %d in function %s", __FILE__, __LINE__, __func__); \
     abort();                                                                                \
-  }
+  } while (false)
 
 #ifdef __CUDACC__
 #define LEGATE_DEVICE_PREFIX __device__

@@ -14,27 +14,31 @@
  *
  */
 
+#include "core/utilities/debug.h"
+
+#include "core/utilities/dispatch.h"
+#include "core/utilities/type_traits.h"
+
 namespace legate {
-namespace mapping {
 
-template <int32_t DIM>
-Legion::Rect<DIM> RegionField::shape(Legion::Mapping::MapperRuntime* runtime,
-                                     const Legion::Mapping::MapperContext context) const
+namespace {  // anonymous
+
+struct print_dense_array_fn {
+  template <LegateTypeCode CODE, int DIM>
+  std::string operator()(const Store& store)
+  {
+    using T        = legate_type_of<CODE>;
+    Rect<DIM> rect = store.shape<DIM>();
+    return print_dense_array(store.read_accessor<T>(rect), rect);
+  }
+};
+
+}  // namespace
+
+std::string print_dense_array(const Store& store)
 {
-  return Legion::Rect<DIM>(domain(runtime, context));
+  assert(store.is_readable());
+  return double_dispatch(store.dim(), store.code(), print_dense_array_fn{}, store);
 }
 
-template <int32_t DIM>
-Legion::Rect<DIM> FutureWrapper::shape() const
-{
-  return Legion::Rect<DIM>(domain());
-}
-
-template <int32_t DIM>
-Legion::Rect<DIM> Store::shape() const
-{
-  return Legion::Rect<DIM>(domain());
-}
-
-}  // namespace mapping
 }  // namespace legate

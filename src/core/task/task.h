@@ -1,4 +1,4 @@
-/* Copyright 2021 NVIDIA Corporation
+/* Copyright 2021-2022 NVIDIA Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -83,11 +83,10 @@ class LegateTask {
   static void show_progress(const Legion::Task* task, Legion::Context ctx, Legion::Runtime* runtime)
   {
     if (!Core::show_progress) return;
-    const auto exec_proc = runtime->get_executing_processor(ctx);
-    const auto proc_kind_str =
-      (exec_proc.kind() == Legion::Processor::LOC_PROC)
-        ? "CPU"
-        : (exec_proc.kind() == Legion::Processor::TOC_PROC) ? "GPU" : "OpenMP";
+    const auto exec_proc     = runtime->get_executing_processor(ctx);
+    const auto proc_kind_str = (exec_proc.kind() == Legion::Processor::LOC_PROC)   ? "CPU"
+                               : (exec_proc.kind() == Legion::Processor::TOC_PROC) ? "GPU"
+                                                                                   : "OpenMP";
 
     std::stringstream point_str;
     const auto& point = task->index_point;
@@ -111,7 +110,7 @@ class LegateTask {
     show_progress(task, legion_context, runtime);
 
     TaskContext context(task, regions, legion_context, runtime);
-    (*TASK_PTR)(context);
+    if (!Core::use_empty_task) (*TASK_PTR)(context);
 
     return context.pack_return_values();
   }

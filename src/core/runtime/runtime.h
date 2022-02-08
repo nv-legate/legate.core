@@ -1,4 +1,4 @@
-/* Copyright 2021 NVIDIA Corporation
+/* Copyright 2021-2022 NVIDIA Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,10 +34,7 @@ class Core {
  public:
   // Configuration settings
   static bool show_progress;
-#ifdef LEGATE_USE_CUDA
- public:
-  static cublasContext* get_cublas(void);
-#endif
+  static bool use_empty_task;
 };
 
 }  // namespace legate

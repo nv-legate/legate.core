@@ -1,5 +1,5 @@
 <!--
-Copyright 2021 NVIDIA Corporation
+Copyright 2021-2022 NVIDIA Corporation
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -56,6 +56,7 @@ If you have questions, please contact us at legate(at)nvidia.com.
 1. [How Do I Install Legate?](#how-do-i-install-legate)
 1. [How Do I Use Legate?](#how-do-i-use-legate)
 1. [Other FAQs](#other-faqs)
+1. [Contributing](#contributing)
 1. [Documentation](#documentation)
 1. [Next Steps](#next-steps)
 
@@ -208,24 +209,56 @@ as though they are running on a single processor.
 
 ## How Do I Install Legate?
 
+Legate Core is available on conda:
+
+```
+conda install -c nvidia -c conda-forge -c legate legate-core
+```
+
 Pre-built docker images containing all Legate libraries, as well as specialized
 install scripts for supported clusters are available on the
-[quickstart](https://github.com/nv-legate/quickstart) repo. Read on for instructions
-on how to build Legate Core from source.
+[quickstart](https://github.com/nv-legate/quickstart) repo.
+
+Read on for general instructions on building Legate Core from source.
 
 ### Dependencies
 
-Legate has been tested on both Linux and Darwin operating systems, although only
-a few flavors of Linux such as Ubuntu have been thoroughly tested. There is currently
-no support for Windows.
+Legate has been tested on Linux and MacOS, although only a few flavors of Linux
+such as Ubuntu have been thoroughly tested. There is currently no support for
+Windows.
 
-The Legate Core currently requires Python >= 3.7 and the following packages:
+Legate Core requires the following:
 
+  - Python >= 3.7
   - `pyarrow=5.0.0`
   - `numpy`
   - `cffi`
   - [CUDA](https://developer.nvidia.com/cuda-downloads) >= 8.0
   - C++14 compatible compiler (g++, clang, or nvc++)
+  - the Python packages listed in the [conda environment file](conda/core_dev.yml)
+
+You can install the required Python packages by creating a new conda environment:
+
+```
+conda env create -n legate -f conda/core_dev.yml
+```
+
+or by updating an existing environment:
+
+```
+conda env update -f conda/core_dev.yml
+```
+
+Note that conda will need to install an environment-local copy of the CUDA
+toolkit, and by default it will choose the latest available version. To avoid
+versioning conflicts, however, it is safer to match the version of CUDA
+installed system-wide on your machine. Therefore, we suggest that you add this
+as an explicit dependency at the bottom of the conda environment file. For
+example, if your system-wide CUDA installation is at version 10.2, add:
+
+```
+  - cudatoolkit=10.2
+```
 
 ### Installation
 
@@ -328,7 +361,7 @@ to use per node, while the `--fbmem` flag controls how many MBs of framebuffer
 memory Legate is allowed to use per GPU. For example, when running on a DGX 
 station, you might run your application as follows:
 ```
-installdir/bin/legate --cpus 16 --gpus 4 --sysmem 100000 -fbmem 15000 my_python_program.py
+installdir/bin/legate --cpus 16 --gpus 4 --sysmem 100000 --fbmem 15000 my_python_program.py
 ```
 This will make 16 CPU processors and all 4 GPUs available for use by Legate.
 It will also allow Legate to consume up to 100 GB of DRAM memory and 15 GB of
@@ -350,7 +383,7 @@ mode by simply not passing any `*py` files on the command line. You can still
 request resources just as you would though with a normal file. Legate will 
 still use all the resources available to it, including doing multi-node execution.
 ```
-installdir/bin/legate --cpus 16 --gpus 4 --sysmem 100000 -fbmem 15000
+installdir/bin/legate --cpus 16 --gpus 4 --sysmem 100000 --fbmem 15000
 Welcome to Legion Python interactive console
 >>>
 ```
@@ -452,6 +485,10 @@ that can adversely effect the performance of the application.
   If you are interested in pursuing this approach please open an issue
   on the [Legion github issue tracker](https://github.com/StanfordLegion/legion/issues)
   as it will be almost entirely orthogonal to how you use Legate.
+
+## Contributing
+
+See the discussion of contributing in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Documentation
 

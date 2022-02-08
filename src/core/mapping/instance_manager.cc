@@ -1,4 +1,4 @@
-/* Copyright 2021 NVIDIA Corporation
+/* Copyright 2021-2022 NVIDIA Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -186,7 +186,7 @@ RegionGroupP InstanceManager::find_region_group(const Region& region,
   FieldMemInfo key(region.get_tree_id(), field_id, memory);
 
   auto finder = instance_sets_.find(key);
-  if (finder == instance_sets_.end())
+  if (finder == instance_sets_.end() || exact)
     return std::make_shared<RegionGroup>(std::vector<Region>({region}), domain);
 
   return finder->second.construct_overlapping_region_group(region, domain, exact);
