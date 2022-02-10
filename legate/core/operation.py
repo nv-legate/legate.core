@@ -140,10 +140,10 @@ class Operation(object):
         part2 = self._get_unique_partition(store2)
         self.add_constraint(part1 == part2)
 
-    def add_broadcast(self, store):
+    def add_broadcast(self, store, axes=None):
         self._check_store(store)
         part = self._get_unique_partition(store)
-        self.add_constraint(part.broadcast())
+        self.add_constraint(part.broadcast(axes=axes))
 
     def add_constraint(self, constraint):
         self._constraints.append(constraint)
