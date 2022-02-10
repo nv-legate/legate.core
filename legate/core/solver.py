@@ -20,6 +20,10 @@ from .shape import Shape
 from .utils import OrderedSet
 
 
+def join_restrictions(x, y):
+    return tuple(min(a, b) for a, b in zip(x, y))
+
+
 class EqClass(object):
     def __init__(self):
         # Maps a variable to the equivalent class id
@@ -172,13 +176,13 @@ class Partitioner(object):
         self._ops = ops
         self._must_be_single = must_be_single
 
-    def _solve_broadcast_constraints(
-        self, unknowns, constraints, broadcasts, partitions
+    def _solve_constraints_for_futures(
+        self, unknowns, constraints, partitions
     ):
         to_remove = OrderedSet()
         for unknown in unknowns:
             store = unknown.store
-            if not (store.kind is Future or unknown in broadcasts):
+            if store.kind is not Future:
                 continue
 
             to_remove.add(unknown)
@@ -220,24 +224,28 @@ class Partitioner(object):
         return unknowns - to_remove, len(to_remove) > 0
 
     @staticmethod
-    def _find_restrictions(cls):
+    def _find_restrictions(cls, broadcasts):
         merged = None
         for unknown in cls:
             store = unknown.store
             restrictions = store.find_restrictions()
+            if unknown in broadcasts:
+                restrictions = join_restrictions(
+                    broadcasts[unknown], restrictions
+                )
             if merged is None:
                 merged = restrictions
             else:
-                merged = tuple(min(a, b) for a, b in zip(merged, restrictions))
+                merged = join_restrictions(merged, restrictions)
         return merged
 
-    def _find_all_restrictions(self, unknowns, constraints):
+    def _find_all_restrictions(self, unknowns, broadcasts, constraints):
         all_restrictions = {}
         for unknown in unknowns:
             if unknown in all_restrictions:
                 continue
             cls = constraints.find(unknown)
-            restrictions = self._find_restrictions(cls)
+            restrictions = self._find_restrictions(cls, broadcasts)
             for store in cls:
                 all_restrictions[unknown] = restrictions
         return all_restrictions
@@ -245,7 +253,7 @@ class Partitioner(object):
     def partition_stores(self):
         unknowns = OrderedSet()
         constraints = EqClass()
-        broadcasts = OrderedSet()
+        broadcasts = {}
         dependent = {}
         for op in self._ops:
             unknowns.update(op.all_unknowns)
@@ -253,7 +261,7 @@ class Partitioner(object):
                 if isinstance(c, Alignment):
                     constraints.record(c._lhs, c._rhs)
                 elif isinstance(c, Broadcast):
-                    broadcasts.add(c._expr)
+                    broadcasts[c._expr] = c._restrictions
                 elif isinstance(c, Containment):
                     if c._rhs in dependent:
                         raise NotImplementedError(
@@ -263,15 +271,16 @@ class Partitioner(object):
                     dependent[c._rhs] = c._lhs
 
         if self._must_be_single or len(unknowns) == 0:
-            broadcasts = unknowns
+            for unknown in unknowns:
+                c = unknown.broadcast()
+                broadcasts[unknown] = c._restrictions
 
         partitions = {}
         fspaces = {}
 
-        unknowns = self._solve_broadcast_constraints(
+        unknowns = self._solve_constraints_for_futures(
             unknowns,
             constraints,
-            broadcasts,
             partitions,
         )
 
@@ -282,7 +291,9 @@ class Partitioner(object):
             fspaces,
         )
 
-        all_restrictions = self._find_all_restrictions(unknowns, constraints)
+        all_restrictions = self._find_all_restrictions(
+            unknowns, broadcasts, constraints
+        )
 
         def cost(unknown):
             store = unknown.store

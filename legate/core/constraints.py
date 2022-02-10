@@ -14,6 +14,11 @@
 #
 
 
+from collections.abc import Iterable
+
+from .partition import Restriction
+
+
 class Expr(object):
     def __eq__(self, rhs):
         return Alignment(self, rhs)
@@ -28,8 +33,22 @@ class Expr(object):
             raise ValueError("Dimensions don't match")
         return Translate(self, offset)
 
-    def broadcast(self):
-        return Broadcast(self)
+    def broadcast(self, axes=None):
+        if axes is None:
+            axes = set(range(self.ndim))
+        else:
+            if isinstance(axes, Iterable):
+                axes = set(axes)
+            else:
+                axes = {axes}
+        restrictions = []
+        for i in range(self.ndim):
+            restrictions.append(
+                Restriction.RESTRICTED
+                if i in axes
+                else Restriction.UNRESTRICTED
+            )
+        return Broadcast(self, restrictions)
 
 
 class Lit(Expr):
@@ -151,8 +170,9 @@ class Containment(Constraint):
 
 
 class Broadcast(Constraint):
-    def __init__(self, expr):
+    def __init__(self, expr, restrictions):
         self._expr = expr
+        self._restrictions = restrictions
 
     def __repr__(self):
-        return f"Broadcast({self._expr})"
+        return f"Broadcast({self._expr}, axes={self._restrictions})"
