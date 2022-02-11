@@ -342,7 +342,7 @@ import numpy as np
 ```
 to this:
 ```python
-import legate.numpy as np
+import cunumeric as np
 ```
 After this, you can use the `legate` driver script in the `bin` directory of
 your installation to run any Python program. For example, to run your script 
