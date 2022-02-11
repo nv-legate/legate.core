@@ -231,6 +231,7 @@ Legate Core requires the following:
 
   - Python >= 3.7
   - [CUDA](https://developer.nvidia.com/cuda-downloads) >= 8.0
+  - GNU Make
   - C++14 compatible compiler (g++, clang, or nvc++)
   - the Python packages listed in the [conda environment file](conda/core_dev.yml)
 
