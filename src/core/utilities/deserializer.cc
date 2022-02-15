@@ -18,6 +18,7 @@
 #include "core/data/scalar.h"
 #include "core/data/store.h"
 #include "core/mapping/task.h"
+#include "core/utilities/machine.h"
 
 using LegionTask = Legion::Task;
 
@@ -103,6 +104,13 @@ void TaskDeserializer::_unpack(OutputRegionField& value)
   auto fid = unpack<int32_t>();
 
   value = OutputRegionField(outputs_[idx], fid);
+}
+
+void TaskDeserializer::_unpack(comm::Communicator& value)
+{
+  auto future = futures_[0];
+  futures_    = futures_.subspan(1);
+  value       = comm::Communicator(future);
 }
 
 namespace mapping {

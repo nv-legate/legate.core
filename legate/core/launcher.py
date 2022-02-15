@@ -546,6 +546,7 @@ class TaskLauncher(object):
         self._outputs = []
         self._reductions = []
         self._scalars = []
+        self._comms = []
         self._req_analyzer = RequirementAnalyzer(error_on_interference)
         self._out_analyzer = OutputAnalyzer(context.runtime)
         self._future_args = list()
@@ -655,6 +656,9 @@ class TaskLauncher(object):
     def add_future_map(self, future_map):
         self._future_map_args.append(future_map)
 
+    def add_communicator(self, handle):
+        self._comms.append(handle)
+
     def set_sharding_space(self, space):
         self._sharding_space = space
 
@@ -675,6 +679,7 @@ class TaskLauncher(object):
         self.pack_args(argbuf, self._outputs)
         self.pack_args(argbuf, self._reductions)
         self.pack_args(argbuf, self._scalars)
+        argbuf.pack_32bit_uint(len(self._comms))
 
         task = IndexTask(
             self.legion_task_id,
@@ -694,6 +699,8 @@ class TaskLauncher(object):
             task.add_future(future)
         for (out_req, fields) in self._out_analyzer.requirements:
             out_req.add(task, fields)
+        for comm in self._comms:
+            task.add_point_future(ArgumentMap(future_map=comm))
         for future_map in self._future_map_args:
             task.add_point_future(ArgumentMap(future_map=future_map))
         return task
@@ -706,6 +713,8 @@ class TaskLauncher(object):
         self.pack_args(argbuf, self._outputs)
         self.pack_args(argbuf, self._reductions)
         self.pack_args(argbuf, self._scalars)
+
+        assert len(self._comms) == 0
 
         task = SingleTask(
             self.legion_task_id,

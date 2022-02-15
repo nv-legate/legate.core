@@ -241,10 +241,12 @@ class Task(Operation):
         self._comm_args.append(comm)
 
     def _add_communicators(self, launcher, launch_domain):
-        volume = 1 if launch_domain is None else launch_domain.get_volume()
+        if launch_domain is None:
+            return
+        volume = launch_domain.get_volume()
         for comm in self._comm_args:
             handle = comm.get_communicator(volume)
-            launcher.add_future_map(handle)
+            launcher.add_communicator(handle)
 
 
 class AutoTask(Task):

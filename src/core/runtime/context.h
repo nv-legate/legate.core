@@ -18,6 +18,7 @@
 
 #include "legion.h"
 
+#include "core/comm/communicator.h"
 #include "core/task/return.h"
 
 namespace legate {
@@ -117,6 +118,7 @@ class TaskContext {
   std::vector<Store>& outputs() { return outputs_; }
   std::vector<Store>& reductions() { return reductions_; }
   std::vector<Scalar>& scalars() { return scalars_; }
+  std::vector<comm::Communicator>& communicators() { return comms_; }
 
  public:
   bool is_single_task() const;
@@ -135,6 +137,7 @@ class TaskContext {
  private:
   std::vector<Store> inputs_, outputs_, reductions_;
   std::vector<Scalar> scalars_;
+  std::vector<comm::Communicator> comms_;
 };
 
 }  // namespace legate

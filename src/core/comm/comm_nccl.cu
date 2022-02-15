@@ -17,7 +17,7 @@
 #include "core/comm/comm_nccl.h"
 #include "legate.h"
 
-#include "nccl.h"
+#include <nccl.h>
 
 using namespace Legion;
 
