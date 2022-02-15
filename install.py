@@ -203,7 +203,7 @@ def install_gasnet(gasnet_dir, conduit, thread_count):
     shutil.rmtree(temp_dir)
 
 
-def install_legion(legion_src_dir, branch, commit="c7ca2dbc"):
+def install_legion(legion_src_dir, branch, commit="5b5f7b50"):
     print("Legate is installing Legion into a local directory...")
     # For now all we have to do is clone legion since we build it with Legate
     git_clone(
@@ -223,7 +223,7 @@ def install_thrust(thrust_dir):
     )
 
 
-def update_legion(legion_src_dir, branch, commit="c7ca2dbc"):
+def update_legion(legion_src_dir, branch, commit="5b5f7b50"):
     # Make sure we are on the right branch for single/multi-node
     git_update(legion_src_dir, branch=branch, commit=commit)
 
