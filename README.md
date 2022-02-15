@@ -209,7 +209,7 @@ as though they are running on a single processor.
 
 ## How Do I Install Legate?
 
-Legate Core is available on conda:
+Legate Core is available [on conda](https://anaconda.org/legate/legate-core):
 
 ```
 conda install -c nvidia -c conda-forge -c legate legate-core
