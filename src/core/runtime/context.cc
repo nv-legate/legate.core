@@ -150,7 +150,7 @@ TaskContext::TaskContext(const Legion::Task* task,
   outputs_    = dez.unpack<std::vector<Store>>();
   reductions_ = dez.unpack<std::vector<Store>>();
   scalars_    = dez.unpack<std::vector<Scalar>>();
-  comms_      = dez.unpack<std::vector<comm::Communicator>>();
+  if (task->is_index_space) comms_ = dez.unpack<std::vector<comm::Communicator>>();
 }
 
 bool TaskContext::is_single_task() const { return !task_->is_index_space; }
