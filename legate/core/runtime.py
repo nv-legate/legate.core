@@ -25,6 +25,7 @@ from legion_top import cleanup_items, top_level
 
 from legate.core import types as ty
 
+from .communicator import NCCLCommunicator
 from .context import Context
 from .corelib import CoreLib
 from .launcher import TaskLauncher
@@ -714,6 +715,18 @@ class PartitionManager(object):
         self._index_partitions[key] = index_partition
 
 
+class CommunicatorManager(object):
+    def __init__(self, runtime):
+        self._runtime = runtime
+        self._nccl = NCCLCommunicator(runtime)
+
+    def destroy(self):
+        self._nccl.destroy()
+
+    def get_nccl_communicator(self):
+        return self._nccl
+
+
 class Runtime(object):
     def __init__(self, core_library):
         """
@@ -764,6 +777,7 @@ class Runtime(object):
         # Now we initialize managers
         self._attachment_manager = AttachmentManager(self)
         self._partition_manager = PartitionManager(self)
+        self._comm_manager = CommunicatorManager(self)
         self.index_spaces = {}  # map shapes to index spaces
         self.region_managers = {}  # map from shape to region managers
         self.field_managers = {}  # map from (shape,dtype) to field managers
@@ -1137,6 +1151,9 @@ class Runtime(object):
         future = fence.launch(self.legion_runtime, self.legion_context)
         if block:
             future.wait()
+
+    def get_nccl_communicator(self):
+        return self._comm_manager.get_nccl_communicator()
 
 
 _runtime = Runtime(CoreLib())

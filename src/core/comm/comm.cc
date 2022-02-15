@@ -15,7 +15,7 @@
  */
 
 #include "core/comm/comm.h"
-#ifndef LEGATE_USE_CUDA
+#ifdef LEGATE_USE_CUDA
 #include "core/comm/comm_nccl.h"
 #endif
 
@@ -26,7 +26,7 @@ void register_tasks(Legion::Machine machine,
                     Legion::Runtime* runtime,
                     const LibraryContext& context)
 {
-#ifndef LEGATE_USE_CUDA
+#ifdef LEGATE_USE_CUDA
   nccl::register_tasks(machine, runtime, context);
 #endif
 }
