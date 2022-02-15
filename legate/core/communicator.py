@@ -50,7 +50,7 @@ class NCCLCommunicator(Communicator):
         self._context = runtime.core_context
         self._init_nccl_id = library.LEGATE_CORE_INIT_NCCL_ID_TASK_ID
         self._init_nccl = library.LEGATE_CORE_INIT_NCCL_TASK_ID
-        self._finalize = library.LEGATE_CORE_FINALIZE_NCCL_TASK_ID
+        self._finalize_nccl = library.LEGATE_CORE_FINALIZE_NCCL_TASK_ID
         self._tag = library.LEGATE_GPU_VARIANT
 
     def _initialize(self, volume):
@@ -65,6 +65,6 @@ class NCCLCommunicator(Communicator):
         return handle
 
     def _finalize(self, volume, handle):
-        task = Task(self._context, self._finalize, tag=self._tag)
+        task = Task(self._context, self._finalize_nccl, tag=self._tag)
         task.add_future_map(handle)
-        task.execute(Rect([handle]))
+        task.execute(Rect([volume]))

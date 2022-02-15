@@ -868,6 +868,8 @@ class Runtime(object):
         # operations.
         self.flush_scheduling_window()
 
+        self._comm_manager.destroy()
+
         # Destroy all libraries. Note that we should do this
         # from the lastly added one to the first one
         for context in reversed(self._context_list):
