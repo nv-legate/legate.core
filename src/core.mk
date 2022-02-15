@@ -16,6 +16,7 @@
 
 # General source files
 GEN_CPU_SRC	= core/legate_c.cc                 \
+							core/comm/comm.cc                \
 							core/data/scalar.cc              \
 							core/data/store.cc               \
 							core/data/transform.cc           \
@@ -34,6 +35,9 @@ GEN_CPU_SRC	= core/legate_c.cc                 \
 							core/utilities/deserializer.cc   \
 							core/utilities/machine.cc        \
 							core/utilities/linearize.cc
+
+# Source files for GPUs
+GEN_GPU_SRC	= core/comm/comm_nccl.cu
 
 # Header files that we need to have installed for client legate libraries
 INSTALL_HEADERS = legate.h                        \

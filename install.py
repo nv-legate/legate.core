@@ -456,6 +456,7 @@ def build_legate_core(
     cmake,
     cmake_exe,
     cuda_dir,
+    nccl_dir,
     debug,
     debug_release,
     cuda,
@@ -482,6 +483,7 @@ def build_legate_core(
         "GPU_ARCH=%s" % arch,
         "PREFIX=%s" % str(install_dir),
         "USE_GASNET=%s" % (1 if gasnet else 0),
+        "NCCL_DIR=%s" % nccl_dir,
     ] + (["CUDA=%s" % cuda_dir] if cuda_dir is not None else [])
     if clean_first:
         verbose_check_call(["make"] + make_flags + ["clean"], cwd=src_dir)
@@ -533,6 +535,7 @@ def install(
     spy,
     conduit,
     no_hijack,
+    nccl_dir,
     cmake,
     cmake_exe,
     install_dir,
@@ -637,6 +640,16 @@ def install(
                 )
         dump_json_config(cuda_config, cuda_dir)
 
+        nccl_config = os.path.join(legate_core_dir, ".nccl.json")
+        if nccl_dir is None:
+            nccl_dir = load_json_config(nccl_config)
+            if nccl_dir is None:
+                raise Exception(
+                    "The first time you use CUDA you need to tell Legate "
+                    'where NCCL is installed with the "--with-nccl" flag.'
+                )
+        dump_json_config(nccl_config, nccl_dir)
+
     # install a stable version of Thrust
     thrust_config = os.path.join(legate_core_dir, ".thrust.json")
     if thrust_dir is None:
@@ -693,6 +706,7 @@ def install(
         cmake,
         cmake_exe,
         cuda_dir,
+        nccl_dir,
         debug,
         debug_release,
         cuda,
@@ -872,6 +886,14 @@ def driver():
             "Activate the CUDA hijack in Realm "
             "(incompatible with Legate Pandas)."
         ),
+    )
+    parser.add_argument(
+        "--with-nccl",
+        dest="nccl_dir",
+        metavar="DIR",
+        required=False,
+        default=os.environ.get("NCCL_PATH"),
+        help="Path to NCCL installation directory.",
     )
     parser.add_argument(
         "--python-lib",
