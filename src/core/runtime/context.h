@@ -119,6 +119,11 @@ class TaskContext {
   std::vector<Scalar>& scalars() { return scalars_; }
 
  public:
+  bool is_single_task() const;
+  Legion::DomainPoint get_task_index() const;
+  Legion::Domain get_launch_domain() const;
+
+ public:
   ReturnValues pack_return_values() const;
 
  private:
