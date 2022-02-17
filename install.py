@@ -25,6 +25,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from distutils import sysconfig
 
 import setuptools
@@ -241,7 +242,6 @@ def build_legion(
     gasnet,
     gasnet_dir,
     conduit,
-    no_hijack,
     pyversion,
     pylib_name,
     maxdim,
@@ -251,12 +251,20 @@ def build_legion(
     thread_count,
     verbose,
 ):
-    if no_hijack and cmake:
+    no_hijack = True
+
+    if cuda and os.environ.get("USE_CUDART_HIJACK", "0") == "1":
         print(
-            "Warning: CMake build does not support no-hijack mode. Falling "
-            "back to GNU make build."
+            """
+#####################################################################
+Warning: Realm's CUDA runtime hijack is incompatible with NCCL.
+Please note that your code will crash catastrophically as soon as it
+calls into NCCL either directly or through some other Legate library.
+#####################################################################
+            """
         )
-        cmake = False
+        time.sleep(10)
+        no_hijack = False
 
     if cmake:
         build_dir = os.path.join(legion_src_dir, "build")
@@ -534,7 +542,6 @@ def install(
     llvm,
     spy,
     conduit,
-    no_hijack,
     nccl_dir,
     cmake,
     cmake_exe,
@@ -689,7 +696,6 @@ def install(
         gasnet,
         gasnet_dir,
         conduit,
-        no_hijack,
         pyversion,
         pylib_name,
         maxdim,
@@ -738,6 +744,18 @@ def install(
             ],
             cwd=legate_core_dir,
         )
+
+        # Record the path to NCCL that was used in this build
+        libs_path = os.path.join(install_dir, "share", ".legate-libs.json")
+        try:
+            with open(libs_path, "r") as f:
+                libs_config = json.load(f)
+        except (FileNotFoundError, IOError, json.JSONDecodeError):
+            libs_config = {}
+        libs_config["nccl"] = nccl_dir
+        with open(libs_path, "w") as f:
+            json.dump(libs_config, f)
+
     # Copy thrust configuration
     verbose_check_call(
         [
@@ -875,17 +893,6 @@ def driver():
         choices=["ibv", "ucx", "aries", "mpi", "udp"],
         default=os.environ.get("CONDUIT"),
         help="Build Legate with specified GASNet conduit.",
-    )
-    parser.add_argument(
-        "--with-hijack",
-        dest="no_hijack",
-        action="store_false",
-        required=False,
-        default=True,
-        help=(
-            "Activate the CUDA hijack in Realm "
-            "(incompatible with Legate Pandas)."
-        ),
     )
     parser.add_argument(
         "--with-nccl",
