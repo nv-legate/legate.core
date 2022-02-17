@@ -251,13 +251,6 @@ def build_legion(
     thread_count,
     verbose,
 ):
-    if no_hijack and cmake:
-        print(
-            "Warning: CMake build does not support no-hijack mode. Falling "
-            "back to GNU make build."
-        )
-        cmake = False
-
     if cmake:
         build_dir = os.path.join(legion_src_dir, "build")
         try:
