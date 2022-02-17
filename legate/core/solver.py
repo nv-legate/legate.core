@@ -152,12 +152,6 @@ class Strategy(object):
     def is_key_part(self, part):
         return part in self._key_parts
 
-    def launch(self, launcher):
-        if self.parallel:
-            return launcher.execute(self.launch_domain)
-        else:
-            return launcher.execute_single()
-
     def __str__(self):
         st = "[Strategy]"
         for part, partition in self._strategy.items():

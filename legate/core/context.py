@@ -223,3 +223,9 @@ class Context(object):
             storage=storage,
             optimize_scalar=optimize_scalar,
         )
+
+    def get_nccl_communicator(self):
+        return self._runtime.get_nccl_communicator()
+
+    def issue_execution_fence(self, block=False):
+        self._runtime.issue_execution_fence(block=block)

@@ -6,6 +6,7 @@ dependencies:
   - cffi
   - clang>=8
   - clang-tools>=8
+  - nccl
   - numpy
   - numpydoc
   - python>=3.7

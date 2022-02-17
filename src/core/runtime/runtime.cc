@@ -14,6 +14,7 @@
  *
  */
 
+#include "core/comm/comm.h"
 #include "core/mapping/core_mapper.h"
 #include "core/runtime/context.h"
 #include "core/runtime/projection.h"
@@ -109,6 +110,7 @@ void register_legate_core_tasks(Machine machine, Runtime* runtime, const Library
     runtime->register_task_variant<ReturnValues, extract_scalar_task>(registrar,
                                                                       LEGATE_CPU_VARIANT);
   }
+  comm::register_tasks(machine, runtime, context);
 }
 
 /*static*/ void core_registration_callback(Machine machine,

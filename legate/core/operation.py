@@ -182,6 +182,11 @@ class Task(Operation):
         Operation.__init__(self, context, mapper_id=mapper_id, op_id=op_id)
         self._task_id = task_id
         self._scalar_args = []
+        self._comm_args = []
+
+    @property
+    def uses_communicator(self):
+        return len(self._comm_args) > 0
 
     def get_name(self):
         libname = self.context.library.get_name()
@@ -231,6 +236,18 @@ class Task(Operation):
                 )
                 idx += 1
 
+    def add_nccl_communicator(self):
+        comm = self._context.get_nccl_communicator()
+        self._comm_args.append(comm)
+
+    def _add_communicators(self, launcher, launch_domain):
+        if launch_domain is None:
+            return
+        volume = launch_domain.get_volume()
+        for comm in self._comm_args:
+            handle = comm.get_communicator(volume)
+            launcher.add_communicator(handle)
+
 
 class AutoTask(Task):
     def __init__(self, context, task_id, mapper_id=0, op_id=0):
@@ -278,8 +295,23 @@ class AutoTask(Task):
 
         self._add_scalar_args_to_launcher(launcher)
 
-        result = strategy.launch(launcher)
         launch_domain = strategy.launch_domain if strategy.parallel else None
+        self._add_communicators(launcher, launch_domain)
+
+        # TODO: For now we make sure no other operations are interleaved with
+        # the set of tasks that use a communicator. In the future, the
+        # communicator monad will do this for us.
+        if self.uses_communicator:
+            self._context.issue_execution_fence()
+
+        if launch_domain is not None:
+            result = launcher.execute(launch_domain)
+        else:
+            result = launcher.execute_single()
+
+        if self.uses_communicator:
+            self._context.issue_execution_fence()
+
         self._demux_scalar_stores(result, launch_domain)
 
 
@@ -380,7 +412,19 @@ class ManualTask(Task):
 
         self._add_scalar_args_to_launcher(launcher)
 
+        self._add_communicators(launcher, self._launch_domain)
+
+        # TODO: For now we make sure no other operations are interleaved with
+        # the set of tasks that use a communicator. In the future, the
+        # communicator monad will do this for us.
+        if self.uses_communicator:
+            self._context.issue_execution_fence()
+
         result = launcher.execute(self._launch_domain)
+
+        if self.uses_communicator:
+            self._context.issue_execution_fence()
+
         self._demux_scalar_stores(result, self._launch_domain)
 
 
