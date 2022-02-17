@@ -738,6 +738,18 @@ def install(
             ],
             cwd=legate_core_dir,
         )
+
+        # Record the path to NCCL that was used in this build
+        libs_path = os.path.join(install_dir, "share", ".legate-libs.json")
+        try:
+            with open(libs_path, "r") as f:
+                libs_config = json.load(f)
+        except (FileNotFoundError, IOError, json.JSONDecodeError):
+            libs_config = {}
+        libs_config["nccl"] = nccl_dir
+        with open(libs_path, "w") as f:
+            json.dump(libs_config, f)
+
     # Copy thrust configuration
     verbose_check_call(
         [
