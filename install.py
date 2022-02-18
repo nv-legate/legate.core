@@ -491,7 +491,7 @@ def build_legate_core(
         "GPU_ARCH=%s" % arch,
         "PREFIX=%s" % str(install_dir),
         "USE_GASNET=%s" % (1 if gasnet else 0),
-        "NCCL_DIR=%s" % nccl_dir,
+        "NCCL_PATH=%s" % nccl_dir,
     ] + (["CUDA=%s" % cuda_dir] if cuda_dir is not None else [])
     if clean_first:
         verbose_check_call(["make"] + make_flags + ["clean"], cwd=src_dir)

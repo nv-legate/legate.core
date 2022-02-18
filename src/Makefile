@@ -23,8 +23,8 @@ ifndef CUDA
 $(error CUDA variable is not defined, aborting build)
 endif
 
-ifndef NCCL_DIR
-$(error NCCL_DIR variable is not defined, aborting build)
+ifndef NCCL_PATH
+$(error NCCL_PATH variable is not defined, aborting build)
 endif
 endif
 
@@ -46,9 +46,9 @@ LD_FLAGS ?=
 
 ifeq ($(strip $(USE_CUDA)),1)
 
-NVCC_FLAGS += -I$(NCCL_DIR)/include
+NVCC_FLAGS += -I$(NCCL_PATH)/include
 
-LD_FLAGS += -L$(NCCL_DIR)/lib -lnccl
+LD_FLAGS += -L$(NCCL_PATH)/lib -lnccl
 
 endif
 
