@@ -73,6 +73,9 @@ class Replicate(PartitionBase):
     def translate(self, offset):
         return self
 
+    def translate_range(self, offset):
+        return self
+
     def construct(self, region, complete=False):
         return None
 
@@ -191,6 +194,30 @@ class Tiling(PartitionBase):
             self._color_shape,
             self._offset + offset,
         )
+
+    # This function promotes the translated partition to REPLICATE if it
+    # doesn't overlap with the original partition.
+    def translate_range(self, offset):
+        promote = False
+        for ext, off in zip(self._tile_shape, offset):
+            mine = Interval(0, ext)
+            other = Interval(off, ext)
+            if not mine.overlaps(other):
+                promote = True
+                break
+
+        if promote:
+            # TODO: We can actually bloat the tile so that all stencils within
+            #       the range are contained, but here we simply replicate
+            #       the region, as this usually happens for small inputs.
+            return REPLICATE
+        else:
+            return Tiling(
+                self._runtime,
+                self._tile_shape,
+                self._color_shape,
+                self._offset + offset,
+            )
 
     def construct(self, region, complete=False):
         index_space = region.index_space

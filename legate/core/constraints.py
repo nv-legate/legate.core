@@ -110,6 +110,7 @@ class PartSym(Expr):
 
 
 class Translate(Expr):
+    # TODO: For now we will interpret this expression as `expr + [1, offset]`.
     def __init__(self, expr, offset):
         if not isinstance(expr, (PartSym, Lit)):
             raise NotImplementedError(
@@ -136,7 +137,7 @@ class Translate(Expr):
         expr = self._expr.reduce()
         assert isinstance(expr, Lit)
         part = expr._part
-        return Lit(part.translate(self._offset))
+        return Lit(part.translate_range(self._offset))
 
 
 class Constraint(object):
