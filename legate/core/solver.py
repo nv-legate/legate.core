@@ -15,7 +15,7 @@
 
 from .constraints import Alignment, Broadcast, Containment
 from .legion import Future, Rect
-from .partition import REPLICATE, Replicate
+from .partition import REPLICATE
 from .shape import Shape
 from .utils import OrderedSet
 
@@ -154,6 +154,7 @@ class Strategy(object):
 
     def __str__(self):
         st = "[Strategy]"
+        st += f"\nLaunch domain: {self._launch_domain}"
         for part, partition in self._strategy.items():
             st += f"\n{part} ~~> {partition}"
         for part, fspace in self._fspaces.items():
@@ -299,7 +300,6 @@ class Partitioner(object):
         unknowns = sorted(unknowns, key=cost)
 
         key_parts = set()
-        prev_part = None
         for unknown in unknowns:
             if unknown in partitions:
                 continue
@@ -309,11 +309,8 @@ class Partitioner(object):
             store = unknown.store
             restrictions = all_restrictions[unknown]
 
-            if isinstance(prev_part, Replicate):
-                partition = prev_part
-            else:
-                partition = store.compute_key_partition(restrictions)
-                key_parts.add(unknown)
+            partition = store.compute_key_partition(restrictions)
+            key_parts.add(unknown)
 
             cls = constraints.find(unknown)
             for to_align in cls:
@@ -321,13 +318,20 @@ class Partitioner(object):
                     continue
                 partitions[to_align] = partition
 
-            prev_part = partition
-
         for lhs, rhs in dependent.items():
             rhs = rhs.subst(partitions).reduce()
             partitions[lhs] = rhs._part
 
-        color_shape = None if prev_part is None else prev_part.color_shape
+        color_shape = None
+        for partition in partitions.values():
+            if color_shape is None:
+                color_shape = partition.color_shape
+            elif partition.color_shape is not None:
+                if color_shape != partition.color_shape:
+                    raise NotImplementedError(
+                        "Found unaligned color spaces in partitions. "
+                        "Auto-partitioner needs to be extended for this case."
+                    )
 
         if must_be_1d_launch and color_shape is not None:
             color_shape = Shape((color_shape.volume(),))
