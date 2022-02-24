@@ -433,6 +433,12 @@ class Copy(Operation):
         Operation.__init__(self, context, mapper_id)
         self._source_indirects = []
         self._target_indirects = []
+        self._source_indirect_parts = []
+        self._target_indirect_parts = []
+
+    def get_name(self):
+        libname = self.context.library.get_name()
+        return f"{libname}.Copy(uid:{self._op_id})"
 
     @property
     def inputs(self):
@@ -442,11 +448,19 @@ class Copy(Operation):
             + self._target_indirects
         )
 
-    def add_source_indirect(self, store):
+    def add_source_indirect(self, store, partition=None):
+        self._check_store(store)
+        if partition is None:
+            partition = self._get_unique_partition(store)
         self._source_indirects.append(store)
+        self._source_indirect_parts.append(partition)
 
-    def add_target_indirect(self, store):
+    def add_target_indirect(self, store, partition=None):
+        self._check_store(store)
+        if partition is None:
+            partition = self._get_unique_partition(store)
         self._target_indirects.append(store)
+        self._target_indirect_parts.append(partition)
 
     def launch(self, strategy):
         launcher = CopyLauncher(self.context, self.mapper_id)
@@ -461,27 +475,40 @@ class Copy(Operation):
             self._target_indirects
         ) == len(self._outputs)
 
-        for input in self._inputs:
-            proj = strategy.get_projection(input)
-            tag = self.get_tag(strategy, input)
-            launcher.add_input(input, proj, tag=tag)
-        for output in self._outputs:
-            assert not output.unbound
-            proj = strategy.get_projection(output)
-            tag = self.get_tag(strategy, output)
-            launcher.add_output(output, proj, tag=tag)
-        for (reduction, redop) in self._reductions:
-            proj = strategy.get_projection(reduction)
-            proj.redop = reduction.type.reduction_op_id(redop)
-            tag = self.get_tag(strategy, reduction)
-            launcher.add_reduction(reduction, proj, tag=tag)
-        for indirect in self._source_indirects:
-            proj = strategy.get_projection(indirect)
-            tag = self.get_tag(strategy, indirect)
-            launcher.add_source_indirect(indirect, proj, tag=tag)
-        for indirect in self._target_indirects:
-            proj = strategy.get_projection(indirect)
-            tag = self.get_tag(strategy, indirect)
-            launcher.add_target_indirect(indirect, proj, tag=tag)
+        def get_requirement(store, part_symb):
+            store_part = store.partition(strategy.get_partition(part_symb))
+            req = store_part.get_requirement(strategy.launch_ndim)
+            tag = self.get_tag(strategy, part_symb)
+            return req, tag, store_part
 
-        strategy.launch(launcher)
+        for store, part_symb in zip(self._inputs, self._input_parts):
+            req, tag, _ = get_requirement(store, part_symb)
+            launcher.add_input(store, req, tag=tag)
+
+        for store, part_symb in zip(self._outputs, self._output_parts):
+            assert not store.unbound
+            req, tag, store_part = get_requirement(store, part_symb)
+            launcher.add_output(store, req, tag=tag)
+
+        for ((store, redop), part_symb) in zip(
+            self._reductions, self._reduction_parts
+        ):
+            req, tag, store_part = get_requirement(store, part_symb)
+            req.redop = store.type.reduction_op_id(redop)
+            launcher.add_reduction(store, req, tag=tag)
+        for store, part_symb in zip(
+            self._source_indirects, self._source_indirect_parts
+        ):
+            req, tag, store_part = get_requirement(store, part_symb)
+            launcher.add_source_indirect(store, req, tag=tag)
+        for store, part_symb in zip(
+            self._target_indirects, self._target_indirect_parts
+        ):
+            req, tag, store_part = get_requirement(store, part_symb)
+            launcher.add_target_indirect(store, req, tag=tag)
+
+        launch_domain = strategy.launch_domain if strategy.parallel else None
+        if launch_domain is not None:
+            launcher.execute(launch_domain)
+        else:
+            launcher.execute_single()

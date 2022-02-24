@@ -785,7 +785,7 @@ class CopyLauncher(object):
 
     def add_store(self, store, proj, perm, tag, flags):
         assert store.kind is not Future
-        assert store._transform is None
+        assert store._transform.bottom
 
         region = store.storage.region
         field_id = store.storage.field.field_id
