@@ -87,6 +87,7 @@ typedef enum legate_core_transform_t {
 typedef enum legate_core_mapping_tag_t {
   LEGATE_CORE_KEY_STORE_TAG              = 1,
   LEGATE_CORE_MANUAL_PARALLEL_LAUNCH_TAG = 2,
+  LEGATE_CORE_TREE_REDUCE_TAG            = 3,
 } legate_core_mapping_tag_t;
 
 #ifdef __cplusplus

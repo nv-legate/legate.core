@@ -16,7 +16,7 @@
 import numpy as np
 
 from .legion import Future, legion
-from .operation import AutoTask, Copy, ManualTask
+from .operation import AutoTask, Copy, ManualTask, Reduce
 from .types import TypeSystem
 
 
@@ -229,3 +229,14 @@ class Context(object):
 
     def issue_execution_fence(self, block=False):
         self._runtime.issue_execution_fence(block=block)
+
+    def tree_reduce(self, task_id, store, mapper_id=0, radix=4):
+        result = self.create_store(store.type)
+        unique_op_id = self.get_unique_op_id()
+
+        # A single Reduce operation is mapepd to a whole reduction tree
+        task = Reduce(self, task_id, radix, mapper_id, unique_op_id)
+        task.add_input(store)
+        task.add_output(result)
+        task.execute()
+        return result

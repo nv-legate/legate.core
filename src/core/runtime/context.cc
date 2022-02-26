@@ -151,6 +151,15 @@ TaskContext::TaskContext(const Legion::Task* task,
   reductions_ = dez.unpack<std::vector<Store>>();
   scalars_    = dez.unpack<std::vector<Scalar>>();
   if (task->is_index_space) comms_ = dez.unpack<std::vector<comm::Communicator>>();
+  // For reduction tree cases, some input stores may be mapped to NO_REGION
+  // when the number of subregions isn't a multiple of the chosen radix.
+  // To simplify the programming mode, we filter out those "invalid" stores out.
+  if (task_->tag == LEGATE_CORE_TREE_REDUCE_TAG) {
+    std::vector<Store> inputs;
+    for (auto& input : inputs_)
+      if (input.valid()) inputs.push_back(std::move(input));
+    inputs_.swap(inputs);
+  }
 }
 
 bool TaskContext::is_single_task() const { return !task_->is_index_space; }
