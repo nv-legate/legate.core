@@ -144,7 +144,7 @@ class Promote(Transform):
         return hash((type(self), self._extra_dim, self._dim_size))
 
     def adds_fake_dims(self):
-        return True
+        return self._dim_size > 1
 
     @property
     def convertible(self):
@@ -533,8 +533,10 @@ class TransformStack(object):
     def __repr__(self):
         return str(self)
 
-    def add_fake_dims(self):
-        return self._transform.adds_fake_dims() or self._parent.add_fake_dims()
+    def adds_fake_dims(self):
+        return (
+            self._transform.adds_fake_dims() or self._parent.adds_fake_dims()
+        )
 
     @property
     def convertible(self):
@@ -610,7 +612,7 @@ class IdentityTransform(object):
     def __repr__(self):
         return str(self)
 
-    def add_fake_dims(self):
+    def adds_fake_dims(self):
         return False
 
     @property
