@@ -914,7 +914,7 @@ class Store(object):
         self._storage.attach_external_allocation(context, alloc, share)
 
     def has_fake_dims(self):
-        return self._transform.add_fake_dims()
+        return self._transform.adds_fake_dims()
 
     def comm_volume(self):
         return self._storage.volume()

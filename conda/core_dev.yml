@@ -8,12 +8,11 @@ dependencies:
   - clang-tools>=8
   - nccl
   - numpy
-  - numpydoc
-  - python>=3.7
-  - pyarrow>=5
   - pre-commit
+  - pyarrow>=5
+  - pydata-sphinx-theme
+  - python>=3.7
   - setuptools>=60
   - sphinx
-  - sphinx_rtd_theme
-  - sphinx-markdown-tables
   - sphinx-copybutton
+  - sphinx-markdown-tables

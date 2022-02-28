@@ -279,6 +279,7 @@ def run_legate(
                 or var.startswith("UCX_")
                 or var.startswith("NCCL_")
                 or var.startswith("CUNUMERIC_")
+                or var.startswith("NVIDIA_")
             ):
                 cmd += ["-x", var]
     elif launcher == "jsrun":
