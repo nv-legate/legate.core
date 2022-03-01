@@ -173,8 +173,12 @@ class OutputRegionField {
   template <typename VAL>
   void return_data(Buffer<VAL>& buffer, size_t num_elements);
 
+ public:
+  ReturnValue pack_weight() const;
+
  private:
   bool bound_{false};
+  Legion::DeferredBuffer<size_t, 1> num_elements_;
   Legion::OutputRegion out_{};
   Legion::FieldID fid_{-1U};
 };
@@ -308,7 +312,9 @@ class Store {
 
  public:
   bool is_future() const { return is_future_; }
+  bool is_output_store() const { return is_output_store_; }
   ReturnValue pack() const { return future_.pack(); }
+  ReturnValue pack_weight() const { return output_field_.pack_weight(); }
 
  private:
   bool is_future_{false};

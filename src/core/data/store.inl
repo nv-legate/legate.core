@@ -262,6 +262,7 @@ void OutputRegionField::return_data(Buffer<VAL>& buffer, size_t num_elements)
 {
   assert(!bound_);
   out_.return_data(fid_, buffer, &num_elements);
+  num_elements_[0] = num_elements;
 }
 
 template <typename T, int DIM>

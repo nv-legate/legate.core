@@ -179,9 +179,7 @@ class Context(object):
         return np.frombuffer(buf, dtype=dtype)[0]
 
     def get_unique_op_id(self):
-        op_id = self._unique_op_id
-        self._unique_op_id += 1
-        return op_id
+        return self._runtime.get_unique_op_id()
 
     def create_task(
         self, task_id, mapper_id=0, manual=False, launch_domain=None

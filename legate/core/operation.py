@@ -17,8 +17,9 @@ import legate.core.types as ty
 
 from .constraints import PartSym
 from .launcher import CopyLauncher, TaskLauncher
-from .legion import Future
-from .partition import REPLICATE
+from .legion import Future, FutureMap
+from .partition import REPLICATE, Weighted
+from .shape import Shape
 from .store import Store, StorePartition
 from .utils import OrderedSet
 
@@ -34,6 +35,7 @@ class Operation(object):
         self._input_parts = []
         self._output_parts = []
         self._reduction_parts = []
+        self._unbound_outputs = []
         self._scalar_outputs = []
         self._scalar_reductions = []
         self._partitions = {}
@@ -63,6 +65,10 @@ class Operation(object):
         return self._reductions
 
     @property
+    def unbound_outputs(self):
+        return self._unbound_outputs
+
+    @property
     def scalar_outputs(self):
         return self._scalar_outputs
 
@@ -87,9 +93,11 @@ class Operation(object):
         return stores
 
     @staticmethod
-    def _check_store(store):
+    def _check_store(store, allow_unbound=False):
         if not isinstance(store, Store):
             raise ValueError(f"Expected a Store, but got {type(store)}")
+        elif not allow_unbound and store.unbound:
+            raise ValueError("Expected a bound Store")
 
     def _get_unique_partition(self, store):
         if store not in self._partitions:
@@ -111,9 +119,11 @@ class Operation(object):
         self._input_parts.append(partition)
 
     def add_output(self, store, partition=None):
-        self._check_store(store)
+        self._check_store(store, allow_unbound=True)
         if store.kind is Future:
             self._scalar_outputs.append(len(self._outputs))
+        elif store.unbound:
+            self._unbound_outputs.append(len(self._outputs))
         if partition is None:
             partition = self._get_unique_partition(store)
         self._outputs.append(store)
@@ -204,21 +214,44 @@ class Task(Operation):
             launcher.add_scalar_arg(arg, dtype)
 
     def _demux_scalar_stores(self, result, launch_domain):
+        num_unbound_outs = len(self.unbound_outputs)
         num_scalar_outs = len(self.scalar_outputs)
         num_scalar_reds = len(self.scalar_reductions)
         runtime = self.context.runtime
-        if num_scalar_outs + num_scalar_reds == 0:
+
+        num_all_scalars = num_unbound_outs + num_scalar_outs + num_scalar_reds
+        launch_shape = (
+            None
+            if launch_domain is None
+            else Shape(c + 1 for c in launch_domain.hi)
+        )
+
+        if num_all_scalars == 0:
             return
-        elif num_scalar_outs + num_scalar_reds == 1:
+        elif num_all_scalars == 1:
             if num_scalar_outs == 1:
                 output = self.outputs[self.scalar_outputs[0]]
                 output.set_storage(result)
-            else:
+            elif num_scalar_reds == 1:
                 (output, redop) = self.reductions[self.scalar_reductions[0]]
                 redop_id = output.type.reduction_op_id(redop)
                 output.set_storage(runtime.reduce_future_map(result, redop_id))
+            else:
+                assert num_unbound_outs == 1
+                assert isinstance(result, FutureMap)
+                output = self.outputs[self.unbound_outputs[0]]
+                partition = Weighted(runtime, launch_shape, result)
+                output.set_key_partition(partition)
         else:
             idx = 0
+            # TODO: We can potentially deduplicate these extraction tasks
+            # by grouping output stores that are mapped to the same field space
+            for out_idx in self.unbound_outputs:
+                output = self.outputs[out_idx]
+                weights = runtime.extract_scalar(result, idx, launch_domain)
+                partition = Weighted(runtime, launch_shape, weights)
+                output.set_key_partition(partition)
+                idx += 1
             for out_idx in self.scalar_outputs:
                 output = self.outputs[out_idx]
                 output.set_storage(

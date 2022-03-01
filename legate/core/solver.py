@@ -245,11 +245,46 @@ class Partitioner(object):
                 all_restrictions[unknown] = restrictions
         return all_restrictions
 
+    def maybe_find_alternative_key_partition(
+        self, chosen_partition, original, cls, restrictions, must_be_even
+    ):
+        original_comm_vol = original.store.comm_volume()
+        # If there is a store in the equivalence class that has an even
+        # key partition, we use it instead
+        for unknown in cls:
+            store = unknown.store
+            # Careful! these are partition symbols and we overrode the equal
+            # operator on them to mean alignments, so we compare between
+            # their identities.
+            if original is unknown:
+                continue
+            elif not store.has_key_partition(restrictions):
+                continue
+            # We don't want to use the store's key partition if that store
+            # incurs a bigger amount of data movement
+            elif store.comm_volume() < original_comm_vol:
+                continue
+
+            part = store.compute_key_partition(restrictions)
+            if part.even:
+                return part, unknown
+
+        # TODO: For now we repartition the store used as a center of a stencil
+        # if it was previously partitioned unevenly. If we have a proper
+        # affine dependent partitioning calls, we can avoid this.
+        if original in must_be_even:
+            store = original.store
+            store.reset_key_partition()
+            return store.compute_key_partition(restrictions), original
+        else:
+            return chosen_partition, original
+
     def partition_stores(self):
         unknowns = OrderedSet()
         constraints = EqClass()
         broadcasts = {}
         dependent = {}
+        must_be_even = OrderedSet()
         for op in self._ops:
             unknowns.update(op.all_unknowns)
             for c in op.constraints:
@@ -263,6 +298,8 @@ class Partitioner(object):
                             "Partitions constrained by multiple constraints "
                             "are not supported yet"
                         )
+                    for unknown in c._lhs.unknowns():
+                        must_be_even.add(unknown)
                     dependent[c._rhs] = c._lhs
 
         if self._must_be_single or len(unknowns) == 0:
@@ -308,19 +345,27 @@ class Partitioner(object):
 
             store = unknown.store
             restrictions = all_restrictions[unknown]
+            cls = constraints.find(unknown)
 
             partition = store.compute_key_partition(restrictions)
+            if not partition.even and len(cls) > 1:
+                partition, unknown = self.maybe_find_alternative_key_partition(
+                    partition,
+                    unknown,
+                    cls,
+                    restrictions,
+                    must_be_even,
+                )
             key_parts.add(unknown)
 
-            cls = constraints.find(unknown)
             for to_align in cls:
                 if to_align in partitions:
                     continue
                 partitions[to_align] = partition
 
-        for lhs, rhs in dependent.items():
-            rhs = rhs.subst(partitions).reduce()
-            partitions[lhs] = rhs._part
+        for rhs, lhs in dependent.items():
+            lhs = lhs.subst(partitions).reduce()
+            partitions[rhs] = lhs._part
 
         color_shape = None
         for partition in partitions.values():
