@@ -18,7 +18,7 @@ import legate.core.types as ty
 from .constraints import PartSym
 from .launcher import CopyLauncher, TaskLauncher
 from .legion import Future, FutureMap, Rect
-from .partition import REPLICATE, Tiling, Weighted
+from .partition import REPLICATE, Weighted
 from .shape import Shape
 from .store import Store, StorePartition
 from .utils import OrderedSet
@@ -572,7 +572,9 @@ class Reduce(Task):
 
         done = False
         launch_domain = strategy.launch_domain if strategy.parallel else None
-        fanin = strategy.launch_domain.get_volume() if strategy.parallel else 1
+        fan_in = (
+            strategy.launch_domain.get_volume() if strategy.parallel else 1
+        )
 
         proj_fns = list(
             _RadixProj(self._radix, off) for off in range(self._radix)
@@ -595,19 +597,16 @@ class Reduce(Task):
             field_id = fspace.allocate_field(input.type)
             launcher.add_unbound_output(output, fspace, field_id)
 
-            num_tasks = (fanin + self._radix - 1) // self._radix
+            num_tasks = (fan_in + self._radix - 1) // self._radix
             launch_domain = Rect([num_tasks])
-            launcher.execute(launch_domain)
+            weights = launcher.execute(launch_domain)
 
-            launch_shape = Shape([num_tasks])
-            tile_shape = self._runtime._partition_manager.compute_tile_shape(
-                output.shape,
-                launch_shape,
-            )
-            opart = output.partition(
-                Tiling(self._runtime, tile_shape, launch_shape)
-            )
-            fanin = num_tasks
-            done = fanin == 1
+            launch_shape = Shape(c + 1 for c in launch_domain.hi)
+            weighted = Weighted(self._runtime, launch_shape, weights)
+            output.set_key_partition(weighted)
+            opart = output.partition(weighted)
+
+            fan_in = num_tasks
+            done = fan_in == 1
 
         result.set_storage(output.storage)
