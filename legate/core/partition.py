@@ -19,6 +19,7 @@ from .launcher import Broadcast, Partition
 from .legion import (
     IndexPartition,
     PartitionByRestriction,
+    PartitionByWeights,
     Rect,
     Transform,
     legion,
@@ -241,6 +242,101 @@ class Tiling(PartitionBase):
                 kind = legion.LEGION_DISJOINT_COMPLETE_KIND
             else:
                 kind = legion.LEGION_DISJOINT_INCOMPLETE_KIND
+            index_partition = IndexPartition(
+                self._runtime.legion_context,
+                self._runtime.legion_runtime,
+                index_space,
+                color_space,
+                functor,
+                kind=kind,
+                keep=True,  # export this partition functor to other libraries
+            )
+            self._runtime.record_partition(index_space, self, index_partition)
+        return region.get_child(index_partition)
+
+
+class Weighted(PartitionBase):
+    def __init__(self, runtime, color_shape, weights):
+        self._runtime = runtime
+        self._color_shape = color_shape
+        self._weights = weights
+        self._hash = None
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, Weighted)
+            and self._color_shape == other._color_shape
+            and self._weights == other._weights
+        )
+
+    @property
+    def runtime(self):
+        return self._runtime
+
+    @property
+    def color_shape(self):
+        return self._color_shape
+
+    @property
+    def requirement(self):
+        return Partition
+
+    def __hash__(self):
+        if self._hash is None:
+            self._hash = hash(
+                (
+                    self.__class__,
+                    self._color_shape,
+                    self._weights,
+                )
+            )
+        return self._hash
+
+    def __str__(self):
+        return (
+            f"Weighted(color:{self._color_shape}, " f"weights:{self._weights})"
+        )
+
+    def __repr__(self):
+        return str(self)
+
+    def needs_delinearization(self, launch_ndim):
+        return launch_ndim != self._color_shape.ndim
+
+    def satisfies_restriction(self, restrictions):
+        return all(
+            restriction != Restriction.RESTRICTED
+            for restriction in restrictions
+        )
+
+    def is_complete_for(self, extents, offsets):
+        # Weighted partition is complete by definition
+        return True
+
+    def is_disjoint_for(self, launch_domain):
+        # Weighted partition is disjoint by definition
+        return True
+
+    def has_color(self, color):
+        return color >= 0 and color < self._color_shape
+
+    def translate(self, offset):
+        raise NotImplementedError("This method shouldn't be invoked")
+
+    def translate_range(self, offset):
+        raise NotImplementedError("This method shouldn't be invoked")
+
+    def construct(self, region, complete=False):
+        assert complete
+
+        index_space = region.index_space
+        index_partition = self._runtime.find_partition(index_space, self)
+        if index_partition is None:
+            color_space = self._runtime.find_or_create_index_space(
+                self.color_shape
+            )
+            functor = PartitionByWeights(self._weights)
+            kind = legion.LEGION_DISJOINT_COMPLETE_KIND
             index_partition = IndexPartition(
                 self._runtime.legion_context,
                 self._runtime.legion_runtime,
