@@ -107,8 +107,12 @@ class Shape(object):
 
     def __eq__(self, other):
         if isinstance(other, Shape):
-            if self._ispace is not None and other._ispace is not None:
-                return self._ispace is other._ispace
+            if (
+                self._ispace is not None
+                and other._ispace is not None
+                and self._ispace is other._ispace
+            ):
+                return True
             else:
                 return self.extents == other.extents
         else:

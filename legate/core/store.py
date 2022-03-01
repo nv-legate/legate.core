@@ -1085,7 +1085,8 @@ class Store(object):
 
     def has_key_partition(self, restrictions):
         restrictions = self._transform.invert_restrictions(restrictions)
-        return self._storage.find_key_partition(restrictions) is not None
+        part = self._storage.find_key_partition(restrictions)
+        return part is not None and (part.even or self._transform.bottom)
 
     def set_key_partition(self, partition):
         assert isinstance(partition, PartitionBase)

@@ -44,6 +44,10 @@ class Replicate(PartitionBase):
         return None
 
     @property
+    def even(self):
+        return True
+
+    @property
     def requirement(self):
         return Broadcast
 
@@ -123,6 +127,10 @@ class Tiling(PartitionBase):
     @property
     def color_shape(self):
         return self._color_shape
+
+    @property
+    def even(self):
+        return True
 
     @property
     def requirement(self):
@@ -276,6 +284,10 @@ class Weighted(PartitionBase):
     @property
     def color_shape(self):
         return self._color_shape
+
+    @property
+    def even(self):
+        return False
 
     @property
     def requirement(self):

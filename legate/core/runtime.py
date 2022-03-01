@@ -765,6 +765,7 @@ class Runtime(object):
         self._core_context = self._context_list[0]
         self._core_library = core_library
 
+        self._unique_op_id = 0
         # This list maintains outstanding operations from all legate libraries
         # to be dispatched. This list allows cross library introspection for
         # Legate operations.
@@ -890,6 +891,11 @@ class Runtime(object):
             legate_task_postamble(self.legion_runtime, self.legion_context)
 
         self.destroyed = True
+
+    def get_unique_op_id(self):
+        op_id = self._unique_op_id
+        self._unique_op_id += 1
+        return op_id
 
     def dispatch(self, op, redop=None):
         self._attachment_manager.perform_detachments()
