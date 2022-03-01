@@ -33,6 +33,7 @@ from .legion import (
     Fence,
     FieldSpace,
     Future,
+    FutureMap,
     IndexSpace,
     OutputRegion,
     Rect,
@@ -765,6 +766,7 @@ class Runtime(object):
         self._core_context = self._context_list[0]
         self._core_library = core_library
 
+        self._unique_op_id = 0
         # This list maintains outstanding operations from all legate libraries
         # to be dispatched. This list allows cross library introspection for
         # Legate operations.
@@ -890,6 +892,11 @@ class Runtime(object):
             legate_task_postamble(self.legion_runtime, self.legion_context)
 
         self.destroyed = True
+
+    def get_unique_op_id(self):
+        op_id = self._unique_op_id
+        self._unique_op_id += 1
+        return op_id
 
     def dispatch(self, op, redop=None):
         self._attachment_manager.perform_detachments()
@@ -1126,17 +1133,28 @@ class Runtime(object):
         )
 
     def extract_scalar(self, future, idx, launch_domain=None):
-        launcher = TaskLauncher(
-            self.core_context,
-            self.core_library.LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,
-            tag=self.core_library.LEGATE_CPU_VARIANT,
-        )
-        launcher.add_future(future)
-        launcher.add_scalar_arg(idx, ty.int32)
-        if launch_domain is None:
-            return launcher.execute_single()
-        else:
+        if isinstance(future, FutureMap):
+            assert launch_domain is not None
+            launcher = TaskLauncher(
+                self.core_context,
+                self.core_library.LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,
+                tag=self.core_library.LEGATE_CPU_VARIANT,
+            )
+            launcher.add_future_map(future)
+            launcher.add_scalar_arg(idx, ty.int32)
             return launcher.execute(launch_domain)
+        else:
+            launcher = TaskLauncher(
+                self.core_context,
+                self.core_library.LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,
+                tag=self.core_library.LEGATE_CPU_VARIANT,
+            )
+            launcher.add_future(future)
+            launcher.add_scalar_arg(idx, ty.int32)
+            if launch_domain is None:
+                return launcher.execute_single()
+            else:
+                return launcher.execute(launch_domain)
 
     def reduce_future_map(self, future_map, redop):
         if isinstance(future_map, Future):

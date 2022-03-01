@@ -72,6 +72,9 @@ class Lit(Expr):
     def reduce(self):
         return self
 
+    def unknowns(self):
+        pass
+
 
 class PartSym(Expr):
     def __init__(self, op_hash, op_name, store, id, disjoint, complete):
@@ -108,6 +111,9 @@ class PartSym(Expr):
     def reduce(self):
         return self
 
+    def unknowns(self):
+        yield self
+
 
 class Translate(Expr):
     # TODO: For now we will interpret this expression as `expr + [1, offset]`.
@@ -138,6 +144,10 @@ class Translate(Expr):
         assert isinstance(expr, Lit)
         part = expr._part
         return Lit(part.translate_range(self._offset))
+
+    def unknowns(self):
+        for unknown in self._expr.unknowns():
+            yield unknown
 
 
 class Constraint(object):

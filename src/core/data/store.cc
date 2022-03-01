@@ -55,27 +55,40 @@ bool RegionField::valid() const { return pr_.get_logical_region() != LogicalRegi
 
 Domain RegionField::domain() const { return dim_dispatch(dim_, get_domain_fn{}, pr_); }
 
-OutputRegionField::OutputRegionField(const OutputRegion& out, FieldID fid) : out_(out), fid_(fid) {}
+OutputRegionField::OutputRegionField(const OutputRegion& out, FieldID fid)
+  : out_(out),
+    fid_(fid),
+    num_elements_(DeferredBuffer<size_t, 1>(Rect<1>(0, 0), Memory::Kind::SYSTEM_MEM))
+{
+}
 
 OutputRegionField::OutputRegionField(OutputRegionField&& other) noexcept
-  : bound_(other.bound_), out_(other.out_), fid_(other.fid_)
+  : bound_(other.bound_), out_(other.out_), fid_(other.fid_), num_elements_(other.num_elements_)
 {
-  other.bound_ = false;
-  other.out_   = OutputRegion();
-  other.fid_   = -1;
+  other.bound_        = false;
+  other.out_          = OutputRegion();
+  other.fid_          = -1;
+  other.num_elements_ = DeferredBuffer<size_t, 1>();
 }
 
 OutputRegionField& OutputRegionField::operator=(OutputRegionField&& other) noexcept
 {
-  bound_ = other.bound_;
-  out_   = other.out_;
-  fid_   = other.fid_;
+  bound_        = other.bound_;
+  out_          = other.out_;
+  fid_          = other.fid_;
+  num_elements_ = other.num_elements_;
 
-  other.bound_ = false;
-  other.out_   = OutputRegion();
-  other.fid_   = -1;
+  other.bound_        = false;
+  other.out_          = OutputRegion();
+  other.fid_          = -1;
+  other.num_elements_ = DeferredBuffer<size_t, 1>();
 
   return *this;
+}
+
+ReturnValue OutputRegionField::pack_weight() const
+{
+  return ReturnValue(num_elements_.ptr(0), sizeof(size_t));
 }
 
 FutureWrapper::FutureWrapper(

@@ -173,6 +173,10 @@ ReturnValues TaskContext::pack_return_values() const
   std::vector<ReturnValue> return_values;
 
   for (auto& output : outputs_) {
+    if (!output.is_output_store()) continue;
+    return_values.push_back(output.pack_weight());
+  }
+  for (auto& output : outputs_) {
     if (!output.is_future()) continue;
     return_values.push_back(output.pack());
   }
