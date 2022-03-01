@@ -40,6 +40,9 @@ class RegionField {
   RegionField& operator=(const RegionField& other) = delete;
 
  public:
+  bool valid() const;
+
+ public:
   int32_t dim() const { return dim_; }
 
  private:
@@ -267,6 +270,9 @@ class Store {
  private:
   Store(const Store& other) = delete;
   Store& operator=(const Store& other) = delete;
+
+ public:
+  bool valid() const;
 
  public:
   int32_t dim() const { return dim_; }

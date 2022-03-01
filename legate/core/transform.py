@@ -17,7 +17,7 @@ import numpy as np
 
 from .legion import AffineTransform
 from .partition import Replicate, Restriction, Tiling
-from .projection import CoordinateSym
+from .projection import ProjExpr
 from .shape import Shape
 
 
@@ -267,7 +267,7 @@ class Project(Transform):
         return point.insert(self._dim, self._index)
 
     def invert_dimensions(self, dims):
-        return dims[: self._dim] + (CoordinateSym(-1),) + dims[self._dim :]
+        return dims[: self._dim] + (ProjExpr(-1),) + dims[self._dim :]
 
     def invert_restrictions(self, restrictions):
         left = restrictions[: self._dim]

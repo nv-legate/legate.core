@@ -17,7 +17,7 @@ import legate.core.types as ty
 
 from .constraints import PartSym
 from .launcher import CopyLauncher, TaskLauncher
-from .legion import Future, FutureMap
+from .legion import Future, FutureMap, Rect
 from .partition import REPLICATE, Weighted
 from .shape import Shape
 from .store import Store, StorePartition
@@ -545,3 +545,68 @@ class Copy(Operation):
             launcher.execute(launch_domain)
         else:
             launcher.execute_single()
+
+
+class _RadixProj(object):
+    def __init__(self, radix, offset):
+        self._radix = radix
+        self._offset = offset
+
+    def __call__(self, p):
+        return (p[0] * self._radix + self._offset,)
+
+
+class Reduce(Task):
+    def __init__(self, context, task_id, radix, mapper_id, op_id):
+        Task.__init__(self, context, task_id, mapper_id, op_id)
+        self._runtime = context.runtime
+        self._radix = radix
+
+    def launch(self, strategy):
+        assert len(self._inputs) == 1 and len(self._outputs) == 1
+
+        result = self._outputs[0]
+
+        output = self._inputs[0]
+        opart = output.partition(strategy.get_partition(self._input_parts[0]))
+
+        done = False
+        launch_domain = strategy.launch_domain if strategy.parallel else None
+        fan_in = (
+            strategy.launch_domain.get_volume() if strategy.parallel else 1
+        )
+
+        proj_fns = list(
+            _RadixProj(self._radix, off) for off in range(self._radix)
+        )
+
+        while not done:
+            input = output
+            ipart = opart
+
+            tag = self.context.core_library.LEGATE_CORE_TREE_REDUCE_TAG
+            launcher = TaskLauncher(
+                self.context, self._task_id, self.mapper_id, tag=tag
+            )
+
+            for proj_fn in proj_fns:
+                launcher.add_input(input, ipart.get_requirement(1, proj_fn))
+
+            output = self._context.create_store(input.type)
+            fspace = self._runtime.create_field_space()
+            field_id = fspace.allocate_field(input.type)
+            launcher.add_unbound_output(output, fspace, field_id)
+
+            num_tasks = (fan_in + self._radix - 1) // self._radix
+            launch_domain = Rect([num_tasks])
+            weights = launcher.execute(launch_domain)
+
+            launch_shape = Shape(c + 1 for c in launch_domain.hi)
+            weighted = Weighted(self._runtime, launch_shape, weights)
+            output.set_key_partition(weighted)
+            opart = output.partition(weighted)
+
+            fan_in = num_tasks
+            done = fan_in == 1
+
+        result.set_storage(output.storage)

@@ -949,7 +949,7 @@ class Runtime(object):
         )
 
     def _register_projection_functor(
-        self, spec, src_ndim, tgt_ndim, dims_c, offsets_c
+        self, spec, src_ndim, tgt_ndim, dims_c, weights_c, offsets_c
     ):
         proj_id = self.core_context.get_projection_id(self._next_projection_id)
         self._next_projection_id += 1
@@ -959,6 +959,7 @@ class Runtime(object):
             src_ndim,
             tgt_ndim,
             dims_c,
+            weights_c,
             offsets_c,
             proj_id,
         )

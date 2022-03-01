@@ -51,6 +51,8 @@ RegionField& RegionField::operator=(RegionField&& other) noexcept
   return *this;
 }
 
+bool RegionField::valid() const { return pr_.get_logical_region() != LogicalRegion::NO_REGION; }
+
 Domain RegionField::domain() const { return dim_dispatch(dim_, get_domain_fn{}, pr_); }
 
 OutputRegionField::OutputRegionField(const OutputRegion& out, FieldID fid)
@@ -221,6 +223,8 @@ Store& Store::operator=(Store&& other) noexcept
   reducible_ = other.reducible_;
   return *this;
 }
+
+bool Store::valid() const { return is_future_ || is_output_store_ || region_field_.valid(); }
 
 Domain Store::domain() const
 {

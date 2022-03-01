@@ -151,6 +151,15 @@ TaskContext::TaskContext(const Legion::Task* task,
   reductions_ = dez.unpack<std::vector<Store>>();
   scalars_    = dez.unpack<std::vector<Scalar>>();
   if (task->is_index_space) comms_ = dez.unpack<std::vector<comm::Communicator>>();
+  // For reduction tree cases, some input stores may be mapped to NO_REGION
+  // when the number of subregions isn't a multiple of the chosen radix.
+  // To simplify the programming mode, we filter out those "invalid" stores out.
+  if (task_->tag == LEGATE_CORE_TREE_REDUCE_TAG) {
+    std::vector<Store> inputs;
+    for (auto& input : inputs_)
+      if (input.valid()) inputs.push_back(std::move(input));
+    inputs_.swap(inputs);
+  }
 }
 
 bool TaskContext::is_single_task() const { return !task_->is_index_space; }
@@ -161,11 +170,13 @@ Legion::Domain TaskContext::get_launch_domain() const { return task_->index_doma
 
 ReturnValues TaskContext::pack_return_values() const
 {
+  size_t num_unbound_outputs = 0;
   std::vector<ReturnValue> return_values;
 
   for (auto& output : outputs_) {
     if (!output.is_output_store()) continue;
     return_values.push_back(output.pack_weight());
+    ++num_unbound_outputs;
   }
   for (auto& output : outputs_) {
     if (!output.is_future()) continue;
@@ -174,6 +185,15 @@ ReturnValues TaskContext::pack_return_values() const
   for (auto& reduction : reductions_) {
     if (!reduction.is_future()) continue;
     return_values.push_back(reduction.pack());
+  }
+
+  // If this is a reduction task, we do sanity checks on the invariants
+  // the Python code relies on.
+  if (task_->tag == LEGATE_CORE_TREE_REDUCE_TAG) {
+    if (return_values.size() != 1 || num_unbound_outputs != 1) {
+      legate::log_legate.error("Reduction tasks must have only one unbound output and no others");
+      LEGATE_ABORT;
+    }
   }
 
   return ReturnValues(std::move(return_values));
