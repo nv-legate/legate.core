@@ -33,6 +33,7 @@ from .legion import (
     Fence,
     FieldSpace,
     Future,
+    FutureMap,
     IndexSpace,
     OutputRegion,
     Rect,
@@ -1131,17 +1132,28 @@ class Runtime(object):
         )
 
     def extract_scalar(self, future, idx, launch_domain=None):
-        launcher = TaskLauncher(
-            self.core_context,
-            self.core_library.LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,
-            tag=self.core_library.LEGATE_CPU_VARIANT,
-        )
-        launcher.add_future(future)
-        launcher.add_scalar_arg(idx, ty.int32)
-        if launch_domain is None:
-            return launcher.execute_single()
-        else:
+        if isinstance(future, FutureMap):
+            assert launch_domain is not None
+            launcher = TaskLauncher(
+                self.core_context,
+                self.core_library.LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,
+                tag=self.core_library.LEGATE_CPU_VARIANT,
+            )
+            launcher.add_future_map(future)
+            launcher.add_scalar_arg(idx, ty.int32)
             return launcher.execute(launch_domain)
+        else:
+            launcher = TaskLauncher(
+                self.core_context,
+                self.core_library.LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,
+                tag=self.core_library.LEGATE_CPU_VARIANT,
+            )
+            launcher.add_future(future)
+            launcher.add_scalar_arg(idx, ty.int32)
+            if launch_domain is None:
+                return launcher.execute_single()
+            else:
+                return launcher.execute(launch_domain)
 
     def reduce_future_map(self, future_map, redop):
         if isinstance(future_map, Future):

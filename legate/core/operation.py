@@ -244,6 +244,8 @@ class Task(Operation):
                 output.set_key_partition(partition)
         else:
             idx = 0
+            # TODO: We can potentially deduplicate these extraction tasks
+            # by grouping output stores that are mapped to the same field space
             for out_idx in self.unbound_outputs:
                 output = self.outputs[out_idx]
                 weights = runtime.extract_scalar(result, idx, launch_domain)
