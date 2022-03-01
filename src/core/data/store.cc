@@ -16,6 +16,7 @@
 
 #include "core/data/store.h"
 #include "core/utilities/dispatch.h"
+#include "core/utilities/machine.h"
 
 namespace legate {
 
@@ -58,7 +59,8 @@ Domain RegionField::domain() const { return dim_dispatch(dim_, get_domain_fn{}, 
 OutputRegionField::OutputRegionField(const OutputRegion& out, FieldID fid)
   : out_(out),
     fid_(fid),
-    num_elements_(DeferredBuffer<size_t, 1>(Rect<1>(0, 0), Memory::Kind::SYSTEM_MEM))
+    num_elements_(
+      DeferredBuffer<size_t, 1>(Rect<1>(0, 0), find_memory_kind_for_executing_processor()))
 {
 }
 
