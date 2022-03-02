@@ -233,6 +233,10 @@ class FutureWrapper {
   Legion::Domain domain() const;
 
  public:
+  bool uninitialized() const { return uninitialized_; }
+  void initialize_with_identity(int32_t redop_id) const;
+
+ public:
   ReturnValue pack() const;
 
  private:
@@ -244,7 +248,6 @@ class FutureWrapper {
 
  private:
   mutable bool uninitialized_{true};
-  mutable void* rawptr_{nullptr};
 };
 
 class Store {
@@ -320,7 +323,7 @@ class Store {
  public:
   bool is_future() const { return is_future_; }
   bool is_output_store() const { return is_output_store_; }
-  ReturnValue pack() const { return future_.pack(); }
+  ReturnValue pack() const;
   ReturnValue pack_weight() const { return output_field_.pack_weight(); }
 
  private:

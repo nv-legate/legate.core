@@ -116,8 +116,7 @@ FutureWrapper::FutureWrapper(const FutureWrapper& other) noexcept
     domain_(other.domain_),
     future_(other.future_),
     buffer_(other.buffer_),
-    uninitialized_(other.uninitialized_),
-    rawptr_(other.rawptr_)
+    uninitialized_(other.uninitialized_)
 {
 }
 
@@ -129,19 +128,33 @@ FutureWrapper& FutureWrapper::operator=(const FutureWrapper& other) noexcept
   future_        = other.future_;
   buffer_        = other.buffer_;
   uninitialized_ = other.uninitialized_;
-  rawptr_        = other.rawptr_;
   return *this;
 }
 
 Domain FutureWrapper::domain() const { return domain_; }
 
+void FutureWrapper::initialize_with_identity(int32_t redop_id) const
+{
+  auto untyped_acc = AccessorWO<int8_t, 1>(buffer_, field_size_);
+  auto ptr         = untyped_acc.ptr(0);
+
+  auto redop = Runtime::get_reduction_op(redop_id);
+  assert(redop->sizeof_lhs == field_size_);
+  auto identity = redop->identity;
+  memcpy(ptr, identity, field_size_);
+
+  uninitialized_ = true;
+}
+
 ReturnValue FutureWrapper::pack() const
 {
-  if (nullptr == rawptr_) {
+  if (uninitialized_) {
     fprintf(stderr, "Found an uninitialized Legate store\n");
     assert(false);
   }
-  return ReturnValue(rawptr_, field_size_);
+  auto untyped_acc = AccessorRO<int8_t, 1>(buffer_, field_size_);
+  auto ptr         = untyped_acc.ptr(0);
+  return ReturnValue(ptr, field_size_);
 }
 
 Store::Store(int32_t dim,
@@ -236,6 +249,12 @@ Domain Store::domain() const
   if (nullptr != transform_) result = transform_->transform(result);
   assert(result.dim == dim_);
   return result;
+}
+
+ReturnValue Store::pack() const
+{
+  if (redop_id_ != -1 && future_.uninitialized()) future_.initialize_with_identity(redop_id_);
+  return future_.pack();
 }
 
 }  // namespace legate
