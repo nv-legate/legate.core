@@ -156,7 +156,6 @@ AccessorWO<T, DIM> FutureWrapper::write_accessor() const
 {
   assert(sizeof(T) == field_size_);
   assert(!read_only_);
-  uninitialized_ = false;
   return AccessorWO<T, DIM>(buffer_);
 }
 
@@ -165,7 +164,6 @@ AccessorRW<T, DIM> FutureWrapper::read_write_accessor() const
 {
   assert(sizeof(T) == field_size_);
   assert(!read_only_);
-  uninitialized_ = false;
   return AccessorRW<T, DIM>(buffer_);
 }
 
@@ -174,14 +172,7 @@ AccessorRD<OP, EXCLUSIVE, DIM> FutureWrapper::reduce_accessor(int32_t redop_id) 
 {
   assert(sizeof(typename OP::LHS) == field_size_);
   assert(!read_only_);
-  auto acc = AccessorRD<OP, EXCLUSIVE, DIM>(buffer_);
-  if (uninitialized_) {
-    auto ptr      = acc.ptr(Legion::Point<DIM>::ZEROES());
-    auto identity = OP::identity;
-    memcpy(ptr, &identity, field_size_);
-    uninitialized_ = false;
-  }
-  return acc;
+  return AccessorRD<OP, EXCLUSIVE, DIM>(buffer_);
 }
 
 template <typename T, int DIM>
@@ -200,7 +191,6 @@ AccessorWO<T, DIM> FutureWrapper::write_accessor(const Legion::Rect<DIM>& bounds
 {
   assert(sizeof(T) == field_size_);
   assert(!read_only_);
-  uninitialized_ = false;
   return AccessorWO<T, DIM>(buffer_, bounds);
 }
 
@@ -209,7 +199,6 @@ AccessorRW<T, DIM> FutureWrapper::read_write_accessor(const Legion::Rect<DIM>& b
 {
   assert(sizeof(T) == field_size_);
   assert(!read_only_);
-  uninitialized_ = false;
   return AccessorRW<T, DIM>(buffer_, bounds);
 }
 
@@ -219,14 +208,7 @@ AccessorRD<OP, EXCLUSIVE, DIM> FutureWrapper::reduce_accessor(int32_t redop_id,
 {
   assert(sizeof(typename OP::LHS) == field_size_);
   assert(!read_only_);
-  auto acc = AccessorRD<OP, EXCLUSIVE, DIM>(buffer_, bounds);
-  if (uninitialized_) {
-    auto ptr      = acc.ptr(bounds.lo);
-    auto identity = OP::identity;
-    memcpy(ptr, &identity, field_size_);
-    uninitialized_ = false;
-  }
-  return acc;
+  return AccessorRD<OP, EXCLUSIVE, DIM>(buffer_, bounds);
 }
 
 template <int32_t DIM>

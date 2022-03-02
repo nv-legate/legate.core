@@ -52,7 +52,8 @@ void TaskDeserializer::_unpack(Store& value)
   if (is_future) {
     auto redop_id = unpack<int32_t>();
     auto fut      = unpack<FutureWrapper>();
-    value         = Store(dim, code, redop_id, fut, transform);
+    if (redop_id != -1 && !first_task_) fut.initialize_with_identity(redop_id);
+    value = Store(dim, code, redop_id, fut, transform);
   } else if (dim >= 0) {
     auto redop_id = unpack<int32_t>();
     auto rf       = unpack<RegionField>();

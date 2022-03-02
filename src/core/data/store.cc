@@ -95,11 +95,7 @@ ReturnValue OutputRegionField::pack_weight() const
 
 FutureWrapper::FutureWrapper(
   bool read_only, int32_t field_size, Domain domain, Future future, bool initialize /*= false*/)
-  : read_only_(read_only),
-    field_size_(field_size),
-    domain_(domain),
-    future_(future),
-    uninitialized_(!initialize)
+  : read_only_(read_only), field_size_(field_size), domain_(domain), future_(future)
 {
   assert(field_size > 0);
   if (!read_only) {
@@ -115,25 +111,23 @@ FutureWrapper::FutureWrapper(const FutureWrapper& other) noexcept
     field_size_(other.field_size_),
     domain_(other.domain_),
     future_(other.future_),
-    buffer_(other.buffer_),
-    uninitialized_(other.uninitialized_)
+    buffer_(other.buffer_)
 {
 }
 
 FutureWrapper& FutureWrapper::operator=(const FutureWrapper& other) noexcept
 {
-  read_only_     = other.read_only_;
-  field_size_    = other.field_size_;
-  domain_        = other.domain_;
-  future_        = other.future_;
-  buffer_        = other.buffer_;
-  uninitialized_ = other.uninitialized_;
+  read_only_  = other.read_only_;
+  field_size_ = other.field_size_;
+  domain_     = other.domain_;
+  future_     = other.future_;
+  buffer_     = other.buffer_;
   return *this;
 }
 
 Domain FutureWrapper::domain() const { return domain_; }
 
-void FutureWrapper::initialize_with_identity(int32_t redop_id) const
+void FutureWrapper::initialize_with_identity(int32_t redop_id)
 {
   auto untyped_acc = AccessorWO<int8_t, 1>(buffer_, field_size_);
   auto ptr         = untyped_acc.ptr(0);
@@ -142,16 +136,10 @@ void FutureWrapper::initialize_with_identity(int32_t redop_id) const
   assert(redop->sizeof_lhs == field_size_);
   auto identity = redop->identity;
   memcpy(ptr, identity, field_size_);
-
-  uninitialized_ = true;
 }
 
 ReturnValue FutureWrapper::pack() const
 {
-  if (uninitialized_) {
-    fprintf(stderr, "Found an uninitialized Legate store\n");
-    assert(false);
-  }
   auto untyped_acc = AccessorRO<int8_t, 1>(buffer_, field_size_);
   auto ptr         = untyped_acc.ptr(0);
   return ReturnValue(ptr, field_size_);
@@ -249,12 +237,6 @@ Domain Store::domain() const
   if (nullptr != transform_) result = transform_->transform(result);
   assert(result.dim == dim_);
   return result;
-}
-
-ReturnValue Store::pack() const
-{
-  if (redop_id_ != -1 && future_.uninitialized()) future_.initialize_with_identity(redop_id_);
-  return future_.pack();
 }
 
 }  // namespace legate
