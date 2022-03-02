@@ -146,13 +146,14 @@ ReturnValue FutureWrapper::pack() const
 
 Store::Store(int32_t dim,
              LegateTypeCode code,
+             int32_t redop_id,
              FutureWrapper future,
              std::shared_ptr<StoreTransform> transform)
   : is_future_(true),
     is_output_store_(false),
     dim_(dim),
     code_(code),
-    redop_id_(-1),
+    redop_id_(redop_id),
     future_(future),
     transform_(std::move(transform)),
     readable_(true)

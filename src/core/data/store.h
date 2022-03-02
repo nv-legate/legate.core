@@ -252,6 +252,7 @@ class Store {
   Store() {}
   Store(int32_t dim,
         LegateTypeCode code,
+        int32_t redop_id,
         FutureWrapper future,
         std::shared_ptr<StoreTransform> transform = nullptr);
   Store(int32_t dim,
