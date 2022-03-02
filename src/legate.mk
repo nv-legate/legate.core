@@ -59,6 +59,7 @@ NVCC_FLAGS += -std=c++14 --expt-relaxed-constexpr --expt-extended-lambda -ccbin=
 NVCC_FLAGS += -I$(LEGATE_DIR)/include
 
 DEVICE_LD_FLAGS ?=
+DEVICE_LD_FLAGS += -ccbin=$(CXX) --compiler-options -fPIC
 
 ifeq ($(strip $(DEBUG)),1)
 ifeq ($(strip $(DARWIN)),1)
@@ -221,7 +222,7 @@ $(GEN_DEVICE_OBJS) : %.cu.o : %.cu $(LEGION_DEFINES_HEADER) $(REALM_DEFINES_HEAD
 	$(NVCC) -o $<.o -dc $< $(INC_FLAGS) $(NVCC_FLAGS)
 
 $(GEN_DEVICE_LINK_OBJS) : %.cu.dlink.o : %.cu.o
-	$(NVCC) -o $@ $< -dlink $(ARCH_FLAGS) $(DEVICE_LD_FLAGS) --compiler-options -fPIC
+	$(NVCC) -o $@ $< -dlink $(ARCH_FLAGS) $(DEVICE_LD_FLAGS)
 
 clean:
 	$(RM) -f $(DLIB) $(GEN_CPU_DEPS) $(GEN_CPU_OBJS) $(GEN_GPU_DEPS) $(GEN_GPU_OBJS) $(GEN_DEVICE_OBJS) $(GEN_DEVICE_LINK_OBJS)
