@@ -236,7 +236,7 @@ class Task(Operation):
                 (output, redop) = self.reductions[self.scalar_reductions[0]]
                 redop_id = output.type.reduction_op_id(redop)
                 output.set_storage(runtime.reduce_future_map(result, redop_id))
-            else:
+            elif launch_shape is not None:
                 assert num_unbound_outs == 1
                 assert isinstance(result, FutureMap)
                 output = self.outputs[self.unbound_outputs[0]]
@@ -246,12 +246,17 @@ class Task(Operation):
             idx = 0
             # TODO: We can potentially deduplicate these extraction tasks
             # by grouping output stores that are mapped to the same field space
-            for out_idx in self.unbound_outputs:
-                output = self.outputs[out_idx]
-                weights = runtime.extract_scalar(result, idx, launch_domain)
-                partition = Weighted(runtime, launch_shape, weights)
-                output.set_key_partition(partition)
-                idx += 1
+            if launch_shape is not None:
+                for out_idx in self.unbound_outputs:
+                    output = self.outputs[out_idx]
+                    weights = runtime.extract_scalar(
+                        result, idx, launch_domain
+                    )
+                    partition = Weighted(runtime, launch_shape, weights)
+                    output.set_key_partition(partition)
+                    idx += 1
+            else:
+                idx += len(self.unbound_outputs)
             for out_idx in self.scalar_outputs:
                 output = self.outputs[out_idx]
                 output.set_storage(
