@@ -100,13 +100,15 @@ class ScalarArg(object):
 
 
 class FutureStoreArg(object):
-    def __init__(self, store, read_only, has_storage):
+    def __init__(self, store, read_only, has_storage, redop):
         self._store = store
         self._read_only = read_only
         self._has_storage = has_storage
+        self._redop = redop
 
     def pack(self, buf):
         self._store.serialize(buf)
+        buf.pack_32bit_int(self._redop)
         buf.pack_bool(self._read_only)
         buf.pack_bool(self._has_storage)
         buf.pack_32bit_int(self._store.type.size)
@@ -586,12 +588,13 @@ class TaskLauncher(object):
         )
 
     def add_store(self, args, store, proj, perm, tag, flags):
+        redop = -1 if proj.redop is None else proj.redop
         if store.kind is Future:
             has_storage = perm != Permission.WRITE
             read_only = perm == Permission.READ
             if has_storage:
                 self.add_future(store.storage)
-            args.append(FutureStoreArg(store, read_only, has_storage))
+            args.append(FutureStoreArg(store, read_only, has_storage, redop))
 
         else:
             region = store.storage.region
@@ -607,7 +610,7 @@ class TaskLauncher(object):
                     region.index_space.get_dim(),
                     req,
                     field_id,
-                    -1 if proj.redop is None else proj.redop,
+                    redop,
                 )
             )
 

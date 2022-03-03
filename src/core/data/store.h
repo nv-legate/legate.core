@@ -233,6 +233,9 @@ class FutureWrapper {
   Legion::Domain domain() const;
 
  public:
+  void initialize_with_identity(int32_t redop_id);
+
+ public:
   ReturnValue pack() const;
 
  private:
@@ -241,10 +244,6 @@ class FutureWrapper {
   Legion::Domain domain_{};
   Legion::Future future_{};
   Legion::UntypedDeferredValue buffer_{};
-
- private:
-  mutable bool uninitialized_{true};
-  mutable void* rawptr_{nullptr};
 };
 
 class Store {
@@ -252,6 +251,7 @@ class Store {
   Store() {}
   Store(int32_t dim,
         LegateTypeCode code,
+        int32_t redop_id,
         FutureWrapper future,
         std::shared_ptr<StoreTransform> transform = nullptr);
   Store(int32_t dim,
