@@ -67,7 +67,7 @@ complex64 = Complex64Dtype()
 complex128 = Complex128Dtype()
 
 
-class _Dtype(object):
+class _Dtype:
     def __init__(self, dtype, size_in_bytes, code):
         self._dtype = dtype
         self._size_in_bytes = size_in_bytes
@@ -168,7 +168,7 @@ for dtype in _CORE_DTYPE_MAP.values():
         dtype.register_reduction_op(op, redop_id)
 
 
-class TypeSystem(object):
+class TypeSystem:
     def __init__(self, inherit_core_types=True):
         self._types = _CORE_DTYPE_MAP.copy() if inherit_core_types else {}
 

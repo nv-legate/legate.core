@@ -25,7 +25,7 @@ class NonInvertibleError(Exception):
     pass
 
 
-class Transform(object):
+class Transform:
     def __repr__(self):
         return str(self)
 
@@ -522,7 +522,7 @@ class Delinearize(Transform):
             buf.pack_64bit_int(extent)
 
 
-class TransformStack(object):
+class TransformStack:
     def __init__(self, transform, parent):
         self._transform = transform
         self._parent = parent
@@ -602,7 +602,7 @@ class TransformStack(object):
         self._parent.serialize(buf)
 
 
-class IdentityTransform(object):
+class IdentityTransform:
     def __init__(self):
         pass
 

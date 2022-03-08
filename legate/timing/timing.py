@@ -22,7 +22,7 @@ import numpy
 from legate.core import Future, get_legion_context, get_legion_runtime, legion
 
 
-class TimingRuntime(object):
+class TimingRuntime:
     def __init__(self):
         self.runtime = get_legion_runtime()
         self.context = get_legion_context()
@@ -50,7 +50,7 @@ class TimingRuntime(object):
         )
 
 
-class Time(object):
+class Time:
     def __init__(self, future, dtype):
         self.future = future
         self.dtype = dtype

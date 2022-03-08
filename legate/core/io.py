@@ -32,7 +32,7 @@ from .shape import Shape
 from .store import DistributedAllocation, Store
 
 
-class DataSplit(object):
+class DataSplit:
     """
     Objects of this class can be used to describe the existing partitioning
     of incoming data to the `ingest` call. This is an abstract base class,

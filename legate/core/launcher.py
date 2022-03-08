@@ -67,7 +67,7 @@ def _pack(buf, value, dtype, is_tuple):
         serializer(buf, value)
 
 
-class ScalarArg(object):
+class ScalarArg:
     def __init__(self, core_types, value, dtype, untyped=True):
         self._core_types = core_types
         self._value = value
@@ -99,7 +99,7 @@ class ScalarArg(object):
         return str(self)
 
 
-class FutureStoreArg(object):
+class FutureStoreArg:
     def __init__(self, store, read_only, has_storage, redop):
         self._store = store
         self._read_only = read_only
@@ -121,7 +121,7 @@ class FutureStoreArg(object):
         return str(self)
 
 
-class RegionFieldArg(object):
+class RegionFieldArg:
     def __init__(self, analyzer, store, dim, req, field_id, redop):
         self._analyzer = analyzer
         self._store = store
@@ -177,7 +177,7 @@ _single_copy_calls = {
 }
 
 
-class Broadcast(object):
+class Broadcast:
     __slots__ = ["part", "proj", "redop"]
 
     # Use the same signature as Partition's constructor
@@ -226,7 +226,7 @@ class Broadcast(object):
         return isinstance(other, Broadcast) and self.redop == other.redop
 
 
-class Partition(object):
+class Partition:
     __slots__ = ["part", "proj", "redop"]
 
     def __init__(self, part, proj):
@@ -271,7 +271,7 @@ class Partition(object):
         )
 
 
-class RegionReq(object):
+class RegionReq:
     def __init__(self, region, permission, proj, tag, flags):
         self.region = region
         self.permission = permission
@@ -308,7 +308,7 @@ class RegionReq(object):
         )
 
 
-class OutputReq(object):
+class OutputReq:
     def __init__(self, runtime, fspace):
         self.runtime = runtime
         self.fspace = fspace
@@ -350,7 +350,7 @@ class OutputReq(object):
         store.set_storage(region_field)
 
 
-class ProjectionSet(object):
+class ProjectionSet:
     def __init__(self):
         self._entries = {}
 
@@ -410,7 +410,7 @@ class ProjectionSet(object):
         return str(self._entries)
 
 
-class FieldSet(object):
+class FieldSet:
     def __init__(self):
         self._fields = {}
 
@@ -435,7 +435,7 @@ class FieldSet(object):
         return coalesced
 
 
-class RequirementAnalyzer(object):
+class RequirementAnalyzer:
     def __init__(self, error_on_interference=True):
         self._field_sets = {}
         self._requirements = []
@@ -482,7 +482,7 @@ class RequirementAnalyzer(object):
             return self._requirement_map[(req, field_id)]
 
 
-class OutputAnalyzer(object):
+class OutputAnalyzer:
     def __init__(self, runtime):
         self._runtime = runtime
         self._groups = {}
@@ -534,7 +534,7 @@ class OutputAnalyzer(object):
                 req.update_storage(store, field_id)
 
 
-class TaskLauncher(object):
+class TaskLauncher:
     def __init__(
         self, context, task_id, mapper_id=0, tag=0, error_on_interference=True
     ):
@@ -763,7 +763,7 @@ class TaskLauncher(object):
         return result
 
 
-class CopyLauncher(object):
+class CopyLauncher:
     def __init__(self, context, mapper_id=0, tag=0):
         assert type(tag) != bool
         self._context = context

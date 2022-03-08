@@ -24,7 +24,7 @@ from .store import Store, StorePartition
 from .utils import OrderedSet
 
 
-class Operation(object):
+class Operation:
     def __init__(self, context, mapper_id=0, op_id=0):
         self._context = context
         self._mapper_id = mapper_id
@@ -552,7 +552,7 @@ class Copy(Operation):
             launcher.execute_single()
 
 
-class _RadixProj(object):
+class _RadixProj:
     def __init__(self, radix, offset):
         self._radix = radix
         self._offset = offset

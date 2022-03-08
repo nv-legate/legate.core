@@ -29,7 +29,7 @@ def _cast_tuple(value, ndim):
         raise ValueError(f"Cannot cast {type(value).__name__} to tuple")
 
 
-class Shape(object):
+class Shape:
     def __init__(self, extents=None, ispace=None):
         if extents is not None:
             if not (

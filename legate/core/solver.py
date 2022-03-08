@@ -24,7 +24,7 @@ def join_restrictions(x, y):
     return tuple(min(a, b) for a, b in zip(x, y))
 
 
-class EqClass(object):
+class EqClass:
     def __init__(self):
         # Maps a variable to the equivalent class id
         self._class_ids = {}
@@ -100,7 +100,7 @@ class EqClass(object):
             return self._classes[self._class_ids[var]]
 
 
-class Strategy(object):
+class Strategy:
     def __init__(self, launch_shape, strategy, fspaces, key_parts):
         if launch_shape is not None:
             self._launch_domain = Rect(hi=launch_shape)
@@ -165,7 +165,7 @@ class Strategy(object):
         return str(self)
 
 
-class Partitioner(object):
+class Partitioner:
     def __init__(self, runtime, ops, must_be_single=False):
         self._runtime = runtime
         self._ops = ops

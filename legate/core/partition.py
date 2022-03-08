@@ -34,7 +34,7 @@ class Restriction(IntEnum):
     UNRESTRICTED = 1
 
 
-class PartitionBase(object):
+class PartitionBase:
     pass
 
 
@@ -88,7 +88,7 @@ class Replicate(PartitionBase):
 REPLICATE = Replicate()
 
 
-class Interval(object):
+class Interval:
     def __init__(self, lo, extent):
         self._lo = lo
         self._hi = lo + extent

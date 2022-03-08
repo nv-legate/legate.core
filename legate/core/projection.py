@@ -17,7 +17,7 @@
 from legion_cffi import ffi  # Make sure we only have one ffi instance
 
 
-class ProjExpr(object):
+class ProjExpr:
     def __init__(self, dim=-1, weight=1, offset=0):
         self._dim = dim
         self._weight = weight

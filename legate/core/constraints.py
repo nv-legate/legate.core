@@ -19,7 +19,7 @@ from collections.abc import Iterable
 from .partition import Restriction
 
 
-class Expr(object):
+class Expr:
     def __eq__(self, rhs):
         return Alignment(self, rhs)
 
@@ -150,7 +150,7 @@ class Translate(Expr):
             yield unknown
 
 
-class Constraint(object):
+class Constraint:
     pass
 
 

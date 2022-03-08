@@ -165,7 +165,7 @@ def dispatch(func):
     return launch
 
 
-class Point(object):
+class Point:
     def __init__(self, p=None, dim=None):
         """
         The Point class wraps a `legion_domain_point_t` in the Legion C API.
@@ -245,7 +245,7 @@ class Point(object):
         return self.point
 
 
-class Rect(object):
+class Rect:
     def __init__(self, hi=None, lo=None, exclusive=True, dim=None):
         """
         The Rect class represents an N-D rectangle of dense points. It wraps a
@@ -346,7 +346,7 @@ class Rect(object):
         return self.rect
 
 
-class Domain(object):
+class Domain:
     def __init__(self, domain):
         """
         The Domain class wraps a `legion_domain_t` in the Legion C API. A
@@ -410,7 +410,7 @@ class Domain(object):
         return rects
 
 
-class Transform(object):
+class Transform:
     def __init__(self, M, N, eye=True):
         """
         A Transform wraps an `legion_transform_{m}x{n}_t` in the Legion C API.
@@ -478,7 +478,7 @@ class Transform(object):
 
 
 # An Affine Transform for points in one space to points in another
-class AffineTransform(object):
+class AffineTransform:
     def __init__(self, M, N, eye=True):
         """
         An AffineTransform wraps a `legion_affine_transform_{m}x{n}_t` in the
@@ -566,7 +566,7 @@ class AffineTransform(object):
         return np.array_repr(self.transform).replace("\n", "").replace(" ", "")
 
 
-class IndexSpace(object):
+class IndexSpace:
     def __init__(self, context, runtime, handle, parent=None, owned=True):
         """
         An IndexSpace object wraps a `legion_index_space_t` in the Legion C
@@ -708,7 +708,7 @@ class IndexSpace(object):
         return legion.legion_index_space_get_dim(self.handle)
 
 
-class PartitionFunctor(object):
+class PartitionFunctor:
     """
     PartitionFunctor objects provide a common interface to computing
     IndexPartition objects using Legion's support for dependent partitioning.
@@ -997,7 +997,7 @@ class PartitionByDomain(PartitionFunctor):
 # TODO more kinds of partition functors here
 
 
-class IndexPartition(object):
+class IndexPartition:
     def __init__(
         self,
         context,
@@ -1146,7 +1146,7 @@ class IndexPartition(object):
         return self.parent.get_root()
 
 
-class FieldSpace(object):
+class FieldSpace:
     def __init__(self, context, runtime, handle=None, owned=True):
         """
         A FieldSpace wraps a `legion_field_space_t` in the Legion C API.
@@ -1347,7 +1347,7 @@ class FieldSpace(object):
                 legion.legion_field_allocator_destroy(self.alloc)
 
 
-class FieldID(object):
+class FieldID:
     def __init__(self, field_space, fid, type):
         """
         A FieldID class wraps a `legion_field_id_t` in the Legion C API.
@@ -1382,7 +1382,7 @@ class FieldID(object):
         return self._type
 
 
-class Region(object):
+class Region:
     def __init__(
         self,
         context,
@@ -1513,7 +1513,7 @@ class Region(object):
         return self.parent.parent.get_root()
 
 
-class Partition(object):
+class Partition:
     def __init__(self, context, runtime, index_partition, parent, handle=None):
         """
         A Partition wraps a `legion_logical_partition_t` in the Legion C API.
@@ -1586,7 +1586,7 @@ class Partition(object):
         return self.parent.get_root()
 
 
-class Fill(object):
+class Fill:
     def __init__(self, region, parent, field, future, mapper=0, tag=0):
         """
         A Fill object provides a mechanism for launching fill operations
@@ -1663,7 +1663,7 @@ class Fill(object):
         legion.legion_fill_launcher_execute(runtime, context, self.launcher)
 
 
-class IndexFill(object):
+class IndexFill:
     def __init__(
         self,
         partition,
@@ -1785,7 +1785,7 @@ class IndexFill(object):
         )
 
 
-class Copy(object):
+class Copy:
     def __init__(self, mapper=0, tag=0):
         """
         A Copy object provides a mechanism for launching explicit
@@ -2079,7 +2079,7 @@ class Copy(object):
         legion.legion_copy_launcher_execute(runtime, context, self.launcher)
 
 
-class IndexCopy(object):
+class IndexCopy:
     def __init__(self, domain, mapper=0, tag=0):
         """
         An IndexCopy object provides a mechanism for launching explicit
@@ -2483,7 +2483,7 @@ class IndexCopy(object):
         )
 
 
-class Attach(object):
+class Attach:
     def __init__(
         self,
         region,
@@ -2562,7 +2562,7 @@ class Attach(object):
         )
 
 
-class Detach(object):
+class Detach:
     def __init__(self, region, flush=True):
         """
         A Detach operation will unbind an external resource from a logical
@@ -2613,7 +2613,7 @@ class Detach(object):
             )
 
 
-class ExternalResources(object):
+class ExternalResources:
     def __init__(self, handle):
         """
         Stores a collection of physical regions that were attached together
@@ -2645,7 +2645,7 @@ class ExternalResources(object):
         self.handle = None
 
 
-class IndexAttach(object):
+class IndexAttach:
     def __init__(
         self,
         parent,
@@ -2741,7 +2741,7 @@ class IndexAttach(object):
         )
 
 
-class IndexDetach(object):
+class IndexDetach:
     def __init__(self, external_resources, flush=True):
         """
         An IndexDetach operation will unbind a collection of external resources
@@ -2779,7 +2779,7 @@ class IndexDetach(object):
         )
 
 
-class Acquire(object):
+class Acquire:
     def __init__(self, region, fields, mapper=0, tag=0):
         """
         An Acquire operation provides a mechanism for temporarily relaxing
@@ -2826,7 +2826,7 @@ class Acquire(object):
         legion.legion_acquire_launcher_execute(runtime, context, self.launcher)
 
 
-class Release(object):
+class Release:
     def __init__(self, region, fields, mapper=0, tag=0):
         """
         A Release operation will undo any acquire operations by putting
@@ -2872,7 +2872,7 @@ class Release(object):
         legion.legion_release_launcher_execute(runtime, context, self.launcher)
 
 
-class Future(object):
+class Future:
     def __init__(self, handle=None, type=None):
         """
         A Future object represents a pending computation from a task or other
@@ -3006,7 +3006,7 @@ class Future(object):
         return self._type
 
 
-class OutputRegion(object):
+class OutputRegion:
     def __init__(
         self,
         context,
@@ -3275,7 +3275,7 @@ class OutputRegion(object):
         return self.partition
 
 
-class PhysicalRegion(object):
+class PhysicalRegion:
     def __init__(self, handle, region):
         """
         A PhysicalRegion object represents an actual mapping of a logical
@@ -3370,7 +3370,7 @@ class PhysicalRegion(object):
             legion.legion_runtime_unmap_region(runtime, context, self.handle)
 
 
-class InlineMapping(object):
+class InlineMapping:
     def __init__(
         self,
         region,
@@ -3461,7 +3461,7 @@ class InlineMapping(object):
         )
 
 
-class Task(object):
+class Task:
     def __init__(self, task_id, data=None, size=0, mapper=0, tag=0):
         """
         A Task object provides a mechanism for launching individual sub-tasks
@@ -3891,7 +3891,7 @@ class Task(object):
             )
 
 
-class FutureMap(object):
+class FutureMap:
     def __init__(self, handle=None):
         """
         A FutureMap object represents a collection of Future objects created by
@@ -4073,7 +4073,7 @@ class FutureMap(object):
         return cls(handle)
 
 
-class IndexTask(object):
+class IndexTask:
     def __init__(
         self, task_id, domain, argmap=None, data=None, size=0, mapper=0, tag=0
     ):
@@ -4691,7 +4691,7 @@ class IndexTask(object):
                 )
 
 
-class Fence(object):
+class Fence:
     def __init__(self, mapping=False):
         """
         A Fence operation provides a mechanism for inserting either
@@ -4725,7 +4725,7 @@ class Fence(object):
             )
 
 
-class ArgumentMap(object):
+class ArgumentMap:
     def __init__(self, handle=None, future_map=None):
         """
         An ArgumentMap is a object that allows for the passing of
@@ -4820,7 +4820,7 @@ class ArgumentMap(object):
         )
 
 
-class BufferBuilder(object):
+class BufferBuilder:
     def __init__(self, type_safe=False):
         """
         A BufferBuilder object is a helpful utility for constructing

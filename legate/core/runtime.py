@@ -52,7 +52,7 @@ from .transform import IdentityTransform
 
 # A Field holds a reference to a field in a region tree
 # that can be used by many different RegionField objects
-class Field(object):
+class Field:
     __slots__ = [
         "runtime",
         "region",
@@ -101,7 +101,7 @@ assert _sizeof_size_t == 4 or _sizeof_size_t == 8
 
 
 # A helper class for doing field management with control replication
-class FieldMatch(object):
+class FieldMatch:
     __slots__ = ["manager", "fields", "input", "output", "future"]
 
     def __init__(self, manager, fields):
@@ -180,7 +180,7 @@ class FieldMatch(object):
 
 
 # This class manages all regions of the same shape.
-class RegionManager(object):
+class RegionManager:
     def __init__(self, runtime, shape):
         self._runtime = runtime
         self._shape = shape
@@ -234,7 +234,7 @@ class RegionManager(object):
 
 
 # This class manages the allocation and reuse of fields
-class FieldManager(object):
+class FieldManager:
     def __init__(self, runtime, shape, dtype):
         self.runtime = runtime
         self.shape = shape
@@ -320,7 +320,7 @@ class FieldManager(object):
                 self.freed_fields.append((region, field_id))
 
 
-class Attachment(object):
+class Attachment:
     def __init__(self, ptr, extent, shareable, region_field):
         self.ptr = ptr
         self.extent = extent
@@ -344,7 +344,7 @@ class Attachment(object):
         self._region_field = weakref.ref(region_field)
 
 
-class AttachmentManager(object):
+class AttachmentManager:
     def __init__(self, runtime):
         self._runtime = runtime
         self._attachments = dict()
@@ -481,7 +481,7 @@ class AttachmentManager(object):
             del self._pending_detachments[future]
 
 
-class PartitionManager(object):
+class PartitionManager:
     def __init__(self, runtime):
         self._runtime = runtime
         self._num_pieces = runtime.core_context.get_tunable(
@@ -716,7 +716,7 @@ class PartitionManager(object):
         self._index_partitions[key] = index_partition
 
 
-class CommunicatorManager(object):
+class CommunicatorManager:
     def __init__(self, runtime):
         self._runtime = runtime
         self._nccl = NCCLCommunicator(runtime)
@@ -728,7 +728,7 @@ class CommunicatorManager(object):
         return self._nccl
 
 
-class Runtime(object):
+class Runtime:
     def __init__(self, core_library):
         """
         This is a class that implements the Legate runtime.
