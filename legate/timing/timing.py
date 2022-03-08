@@ -13,6 +13,8 @@
 # limitations under the License.
 #
 
+from __future__ import absolute_import, division, print_function
+
 import struct
 
 import numpy
@@ -20,7 +22,7 @@ import numpy
 from legate.core import Future, get_legion_context, get_legion_runtime, legion
 
 
-class TimingRuntime:
+class TimingRuntime(object):
     def __init__(self):
         self.runtime = get_legion_runtime()
         self.context = get_legion_context()
@@ -48,7 +50,7 @@ class TimingRuntime:
         )
 
 
-class Time:
+class Time(object):
     def __init__(self, future, dtype):
         self.future = future
         self.dtype = dtype
