@@ -13,8 +13,6 @@
 # limitations under the License.
 #
 
-from __future__ import absolute_import, division, print_function
-
 import os
 import struct  # For packing and unpacking C data into/out-of futures
 import sys
