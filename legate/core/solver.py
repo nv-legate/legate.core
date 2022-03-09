@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from __future__ import annotations
 
 from .constraints import Alignment, Broadcast, Containment
 from .legion import Future, Rect
