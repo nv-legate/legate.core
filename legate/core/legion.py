@@ -28,11 +28,6 @@ LEGATE_MAX_DIM = int(os.environ["LEGATE_MAX_DIM"])
 assert "LEGATE_MAX_FIELDS" in os.environ
 LEGATE_MAX_FIELDS = int(os.environ["LEGATE_MAX_FIELDS"])
 
-try:
-    xrange  # Python 2
-except NameError:
-    xrange = range  # Python 3
-
 
 # We can't call out to the CFFI from inside of finalizer methods
 # because that can risk a deadlock (CFFI's lock is stupid, they
@@ -425,9 +420,9 @@ class Transform:
         if len(point) != self.N:
             raise ValueError("Dimension mismatch")
         result = ()
-        for m in xrange(self.M):
+        for m in range(self.M):
             value = 0
-            for n in xrange(self.N):
+            for n in range(self.N):
                 value += self.trans[m, n] * point[n]
             result += (value,)
         return result
@@ -920,7 +915,7 @@ class PartitionByWeights(PartitionFunctor):
             num_weights = len(self.weights)
             colors = ffi.new("legion_domain_point_t[%d]" % num_weights)
             weights = ffi.new("int[%d]" % num_weights)
-            for i in xrange(num_weights):
+            for i in range(num_weights):
                 colors[i] = Point([i]).raw()
                 weights[i] = self.weights[i]
             return legion.legion_index_partition_create_by_weights(
@@ -4004,7 +3999,7 @@ class FutureMap:
         domain = Rect([num_futures]).raw()
         points = ffi.new("legion_domain_point_t[%d]" % num_futures)
         futures_ = ffi.new("legion_future_t[%d]" % num_futures)
-        for i in xrange(num_futures):
+        for i in range(num_futures):
             points[i] = Point([i]).raw()
             futures_[i] = futures[i].handle
         handle = legion.legion_future_map_construct_from_futures(
@@ -4952,10 +4947,10 @@ class BufferBuilder:
                 self.pack_transform(point_transform)
 
     def pack_transform(self, transform):
-        for x in xrange(0, transform.M):
-            for y in xrange(0, transform.N):
+        for x in range(0, transform.M):
+            for y in range(0, transform.N):
                 self.pack_64bit_int(transform.trans[x, y])
-        for x in xrange(0, transform.M):
+        for x in range(0, transform.M):
             self.pack_64bit_int(transform.offset[x])
 
     def pack_value(self, value, val_type):
