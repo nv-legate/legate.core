@@ -15,7 +15,6 @@
 
 import os
 import struct  # For packing and unpacking C data into/out-of futures
-import sys
 import weakref
 
 import numpy as np
@@ -33,11 +32,6 @@ try:
     xrange  # Python 2
 except NameError:
     xrange = range  # Python 3
-
-
-# Helper method for python 3 support
-def _itervalues(obj):
-    return obj.values() if sys.version_info > (3,) else obj.viewvalues()
 
 
 # We can't call out to the CFFI from inside of finalizer methods
@@ -1134,7 +1128,7 @@ class IndexPartition:
                 self.runtime, self.context, self.handle, False, recursive
             )
         if recursive:
-            for child in _itervalues(self.children):
+            for child in self.children.values():
                 child.owned = False
 
     def get_root(self):
