@@ -367,18 +367,26 @@ class Partitioner(object):
             lhs = lhs.subst(partitions).reduce()
             partitions[rhs] = lhs._part
 
+        parts = [part for part in partitions.values() if part is not REPLICATE]
         color_shape = None
-        for partition in partitions.values():
+        for part in parts:
             if color_shape is None:
-                color_shape = partition.color_shape
-            elif partition.color_shape is not None:
-                if color_shape != partition.color_shape:
-                    raise NotImplementedError(
-                        "Found unaligned color spaces in partitions. "
-                        "Auto-partitioner needs to be extended for this case."
-                    )
+                color_shape = part.color_shape
+            elif part.color_shape != color_shape:
+                # When the solution contains partitions with unaligned color
+                # spaces, a 1D launch space is the only option
+                must_be_1d_launch = True
+                break
 
-        if must_be_1d_launch and color_shape is not None:
-            color_shape = Shape((color_shape.volume(),))
+        if color_shape is not None and must_be_1d_launch:
+            # If all color spaces don't have the same number of colors,
+            # it means some inputs are much smaller than the others
+            # to be partitioned into the same number of pieces.
+            # We simply serialize the launch in that case for now.
+            volumes = set(part.color_shape.volume() for part in parts)
+            if len(volumes) > 1:
+                color_shape = None
+            else:
+                color_shape = Shape(volumes)
 
         return Strategy(color_shape, partitions, fspaces, key_parts)

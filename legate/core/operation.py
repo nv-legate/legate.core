@@ -420,6 +420,12 @@ class ManualTask(Task):
             "manually parallelized tasks"
         )
 
+    def add_constraint(self, constraint):
+        raise TypeError(
+            "Partitioning constraints are not allowed for "
+            "manually parallelized tasks"
+        )
+
     def launch(self, strategy):
         tag = self.context.core_library.LEGATE_CORE_MANUAL_PARALLEL_LAUNCH_TAG
         launcher = TaskLauncher(
@@ -486,6 +492,20 @@ class Copy(Operation):
             + self._target_indirects
         )
 
+    def add_output(self, store, partition=None):
+        if len(self._reductions) > 0:
+            raise RuntimeError(
+                "Copy targets must be either all normal outputs or reductions"
+            )
+        Operation.add_output(self, store, partition)
+
+    def add_reduction(self, store, redop, partition=None):
+        if len(self._outputs) > 0:
+            raise RuntimeError(
+                "Copy targets must be either all normal outputs or reductions"
+            )
+        Operation.add_reduction(self, store, redop, partition)
+
     def add_source_indirect(self, store, partition=None):
         self._check_store(store)
         if partition is None:
@@ -499,6 +519,48 @@ class Copy(Operation):
             partition = self._get_unique_partition(store)
         self._target_indirects.append(store)
         self._target_indirect_parts.append(partition)
+
+    @property
+    def constraints(self):
+        constraints = []
+        if len(self._source_indirects) + len(self._target_indirects) == 0:
+            for src, tgt in zip(
+                self._source_indirect_parts, self._target_indirect_parts
+            ):
+                constraints.append(src == tgt)
+        else:
+            if len(self._source_indirects) > 0:
+                output_parts = (
+                    self._output_parts
+                    if len(self._outputs) > 0
+                    else self._reduction_parts
+                )
+                for src, tgt in zip(self._source_indirect_parts, output_parts):
+                    constraints.append(src == tgt)
+            if len(self._target_indirects) > 0:
+                for src, tgt in zip(
+                    self._input_parts, self._target_indirect_parts
+                ):
+                    constraints.append(src == tgt)
+        return constraints
+
+    def add_alignment(self, store1, store2):
+        raise TypeError(
+            "Partitioning constraints are not allowed for "
+            "manually parallelized tasks"
+        )
+
+    def add_broadcast(self, store):
+        raise TypeError(
+            "Partitioning constraints are not allowed for "
+            "manually parallelized tasks"
+        )
+
+    def add_constraint(self, constraint):
+        raise TypeError(
+            "Partitioning constraints are not allowed for "
+            "manually parallelized tasks"
+        )
 
     def launch(self, strategy):
         launcher = CopyLauncher(self.context, self.mapper_id)
