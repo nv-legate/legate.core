@@ -68,6 +68,7 @@ ignore_errors = true
 
 [[tool.mypy.overrides]]
 module = [
+    "legate.core.types",
     "legate.core.utils",
 ]
 ignore_errors = false
