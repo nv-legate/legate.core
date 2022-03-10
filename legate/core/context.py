@@ -30,7 +30,7 @@ class ResourceConfig:
         "max_shardings",
     ]
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.max_tasks = 1_000_000
         self.max_mappers = 1
         self.max_reduction_ops = 0
@@ -39,7 +39,7 @@ class ResourceConfig:
 
 
 class ResourceScope:
-    def __init__(self, context, base, category):
+    def __init__(self, context, base, category) -> None:
         self._context = context
         self._base = base
         self._category = category
@@ -55,7 +55,7 @@ class ResourceScope:
 
 
 class Context:
-    def __init__(self, runtime, library, inherit_core_types=True):
+    def __init__(self, runtime, library, inherit_core_types: bool = True):
         """
         A Context is a named scope for Legion resources used in a Legate
         library. A Context is created when the library is registered
