@@ -524,9 +524,13 @@ class Copy(Operation):
     def constraints(self):
         constraints = []
         if len(self._source_indirects) + len(self._target_indirects) == 0:
-            for src, tgt in zip(
-                self._source_indirect_parts, self._target_indirect_parts
-            ):
+            for src, tgt in zip(self._input_parts, self._output_parts):
+                if src.store.shape != tgt.store.shape:
+                    raise ValueError(
+                        "Each output must have the same shape as the "
+                        f"input, but got {tuple(src.store.shape)} and "
+                        f"{tuple(tgt.store.shape)}"
+                    )
                 constraints.append(src == tgt)
         else:
             if len(self._source_indirects) > 0:
@@ -536,30 +540,41 @@ class Copy(Operation):
                     else self._reduction_parts
                 )
                 for src, tgt in zip(self._source_indirect_parts, output_parts):
+                    if src.store.shape != tgt.store.shape:
+                        raise ValueError(
+                            "Each output must have the same shape as the "
+                            "corresponding source indirect field, but got "
+                            f"{tuple(src.store.shape)} and "
+                            f"{tuple(tgt.store.shape)}"
+                        )
                     constraints.append(src == tgt)
             if len(self._target_indirects) > 0:
                 for src, tgt in zip(
                     self._input_parts, self._target_indirect_parts
                 ):
+                    if src.store.shape != tgt.store.shape:
+                        raise ValueError(
+                            "Each input must have the same shape as the "
+                            "corresponding target indirect field, but got "
+                            f"{tuple(src.store.shape)} and "
+                            f"{tuple(tgt.store.shape)}"
+                        )
                     constraints.append(src == tgt)
         return constraints
 
     def add_alignment(self, store1, store2):
         raise TypeError(
-            "Partitioning constraints are not allowed for "
-            "manually parallelized tasks"
+            "User partitioning constraints are not allowed for copies"
         )
 
     def add_broadcast(self, store):
         raise TypeError(
-            "Partitioning constraints are not allowed for "
-            "manually parallelized tasks"
+            "User partitioning constraints are not allowed for copies"
         )
 
     def add_constraint(self, constraint):
         raise TypeError(
-            "Partitioning constraints are not allowed for "
-            "manually parallelized tasks"
+            "User partitioning constraints are not allowed for copies"
         )
 
     def launch(self, strategy):
