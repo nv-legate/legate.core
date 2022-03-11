@@ -524,9 +524,13 @@ class Copy(Operation):
     def constraints(self):
         constraints = []
         if len(self._source_indirects) + len(self._target_indirects) == 0:
-            for src, tgt in zip(
-                self._source_indirect_parts, self._target_indirect_parts
-            ):
+            for src, tgt in zip(self._input_parts, self._output_parts):
+                if src.store.shape != tgt.store.shape:
+                    raise ValueError(
+                        "Each output must have the same shape as the "
+                        f"input, but got {tuple(src.store.shape)} and "
+                        f"{tuple(tgt.store.shape)}"
+                    )
                 constraints.append(src == tgt)
         else:
             if len(self._source_indirects) > 0:
