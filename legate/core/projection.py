@@ -64,9 +64,10 @@ class ProjExpr:
         return hash((type(self), self._dim, self._weight, self._offset))
 
     def __eq__(self, other: object) -> bool:
+        if not isinstance(other, ProjExpr):
+            return NotImplemented
         return (
-            isinstance(other, ProjExpr)
-            and self._dim == other._dim
+            self._dim == other._dim
             and self._weight == other._weight
             and self._offset == self._offset
         )

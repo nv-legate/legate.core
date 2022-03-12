@@ -201,7 +201,7 @@ class Point:
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Point):
-            return False
+            return NotImplemented
         if self.dim != len(other):
             return False
         for idx in range(self.dim):
@@ -294,7 +294,7 @@ class Rect:
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Rect):
-            return False
+            return NotImplemented
         if self.lo != other.lo:
             return False
         if self.hi != other.hi:
@@ -480,7 +480,7 @@ class Transform:
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Transform):
-            return False
+            return NotImplemented
         return (
             self.M == other.M
             and self.N == other.N
@@ -572,7 +572,7 @@ class AffineTransform:
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, AffineTransform):
-            return False
+            return NotImplemented
         return (
             self.M == other.M
             and self.N == other.N
