@@ -279,12 +279,52 @@ class Partitioner(object):
         else:
             return chosen_partition, original
 
+    @staticmethod
+    def compute_launch_shape(partitions, all_outputs, must_be_1d_launch):
+        # We filter out the cases where any of the outputs is assigned
+        # to replication, in which case the operation must be performed
+        # sequentially
+        for unknown, part in partitions.items():
+            if unknown.store in all_outputs and part is REPLICATE:
+                return None
+
+        # If we're here, this means that replicated stores are safe to access
+        # in parallel, so we filter those out to determine the launch domain
+        parts = [part for part in partitions.values() if part is not REPLICATE]
+
+        # If all stores are replicated, we can't parallelize the operation
+        if len(parts) == 0:
+            return None
+
+        # Here we check if all partitions agree on the color shape
+        launch_shape = parts[0].color_shape
+        for part in parts[1:]:
+            if part.color_shape != launch_shape:
+                # When some partitions have different color shapes,
+                # a 1D launch space is the only option
+                must_be_1d_launch = True
+                break
+
+        if must_be_1d_launch:
+            # If all color spaces don't have the same number of colors,
+            # it means some inputs are much smaller than the others
+            # to be partitioned into the same number of pieces.
+            # We simply serialize the launch in that case for now.
+            volumes = set(part.color_shape.volume() for part in parts)
+            if len(volumes) > 1:
+                return None
+            else:
+                return Shape(volumes)
+        else:
+            return launch_shape
+
     def partition_stores(self):
         unknowns = OrderedSet()
         constraints = EqClass()
         broadcasts = {}
         dependent = {}
         must_be_even = OrderedSet()
+        all_outputs = set()
         for op in self._ops:
             unknowns.update(op.all_unknowns)
             for c in op.constraints:
@@ -301,6 +341,8 @@ class Partitioner(object):
                     for unknown in c._lhs.unknowns():
                         must_be_even.add(unknown)
                     dependent[c._rhs] = c._lhs
+        for op in self._ops:
+            all_outputs.update(op.outputs)
 
         if self._must_be_single or len(unknowns) == 0:
             for unknown in unknowns:
@@ -367,26 +409,8 @@ class Partitioner(object):
             lhs = lhs.subst(partitions).reduce()
             partitions[rhs] = lhs._part
 
-        parts = [part for part in partitions.values() if part is not REPLICATE]
-        color_shape = None
-        for part in parts:
-            if color_shape is None:
-                color_shape = part.color_shape
-            elif part.color_shape != color_shape:
-                # When the solution contains partitions with unaligned color
-                # spaces, a 1D launch space is the only option
-                must_be_1d_launch = True
-                break
+        launch_shape = self.compute_launch_shape(
+            partitions, all_outputs, must_be_1d_launch
+        )
 
-        if color_shape is not None and must_be_1d_launch:
-            # If all color spaces don't have the same number of colors,
-            # it means some inputs are much smaller than the others
-            # to be partitioned into the same number of pieces.
-            # We simply serialize the launch in that case for now.
-            volumes = set(part.color_shape.volume() for part in parts)
-            if len(volumes) > 1:
-                color_shape = None
-            else:
-                color_shape = Shape(volumes)
-
-        return Strategy(color_shape, partitions, fspaces, key_parts)
+        return Strategy(launch_shape, partitions, fspaces, key_parts)
