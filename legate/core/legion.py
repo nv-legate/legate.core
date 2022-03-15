@@ -1019,7 +1019,7 @@ class EqualPartition(PartitionFunctor):
 
 
 class PartitionByWeights(PartitionFunctor):
-    def __init__(self, weights: Union[FutureMap, Any]) -> None:
+    def __init__(self, weights: Union[FutureMap, list[int]]) -> None:
         """
         PartitionByWeights will construct an IndexPartition with the number of
         points in each child IndexSpace being allocated proportionally to the
