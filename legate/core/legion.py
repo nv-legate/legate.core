@@ -17,7 +17,7 @@ from __future__ import annotations
 import os
 import struct  # For packing and unpacking C data into/out-of futures
 import weakref
-from typing import TYPE_CHECKING, Any, Iterator, Optional, Union
+from typing import TYPE_CHECKING, Any, Iterator, Optional, Sequence, Union
 
 if TYPE_CHECKING:
     from .context import Context
@@ -250,8 +250,8 @@ class Point:
 class Rect:
     def __init__(
         self,
-        hi: Optional[list[float]] = None,
-        lo: Optional[list[float]] = None,
+        hi: Optional[Sequence[float]] = None,
+        lo: Optional[Sequence[float]] = None,
         exclusive: bool = True,
         dim: Optional[int] = None,
     ) -> None:
@@ -328,8 +328,8 @@ class Rect:
 
     def set_bounds(
         self,
-        lo: Optional[list[float]],
-        hi: list[float],
+        lo: Optional[Sequence[float]],
+        hi: Sequence[float],
         exclusive: bool = True,
     ) -> None:
         if len(hi) > LEGATE_MAX_DIM:
