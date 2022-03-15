@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from __future__ import annotations
 
 from enum import IntEnum, unique
 
@@ -34,7 +35,7 @@ class Restriction(IntEnum):
     UNRESTRICTED = 1
 
 
-class PartitionBase(object):
+class PartitionBase:
     pass
 
 
@@ -88,7 +89,7 @@ class Replicate(PartitionBase):
 REPLICATE = Replicate()
 
 
-class Interval(object):
+class Interval:
     def __init__(self, lo, extent):
         self._lo = lo
         self._hi = lo + extent

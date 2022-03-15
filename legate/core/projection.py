@@ -12,34 +12,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from __future__ import annotations
 
+from typing import Any, Callable, Optional, Union
 
 from legion_cffi import ffi  # Make sure we only have one ffi instance
 
 
-class ProjExpr(object):
-    def __init__(self, dim=-1, weight=1, offset=0):
+class ProjExpr:
+    def __init__(
+        self, dim: int = -1, weight: int = 1, offset: int = 0
+    ) -> None:
         self._dim = dim
         self._weight = weight
         self._offset = offset
-        self._repr = None
+        self._repr: Union[str, None] = None
 
     @property
-    def dim(self):
+    def dim(self) -> int:
         return self._dim
 
     @property
-    def weight(self):
+    def weight(self) -> int:
         return self._weight
 
     @property
-    def offset(self):
+    def offset(self) -> int:
         return self._offset
 
-    def is_identity(self, dim):
+    def is_identity(self, dim: int) -> bool:
         return self._dim == dim and self._weight == 1 and self._offset == 0
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         if self._repr is None:
             s = ""
             if self._weight != 0:
@@ -54,30 +58,36 @@ class ProjExpr(object):
             self._repr = s
         return self._repr
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash((type(self), self._dim, self._weight, self._offset))
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, ProjExpr):
+            return NotImplemented
         return (
-            isinstance(other, ProjExpr)
-            and self._dim == other._dim
+            self._dim == other._dim
             and self._weight == other._weight
             and self._offset == self._offset
         )
 
-    def __mul__(self, other):
+    def __mul__(self, other: int) -> ProjExpr:
         if not isinstance(other, int):
             raise ValueError("RHS must be an integer")
         return ProjExpr(self._dim, self._weight * other, self._offset * other)
 
-    def __add__(self, other):
+    def __add__(self, other: int) -> ProjExpr:
         if not isinstance(other, int):
             raise ValueError("RHS must be an integer")
         return ProjExpr(self._dim, self._weight, self._offset + other)
 
 
-def execute_functor_symbolically(ndim, proj_fn=None):
-    point = tuple(ProjExpr(dim=dim) for dim in range(ndim))
+Point = tuple[Union[ProjExpr, int], ...]
+
+
+def execute_functor_symbolically(
+    ndim: int, proj_fn: Optional[Callable[[Point], Point]] = None
+) -> Point:
+    point: Point = tuple(ProjExpr(dim=dim) for dim in range(ndim))
     if proj_fn is not None:
         point = proj_fn(point)
         if not isinstance(point, tuple):
@@ -96,14 +106,16 @@ def execute_functor_symbolically(ndim, proj_fn=None):
     return point
 
 
-def is_identity_projection(src_ndims, dims):
+def is_identity_projection(src_ndims: int, dims: tuple[ProjExpr]) -> bool:
     return src_ndims == len(dims) and all(
         isinstance(coord, ProjExpr) and coord.is_identity(dim)
         for dim, coord in enumerate(dims)
     )
 
 
-def pack_symbolic_projection_repr(src_ndim, dims):
+def pack_symbolic_projection_repr(
+    src_ndim: int, dims: tuple[ProjExpr]
+) -> tuple[int, int, Any, Any, Any]:
     tgt_ndim = len(dims)
     dims_c = ffi.new(f"int32_t[{tgt_ndim}]")
     weights_c = ffi.new(f"int32_t[{tgt_ndim}]")

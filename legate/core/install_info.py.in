@@ -12,6 +12,7 @@
 # IMPORTANT:
 #   * header.py.in is used as an input to string.format()
 #   * header.py is a generated file and should not be modified by hand
+from __future__ import annotations
 
 header = {header}
 libpath = {libpath}

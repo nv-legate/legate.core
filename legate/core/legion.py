@@ -12,13 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-from __future__ import absolute_import, division, print_function
+from __future__ import annotations
 
 import os
 import struct  # For packing and unpacking C data into/out-of futures
-import sys
 import weakref
+from typing import TYPE_CHECKING, Any, Iterator, Optional, Sequence, Union
+
+if TYPE_CHECKING:
+    from .context import Context
+    from .runtime import Runtime
+    import numpy.typing as npt
 
 import numpy as np
 
@@ -31,17 +35,6 @@ LEGATE_MAX_DIM = int(os.environ["LEGATE_MAX_DIM"])
 assert "LEGATE_MAX_FIELDS" in os.environ
 LEGATE_MAX_FIELDS = int(os.environ["LEGATE_MAX_FIELDS"])
 
-try:
-    xrange  # Python 2
-except NameError:
-    xrange = range  # Python 3
-
-
-# Helper method for python 3 support
-def _itervalues(obj):
-    return obj.values() if sys.version_info > (3,) else obj.viewvalues()
-
-
 # We can't call out to the CFFI from inside of finalizer methods
 # because that can risk a deadlock (CFFI's lock is stupid, they
 # take it still in python so if a garbage collection is triggered
@@ -49,15 +42,16 @@ def _itervalues(obj):
 # CFFI call inside a finalizer because the lock is not reentrant).
 # Therefore we defer deletions until we end up launching things
 # later at which point we know that it is safe to issue deletions
-_pending_unordered = dict()
+_pending_unordered: dict[Any, Any] = dict()
+
 # We also have some deletion operations which are only safe to
 # be done if we know the Legion runtime is still running so we'll
 # move them here and only issue the when we know we are inside
 # of the execution of a task in some way
-_pending_deletions = list()
+_pending_deletions: list[Any] = list()
 
 
-def legate_task_preamble(runtime, context):
+def legate_task_preamble(runtime: Runtime, context: Context) -> None:
     """
     This function sets up internal Legate state for a task in Python.
     In general, users only need to worry about calling this function
@@ -69,7 +63,7 @@ def legate_task_preamble(runtime, context):
     _pending_unordered[context] = list()
 
 
-def legate_task_progress(runtime, context):
+def legate_task_progress(runtime: Runtime, context: Context) -> None:
     """
     This method will progress any internal Legate Core functionality
     that is running in the background. Legate clients do not need to
@@ -142,7 +136,7 @@ def legate_task_progress(runtime, context):
         _pending_deletions.clear()
 
 
-def legate_task_postamble(runtime, context):
+def legate_task_postamble(runtime: Runtime, context: Context) -> None:
     """
     This function cleans up internal Legate state for a task in Python.
     In general, users only need to worry about calling this function
@@ -156,8 +150,10 @@ def legate_task_postamble(runtime, context):
 
 # This is a decorator for wrapping the launch method on launchers
 # to dispatch any unordered deletions while the task is live
-def dispatch(func):
-    def launch(launcher, runtime, context, *args):
+def dispatch(func: Any) -> Any:
+    def launch(
+        launcher: Any, runtime: Runtime, context: Context, *args: Any
+    ) -> Any:
         # This context should always be in the dictionary
         legate_task_progress(runtime, context)
         return func(launcher, runtime, context, *args)
@@ -165,8 +161,12 @@ def dispatch(func):
     return launch
 
 
-class Point(object):
-    def __init__(self, p=None, dim=None):
+class Point:
+    point: Any
+
+    def __init__(
+        self, p: Optional[Union[Point, Any]] = None, dim: Optional[int] = None
+    ) -> None:
         """
         The Point class wraps a `legion_domain_point_t` in the Legion C API.
         """
@@ -178,26 +178,28 @@ class Point(object):
             self.set_point(p)
 
     @property
-    def dim(self):
+    def dim(self) -> int:
         return self.point.dim
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: int) -> Any:
         if key >= self.dim:
             raise KeyError("key cannot exceed dimensionality")
         return self.point.point_data[key]
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: int, value: Any) -> None:
         if key >= self.dim:
             raise KeyError("key cannot exceed dimensionality")
         self.point.point_data[key] = value
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         value = hash(self.dim)
         for idx in range(self.dim):
             value = value ^ hash(self[idx])
         return value
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Point):
+            return NotImplemented
         if self.dim != len(other):
             return False
         for idx in range(self.dim):
@@ -205,22 +207,22 @@ class Point(object):
                 return False
         return True
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self.dim
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[int]:
         for idx in range(self.dim):
             yield self[idx]
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         p_strs = [str(self[i]) for i in range(self.dim)]
         return "Point(p=[" + ",".join(p_strs) + "])"
 
-    def __str__(self):
+    def __str__(self) -> str:
         p_strs = [str(self[i]) for i in range(self.dim)]
         return "<" + ",".join(p_strs) + ">"
 
-    def set_point(self, p):
+    def set_point(self, p: Any) -> None:
         try:
             if ffi.typeof(p).cname == "legion_domain_point_t":
                 ffi.addressof(self.point)[0] = p
@@ -241,12 +243,18 @@ class Point(object):
             self.point.dim = 1
             self.point.point_data[0] = p
 
-    def raw(self):
+    def raw(self) -> Any:
         return self.point
 
 
-class Rect(object):
-    def __init__(self, hi=None, lo=None, exclusive=True, dim=None):
+class Rect:
+    def __init__(
+        self,
+        hi: Optional[Sequence[float]] = None,
+        lo: Optional[Sequence[float]] = None,
+        exclusive: bool = True,
+        dim: Optional[int] = None,
+    ) -> None:
         """
         The Rect class represents an N-D rectangle of dense points. It wraps a
         dense `legion_domain_t` (this is a special case for Domains; in the
@@ -258,48 +266,47 @@ class Rect(object):
             self.rect = legion.legion_domain_empty(0)
         else:
             self.rect = legion.legion_domain_empty(dim)
-        if hi:
+        if hi is not None:
             self.set_bounds(lo=lo, hi=hi, exclusive=exclusive)
         elif lo is not None:
             raise ValueError("'lo' cannot be set without 'hi'")
 
     @property
-    def lo(self):
+    def lo(self) -> Point:
         return self._lo
 
     @property
-    def hi(self):
+    def hi(self) -> Point:
         return self._hi
 
     @property
-    def dim(self):
+    def dim(self) -> int:
         assert self._lo.dim == self._hi.dim
         return self._lo.dim
 
-    def get_volume(self):
+    def get_volume(self) -> float:
         volume = 1
         for i in range(self.dim):
             volume *= self.hi[i] - self.lo[i] + 1
         return volume
 
-    def __eq__(self, other):
-        try:
-            if self.lo != other.lo:
-                return False
-            if self.hi != other.hi:
-                return False
-        except AttributeError:
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Rect):
+            return NotImplemented
+        if self.lo != other.lo:
+            return False
+        if self.hi != other.hi:
             return False
         return True
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         result = hash(self.dim)
         for idx in range(self.dim):
             result = result ^ hash(self.lo[idx])
             result = result ^ hash(self.hi[idx])
         return result
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Point]:
         p = Point(self._lo)
         dim = self.dim
         yield Point(p)
@@ -313,13 +320,18 @@ class Rect(object):
                     break
                 p[idx] = self._lo[idx]
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"Rect(lo={repr(self._lo)},hi={repr(self._hi)},exclusive=False)"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return str(self._lo) + ".." + str(self._hi)
 
-    def set_bounds(self, lo, hi, exclusive=True):
+    def set_bounds(
+        self,
+        lo: Optional[Sequence[float]],
+        hi: Sequence[float],
+        exclusive: bool = True,
+    ) -> None:
         if len(hi) > LEGATE_MAX_DIM:
             raise ValueError(
                 "Point cannot exceed "
@@ -337,7 +349,7 @@ class Rect(object):
         else:
             self._lo.set_point((0,) * len(hi))
 
-    def raw(self):
+    def raw(self) -> Any:
         dim = self._hi.dim
         self.rect.dim = dim
         for i in range(dim):
@@ -346,8 +358,8 @@ class Rect(object):
         return self.rect
 
 
-class Domain(object):
-    def __init__(self, domain):
+class Domain:
+    def __init__(self, domain: Any) -> None:
         """
         The Domain class wraps a `legion_domain_t` in the Legion C API. A
         Domain is the value stored by an IndexSpace. It consists of an N-D
@@ -370,13 +382,13 @@ class Domain(object):
         self.dense = legion.legion_domain_is_dense(domain)
 
     @property
-    def dim(self):
+    def dim(self) -> int:
         return self.rect.dim
 
-    def get_volume(self):
+    def get_volume(self) -> float:
         return legion.legion_domain_get_volume(self.domain)
 
-    def get_rects(self):
+    def get_rects(self) -> list[Rect]:
         # NOTE: For debugging only!
         create = getattr(
             legion,
@@ -410,8 +422,10 @@ class Domain(object):
         return rects
 
 
-class Transform(object):
-    def __init__(self, M, N, eye=True):
+class Transform:
+    trans: npt.NDArray[np.int64]
+
+    def __init__(self, M: int, N: int, eye: bool = True):
         """
         A Transform wraps an `legion_transform_{m}x{n}_t` in the Legion C API.
         A transform is simply an MxN matrix that can be used to convert Point
@@ -424,23 +438,23 @@ class Transform(object):
             self.trans = np.eye(M, N, dtype=np.int64)
         else:
             self.trans = np.zeros((M, N), dtype=np.int64)
-        self.handle = None
+        self.handle: Optional[Any] = None
 
-    def apply(self, point):
+    def apply(self, point: Point) -> tuple[float, ...]:
         """
         Convert an N-D Point into an M-D point using this transform
         """
         if len(point) != self.N:
             raise ValueError("Dimension mismatch")
-        result = ()
-        for m in xrange(self.M):
+        result: list[float] = []
+        for m in range(self.M):
             value = 0
-            for n in xrange(self.N):
+            for n in range(self.N):
                 value += self.trans[m, n] * point[n]
-            result += (value,)
-        return result
+            result.append(value)
+        return tuple(result)
 
-    def compose(self, outer):
+    def compose(self, outer: Transform) -> Transform:
         """
         Construct a composed transform of this transform with another transform
         """
@@ -450,7 +464,7 @@ class Transform(object):
         np.matmul(outer.trans, self.trans, out=result.trans)
         return result
 
-    def raw(self):
+    def raw(self) -> Any:
         if self.handle is None:
             self.handle = legion.legion_domain_transform_identity(
                 self.M, self.N
@@ -462,24 +476,27 @@ class Transform(object):
                 self.handle.matrix[m * self.N + n] = self.trans[m, n]
         return self.handle
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Transform):
+            return NotImplemented
         return (
-            type(self) == type(other)
-            and self.M == other.M
+            self.M == other.M
             and self.N == other.N
             and np.array_equal(self.trans, other.trans)
         )
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self.trans.tobytes())
 
-    def __str__(self):
+    def __str__(self) -> str:
         return np.array_repr(self.trans).replace("\n", "").replace(" ", "")
 
 
 # An Affine Transform for points in one space to points in another
-class AffineTransform(object):
-    def __init__(self, M, N, eye=True):
+class AffineTransform:
+    transform: npt.NDArray[np.int64]
+
+    def __init__(self, M: int, N: int, eye: bool = True):
         """
         An AffineTransform wraps a `legion_affine_transform_{m}x{n}_t` in the
         Legion C API. The AffineTransform class represents an affine transform
@@ -496,25 +513,25 @@ class AffineTransform(object):
         else:
             self.transform = np.zeros((M + 1, N + 1), dtype=np.int64)
             self.transform[self.M, self.N] = 1
-        self.handle = None
+        self.handle: Optional[Any] = None
 
     @property
-    def offset(self):
+    def offset(self) -> npt.NDArray[np.int64]:
         return self.transform[: self.M, self.N]
 
     @offset.setter
-    def offset(self, offset):
+    def offset(self, offset: float) -> None:
         self.transform[: self.M, self.N] = offset
 
     @property
-    def trans(self):
+    def trans(self) -> npt.NDArray[np.int64]:
         return self.transform[: self.M, : self.N]
 
     @trans.setter
-    def trans(self, transform):
+    def trans(self, transform: Transform) -> None:
         self.transform[: self.M, : self.N] = transform
 
-    def apply(self, point):
+    def apply(self, point: Point) -> tuple[Any, ...]:
         """
         Convert an N-D Point into an M-D point using this transform
         """
@@ -525,7 +542,7 @@ class AffineTransform(object):
         pout = np.dot(self.transform, pin)
         return tuple(pout[: self.M])
 
-    def compose(self, outer):
+    def compose(self, outer: AffineTransform) -> AffineTransform:
         """
         Construct a composed transform of this transform with another transform
         """
@@ -535,7 +552,7 @@ class AffineTransform(object):
         np.matmul(outer.transform, self.transform, out=result.transform)
         return result
 
-    def raw(self):
+    def raw(self) -> Any:
         if self.handle is None:
             self.handle = legion.legion_domain_affine_transform_identity(
                 self.M, self.N
@@ -551,23 +568,33 @@ class AffineTransform(object):
             self.handle.offset.point_data[m] = self.transform[m, self.N]
         return self.handle
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, AffineTransform):
+            return NotImplemented
         return (
-            type(self) == type(other)
-            and self.M == other.M
+            self.M == other.M
             and self.N == other.N
             and np.array_equal(self.transform, other.transform)
         )
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self.transform.tobytes())
 
-    def __str__(self):
+    def __str__(self) -> str:
         return np.array_repr(self.transform).replace("\n", "").replace(" ", "")
 
 
-class IndexSpace(object):
-    def __init__(self, context, runtime, handle, parent=None, owned=True):
+class IndexSpace:
+    _logical_handle: Any
+
+    def __init__(
+        self,
+        context: Context,
+        runtime: Runtime,
+        handle: Any,
+        parent: Optional[IndexPartition] = None,
+        owned: bool = True,
+    ) -> None:
         """
         An IndexSpace object wraps a `legion_index_space_t` in the Legion C
         API. An IndexSpace provides a name for a collection of (sparse) points.
@@ -593,7 +620,7 @@ class IndexSpace(object):
         self.runtime = runtime
         self.parent = parent
         self.handle = handle
-        self.children = None
+        self.children: Union[set[IndexPartition], None] = None
         self.owned = owned
         self._domain = None
         if owned and self.parent is not None and not self.parent.owned:
@@ -602,13 +629,13 @@ class IndexSpace(object):
                 "IndexPartition also owns its handle"
             )
 
-    def __del__(self):
+    def __del__(self) -> None:
         # We only need to delete top-level index spaces
         # Ignore any deletions though that occur after the task is done
         if self.owned and self.parent is None:
             self.destroy(unordered=True)
 
-    def _can_delete(self):
+    def _can_delete(self) -> bool:
         if not self.owned:
             return False
         if self.parent is not None:
@@ -616,7 +643,7 @@ class IndexSpace(object):
         # Must be owned at the root to enable deletion
         return self.owned
 
-    def add_child(self, child):
+    def add_child(self, child: IndexPartition) -> None:
         """
         Add a child partition to this IndexSpace.
         """
@@ -629,9 +656,8 @@ class IndexSpace(object):
             # Make this a weak set since partitions can be removed
             # independently from their parent index space
             self.children = set()
-        self.children.add(child)
 
-    def destroy(self, unordered=False):
+    def destroy(self, unordered: bool = False) -> None:
         """
         Force deletion of this IndexSpace regardless of ownership
         This must be a root index space
@@ -656,7 +682,10 @@ class IndexSpace(object):
             # that we need to pass along to keep things alive
             if hasattr(self, "_logical_handle"):
                 _pending_unordered[self.context].append(
-                    ((self.handle, self._logical_handle), type(self))
+                    (
+                        (self.handle, getattr(self, "_logical_handle")),
+                        type(self),
+                    )
                 )
             else:
                 _pending_unordered[self.context].append(
@@ -667,7 +696,7 @@ class IndexSpace(object):
                 self.runtime, self.context, self.handle, False
             )
 
-    def get_root(self):
+    def get_root(self) -> IndexSpace:
         """
         Find the root of IndexSpace tree.
         """
@@ -677,7 +706,7 @@ class IndexSpace(object):
             return self.parent.get_root()
 
     @property
-    def domain(self):
+    def domain(self) -> Domain:
         """
         Return a Domain that represents the points in this index space
         """
@@ -687,19 +716,19 @@ class IndexSpace(object):
             )
         return self._domain
 
-    def get_bounds(self):
+    def get_bounds(self) -> Rect:
         """
         Return a Rect that represents the upper bounds of the IndexSpace.
         """
         return self.domain.rect
 
-    def get_volume(self):
+    def get_volume(self) -> float:
         """
         Return the total number of points in the IndexSpace
         """
         return self.domain.get_volume()
 
-    def get_dim(self):
+    def get_dim(self) -> int:
         """
         Return the dimension of the IndexSpace
         """
@@ -708,7 +737,7 @@ class IndexSpace(object):
         return legion.legion_index_space_get_dim(self.handle)
 
 
-class PartitionFunctor(object):
+class PartitionFunctor:
     """
     PartitionFunctor objects provide a common interface to computing
     IndexPartition objects using Legion's support for dependent partitioning.
@@ -716,7 +745,15 @@ class PartitionFunctor(object):
     through a custom PartitionFunctor.
     """
 
-    def partition(self, runtime, context, parent, color_space, kind, part_id):
+    def partition(
+        self,
+        runtime: Runtime,
+        context: Context,
+        parent: IndexSpace,
+        color_space: IndexSpace,
+        kind: int,
+        part_id: int,
+    ) -> Any:
         """
         The generic interface for computing an IndexPartition
 
@@ -741,7 +778,7 @@ class PartitionFunctor(object):
 
 
 class PartitionByRestriction(PartitionFunctor):
-    def __init__(self, transform, extent):
+    def __init__(self, transform: Transform, extent: Rect) -> None:
         """
         PartitionByRestriction constructs a tesselated IndexPartition where an
         IndexSpace is created for each Point in the color space by projecting
@@ -754,7 +791,15 @@ class PartitionByRestriction(PartitionFunctor):
         self.transform = transform
         self.extent = extent
 
-    def partition(self, runtime, context, parent, color_space, kind, part_id):
+    def partition(
+        self,
+        runtime: Runtime,
+        context: Context,
+        parent: IndexSpace,
+        color_space: IndexSpace,
+        kind: Any,
+        part_id: int,
+    ) -> Any:
         return legion.legion_index_partition_create_by_restriction(
             runtime,
             context,
@@ -768,7 +813,14 @@ class PartitionByRestriction(PartitionFunctor):
 
 
 class PartitionByImage(PartitionFunctor):
-    def __init__(self, region, part, field, mapper=0, tag=0):
+    def __init__(
+        self,
+        region: Region,
+        part: IndexPartition,
+        field: Union[int, FieldID],
+        mapper: int = 0,
+        tag: int = 0,
+    ) -> None:
         """
         PartitionByImage projects an existing IndexPartition through a field
         of Points that point from one LogicalRegion into an IndexSpace.
@@ -780,7 +832,15 @@ class PartitionByImage(PartitionFunctor):
         self.mapper = mapper
         self.tag = tag
 
-    def partition(self, runtime, context, parent, color_space, kind, part_id):
+    def partition(
+        self,
+        runtime: Runtime,
+        context: Context,
+        parent: IndexSpace,
+        color_space: IndexSpace,
+        kind: Any,
+        part_id: int,
+    ) -> Any:
         return legion.legion_index_partition_create_by_image(
             runtime,
             context,
@@ -797,7 +857,14 @@ class PartitionByImage(PartitionFunctor):
 
 
 class PartitionByImageRange(PartitionFunctor):
-    def __init__(self, region, part, field, mapper=0, tag=0):
+    def __init__(
+        self,
+        region: Region,
+        part: IndexPartition,
+        field: Union[int, FieldID],
+        mapper: int = 0,
+        tag: int = 0,
+    ) -> None:
         """
         PartitionByImageRange projects an existing IndexPartition through a
         field of Rects that point from one LogicalRegion into a range of points
@@ -810,7 +877,15 @@ class PartitionByImageRange(PartitionFunctor):
         self.mapper = mapper
         self.tag = tag
 
-    def partition(self, runtime, context, parent, color_space, kind, part_id):
+    def partition(
+        self,
+        runtime: Runtime,
+        context: Context,
+        parent: IndexSpace,
+        color_space: IndexSpace,
+        kind: Any,
+        part_id: int,
+    ) -> Any:
         return legion.legion_index_partition_create_by_image_range(
             runtime,
             context,
@@ -827,7 +902,15 @@ class PartitionByImageRange(PartitionFunctor):
 
 
 class PartitionByPreimage(PartitionFunctor):
-    def __init__(self, projection, region, parent, field, mapper=0, tag=0):
+    def __init__(
+        self,
+        projection: IndexPartition,
+        region: Region,
+        parent: Region,
+        field: Union[int, FieldID],
+        mapper: int = 0,
+        tag: int = 0,
+    ) -> None:
         """
         Partition by preimage induces a partition on the index space of
         'region' by taking a field of region that points into the index
@@ -840,7 +923,15 @@ class PartitionByPreimage(PartitionFunctor):
         self.mapper = mapper
         self.tag = tag
 
-    def partition(self, runtime, context, parent, color_space, kind, part_id):
+    def partition(
+        self,
+        runtime: Runtime,
+        context: Context,
+        parent: IndexSpace,
+        color_space: IndexSpace,
+        kind: Any,
+        part_id: int,
+    ) -> Any:
         return legion.legion_index_partition_create_by_preimage(
             runtime,
             context,
@@ -857,7 +948,15 @@ class PartitionByPreimage(PartitionFunctor):
 
 
 class PartitionByPreimageRange(PartitionFunctor):
-    def __init__(self, projection, region, parent, field, mapper=0, tag=0):
+    def __init__(
+        self,
+        projection: IndexPartition,
+        region: Region,
+        parent: Region,
+        field: Union[int, FieldID],
+        mapper: int = 0,
+        tag: int = 0,
+    ) -> None:
         """
         Partition by preimage range induces a partition on the index space of
         'region' by taking a field of region that points into ranges of the
@@ -870,7 +969,15 @@ class PartitionByPreimageRange(PartitionFunctor):
         self.mapper = mapper
         self.tag = tag
 
-    def partition(self, runtime, context, parent, color_space, kind, part_id):
+    def partition(
+        self,
+        runtime: Runtime,
+        context: Context,
+        parent: IndexSpace,
+        color_space: IndexSpace,
+        kind: Any,
+        part_id: int,
+    ) -> Any:
         return legion.legion_index_partition_create_by_preimage_range(
             runtime,
             context,
@@ -892,7 +999,15 @@ class EqualPartition(PartitionFunctor):
     children with roughly equal numbers of points in each child.
     """
 
-    def partition(self, runtime, context, parent, color_space, kind, part_id):
+    def partition(
+        self,
+        runtime: Runtime,
+        context: Context,
+        parent: IndexSpace,
+        color_space: IndexSpace,
+        kind: Any,
+        part_id: int,
+    ) -> Any:
         return legion.legion_index_partition_create_equal(
             runtime,
             context,
@@ -904,7 +1019,7 @@ class EqualPartition(PartitionFunctor):
 
 
 class PartitionByWeights(PartitionFunctor):
-    def __init__(self, weights):
+    def __init__(self, weights: Union[FutureMap, list[int]]) -> None:
         """
         PartitionByWeights will construct an IndexPartition with the number of
         points in each child IndexSpace being allocated proportionally to the
@@ -913,7 +1028,15 @@ class PartitionByWeights(PartitionFunctor):
 
         self.weights = weights
 
-    def partition(self, runtime, context, parent, color_space, kind, part_id):
+    def partition(
+        self,
+        runtime: Runtime,
+        context: Context,
+        parent: IndexSpace,
+        color_space: IndexSpace,
+        kind: int,
+        part_id: int,
+    ) -> Any:
         if isinstance(self.weights, FutureMap):
             return legion.legion_index_partition_create_by_weights_future_map(
                 runtime,
@@ -928,7 +1051,7 @@ class PartitionByWeights(PartitionFunctor):
             num_weights = len(self.weights)
             colors = ffi.new("legion_domain_point_t[%d]" % num_weights)
             weights = ffi.new("int[%d]" % num_weights)
-            for i in xrange(num_weights):
+            for i in range(num_weights):
                 colors[i] = Point([i]).raw()
                 weights[i] = self.weights[i]
             return legion.legion_index_partition_create_by_weights(
@@ -947,7 +1070,7 @@ class PartitionByWeights(PartitionFunctor):
 
 
 class PartitionByDomain(PartitionFunctor):
-    def __init__(self, domains):
+    def __init__(self, domains: Union[FutureMap, dict[Point, Rect]]) -> None:
         """
         PartitionByDomain will construct an IndexPartition given an explicit
         mapping of colors to domains.
@@ -958,7 +1081,15 @@ class PartitionByDomain(PartitionFunctor):
         """
         self.domains = domains
 
-    def partition(self, runtime, context, parent, color_space, kind, part_id):
+    def partition(
+        self,
+        runtime: Runtime,
+        context: Context,
+        parent: IndexSpace,
+        color_space: IndexSpace,
+        kind: Any,
+        part_id: int,
+    ) -> Any:
         if isinstance(self.domains, FutureMap):
             return legion.legion_index_partition_create_by_domain_future_map(
                 runtime,
@@ -997,20 +1128,22 @@ class PartitionByDomain(PartitionFunctor):
 # TODO more kinds of partition functors here
 
 
-class IndexPartition(object):
+class IndexPartition:
+    _logical_handle: Any
+
     def __init__(
         self,
-        context,
-        runtime,
-        parent,
-        color_space,
-        functor=None,
-        handle=None,
-        kind=legion.LEGION_COMPUTE_KIND,
-        part_id=legion.legion_auto_generate_id(),
-        owned=True,
-        keep=False,
-    ):
+        context: Context,
+        runtime: Runtime,
+        parent: IndexSpace,
+        color_space: IndexSpace,
+        functor: Optional[Any] = None,
+        handle: Optional[Any] = None,
+        kind: int = legion.LEGION_COMPUTE_KIND,
+        part_id: int = legion.legion_auto_generate_id(),
+        owned: bool = True,
+        keep: bool = False,
+    ) -> None:
         """
         An IndexPartition wraps a `legion_index_partition_t` in the Legion C
         API. It describes a partitioning of an IndexSpace into a collection of
@@ -1056,16 +1189,13 @@ class IndexPartition(object):
             handle = functor.partition(
                 runtime, context, parent, color_space, kind, part_id
             )
-            if keep:
-                self.functor = functor
-            else:
-                self.functor = None
+            self.functor = functor if keep else None
         elif functor is not None:
             raise ValueError("'functor' must be None if 'handle' is specified")
         else:
             self.functor = None
         self.handle = handle
-        self.children = dict()
+        self.children: dict[Point, IndexSpace] = dict()
         self.owned = owned
         if owned and not self.parent.owned:
             raise ValueError(
@@ -1074,12 +1204,12 @@ class IndexPartition(object):
             )
         self.parent.add_child(self)
 
-    def __del__(self):
+    def __del__(self) -> None:
         # Record a pending deletion if this task is still executing
         if self.owned and self.parent._can_delete():
             self.destroy(unordered=True, recursive=True)
 
-    def get_child(self, point):
+    def get_child(self, point: Point) -> IndexSpace:
         """
         Find the child IndexSpace assocated with the point in the color space.
         """
@@ -1098,7 +1228,7 @@ class IndexPartition(object):
         self.children[point] = child
         return child
 
-    def destroy(self, unordered=False, recursive=True):
+    def destroy(self, unordered: bool = False, recursive: bool = True) -> None:
         """
         Force deletion of this IndexPartition regardless of ownership
 
@@ -1123,7 +1253,11 @@ class IndexPartition(object):
             if hasattr(self, "_logical_handle"):
                 _pending_unordered[self.context].append(
                     (
-                        (self.handle, recursive, self._logical_handle),
+                        (
+                            self.handle,
+                            recursive,
+                            getattr(self, "_logical_handle"),
+                        ),
                         type(self),
                     )
                 )
@@ -1136,18 +1270,24 @@ class IndexPartition(object):
                 self.runtime, self.context, self.handle, False, recursive
             )
         if recursive:
-            for child in _itervalues(self.children):
+            for child in self.children.values():
                 child.owned = False
 
-    def get_root(self):
+    def get_root(self) -> IndexSpace:
         """
         Return the root IndexSpace in this tree.
         """
         return self.parent.get_root()
 
 
-class FieldSpace(object):
-    def __init__(self, context, runtime, handle=None, owned=True):
+class FieldSpace:
+    def __init__(
+        self,
+        context: Context,
+        runtime: Runtime,
+        handle: Optional[Any] = None,
+        owned: bool = True,
+    ) -> None:
         """
         A FieldSpace wraps a `legion_field_space_t` in the Legion C API.
         It is used to represent the columns in a LogicalRegion. Users can
@@ -1176,21 +1316,23 @@ class FieldSpace(object):
         else:
             self.handle = handle
             self.alloc = None
-        self.fields = dict()
+        self.fields: dict[int, Any] = dict()
         self.owned = owned
 
-    def __del__(self):
+    def __del__(self) -> None:
         # Only delete this if the task is still executing otherwise we leak it
         if self.owned:
             self.destroy(unordered=True)
 
     @property
-    def has_space(self):
+    def has_space(self) -> bool:
         return len(self.fields) < LEGATE_MAX_FIELDS
 
     def allocate_field(
-        self, size_or_type, field_id=legion.legion_auto_generate_id()
-    ):
+        self,
+        size_or_type: Any,
+        field_id: int = legion.legion_auto_generate_id(),
+    ) -> int:
         """
         Allocate a field in the field space by its size or by inferring its
         size from some type representation that is passed in
@@ -1221,8 +1363,8 @@ class FieldSpace(object):
             return self.allocate_field_ctype(size_or_type, field_id=field_id)
 
     def allocate_field_ctype(
-        self, ctype, field_id=legion.legion_auto_generate_id()
-    ):
+        self, ctype: Any, field_id: int = legion.legion_auto_generate_id()
+    ) -> int:
         """
         Allocate a field in the field space based on the ctypes type.
         """
@@ -1243,8 +1385,8 @@ class FieldSpace(object):
         return field_id
 
     def allocate_field_dtype(
-        self, dtype, field_id=legion.legion_auto_generate_id()
-    ):
+        self, dtype: Any, field_id: int = legion.legion_auto_generate_id()
+    ) -> int:
         """
         Allocate a field in the field space based on the NumPy dtype.
         """
@@ -1265,8 +1407,8 @@ class FieldSpace(object):
         return field_id
 
     def allocate_field_from_future(
-        self, future, field_id=legion.legion_auto_generate_id()
-    ):
+        self, future: Future, field_id: int = legion.legion_auto_generate_id()
+    ) -> int:
         """
         Allocate a field based on a size stored in a Future
         """
@@ -1286,7 +1428,7 @@ class FieldSpace(object):
         self.fields[field_id] = future
         return field_id
 
-    def destroy_field(self, field_id, unordered=False):
+    def destroy_field(self, field_id: int, unordered: bool = False) -> None:
         """
         Destroy a field in the field space and reclaim its resources.
         Set `unordered` to `True` if this is done inside a garbage collection.
@@ -1309,16 +1451,16 @@ class FieldSpace(object):
             legion.legion_field_allocator_free_field(self.alloc, field_id)
             del self.fields[field_id]
 
-    def get_type(self, field_id):
+    def get_type(self, field_id: int) -> Any:
         """
         Return the type of the object used to create the field.
         """
         return self.fields[field_id]
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.fields)
 
-    def destroy(self, unordered=False):
+    def destroy(self, unordered: bool = False) -> None:
         """
         Force deletion of this FieldSpace regardless of ownership
 
@@ -1347,8 +1489,8 @@ class FieldSpace(object):
                 legion.legion_field_allocator_destroy(self.alloc)
 
 
-class FieldID(object):
-    def __init__(self, field_space, fid, type):
+class FieldID:
+    def __init__(self, field_space: FieldSpace, fid: int, type: Any) -> None:
         """
         A FieldID class wraps a `legion_field_id_t` in the Legion C API.
         It provides a canonical way to represent an allocated field in a
@@ -1367,32 +1509,38 @@ class FieldID(object):
         self._type = type
         self.field_id = fid
 
-    def destroy(self, unordered=False):
+    def destroy(self, unordered: bool = False) -> None:
         """
         Deallocate this field from the field space
         """
         self.field_space.destroy_field(self.field_id, unordered)
 
     @property
-    def fid(self):
+    def fid(self) -> int:
         return self.field_id
 
     @property
-    def type(self):
+    def type(self) -> Any:
         return self._type
 
 
-class Region(object):
+FieldListLike = Union[int, FieldID, list[int], list[FieldID]]
+
+
+class Region:
+
+    handle: Any
+
     def __init__(
         self,
-        context,
-        runtime,
-        index_space,
-        field_space,
-        handle=None,
-        parent=None,
-        owned=True,
-    ):
+        context: Context,
+        runtime: Runtime,
+        index_space: IndexSpace,
+        field_space: FieldSpace,
+        handle: Optional[Any] = None,
+        parent: Optional[Partition] = None,
+        owned: bool = True,
+    ) -> None:
         """
         A Region wraps a `legion_logical_region_t` in the Legion C API.
         A logical region describes a dataframe-like representation of program
@@ -1430,7 +1578,7 @@ class Region(object):
         if handle is None:
             if parent is None:
                 # Create a new logical region
-                handle = legion.logical_region_create(
+                handle = legion.legion_logical_region_create(
                     runtime,
                     context,
                     index_space.handle,
@@ -1445,13 +1593,13 @@ class Region(object):
         self.owned = owned
         # Make this a WeakValueDicitionary so that entries can be
         # removed once the partitions are deleted
-        self.children = weakref.WeakValueDictionary()
+        self.children: Any = weakref.WeakValueDictionary()
 
-    def __del__(self):
+    def __del__(self) -> None:
         if self.owned and self.parent is None:
             self.destroy(unordered=True)
 
-    def same_handle(self, other):
+    def same_handle(self, other: Region) -> bool:
         return (
             type(self) == type(other)
             and self.handle.tree_id == other.handle.tree_id
@@ -1459,7 +1607,7 @@ class Region(object):
             and self.handle.field_space.id == other.handle.field_space.id
         )
 
-    def __str__(self):
+    def __str__(self) -> str:
         return (
             f"Region("
             f"tid: {self.handle.tree_id}, "
@@ -1467,7 +1615,7 @@ class Region(object):
             f"fs: {self.handle.field_space.id})"
         )
 
-    def destroy(self, unordered=False):
+    def destroy(self, unordered: bool = False) -> None:
         """
         Force deletion of this Region regardless of ownership
 
@@ -1493,7 +1641,7 @@ class Region(object):
                 self.runtime, self.context, self.handle, False
             )
 
-    def get_child(self, index_partition):
+    def get_child(self, index_partition: IndexPartition) -> Partition:
         """
         Find the Partition object that corresponds to the corresponding
         IndexPartition object for the IndexSpace of this Region.
@@ -1504,17 +1652,27 @@ class Region(object):
         self.children[index_partition] = child
         return child
 
-    def get_root(self):
+    def get_root(self) -> Region:
         """
         Return the root Region in this tree.
         """
-        if not self.parent:
-            return self
-        return self.parent.parent.get_root()
+        if self.parent is not None:
+            return self.parent.get_root()
+        return self
 
 
-class Partition(object):
-    def __init__(self, context, runtime, index_partition, parent, handle=None):
+class Partition:
+    handle: Any
+    index_partition: IndexPartition
+
+    def __init__(
+        self,
+        context: Context,
+        runtime: Runtime,
+        index_partition: IndexPartition,
+        parent: Region,
+        handle: Optional[Any] = None,
+    ) -> None:
         """
         A Partition wraps a `legion_logical_partition_t` in the Legion C API.
 
@@ -1545,20 +1703,20 @@ class Partition(object):
                 index_partition.handle,
             )
         self.handle = handle
-        self.children = dict()
+        self.children: dict[Point, Region] = dict()
 
     @property
-    def color_space(self):
+    def color_space(self) -> IndexSpace:
         return self.index_partition.color_space
 
-    def destroy(self):
+    def destroy(self) -> None:
         """
         This method is deprecated and is a no-op
         Partition objects never need to explicitly destroy their handles
         """
         pass
 
-    def get_child(self, point):
+    def get_child(self, point: Point) -> Region:
         """
         Return the child Region associated with the point in the color space.
         """
@@ -1579,15 +1737,23 @@ class Partition(object):
         self.children[point] = child
         return child
 
-    def get_root(self):
+    def get_root(self) -> Region:
         """
         Return the Region at the root of this region tree.
         """
         return self.parent.get_root()
 
 
-class Fill(object):
-    def __init__(self, region, parent, field, future, mapper=0, tag=0):
+class Fill:
+    def __init__(
+        self,
+        region: Region,
+        parent: Region,
+        field: Union[int, FieldID],
+        future: FutureMap,
+        mapper: int = 0,
+        tag: int = 0,
+    ) -> None:
         """
         A Fill object provides a mechanism for launching fill operations
         in the Legion C API. A fill operation initializes the data in a
@@ -1627,7 +1793,7 @@ class Fill(object):
             self.launcher, legion.legion_fill_launcher_destroy
         )
 
-    def set_point(self, point):
+    def set_point(self, point: Union[Point, Any]) -> None:
         """
         Set the point to describe this fill for sharding
         with control replication
@@ -1642,7 +1808,7 @@ class Fill(object):
         else:
             legion.legion_fill_launcher_set_point(self.launcher, point)
 
-    def set_sharding_space(self, space):
+    def set_sharding_space(self, space: IndexSpace) -> None:
         """
         Set the sharding space for this individual fill launch
 
@@ -1656,25 +1822,25 @@ class Fill(object):
         )
 
     @dispatch
-    def launch(self, runtime, context):
+    def launch(self, runtime: Runtime, context: Context) -> None:
         """
         Dispatch the fill to the runtime
         """
         legion.legion_fill_launcher_execute(runtime, context, self.launcher)
 
 
-class IndexFill(object):
+class IndexFill:
     def __init__(
         self,
-        partition,
-        proj,
-        parent,
-        field,
-        future,
-        mapper=0,
-        tag=0,
-        space=None,
-    ):
+        partition: Partition,
+        proj: int,
+        parent: Region,
+        field: Union[int, FieldID],
+        future: Future,
+        mapper: int = 0,
+        tag: int = 0,
+        space: Optional[Union[IndexSpace, Domain]] = None,
+    ) -> None:
         """
         An IndexFill object provides a mechanism for launching index space fill
         operations in the Legion C API. Index fill operations enable many
@@ -1727,7 +1893,7 @@ class IndexFill(object):
                 mapper,
                 tag,
             )
-        elif isinstance(self.space, IndexSpace):
+        elif isinstance(space, IndexSpace):
             self.launcher = legion.legion_index_fill_launcher_create_from_future_with_space(  # noqa: E501
                 space.handle,
                 partition.handle,
@@ -1761,7 +1927,7 @@ class IndexFill(object):
             self.launcher, legion.legion_index_fill_launcher_destroy
         )
 
-    def set_sharding_space(self, space):
+    def set_sharding_space(self, space: IndexSpace) -> None:
         """
         Set the sharding space to use for this index fill launch
         with control replication
@@ -1776,7 +1942,7 @@ class IndexFill(object):
         )
 
     @dispatch
-    def launch(self, runtime, context):
+    def launch(self, runtime: Runtime, context: Context) -> None:
         """
         Dispatch the index fill to the runtime
         """
@@ -1785,8 +1951,8 @@ class IndexFill(object):
         )
 
 
-class Copy(object):
-    def __init__(self, mapper=0, tag=0):
+class Copy:
+    def __init__(self, mapper: int = 0, tag: int = 0) -> None:
         """
         A Copy object provides a mechanism for launching explicit
         region-to-region copy operations. Note: you should NOT use
@@ -1809,7 +1975,7 @@ class Copy(object):
         self.src_req_index = 0
         self.dst_req_index = 0
 
-    def set_possible_src_indirect_out_of_range(self, flag):
+    def set_possible_src_indirect_out_of_range(self, flag: bool) -> None:
         """
         For gather indirection copies indicate whether any of the
         source indirection pointers may point out of bounds in the
@@ -1824,7 +1990,7 @@ class Copy(object):
             self._launcher, flag
         )
 
-    def set_possible_dst_indirect_out_of_range(self, flag):
+    def set_possible_dst_indirect_out_of_range(self, flag: bool) -> None:
         """
         For scatter indirection copies indicate whether any of the
         destination indirection pointers may point out of bounds in the
@@ -1842,13 +2008,13 @@ class Copy(object):
 
     def add_src_requirement(
         self,
-        region,
-        fields,
-        parent=None,
-        tag=0,
-        coherence=legion.LEGION_EXCLUSIVE,
-        **kwargs,
-    ):
+        region: Region,
+        fields: FieldListLike,
+        parent: Optional[Region] = None,
+        tag: int = 0,
+        coherence: int = legion.LEGION_EXCLUSIVE,
+        **kwargs: Any,
+    ) -> None:
         """
         Add a source region requirement to the copy operation
 
@@ -1874,9 +2040,8 @@ class Copy(object):
             tag,
             False,
         )
-        if not isinstance(fields, list):
-            fields = [fields]
-        for field in fields:
+        fields_list = fields if isinstance(fields, list) else [fields]
+        for field in fields_list:
             legion.legion_copy_launcher_add_src_field(
                 self.launcher,
                 self.src_req_index,
@@ -1890,14 +2055,14 @@ class Copy(object):
 
     def add_dst_requirement(
         self,
-        region,
-        fields,
-        parent=None,
-        tag=0,
-        redop=0,
-        coherence=legion.LEGION_EXCLUSIVE,
-        **kwargs,
-    ):
+        region: Region,
+        fields: FieldListLike,
+        parent: Optional[Region] = None,
+        tag: int = 0,
+        redop: int = 0,
+        coherence: int = legion.LEGION_EXCLUSIVE,
+        **kwargs: Any,
+    ) -> None:
         """
         Add a destination region requirement to the copy operation
 
@@ -1936,9 +2101,8 @@ class Copy(object):
                 tag,
                 False,
             )
-        if not isinstance(fields, list):
-            fields = [fields]
-        for field in fields:
+        fields_list = fields if isinstance(fields, list) else [fields]
+        for field in fields_list:
             legion.legion_copy_launcher_add_dst_field(
                 self.launcher,
                 self.dst_req_index,
@@ -1952,14 +2116,14 @@ class Copy(object):
 
     def add_src_indirect_requirement(
         self,
-        region,
-        field,
-        parent=None,
-        tag=0,
-        is_range=False,
-        coherence=legion.LEGION_EXCLUSIVE,
-        **kwargs,
-    ):
+        region: Region,
+        field: Union[int, FieldID],
+        parent: Optional[Region] = None,
+        tag: int = 0,
+        is_range: bool = False,
+        coherence: int = legion.LEGION_EXCLUSIVE,
+        **kwargs: Any,
+    ) -> None:
         """
         Add a source indirection region requirement to the copy operation
 
@@ -1995,14 +2159,14 @@ class Copy(object):
 
     def add_dst_indirect_requirement(
         self,
-        region,
-        field,
-        parent=None,
-        tag=0,
-        is_range=False,
-        coherence=legion.LEGION_EXCLUSIVE,
-        **kwargs,
-    ):
+        region: Region,
+        field: Union[int, FieldID],
+        parent: Optional[Region] = None,
+        tag: int = 0,
+        is_range: bool = False,
+        coherence: int = legion.LEGION_EXCLUSIVE,
+        **kwargs: Any,
+    ) -> None:
         """
         Add a destination indirection region requirement to the copy operation
 
@@ -2038,7 +2202,7 @@ class Copy(object):
             False,
         )
 
-    def set_point(self, point):
+    def set_point(self, point: Union[Point, Any]) -> None:
         """
         Set the point to describe this copy for sharding
         with control replication
@@ -2053,7 +2217,7 @@ class Copy(object):
         else:
             legion.legion_copy_launcher_set_point(self.launcher, point)
 
-    def set_sharding_space(self, space):
+    def set_sharding_space(self, space: IndexSpace) -> None:
         """
         Set the sharding space for this individual copy launch
 
@@ -2067,7 +2231,7 @@ class Copy(object):
         )
 
     @dispatch
-    def launch(self, runtime, context):
+    def launch(self, runtime: Runtime, context: Context) -> None:
         """
         Dispatch the copy operation to the runtime
         """
@@ -2079,8 +2243,8 @@ class Copy(object):
         legion.legion_copy_launcher_execute(runtime, context, self.launcher)
 
 
-class IndexCopy(object):
-    def __init__(self, domain, mapper=0, tag=0):
+class IndexCopy:
+    def __init__(self, domain: Rect, mapper: int = 0, tag: int = 0) -> None:
         """
         An IndexCopy object provides a mechanism for launching explicit
         region-to-region copies between many different subregions
@@ -2090,7 +2254,7 @@ class IndexCopy(object):
 
         Parameters
         ----------
-        domain : Domain
+        domain : Rect
             The domain of points for the index space launch
         mapper : int
             ID of the mapper to use for mapping the copy operation
@@ -2106,7 +2270,7 @@ class IndexCopy(object):
         self.src_req_index = 0
         self.dst_req_index = 0
 
-    def set_possible_src_indirect_out_of_range(self, flag):
+    def set_possible_src_indirect_out_of_range(self, flag: bool) -> None:
         """
         For gather indirection copies indicate whether any of the
         source indirection pointers may point out of bounds in the
@@ -2121,7 +2285,7 @@ class IndexCopy(object):
             self._launcher, flag
         )
 
-    def set_possible_dst_indirect_out_of_range(self, flag):
+    def set_possible_dst_indirect_out_of_range(self, flag: bool) -> None:
         """
         For scatter indirection copies indicate whether any of the
         destination indirection pointers may point out of bounds in the
@@ -2139,14 +2303,14 @@ class IndexCopy(object):
 
     def add_src_requirement(
         self,
-        upper_bound,
-        fields,
-        projection,
-        parent=None,
-        tag=0,
-        coherence=legion.LEGION_EXCLUSIVE,
-        **kwargs,
-    ):
+        upper_bound: Union[Region, Partition],
+        fields: FieldListLike,
+        projection: int,
+        parent: Optional[Region] = None,
+        tag: int = 0,
+        coherence: int = legion.LEGION_EXCLUSIVE,
+        **kwargs: Any,
+    ) -> None:
         """
         Add a source region requirement to the index copy operation
 
@@ -2195,9 +2359,8 @@ class IndexCopy(object):
             )
         else:
             raise TypeError("'upper_bound' must be a Region or Partition")
-        if not isinstance(fields, list):
-            fields = [fields]
-        for field in fields:
+        fields_list = fields if isinstance(fields, list) else [fields]
+        for field in fields_list:
             legion.legion_index_copy_launcher_add_src_field(
                 self.launcher,
                 self.src_req_index,
@@ -2211,15 +2374,15 @@ class IndexCopy(object):
 
     def add_dst_requirement(
         self,
-        upper_bound,
-        fields,
-        projection,
-        parent=None,
-        tag=0,
-        redop=0,
-        coherence=legion.LEGION_EXCLUSIVE,
-        **kwargs,
-    ):
+        upper_bound: Union[Region, Partition],
+        fields: FieldListLike,
+        projection: int,
+        parent: Optional[Region] = None,
+        tag: int = 0,
+        redop: int = 0,
+        coherence: int = legion.LEGION_EXCLUSIVE,
+        **kwargs: Any,
+    ) -> None:
         """
         Add a destination region requirement to the index copy operation
 
@@ -2298,9 +2461,8 @@ class IndexCopy(object):
                 )
         else:
             raise TypeError("'upper_bound' must be a Region or a Partition")
-        if not isinstance(fields, list):
-            fields = [fields]
-        for field in fields:
+        fields_list = fields if isinstance(fields, list) else [fields]
+        for field in fields_list:
             legion.legion_index_copy_launcher_add_dst_field(
                 self.launcher,
                 self.dst_req_index,
@@ -2314,15 +2476,15 @@ class IndexCopy(object):
 
     def add_src_indirect_requirement(
         self,
-        upper_bound,
-        field,
-        projection,
-        parent=None,
-        tag=0,
-        is_range=False,
-        coherence=legion.LEGION_EXCLUSIVE,
-        **kwargs,
-    ):
+        upper_bound: Union[Region, Partition],
+        field: Union[int, FieldID],
+        projection: int,
+        parent: Optional[Region] = None,
+        tag: int = 0,
+        is_range: bool = False,
+        coherence: int = legion.LEGION_EXCLUSIVE,
+        **kwargs: Any,
+    ) -> None:
         """
         Add a source indirection region requirement to the index copy operation
 
@@ -2386,15 +2548,15 @@ class IndexCopy(object):
 
     def add_dst_indirect_requirement(
         self,
-        upper_bound,
-        field,
-        projection,
-        parent=None,
-        tag=0,
-        is_range=False,
-        coherence=legion.LEGION_EXCLUSIVE,
-        **kwargs,
-    ):
+        upper_bound: Union[Region, Partition],
+        field: Union[int, FieldID],
+        projection: int,
+        parent: Optional[Region] = None,
+        tag: int = 0,
+        is_range: bool = False,
+        coherence: int = legion.LEGION_EXCLUSIVE,
+        **kwargs: Any,
+    ) -> None:
         """
         Add a destination indirection region requirement
         to the index copy operation
@@ -2457,7 +2619,7 @@ class IndexCopy(object):
         else:
             raise TypeError("'upper_bound' must be a Region or Partition")
 
-    def set_sharding_space(self, space):
+    def set_sharding_space(self, space: IndexSpace) -> None:
         """
         Set the sharding space to use for this index copy launch
         with control replication
@@ -2472,7 +2634,7 @@ class IndexCopy(object):
         )
 
     @dispatch
-    def launch(self, runtime, context):
+    def launch(self, runtime: Runtime, context: Context) -> None:
         if self.src_req_index != self.dst_req_index:
             raise RuntimeError(
                 "Number of source and destination requirements "
@@ -2483,16 +2645,16 @@ class IndexCopy(object):
         )
 
 
-class Attach(object):
+class Attach:
     def __init__(
         self,
-        region,
-        field,
-        data,
-        mapper=0,
-        tag=0,
-        read_only=False,
-    ):
+        region: Region,
+        field: Union[int, FieldID],
+        data: memoryview,
+        mapper: int = 0,
+        tag: int = 0,
+        read_only: bool = False,
+    ) -> None:
         """
         An Attach object provides a mechanism for attaching external data to
         a logical region, thereby allowing Legion to use external data in
@@ -2530,7 +2692,7 @@ class Attach(object):
             data.f_contiguous,
         )
 
-    def set_restricted(self, restricted):
+    def set_restricted(self, restricted: bool) -> None:
         """
         Set whether restricted coherence should be used on the logical region.
         If restricted coherence is enabled, changes to the data in the logical
@@ -2538,7 +2700,7 @@ class Attach(object):
         """
         legion.legion_attach_launcher_set_restricted(self.launcher, restricted)
 
-    def set_mapped(self, mapped):
+    def set_mapped(self, mapped: bool) -> None:
         """
         Set whether the resulting PhysicalRegion should be considered mapped
         in the enclosing task context.
@@ -2546,7 +2708,7 @@ class Attach(object):
         legion.legion_attach_launcher_set_mapped(self.launcher, mapped)
 
     @dispatch
-    def launch(self, runtime, context):
+    def launch(self, runtime: Runtime, context: Context) -> PhysicalRegion:
         """
         Dispatch the attach operation to the runtime
 
@@ -2562,8 +2724,8 @@ class Attach(object):
         )
 
 
-class Detach(object):
-    def __init__(self, region, flush=True):
+class Detach:
+    def __init__(self, region: PhysicalRegion, flush: bool = True) -> None:
         """
         A Detach operation will unbind an external resource from a logical
         region.  This will also allow any outstanding mutations to the logical
@@ -2583,7 +2745,9 @@ class Detach(object):
         self.region = region.region
         self.flush = flush
 
-    def launch(self, runtime, context, unordered=False):
+    def launch(
+        self, runtime: Runtime, context: Context, unordered: bool = False
+    ) -> Union[Future, None]:
         """
         Dispatch the detach operation to the runtime
 
@@ -2613,8 +2777,8 @@ class Detach(object):
             )
 
 
-class ExternalResources(object):
-    def __init__(self, handle):
+class ExternalResources:
+    def __init__(self, handle: Any) -> None:
         """
         Stores a collection of physical regions that were attached together
         using the same IndexAttach operation. Wraps a
@@ -2622,10 +2786,10 @@ class ExternalResources(object):
         """
         self.handle = handle
 
-    def __del__(self):
+    def __del__(self) -> None:
         self.destroy(unordered=True)
 
-    def destroy(self, unordered):
+    def destroy(self, unordered: bool) -> None:
         """
         Eagerly destroy this object before the garbage collector does.
         It is illegal to use the object after this call.
@@ -2645,15 +2809,15 @@ class ExternalResources(object):
         self.handle = None
 
 
-class IndexAttach(object):
+class IndexAttach:
     def __init__(
         self,
-        parent,
-        field,
-        shard_local_data,
-        mapper=0,
-        tag=0,
-    ):
+        parent: Region,
+        field: Union[int, FieldID],
+        shard_local_data: dict[Region, Any],
+        mapper: int = 0,
+        tag: int = 0,
+    ) -> None:
         """
         A variant of Attach that allows attaching multiple pieces of external
         data as sub-regions of the same parent region. Each piece may reside
@@ -2696,7 +2860,8 @@ class IndexAttach(object):
         legion.legion_memory_query_destroy(query)
         legion.legion_machine_destroy(machine)
         for (sub_region, buf) in shard_local_data.items():
-            assert sub_region.parent.parent is parent
+            if sub_region.parent is not None:
+                assert sub_region.parent.parent is parent
             legion.legion_index_attach_launcher_attach_array_soa(
                 self.launcher,
                 sub_region.handle,
@@ -2707,7 +2872,7 @@ class IndexAttach(object):
                 mem,
             )
 
-    def set_restricted(self, restricted):
+    def set_restricted(self, restricted: bool) -> None:
         """
         Set whether restricted coherence should be used on the logical region.
         If restricted coherence is enabled, changes to the data in the logical
@@ -2717,7 +2882,7 @@ class IndexAttach(object):
             self.launcher, restricted
         )
 
-    def set_deduplicate_across_shards(self, deduplicate):
+    def set_deduplicate_across_shards(self, deduplicate: bool) -> None:
         """
         Set whether the runtime should check for duplicate resources
         """
@@ -2726,7 +2891,7 @@ class IndexAttach(object):
         )
 
     @dispatch
-    def launch(self, runtime, context):
+    def launch(self, runtime: Runtime, context: Context) -> ExternalResources:
         """
         Dispatch the operation to the runtime
 
@@ -2741,8 +2906,10 @@ class IndexAttach(object):
         )
 
 
-class IndexDetach(object):
-    def __init__(self, external_resources, flush=True):
+class IndexDetach:
+    def __init__(
+        self, external_resources: ExternalResources, flush: bool = True
+    ) -> None:
         """
         An IndexDetach operation will unbind a collection of external resources
         that were attached together to a logical region through an IndexAttach.
@@ -2760,7 +2927,7 @@ class IndexDetach(object):
         self.external_resources = external_resources
         self.flush = flush
 
-    def launch(self, runtime, context):
+    def launch(self, runtime: Runtime, context: Context) -> Future:
         """
         Dispatch the operation to the runtime
 
@@ -2779,8 +2946,14 @@ class IndexDetach(object):
         )
 
 
-class Acquire(object):
-    def __init__(self, region, fields, mapper=0, tag=0):
+class Acquire:
+    def __init__(
+        self,
+        region: Region,
+        fields: FieldListLike,
+        mapper: int = 0,
+        tag: int = 0,
+    ) -> None:
         """
         An Acquire operation provides a mechanism for temporarily relaxing
         restricted coherence on a logical region, thereby enabling Legion
@@ -2807,9 +2980,8 @@ class Acquire(object):
         self._launcher = ffi.gc(
             self.launcher, legion.legion_acquire_launcher_destroy
         )
-        if not isinstance(fields, list):
-            fields = [fields]
-        for field in fields:
+        fields_list = fields if isinstance(fields, list) else [fields]
+        for field in fields_list:
             legion.legion_acquire_launcher_add_field(
                 self.launcher,
                 ffi.cast(
@@ -2819,15 +2991,21 @@ class Acquire(object):
             )
 
     @dispatch
-    def launch(self, runtime, context):
+    def launch(self, runtime: Runtime, context: Context) -> None:
         """
         Dispatch the acquire operation to the runtime
         """
         legion.legion_acquire_launcher_execute(runtime, context, self.launcher)
 
 
-class Release(object):
-    def __init__(self, region, fields, mapper=0, tag=0):
+class Release:
+    def __init__(
+        self,
+        region: Region,
+        fields: FieldListLike,
+        mapper: int = 0,
+        tag: int = 0,
+    ) -> None:
         """
         A Release operation will undo any acquire operations by putting
         restricted coherence requirements back onto a logical region.
@@ -2853,9 +3031,8 @@ class Release(object):
         self._launcher = ffi.gc(
             self.launcher, legion.legion_release_launcher_destroy
         )
-        if not isinstance(fields, list):
-            fields = [fields]
-        for field in fields:
+        fields_list = fields if isinstance(fields, list) else [fields]
+        for field in fields_list:
             legion.legion_release_launcher_add_field(
                 self.launcher,
                 ffi.cast(
@@ -2865,15 +3042,17 @@ class Release(object):
             )
 
     @dispatch
-    def launch(self, runtime, context):
+    def launch(self, runtime: Runtime, context: Context) -> None:
         """
         Dispatch the release operation to the runtime
         """
         legion.legion_release_launcher_execute(runtime, context, self.launcher)
 
 
-class Future(object):
-    def __init__(self, handle=None, type=None):
+class Future:
+    def __init__(
+        self, handle: Optional[Any] = None, type: Optional[Any] = None
+    ) -> None:
         """
         A Future object represents a pending computation from a task or other
         operation. Futures can carry "unstructured" data as a buffer of bytes
@@ -2890,20 +3069,22 @@ class Future(object):
         self.handle = handle
         self._type = type
 
-    def __del__(self):
+    def __del__(self) -> None:
         self.destroy(unordered=True)
 
     # We cannot use this as __eq__ because then we would have to define a
     # compatible __hash__, which would not be sound because self.handle can
     # change during the lifetime of a Future object, and thus so would the
     # object's hash. So we just leave the default `f1 == f2 <==> f1 is f2`.
-    def same_handle(self, other):
+    def same_handle(self, other: Future) -> bool:
         return type(self) == type(other) and self.handle == other.handle
 
-    def __str__(self):
-        return f"Future({str(self.handle.impl)[16:-1]})"
+    def __str__(self) -> str:
+        if self.handle:
+            return f"Future({str(self.handle.impl)[16:-1]})"
+        return "Future(None)"
 
-    def destroy(self, unordered):
+    def destroy(self, unordered: bool) -> None:
         """
         Eagerly destroy this Future before the garbage collector does
         It is illegal to use the Future after this call
@@ -2922,7 +3103,9 @@ class Future(object):
             legion.legion_future_destroy(self.handle)
         self.handle = None
 
-    def set_value(self, runtime, data, size, type=None):
+    def set_value(
+        self, runtime: Runtime, data: Any, size: int, type: object = None
+    ) -> None:
         """
         Parameters
         ----------
@@ -2942,7 +3125,7 @@ class Future(object):
         )
         self._type = type
 
-    def get_buffer(self, size=None):
+    def get_buffer(self, size: Optional[int] = None) -> Any:
         """
         Return a buffer storing the data for this Future.
         This will block until the future completes if it has not already.
@@ -2962,14 +3145,14 @@ class Future(object):
             legion.legion_future_get_untyped_pointer(self.handle), size
         )
 
-    def get_size(self):
+    def get_size(self) -> int:
         """
         Return the size of the buffer that the future stores.
         This will block until the future completes if it has not already.
         """
         return legion.legion_future_get_untyped_size(self.handle)
 
-    def get_string(self):
+    def get_string(self) -> bytes:
         """
         Return the result of the future interpreted as a string.
         This will block until the future completes if it has not already.
@@ -2982,7 +3165,7 @@ class Future(object):
             size,
         )
 
-    def is_ready(self, subscribe=False):
+    def is_ready(self, subscribe: bool = False) -> bool:
         """
         Parameters
         ----------
@@ -2995,32 +3178,36 @@ class Future(object):
         """
         return legion.legion_future_is_ready_subscribe(self.handle, subscribe)
 
-    def wait(self):
+    def wait(self) -> None:
         """
         Block waiting for the future to complete
         """
         legion.legion_future_get_void_result(self.handle)
 
     @property
-    def type(self):
+    def type(self) -> Any:
         return self._type
 
 
-class OutputRegion(object):
+class OutputRegion:
+    field_space: Union[FieldSpace, None]
+    region: Optional[Region]
+    _logical_handle: Any
+
     def __init__(
         self,
-        context,
-        runtime,
-        field_space=None,
-        fields=[],
-        global_indexing=True,
-        existing=None,
-        flags=None,
-        proj=None,
-        parent=None,
-        coherence=legion.LEGION_EXCLUSIVE,
-        tag=0,
-    ):
+        context: Context,
+        runtime: Runtime,
+        field_space: Optional[FieldSpace] = None,
+        fields: Optional[FieldListLike] = None,
+        global_indexing: bool = True,
+        existing: Optional[Union[Region, Partition]] = None,
+        flags: Optional[int] = None,
+        proj: Optional[int] = None,
+        parent: Optional[Region] = None,
+        coherence: int = legion.LEGION_EXCLUSIVE,
+        tag: int = 0,
+    ) -> None:
         """
         An OutputRegion creates a name for a logical region that will be
         produced as an output from executing a/an (index) task. The bounds of
@@ -3062,7 +3249,7 @@ class OutputRegion(object):
         """
         self.context = context
         self.runtime = runtime
-        self.fields = set()
+        self.fields: set[Union[int, FieldID]] = set()
 
         if field_space is not None:
             if existing is not None:
@@ -3149,15 +3336,17 @@ class OutputRegion(object):
                 "'existing' must be set if 'field_space' is not set"
             )
 
-        if not isinstance(fields, list):
-            fields = [fields]
-        for field in fields:
-            self.add_field(field)
+        if fields is not None:
+            if isinstance(fields, list):
+                for field in fields:
+                    self.add_field(field)
+            else:
+                self.add_field(fields)
 
-    def __del__(self):
+    def __del__(self) -> None:
         self.destroy(unordered=True)
 
-    def destroy(self, unordered):
+    def destroy(self, unordered: bool) -> None:
         """
         Eagerly destroy this OutputRegion before the garbage collector does
         It is illegal to use the OutputRegion after this call
@@ -3176,7 +3365,9 @@ class OutputRegion(object):
             legion.legion_future_destroy(self.handle)
         self.handle = None
 
-    def add_field(self, field, instance=True):
+    def add_field(
+        self, field: Union[int, FieldID], instance: bool = True
+    ) -> None:
         """
         Add a field to this output region
 
@@ -3199,7 +3390,7 @@ class OutputRegion(object):
                 instance,
             )
 
-    def get_region(self, owned=True):
+    def get_region(self, owned: bool = True) -> Region:
         """
         Parameters
         ----------
@@ -3230,7 +3421,7 @@ class OutputRegion(object):
             )
         return self.region
 
-    def get_partition(self, owned=True):
+    def get_partition(self, owned: bool = True) -> Partition:
         """
         Parameters
         ----------
@@ -3275,8 +3466,8 @@ class OutputRegion(object):
         return self.partition
 
 
-class PhysicalRegion(object):
-    def __init__(self, handle, region):
+class PhysicalRegion:
+    def __init__(self, handle: Any, region: Region) -> None:
         """
         A PhysicalRegion object represents an actual mapping of a logical
         region to a physical allocation in memory and its associated layout.
@@ -3295,10 +3486,10 @@ class PhysicalRegion(object):
         self.handle = handle
         self.region = region
 
-    def __del__(self):
+    def __del__(self) -> None:
         self.destroy(unordered=True)
 
-    def destroy(self, unordered):
+    def destroy(self, unordered: bool) -> None:
         """
         Eagerly destroy this PhysicalRegion before the garbage collector does
         It is illegal to use the PhysicalRegion after this call
@@ -3317,7 +3508,7 @@ class PhysicalRegion(object):
             legion.legion_physical_region_destroy(self.handle)
         self.handle = None
 
-    def is_mapped(self):
+    def is_mapped(self) -> bool:
         """
         Returns
         -------
@@ -3330,7 +3521,7 @@ class PhysicalRegion(object):
             return False
         return legion.legion_physical_region_is_mapped(self.handle)
 
-    def wait_until_valid(self):
+    def wait_until_valid(self) -> None:
         """
         Block waiting until the data in this physical region
         to be ready to access
@@ -3338,7 +3529,7 @@ class PhysicalRegion(object):
         legion.legion_physical_region_wait_until_valid(self.handle)
 
     @dispatch
-    def remap(self, runtime, context):
+    def remap(self, runtime: Runtime, context: Context) -> None:
         """
         Remap this physical region so that it contains a valid copy of the
         data for the logical region that it represents
@@ -3346,10 +3537,12 @@ class PhysicalRegion(object):
         legion.legion_runtime_remap_region(runtime, context, self.handle)
 
     # Launching one of these means remapping it
-    def launch(self, runtime, context):
+    def launch(self, runtime: Runtime, context: Context) -> None:
         self.remap(runtime, context)
 
-    def unmap(self, runtime, context, unordered=False):
+    def unmap(
+        self, runtime: Runtime, context: Context, unordered: bool = False
+    ) -> None:
         """
         Unmap this physical region from the current logical region
         If 'unordered=True' you must call legate_task_progress to
@@ -3370,17 +3563,17 @@ class PhysicalRegion(object):
             legion.legion_runtime_unmap_region(runtime, context, self.handle)
 
 
-class InlineMapping(object):
+class InlineMapping:
     def __init__(
         self,
-        region,
-        fields,
-        read_only=False,
-        mapper=0,
-        tag=0,
-        parent=None,
-        coherence=legion.LEGION_EXCLUSIVE,
-    ):
+        region: Region,
+        fields: FieldListLike,
+        read_only: bool = False,
+        mapper: int = 0,
+        tag: int = 0,
+        parent: Optional[Region] = None,
+        coherence: int = legion.LEGION_EXCLUSIVE,
+    ) -> None:
         """
         An InlineMapping object provides a mechanism for creating a mapped
         PhysicalRegion of a logical region for the local task to directly
@@ -3432,9 +3625,8 @@ class InlineMapping(object):
         self._launcher = ffi.gc(
             self.launcher, legion.legion_inline_launcher_destroy
         )
-        if not isinstance(fields, list):
-            fields = [fields]
-        for field in fields:
+        fields_list = fields if isinstance(fields, list) else [fields]
+        for field in fields_list:
             legion.legion_inline_launcher_add_field(
                 self.launcher,
                 ffi.cast(
@@ -3445,7 +3637,7 @@ class InlineMapping(object):
             )
 
     @dispatch
-    def launch(self, runtime, context):
+    def launch(self, runtime: Runtime, context: Context) -> PhysicalRegion:
         """
         Dispatch the inline mapping to the runtime
 
@@ -3461,8 +3653,15 @@ class InlineMapping(object):
         )
 
 
-class Task(object):
-    def __init__(self, task_id, data=None, size=0, mapper=0, tag=0):
+class Task:
+    def __init__(
+        self,
+        task_id: int,
+        data: Any = None,
+        size: int = 0,
+        mapper: int = 0,
+        tag: int = 0,
+    ) -> None:
         """
         A Task object provides a mechanism for launching individual sub-tasks
         from the current parent task. For scalability we encourage the use of
@@ -3508,17 +3707,17 @@ class Task(object):
             self.launcher, legion.legion_task_launcher_destroy
         )
         self.req_index = 0
-        self.outputs = []
+        self.outputs: list[OutputRegion] = []
 
     def add_no_access_requirement(
         self,
-        region,
-        fields,
-        parent=None,
-        tag=0,
-        flags=0,
-        coherence=legion.LEGION_EXCLUSIVE,
-    ):
+        region: Region,
+        fields: FieldListLike,
+        parent: Optional[Region] = None,
+        tag: int = 0,
+        flags: int = 0,
+        coherence: int = legion.LEGION_EXCLUSIVE,
+    ) -> None:
         """
         Add a no-access region requirement to the task
 
@@ -3546,9 +3745,8 @@ class Task(object):
             tag,
             False,
         )
-        if not isinstance(fields, list):
-            fields = [fields]
-        for field in fields:
+        fields_list = fields if isinstance(fields, list) else [fields]
+        for field in fields_list:
             legion.legion_task_launcher_add_field(
                 self.launcher,
                 self.req_index,
@@ -3566,13 +3764,13 @@ class Task(object):
 
     def add_read_requirement(
         self,
-        region,
-        fields,
-        parent=None,
-        tag=0,
-        flags=0,
-        coherence=legion.LEGION_EXCLUSIVE,
-    ):
+        region: Region,
+        fields: FieldListLike,
+        parent: Optional[Region] = None,
+        tag: int = 0,
+        flags: int = 0,
+        coherence: int = legion.LEGION_EXCLUSIVE,
+    ) -> None:
         """
         Add a read-only region requirement to the task
 
@@ -3600,9 +3798,8 @@ class Task(object):
             tag,
             False,
         )
-        if not isinstance(fields, list):
-            fields = [fields]
-        for field in fields:
+        fields_list = fields if isinstance(fields, list) else [fields]
+        for field in fields_list:
             legion.legion_task_launcher_add_field(
                 self.launcher,
                 self.req_index,
@@ -3620,13 +3817,13 @@ class Task(object):
 
     def add_write_requirement(
         self,
-        region,
-        fields,
-        parent=None,
-        tag=0,
-        flags=0,
-        coherence=legion.LEGION_EXCLUSIVE,
-    ):
+        region: Region,
+        fields: FieldListLike,
+        parent: Optional[Region] = None,
+        tag: int = 0,
+        flags: int = 0,
+        coherence: int = legion.LEGION_EXCLUSIVE,
+    ) -> None:
         """
         Add a write-discard region requirement to the task
 
@@ -3654,9 +3851,8 @@ class Task(object):
             tag,
             False,
         )
-        if not isinstance(fields, list):
-            fields = [fields]
-        for field in fields:
+        fields_list = fields if isinstance(fields, list) else [fields]
+        for field in fields_list:
             legion.legion_task_launcher_add_field(
                 self.launcher,
                 self.req_index,
@@ -3674,13 +3870,13 @@ class Task(object):
 
     def add_read_write_requirement(
         self,
-        region,
-        fields,
-        parent=None,
-        tag=0,
-        flags=0,
-        coherence=legion.LEGION_EXCLUSIVE,
-    ):
+        region: Region,
+        fields: FieldListLike,
+        parent: Optional[Region] = None,
+        tag: int = 0,
+        flags: int = 0,
+        coherence: int = legion.LEGION_EXCLUSIVE,
+    ) -> None:
         """
         Add a read-write region requirement to the task
 
@@ -3708,9 +3904,8 @@ class Task(object):
             tag,
             False,
         )
-        if not isinstance(fields, list):
-            fields = [fields]
-        for field in fields:
+        fields_list = fields if isinstance(fields, list) else [fields]
+        for field in fields_list:
             legion.legion_task_launcher_add_field(
                 self.launcher,
                 self.req_index,
@@ -3728,14 +3923,14 @@ class Task(object):
 
     def add_reduction_requirement(
         self,
-        region,
-        fields,
-        redop,
-        parent=None,
-        tag=0,
-        flags=0,
-        coherence=legion.LEGION_EXCLUSIVE,
-    ):
+        region: Region,
+        fields: FieldListLike,
+        redop: int,
+        parent: Optional[Region] = None,
+        tag: int = 0,
+        flags: int = 0,
+        coherence: int = legion.LEGION_EXCLUSIVE,
+    ) -> None:
         """
         Add a reduction region requirement to the task
 
@@ -3765,9 +3960,8 @@ class Task(object):
             tag,
             False,
         )
-        if not isinstance(fields, list):
-            fields = [fields]
-        for field in fields:
+        fields_list = fields if isinstance(fields, list) else [fields]
+        for field in fields_list:
             legion.legion_task_launcher_add_field(
                 self.launcher,
                 self.req_index,
@@ -3783,7 +3977,7 @@ class Task(object):
             )
         self.req_index += 1
 
-    def add_future(self, future):
+    def add_future(self, future: Future) -> None:
         """
         Record a future as a precondition on running this task
 
@@ -3794,7 +3988,7 @@ class Task(object):
         """
         legion.legion_task_launcher_add_future(self.launcher, future.handle)
 
-    def add_output(self, output):
+    def add_output(self, output: OutputRegion) -> None:
         """
         Add an output region to the region requirements for this task
 
@@ -3805,7 +3999,7 @@ class Task(object):
         """
         self.outputs.append(output)
 
-    def add_outputs(self, outputs):
+    def add_outputs(self, outputs: list[OutputRegion]) -> None:
         """
         Add a output regions to the region requirements for this task
 
@@ -3816,7 +4010,7 @@ class Task(object):
         """
         self.outputs.extend(outputs)
 
-    def set_point(self, point):
+    def set_point(self, point: Union[Point, Any]) -> None:
         """
         Set the point to describe this task for sharding
         with control replication
@@ -3831,7 +4025,7 @@ class Task(object):
         else:
             legion.legion_task_launcher_set_point(self.launcher, point)
 
-    def set_sharding_space(self, space):
+    def set_sharding_space(self, space: IndexSpace) -> None:
         """
         Set the sharding space for this individual task launch
 
@@ -3844,7 +4038,7 @@ class Task(object):
             self.launcher, space.handle
         )
 
-    def set_local_function(self, local):
+    def set_local_function(self, local: bool) -> None:
         """
         Set a flag indicating whether this task can be considered a local
         function task. Specifically that means it only has future
@@ -3860,7 +4054,7 @@ class Task(object):
         )
 
     @dispatch
-    def launch(self, runtime, context):
+    def launch(self, runtime: Runtime, context: Context) -> Future:
         """
         Dispatch the task launch to the runtime
 
@@ -3891,8 +4085,8 @@ class Task(object):
             )
 
 
-class FutureMap(object):
-    def __init__(self, handle=None):
+class FutureMap:
+    def __init__(self, handle: Optional[Any] = None) -> None:
         """
         A FutureMap object represents a collection of Future objects created by
         an index space operation such as an IndexTask launch. Applications can
@@ -3907,10 +4101,10 @@ class FutureMap(object):
         """
         self.handle = handle
 
-    def __del__(self):
+    def __del__(self) -> None:
         self.destroy(unordered=True)
 
-    def destroy(self, unordered):
+    def destroy(self, unordered: bool) -> None:
         """
         Eagerly destroy this FutureMap before the garbage collector does
         It is illegal to use the FutureMap after this call
@@ -3929,13 +4123,13 @@ class FutureMap(object):
             legion.legion_future_map_destroy(self.handle)
         self.handle = None
 
-    def wait(self):
+    def wait(self) -> None:
         """
         Wait for all the futures in the future map to complete
         """
         legion.legion_future_map_wait_all_results(self.handle)
 
-    def get_future(self, point):
+    def get_future(self, point: Point) -> Future:
         """
         Extract a specific future from the future map
 
@@ -3953,8 +4147,14 @@ class FutureMap(object):
         )
 
     def reduce(
-        self, context, runtime, redop, deterministic=False, mapper=0, tag=0
-    ):
+        self,
+        context: Context,
+        runtime: Runtime,
+        redop: int,
+        deterministic: bool = False,
+        mapper: int = 0,
+        tag: int = 0,
+    ) -> Future:
         """
         Reduce all the futures in the future map down to a single
         future value using a reduction operator.
@@ -3991,7 +4191,9 @@ class FutureMap(object):
         )
 
     @classmethod
-    def from_list(cls, context, runtime, futures):
+    def from_list(
+        cls, context: Context, runtime: Runtime, futures: list[Future]
+    ) -> Any:
         """
         Construct a FutureMap from a list of futures
 
@@ -4012,7 +4214,7 @@ class FutureMap(object):
         domain = Rect([num_futures]).raw()
         points = ffi.new("legion_domain_point_t[%d]" % num_futures)
         futures_ = ffi.new("legion_future_t[%d]" % num_futures)
-        for i in xrange(num_futures):
+        for i in range(num_futures):
             points[i] = Point([i]).raw()
             futures_[i] = futures[i].handle
         handle = legion.legion_future_map_construct_from_futures(
@@ -4029,7 +4231,14 @@ class FutureMap(object):
         return cls(handle)
 
     @classmethod
-    def from_dict(cls, context, runtime, domain, futures, collective=False):
+    def from_dict(
+        cls,
+        context: Context,
+        runtime: Runtime,
+        domain: Rect,
+        futures: dict[Point, Future],
+        collective: bool = False,
+    ) -> Any:
         """
         Construct a FutureMap from a Point-to-Future dict
 
@@ -4073,10 +4282,20 @@ class FutureMap(object):
         return cls(handle)
 
 
-class IndexTask(object):
+class IndexTask:
+
+    point_args: Union[list[Any], None]
+
     def __init__(
-        self, task_id, domain, argmap=None, data=None, size=0, mapper=0, tag=0
-    ):
+        self,
+        task_id: int,
+        domain: Union[Rect, IndexSpace],
+        argmap: Optional[ArgumentMap] = None,
+        data: Any = None,
+        size: int = 0,
+        mapper: int = 0,
+        tag: int = 0,
+    ) -> None:
         """
         An IndexTask object provides a mechnanism for launching a collection
         of tasks simultaneously as described by the points in an index space.
@@ -4144,18 +4363,18 @@ class IndexTask(object):
         )
         self.req_index = 0
         self.point_args = None
-        self.outputs = []
+        self.outputs: list[OutputRegion] = []
 
     def add_no_access_requirement(
         self,
-        upper_bound,
-        fields,
-        projection,
-        parent=None,
-        tag=0,
-        flags=0,
-        coherence=legion.LEGION_EXCLUSIVE,
-    ):
+        upper_bound: Union[Region, Partition],
+        fields: FieldListLike,
+        projection: int,
+        parent: Optional[Region] = None,
+        tag: int = 0,
+        coherence: int = legion.LEGION_EXCLUSIVE,
+        flags: int = 0,
+    ) -> None:
         """
         Add a region requirement without any access privileges
 
@@ -4205,9 +4424,8 @@ class IndexTask(object):
             )
         else:
             raise TypeError("'upper_bound' must be a Region or Partition")
-        if not isinstance(fields, list):
-            fields = [fields]
-        for field in fields:
+        fields_list = fields if isinstance(fields, list) else [fields]
+        for field in fields_list:
             legion.legion_index_launcher_add_field(
                 self.launcher,
                 self.req_index,
@@ -4225,14 +4443,14 @@ class IndexTask(object):
 
     def add_read_requirement(
         self,
-        upper_bound,
-        fields,
-        projection,
-        parent=None,
-        tag=0,
-        flags=0,
-        coherence=legion.LEGION_EXCLUSIVE,
-    ):
+        upper_bound: Union[Region, Partition],
+        fields: FieldListLike,
+        projection: int,
+        parent: Optional[Region] = None,
+        tag: int = 0,
+        flags: int = 0,
+        coherence: int = legion.LEGION_EXCLUSIVE,
+    ) -> None:
         """
         Add a region requirement read-only access privileges
 
@@ -4282,9 +4500,8 @@ class IndexTask(object):
             )
         else:
             raise TypeError("'upper_bound' must be a Region or Partition")
-        if not isinstance(fields, list):
-            fields = [fields]
-        for field in fields:
+        fields_list = fields if isinstance(fields, list) else [fields]
+        for field in fields_list:
             legion.legion_index_launcher_add_field(
                 self.launcher,
                 self.req_index,
@@ -4302,14 +4519,14 @@ class IndexTask(object):
 
     def add_write_requirement(
         self,
-        upper_bound,
-        fields,
-        projection,
-        parent=None,
-        tag=0,
-        flags=0,
-        coherence=legion.LEGION_EXCLUSIVE,
-    ):
+        upper_bound: Union[Region, Partition],
+        fields: FieldListLike,
+        projection: int,
+        parent: Optional[Region] = None,
+        tag: int = 0,
+        flags: int = 0,
+        coherence: int = legion.LEGION_EXCLUSIVE,
+    ) -> None:
         """
         Add a region requirement with write-discard privileges
 
@@ -4359,9 +4576,8 @@ class IndexTask(object):
             )
         else:
             raise TypeError("'upper_bound' must be a Region or Partition")
-        if not isinstance(fields, list):
-            fields = [fields]
-        for field in fields:
+        fields_list = fields if isinstance(fields, list) else [fields]
+        for field in fields_list:
             legion.legion_index_launcher_add_field(
                 self.launcher,
                 self.req_index,
@@ -4379,14 +4595,14 @@ class IndexTask(object):
 
     def add_read_write_requirement(
         self,
-        upper_bound,
-        fields,
-        projection,
-        parent=None,
-        tag=0,
-        flags=0,
-        coherence=legion.LEGION_EXCLUSIVE,
-    ):
+        upper_bound: Union[Region, Partition],
+        fields: FieldListLike,
+        projection: int,
+        parent: Optional[Region] = None,
+        tag: int = 0,
+        flags: int = 0,
+        coherence: int = legion.LEGION_EXCLUSIVE,
+    ) -> None:
         """
         Add a region requirement with read-write privileges
 
@@ -4434,9 +4650,8 @@ class IndexTask(object):
                 tag,
                 False,
             )
-        if not isinstance(fields, list):
-            fields = [fields]
-        for field in fields:
+        fields_list = fields if isinstance(fields, list) else [fields]
+        for field in fields_list:
             legion.legion_index_launcher_add_field(
                 self.launcher,
                 self.req_index,
@@ -4454,15 +4669,15 @@ class IndexTask(object):
 
     def add_reduction_requirement(
         self,
-        upper_bound,
-        fields,
-        redop,
-        projection,
-        parent=None,
-        tag=0,
-        flags=0,
-        coherence=legion.LEGION_EXCLUSIVE,
-    ):
+        upper_bound: Union[Region, Partition],
+        fields: FieldListLike,
+        redop: int,
+        projection: int,
+        parent: Optional[Region] = None,
+        tag: int = 0,
+        flags: int = 0,
+        coherence: int = legion.LEGION_EXCLUSIVE,
+    ) -> None:
         """
         Add a region requirement with reduction privileges for a reduction op
 
@@ -4514,9 +4729,8 @@ class IndexTask(object):
             )
         else:
             raise TypeError("'upper_bound' must be a Region or Partition")
-        if not isinstance(fields, list):
-            fields = [fields]
-        for field in fields:
+        fields_list = fields if isinstance(fields, list) else [fields]
+        for field in fields_list:
             legion.legion_index_launcher_add_field(
                 self.launcher,
                 self.req_index,
@@ -4532,7 +4746,7 @@ class IndexTask(object):
             )
         self.req_index += 1
 
-    def add_future(self, future):
+    def add_future(self, future: Future) -> None:
         """
         Add a future precondition to all the points in the index space launch
 
@@ -4543,7 +4757,7 @@ class IndexTask(object):
         """
         legion.legion_index_launcher_add_future(self.launcher, future.handle)
 
-    def add_point_future(self, argmap):
+    def add_point_future(self, argmap: ArgumentMap) -> None:
         """
         Add an additional argument map for passing arguments to each point
         task, each of these arguments will be appended to list of futures
@@ -4558,7 +4772,7 @@ class IndexTask(object):
             self.launcher, argmap.handle
         )
 
-    def add_output(self, output):
+    def add_output(self, output: OutputRegion) -> None:
         """
         Add an output region to the region requirements for this task
 
@@ -4569,7 +4783,7 @@ class IndexTask(object):
         """
         self.outputs.append(output)
 
-    def add_outputs(self, outputs):
+    def add_outputs(self, outputs: list[OutputRegion]) -> None:
         """
         Add a output regions to the region requirements for this task
 
@@ -4580,7 +4794,7 @@ class IndexTask(object):
         """
         self.outputs.extend(outputs)
 
-    def set_point(self, point, data, size):
+    def set_point(self, point: Point, data: Any, size: int) -> None:
         """
         Set the point argument in the argument map for the index task
 
@@ -4607,7 +4821,7 @@ class IndexTask(object):
             self.point_args = list()
         self.point_args.append(point_arg)
 
-    def set_sharding_space(self, space):
+    def set_sharding_space(self, space: IndexSpace) -> None:
         """
         Set the sharding space to use for this index launch
         with control replication
@@ -4622,7 +4836,9 @@ class IndexTask(object):
         )
 
     @dispatch
-    def launch(self, runtime, context, redop=0):
+    def launch(
+        self, runtime: Runtime, context: Context, redop: int = 0
+    ) -> Union[Future, FutureMap]:
         """
         Launch this index space task to the runtime
 
@@ -4691,8 +4907,8 @@ class IndexTask(object):
                 )
 
 
-class Fence(object):
-    def __init__(self, mapping=False):
+class Fence:
+    def __init__(self, mapping: bool = False) -> None:
         """
         A Fence operation provides a mechanism for inserting either
         mapping or execution fences into the stream of tasks and
@@ -4711,7 +4927,7 @@ class Fence(object):
         self.mapping = mapping
 
     @dispatch
-    def launch(self, runtime, context):
+    def launch(self, runtime: Runtime, context: Context) -> Future:
         """
         Dispatch this fence to the runtime
         """
@@ -4725,8 +4941,12 @@ class Fence(object):
             )
 
 
-class ArgumentMap(object):
-    def __init__(self, handle=None, future_map=None):
+class ArgumentMap:
+    def __init__(
+        self,
+        handle: Any = None,
+        future_map: Optional[Union[FutureMap, Any]] = None,
+    ) -> None:
         """
         An ArgumentMap is a object that allows for the passing of
         data directly to individual point tasks in IndexTask launches.
@@ -4749,12 +4969,12 @@ class ArgumentMap(object):
             self.handle = legion.legion_argument_map_from_future_map(
                 future_map.handle
             )
-        self.points = None
+        self.points: list[Any] = []
 
-    def __del__(self):
+    def __del__(self) -> None:
         self.destroy(unordered=True)
 
-    def destroy(self, unordered):
+    def destroy(self, unordered: bool) -> None:
         """
         Eagerly destroy this ArgumentMap before the garbage collector does
         It is illegal to use the ArgumentMap after this call
@@ -4773,7 +4993,9 @@ class ArgumentMap(object):
             legion.legion_future_map_destroy(self.handle)
         self.handle = None
 
-    def set_point(self, point, data, size, replace=True):
+    def set_point(
+        self, point: Point, data: Any, size: int, replace: bool = True
+    ) -> None:
         """
         Set the point argument in the argument map
 
@@ -4798,11 +5020,11 @@ class ArgumentMap(object):
         legion.legion_argument_map_set_point(
             self.handle, point.raw(), arg[0], replace
         )
-        if self.points is None:
-            self.points = list()
         self.points.append(arg)
 
-    def set_future(self, point, future, replace=True):
+    def set_future(
+        self, point: Point, future: Future, replace: bool = True
+    ) -> None:
         """
         Set the point argument in the argument map using a Future
 
@@ -4820,22 +5042,22 @@ class ArgumentMap(object):
         )
 
 
-class BufferBuilder(object):
-    def __init__(self, type_safe=False):
+class BufferBuilder:
+    def __init__(self, type_safe: bool = False) -> None:
         """
         A BufferBuilder object is a helpful utility for constructing
         buffers of bytes to pass through to tasks in other languages.
         """
 
-        self.fmt = list()  # struct format string
+        self.fmt: list[str] = []  # struct format string
         self.fmt.append("=")
         self.size = 0
-        self.args = list()
-        self.string = None
-        self.arglen = None
+        self.args: list[Union[int, float, bytes]] = []
+        self.string: Optional[bytes] = None
+        self.arglen: Optional[int] = None
         self.type_safe = type_safe
 
-    def add_arg(self, arg, type_val):
+    def add_arg(self, arg: Union[int, float, bytes], type_val: int) -> None:
         # Save the type of the object as integer right before it
         # The integer must be matched in the C++ code in the unpack functions
         if self.type_safe:
@@ -4844,72 +5066,72 @@ class BufferBuilder(object):
             self.args.append(type_val)
         self.args.append(arg)
 
-    def pack_8bit_int(self, arg):
+    def pack_8bit_int(self, arg: int) -> None:
         self.fmt.append("b")
         self.size += 1
         self.add_arg(arg, legion.LEGION_TYPE_INT8)
 
-    def pack_16bit_int(self, arg):
+    def pack_16bit_int(self, arg: int) -> None:
         self.fmt.append("h")
         self.size += 2
         self.add_arg(arg, legion.LEGION_TYPE_INT16)
 
-    def pack_32bit_int(self, arg):
+    def pack_32bit_int(self, arg: int) -> None:
         self.fmt.append("i")
         self.size += 4
         self.add_arg(arg, legion.LEGION_TYPE_INT32)
 
-    def pack_64bit_int(self, arg):
+    def pack_64bit_int(self, arg: int) -> None:
         self.fmt.append("q")
         self.size += 8
         self.add_arg(arg, legion.LEGION_TYPE_INT64)
 
-    def pack_8bit_uint(self, arg):
+    def pack_8bit_uint(self, arg: int) -> None:
         self.fmt.append("B")
         self.size += 1
         self.add_arg(arg, legion.LEGION_TYPE_UINT8)
 
-    def pack_16bit_uint(self, arg):
+    def pack_16bit_uint(self, arg: int) -> None:
         self.fmt.append("H")
         self.size += 2
         self.add_arg(arg, legion.LEGION_TYPE_UINT16)
 
-    def pack_32bit_uint(self, arg):
+    def pack_32bit_uint(self, arg: int) -> None:
         self.fmt.append("I")
         self.size += 4
         self.add_arg(arg, legion.LEGION_TYPE_UINT32)
 
-    def pack_64bit_uint(self, arg):
+    def pack_64bit_uint(self, arg: int) -> None:
         self.fmt.append("Q")
         self.size += 8
         self.add_arg(arg, legion.LEGION_TYPE_UINT64)
 
-    def pack_32bit_float(self, arg):
+    def pack_32bit_float(self, arg: float) -> None:
         self.fmt.append("f")
         self.size += 4
         self.add_arg(arg, legion.LEGION_TYPE_FLOAT32)
 
-    def pack_64bit_float(self, arg):
+    def pack_64bit_float(self, arg: float) -> None:
         self.fmt.append("d")
         self.size += 8
         self.add_arg(arg, legion.LEGION_TYPE_FLOAT64)
 
-    def pack_bool(self, arg):
+    def pack_bool(self, arg: bool) -> None:
         self.fmt.append("?")
         self.size += 1
         self.add_arg(arg, legion.LEGION_TYPE_BOOL)
 
-    def pack_16bit_float(self, arg):
+    def pack_16bit_float(self, arg: int) -> None:
         self.fmt.append("h")
         self.size += 2
         self.add_arg(arg, legion.LEGION_TYPE_FLOAT16)
 
-    def pack_char(self, arg):
+    def pack_char(self, arg: str) -> None:
         self.fmt.append("c")
         self.size += 1
         self.add_arg(bytes(arg.encode("utf-8")), legion.LEGION_TYPE_TOTAL + 1)
 
-    def pack_64bit_complex(self, arg):
+    def pack_64bit_complex(self, arg: complex) -> None:
         if self.type_safe:
             self.fmt.append("i")
             self.size += 4
@@ -4918,7 +5140,7 @@ class BufferBuilder(object):
         self.args.append(arg.real)
         self.args.append(arg.imag)
 
-    def pack_128bit_complex(self, arg):
+    def pack_128bit_complex(self, arg: complex) -> None:
         if self.type_safe:
             self.fmt.append("i")
             self.size += 4
@@ -4927,10 +5149,10 @@ class BufferBuilder(object):
         self.args.append(arg.real)
         self.args.append(arg.imag)
 
-    def pack_dimension(self, dim):
+    def pack_dimension(self, dim: int) -> None:
         self.pack_32bit_int(dim)
 
-    def pack_point(self, point):
+    def pack_point(self, point: Point) -> None:
         if not isinstance(point, tuple):
             raise ValueError("'point' must be a tuple")
         dim = len(point)
@@ -4941,7 +5163,12 @@ class BufferBuilder(object):
         for p in point:
             self.pack_64bit_int(p)
 
-    def pack_accessor(self, field_id, transform=None, point_transform=None):
+    def pack_accessor(
+        self,
+        field_id: int,
+        transform: Optional[AffineTransform] = None,
+        point_transform: Optional[AffineTransform] = None,
+    ) -> None:
         self.pack_32bit_int(field_id)
         if not transform:
             if point_transform is not None:
@@ -4959,14 +5186,14 @@ class BufferBuilder(object):
                     raise ValueError("Dimension mismatch")
                 self.pack_transform(point_transform)
 
-    def pack_transform(self, transform):
-        for x in xrange(0, transform.M):
-            for y in xrange(0, transform.N):
+    def pack_transform(self, transform: AffineTransform) -> None:
+        for x in range(0, transform.M):
+            for y in range(0, transform.N):
                 self.pack_64bit_int(transform.trans[x, y])
-        for x in xrange(0, transform.M):
+        for x in range(0, transform.M):
             self.pack_64bit_int(transform.offset[x])
 
-    def pack_value(self, value, val_type):
+    def pack_value(self, value: Any, val_type: Any) -> None:
         if np.dtype(val_type) == np.int16:
             self.pack_16bit_int(value)
         elif np.dtype(val_type) == np.int32:
@@ -4983,7 +5210,7 @@ class BufferBuilder(object):
             self.pack_32bit_float(value)
         elif np.dtype(val_type) == np.float64:
             self.pack_64bit_float(value)
-        elif np.dtype(val_type) == np.bool:
+        elif np.dtype(val_type) == bool:  # np.bool
             self.pack_bool(value)
         elif np.dtype(val_type) == np.float16:
             self.pack_16bit_float(value)
@@ -4994,12 +5221,12 @@ class BufferBuilder(object):
         else:
             raise TypeError("Unhandled value type")
 
-    def pack_string(self, string):
+    def pack_string(self, string: str) -> None:
         self.pack_32bit_int(len(string))
         for char in string:
             self.pack_char(char)
 
-    def pack_buffer(self, buf):
+    def pack_buffer(self, buf: Any) -> None:
         self.pack_32bit_uint(buf.get_size())
         self.fmt.append(buf.fmt[1:])
         self.size += buf.size
@@ -5007,12 +5234,11 @@ class BufferBuilder(object):
 
     # Static member of this class for encoding dtypes
     _dtype_codes = {
-        bool: legion.LEGION_TYPE_BOOL,
-        np.bool: legion.LEGION_TYPE_BOOL,
+        bool: legion.LEGION_TYPE_BOOL,  # same as np.bool
         np.bool_: legion.LEGION_TYPE_BOOL,
         np.int8: legion.LEGION_TYPE_INT8,
         np.int16: legion.LEGION_TYPE_INT16,
-        np.int: legion.LEGION_TYPE_INT32,
+        int: legion.LEGION_TYPE_INT32,  # same as np.int
         np.int32: legion.LEGION_TYPE_INT32,
         np.int64: legion.LEGION_TYPE_INT64,
         np.uint8: legion.LEGION_TYPE_UINT8,
@@ -5020,7 +5246,7 @@ class BufferBuilder(object):
         np.uint32: legion.LEGION_TYPE_UINT32,
         np.uint64: legion.LEGION_TYPE_UINT64,
         np.float16: legion.LEGION_TYPE_FLOAT16,
-        np.float: legion.LEGION_TYPE_FLOAT32,
+        float: legion.LEGION_TYPE_FLOAT32,  # same np.float
         np.float32: legion.LEGION_TYPE_FLOAT32,
         np.float64: legion.LEGION_TYPE_FLOAT64,
         np.complex64: legion.LEGION_TYPE_COMPLEX64,
@@ -5028,7 +5254,7 @@ class BufferBuilder(object):
     }
 
     @classmethod
-    def encode_dtype(cls, dtype):
+    def encode_dtype(cls, dtype: Any) -> int:
         if dtype in cls._dtype_codes:
             return cls._dtype_codes[dtype]
         elif hasattr(dtype, "type") and dtype.type in cls._dtype_codes:
@@ -5037,10 +5263,10 @@ class BufferBuilder(object):
             str(dtype) + " is not a valid data type for BufferBuilder"
         )
 
-    def pack_dtype(self, dtype):
+    def pack_dtype(self, dtype: Any) -> None:
         self.pack_32bit_int(self.encode_dtype(dtype))
 
-    def get_string(self):
+    def get_string(self) -> Optional[bytes]:
         if self.string is None or self.arglen != len(self.args):
             fmtstr = "".join(self.fmt)
             assert len(fmtstr) == len(self.args) + 1
@@ -5048,5 +5274,5 @@ class BufferBuilder(object):
             self.arglen = len(self.args)
         return self.string
 
-    def get_size(self):
+    def get_size(self) -> int:
         return self.size

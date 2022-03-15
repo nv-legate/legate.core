@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from __future__ import annotations
 
 import numpy as np
 
@@ -20,7 +21,7 @@ from .operation import AutoTask, Copy, ManualTask, Reduce
 from .types import TypeSystem
 
 
-class ResourceConfig(object):
+class ResourceConfig:
     __slots__ = [
         "max_tasks",
         "max_mappers",
@@ -29,7 +30,7 @@ class ResourceConfig(object):
         "max_shardings",
     ]
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.max_tasks = 1_000_000
         self.max_mappers = 1
         self.max_reduction_ops = 0
@@ -37,8 +38,8 @@ class ResourceConfig(object):
         self.max_shardings = 0
 
 
-class ResourceScope(object):
-    def __init__(self, context, base, category):
+class ResourceScope:
+    def __init__(self, context, base, category) -> None:
         self._context = context
         self._base = base
         self._category = category
@@ -53,8 +54,8 @@ class ResourceScope(object):
         return self._base + resource_id
 
 
-class Context(object):
-    def __init__(self, runtime, library, inherit_core_types=True):
+class Context:
+    def __init__(self, runtime, library, inherit_core_types: bool = True):
         """
         A Context is a named scope for Legion resources used in a Legate
         library. A Context is created when the library is registered
