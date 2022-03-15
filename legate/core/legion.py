@@ -19,8 +19,6 @@ import struct  # For packing and unpacking C data into/out-of futures
 import weakref
 from typing import TYPE_CHECKING, Any, Iterator, Optional, Union
 
-from typing_extensions import TypeAlias
-
 if TYPE_CHECKING:
     from .context import Context
     from .runtime import Runtime
@@ -1526,7 +1524,7 @@ class FieldID:
         return self._type
 
 
-FieldListLike: TypeAlias = Union[int, FieldID, list[int], list[FieldID]]
+FieldListLike = Union[int, FieldID, list[int], list[FieldID]]
 
 
 class Region:

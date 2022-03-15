@@ -16,8 +16,6 @@ from __future__ import annotations
 
 from typing import Any, Callable, Optional, Union
 
-from typing_extensions import TypeAlias
-
 from legion_cffi import ffi  # Make sure we only have one ffi instance
 
 
@@ -83,7 +81,7 @@ class ProjExpr:
         return ProjExpr(self._dim, self._weight, self._offset + other)
 
 
-Point: TypeAlias = tuple[Union[ProjExpr, int], ...]
+Point = tuple[Union[ProjExpr, int], ...]
 
 
 def execute_functor_symbolically(
