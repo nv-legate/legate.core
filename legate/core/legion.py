@@ -1659,7 +1659,7 @@ class Region:
         Return the root Region in this tree.
         """
         if self.parent is not None:
-            return self.parent.parent.get_root()
+            return self.parent.get_root()
         return self
 
 
