@@ -5234,13 +5234,11 @@ class BufferBuilder:
 
     # Static member of this class for encoding dtypes
     _dtype_codes = {
-        bool: legion.LEGION_TYPE_BOOL,
-        # np.bool: legion.LEGION_TYPE_BOOL,
+        bool: legion.LEGION_TYPE_BOOL,  # same as np.bool
         np.bool_: legion.LEGION_TYPE_BOOL,
         np.int8: legion.LEGION_TYPE_INT8,
         np.int16: legion.LEGION_TYPE_INT16,
-        int: legion.LEGION_TYPE_INT32,
-        # np.int: legion.LEGION_TYPE_INT32, # alias for "int"
+        int: legion.LEGION_TYPE_INT32,  # same as np.int
         np.int32: legion.LEGION_TYPE_INT32,
         np.int64: legion.LEGION_TYPE_INT64,
         np.uint8: legion.LEGION_TYPE_UINT8,
@@ -5248,8 +5246,7 @@ class BufferBuilder:
         np.uint32: legion.LEGION_TYPE_UINT32,
         np.uint64: legion.LEGION_TYPE_UINT64,
         np.float16: legion.LEGION_TYPE_FLOAT16,
-        float: legion.LEGION_TYPE_FLOAT32,  # alias for "float"
-        # np.float: legion.LEGION_TYPE_FLOAT32,
+        float: legion.LEGION_TYPE_FLOAT32,  # same np.float
         np.float32: legion.LEGION_TYPE_FLOAT32,
         np.float64: legion.LEGION_TYPE_FLOAT64,
         np.complex64: legion.LEGION_TYPE_COMPLEX64,
