@@ -20,7 +20,8 @@ from typing import Any, Hashable, Iterator, Optional, TypeVar
 TOrderedSet = TypeVar("TOrderedSet", bound="OrderedSet")
 
 
-class OrderedSet(MutableSet[Hashable]):
+# todo: (bev) use MutableSet[Hashable] when feasible
+class OrderedSet(MutableSet):  # type: ignore [type-arg]
     """
     A set() variant whose iterator returns elements in insertion order.
 
