@@ -343,7 +343,9 @@ class Partitioner:
                         must_be_even.add(unknown)
                     dependent[c._rhs] = c._lhs
         for op in self._ops:
-            all_outputs.update(op.outputs)
+            all_outputs.update(
+                store for store in op.outputs if not store.unbound
+            )
 
         if self._must_be_single or len(unknowns) == 0:
             for unknown in unknowns:
