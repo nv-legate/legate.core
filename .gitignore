@@ -23,7 +23,7 @@
 legate/core/install_info.py
 /build
 /legion
-/install
+/install*
 config.mk
 /docs/legate/core/build
 *.egg-info
