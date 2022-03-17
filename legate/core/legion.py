@@ -17,7 +17,15 @@ from __future__ import annotations
 import os
 import struct  # For packing and unpacking C data into/out-of futures
 import weakref
-from typing import TYPE_CHECKING, Any, Iterator, Optional, Sequence, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Iterator,
+    List,
+    Optional,
+    Sequence,
+    Union,
+)
 
 if TYPE_CHECKING:
     from .context import Context
@@ -1524,7 +1532,8 @@ class FieldID:
         return self._type
 
 
-FieldListLike = Union[int, FieldID, list[int], list[FieldID]]
+# todo: (bev) use list[...] when feasible
+FieldListLike = Union[int, FieldID, List[int], List[FieldID]]
 
 
 class Region:
