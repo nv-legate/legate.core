@@ -18,37 +18,37 @@
 
 namespace legate {
 
-DeferredBufferAllocator::DeferredBufferAllocator(Legion::Memory::Kind kind) : target_kind(kind) {}
+IntraTaskAllocator::IntraTaskAllocator(Legion::Memory::Kind kind) : target_kind_(kind) {}
 
-DeferredBufferAllocator::~DeferredBufferAllocator()
+IntraTaskAllocator::~IntraTaskAllocator()
 {
-  for (auto& pair : buffers) { pair.second.destroy(); }
-  buffers.clear();
+  for (auto& pair : buffers_) { pair.second.destroy(); }
+  buffers_.clear();
 }
 
-char* DeferredBufferAllocator::allocate(size_t bytes)
+char* IntraTaskAllocator::allocate(size_t bytes)
 {
   if (bytes == 0) return nullptr;
 
   // Use 16-byte alignment
   bytes = (bytes + 15) / 16 * 16;
 
-  ByteBuffer buffer = create_buffer<int8_t>(bytes, target_kind);
+  ByteBuffer buffer = create_buffer<int8_t>(bytes, target_kind_);
 
   void* ptr = buffer.ptr(0);
 
-  buffers[ptr] = buffer;
+  buffers_[ptr] = buffer;
   return (char*)ptr;
 }
 
-void DeferredBufferAllocator::deallocate(char* ptr, size_t n)
+void IntraTaskAllocator::deallocate(char* ptr, size_t n)
 {
   ByteBuffer buffer;
   void* p     = ptr;
-  auto finder = buffers.find(p);
-  if (finder == buffers.end()) return;
+  auto finder = buffers_.find(p);
+  if (finder == buffers_.end()) return;
   buffer = finder->second;
-  buffers.erase(finder);
+  buffers_.erase(finder);
   buffer.destroy();
 }
 
