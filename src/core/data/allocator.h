@@ -22,14 +22,14 @@
 
 namespace legate {
 
-class DeferredBufferAllocator {
+class IntraTaskAllocator {
  public:
   using ByteBuffer = Buffer<int8_t>;
 
  public:
-  DeferredBufferAllocator() = default;
-  DeferredBufferAllocator(Legion::Memory::Kind kind);
-  virtual ~DeferredBufferAllocator();
+  IntraTaskAllocator() = default;
+  IntraTaskAllocator(Legion::Memory::Kind kind);
+  virtual ~IntraTaskAllocator();
 
  public:
   typedef char value_type;
@@ -37,8 +37,8 @@ class DeferredBufferAllocator {
   void deallocate(char* ptr, size_t n);
 
  private:
-  Legion::Memory::Kind target_kind{Legion::Memory::Kind::SYSTEM_MEM};
-  std::unordered_map<const void*, ByteBuffer> buffers{};
+  Legion::Memory::Kind target_kind_{Legion::Memory::Kind::SYSTEM_MEM};
+  std::unordered_map<const void*, ByteBuffer> buffers_{};
 };
 
 }  // namespace legate
