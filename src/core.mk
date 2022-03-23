@@ -17,6 +17,7 @@
 # General source files
 GEN_CPU_SRC	= core/legate_c.cc                 \
 							core/comm/comm.cc                \
+							core/data/allocator.cc           \
 							core/data/scalar.cc              \
 							core/data/store.cc               \
 							core/data/transform.cc           \
@@ -31,7 +32,6 @@ GEN_CPU_SRC	= core/legate_c.cc                 \
 							core/runtime/shard.cc            \
 							core/task/return.cc              \
 							core/task/task.cc                \
-							core/utilities/allocator.cc      \
 							core/utilities/debug.cc          \
 							core/utilities/deserializer.cc   \
 							core/utilities/machine.cc        \
@@ -46,6 +46,7 @@ INSTALL_HEADERS = legate.h                        \
 									legate_preamble.h               \
 									core/legate_c.h                 \
 									core/comm/communicator.h        \
+									core/data/allocator.h           \
 									core/data/buffer.h              \
 									core/data/scalar.h              \
 									core/data/scalar.inl            \
@@ -61,7 +62,6 @@ INSTALL_HEADERS = legate.h                        \
 									core/task/return.h              \
 									core/task/task.h                \
 									core/utilities/debug.h          \
-									core/utilities/allocator.h      \
 									core/utilities/deserializer.h   \
 									core/utilities/deserializer.inl \
 									core/utilities/dispatch.h       \
