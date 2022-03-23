@@ -14,7 +14,7 @@
  *
  */
 
-#include "core/utilities/allocator.h"
+#include "core/data/allocator.h"
 
 namespace legate {
 

@@ -18,12 +18,12 @@
 
 #include "legion.h"
 // legion.h has to go before these
+#include "core/data/allocator.h"
 #include "core/data/scalar.h"
 #include "core/data/store.h"
 #include "core/legate_c.h"
 #include "core/runtime/runtime.h"
 #include "core/task/task.h"
-#include "core/utilities/allocator.h"
 #include "core/utilities/deserializer.h"
 #include "core/utilities/dispatch.h"
 #include "core/utilities/type_traits.h"
