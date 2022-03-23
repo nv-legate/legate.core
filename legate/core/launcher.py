@@ -537,7 +537,13 @@ class OutputAnalyzer:
 
 class TaskLauncher:
     def __init__(
-        self, context, task_id, mapper_id=0, tag=0, error_on_interference=True
+        self,
+        context,
+        task_id,
+        mapper_id=0,
+        tag=0,
+        error_on_interference=True,
+        side_effect=False,
     ):
         assert type(tag) != bool
         self._context = context
@@ -559,6 +565,7 @@ class TaskLauncher:
         self._point = None
         self._output_regions = list()
         self._error_on_interference = error_on_interference
+        self._has_side_effect = side_effect
 
     @property
     def library_task_id(self):
@@ -733,7 +740,11 @@ class TaskLauncher:
             task.add_future(future)
         for (out_req, fields) in self._out_analyzer.requirements:
             out_req.add_single(task, fields)
-        if self._req_analyzer.empty and self._out_analyzer.empty:
+        if (
+            not self._has_side_effect
+            and self._req_analyzer.empty
+            and self._out_analyzer.empty
+        ):
             task.set_local_function(True)
         if self._sharding_space is not None:
             task.set_sharding_space(self._sharding_space)

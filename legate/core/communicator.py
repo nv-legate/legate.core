@@ -55,8 +55,10 @@ class NCCLCommunicator(Communicator):
         self._tag = library.LEGATE_GPU_VARIANT
 
     def _initialize(self, volume):
-        # This doesn't need to run on a GPu, but will use it anyway
-        task = Task(self._context, self._init_nccl_id, tag=self._tag)
+        # This doesn't need to run on a GPU, but will use it anyway
+        task = Task(
+            self._context, self._init_nccl_id, tag=self._tag, side_effect=True
+        )
         nccl_id = task.execute_single()
 
         task = Task(self._context, self._init_nccl, tag=self._tag)
