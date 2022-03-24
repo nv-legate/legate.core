@@ -29,12 +29,11 @@ class ScopedAllocator {
  public:
   ScopedAllocator() = default;
   ScopedAllocator(Legion::Memory::Kind kind, bool scoped = true, size_t alignment = 16);
-  virtual ~ScopedAllocator();
+  ~ScopedAllocator();
 
  public:
-  using value_type = char;
-  char* allocate(size_t bytes);
-  void deallocate(char* ptr, size_t n);
+  void* allocate(size_t bytes);
+  void deallocate(void* ptr);
 
  private:
   Legion::Memory::Kind target_kind_{Legion::Memory::Kind::SYSTEM_MEM};
