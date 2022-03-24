@@ -18,8 +18,8 @@
 
 namespace legate {
 
-ScopedAllocator::ScopedAllocator(Legion::Memory::Kind kind, bool scoped)
-  : target_kind_(kind), scoped_(scoped)
+ScopedAllocator::ScopedAllocator(Legion::Memory::Kind kind, bool scoped, size_t alignment)
+  : target_kind_(kind), scoped_(scoped), alignment_(alignment)
 {
 }
 
@@ -35,10 +35,7 @@ char* ScopedAllocator::allocate(size_t bytes)
 {
   if (bytes == 0) return nullptr;
 
-  // Use 16-byte alignment
-  bytes = (bytes + 15) / 16 * 16;
-
-  ByteBuffer buffer = create_buffer<int8_t>(bytes, target_kind_);
+  ByteBuffer buffer = create_buffer<int8_t>(bytes, target_kind_, alignment_);
 
   void* ptr = buffer.ptr(0);
 

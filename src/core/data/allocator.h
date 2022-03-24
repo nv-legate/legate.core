@@ -28,7 +28,7 @@ class ScopedAllocator {
 
  public:
   ScopedAllocator() = default;
-  ScopedAllocator(Legion::Memory::Kind kind, bool scoped = true);
+  ScopedAllocator(Legion::Memory::Kind kind, bool scoped = true, size_t alignment = 16);
   virtual ~ScopedAllocator();
 
  public:
@@ -39,6 +39,7 @@ class ScopedAllocator {
  private:
   Legion::Memory::Kind target_kind_{Legion::Memory::Kind::SYSTEM_MEM};
   bool scoped_;
+  size_t alignment_;
   std::unordered_map<const void*, ByteBuffer> buffers_{};
 };
 
