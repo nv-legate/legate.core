@@ -18,15 +18,20 @@
 
 namespace legate {
 
-IntraTaskAllocator::IntraTaskAllocator(Legion::Memory::Kind kind) : target_kind_(kind) {}
-
-IntraTaskAllocator::~IntraTaskAllocator()
+ScopedAllocator::ScopedAllocator(Legion::Memory::Kind kind, bool scoped)
+  : target_kind_(kind), scoped_(scoped)
 {
-  for (auto& pair : buffers_) { pair.second.destroy(); }
-  buffers_.clear();
 }
 
-char* IntraTaskAllocator::allocate(size_t bytes)
+ScopedAllocator::~ScopedAllocator()
+{
+  if (scoped_) {
+    for (auto& pair : buffers_) { pair.second.destroy(); }
+    buffers_.clear();
+  }
+}
+
+char* ScopedAllocator::allocate(size_t bytes)
 {
   if (bytes == 0) return nullptr;
 
@@ -41,7 +46,7 @@ char* IntraTaskAllocator::allocate(size_t bytes)
   return (char*)ptr;
 }
 
-void IntraTaskAllocator::deallocate(char* ptr, size_t n)
+void ScopedAllocator::deallocate(char* ptr, size_t n)
 {
   ByteBuffer buffer;
   void* p     = ptr;
