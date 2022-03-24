@@ -22,22 +22,23 @@
 
 namespace legate {
 
-class IntraTaskAllocator {
+class ScopedAllocator {
  public:
   using ByteBuffer = Buffer<int8_t>;
 
  public:
-  IntraTaskAllocator() = default;
-  IntraTaskAllocator(Legion::Memory::Kind kind);
-  virtual ~IntraTaskAllocator();
+  ScopedAllocator() = default;
+  ScopedAllocator(Legion::Memory::Kind kind, bool scoped = true);
+  virtual ~ScopedAllocator();
 
  public:
-  typedef char value_type;
+  using value_type = char;
   char* allocate(size_t bytes);
   void deallocate(char* ptr, size_t n);
 
  private:
   Legion::Memory::Kind target_kind_{Legion::Memory::Kind::SYSTEM_MEM};
+  bool scoped_;
   std::unordered_map<const void*, ByteBuffer> buffers_{};
 };
 
