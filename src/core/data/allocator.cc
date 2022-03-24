@@ -31,7 +31,7 @@ ScopedAllocator::~ScopedAllocator()
   }
 }
 
-char* ScopedAllocator::allocate(size_t bytes)
+void* ScopedAllocator::allocate(size_t bytes)
 {
   if (bytes == 0) return nullptr;
 
@@ -40,14 +40,13 @@ char* ScopedAllocator::allocate(size_t bytes)
   void* ptr = buffer.ptr(0);
 
   buffers_[ptr] = buffer;
-  return (char*)ptr;
+  return ptr;
 }
 
-void ScopedAllocator::deallocate(char* ptr, size_t n)
+void ScopedAllocator::deallocate(void* ptr)
 {
   ByteBuffer buffer;
-  void* p     = ptr;
-  auto finder = buffers_.find(p);
+  auto finder = buffers_.find(ptr);
   if (finder == buffers_.end()) return;
   buffer = finder->second;
   buffers_.erase(finder);
