@@ -15,6 +15,7 @@
 
 DEBUG := {debug}
 DEBUG_RELEASE := {debug_release}
+MARCH := {march}
 CUDA := {cuda_dir}
 USE_CUDA := {cuda}
 GPU_ARCH := {arch}
