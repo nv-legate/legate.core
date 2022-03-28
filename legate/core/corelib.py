@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import os
+from typing import Any, Union
 
 from .context import ResourceConfig
 from .install_info import header, libpath
@@ -22,32 +23,34 @@ from .legate import Library
 
 
 class CoreLib(Library):
-    def __init__(self):
-        self._lib = None
+    def __init__(self) -> None:
+        self._lib: Union[Any, None] = None
 
-    def get_name(self):
+    def get_name(self) -> str:
         return "legate.core"
 
-    def get_shared_library(self):
+    def get_shared_library(self) -> str:
         libname = "liblgcore" + self.get_library_extension()
         return os.path.join(libpath, libname)
 
-    def get_c_header(self):
+    def get_c_header(self) -> str:
         return header
 
-    def initialize(self, shared_lib):
+    def initialize(self, shared_lib: Any) -> None:
         self._lib = shared_lib
         shared_lib.legate_parse_config()
 
-    def get_registration_callback(self):
+    def get_registration_callback(self) -> str:
         return "legate_core_perform_registration"
 
-    def get_resource_configuration(self):
+    def get_resource_configuration(self) -> ResourceConfig:
+        assert self._lib is not None
         config = ResourceConfig()
         config.max_tasks = self._lib.LEGATE_CORE_NUM_TASK_IDS
         config.max_projections = self._lib.LEGATE_CORE_MAX_FUNCTOR_ID
         config.max_shardings = self._lib.LEGATE_CORE_MAX_FUNCTOR_ID
         return config
 
-    def destroy(self):
-        self._lib.legate_shutdown()
+    def destroy(self) -> None:
+        if self._lib:
+            self._lib.legate_shutdown()

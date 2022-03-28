@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import platform
+from typing import Any
 
 import pyarrow
 
@@ -22,7 +23,7 @@ from .context import ResourceConfig
 
 
 class Array:
-    def __init__(self, dtype, stores, children=None):
+    def __init__(self, dtype, stores, children=None) -> None:
         """
         An Array is a collection of one or more Store objects that can
         represent a uniformly typed set of potentially nullable data values.
@@ -97,7 +98,7 @@ class Array:
 
 
 class Table:
-    def __init__(self, schema, columns):
+    def __init__(self, schema, columns) -> None:
         """
         A Table is a collection of top-level, equal-length Array
         objects. It is designed to be as close as possible to the PyArrow
@@ -474,7 +475,7 @@ class Table:
 
 
 class Library:
-    def __init__(self):
+    def __init__(self) -> None:
         """
         This is the abstract class for a Legate library class. It describes
         all the methods that need to be implemented to support a library
@@ -482,51 +483,51 @@ class Library:
         """
         pass
 
-    def get_name(self):
+    def get_name(self) -> str:
         """
         Return a string name describing this library
         """
         raise NotImplementedError("Implement in derived classes")
 
-    def get_shared_library(self):
+    def get_shared_library(self) -> Any:
         """
         Return the name of the shared library
         """
         raise NotImplementedError("Implement in derived classes")
 
-    def get_c_header(self):
+    def get_c_header(self) -> str:
         """
         Return a compiled C string header for this library
         """
         raise NotImplementedError("Implement in derived classes")
 
-    def get_registration_callback(self):
+    def get_registration_callback(self) -> str:
         """
         Return the name of a C registration callback for this library
         """
         raise NotImplementedError("Implement in derived classes")
 
-    def get_resource_configuration(self):
+    def get_resource_configuration(self) -> ResourceConfig:
         """
         Return a ResourceConfig object that configures the library
         """
         # Return the default configuration
         return ResourceConfig()
 
-    def initialize(self, shared_lib=None):
+    def initialize(self, shared_lib: Any) -> None:
         """
         This is called when this library is added to Legate
         """
         raise NotImplementedError("Implement in derived classes")
 
-    def destroy(self):
+    def destroy(self) -> None:
         """
         This is called on shutdown by Legate
         """
         raise NotImplementedError("Implement in derived classes")
 
     @staticmethod
-    def get_library_extension():
+    def get_library_extension() -> str:
         os_name = platform.system()
         if os_name == "Linux":
             return ".so"
