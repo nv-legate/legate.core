@@ -28,6 +28,9 @@ class ScopedAllocator {
 
  public:
   ScopedAllocator() = default;
+
+  // Iff 'scoped', all allocations will be released upon destruction.
+  // Otherwise this is up to the runtime after the task has finished.
   ScopedAllocator(Legion::Memory::Kind kind, bool scoped = true, size_t alignment = 16);
   ~ScopedAllocator();
 

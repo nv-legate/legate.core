@@ -15,6 +15,7 @@
  */
 
 #include "core/data/allocator.h"
+#include "legate.h"
 
 namespace legate {
 
@@ -47,7 +48,12 @@ void ScopedAllocator::deallocate(void* ptr)
 {
   ByteBuffer buffer;
   auto finder = buffers_.find(ptr);
-  if (finder == buffers_.end()) return;
+  assert(finder != buffers_.end());
+  if (finder == buffers_.end()) {
+    legate::log_legate.error("Invalid address during deallocation");
+    LEGATE_ABORT;
+  }
+
   buffer = finder->second;
   buffers_.erase(finder);
   buffer.destroy();
