@@ -17,6 +17,7 @@
 # General source files
 GEN_CPU_SRC	= core/legate_c.cc                 \
 							core/comm/comm.cc                \
+							core/data/allocator.cc           \
 							core/data/scalar.cc              \
 							core/data/store.cc               \
 							core/data/transform.cc           \
@@ -45,6 +46,7 @@ INSTALL_HEADERS = legate.h                        \
 									legate_preamble.h               \
 									core/legate_c.h                 \
 									core/comm/communicator.h        \
+									core/data/allocator.h           \
 									core/data/buffer.h              \
 									core/data/scalar.h              \
 									core/data/scalar.inl            \

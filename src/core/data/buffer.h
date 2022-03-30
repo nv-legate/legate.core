@@ -24,7 +24,9 @@ template <typename VAL>
 using Buffer = Legion::DeferredBuffer<VAL, 1>;
 
 template <typename VAL>
-Buffer<VAL> create_buffer(size_t size, Legion::Memory::Kind kind = Legion::Memory::Kind::NO_MEMKIND)
+Buffer<VAL> create_buffer(size_t size,
+                          Legion::Memory::Kind kind = Legion::Memory::Kind::NO_MEMKIND,
+                          size_t alignment          = 16)
 {
   using namespace Legion;
   if (Memory::Kind::NO_MEMKIND == kind) {
@@ -35,7 +37,7 @@ Buffer<VAL> create_buffer(size_t size, Legion::Memory::Kind kind = Legion::Memor
   // We just avoid creating empty buffers, as they cause all sorts of headaches.
   auto hi = std::max<int64_t>(0, static_cast<int64_t>(size) - 1);
   Rect<1> bounds(0, hi);
-  return Buffer<VAL>(bounds, kind);
+  return Buffer<VAL>(bounds, kind, nullptr, alignment);
 }
 
 }  // namespace legate
