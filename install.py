@@ -660,6 +660,25 @@ def install(
                 )
         dump_json_config(cuda_config, cuda_dir)
 
+        arch_config = os.path.join(legate_core_dir, ".arch.json")
+        if arch is None:
+            arch = load_json_config(arch_config)
+            if arch is None:
+                try:
+                    import pynvml
+                    pynvml.nvmlInit()
+                    major, minor = pynvml.nvmlDeviceGetCudaComputeCapability(
+                        pynvml.nvmlDeviceGetHandleByIndex(0)
+                    )
+                    arch = f"{major}{minor}"
+                    pynvml.nvmlShutdown()
+                except Exception as exc:
+                    raise Exception(
+                        "Could not auto-detect CUDA GPU architecture, please "
+                        "specify the target architecture using --arch"
+                    ) from exc
+        dump_json_config(arch_config, arch)
+
         nccl_config = os.path.join(legate_core_dir, ".nccl.json")
         if nccl_dir is None:
             nccl_dir = load_json_config(nccl_config)
@@ -866,7 +885,7 @@ def driver():
         dest="arch",
         action="store",
         required=False,
-        default="volta",
+        default=None,
         help="Specify the target GPU architecture.",
     )
     parser.add_argument(
