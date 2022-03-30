@@ -20,6 +20,10 @@ import struct
 import weakref
 from collections import deque
 from functools import reduce
+from typing import TYPE_CHECKING, Any, Union
+
+if TYPE_CHECKING:
+    from .legion import IndexPartition
 
 from legion_top import cleanup_items, top_level
 
@@ -706,11 +710,13 @@ class PartitionManager:
         num_tiles = (shape // tile_shape).volume()
         return not (num_tiles > 256 and num_tiles > 16 * self._num_pieces)
 
-    def find_partition(self, index_space, functor):
+    def find_partition(
+        self, index_space, functor
+    ) -> Union[IndexPartition, None]:
         key = (index_space, functor)
         return self._index_partitions.get(key)
 
-    def record_partition(self, index_space, functor, index_partition):
+    def record_partition(self, index_space, functor, index_partition) -> None:
         key = (index_space, functor)
         assert key not in self._index_partitions
         self._index_partitions[key] = index_partition
@@ -1087,7 +1093,7 @@ class Runtime:
     def has_attachment(self, alloc):
         return self._attachment_manager.has_attachment(alloc)
 
-    def find_or_create_index_space(self, bounds):
+    def find_or_create_index_space(self, bounds) -> IndexSpace:
         if bounds in self.index_spaces:
             return self.index_spaces[bounds]
         # Haven't seen this before so make it now
@@ -1124,10 +1130,12 @@ class Runtime:
             handle,
         )
 
-    def find_partition(self, index_space, functor):
+    def find_partition(
+        self, index_space, functor
+    ) -> Union[IndexPartition, None]:
         return self._partition_manager.find_partition(index_space, functor)
 
-    def record_partition(self, index_space, functor, index_partition):
+    def record_partition(self, index_space, functor, index_partition) -> None:
         self._partition_manager.record_partition(
             index_space, functor, index_partition
         )
@@ -1180,7 +1188,7 @@ class Runtime:
 _runtime = Runtime(CoreLib())
 
 
-def _cleanup_legate_runtime():
+def _cleanup_legate_runtime() -> None:
     global _runtime
     _runtime.destroy()
     del _runtime
@@ -1190,17 +1198,17 @@ def _cleanup_legate_runtime():
 cleanup_items.append(_cleanup_legate_runtime)
 
 
-def get_legion_runtime():
+def get_legion_runtime() -> Any:
     return _runtime.legion_runtime
 
 
-def get_legion_context():
+def get_legion_context() -> Any:
     return _runtime.legion_context
 
 
-def legate_add_library(library):
+def legate_add_library(library) -> None:
     _runtime.register_library(library)
 
 
-def get_legate_runtime():
+def get_legate_runtime() -> Runtime:
     return _runtime
