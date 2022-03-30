@@ -16,21 +16,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Union
 
-from legion_cffi import ffi, lib as legion
+from .. import ffi, legion
+from .future import FutureMap
+from .geometry import Point
 
 if TYPE_CHECKING:
     from ..context import Context
     from ..runtime import Runtime
-    from . import (
-        FieldID,
-        FutureMap,
-        IndexPartition,
-        IndexSpace,
-        Point,
-        Rect,
-        Region,
-        Transform,
-    )
+    from . import FieldID, IndexPartition, IndexSpace, Rect, Region, Transform
 
 
 class PartitionFunctor:

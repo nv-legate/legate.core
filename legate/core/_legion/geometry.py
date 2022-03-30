@@ -14,12 +14,10 @@
 #
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Iterator, Optional, Sequence, Union
+from typing import Any, Iterator, Optional, Sequence, Union
 
-from legion_cffi import ffi, lib as legion
-
-if TYPE_CHECKING:
-    from . import LEGATE_MAX_DIM
+from .. import ffi, legion
+from .env import LEGATE_MAX_DIM
 
 
 class Point:

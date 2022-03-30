@@ -16,8 +16,8 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
+from . import Rect
 from .launcher import TaskLauncher as Task
-from .legion import Rect
 
 
 class Communicator(ABC):

@@ -74,7 +74,7 @@ if args.recurse:
         packages=[
             "legate",
             "legate.core",
-            "legate.core.legion",
+            "legate.core._legion",
             "legate.timing",
         ],
         cmdclass={"build_py": my_build_py},

@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
 
-from legion_cffi import lib as legion
+from .. import legion
 
 if TYPE_CHECKING:
     import numpy.typing as npt
@@ -143,7 +143,7 @@ class AffineTransform:
             raise ValueError("Dimension mismatch")
         pin = np.ones(self.N + 1, dtype=np.int64)
         pin[: self.N] = point
-        pout = np.dot(self.transform, pin)
+        pout = np.dot(self.transform, pin)  # type: ignore[no-untyped-call]
         return tuple(pout[: self.M])
 
     def compose(self, outer: AffineTransform) -> AffineTransform:

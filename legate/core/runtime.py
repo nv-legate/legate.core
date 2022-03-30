@@ -21,16 +21,10 @@ import weakref
 from collections import deque
 from functools import reduce
 
-from legion_cffi import ffi  # Make sure we only have one ffi instance
 from legion_top import cleanup_items, top_level
 
-from legate.core import types as ty
-
-from .communicator import NCCLCommunicator
-from .context import Context
-from .corelib import CoreLib
-from .launcher import TaskLauncher
-from .legion import (
+from . import ffi  # Make sure we only have one ffi instance
+from . import (
     Fence,
     FieldSpace,
     Future,
@@ -42,7 +36,12 @@ from .legion import (
     legate_task_postamble,
     legate_task_preamble,
     legion,
+    types as ty,
 )
+from .communicator import NCCLCommunicator
+from .context import Context
+from .corelib import CoreLib
+from .launcher import TaskLauncher
 from .partition import Restriction
 from .projection import is_identity_projection, pack_symbolic_projection_repr
 from .shape import Shape

@@ -17,22 +17,16 @@ from __future__ import annotations
 import weakref
 from typing import TYPE_CHECKING, Any, Optional, Union
 
-from legion_cffi import ffi, lib as legion
+from .. import ffi, legion
+from .partition import IndexPartition, Partition
+from .pending import _pending_deletions, _pending_unordered
+from .space import IndexSpace
+from .util import FieldID, dispatch
 
 if TYPE_CHECKING:
     from ..context import Context
     from ..runtime import Runtime
-    from . import (
-        FieldID,
-        FieldListLike,
-        FieldSpace,
-        IndexPartition,
-        IndexSpace,
-        Partition,
-        _pending_deletions,
-        _pending_unordered,
-        dispatch,
-    )
+    from . import FieldListLike, FieldSpace
 
 
 class Region:

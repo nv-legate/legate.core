@@ -16,18 +16,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Optional
 
-from legion_cffi import lib as legion
+from .. import legion
+from .partition_functor import PartitionFunctor
+from .pending import _pending_unordered
+from .space import IndexSpace
 
 if TYPE_CHECKING:
     from ..context import Context
     from ..runtime import Runtime
-    from . import (
-        IndexSpace,
-        PartitionFunctor,
-        Point,
-        Region,
-        _pending_unordered,
-    )
+    from . import Point, Region
 
 
 class Partition:
@@ -90,6 +87,8 @@ class Partition:
         """
         Return the child Region associated with the point in the color space.
         """
+        from .region import Region  # circular
+
         if point in self.children:
             return self.children[point]
         child_space = self.index_partition.get_child(point)

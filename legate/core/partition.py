@@ -16,8 +16,7 @@ from __future__ import annotations
 
 from enum import IntEnum, unique
 
-from .launcher import Broadcast, Partition
-from .legion import (
+from . import (
     IndexPartition,
     PartitionByRestriction,
     PartitionByWeights,
@@ -25,6 +24,7 @@ from .legion import (
     Transform,
     legion,
 )
+from .launcher import Broadcast, Partition
 from .shape import Shape
 
 

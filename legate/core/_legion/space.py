@@ -16,21 +16,17 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Optional, Union
 
-from legion_cffi import ffi, lib as legion
+from .. import ffi, legion
+from ..types import _Dtype
+from .env import LEGATE_MAX_FIELDS
+from .future import Future
+from .geometry import Domain
+from .pending import _pending_unordered
 
 if TYPE_CHECKING:
     from ..context import Context
     from ..runtime import Runtime
-    from ..types import _Dtype
-    from . import (
-        LEGATE_MAX_FIELDS,
-        Domain,
-        FieldID,
-        Future,
-        IndexPartition,
-        Rect,
-        _pending_unordered,
-    )
+    from . import FieldID, IndexPartition, Rect
 
 
 class IndexSpace:

@@ -14,8 +14,8 @@
 #
 from __future__ import annotations
 
-import os
-
+from .env import LEGATE_MAX_DIM, LEGATE_MAX_FIELDS
+from .future import Future, FutureMap
 from .geometry import Point, Rect, Domain
 from .operation import (
     Acquire,
@@ -28,6 +28,7 @@ from .operation import (
     IndexDetach,
     IndexFill,
     Release,
+    InlineMapping,
 )
 from .partition import IndexPartition, Partition
 from .partition_functor import (
@@ -41,18 +42,17 @@ from .partition_functor import (
 )
 from .region import Region, OutputRegion, PhysicalRegion
 from .space import IndexSpace, FieldSpace
-from .task import ArgumentMap, Fence, Task, IndexTask, InlineMapping
+from .task import ArgumentMap, Fence, Task, IndexTask
 from .transform import Transform, AffineTransform
 from .util import (
-    _pending_unordered,
-    _pending_deletions,
     dispatch,
     BufferBuilder,
     ExternalResources,
     FieldID,
-    Future,
-    FutureMap,
     FieldListLike,
+    legate_task_preamble,
+    legate_task_postamble,
+    legate_task_progress,
 )
 
 __all__ = (
@@ -97,10 +97,9 @@ __all__ = (
     "Release",
     "Task",
     "Transform",
+    "legate_task_preamble",
+    "legate_task_postamble",
+    "legate_task_progress",
+    "LEGATE_MAX_DIM",
+    "LEGATE_MAX_FIELDS",
 )
-
-assert "LEGATE_MAX_DIM" in os.environ
-LEGATE_MAX_DIM = int(os.environ["LEGATE_MAX_DIM"])
-
-assert "LEGATE_MAX_FIELDS" in os.environ
-LEGATE_MAX_FIELDS = int(os.environ["LEGATE_MAX_FIELDS"])

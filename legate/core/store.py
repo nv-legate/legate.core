@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import weakref
 
-from .legion import (
+from . import (
     Attach,
     Detach,
     Future,

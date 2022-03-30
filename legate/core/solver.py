@@ -14,8 +14,8 @@
 #
 from __future__ import annotations
 
+from . import Future, Rect
 from .constraints import Alignment, Broadcast, Containment
-from .legion import Future, Rect
 from .partition import REPLICATE
 from .shape import Shape
 from .utils import OrderedSet

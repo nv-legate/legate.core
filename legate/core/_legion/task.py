@@ -16,116 +16,18 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Optional, Union
 
-from legion_cffi import ffi, lib as legion
+from .. import ffi, legion
+from .future import Future, FutureMap
+from .geometry import Point, Rect
+from .partition import Partition
+from .pending import _pending_deletions
+from .region import Region
+from .util import FieldID, dispatch
 
 if TYPE_CHECKING:
     from ..context import Context
     from ..runtime import Runtime
-    from . import (
-        FieldID,
-        FieldListLike,
-        Future,
-        FutureMap,
-        IndexSpace,
-        OutputRegion,
-        Partition,
-        PhysicalRegion,
-        Point,
-        Rect,
-        Region,
-        _pending_deletions,
-        dispatch,
-    )
-
-
-class InlineMapping:
-    def __init__(
-        self,
-        region: Region,
-        fields: FieldListLike,
-        read_only: bool = False,
-        mapper: int = 0,
-        tag: int = 0,
-        parent: Optional[Region] = None,
-        coherence: int = legion.LEGION_EXCLUSIVE,
-    ) -> None:
-        """
-        An InlineMapping object provides a mechanism for creating a mapped
-        PhysicalRegion of a logical region for the local task to directly
-        access the data in the logical region. Note that inline mappings
-        do block deferred execution and therefore they should be used
-        primarily as a productivity feature for loading and storing data
-        infrequently. They should never be used in performance critical code.
-
-        Parameters
-        ----------
-        region : Region
-            The logical region to map
-        fields : int or FieldID or List[int] or List[FieldID]
-            The fields of the logical region to map
-        read_only : bool
-            Whether the inline mapping will only be reading the data
-        mapper : int
-            ID of the mapper for managing the mapping of the inline mapping
-        tag : int
-            Tag to pass to the mapper to provide calling context
-        parent : Region
-            Parent logical region from which privileges are derived
-        coherence : int
-            The coherence mode for the inline mapping
-        """
-        if read_only:
-            self.launcher = legion.legion_inline_launcher_create_logical_region(  # noqa: E501
-                region.handle,
-                legion.LEGION_READ_ONLY,
-                coherence,
-                region.get_root().handle if parent is None else parent.handle,
-                0,
-                False,
-                mapper,
-                tag,
-            )
-        else:
-            self.launcher = legion.legion_inline_launcher_create_logical_region(  # noqa: E501
-                region.handle,
-                legion.LEGION_READ_WRITE,
-                coherence,
-                region.get_root().handle if parent is None else parent.handle,
-                0,
-                False,
-                mapper,
-                tag,
-            )
-        self.region = region
-        self._launcher = ffi.gc(
-            self.launcher, legion.legion_inline_launcher_destroy
-        )
-        fields_list = fields if isinstance(fields, list) else [fields]
-        for field in fields_list:
-            legion.legion_inline_launcher_add_field(
-                self.launcher,
-                ffi.cast(
-                    "legion_field_id_t",
-                    field.fid if isinstance(field, FieldID) else field,
-                ),
-                True,
-            )
-
-    @dispatch
-    def launch(self, runtime: Runtime, context: Context) -> PhysicalRegion:
-        """
-        Dispatch the inline mapping to the runtime
-
-        Returns
-        -------
-        PhysicalRegion
-        """
-        return PhysicalRegion(
-            legion.legion_inline_launcher_execute(
-                runtime, context, self.launcher
-            ),
-            self.region,
-        )
+    from . import FieldListLike, IndexSpace, OutputRegion
 
 
 class Task:
