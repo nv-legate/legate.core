@@ -666,6 +666,7 @@ def install(
             if arch is None:
                 try:
                     import pynvml
+
                     pynvml.nvmlInit()
                     major, minor = pynvml.nvmlDeviceGetCudaComputeCapability(
                         pynvml.nvmlDeviceGetHandleByIndex(0)
