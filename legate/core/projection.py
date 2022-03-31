@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Optional, Tuple, Union
 
-from legion_cffi import ffi  # Make sure we only have one ffi instance
+from . import ffi  # Make sure we only have one ffi instance
 
 
 class ProjExpr:

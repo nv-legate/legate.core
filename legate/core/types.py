@@ -19,7 +19,7 @@ from typing import Any
 
 import pyarrow as pa
 
-from legion_cffi import lib as legion
+from . import legion
 
 
 class Complex64Dtype(pa.ExtensionType):

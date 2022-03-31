@@ -16,9 +16,7 @@ from __future__ import annotations
 
 from enum import IntEnum, unique
 
-import legate.core.types as ty
-
-from .legion import (
+from . import (
     ArgumentMap,
     BufferBuilder,
     Copy as SingleCopy,
@@ -26,6 +24,7 @@ from .legion import (
     IndexCopy,
     IndexTask,
     Task as SingleTask,
+    types as ty,
 )
 
 

@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from .legion import Future, legion
+from . import Future, legion
 from .operation import AutoTask, Copy, ManualTask, Reduce
 from .types import TypeSystem
 

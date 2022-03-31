@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from .legion import AffineTransform
+from . import AffineTransform
 from .partition import Replicate, Restriction, Tiling
 from .projection import ProjExpr
 from .shape import Shape

@@ -71,7 +71,12 @@ if args.recurse:
     setup(
         name="legate.core",
         version="22.03",
-        packages=["legate", "legate.core", "legate.timing"],
+        packages=[
+            "legate",
+            "legate.core",
+            "legate.core._legion",
+            "legate.timing",
+        ],
         cmdclass={"build_py": my_build_py},
     )
 else:

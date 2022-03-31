@@ -14,18 +14,13 @@
 #
 from __future__ import annotations
 
-import os
-
 # Perform a check to see if we're running inside of Legion Python
 # If we're not then we should raise an error message
 try:
-    from legion_cffi import lib as _legion
+    from legion_cffi import ffi, lib as legion
 
     # Now confirm that we are actually inside of a task
-    if _legion.legion_runtime_has_context():
-        using_legion_python = True
-    else:
-        using_legion_python = False
+    using_legion_python = legion.legion_runtime_has_context()
 except ModuleNotFoundError:
     using_legion_python = False
 except AttributeError:
@@ -42,20 +37,7 @@ if not using_legion_python:
         "legion_python directly."
     )
 
-# Import select types for Legate library construction
-from legate.core.context import ResourceConfig
-from legate.core.legate import (
-    Array,
-    Library,
-)
-from legate.core.runtime import (
-    get_legate_runtime,
-    get_legion_context,
-    get_legion_runtime,
-    legate_add_library,
-)
-from legate.core.store import DistributedAllocation, Store
-from legate.core.legion import (
+from ._legion import (
     LEGATE_MAX_DIM,
     LEGATE_MAX_FIELDS,
     Point,
@@ -63,8 +45,11 @@ from legate.core.legion import (
     Domain,
     Transform,
     AffineTransform,
+    IndexAttach,
+    IndexDetach,
     IndexSpace,
     PartitionFunctor,
+    PartitionByDomain,
     PartitionByRestriction,
     PartitionByImage,
     PartitionByImageRange,
@@ -97,7 +82,22 @@ from legate.core.legion import (
     legate_task_progress,
     legate_task_postamble,
 )
-from legate.core.types import (
+
+# Import select types for Legate library construction
+from .context import ResourceConfig
+from .legate import (
+    Array,
+    Library,
+)
+from .runtime import (
+    get_legate_runtime,
+    get_legion_context,
+    get_legion_runtime,
+    legate_add_library,
+)
+from .store import DistributedAllocation, Store
+
+from .types import (
     bool_,
     int8,
     int16,
@@ -114,11 +114,7 @@ from legate.core.types import (
     complex128,
     ReductionOp,
 )
-from legate.core.io import CustomSplit, TiledSplit, ingest
-
-# NOTE: This needs to come after the imports from legate.core.legion, as we
-# are overriding that module's name.
-from legion_cffi import ffi, lib as legion
+from .io import CustomSplit, TiledSplit, ingest
 
 # Import the PyArrow type system
 from pyarrow import (

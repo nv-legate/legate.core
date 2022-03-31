@@ -16,9 +16,9 @@ from __future__ import annotations
 
 import legate.core.types as ty
 
+from . import Future, FutureMap, Rect
 from .constraints import PartSym
 from .launcher import CopyLauncher, TaskLauncher
-from .legion import Future, FutureMap, Rect
 from .partition import REPLICATE, Weighted
 from .shape import Shape
 from .store import Store, StorePartition
