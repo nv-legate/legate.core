@@ -80,7 +80,7 @@ class _Dtype:
         self._redop_ids: dict[int, int] = {}
 
     @property
-    def type(self) -> _Dtype:
+    def type(self) -> Any:
         return self._dtype
 
     @property
