@@ -20,6 +20,7 @@
 
 #include "legion.h"
 
+#include "core/comm/communicator.h"
 #include "core/data/scalar.h"
 #include "core/data/store.h"
 #include "core/mapping/task.h"
@@ -87,6 +88,7 @@ class TaskDeserializer : public BaseDeserializer<TaskDeserializer> {
   void _unpack(FutureWrapper& value);
   void _unpack(RegionField& value);
   void _unpack(OutputRegionField& value);
+  void _unpack(comm::Communicator& value);
 
  private:
   Span<const Legion::Future> futures_;

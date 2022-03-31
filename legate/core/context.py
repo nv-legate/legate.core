@@ -12,15 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from __future__ import annotations
 
 import numpy as np
 
 from .legion import Future, legion
-from .operation import AutoTask, Copy, ManualTask
+from .operation import AutoTask, Copy, ManualTask, Reduce
 from .types import TypeSystem
 
 
-class ResourceConfig(object):
+class ResourceConfig:
     __slots__ = [
         "max_tasks",
         "max_mappers",
@@ -29,7 +30,7 @@ class ResourceConfig(object):
         "max_shardings",
     ]
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.max_tasks = 1_000_000
         self.max_mappers = 1
         self.max_reduction_ops = 0
@@ -37,8 +38,8 @@ class ResourceConfig(object):
         self.max_shardings = 0
 
 
-class ResourceScope(object):
-    def __init__(self, context, base, category):
+class ResourceScope:
+    def __init__(self, context, base, category) -> None:
         self._context = context
         self._base = base
         self._category = category
@@ -53,8 +54,8 @@ class ResourceScope(object):
         return self._base + resource_id
 
 
-class Context(object):
-    def __init__(self, runtime, library, inherit_core_types=True):
+class Context:
+    def __init__(self, runtime, library, inherit_core_types: bool = True):
         """
         A Context is a named scope for Legion resources used in a Legate
         library. A Context is created when the library is registered
@@ -179,9 +180,7 @@ class Context(object):
         return np.frombuffer(buf, dtype=dtype)[0]
 
     def get_unique_op_id(self):
-        op_id = self._unique_op_id
-        self._unique_op_id += 1
-        return op_id
+        return self._runtime.get_unique_op_id()
 
     def create_task(
         self, task_id, mapper_id=0, manual=False, launch_domain=None
@@ -223,3 +222,20 @@ class Context(object):
             storage=storage,
             optimize_scalar=optimize_scalar,
         )
+
+    def get_nccl_communicator(self):
+        return self._runtime.get_nccl_communicator()
+
+    def issue_execution_fence(self, block=False):
+        self._runtime.issue_execution_fence(block=block)
+
+    def tree_reduce(self, task_id, store, mapper_id=0, radix=4):
+        result = self.create_store(store.type)
+        unique_op_id = self.get_unique_op_id()
+
+        # A single Reduce operation is mapepd to a whole reduction tree
+        task = Reduce(self, task_id, radix, mapper_id, unique_op_id)
+        task.add_input(store)
+        task.add_output(result)
+        task.execute()
+        return result

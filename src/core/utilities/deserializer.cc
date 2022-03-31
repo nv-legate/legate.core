@@ -18,6 +18,7 @@
 #include "core/data/scalar.h"
 #include "core/data/store.h"
 #include "core/mapping/task.h"
+#include "core/utilities/machine.h"
 
 using LegionTask = Legion::Task;
 
@@ -49,8 +50,10 @@ void TaskDeserializer::_unpack(Store& value)
   auto transform = unpack_transform();
 
   if (is_future) {
-    auto fut = unpack<FutureWrapper>();
-    value    = Store(dim, code, fut, transform);
+    auto redop_id = unpack<int32_t>();
+    auto fut      = unpack<FutureWrapper>();
+    if (redop_id != -1 && !first_task_) fut.initialize_with_identity(redop_id);
+    value = Store(dim, code, redop_id, fut, transform);
   } else if (dim >= 0) {
     auto redop_id = unpack<int32_t>();
     auto rf       = unpack<RegionField>();
@@ -105,6 +108,13 @@ void TaskDeserializer::_unpack(OutputRegionField& value)
   value = OutputRegionField(outputs_[idx], fid);
 }
 
+void TaskDeserializer::_unpack(comm::Communicator& value)
+{
+  auto future = futures_[0];
+  futures_    = futures_.subspan(1);
+  value       = comm::Communicator(future);
+}
+
 namespace mapping {
 
 MapperDeserializer::MapperDeserializer(const LegionTask* task,
@@ -124,6 +134,8 @@ void MapperDeserializer::_unpack(Store& value)
   auto transform = unpack_transform();
 
   if (is_future) {
+    // We still need to parse the reduction op
+    unpack<int32_t>();
     auto fut = unpack<FutureWrapper>();
     value    = Store(dim, code, fut, std::move(transform));
   } else {

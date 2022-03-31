@@ -380,14 +380,58 @@ void BaseMapper::slice_manual_task(const MapperContext ctx,
   }
 }
 
+void BaseMapper::slice_round_robin_task(const MapperContext ctx,
+                                        const LegionTask& task,
+                                        const SliceTaskInput& input,
+                                        SliceTaskOutput& output)
+{
+  // If we're here, that means that the task has no region that we can key off
+  // to distribute them reasonably. In this case, we just do a round-robin
+  // assignment.
+
+  output.slices.reserve(input.domain.get_volume());
+
+  // Get the domain for the sharding space also
+  Domain sharding_domain = task.index_domain;
+  if (task.sharding_space.exists())
+    sharding_domain = runtime->get_index_space_domain(ctx, task.sharding_space);
+
+  auto distribute = [&](auto& procs) {
+    size_t idx = 0;
+    for (Domain::DomainPointIterator itr(input.domain); itr; itr++) {
+      output.slices.push_back(TaskSlice(
+        Domain(itr.p, itr.p), procs[idx++ % procs.size()], false /*recurse*/, false /*stealable*/));
+    }
+  };
+
+  switch (task.target_proc.kind()) {
+    case Processor::LOC_PROC: {
+      distribute(local_cpus);
+      break;
+    }
+    case Processor::TOC_PROC: {
+      distribute(local_gpus);
+      break;
+    }
+    case Processor::OMP_PROC: {
+      distribute(local_omps);
+      break;
+    }
+    default: LEGATE_ABORT;
+  }
+}
+
 void BaseMapper::slice_task(const MapperContext ctx,
                             const LegionTask& task,
                             const SliceTaskInput& input,
                             SliceTaskOutput& output)
 {
-  if (task.tag == LEGATE_CORE_MANUAL_PARALLEL_LAUNCH_TAG)
-    slice_manual_task(ctx, task, input, output);
-  else
+  if (task.tag == LEGATE_CORE_MANUAL_PARALLEL_LAUNCH_TAG) {
+    if (task.regions.size() == 0)
+      slice_round_robin_task(ctx, task, input, output);
+    else
+      slice_manual_task(ctx, task, input, output);
+  } else
     slice_auto_task(ctx, task, input, output);
 }
 

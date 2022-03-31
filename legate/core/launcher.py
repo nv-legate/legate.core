@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from __future__ import annotations
 
 from enum import IntEnum, unique
 
@@ -67,7 +68,7 @@ def _pack(buf, value, dtype, is_tuple):
         serializer(buf, value)
 
 
-class ScalarArg(object):
+class ScalarArg:
     def __init__(self, core_types, value, dtype, untyped=True):
         self._core_types = core_types
         self._value = value
@@ -99,14 +100,16 @@ class ScalarArg(object):
         return str(self)
 
 
-class FutureStoreArg(object):
-    def __init__(self, store, read_only, has_storage):
+class FutureStoreArg:
+    def __init__(self, store, read_only, has_storage, redop):
         self._store = store
         self._read_only = read_only
         self._has_storage = has_storage
+        self._redop = redop
 
     def pack(self, buf):
         self._store.serialize(buf)
+        buf.pack_32bit_int(self._redop)
         buf.pack_bool(self._read_only)
         buf.pack_bool(self._has_storage)
         buf.pack_32bit_int(self._store.type.size)
@@ -119,7 +122,7 @@ class FutureStoreArg(object):
         return str(self)
 
 
-class RegionFieldArg(object):
+class RegionFieldArg:
     def __init__(self, analyzer, store, dim, req, field_id, redop):
         self._analyzer = analyzer
         self._store = store
@@ -175,7 +178,7 @@ _single_copy_calls = {
 }
 
 
-class Broadcast(object):
+class Broadcast:
     __slots__ = ["part", "proj", "redop"]
 
     # Use the same signature as Partition's constructor
@@ -224,7 +227,7 @@ class Broadcast(object):
         return isinstance(other, Broadcast) and self.redop == other.redop
 
 
-class Partition(object):
+class Partition:
     __slots__ = ["part", "proj", "redop"]
 
     def __init__(self, part, proj):
@@ -269,7 +272,7 @@ class Partition(object):
         )
 
 
-class RegionReq(object):
+class RegionReq:
     def __init__(self, region, permission, proj, tag, flags):
         self.region = region
         self.permission = permission
@@ -306,7 +309,7 @@ class RegionReq(object):
         )
 
 
-class OutputReq(object):
+class OutputReq:
     def __init__(self, runtime, fspace):
         self.runtime = runtime
         self.fspace = fspace
@@ -348,7 +351,7 @@ class OutputReq(object):
         store.set_storage(region_field)
 
 
-class ProjectionSet(object):
+class ProjectionSet:
     def __init__(self):
         self._entries = {}
 
@@ -408,7 +411,7 @@ class ProjectionSet(object):
         return str(self._entries)
 
 
-class FieldSet(object):
+class FieldSet:
     def __init__(self):
         self._fields = {}
 
@@ -433,7 +436,7 @@ class FieldSet(object):
         return coalesced
 
 
-class RequirementAnalyzer(object):
+class RequirementAnalyzer:
     def __init__(self, error_on_interference=True):
         self._field_sets = {}
         self._requirements = []
@@ -480,7 +483,7 @@ class RequirementAnalyzer(object):
             return self._requirement_map[(req, field_id)]
 
 
-class OutputAnalyzer(object):
+class OutputAnalyzer:
     def __init__(self, runtime):
         self._runtime = runtime
         self._groups = {}
@@ -532,9 +535,15 @@ class OutputAnalyzer(object):
                 req.update_storage(store, field_id)
 
 
-class TaskLauncher(object):
+class TaskLauncher:
     def __init__(
-        self, context, task_id, mapper_id=0, tag=0, error_on_interference=True
+        self,
+        context,
+        task_id,
+        mapper_id=0,
+        tag=0,
+        error_on_interference=True,
+        side_effect=False,
     ):
         assert type(tag) != bool
         self._context = context
@@ -546,6 +555,7 @@ class TaskLauncher(object):
         self._outputs = []
         self._reductions = []
         self._scalars = []
+        self._comms = []
         self._req_analyzer = RequirementAnalyzer(error_on_interference)
         self._out_analyzer = OutputAnalyzer(context.runtime)
         self._future_args = list()
@@ -555,6 +565,7 @@ class TaskLauncher(object):
         self._point = None
         self._output_regions = list()
         self._error_on_interference = error_on_interference
+        self._has_side_effect = side_effect
 
     @property
     def library_task_id(self):
@@ -585,12 +596,13 @@ class TaskLauncher(object):
         )
 
     def add_store(self, args, store, proj, perm, tag, flags):
+        redop = -1 if proj.redop is None else proj.redop
         if store.kind is Future:
             has_storage = perm != Permission.WRITE
             read_only = perm == Permission.READ
             if has_storage:
                 self.add_future(store.storage)
-            args.append(FutureStoreArg(store, read_only, has_storage))
+            args.append(FutureStoreArg(store, read_only, has_storage, redop))
 
         else:
             region = store.storage.region
@@ -606,7 +618,7 @@ class TaskLauncher(object):
                     region.index_space.get_dim(),
                     req,
                     field_id,
-                    -1 if proj.redop is None else proj.redop,
+                    redop,
                 )
             )
 
@@ -655,6 +667,9 @@ class TaskLauncher(object):
     def add_future_map(self, future_map):
         self._future_map_args.append(future_map)
 
+    def add_communicator(self, handle):
+        self._comms.append(handle)
+
     def set_sharding_space(self, space):
         self._sharding_space = space
 
@@ -675,6 +690,7 @@ class TaskLauncher(object):
         self.pack_args(argbuf, self._outputs)
         self.pack_args(argbuf, self._reductions)
         self.pack_args(argbuf, self._scalars)
+        argbuf.pack_32bit_uint(len(self._comms))
 
         task = IndexTask(
             self.legion_task_id,
@@ -694,6 +710,8 @@ class TaskLauncher(object):
             task.add_future(future)
         for (out_req, fields) in self._out_analyzer.requirements:
             out_req.add(task, fields)
+        for comm in self._comms:
+            task.add_point_future(ArgumentMap(future_map=comm))
         for future_map in self._future_map_args:
             task.add_point_future(ArgumentMap(future_map=future_map))
         return task
@@ -706,6 +724,8 @@ class TaskLauncher(object):
         self.pack_args(argbuf, self._outputs)
         self.pack_args(argbuf, self._reductions)
         self.pack_args(argbuf, self._scalars)
+
+        assert len(self._comms) == 0
 
         task = SingleTask(
             self.legion_task_id,
@@ -720,7 +740,11 @@ class TaskLauncher(object):
             task.add_future(future)
         for (out_req, fields) in self._out_analyzer.requirements:
             out_req.add_single(task, fields)
-        if self._req_analyzer.empty and self._out_analyzer.empty:
+        if (
+            not self._has_side_effect
+            and self._req_analyzer.empty
+            and self._out_analyzer.empty
+        ):
             task.set_local_function(True)
         if self._sharding_space is not None:
             task.set_sharding_space(self._sharding_space)
@@ -751,7 +775,7 @@ class TaskLauncher(object):
         return result
 
 
-class CopyLauncher(object):
+class CopyLauncher:
     def __init__(self, context, mapper_id=0, tag=0):
         assert type(tag) != bool
         self._context = context
@@ -776,7 +800,7 @@ class CopyLauncher(object):
 
     def add_store(self, store, proj, perm, tag, flags):
         assert store.kind is not Future
-        assert store._transform is None
+        assert store._transform.bottom
 
         region = store.storage.region
         field_id = store.storage.field.field_id

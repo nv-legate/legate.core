@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
+from __future__ import annotations
 
 from collections.abc import Iterable
 from functools import reduce
@@ -29,7 +29,7 @@ def _cast_tuple(value, ndim):
         raise ValueError(f"Cannot cast {type(value).__name__} to tuple")
 
 
-class Shape(object):
+class Shape:
     def __init__(self, extents=None, ispace=None):
         if extents is not None:
             if not (
@@ -107,8 +107,12 @@ class Shape(object):
 
     def __eq__(self, other):
         if isinstance(other, Shape):
-            if self._ispace is not None and other._ispace is not None:
-                return self._ispace is other._ispace
+            if (
+                self._ispace is not None
+                and other._ispace is not None
+                and self._ispace is other._ispace
+            ):
+                return True
             else:
                 return self.extents == other.extents
         else:

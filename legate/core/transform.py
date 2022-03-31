@@ -12,12 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from __future__ import annotations
 
 import numpy as np
 
 from .legion import AffineTransform
 from .partition import Replicate, Restriction, Tiling
-from .projection import CoordinateSym
+from .projection import ProjExpr
 from .shape import Shape
 
 
@@ -25,7 +26,7 @@ class NonInvertibleError(Exception):
     pass
 
 
-class Transform(object):
+class Transform:
     def __repr__(self):
         return str(self)
 
@@ -144,7 +145,7 @@ class Promote(Transform):
         return hash((type(self), self._extra_dim, self._dim_size))
 
     def adds_fake_dims(self):
-        return True
+        return self._dim_size > 1
 
     @property
     def convertible(self):
@@ -267,7 +268,7 @@ class Project(Transform):
         return point.insert(self._dim, self._index)
 
     def invert_dimensions(self, dims):
-        return dims[: self._dim] + (CoordinateSym(-1),) + dims[self._dim :]
+        return dims[: self._dim] + (ProjExpr(-1),) + dims[self._dim :]
 
     def invert_restrictions(self, restrictions):
         left = restrictions[: self._dim]
@@ -522,7 +523,7 @@ class Delinearize(Transform):
             buf.pack_64bit_int(extent)
 
 
-class TransformStack(object):
+class TransformStack:
     def __init__(self, transform, parent):
         self._transform = transform
         self._parent = parent
@@ -533,8 +534,10 @@ class TransformStack(object):
     def __repr__(self):
         return str(self)
 
-    def add_fake_dims(self):
-        return self._transform.adds_fake_dims() or self._parent.add_fake_dims()
+    def adds_fake_dims(self):
+        return (
+            self._transform.adds_fake_dims() or self._parent.adds_fake_dims()
+        )
 
     @property
     def convertible(self):
@@ -600,7 +603,7 @@ class TransformStack(object):
         self._parent.serialize(buf)
 
 
-class IdentityTransform(object):
+class IdentityTransform:
     def __init__(self):
         pass
 
@@ -610,7 +613,7 @@ class IdentityTransform(object):
     def __repr__(self):
         return str(self)
 
-    def add_fake_dims(self):
+    def adds_fake_dims(self):
         return False
 
     @property

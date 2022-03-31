@@ -17,6 +17,17 @@ ifndef LEGATE_DIR
 $(error LEGATE_DIR variable is not defined, aborting build)
 endif
 
+# We also need cuda init for runs with GPUs
+ifeq ($(strip $(USE_CUDA)),1)
+ifndef CUDA
+$(error CUDA variable is not defined, aborting build)
+endif
+
+ifndef NCCL_DIR
+$(error NCCL_DIR variable is not defined, aborting build)
+endif
+endif
+
 # Flags for directing the runtime makefile what to include
 DEBUG    ?= 0  # Include debugging symbols
 GPU_ARCH ?= volta
@@ -33,11 +44,12 @@ NVCC_FLAGS ?=
 
 LD_FLAGS ?=
 
-# We also need cuda init for runs with GPUs
 ifeq ($(strip $(USE_CUDA)),1)
-ifndef CUDA
-$(error CUDA variable is not defined, aborting build)
-endif
+
+NVCC_FLAGS += -I$(NCCL_DIR)/include
+
+LD_FLAGS += -L$(NCCL_DIR)/lib -lnccl
+
 endif
 
 BOOTSTRAP = 1

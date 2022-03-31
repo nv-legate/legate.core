@@ -19,6 +19,9 @@
 
 typedef enum legate_core_task_id_t {
   LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,
+  LEGATE_CORE_INIT_NCCL_ID_TASK_ID,
+  LEGATE_CORE_INIT_NCCL_TASK_ID,
+  LEGATE_CORE_FINALIZE_NCCL_TASK_ID,
   LEGATE_CORE_NUM_TASK_IDS,  // must be last
 } legate_core_task_id_t;
 
@@ -84,6 +87,7 @@ typedef enum legate_core_transform_t {
 typedef enum legate_core_mapping_tag_t {
   LEGATE_CORE_KEY_STORE_TAG              = 1,
   LEGATE_CORE_MANUAL_PARALLEL_LAUNCH_TAG = 2,
+  LEGATE_CORE_TREE_REDUCE_TAG            = 3,
 } legate_core_mapping_tag_t;
 
 #ifdef __cplusplus
@@ -96,7 +100,7 @@ void legate_shutdown(void);
 void legate_core_perform_registration(void);
 
 void legate_register_affine_projection_functor(
-  int32_t, int32_t, int32_t*, int32_t*, legion_projection_id_t);
+  int32_t, int32_t, int32_t*, int32_t*, int32_t*, legion_projection_id_t);
 
 void legate_create_sharding_functor_using_projection(legion_sharding_id_t, legion_projection_id_t);
 

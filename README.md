@@ -209,7 +209,7 @@ as though they are running on a single processor.
 
 ## How Do I Install Legate?
 
-Legate Core is available on conda:
+Legate Core is available [on conda](https://anaconda.org/legate/legate-core):
 
 ```
 conda install -c nvidia -c conda-forge -c legate legate-core
@@ -234,6 +234,7 @@ Legate Core requires the following:
   - `numpy`
   - `cffi`
   - [CUDA](https://developer.nvidia.com/cuda-downloads) >= 8.0
+  - GNU Make
   - C++14 compatible compiler (g++, clang, or nvc++)
   - the Python packages listed in the [conda environment file](conda/core_dev.yml)
 
@@ -345,7 +346,7 @@ import numpy as np
 ```
 to this:
 ```python
-import legate.numpy as np
+import cunumeric as np
 ```
 After this, you can use the `legate` driver script in the `bin` directory of
 your installation to run any Python program. For example, to run your script 

@@ -25,6 +25,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from distutils import sysconfig
 
 import setuptools
@@ -155,6 +156,7 @@ def git_reset(repo_dir, refspec):
 
 def git_update(repo_dir, branch=None, tag=None, commit=None):
     if branch is not None:
+        verbose_check_call(["git", "fetch"], cwd=repo_dir)
         verbose_check_call(["git", "checkout", branch], cwd=repo_dir)
         verbose_check_call(["git", "pull", "--ff-only"], cwd=repo_dir)
     else:
@@ -203,7 +205,7 @@ def install_gasnet(gasnet_dir, conduit, thread_count):
     shutil.rmtree(temp_dir)
 
 
-def install_legion(legion_src_dir, branch, commit="ae594733"):
+def install_legion(legion_src_dir, branch, commit="24437c29"):
     print("Legate is installing Legion into a local directory...")
     # For now all we have to do is clone legion since we build it with Legate
     git_clone(
@@ -223,7 +225,7 @@ def install_thrust(thrust_dir):
     )
 
 
-def update_legion(legion_src_dir, branch, commit="ae594733"):
+def update_legion(legion_src_dir, branch, commit="24437c29"):
     # Make sure we are on the right branch for single/multi-node
     git_update(legion_src_dir, branch=branch, commit=commit)
 
@@ -246,7 +248,6 @@ def build_legion(
     gasnet,
     gasnet_dir,
     conduit,
-    no_hijack,
     pyversion,
     pylib_name,
     maxdim,
@@ -256,12 +257,20 @@ def build_legion(
     thread_count,
     verbose,
 ):
-    if no_hijack and cmake:
+    no_hijack = True
+
+    if cuda and os.environ.get("USE_CUDART_HIJACK", "0") == "1":
         print(
-            "Warning: CMake build does not support no-hijack mode. Falling "
-            "back to GNU make build."
+            """
+#####################################################################
+Warning: Realm's CUDA runtime hijack is incompatible with NCCL.
+Please note that your code will crash catastrophically as soon as it
+calls into NCCL either directly or through some other Legate library.
+#####################################################################
+            """
         )
-        cmake = False
+        time.sleep(10)
+        no_hijack = False
 
     if cmake:
         build_dir = os.path.join(legion_src_dir, "build")
@@ -461,6 +470,7 @@ def build_legate_core(
     cmake,
     cmake_exe,
     cuda_dir,
+    nccl_dir,
     debug,
     debug_release,
     cuda,
@@ -487,6 +497,7 @@ def build_legate_core(
         "GPU_ARCH=%s" % arch,
         "PREFIX=%s" % str(install_dir),
         "USE_GASNET=%s" % (1 if gasnet else 0),
+        "NCCL_DIR=%s" % nccl_dir,
     ] + (["CUDA=%s" % cuda_dir] if cuda_dir is not None else [])
     if clean_first:
         verbose_check_call(["make"] + make_flags + ["clean"], cwd=src_dir)
@@ -537,7 +548,7 @@ def install(
     llvm,
     spy,
     conduit,
-    no_hijack,
+    nccl_dir,
     cmake,
     cmake_exe,
     install_dir,
@@ -647,6 +658,16 @@ def install(
                 )
         dump_json_config(cuda_config, cuda_dir)
 
+        nccl_config = os.path.join(legate_core_dir, ".nccl.json")
+        if nccl_dir is None:
+            nccl_dir = load_json_config(nccl_config)
+            if nccl_dir is None:
+                raise Exception(
+                    "The first time you use CUDA you need to tell Legate "
+                    'where NCCL is installed with the "--with-nccl" flag.'
+                )
+        dump_json_config(nccl_config, nccl_dir)
+
     # install a stable version of Thrust
     thrust_config = os.path.join(legate_core_dir, ".thrust.json")
     if thrust_dir is None:
@@ -686,7 +707,6 @@ def install(
         gasnet,
         gasnet_dir,
         conduit,
-        no_hijack,
         pyversion,
         pylib_name,
         maxdim,
@@ -703,6 +723,7 @@ def install(
         cmake,
         cmake_exe,
         cuda_dir,
+        nccl_dir,
         debug,
         debug_release,
         cuda,
@@ -734,6 +755,18 @@ def install(
             ],
             cwd=legate_core_dir,
         )
+
+        # Record the path to NCCL that was used in this build
+        libs_path = os.path.join(install_dir, "share", ".legate-libs.json")
+        try:
+            with open(libs_path, "r") as f:
+                libs_config = json.load(f)
+        except (FileNotFoundError, IOError, json.JSONDecodeError):
+            libs_config = {}
+        libs_config["nccl"] = nccl_dir
+        with open(libs_path, "w") as f:
+            json.dump(libs_config, f)
+
     # Copy thrust configuration
     verbose_check_call(
         [
@@ -873,15 +906,12 @@ def driver():
         help="Build Legate with specified GASNet conduit.",
     )
     parser.add_argument(
-        "--with-hijack",
-        dest="no_hijack",
-        action="store_false",
+        "--with-nccl",
+        dest="nccl_dir",
+        metavar="DIR",
         required=False,
-        default=True,
-        help=(
-            "Activate the CUDA hijack in Realm "
-            "(incompatible with Legate Pandas)."
-        ),
+        default=os.environ.get("NCCL_PATH"),
+        help="Path to NCCL installation directory.",
     )
     parser.add_argument(
         "--python-lib",
@@ -951,7 +981,7 @@ def driver():
     )
     parser.add_argument(
         "--legion-branch",
-        dest="legion_branch",
+        dest=None,
         required=False,
         default=None,
         help="Legion branch to build Legate with.",

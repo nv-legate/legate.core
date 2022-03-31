@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from __future__ import annotations
 
 import gc
 import math
@@ -25,6 +26,7 @@ from legion_top import cleanup_items, top_level
 
 from legate.core import types as ty
 
+from .communicator import NCCLCommunicator
 from .context import Context
 from .corelib import CoreLib
 from .launcher import TaskLauncher
@@ -32,6 +34,7 @@ from .legion import (
     Fence,
     FieldSpace,
     Future,
+    FutureMap,
     IndexSpace,
     OutputRegion,
     Rect,
@@ -50,7 +53,7 @@ from .transform import IdentityTransform
 
 # A Field holds a reference to a field in a region tree
 # that can be used by many different RegionField objects
-class Field(object):
+class Field:
     __slots__ = [
         "runtime",
         "region",
@@ -99,7 +102,7 @@ assert _sizeof_size_t == 4 or _sizeof_size_t == 8
 
 
 # A helper class for doing field management with control replication
-class FieldMatch(object):
+class FieldMatch:
     __slots__ = ["manager", "fields", "input", "output", "future"]
 
     def __init__(self, manager, fields):
@@ -178,7 +181,7 @@ class FieldMatch(object):
 
 
 # This class manages all regions of the same shape.
-class RegionManager(object):
+class RegionManager:
     def __init__(self, runtime, shape):
         self._runtime = runtime
         self._shape = shape
@@ -232,7 +235,7 @@ class RegionManager(object):
 
 
 # This class manages the allocation and reuse of fields
-class FieldManager(object):
+class FieldManager:
     def __init__(self, runtime, shape, dtype):
         self.runtime = runtime
         self.shape = shape
@@ -318,7 +321,7 @@ class FieldManager(object):
                 self.freed_fields.append((region, field_id))
 
 
-class Attachment(object):
+class Attachment:
     def __init__(self, ptr, extent, shareable, region_field):
         self.ptr = ptr
         self.extent = extent
@@ -342,7 +345,7 @@ class Attachment(object):
         self._region_field = weakref.ref(region_field)
 
 
-class AttachmentManager(object):
+class AttachmentManager:
     def __init__(self, runtime):
         self._runtime = runtime
         self._attachments = dict()
@@ -479,7 +482,7 @@ class AttachmentManager(object):
             del self._pending_detachments[future]
 
 
-class PartitionManager(object):
+class PartitionManager:
     def __init__(self, runtime):
         self._runtime = runtime
         self._num_pieces = runtime.core_context.get_tunable(
@@ -714,7 +717,19 @@ class PartitionManager(object):
         self._index_partitions[key] = index_partition
 
 
-class Runtime(object):
+class CommunicatorManager:
+    def __init__(self, runtime):
+        self._runtime = runtime
+        self._nccl = NCCLCommunicator(runtime)
+
+    def destroy(self):
+        self._nccl.destroy()
+
+    def get_nccl_communicator(self):
+        return self._nccl
+
+
+class Runtime:
     def __init__(self, core_library):
         """
         This is a class that implements the Legate runtime.
@@ -752,6 +767,7 @@ class Runtime(object):
         self._core_context = self._context_list[0]
         self._core_library = core_library
 
+        self._unique_op_id = 0
         # This list maintains outstanding operations from all legate libraries
         # to be dispatched. This list allows cross library introspection for
         # Legate operations.
@@ -764,6 +780,7 @@ class Runtime(object):
         # Now we initialize managers
         self._attachment_manager = AttachmentManager(self)
         self._partition_manager = PartitionManager(self)
+        self._comm_manager = CommunicatorManager(self)
         self.index_spaces = {}  # map shapes to index spaces
         self.region_managers = {}  # map from shape to region managers
         self.field_managers = {}  # map from (shape,dtype) to field managers
@@ -854,6 +871,8 @@ class Runtime(object):
         # operations.
         self.flush_scheduling_window()
 
+        self._comm_manager.destroy()
+
         # Destroy all libraries. Note that we should do this
         # from the lastly added one to the first one
         for context in reversed(self._context_list):
@@ -874,6 +893,11 @@ class Runtime(object):
             legate_task_postamble(self.legion_runtime, self.legion_context)
 
         self.destroyed = True
+
+    def get_unique_op_id(self):
+        op_id = self._unique_op_id
+        self._unique_op_id += 1
+        return op_id
 
     def dispatch(self, op, redop=None):
         self._attachment_manager.perform_detachments()
@@ -926,7 +950,7 @@ class Runtime(object):
         )
 
     def _register_projection_functor(
-        self, spec, src_ndim, tgt_ndim, dims_c, offsets_c
+        self, spec, src_ndim, tgt_ndim, dims_c, weights_c, offsets_c
     ):
         proj_id = self.core_context.get_projection_id(self._next_projection_id)
         self._next_projection_id += 1
@@ -936,6 +960,7 @@ class Runtime(object):
             src_ndim,
             tgt_ndim,
             dims_c,
+            weights_c,
             offsets_c,
             proj_id,
         )
@@ -1109,17 +1134,28 @@ class Runtime(object):
         )
 
     def extract_scalar(self, future, idx, launch_domain=None):
-        launcher = TaskLauncher(
-            self.core_context,
-            self.core_library.LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,
-            tag=self.core_library.LEGATE_CPU_VARIANT,
-        )
-        launcher.add_future(future)
-        launcher.add_scalar_arg(idx, ty.int32)
-        if launch_domain is None:
-            return launcher.execute_single()
-        else:
+        if isinstance(future, FutureMap):
+            assert launch_domain is not None
+            launcher = TaskLauncher(
+                self.core_context,
+                self.core_library.LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,
+                tag=self.core_library.LEGATE_CPU_VARIANT,
+            )
+            launcher.add_future_map(future)
+            launcher.add_scalar_arg(idx, ty.int32)
             return launcher.execute(launch_domain)
+        else:
+            launcher = TaskLauncher(
+                self.core_context,
+                self.core_library.LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,
+                tag=self.core_library.LEGATE_CPU_VARIANT,
+            )
+            launcher.add_future(future)
+            launcher.add_scalar_arg(idx, ty.int32)
+            if launch_domain is None:
+                return launcher.execute_single()
+            else:
+                return launcher.execute(launch_domain)
 
     def reduce_future_map(self, future_map, redop):
         if isinstance(future_map, Future):
@@ -1137,6 +1173,9 @@ class Runtime(object):
         future = fence.launch(self.legion_runtime, self.legion_context)
         if block:
             future.wait()
+
+    def get_nccl_communicator(self):
+        return self._comm_manager.get_nccl_communicator()
 
 
 _runtime = Runtime(CoreLib())

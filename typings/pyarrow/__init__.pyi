@@ -12,8 +12,39 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from __future__ import annotations
 
-from pkgutil import extend_path
+from .lib import (
+    DataType,
+    binary,
+    bool_,
+    float16,
+    float32,
+    float64,
+    int8,
+    int16,
+    int32,
+    int64,
+    uint8,
+    uint16,
+    uint32,
+    uint64,
+)
 
-__path__ = extend_path(__path__, __name__)
+class ExtensionType:
+    def __init__(self, dtype: DataType, name: str) -> None: ...
+
+__all__ = (
+    "binary",
+    "bool_",
+    "int8",
+    "int16",
+    "int32",
+    "int64",
+    "uint8",
+    "uint16",
+    "uint32",
+    "uint64",
+    "float16",
+    "float32",
+    "float64",
+)

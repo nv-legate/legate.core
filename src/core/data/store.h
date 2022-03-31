@@ -40,6 +40,9 @@ class RegionField {
   RegionField& operator=(const RegionField& other) = delete;
 
  public:
+  bool valid() const;
+
+ public:
   int32_t dim() const { return dim_; }
 
  private:
@@ -173,8 +176,12 @@ class OutputRegionField {
   template <typename VAL>
   void return_data(Buffer<VAL>& buffer, size_t num_elements);
 
+ public:
+  ReturnValue pack_weight() const;
+
  private:
   bool bound_{false};
+  Legion::DeferredBuffer<size_t, 1> num_elements_;
   Legion::OutputRegion out_{};
   Legion::FieldID fid_{-1U};
 };
@@ -226,6 +233,9 @@ class FutureWrapper {
   Legion::Domain domain() const;
 
  public:
+  void initialize_with_identity(int32_t redop_id);
+
+ public:
   ReturnValue pack() const;
 
  private:
@@ -234,10 +244,6 @@ class FutureWrapper {
   Legion::Domain domain_{};
   Legion::Future future_{};
   Legion::UntypedDeferredValue buffer_{};
-
- private:
-  mutable bool uninitialized_{true};
-  mutable void* rawptr_{nullptr};
 };
 
 class Store {
@@ -245,6 +251,7 @@ class Store {
   Store() {}
   Store(int32_t dim,
         LegateTypeCode code,
+        int32_t redop_id,
         FutureWrapper future,
         std::shared_ptr<StoreTransform> transform = nullptr);
   Store(int32_t dim,
@@ -263,6 +270,9 @@ class Store {
  private:
   Store(const Store& other) = delete;
   Store& operator=(const Store& other) = delete;
+
+ public:
+  bool valid() const;
 
  public:
   int32_t dim() const { return dim_; }
@@ -308,7 +318,9 @@ class Store {
 
  public:
   bool is_future() const { return is_future_; }
+  bool is_output_store() const { return is_output_store_; }
   ReturnValue pack() const { return future_.pack(); }
+  ReturnValue pack_weight() const { return output_field_.pack_weight(); }
 
  private:
   bool is_future_{false};

@@ -12,15 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from __future__ import annotations
 
 from .constraints import Alignment, Broadcast, Containment
 from .legion import Future, Rect
-from .partition import REPLICATE, Replicate
+from .partition import REPLICATE
 from .shape import Shape
 from .utils import OrderedSet
 
 
-class EqClass(object):
+def join_restrictions(x, y):
+    return tuple(min(a, b) for a, b in zip(x, y))
+
+
+class EqClass:
     def __init__(self):
         # Maps a variable to the equivalent class id
         self._class_ids = {}
@@ -96,7 +101,7 @@ class EqClass(object):
             return self._classes[self._class_ids[var]]
 
 
-class Strategy(object):
+class Strategy:
     def __init__(self, launch_shape, strategy, fspaces, key_parts):
         if launch_shape is not None:
             self._launch_domain = Rect(hi=launch_shape)
@@ -148,14 +153,9 @@ class Strategy(object):
     def is_key_part(self, part):
         return part in self._key_parts
 
-    def launch(self, launcher):
-        if self.parallel:
-            return launcher.execute(self.launch_domain)
-        else:
-            return launcher.execute_single()
-
     def __str__(self):
         st = "[Strategy]"
+        st += f"\nLaunch domain: {self._launch_domain}"
         for part, partition in self._strategy.items():
             st += f"\n{part} ~~> {partition}"
         for part, fspace in self._fspaces.items():
@@ -166,19 +166,19 @@ class Strategy(object):
         return str(self)
 
 
-class Partitioner(object):
+class Partitioner:
     def __init__(self, runtime, ops, must_be_single=False):
         self._runtime = runtime
         self._ops = ops
         self._must_be_single = must_be_single
 
-    def _solve_broadcast_constraints(
-        self, unknowns, constraints, broadcasts, partitions
+    def _solve_constraints_for_futures(
+        self, unknowns, constraints, partitions
     ):
         to_remove = OrderedSet()
         for unknown in unknowns:
             store = unknown.store
-            if not (store.kind is Future or unknown in broadcasts):
+            if store.kind is not Future:
                 continue
 
             to_remove.add(unknown)
@@ -220,58 +220,144 @@ class Partitioner(object):
         return unknowns - to_remove, len(to_remove) > 0
 
     @staticmethod
-    def _find_restrictions(cls):
+    def _find_restrictions(cls, broadcasts):
         merged = None
         for unknown in cls:
             store = unknown.store
             restrictions = store.find_restrictions()
+            if unknown in broadcasts:
+                restrictions = join_restrictions(
+                    broadcasts[unknown], restrictions
+                )
             if merged is None:
                 merged = restrictions
             else:
-                merged = tuple(min(a, b) for a, b in zip(merged, restrictions))
+                merged = join_restrictions(merged, restrictions)
         return merged
 
-    def _find_all_restrictions(self, unknowns, constraints):
+    def _find_all_restrictions(self, unknowns, broadcasts, constraints):
         all_restrictions = {}
         for unknown in unknowns:
             if unknown in all_restrictions:
                 continue
             cls = constraints.find(unknown)
-            restrictions = self._find_restrictions(cls)
+            restrictions = self._find_restrictions(cls, broadcasts)
             for store in cls:
                 all_restrictions[unknown] = restrictions
         return all_restrictions
 
+    def maybe_find_alternative_key_partition(
+        self, chosen_partition, original, cls, restrictions, must_be_even
+    ):
+        original_comm_vol = original.store.comm_volume()
+        # If there is a store in the equivalence class that has an even
+        # key partition, we use it instead
+        for unknown in cls:
+            store = unknown.store
+            # Careful! these are partition symbols and we overrode the equal
+            # operator on them to mean alignments, so we compare between
+            # their identities.
+            if original is unknown:
+                continue
+            elif not store.has_key_partition(restrictions):
+                continue
+            # We don't want to use the store's key partition if that store
+            # incurs a bigger amount of data movement
+            elif store.comm_volume() < original_comm_vol:
+                continue
+
+            part = store.compute_key_partition(restrictions)
+            if part.even:
+                return part, unknown
+
+        # TODO: For now we repartition the store used as a center of a stencil
+        # if it was previously partitioned unevenly. If we have a proper
+        # affine dependent partitioning calls, we can avoid this.
+        if original in must_be_even:
+            store = original.store
+            store.reset_key_partition()
+            return store.compute_key_partition(restrictions), original
+        else:
+            return chosen_partition, original
+
+    @staticmethod
+    def compute_launch_shape(partitions, all_outputs, must_be_1d_launch):
+        # We filter out the cases where any of the outputs is assigned
+        # to replication, in which case the operation must be performed
+        # sequentially
+        for unknown, part in partitions.items():
+            if unknown.store in all_outputs and part is REPLICATE:
+                return None
+
+        # If we're here, this means that replicated stores are safe to access
+        # in parallel, so we filter those out to determine the launch domain
+        parts = [part for part in partitions.values() if part is not REPLICATE]
+
+        # If all stores are replicated, we can't parallelize the operation
+        if len(parts) == 0:
+            return None
+
+        # Here we check if all partitions agree on the color shape
+        launch_shape = parts[0].color_shape
+        for part in parts[1:]:
+            if part.color_shape != launch_shape:
+                # When some partitions have different color shapes,
+                # a 1D launch space is the only option
+                must_be_1d_launch = True
+                break
+
+        if must_be_1d_launch:
+            # If all color spaces don't have the same number of colors,
+            # it means some inputs are much smaller than the others
+            # to be partitioned into the same number of pieces.
+            # We simply serialize the launch in that case for now.
+            volumes = set(part.color_shape.volume() for part in parts)
+            if len(volumes) > 1:
+                return None
+            else:
+                return Shape(volumes)
+        else:
+            return launch_shape
+
     def partition_stores(self):
         unknowns = OrderedSet()
         constraints = EqClass()
-        broadcasts = OrderedSet()
+        broadcasts = {}
         dependent = {}
+        must_be_even = OrderedSet()
+        all_outputs = set()
         for op in self._ops:
             unknowns.update(op.all_unknowns)
             for c in op.constraints:
                 if isinstance(c, Alignment):
                     constraints.record(c._lhs, c._rhs)
                 elif isinstance(c, Broadcast):
-                    broadcasts.add(c._expr)
+                    broadcasts[c._expr] = c._restrictions
                 elif isinstance(c, Containment):
                     if c._rhs in dependent:
                         raise NotImplementedError(
                             "Partitions constrained by multiple constraints "
                             "are not supported yet"
                         )
+                    for unknown in c._lhs.unknowns():
+                        must_be_even.add(unknown)
                     dependent[c._rhs] = c._lhs
+        for op in self._ops:
+            all_outputs.update(
+                store for store in op.outputs if not store.unbound
+            )
 
         if self._must_be_single or len(unknowns) == 0:
-            broadcasts = unknowns
+            for unknown in unknowns:
+                c = unknown.broadcast()
+                broadcasts[unknown] = c._restrictions
 
         partitions = {}
         fspaces = {}
 
-        unknowns = self._solve_broadcast_constraints(
+        unknowns = self._solve_constraints_for_futures(
             unknowns,
             constraints,
-            broadcasts,
             partitions,
         )
 
@@ -282,7 +368,9 @@ class Partitioner(object):
             fspaces,
         )
 
-        all_restrictions = self._find_all_restrictions(unknowns, constraints)
+        all_restrictions = self._find_all_restrictions(
+            unknowns, broadcasts, constraints
+        )
 
         def cost(unknown):
             store = unknown.store
@@ -294,7 +382,6 @@ class Partitioner(object):
         unknowns = sorted(unknowns, key=cost)
 
         key_parts = set()
-        prev_part = None
         for unknown in unknowns:
             if unknown in partitions:
                 continue
@@ -303,28 +390,30 @@ class Partitioner(object):
 
             store = unknown.store
             restrictions = all_restrictions[unknown]
-
-            if isinstance(prev_part, Replicate):
-                partition = prev_part
-            else:
-                partition = store.compute_key_partition(restrictions)
-                key_parts.add(unknown)
-
             cls = constraints.find(unknown)
+
+            partition = store.compute_key_partition(restrictions)
+            if not partition.even and len(cls) > 1:
+                partition, unknown = self.maybe_find_alternative_key_partition(
+                    partition,
+                    unknown,
+                    cls,
+                    restrictions,
+                    must_be_even,
+                )
+            key_parts.add(unknown)
+
             for to_align in cls:
                 if to_align in partitions:
                     continue
                 partitions[to_align] = partition
 
-            prev_part = partition
+        for rhs, lhs in dependent.items():
+            lhs = lhs.subst(partitions).reduce()
+            partitions[rhs] = lhs._part
 
-        for lhs, rhs in dependent.items():
-            rhs = rhs.subst(partitions).reduce()
-            partitions[lhs] = rhs._part
+        launch_shape = self.compute_launch_shape(
+            partitions, all_outputs, must_be_1d_launch
+        )
 
-        color_shape = None if prev_part is None else prev_part.color_shape
-
-        if must_be_1d_launch and color_shape is not None:
-            color_shape = Shape((color_shape.volume(),))
-
-        return Strategy(color_shape, partitions, fspaces, key_parts)
+        return Strategy(launch_shape, partitions, fspaces, key_parts)

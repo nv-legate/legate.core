@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from __future__ import annotations
 
-from __future__ import absolute_import, division, print_function
 import os
 
 # Perform a check to see if we're running inside of Legion Python

@@ -12,9 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from __future__ import annotations
+
+from collections.abc import Iterable
+
+from .partition import Restriction
 
 
-class Expr(object):
+class Expr:
     def __eq__(self, rhs):
         return Alignment(self, rhs)
 
@@ -28,8 +33,22 @@ class Expr(object):
             raise ValueError("Dimensions don't match")
         return Translate(self, offset)
 
-    def broadcast(self):
-        return Broadcast(self)
+    def broadcast(self, axes=None):
+        if axes is None:
+            axes = set(range(self.ndim))
+        else:
+            if isinstance(axes, Iterable):
+                axes = set(axes)
+            else:
+                axes = {axes}
+        restrictions = []
+        for i in range(self.ndim):
+            restrictions.append(
+                Restriction.RESTRICTED
+                if i in axes
+                else Restriction.UNRESTRICTED
+            )
+        return Broadcast(self, restrictions)
 
 
 class Lit(Expr):
@@ -52,6 +71,9 @@ class Lit(Expr):
 
     def reduce(self):
         return self
+
+    def unknowns(self):
+        pass
 
 
 class PartSym(Expr):
@@ -89,8 +111,12 @@ class PartSym(Expr):
     def reduce(self):
         return self
 
+    def unknowns(self):
+        yield self
+
 
 class Translate(Expr):
+    # TODO: For now we will interpret this expression as `expr + [1, offset]`.
     def __init__(self, expr, offset):
         if not isinstance(expr, (PartSym, Lit)):
             raise NotImplementedError(
@@ -117,10 +143,14 @@ class Translate(Expr):
         expr = self._expr.reduce()
         assert isinstance(expr, Lit)
         part = expr._part
-        return Lit(part.translate(self._offset))
+        return Lit(part.translate_range(self._offset))
+
+    def unknowns(self):
+        for unknown in self._expr.unknowns():
+            yield unknown
 
 
-class Constraint(object):
+class Constraint:
     pass
 
 
@@ -151,8 +181,9 @@ class Containment(Constraint):
 
 
 class Broadcast(Constraint):
-    def __init__(self, expr):
+    def __init__(self, expr, restrictions):
         self._expr = expr
+        self._restrictions = restrictions
 
     def __repr__(self):
-        return f"Broadcast({self._expr})"
+        return f"Broadcast({self._expr}, axes={self._restrictions})"

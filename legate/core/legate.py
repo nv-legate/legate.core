@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from __future__ import annotations
 
 import platform
 
@@ -20,7 +21,7 @@ import pyarrow
 from .context import ResourceConfig
 
 
-class Array(object):
+class Array:
     def __init__(self, dtype, stores, children=None):
         """
         An Array is a collection of one or more Store objects that can
@@ -95,7 +96,7 @@ class Array(object):
         raise NotImplementedError("Array.__len__")
 
 
-class Table(object):
+class Table:
     def __init__(self, schema, columns):
         """
         A Table is a collection of top-level, equal-length Array
@@ -472,7 +473,7 @@ class Table(object):
         return (self.num_rows, self.num_columns)
 
 
-class Library(object):
+class Library:
     def __init__(self):
         """
         This is the abstract class for a Legate library class. It describes

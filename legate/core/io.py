@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from __future__ import annotations
 
 from typing import Iterable, Tuple, Union
 
@@ -32,7 +33,7 @@ from .shape import Shape
 from .store import DistributedAllocation, Store
 
 
-class DataSplit(object):
+class DataSplit:
     """
     Objects of this class can be used to describe the existing partitioning
     of incoming data to the `ingest` call. This is an abstract base class,

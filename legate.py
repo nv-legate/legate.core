@@ -15,8 +15,6 @@
 # limitations under the License.
 #
 
-from __future__ import print_function
-
 import argparse
 import json
 import os
@@ -115,6 +113,7 @@ def run_legate(
     event,
     log_dir,
     user_logging_levels,
+    log_to_file,
     gdb,
     cuda_gdb,
     memcheck,
@@ -279,6 +278,7 @@ def run_legate(
                 or var.startswith("UCX_")
                 or var.startswith("NCCL_")
                 or var.startswith("CUNUMERIC_")
+                or var.startswith("NVIDIA_")
             ):
                 cmd += ["-x", var]
     elif launcher == "jsrun":
@@ -463,16 +463,17 @@ def run_legate(
     if gpus > 0:
         logging_levels.append("gpu=5")
     if dataflow or event:
-        cmd += [
-            "-lg:spy",
-            "-logfile",
-            os.path.join(log_dir, "legate_%.spy"),
-        ]
+        cmd += ["-lg:spy"]
         logging_levels.append("legion_spy=2")
+        if user_logging_levels is not None and not log_to_file:
+            print("WARNING: Logging output is being redirected to a file")
+        log_to_file = True
     logging_levels = ",".join(logging_levels)
     if user_logging_levels is not None:
         logging_levels += "," + user_logging_levels
     cmd += ["-level", logging_levels]
+    if log_to_file:
+        cmd += ["-logfile", os.path.join(log_dir, "legate_%.log")]
     if gdb and os_name == "Darwin":
         print(
             "WARNING: You must start the debugging session with the following "
@@ -546,7 +547,7 @@ def run_legate(
         else:
             spy_cmd += ["-e"]
         for n in range(ranks):
-            spy_cmd += ["legate_" + str(n) + ".spy"]
+            spy_cmd += ["legate_" + str(n) + ".log"]
         if ranks // ranks_per_node > 4:
             print(
                 "Skipping the processing of spy output, to avoid wasting "
@@ -561,9 +562,14 @@ def run_legate(
                     flush=True,
                 )
             subprocess.check_call(spy_cmd, cwd=log_dir)
-            # Clean up our mess of Legion Spy files
-            for n in range(ranks):
-                os.remove(os.path.join(log_dir, "legate_" + str(n) + ".spy"))
+            # Clean up our mess of Legion Spy files, unless the user is doing
+            # some extra logging, in which case theirs and Spy's logs will be
+            # in the same file.
+            if user_logging_levels is None:
+                for n in range(ranks):
+                    os.remove(
+                        os.path.join(log_dir, "legate_" + str(n) + ".log")
+                    )
     return result
 
 
@@ -709,6 +715,13 @@ def driver():
         default=None,
         dest="user_logging_levels",
         help="extra loggers to turn on",
+    )
+    parser.add_argument(
+        "--log-to-file",
+        dest="log_to_file",
+        action="store_true",
+        required=False,
+        help="redirect logging output to a file inside --logdir",
     )
     parser.add_argument(
         "--gdb",
@@ -870,6 +883,7 @@ def driver():
         args.event,
         args.logdir,
         args.user_logging_levels,
+        args.log_to_file,
         args.gdb,
         args.cuda_gdb,
         args.memcheck,

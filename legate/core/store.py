@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from __future__ import annotations
 
 import weakref
 
@@ -40,7 +41,7 @@ from .transform import (
 from .types import _Dtype
 
 
-class InlineMappedAllocation(object):
+class InlineMappedAllocation:
     """
     This helper class is to tie the lifecycle of the client object to
     the inline mapped allocation
@@ -62,7 +63,7 @@ class InlineMappedAllocation(object):
         return result
 
 
-class DistributedAllocation(object):
+class DistributedAllocation:
     def __init__(self, partition, shard_local_buffers):
         """
         Represents a distributed collection of buffers, to be
@@ -87,7 +88,7 @@ class DistributedAllocation(object):
 
 
 # A region field holds a reference to a field in a logical region
-class RegionField(object):
+class RegionField:
     def __init__(
         self,
         runtime,
@@ -380,7 +381,7 @@ class RegionField(object):
 # This is a dummy object that is only used as an initializer for the
 # RegionField object above. It is thrown away as soon as the
 # RegionField is constructed.
-class _LegateNDarray(object):
+class _LegateNDarray:
     __slots__ = ["__array_interface__"]
 
     def __init__(self, shape, field_type, base_ptr, strides, read_only):
@@ -394,7 +395,7 @@ class _LegateNDarray(object):
         }
 
 
-class StoragePartition(object):
+class StoragePartition:
     def __init__(self, runtime, level, parent, partition, complete=False):
         self._runtime = runtime
         self._level = level
@@ -476,7 +477,7 @@ class StoragePartition(object):
         return self._partition.is_disjoint_for(launch_domain)
 
 
-class Storage(object):
+class Storage:
     def __init__(
         self,
         runtime,
@@ -737,7 +738,7 @@ class Storage(object):
         return part
 
 
-class StorePartition(object):
+class StorePartition:
     def __init__(self, runtime, store, partition, storage_partition):
         self._runtime = runtime
         self._store = store
@@ -787,7 +788,7 @@ class StorePartition(object):
         return self._storage_partition.is_disjoint_for(launch_domain)
 
 
-class Store(object):
+class Store:
     def __init__(
         self,
         runtime,
@@ -914,7 +915,7 @@ class Store(object):
         self._storage.attach_external_allocation(context, alloc, share)
 
     def has_fake_dims(self):
-        return self._transform.add_fake_dims()
+        return self._transform.adds_fake_dims()
 
     def comm_volume(self):
         return self._storage.volume()
@@ -1085,7 +1086,8 @@ class Store(object):
 
     def has_key_partition(self, restrictions):
         restrictions = self._transform.invert_restrictions(restrictions)
-        return self._storage.find_key_partition(restrictions) is not None
+        part = self._storage.find_key_partition(restrictions)
+        return part is not None and (part.even or self._transform.bottom)
 
     def set_key_partition(self, partition):
         assert isinstance(partition, PartitionBase)
