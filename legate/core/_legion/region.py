@@ -233,8 +233,9 @@ class OutputRegion:
             self.field_space = field_space
             self.region = None
             self.partition = None
+            # FIXME: dim (4th argument) needs to be configurable
             self.handle = legion.legion_output_requirement_create(
-                field_space.handle, ffi.NULL, 0, global_indexing
+                field_space.handle, ffi.NULL, 0, 1, global_indexing
             )
         elif existing is not None:
             if isinstance(existing, Region):
