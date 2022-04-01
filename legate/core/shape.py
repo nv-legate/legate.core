@@ -15,13 +15,15 @@
 from __future__ import annotations
 
 from functools import reduce
-from typing import TYPE_CHECKING, Iterable, Iterator, Optional, Union, cast
+from typing import TYPE_CHECKING, Iterable, Iterator, Optional, Union
+
+from typing_extensions import TypeAlias, overload
 
 if TYPE_CHECKING:
     from . import IndexSpace
     from .runtime import Runtime
 
-Extentable = Union["Shape", int, Iterable[int]]
+Extentable: TypeAlias = Union["Shape", int, Iterable[int]]
 
 
 def _cast_tuple(value: Extentable, ndim: int) -> tuple[int, ...]:
@@ -71,6 +73,14 @@ class Shape:
 
     def __repr__(self) -> str:
         return str(self)
+
+    @overload
+    def __getitem__(self, idx: int) -> int:
+        ...
+
+    @overload
+    def __getitem__(self, idx: slice) -> Shape:
+        ...
 
     def __getitem__(self, idx: Union[int, slice]) -> Union[Shape, int]:
         if isinstance(idx, slice):
@@ -195,10 +205,8 @@ class Shape:
     def insert(self, dim: int, new_value: int) -> Shape:
         return Shape(self.extents[:dim] + (new_value,) + self.extents[dim:])
 
-    def map(self, mapping: dict[int, int]) -> Shape:
-        return Shape(
-            tuple(cast(int, self[mapping[dim]]) for dim in range(self.ndim))
-        )
+    def map(self, mapping: tuple[int, ...]) -> Shape:
+        return Shape(tuple(self[mapping[dim]] for dim in range(self.ndim)))
 
     def strides(self) -> Shape:
         strides: tuple[int, ...] = ()

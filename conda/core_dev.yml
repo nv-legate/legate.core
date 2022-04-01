@@ -16,3 +16,4 @@ dependencies:
   - sphinx
   - sphinx-copybutton
   - sphinx-markdown-tables
+  - typing_extensions

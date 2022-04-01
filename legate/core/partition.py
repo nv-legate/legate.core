@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 from enum import IntEnum, unique
-from typing import TYPE_CHECKING, Any, Optional, Sequence, Type, Union, cast
+from typing import TYPE_CHECKING, Any, Optional, Sequence, Type, Union
 
 if TYPE_CHECKING:
     from . import Domain, Region, Partition as LegionPartition
@@ -187,7 +187,7 @@ class Tiling(PartitionBase):
         for dim, restriction in enumerate(restrictions):
             if (
                 restriction == Restriction.RESTRICTED
-                and cast(int, self.color_shape[dim]) > 1
+                and self.color_shape[dim] > 1
             ):
                 return False
         return True

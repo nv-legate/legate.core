@@ -74,6 +74,7 @@ module = [
     "legate.core.partition",
     "legate.core.projection",
     "legate.core.shape",
+    "legate.core.transform",
     "legate.core.types",
     "legate.core.utils",
 ]

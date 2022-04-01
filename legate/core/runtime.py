@@ -994,7 +994,7 @@ class Runtime:
                 spec, *pack_symbolic_projection_repr(src_ndim, dims)
             )
 
-    def get_transform_code(self, name):
+    def get_transform_code(self, name) -> int:
         return getattr(
             self.core_library, f"LEGATE_CORE_TRANSFORM_{name.upper()}"
         )
