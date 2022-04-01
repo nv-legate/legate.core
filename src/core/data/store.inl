@@ -231,7 +231,7 @@ template <typename VAL>
 void OutputRegionField::return_data(Buffer<VAL>& buffer, size_t num_elements)
 {
   assert(!bound_);
-  out_.return_data(fid_, buffer, &num_elements);
+  out_.return_data(Legion::Point<1>(num_elements), fid_, buffer);
   num_elements_[0] = num_elements;
 }
 
