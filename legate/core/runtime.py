@@ -1176,6 +1176,22 @@ class Runtime:
     def get_nccl_communicator(self):
         return self._comm_manager.get_nccl_communicator()
 
+    def delinearize_future_map(self, future_map, new_domain):
+        new_domain = self.find_or_create_index_space(new_domain)
+        functor = (
+            self.core_library.legate_linearizing_point_transform_functor()
+        )
+        handle = legion.legion_future_map_transform(
+            self.legion_runtime,
+            self.legion_context,
+            future_map.handle,
+            new_domain.handle,
+            # CFFI constructs a legion_point_transform_functor_t from this list
+            [functor],
+            False,
+        )
+        return FutureMap(handle)
+
 
 _runtime = Runtime(CoreLib())
 

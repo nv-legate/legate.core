@@ -21,13 +21,33 @@ from .launcher import TaskLauncher as Task
 
 
 class Communicator(ABC):
-    def __init__(self):
-        self._comms = {}
+    def __init__(self, runtime):
+        self._runtime = runtime
+        self._context = runtime.core_context
 
-    def get_communicator(self, volume):
-        if volume not in self._comms:
-            self._comms[volume] = self._initialize(volume)
-        return self._comms[volume]
+        self._comms = {}
+        # From launch domains to communicator future maps transformed to N-D
+        self._nd_comms = {}
+
+    def _get_1d_communicator(self, volume):
+        if volume in self._comms:
+            return self._comms[volume]
+        comm = self._initialize(volume)
+        self._comms[volume] = comm
+        return comm
+
+    def _transform_communicator(self, comm, launch_domain):
+        if launch_domain in self._nd_comms:
+            return self._nd_comms[launch_domain]
+        comm = self._runtime.delinearize_future_map(comm, launch_domain)
+        self._nd_comms[launch_domain] = comm
+        return comm
+
+    def get_communicator(self, launch_domain):
+        comm = self._get_1d_communicator(launch_domain.get_volume())
+        if launch_domain.dim > 1:
+            comm = self._transform_communicator(comm, launch_domain)
+        return comm
 
     def destroy(self):
         for volume, handle in self._comms.items():
@@ -44,11 +64,9 @@ class Communicator(ABC):
 
 class NCCLCommunicator(Communicator):
     def __init__(self, runtime):
-        super(NCCLCommunicator, self).__init__()
+        super(NCCLCommunicator, self).__init__(runtime)
         library = runtime.core_library
 
-        self._runtime = runtime
-        self._context = runtime.core_context
         self._init_nccl_id = library.LEGATE_CORE_INIT_NCCL_ID_TASK_ID
         self._init_nccl = library.LEGATE_CORE_INIT_NCCL_TASK_ID
         self._finalize_nccl = library.LEGATE_CORE_FINALIZE_NCCL_TASK_ID
