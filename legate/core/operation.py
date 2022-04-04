@@ -282,9 +282,8 @@ class Task(Operation):
     def _add_communicators(self, launcher, launch_domain):
         if launch_domain is None:
             return
-        volume = launch_domain.get_volume()
         for comm in self._comm_args:
-            handle = comm.get_communicator(volume)
+            handle = comm.get_communicator(launch_domain)
             launcher.add_communicator(handle)
 
 
