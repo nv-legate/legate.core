@@ -23,10 +23,10 @@ if TYPE_CHECKING:
     from . import IndexSpace
     from .runtime import Runtime
 
-Extentable: TypeAlias = Union["Shape", int, Iterable[int]]
+ExtentLike: TypeAlias = Union["Shape", int, Iterable[int]]
 
 
-def _cast_tuple(value: Extentable, ndim: int) -> tuple[int, ...]:
+def _cast_tuple(value: ExtentLike, ndim: int) -> tuple[int, ...]:
     if isinstance(value, Shape):
         return value.extents
     elif isinstance(value, Iterable):
@@ -43,7 +43,7 @@ class Shape:
 
     def __init__(
         self,
-        extents: Optional[Extentable] = None,
+        extents: Optional[ExtentLike] = None,
         ispace: Optional[IndexSpace] = None,
     ) -> None:
         if extents is not None:
@@ -146,47 +146,47 @@ class Shape:
         else:
             return False
 
-    def __le__(self, other: Extentable) -> bool:
+    def __le__(self, other: ExtentLike) -> bool:
         lh = _cast_tuple(self, self.ndim)
         rh = _cast_tuple(other, self.ndim)
         return len(lh) == len(rh) and lh <= rh
 
-    def __lt__(self, other: Extentable) -> bool:
+    def __lt__(self, other: ExtentLike) -> bool:
         lh = _cast_tuple(self, self.ndim)
         rh = _cast_tuple(other, self.ndim)
         return len(lh) == len(rh) and lh < rh
 
-    def __ge__(self, other: Extentable) -> bool:
+    def __ge__(self, other: ExtentLike) -> bool:
         lh = _cast_tuple(self, self.ndim)
         rh = _cast_tuple(other, self.ndim)
         return len(lh) == len(rh) and lh >= rh
 
-    def __gt__(self, other: Extentable) -> bool:
+    def __gt__(self, other: ExtentLike) -> bool:
         lh = _cast_tuple(self, self.ndim)
         rh = _cast_tuple(other, self.ndim)
         return len(lh) == len(rh) and lh > rh
 
-    def __add__(self, other: Extentable) -> Shape:
+    def __add__(self, other: ExtentLike) -> Shape:
         lh = _cast_tuple(self, self.ndim)
         rh = _cast_tuple(other, self.ndim)
         return Shape(tuple(a + b for (a, b) in zip(lh, rh)))
 
-    def __sub__(self, other: Extentable) -> Shape:
+    def __sub__(self, other: ExtentLike) -> Shape:
         lh = _cast_tuple(self, self.ndim)
         rh = _cast_tuple(other, self.ndim)
         return Shape(tuple(a - b for (a, b) in zip(lh, rh)))
 
-    def __mul__(self, other: Extentable) -> Shape:
+    def __mul__(self, other: ExtentLike) -> Shape:
         lh = _cast_tuple(self, self.ndim)
         rh = _cast_tuple(other, self.ndim)
         return Shape(tuple(a * b for (a, b) in zip(lh, rh)))
 
-    def __mod__(self, other: Extentable) -> Shape:
+    def __mod__(self, other: ExtentLike) -> Shape:
         lh = _cast_tuple(self, self.ndim)
         rh = _cast_tuple(other, self.ndim)
         return Shape(tuple(a % b for (a, b) in zip(lh, rh)))
 
-    def __floordiv__(self, other: Extentable) -> Shape:
+    def __floordiv__(self, other: ExtentLike) -> Shape:
         lh = _cast_tuple(self, self.ndim)
         rh = _cast_tuple(other, self.ndim)
         return Shape(tuple(a // b for (a, b) in zip(lh, rh)))
