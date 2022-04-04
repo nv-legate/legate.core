@@ -49,15 +49,15 @@ class Region:
 
         Parameters
         ----------
-        context : legion.legion_context_t
+        context : legion_context_t
             The Legion context from get_legion_context()
-        runtime : legion.legion_runtime_t
+        runtime : legion_runtime_t
             Handle for the Legion runtime from get_legion_runtime()
         index_space : IndexSpace
             The index space for this logical region
         field_space : FieldSpace
             The field space for this logical region
-        handle : legion.legion_logical_region_t
+        handle : legion_logical_region_t
             Created handle for a logical region from a Legion C API call
         parent : Partition
             Parent logical partition for this logical region, if any
@@ -190,9 +190,9 @@ class OutputRegion:
 
         Parameters
         ----------
-        context : legion.legion_context_t
+        context : legion_context_t
             Context for the enclosing parent task
-        runtime : legion.legion_runtime_t
+        runtime : legion_runtime_t
             Handle for the Legion runtime
         field_space : FieldSpace
             The field space to use for the creation of a new logical region
@@ -451,7 +451,7 @@ class PhysicalRegion:
 
         Parameters
         ----------
-        handle : legion.legion_physical_region_t
+        handle : legion_physical_region_t
             The handle for a physical region that this object will own
         region : Region
             The logical region for this physical region
