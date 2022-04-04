@@ -15,6 +15,9 @@
 
 from typing import Any
 
+class legion_runtime_t: ...
+class legion_context_t: ...
+
 LEGION_DISJOINT_COMPLETE_KIND: int
 LEGION_DISJOINT_INCOMPLETE_KIND: int
 

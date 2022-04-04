@@ -20,10 +20,7 @@ import struct
 import weakref
 from collections import deque
 from functools import reduce
-from typing import TYPE_CHECKING, Any, Union
-
-if TYPE_CHECKING:
-    from .legion import IndexPartition
+from typing import TYPE_CHECKING, Union
 
 from legion_top import cleanup_items, top_level
 
@@ -53,9 +50,11 @@ from .solver import Partitioner
 from .store import RegionField, Storage, Store
 from .transform import IdentityTransform
 
+if TYPE_CHECKING:
+    from . import IndexPartition
+
 
 # A Field holds a reference to a field in a region tree
-# that can be used by many different RegionField objects
 class Field:
     __slots__ = [
         "runtime",
@@ -735,6 +734,9 @@ class CommunicatorManager:
 
 
 class Runtime:
+    _legion_runtime: Union[legion.legion_runtime_t, None]
+    _legion_context: Union[legion.legion_context_t, None]
+
     def __init__(self, core_library):
         """
         This is a class that implements the Legate runtime.
@@ -1198,11 +1200,11 @@ def _cleanup_legate_runtime() -> None:
 cleanup_items.append(_cleanup_legate_runtime)
 
 
-def get_legion_runtime() -> Any:
+def get_legion_runtime() -> legion.legion_runtime_t:
     return _runtime.legion_runtime
 
 
-def get_legion_context() -> Any:
+def get_legion_context() -> legion.legion_context_t:
     return _runtime.legion_context
 
 

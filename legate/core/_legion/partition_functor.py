@@ -21,8 +21,6 @@ from .future import FutureMap
 from .geometry import Point
 
 if TYPE_CHECKING:
-    from ..context import Context
-    from ..runtime import Runtime
     from . import FieldID, IndexPartition, IndexSpace, Rect, Region, Transform
 
 
@@ -36,8 +34,8 @@ class PartitionFunctor:
 
     def partition(
         self,
-        runtime: Runtime,
-        context: Context,
+        runtime: legion.legion_runtime_t,
+        context: legion.legion_context_t,
         parent: IndexSpace,
         color_space: IndexSpace,
         kind: int,
@@ -82,8 +80,8 @@ class PartitionByRestriction(PartitionFunctor):
 
     def partition(
         self,
-        runtime: Runtime,
-        context: Context,
+        runtime: legion.legion_runtime_t,
+        context: legion.legion_context_t,
         parent: IndexSpace,
         color_space: IndexSpace,
         kind: Any,
@@ -123,8 +121,8 @@ class PartitionByImage(PartitionFunctor):
 
     def partition(
         self,
-        runtime: Runtime,
-        context: Context,
+        runtime: legion.legion_runtime_t,
+        context: legion.legion_context_t,
         parent: IndexSpace,
         color_space: IndexSpace,
         kind: Any,
@@ -168,8 +166,8 @@ class PartitionByImageRange(PartitionFunctor):
 
     def partition(
         self,
-        runtime: Runtime,
-        context: Context,
+        runtime: legion.legion_runtime_t,
+        context: legion.legion_context_t,
         parent: IndexSpace,
         color_space: IndexSpace,
         kind: Any,
@@ -214,8 +212,8 @@ class PartitionByPreimage(PartitionFunctor):
 
     def partition(
         self,
-        runtime: Runtime,
-        context: Context,
+        runtime: legion.legion_runtime_t,
+        context: legion.legion_context_t,
         parent: IndexSpace,
         color_space: IndexSpace,
         kind: Any,
@@ -260,8 +258,8 @@ class PartitionByPreimageRange(PartitionFunctor):
 
     def partition(
         self,
-        runtime: Runtime,
-        context: Context,
+        runtime: legion.legion_runtime_t,
+        context: legion.legion_context_t,
         parent: IndexSpace,
         color_space: IndexSpace,
         kind: Any,
@@ -290,8 +288,8 @@ class EqualPartition(PartitionFunctor):
 
     def partition(
         self,
-        runtime: Runtime,
-        context: Context,
+        runtime: legion.legion_runtime_t,
+        context: legion.legion_context_t,
         parent: IndexSpace,
         color_space: IndexSpace,
         kind: Any,
@@ -319,8 +317,8 @@ class PartitionByWeights(PartitionFunctor):
 
     def partition(
         self,
-        runtime: Runtime,
-        context: Context,
+        runtime: legion.legion_runtime_t,
+        context: legion.legion_context_t,
         parent: IndexSpace,
         color_space: IndexSpace,
         kind: int,
@@ -372,8 +370,8 @@ class PartitionByDomain(PartitionFunctor):
 
     def partition(
         self,
-        runtime: Runtime,
-        context: Context,
+        runtime: legion.legion_runtime_t,
+        context: legion.legion_context_t,
         parent: IndexSpace,
         color_space: IndexSpace,
         kind: Any,

@@ -24,8 +24,6 @@ from .geometry import Domain
 from .pending import _pending_unordered
 
 if TYPE_CHECKING:
-    from ..context import Context
-    from ..runtime import Runtime
     from . import FieldID, IndexPartition, Rect
 
 
@@ -34,8 +32,8 @@ class IndexSpace:
 
     def __init__(
         self,
-        context: Context,
-        runtime: Runtime,
+        context: legion.legion_context_t,
+        runtime: legion.legion_runtime_t,
         handle: Any,
         parent: Optional[IndexPartition] = None,
         owned: bool = True,
@@ -185,8 +183,8 @@ class IndexSpace:
 class FieldSpace:
     def __init__(
         self,
-        context: Context,
-        runtime: Runtime,
+        context: legion.legion_context_t,
+        runtime: legion.legion_runtime_t,
         handle: Optional[Any] = None,
         owned: bool = True,
     ) -> None:

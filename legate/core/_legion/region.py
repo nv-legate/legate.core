@@ -24,8 +24,6 @@ from .space import IndexSpace
 from .util import FieldID, dispatch
 
 if TYPE_CHECKING:
-    from ..context import Context
-    from ..runtime import Runtime
     from . import FieldListLike, FieldSpace
 
 
@@ -35,8 +33,8 @@ class Region:
 
     def __init__(
         self,
-        context: Context,
-        runtime: Runtime,
+        context: legion.legion_context_t,
+        runtime: legion.legion_runtime_t,
         index_space: IndexSpace,
         field_space: FieldSpace,
         handle: Optional[Any] = None,
@@ -51,15 +49,15 @@ class Region:
 
         Parameters
         ----------
-        context : legion_context_t
+        context : legion.legion_context_t
             The Legion context from get_legion_context()
-        runtime : legion_runtime_t
+        runtime : legion.legion_runtime_t
             Handle for the Legion runtime from get_legion_runtime()
         index_space : IndexSpace
             The index space for this logical region
         field_space : FieldSpace
             The field space for this logical region
-        handle : legion_logical_region_t
+        handle : legion.legion_logical_region_t
             Created handle for a logical region from a Legion C API call
         parent : Partition
             Parent logical partition for this logical region, if any
@@ -170,8 +168,8 @@ class OutputRegion:
 
     def __init__(
         self,
-        context: Context,
-        runtime: Runtime,
+        context: legion.legion_context_t,
+        runtime: legion.legion_runtime_t,
         field_space: Optional[FieldSpace] = None,
         fields: Optional[FieldListLike] = None,
         global_indexing: bool = True,
@@ -192,9 +190,9 @@ class OutputRegion:
 
         Parameters
         ----------
-        context : legion_context_t
+        context : legion.legion_context_t
             Context for the enclosing parent task
-        runtime : legion_runtime_t
+        runtime : legion.legion_runtime_t
             Handle for the Legion runtime
         field_space : FieldSpace
             The field space to use for the creation of a new logical region
@@ -453,7 +451,7 @@ class PhysicalRegion:
 
         Parameters
         ----------
-        handle : legion_physical_region_t
+        handle : legion.legion_physical_region_t
             The handle for a physical region that this object will own
         region : Region
             The logical region for this physical region
@@ -504,7 +502,11 @@ class PhysicalRegion:
         legion.legion_physical_region_wait_until_valid(self.handle)
 
     @dispatch
-    def remap(self, runtime: Runtime, context: Context) -> None:
+    def remap(
+        self,
+        runtime: legion.legion_runtime_t,
+        context: legion.legion_context_t,
+    ) -> None:
         """
         Remap this physical region so that it contains a valid copy of the
         data for the logical region that it represents
@@ -512,11 +514,18 @@ class PhysicalRegion:
         legion.legion_runtime_remap_region(runtime, context, self.handle)
 
     # Launching one of these means remapping it
-    def launch(self, runtime: Runtime, context: Context) -> None:
+    def launch(
+        self,
+        runtime: legion.legion_runtime_t,
+        context: legion.legion_context_t,
+    ) -> None:
         self.remap(runtime, context)
 
     def unmap(
-        self, runtime: Runtime, context: Context, unordered: bool = False
+        self,
+        runtime: legion.legion_runtime_t,
+        context: legion.legion_context_t,
+        unordered: bool = False,
     ) -> None:
         """
         Unmap this physical region from the current logical region
