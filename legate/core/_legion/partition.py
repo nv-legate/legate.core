@@ -22,8 +22,6 @@ from .pending import _pending_unordered
 from .space import IndexSpace
 
 if TYPE_CHECKING:
-    from ..context import Context
-    from ..runtime import Runtime
     from . import Point, Region
 
 
@@ -34,8 +32,8 @@ class Partition:
 
     def __init__(
         self,
-        context: Context,
-        runtime: Runtime,
+        context: legion.legion_context_t,
+        runtime: legion.legion_runtime_t,
         index_partition: IndexPartition,
         parent: Region,
         handle: Optional[Any] = None,
@@ -118,8 +116,8 @@ class IndexPartition:
 
     def __init__(
         self,
-        context: Context,
-        runtime: Runtime,
+        context: legion.legion_context_t,
+        runtime: legion.legion_runtime_t,
         parent: IndexSpace,
         color_space: IndexSpace,
         functor: Optional[Any] = None,

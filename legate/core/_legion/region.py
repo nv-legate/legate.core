@@ -24,8 +24,6 @@ from .space import IndexSpace
 from .util import FieldID, dispatch
 
 if TYPE_CHECKING:
-    from ..context import Context
-    from ..runtime import Runtime
     from . import FieldListLike, FieldSpace
 
 
@@ -35,8 +33,8 @@ class Region:
 
     def __init__(
         self,
-        context: Context,
-        runtime: Runtime,
+        context: legion.legion_context_t,
+        runtime: legion.legion_runtime_t,
         index_space: IndexSpace,
         field_space: FieldSpace,
         handle: Optional[Any] = None,
@@ -170,8 +168,8 @@ class OutputRegion:
 
     def __init__(
         self,
-        context: Context,
-        runtime: Runtime,
+        context: legion.legion_context_t,
+        runtime: legion.legion_runtime_t,
         field_space: Optional[FieldSpace] = None,
         fields: Optional[FieldListLike] = None,
         global_indexing: bool = True,
@@ -504,7 +502,11 @@ class PhysicalRegion:
         legion.legion_physical_region_wait_until_valid(self.handle)
 
     @dispatch
-    def remap(self, runtime: Runtime, context: Context) -> None:
+    def remap(
+        self,
+        runtime: legion.legion_runtime_t,
+        context: legion.legion_context_t,
+    ) -> None:
         """
         Remap this physical region so that it contains a valid copy of the
         data for the logical region that it represents
@@ -512,11 +514,18 @@ class PhysicalRegion:
         legion.legion_runtime_remap_region(runtime, context, self.handle)
 
     # Launching one of these means remapping it
-    def launch(self, runtime: Runtime, context: Context) -> None:
+    def launch(
+        self,
+        runtime: legion.legion_runtime_t,
+        context: legion.legion_context_t,
+    ) -> None:
         self.remap(runtime, context)
 
     def unmap(
-        self, runtime: Runtime, context: Context, unordered: bool = False
+        self,
+        runtime: legion.legion_runtime_t,
+        context: legion.legion_context_t,
+        unordered: bool = False,
     ) -> None:
         """
         Unmap this physical region from the current logical region

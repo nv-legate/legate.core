@@ -14,7 +14,7 @@
 #
 from __future__ import annotations
 
-from typing import Any, Iterator, Optional, Sequence, Union
+from typing import Any, Collection, Iterator, Optional, Union
 
 from .. import ffi, legion
 from .env import LEGATE_MAX_DIM
@@ -109,8 +109,8 @@ class Point:
 class Rect:
     def __init__(
         self,
-        hi: Optional[Sequence[float]] = None,
-        lo: Optional[Sequence[float]] = None,
+        hi: Optional[Collection[int]] = None,
+        lo: Optional[Collection[int]] = None,
         exclusive: bool = True,
         dim: Optional[int] = None,
     ) -> None:
@@ -187,8 +187,8 @@ class Rect:
 
     def set_bounds(
         self,
-        lo: Optional[Sequence[float]],
-        hi: Sequence[float],
+        lo: Optional[Collection[int]],
+        hi: Collection[int],
         exclusive: bool = True,
     ) -> None:
         if len(hi) > LEGATE_MAX_DIM:
