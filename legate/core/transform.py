@@ -37,7 +37,7 @@ class NonInvertibleError(Exception):
 Restrictions = Tuple[Restriction, ...]
 
 
-class Transform(Protocol):
+class TransformProto(Protocol):
     def __repr__(self) -> str:
         return str(self)
 
@@ -88,6 +88,10 @@ class Transform(Protocol):
 
     def get_inverse_transform(self, ndim: int) -> AffineTransform:
         ...
+
+
+class Transform(TransformProto, Protocol):
+    pass
 
 
 class Shift(Transform):
@@ -593,8 +597,14 @@ class Delinearize(Transform):
             buf.pack_64bit_int(extent)
 
 
-class TransformStack(Transform):
-    def __init__(self, transform: Transform, parent: Transform) -> None:
+class TransformStackBase(TransformProto, Protocol):
+    pass
+
+
+class TransformStack(TransformStackBase):
+    def __init__(
+        self, transform: Transform, parent: TransformStackBase
+    ) -> None:
         self._transform = transform
         self._parent = parent
 
@@ -675,7 +685,7 @@ class TransformStack(Transform):
         self._parent.serialize(buf)
 
 
-class IdentityTransform(Transform):
+class IdentityTransform(TransformStackBase):
     def __init__(self) -> None:
         pass
 
