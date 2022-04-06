@@ -174,6 +174,7 @@ class OutputRegion:
         runtime: Runtime,
         field_space: Optional[FieldSpace] = None,
         fields: Optional[FieldListLike] = None,
+        ndim: Optional[int] = None,
         global_indexing: bool = True,
         existing: Optional[Union[Region, Partition]] = None,
         flags: Optional[int] = None,
@@ -224,6 +225,7 @@ class OutputRegion:
         self.context = context
         self.runtime = runtime
         self.fields: set[Union[int, FieldID]] = set()
+        self.ndim = 1 if ndim is None else ndim
 
         if field_space is not None:
             if existing is not None:
@@ -233,9 +235,8 @@ class OutputRegion:
             self.field_space = field_space
             self.region = None
             self.partition = None
-            # FIXME: dim (4th argument) needs to be configurable
             self.handle = legion.legion_output_requirement_create(
-                field_space.handle, ffi.NULL, 0, 1, global_indexing
+                field_space.handle, ffi.NULL, 0, self.ndim, global_indexing
             )
         elif existing is not None:
             if isinstance(existing, Region):

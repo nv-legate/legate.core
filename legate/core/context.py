@@ -214,6 +214,7 @@ class Context:
         shape=None,
         storage=None,
         optimize_scalar=False,
+        ndim=None,
     ):
         dtype = self.type_system[ty]
         return self._runtime.create_store(
@@ -221,6 +222,7 @@ class Context:
             shape=shape,
             storage=storage,
             optimize_scalar=optimize_scalar,
+            ndim=ndim,
         )
 
     def get_nccl_communicator(self):

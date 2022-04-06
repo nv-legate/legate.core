@@ -241,8 +241,10 @@ class Task(Operation):
                 assert num_unbound_outs == 1
                 assert isinstance(result, FutureMap)
                 output = self.outputs[self.unbound_outputs[0]]
-                partition = Weighted(runtime, launch_shape, result)
-                output.set_key_partition(partition)
+                # TODO: need to track partitions for N-D unbound stores
+                if output.ndim == 1:
+                    partition = Weighted(runtime, launch_shape, result)
+                    output.set_key_partition(partition)
         else:
             idx = 0
             # TODO: We can potentially deduplicate these extraction tasks
@@ -250,6 +252,9 @@ class Task(Operation):
             if launch_shape is not None:
                 for out_idx in self.unbound_outputs:
                     output = self.outputs[out_idx]
+                    # TODO: need to track partitions for N-D unbound stores
+                    if output.ndim > 1:
+                        continue
                     weights = runtime.extract_scalar(
                         result, idx, launch_domain
                     )

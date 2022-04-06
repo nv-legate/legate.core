@@ -796,6 +796,7 @@ class Store:
         storage,
         transform,
         shape=None,
+        ndim=None,
     ):
         """
         Unlike in Arrow where all data is backed by objects that
@@ -823,6 +824,7 @@ class Store:
         self._runtime = runtime
         self._partition_manager = runtime.partition_manager
         self._shape = shape
+        self._ndim = ndim
         self._dtype = dtype
         self._storage = storage
         self._transform = transform
@@ -849,7 +851,7 @@ class Store:
 
     @property
     def ndim(self):
-        return -1 if self._shape is None else self._shape.ndim
+        return self._ndim if self._shape is None else self._shape.ndim
 
     @property
     def type(self):
@@ -926,6 +928,7 @@ class Store:
             assert isinstance(data, RegionField)
             self._shape = data.shape
             self._storage.set_extents(self._shape)
+            self._ndim = None
         else:
             assert isinstance(data, Future)
 
@@ -936,6 +939,7 @@ class Store:
         return (
             f"Store("
             f"shape: {self._shape}, "
+            f"ndim: {self._ndim}, "
             f"type: {self._dtype}, "
             f"storage: {self._storage}), "
             f"transform: {self._transform})"
@@ -1080,6 +1084,7 @@ class Store:
 
     def serialize(self, buf):
         buf.pack_bool(self.kind is Future)
+        buf.pack_bool(self.unbound)
         buf.pack_32bit_int(self.ndim)
         buf.pack_32bit_int(self._dtype.code)
         self._transform.serialize(buf)

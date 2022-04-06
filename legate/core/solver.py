@@ -217,7 +217,16 @@ class Partitioner:
                 partitions[unknown] = REPLICATE
                 fspaces[unknown] = fspace
 
-        return unknowns - to_remove, len(to_remove) > 0
+        unbound_ndims = set(unknown.store.ndim for unknown in to_remove)
+
+        if len(unbound_ndims) > 1:
+            raise NotImplementedError(
+                "Unbound stores for an operation must have the same "
+                "number of dimensions for now"
+            )
+
+        unbound_ndim = unbound_ndims.pop() if len(unbound_ndims) == 1 else None
+        return unknowns - to_remove, unbound_ndim
 
     @staticmethod
     def _find_restrictions(cls, broadcasts):
@@ -281,7 +290,7 @@ class Partitioner:
             return chosen_partition, original
 
     @staticmethod
-    def compute_launch_shape(partitions, all_outputs, must_be_1d_launch):
+    def compute_launch_shape(partitions, all_outputs, unbound_ndim):
         # We filter out the cases where any of the outputs is assigned
         # to replication, in which case the operation must be performed
         # sequentially
@@ -298,6 +307,7 @@ class Partitioner:
             return None
 
         # Here we check if all partitions agree on the color shape
+        must_be_1d_launch = False
         launch_shape = parts[0].color_shape
         for part in parts[1:]:
             if part.color_shape != launch_shape:
@@ -307,6 +317,12 @@ class Partitioner:
                 break
 
         if must_be_1d_launch:
+            # If this operation has a multi-dimensional unbound store,
+            # we can't use a 1-D launch domain, hence falling back to
+            # a sequential launch
+            if unbound_ndim != 1:
+                return None
+
             # If all color spaces don't have the same number of colors,
             # it means some inputs are much smaller than the others
             # to be partitioned into the same number of pieces.
@@ -316,8 +332,12 @@ class Partitioner:
                 return None
             else:
                 return Shape(volumes)
-        else:
+        # If there is an unbound store, the store's dimensionality must be
+        # the same as that of the launch domain
+        elif unbound_ndim is None or unbound_ndim == launch_shape.ndim:
             return launch_shape
+        else:
+            return None
 
     def partition_stores(self):
         unknowns = OrderedSet()
@@ -361,7 +381,7 @@ class Partitioner:
             partitions,
         )
 
-        unknowns, must_be_1d_launch = self._solve_unbound_constraints(
+        unknowns, unbound_ndim = self._solve_unbound_constraints(
             unknowns,
             constraints,
             partitions,
@@ -413,7 +433,7 @@ class Partitioner:
             partitions[rhs] = lhs._part
 
         launch_shape = self.compute_launch_shape(
-            partitions, all_outputs, must_be_1d_launch
+            partitions, all_outputs, unbound_ndim
         )
 
         return Strategy(launch_shape, partitions, fspaces, key_parts)
