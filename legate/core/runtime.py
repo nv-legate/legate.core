@@ -1012,9 +1012,16 @@ class Runtime:
         shape=None,
         storage=None,
         optimize_scalar=False,
+        ndim=None,
     ):
+        if ndim is not None and shape is not None:
+            raise ValueError("ndim cannot be used with shape")
+        elif ndim is None and shape is None:
+            ndim = 1
+
         if shape is not None and not isinstance(shape, Shape):
             shape = Shape(shape)
+
         if storage is None:
             if not optimize_scalar or shape.volume() > 1:
                 kind = RegionField
@@ -1029,6 +1036,7 @@ class Runtime:
             storage,
             IdentityTransform(),
             shape=shape,
+            ndim=ndim,
         )
 
     def find_or_create_region_manager(self, shape, region=None):
@@ -1084,12 +1092,13 @@ class Runtime:
 
         return RegionField(self, region, field, shape)
 
-    def create_output_region(self, fspace, fields):
+    def create_output_region(self, fspace, fields, ndim):
         return OutputRegion(
             self.legion_context,
             self.legion_runtime,
             field_space=fspace,
             fields=fields,
+            ndim=ndim,
         )
 
     def has_attachment(self, alloc):

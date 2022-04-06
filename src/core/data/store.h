@@ -173,8 +173,12 @@ class OutputRegionField {
   OutputRegionField& operator=(const OutputRegionField& other) = delete;
 
  public:
-  template <typename VAL>
-  void return_data(Buffer<VAL>& buffer, size_t num_elements);
+  template <typename T, int32_t DIM>
+  Buffer<T, DIM> create_output_buffer(const Legion::Point<DIM>& extents, bool return_buffer);
+
+ public:
+  template <typename T, int32_t DIM>
+  void return_data(Buffer<T, DIM>& buffer, const Legion::Point<DIM>& extents);
 
  public:
   ReturnValue pack_weight() const;
@@ -299,6 +303,11 @@ class Store {
   AccessorRD<OP, EXCLUSIVE, DIM> reduce_accessor(const Legion::Rect<DIM>& bounds) const;
 
  public:
+  template <typename T, int32_t DIM>
+  Buffer<T, DIM> create_output_buffer(const Legion::Point<DIM>& extents,
+                                      bool return_buffer = false);
+
+ public:
   template <int32_t DIM>
   Legion::Rect<DIM> shape() const;
   Legion::Domain domain() const;
@@ -313,8 +322,8 @@ class Store {
   VAL scalar() const;
 
  public:
-  template <typename VAL>
-  void return_data(Buffer<VAL>& buffer, size_t num_elements);
+  template <typename T, int32_t DIM>
+  void return_data(Buffer<T, DIM>& buffer, const Legion::Point<DIM>& extents);
 
  public:
   bool is_future() const { return is_future_; }
