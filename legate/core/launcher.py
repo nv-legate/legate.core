@@ -15,6 +15,10 @@
 from __future__ import annotations
 
 from enum import IntEnum, unique
+from typing import TYPE_CHECKING, Any, Optional, Sequence, Tuple, Union
+
+import pyarrow as pa
+from typing_extensions import overload
 
 from . import (
     ArgumentMap,
@@ -23,9 +27,29 @@ from . import (
     Future,
     IndexCopy,
     IndexTask,
+    Partition as LegionPartition,
     Task as SingleTask,
     types as ty,
 )
+
+if TYPE_CHECKING:
+    from . import (
+        FieldID,
+        FieldSpace,
+        FutureMap,
+        IndexSpace,
+        OutputRegion,
+        Point,
+        Rect,
+        Region,
+    )
+    from ._legion.util import FieldListLike
+    from .context import Context
+    from .runtime import Runtime
+    from .store import Store
+
+
+LegionTask = Union[IndexTask, SingleTask, IndexCopy, SingleCopy]
 
 
 @unique
@@ -53,8 +77,14 @@ _SERIALIZERS = {
     ty.float64: BufferBuilder.pack_64bit_float,
 }
 
+EntryType = Tuple[Union["Broadcast", "Partition"], int, int]
 
-def _pack(buf, value, dtype, is_tuple):
+DTType = Union[bool, pa.lib.DataType]
+
+
+def _pack(
+    buf: BufferBuilder, value: Any, dtype: DTType, is_tuple: bool
+) -> None:
     if dtype not in _SERIALIZERS:
         raise ValueError(f"Unsupported data type: {dtype}")
     serializer = _SERIALIZERS[dtype]
@@ -68,18 +98,22 @@ def _pack(buf, value, dtype, is_tuple):
 
 
 class ScalarArg:
-    def __init__(self, core_types, value, dtype, untyped=True):
+    def __init__(
+        self,
+        core_types: ty.TypeSystem,
+        value: Any,
+        dtype: Union[DTType, tuple[DTType]],
+        untyped: bool = True,
+    ) -> None:
         self._core_types = core_types
         self._value = value
         self._dtype = dtype
         self._untyped = untyped
 
-    def pack(self, buf):
+    def pack(self, buf: BufferBuilder) -> None:
         if isinstance(self._dtype, tuple):
             if len(self._dtype) != 1:
-                raise ValueError(
-                    "Unsupported data type: %s" % str(self._dtype)
-                )
+                raise ValueError(f"Unsupported data type: {self._dtype}")
             is_tuple = True
             dtype = self._dtype[0]
         else:
@@ -92,21 +126,23 @@ class ScalarArg:
 
         _pack(buf, self._value, dtype, is_tuple)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"ScalarArg({self._value}, {self._dtype}, {self._untyped})"
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return str(self)
 
 
 class FutureStoreArg:
-    def __init__(self, store, read_only, has_storage, redop):
+    def __init__(
+        self, store: Store, read_only: bool, has_storage: bool, redop: int
+    ) -> None:
         self._store = store
         self._read_only = read_only
         self._has_storage = has_storage
         self._redop = redop
 
-    def pack(self, buf):
+    def pack(self, buf: BufferBuilder) -> None:
         self._store.serialize(buf)
         buf.pack_32bit_int(self._redop)
         buf.pack_bool(self._read_only)
@@ -114,15 +150,47 @@ class FutureStoreArg:
         buf.pack_32bit_int(self._store.type.size)
         _pack(buf, self._store.extents, ty.int64, True)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"FutureStoreArg({self._store})"
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return str(self)
 
 
 class RegionFieldArg:
-    def __init__(self, analyzer, store, dim, req, field_id, redop):
+    @overload
+    def __init__(
+        self,
+        analyzer: RequirementAnalyzer,
+        store: Store,
+        dim: int,
+        req: RegionReq,
+        field_id: int,
+        redop: int,
+    ) -> None:
+        ...
+
+    @overload
+    def __init__(
+        self,
+        analyzer: OutputAnalyzer,
+        store: Store,
+        dim: int,
+        req: OutputReq,
+        field_id: int,
+        redop: int,
+    ) -> None:
+        ...
+
+    def __init__(
+        self,
+        analyzer: Union[OutputAnalyzer, RequirementAnalyzer],
+        store: Store,
+        dim: int,
+        req: Union[OutputReq, RegionReq],
+        field_id: int,
+        redop: int,
+    ) -> None:
         self._analyzer = analyzer
         self._store = store
         self._dim = dim
@@ -130,23 +198,28 @@ class RegionFieldArg:
         self._field_id = field_id
         self._redop = redop
 
-    def pack(self, buf):
+    def pack(self, buf: BufferBuilder) -> None:
         self._store.serialize(buf)
         buf.pack_32bit_int(self._redop)
         buf.pack_32bit_int(self._dim)
+
         buf.pack_32bit_uint(
-            self._analyzer.get_requirement_index(self._req, self._field_id)
+            self._analyzer.get_requirement_index(
+                self._req, self._field_id  # type: ignore [arg-type]
+            )
         )
         buf.pack_32bit_uint(self._field_id)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"RegionFieldArg({self._dim}, {self._req}, {self._field_id})"
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return str(self)
 
 
-_single_task_calls = {
+LegionTaskMethod = Any
+
+_single_task_calls: dict[Permission, LegionTaskMethod] = {
     Permission.NO_ACCESS: SingleTask.add_no_access_requirement,
     Permission.READ: SingleTask.add_read_requirement,
     Permission.WRITE: SingleTask.add_write_requirement,
@@ -154,7 +227,7 @@ _single_task_calls = {
     Permission.REDUCTION: SingleTask.add_reduction_requirement,
 }
 
-_index_task_calls = {
+_index_task_calls: dict[Permission, LegionTaskMethod] = {
     Permission.NO_ACCESS: IndexTask.add_no_access_requirement,
     Permission.READ: IndexTask.add_read_requirement,
     Permission.WRITE: IndexTask.add_write_requirement,
@@ -162,14 +235,14 @@ _index_task_calls = {
     Permission.REDUCTION: IndexTask.add_reduction_requirement,
 }
 
-_index_copy_calls = {
+_index_copy_calls: dict[Permission, LegionTaskMethod] = {
     Permission.READ: IndexCopy.add_src_requirement,
     Permission.WRITE: IndexCopy.add_dst_requirement,
     Permission.SOURCE_INDIRECT: IndexCopy.add_src_indirect_requirement,
     Permission.TARGET_INDIRECT: IndexCopy.add_dst_indirect_requirement,
 }
 
-_single_copy_calls = {
+_single_copy_calls: dict[Permission, LegionTaskMethod] = {
     Permission.READ: SingleCopy.add_src_requirement,
     Permission.WRITE: SingleCopy.add_dst_requirement,
     Permission.SOURCE_INDIRECT: SingleCopy.add_src_indirect_requirement,
@@ -178,20 +251,27 @@ _single_copy_calls = {
 
 
 class Broadcast:
-    __slots__ = ["part", "proj", "redop"]
+    __slots__ = ("part", "proj", "redop")
 
     # Use the same signature as Partition's constructor
     # so that the caller can construct projection objects in a uniform way
-    def __init__(self, part, proj):
+    def __init__(self, part: LegionPartition, proj: int) -> None:
         self.part = part
         self.proj = proj
-        self.redop = None
+        self.redop: Union[int, None] = None
 
-    def add(self, task, req, fields, methods):
+    def add(
+        self,
+        task: LegionTask,
+        req: RegionReq,
+        fields: FieldListLike,
+        methods: dict[Permission, LegionTaskMethod],
+    ) -> None:
         f = methods[req.permission]
         parent = req.region
         while parent.parent is not None:
-            parent = parent.parent
+            parent_partition = parent.parent
+            parent = parent_partition.parent
         if req.permission != Permission.REDUCTION:
             f(task, req.region, fields, 0, parent=parent, tag=req.tag)
         else:
@@ -205,7 +285,13 @@ class Broadcast:
                 tag=req.tag,
             )
 
-    def add_single(self, task, req, fields, methods):
+    def add_single(
+        self,
+        task: LegionTask,
+        req: RegionReq,
+        fields: FieldListLike,
+        methods: dict[Permission, LegionTaskMethod],
+    ) -> None:
         f = methods[req.permission]
         if req.permission != Permission.REDUCTION:
             f(task, req.region, fields, tag=req.tag, flags=req.flags)
@@ -219,22 +305,30 @@ class Broadcast:
                 flags=req.flags,
             )
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(("Broadcast", self.redop))
 
-    def __eq__(self, other):
-        return isinstance(other, Broadcast) and self.redop == other.redop
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Broadcast):
+            return NotImplemented
+        return self.redop == other.redop
 
 
 class Partition:
-    __slots__ = ["part", "proj", "redop"]
+    __slots__ = ("part", "proj", "redop")
 
-    def __init__(self, part, proj):
+    def __init__(self, part: LegionPartition, proj: int) -> None:
         self.part = part
         self.proj = proj
         self.redop = None
 
-    def add(self, task, req, fields, methods):
+    def add(
+        self,
+        task: LegionTask,
+        req: RegionReq,
+        fields: FieldListLike,
+        methods: dict[Permission, LegionTaskMethod],
+    ) -> None:
         f = methods[req.permission]
         if req.permission != Permission.REDUCTION:
             f(task, self.part, fields, self.proj, tag=req.tag, flags=req.flags)
@@ -249,51 +343,70 @@ class Partition:
                 flags=req.flags,
             )
 
-    def add_single(self, task, req, fields, methods):
+    def add_single(
+        self,
+        task: LegionTask,
+        req: RegionReq,
+        fields: FieldListLike,
+        methods: dict[Permission, LegionTaskMethod],
+    ) -> None:
         f = methods[req.permission]
         if req.permission != Permission.REDUCTION:
             f(task, req.region, fields, tag=req.tag)
         else:
             f(task, req.region, fields, self.redop, tag=req.tag)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash((self.part, self.proj, self.redop))
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return repr((self.part, self.proj, self.redop))
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Partition):
+            return NotImplemented
         return (
-            isinstance(other, Partition)
-            and self.part == other.part
+            self.part == other.part
             and self.proj == other.proj
             and self.redop == other.redop
         )
 
 
+Proj = Union[Broadcast, Partition]  # XXX Protocol
+
+
 class RegionReq:
-    def __init__(self, region, permission, proj, tag, flags):
+    def __init__(
+        self,
+        region: Region,
+        permission: Permission,
+        proj: Proj,
+        tag: int,
+        flags: int,
+    ) -> None:
         self.region = region
         self.permission = permission
         self.proj = proj
         self.tag = tag
         self.flags = flags
 
-    def __str__(self):
+    def __str__(self) -> str:
         return (
             f"RegionReq({self.region}, {self.permission}, "
             f"{self.proj}, {self.tag}, {self.flags})"
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return str(self)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(
             (self.region, self.permission, self.proj, self.tag, self.flags)
         )
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, RegionReq):
+            return NotImplemented
         return (
             self.region == other.region
             and self.proj == other.proj
@@ -302,46 +415,50 @@ class RegionReq:
             and self.flags == other.flags
         )
 
-    def promote_to_read_write(self):
+    def promote_to_read_write(self) -> RegionReq:
         return RegionReq(
             self.region, Permission.READ_WRITE, self.proj, self.tag, self.flags
         )
 
 
 class OutputReq:
-    def __init__(self, runtime, fspace, ndim):
+    def __init__(
+        self, runtime: Runtime, fspace: FieldSpace, ndim: int
+    ) -> None:
         self.runtime = runtime
         self.fspace = fspace
         self.ndim = ndim
-        self.output_region = None
+        self.output_region: Union[OutputRegion, None] = None
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"OutputReq({self.fspace}, {self.ndim})"
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return str(self)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash((self.fspace, self.ndim))
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, OutputReq):
+            return NotImplemented
         return self.fspace == other.fspace and self.ndim == other.ndim
 
-    def _create_output_region(self, fields):
+    def _create_output_region(self, fields: FieldListLike) -> None:
         assert self.output_region is None
         self.output_region = self.runtime.create_output_region(
             self.fspace, fields, self.ndim
         )
 
-    def add(self, task, fields):
+    def add(self, task: Any, fields: FieldListLike) -> None:
         self._create_output_region(fields)
         task.add_output(self.output_region)
 
-    def add_single(self, task, fields):
+    def add_single(self, task: Any, fields: FieldListLike) -> None:
         self._create_output_region(fields)
         task.add_output(self.output_region)
 
-    def update_storage(self, store, field_id):
+    def update_storage(self, store: Store, field_id: int) -> None:
         assert self.output_region is not None
         region_field = self.runtime.import_output_region(
             self.output_region,
@@ -352,19 +469,19 @@ class OutputReq:
 
 
 class ProjectionSet:
-    def __init__(self):
-        self._entries = {}
+    def __init__(self) -> None:
+        self._entries: dict[Permission, set[EntryType]] = {}
 
-    def _create(self, perm, entry):
+    def _create(self, perm: Permission, entry: EntryType) -> None:
         self._entries[perm] = set([entry])
 
-    def _update(self, perm, entry):
+    def _update(self, perm: Permission, entry: EntryType) -> None:
         entries = self._entries[perm]
         entries.add(entry)
         if perm == Permission.WRITE and len(entries) > 1:
             raise ValueError("Interfering requirements found")
 
-    def insert(self, perm, proj_info):
+    def insert(self, perm: Permission, proj_info: EntryType) -> None:
         if perm == Permission.READ_WRITE:
             self.insert(Permission.READ, proj_info)
             self.insert(Permission.WRITE, proj_info)
@@ -374,7 +491,12 @@ class ProjectionSet:
             else:
                 self._create(perm, proj_info)
 
-    def coalesce(self, error_on_interference):
+    def coalesce(
+        self, error_on_interference: bool
+    ) -> Union[
+        list[tuple[Permission, Union[Broadcast, Partition], int, int]],
+        list[tuple[Permission, set[EntryType]]],
+    ]:
         if len(self._entries) == 1:
             perm = list(self._entries.keys())[0]
             return [(perm, *entry) for entry in self._entries[perm]]
@@ -386,7 +508,7 @@ class ProjectionSet:
 
             # When the field requires read write permission,
             # all projections must be the same
-            all_entries = set()
+            all_entries: set[EntryType] = set()
             for entry in self._entries.values():
                 all_entries = all_entries | entry
             if len(all_entries) > 1:
@@ -395,9 +517,13 @@ class ProjectionSet:
                         f"Interfering requirements found: {all_entries}"
                     )
                 else:
-                    results = []
-                    for entry in all_entries:
-                        results.append((perm, *entry))
+                    results: list[
+                        tuple[
+                            Permission, Union[Broadcast, Partition], int, int
+                        ]
+                    ] = []
+                    for all_entry in all_entries:
+                        results.append((perm, *all_entry))
                     return results
 
             return [(perm, *all_entries.pop())]
@@ -407,15 +533,17 @@ class ProjectionSet:
         else:
             return [pair for pair in self._entries.items()]
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return str(self._entries)
 
 
 class FieldSet:
-    def __init__(self):
-        self._fields = {}
+    def __init__(self) -> None:
+        self._fields: dict[int, ProjectionSet] = {}
 
-    def insert(self, field_id, perm, proj_info):
+    def insert(
+        self, field_id: int, perm: Permission, proj_info: EntryType
+    ) -> None:
         if field_id in self._fields:
             proj_set = self._fields[field_id]
         else:
@@ -423,10 +551,12 @@ class FieldSet:
             self._fields[field_id] = proj_set
         proj_set.insert(perm, proj_info)
 
-    def coalesce(self, error_on_interference):
-        coalesced = {}
+    def coalesce(
+        self, error_on_interference: bool
+    ) -> dict[Any, list[Union[int, FieldID]]]:
+        coalesced: dict[Any, list[Union[int, FieldID]]] = {}
         for field_id, proj_set in self._fields.items():
-            proj_infos = proj_set.coalesce(error_on_interference)
+            proj_infos = proj_set.coalesce(error_on_interference)  # line 496
             for key in proj_infos:
                 if key in coalesced:
                     coalesced[key].append(field_id)
@@ -437,26 +567,28 @@ class FieldSet:
 
 
 class RequirementAnalyzer:
-    def __init__(self, error_on_interference=True):
-        self._field_sets = {}
-        self._requirements = []
-        self._requirement_map = {}
+    def __init__(self, error_on_interference: bool = True) -> None:
+        self._field_sets: dict[Any, FieldSet] = {}
+        self._requirements: list[tuple[RegionReq, Any]] = []
+        self._requirement_map: dict[
+            tuple[RegionReq, Union[int, FieldID]], int
+        ] = {}
         self._error_on_interference = error_on_interference
 
     @property
-    def requirements(self):
+    def requirements(self) -> list[tuple[RegionReq, Any]]:
         return self._requirements
 
     @property
-    def empty(self):
+    def empty(self) -> bool:
         return len(self._field_sets) == 0
 
-    def __del__(self):
+    def __del__(self) -> None:
         self._field_sets.clear()
         self._requirements.clear()
         self._requirement_map.clear()
 
-    def insert(self, req, field_id):
+    def insert(self, req: RegionReq, field_id: int) -> None:
         region = req.region
         field_set = self._field_sets.get(region)
         if field_set is None:
@@ -465,7 +597,7 @@ class RequirementAnalyzer:
         proj_info = (req.proj, req.tag, req.flags)
         field_set.insert(field_id, req.permission, proj_info)
 
-    def analyze_requirements(self):
+    def analyze_requirements(self) -> None:
         for region, field_set in self._field_sets.items():
             perm_map = field_set.coalesce(self._error_on_interference)
             for key, fields in perm_map.items():
@@ -475,7 +607,7 @@ class RequirementAnalyzer:
                     self._requirement_map[(req, field_id)] = req_idx
                 self._requirements.append((req, fields))
 
-    def get_requirement_index(self, req, field_id):
+    def get_requirement_index(self, req: RegionReq, field_id: int) -> int:
         try:
             return self._requirement_map[(req, field_id)]
         except KeyError:
@@ -484,33 +616,33 @@ class RequirementAnalyzer:
 
 
 class OutputAnalyzer:
-    def __init__(self, runtime):
+    def __init__(self, runtime: Runtime) -> None:
         self._runtime = runtime
-        self._groups = {}
-        self._requirements = []
-        self._requirement_map = {}
+        self._groups: dict[Any, set[tuple[int, Store]]] = {}
+        self._requirements: list[tuple[OutputReq, Any]] = []
+        self._requirement_map: dict[tuple[OutputReq, int], int] = {}
 
     @property
-    def requirements(self):
+    def requirements(self) -> list[tuple[OutputReq, Any]]:
         return self._requirements
 
     @property
-    def empty(self):
+    def empty(self) -> bool:
         return len(self._groups) == 0
 
-    def __del__(self):
+    def __del__(self) -> None:
         self._groups.clear()
         self._requirements.clear()
         self._requirement_map.clear()
 
-    def insert(self, req, field_id, store):
+    def insert(self, req: OutputReq, field_id: int, store: Store) -> None:
         group = self._groups.get(req)
         if group is None:
             group = set()
             self._groups[req] = group
         group.add((field_id, store))
 
-    def analyze_requirements(self):
+    def analyze_requirements(self) -> None:
         for req, group in self._groups.items():
             req_idx = len(self._requirements)
             fields = []
@@ -526,10 +658,10 @@ class OutputAnalyzer:
 
             self._requirements.append((req, fields))
 
-    def get_requirement_index(self, req, field_id):
+    def get_requirement_index(self, req: OutputReq, field_id: int) -> int:
         return self._requirement_map[(req, field_id)]
 
-    def update_storages(self):
+    def update_storages(self) -> None:
         for req, group in self._groups.items():
             for field_id, store in group:
                 req.update_storage(store, field_id)
@@ -538,64 +670,77 @@ class OutputAnalyzer:
 class TaskLauncher:
     def __init__(
         self,
-        context,
-        task_id,
-        mapper_id=0,
-        tag=0,
-        error_on_interference=True,
-        side_effect=False,
-    ):
+        context: Context,
+        task_id: int,
+        mapper_id: int = 0,
+        tag: int = 0,
+        error_on_interference: bool = True,
+        side_effect: bool = False,
+    ) -> None:
         assert type(tag) != bool
         self._context = context
         self._runtime = context.runtime
         self._core_types = self._runtime.core_context.type_system
         self._task_id = task_id
         self._mapper_id = mapper_id
-        self._inputs = []
-        self._outputs = []
-        self._reductions = []
-        self._scalars = []
-        self._comms = []
+        self._inputs: list[Union[RegionFieldArg, FutureStoreArg]] = []
+        self._outputs: list[Union[RegionFieldArg, FutureStoreArg]] = []
+        self._reductions: list[Union[RegionFieldArg, FutureStoreArg]] = []
+        self._scalars: list[ScalarArg] = []
+        self._comms: list[FutureMap] = []
         self._req_analyzer = RequirementAnalyzer(error_on_interference)
         self._out_analyzer = OutputAnalyzer(context.runtime)
-        self._future_args = list()
-        self._future_map_args = list()
+        self._future_args: list[Future] = []
+        self._future_map_args: list[FutureMap] = []
         self._tag = tag
-        self._sharding_space = None
-        self._point = None
-        self._output_regions = list()
+        self._sharding_space: Union[IndexSpace, None] = None
+        self._point: Union[Point, None] = None
+        self._output_regions: list[OutputRegion] = []
         self._error_on_interference = error_on_interference
         self._has_side_effect = side_effect
 
     @property
-    def library_task_id(self):
+    def library_task_id(self) -> int:
         return self._task_id
 
     @property
-    def library_mapper_id(self):
+    def library_mapper_id(self) -> int:
         return self._mapper_id
 
     @property
-    def legion_task_id(self):
+    def legion_task_id(self) -> int:
         return self._context.get_task_id(self._task_id)
 
     @property
-    def legion_mapper_id(self):
+    def legion_mapper_id(self) -> int:
         return self._context.get_mapper_id(self._mapper_id)
 
-    def __del__(self):
+    def __del__(self) -> None:
         del self._req_analyzer
         del self._out_analyzer
         self._future_args.clear()
         self._future_map_args.clear()
         self._output_regions.clear()
 
-    def add_scalar_arg(self, value, dtype, untyped=True):
+    def add_scalar_arg(
+        self,
+        value: Any,
+        dtype: Union[bool, pa.lib.DataType],
+        untyped: bool = True,
+    ) -> None:
         self._scalars.append(
             ScalarArg(self._core_types, value, dtype, untyped)
         )
 
-    def add_store(self, args, store, proj, perm, tag, flags):
+    def add_store(
+        self,
+        args: list[Union[RegionFieldArg, FutureStoreArg]],  # TODO: (bev) ABC?
+        store: Store,
+        proj: Proj,
+        perm: Permission,
+        tag: int,
+        flags: int,
+    ) -> None:
         redop = -1 if proj.redop is None else proj.redop
         if store.kind is Future:
             has_storage = perm != Permission.WRITE
@@ -622,15 +767,26 @@ class TaskLauncher:
                 )
             )
 
-    def add_input(self, store, proj, tag=0, flags=0):
+    def add_input(
+        self, store: Store, proj: Proj, tag: int = 0, flags: int = 0
+    ) -> None:
         self.add_store(self._inputs, store, proj, Permission.READ, tag, flags)
 
-    def add_output(self, store, proj, tag=0, flags=0):
+    def add_output(
+        self, store: Store, proj: Proj, tag: int = 0, flags: int = 0
+    ) -> None:
         self.add_store(
             self._outputs, store, proj, Permission.WRITE, tag, flags
         )
 
-    def add_reduction(self, store, proj, tag=0, flags=0, read_write=False):
+    def add_reduction(
+        self,
+        store: Store,
+        proj: Proj,
+        tag: int = 0,
+        flags: int = 0,
+        read_write: bool = False,
+    ) -> None:
         if read_write and store.kind is not Future:
             self.add_store(
                 self._reductions,
@@ -645,7 +801,9 @@ class TaskLauncher:
                 self._reductions, store, proj, Permission.REDUCTION, tag, flags
             )
 
-    def add_unbound_output(self, store, fspace, field_id):
+    def add_unbound_output(
+        self, store: Store, fspace: FieldSpace, field_id: int
+    ) -> None:
         req = OutputReq(self._runtime, fspace, store.ndim)
 
         self._out_analyzer.insert(req, field_id, store)
@@ -661,28 +819,33 @@ class TaskLauncher:
             )
         )
 
-    def add_future(self, future):
+    def add_future(self, future: Future) -> None:
         self._future_args.append(future)
 
-    def add_future_map(self, future_map):
+    def add_future_map(self, future_map: FutureMap) -> None:
         self._future_map_args.append(future_map)
 
-    def add_communicator(self, handle):
+    def add_communicator(self, handle: FutureMap) -> None:
         self._comms.append(handle)
 
-    def set_sharding_space(self, space):
+    def set_sharding_space(self, space: IndexSpace) -> None:
         self._sharding_space = space
 
-    def set_point(self, point):
+    def set_point(self, point: Point) -> None:
         self._point = point
 
     @staticmethod
-    def pack_args(argbuf, args):
+    def pack_args(
+        argbuf: BufferBuilder,
+        args: Sequence[Union[ScalarArg, RegionFieldArg, FutureStoreArg]],
+    ) -> None:
         argbuf.pack_32bit_uint(len(args))
         for arg in args:
             arg.pack(argbuf)
 
-    def build_task(self, launch_domain, argbuf):
+    def build_task(
+        self, launch_domain: Rect, argbuf: BufferBuilder
+    ) -> IndexTask:
         self._req_analyzer.analyze_requirements()
         self._out_analyzer.analyze_requirements()
 
@@ -716,7 +879,7 @@ class TaskLauncher:
             task.add_point_future(ArgumentMap(future_map=future_map))
         return task
 
-    def build_single_task(self, argbuf):
+    def build_single_task(self, argbuf: BufferBuilder) -> SingleTask:
         self._req_analyzer.analyze_requirements()
         self._out_analyzer.analyze_requirements()
 
@@ -752,7 +915,9 @@ class TaskLauncher:
             task.set_point(self._point)
         return task
 
-    def execute(self, launch_domain, redop=None):
+    def execute(
+        self, launch_domain: Rect, redop: Optional[int] = None
+    ) -> Union[Future, FutureMap]:
         # Note that we should hold a reference to this buffer
         # until we launch a task, otherwise the Python GC will
         # collect the Python object holding the buffer, which
@@ -768,7 +933,7 @@ class TaskLauncher:
 
         return result
 
-    def execute_single(self):
+    def execute_single(self) -> Future:
         argbuf = BufferBuilder()
         result = self._context.dispatch(self.build_single_task(argbuf))
         self._out_analyzer.update_storages()
@@ -776,29 +941,32 @@ class TaskLauncher:
 
 
 class CopyLauncher:
-    def __init__(self, context, mapper_id=0, tag=0):
+    def __init__(
+        self, context: Context, mapper_id: int = 0, tag: int = 0
+    ) -> None:
         assert type(tag) != bool
         self._context = context
         self._runtime = context.runtime
         self._mapper_id = mapper_id
         self._req_analyzer = RequirementAnalyzer()
         self._tag = tag
-        self._sharding_space = None
-        self._point = None
-        self._output_regions = list()
+        self._sharding_space: Union[IndexSpace, None] = None
+        self._point: Union[Point, None] = None
 
     @property
-    def library_mapper_id(self):
+    def library_mapper_id(self) -> int:
         return self._mapper_id
 
     @property
-    def legion_mapper_id(self):
+    def legion_mapper_id(self) -> int:
         return self._context.get_mapper_id(self._mapper_id)
 
-    def __del__(self):
+    def __del__(self) -> None:
         del self._req_analyzer
 
-    def add_store(self, store, proj, perm, tag, flags):
+    def add_store(
+        self, store: Store, proj: Proj, perm: Permission, tag: int, flags: int
+    ) -> None:
         assert store.kind is not Future
         assert store._transform.bottom
 
@@ -809,28 +977,38 @@ class CopyLauncher:
 
         self._req_analyzer.insert(req, field_id)
 
-    def add_input(self, store, proj, tag=0, flags=0):
+    def add_input(
+        self, store: Store, proj: Proj, tag: int = 0, flags: int = 0
+    ) -> None:
         self.add_store(store, proj, Permission.READ, tag, flags)
 
-    def add_output(self, store, proj, tag=0, flags=0):
+    def add_output(
+        self, store: Store, proj: Proj, tag: int = 0, flags: int = 0
+    ) -> None:
         self.add_store(store, proj, Permission.WRITE, tag, flags)
 
-    def add_reduction(self, store, proj, tag=0, flags=0):
+    def add_reduction(
+        self, store: Store, proj: Proj, tag: int = 0, flags: int = 0
+    ) -> None:
         self.add_store(store, proj, Permission.REDUCTION, tag, flags)
 
-    def add_source_indirect(self, store, proj, tag=0, flags=0):
+    def add_source_indirect(
+        self, store: Store, proj: Proj, tag: int = 0, flags: int = 0
+    ) -> None:
         self.add_store(store, proj, Permission.SOURCE_INDIRECT, tag, flags)
 
-    def add_target_indirect(self, store, proj, tag=0, flags=0):
+    def add_target_indirect(
+        self, store: Store, proj: Proj, tag: int = 0, flags: int = 0
+    ) -> None:
         self.add_store(store, proj, Permission.TARGET_INDIRECT, tag, flags)
 
-    def set_sharding_space(self, space):
+    def set_sharding_space(self, space: IndexSpace) -> None:
         self._sharding_space = space
 
-    def set_point(self, point):
+    def set_point(self, point: Point) -> None:
         self._point = point
 
-    def build_copy(self, launch_domain):
+    def build_copy(self, launch_domain: Rect) -> IndexCopy:
         self._req_analyzer.analyze_requirements()
 
         copy = IndexCopy(
@@ -848,11 +1026,9 @@ class CopyLauncher:
             req.proj.add(copy, req, fields, _index_copy_calls)
         if self._sharding_space is not None:
             copy.set_sharding_space(self._sharding_space)
-        if self._point is not None:
-            copy.set_point(self._point)
         return copy
 
-    def build_single_copy(self):
+    def build_single_copy(self) -> SingleCopy:
         self._req_analyzer.analyze_requirements()
 
         copy = SingleCopy(
@@ -873,10 +1049,12 @@ class CopyLauncher:
             copy.set_point(self._point)
         return copy
 
-    def execute(self, launch_domain, redop=None):
+    def execute(
+        self, launch_domain: Rect, redop: Optional[int] = None
+    ) -> Union[Future, FutureMap]:
         copy = self.build_copy(launch_domain)
         return self._context.dispatch(copy)
 
-    def execute_single(self):
+    def execute_single(self) -> Future:
         copy = self.build_single_copy()
         return self._context.dispatch(copy)

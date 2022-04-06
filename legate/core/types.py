@@ -177,6 +177,7 @@ class TypeSystem:
     def __init__(self, inherit_core_types: bool = True) -> None:
         self._types = _CORE_DTYPE_MAP.copy() if inherit_core_types else {}
 
+    # ty should hashable
     def __contains__(self, ty: Any) -> bool:
         return ty in self._types
 

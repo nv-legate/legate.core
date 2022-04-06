@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import weakref
+from typing import TYPE_CHECKING
 
 from . import (
     Attach,
@@ -39,6 +40,9 @@ from .transform import (
     Transpose,
 )
 from .types import _Dtype
+
+if TYPE_CHECKING:
+    from . import BufferBuilder
 
 
 class InlineMappedAllocation:
@@ -797,7 +801,7 @@ class Store:
         transform,
         shape=None,
         ndim=None,
-    ):
+    ) -> None:
         """
         Unlike in Arrow where all data is backed by objects that
         implement the Python Buffer protocol, in Legate data is backed
@@ -922,7 +926,7 @@ class Store:
     def comm_volume(self):
         return self._storage.volume()
 
-    def set_storage(self, data):
+    def set_storage(self, data) -> None:
         self._storage.set_data(data)
         if self._shape is None:
             assert isinstance(data, RegionField)
@@ -1082,7 +1086,7 @@ class Store:
     def overlaps(self, other):
         return self._storage.overlaps(other._storage)
 
-    def serialize(self, buf):
+    def serialize(self, buf: BufferBuilder) -> None:
         buf.pack_bool(self.kind is Future)
         buf.pack_bool(self.unbound)
         buf.pack_32bit_int(self.ndim)

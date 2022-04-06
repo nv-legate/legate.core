@@ -26,7 +26,7 @@ from .utils import OrderedSet
 
 
 class Operation:
-    def __init__(self, context, mapper_id=0, op_id=0):
+    def __init__(self, context, mapper_id: int = 0, op_id: int = 0) -> None:
         self._context = context
         self._mapper_id = mapper_id
         self._op_id = op_id
@@ -50,7 +50,7 @@ class Operation:
         return self._context
 
     @property
-    def mapper_id(self):
+    def mapper_id(self) -> int:
         return self._mapper_id
 
     @property
@@ -112,14 +112,14 @@ class Operation:
             )
         return parts[0]
 
-    def add_input(self, store, partition=None):
+    def add_input(self, store, partition=None) -> None:
         self._check_store(store)
         if partition is None:
             partition = self._get_unique_partition(store)
         self._inputs.append(store)
         self._input_parts.append(partition)
 
-    def add_output(self, store, partition=None):
+    def add_output(self, store, partition=None) -> None:
         self._check_store(store, allow_unbound=True)
         if store.kind is Future:
             self._scalar_outputs.append(len(self._outputs))
@@ -159,7 +159,7 @@ class Operation:
     def add_constraint(self, constraint):
         self._constraints.append(constraint)
 
-    def execute(self):
+    def execute(self) -> None:
         self._context.runtime.submit(self)
 
     def get_tag(self, strategy, part):
@@ -189,32 +189,34 @@ class Operation:
 
 
 class Task(Operation):
-    def __init__(self, context, task_id, mapper_id=0, op_id=0):
+    def __init__(
+        self, context, task_id: int, mapper_id: int = 0, op_id: int = 0
+    ) -> None:
         Operation.__init__(self, context, mapper_id=mapper_id, op_id=op_id)
         self._task_id = task_id
         self._scalar_args = []
         self._comm_args = []
 
     @property
-    def uses_communicator(self):
+    def uses_communicator(self) -> bool:
         return len(self._comm_args) > 0
 
-    def get_name(self):
+    def get_name(self) -> str:
         libname = self.context.library.get_name()
         return f"{libname}.Task(tid:{self._task_id}, uid:{self._op_id})"
 
-    def add_scalar_arg(self, value, dtype):
+    def add_scalar_arg(self, value, dtype) -> None:
         self._scalar_args.append((value, dtype))
 
-    def add_dtype_arg(self, dtype):
+    def add_dtype_arg(self, dtype) -> None:
         code = self._context.type_system[dtype].code
         self._scalar_args.append((code, ty.int32))
 
-    def _add_scalar_args_to_launcher(self, launcher):
+    def _add_scalar_args_to_launcher(self, launcher) -> None:
         for (arg, dtype) in self._scalar_args:
             launcher.add_scalar_arg(arg, dtype)
 
-    def _demux_scalar_stores(self, result, launch_domain):
+    def _demux_scalar_stores(self, result, launch_domain) -> None:
         num_unbound_outs = len(self.unbound_outputs)
         num_scalar_outs = len(self.scalar_outputs)
         num_scalar_reds = len(self.scalar_reductions)
@@ -280,7 +282,7 @@ class Task(Operation):
                 )
                 idx += 1
 
-    def add_nccl_communicator(self):
+    def add_nccl_communicator(self) -> None:
         comm = self._context.get_nccl_communicator()
         self._comm_args.append(comm)
 
@@ -293,10 +295,12 @@ class Task(Operation):
 
 
 class AutoTask(Task):
-    def __init__(self, context, task_id, mapper_id=0, op_id=0):
+    def __init__(
+        self, context, task_id: int, mapper_id: int = 0, op_id: int = 0
+    ) -> None:
         Task.__init__(self, context, task_id, mapper_id, op_id)
 
-    def launch(self, strategy):
+    def launch(self, strategy) -> None:
         launcher = TaskLauncher(self.context, self._task_id, self.mapper_id)
 
         def get_requirement(store, part_symb):
@@ -359,7 +363,14 @@ class AutoTask(Task):
 
 
 class ManualTask(Task):
-    def __init__(self, context, task_id, launch_domain, mapper_id=0, op_id=0):
+    def __init__(
+        self,
+        context,
+        task_id,
+        launch_domain,
+        mapper_id: int = 0,
+        op_id: int = 0,
+    ) -> None:
         Task.__init__(self, context, task_id, mapper_id, op_id)
         self._launch_domain = launch_domain
         self._input_projs = []
@@ -380,7 +391,7 @@ class ManualTask(Task):
                 f"Expected a Store or StorePartition, but got {type(arg)}"
             )
 
-    def add_input(self, arg, proj=None):
+    def add_input(self, arg, proj=None) -> None:
         self._check_arg(arg)
         if isinstance(arg, Store):
             self._input_parts.append(arg.partition(REPLICATE))
@@ -388,7 +399,7 @@ class ManualTask(Task):
             self._input_parts.append(arg)
         self._input_projs.append(proj)
 
-    def add_output(self, arg, proj=None):
+    def add_output(self, arg, proj=None) -> None:
         self._check_arg(arg)
         if isinstance(arg, Store):
             if arg.unbound:
@@ -431,7 +442,7 @@ class ManualTask(Task):
             "manually parallelized tasks"
         )
 
-    def launch(self, strategy):
+    def launch(self, strategy) -> None:
         tag = self.context.core_library.LEGATE_CORE_MANUAL_PARALLEL_LAUNCH_TAG
         launcher = TaskLauncher(
             self.context,
@@ -478,7 +489,7 @@ class ManualTask(Task):
 
 
 class Copy(Operation):
-    def __init__(self, context, mapper_id=0):
+    def __init__(self, context, mapper_id: int = 0) -> None:
         Operation.__init__(self, context, mapper_id)
         self._source_indirects = []
         self._target_indirects = []
@@ -582,7 +593,7 @@ class Copy(Operation):
             "User partitioning constraints are not allowed for copies"
         )
 
-    def launch(self, strategy):
+    def launch(self, strategy) -> None:
         launcher = CopyLauncher(self.context, self.mapper_id)
 
         assert len(self._inputs) == len(self._outputs) or len(
@@ -635,7 +646,7 @@ class Copy(Operation):
 
 
 class _RadixProj:
-    def __init__(self, radix, offset):
+    def __init__(self, radix: int, offset: int) -> None:
         self._radix = radix
         self._offset = offset
 
@@ -644,12 +655,14 @@ class _RadixProj:
 
 
 class Reduce(Task):
-    def __init__(self, context, task_id, radix, mapper_id, op_id):
+    def __init__(
+        self, context, task_id: int, radix: int, mapper_id: int, op_id: int
+    ) -> None:
         Task.__init__(self, context, task_id, mapper_id, op_id)
         self._runtime = context.runtime
         self._radix = radix
 
-    def launch(self, strategy):
+    def launch(self, strategy) -> None:
         assert len(self._inputs) == 1 and len(self._outputs) == 1
 
         result = self._outputs[0]
