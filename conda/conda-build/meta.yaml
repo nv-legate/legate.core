@@ -1,0 +1,63 @@
+{% set name = "legate-core" %}
+
+package:
+  name: {{ name|lower }}
+  version: {{ environ.get('GIT_DESCRIBE_TAG', environ.get('GIT_FULL_HASH', '')) }}
+
+source:
+  git_url: ../../
+
+
+build:
+  skip: true # [not linux]
+  number: 0
+  missing_dso_whitelist:
+    -  '*libcuda.so*'
+
+requirements:
+  build:
+    - {{ compiler('c') }}
+    - {{ compiler('cxx') }}
+    - {{ compiler('fortran') }}
+    - zlib
+    - make
+    - sysroot_linux-64 2.17  # [linux64]
+  host:
+    - python
+    - cuda-compiler >=11.5
+    - cuda-libraries-dev >=11.5
+    - cudatoolkit >=11.5
+    - nccl
+  run:
+    - python
+    - cudatoolkit >=11.5
+    - openmp
+    - zlib
+    - numpy
+    - cffi
+    - pyarrow >=5.0.0
+    
+  run_constrained:
+    - __cuda >= 8.0
+    - __glibc >=2.17  # [linux]
+
+test:
+  imports:
+    - legate
+
+about:
+  home: https://github.com/nv-legate/legate.core
+  license: Apache-2.0
+  license_file: LICENSE
+  summary: 'Scalable Computational Code'
+  description: |
+    The Legate project endeavors to democratize computing by 
+    making it possible for all programmers to leverage the power 
+    of large clusters of CPUs and GPUs by running the same code 
+    that runs on a desktop or a laptop at scale.
+  doc_url: https://github.com/nv-legate/legate.core
+  dev_url: https://github.com/nv-legate/legate.core
+
+extra:
+  recipe-maintainers:
+    - mavaz
