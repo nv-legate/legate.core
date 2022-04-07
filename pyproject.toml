@@ -64,23 +64,16 @@ warn_unused_configs = true
 module = [
     "legate.*",
 ]
-ignore_errors = true
+ignore_errors = false
 
 [[tool.mypy.overrides]]
 module = [
-    "legate.core._legion.*",
-    "legate.core.constraints",
-    "legate.core.context",
-    "legate.core.corelib",
-    "legate.core.install_info",
-    "legate.core.launcher",
-    "legate.core.legate",
-    "legate.core.partition",
-    "legate.core.projection",
-    "legate.core.shape",
-    "legate.core.transform",
-    "legate.core.types",
-    "legate.core.utils",
-    "legate.timing.*",
+    "legate.core",
+    "legate.core.communicator",
+    "legate.core.io",
+    "legate.core.operation",
+    "legate.core.runtime",
+    "legate.core.solver",
+    "legate.core.store",
 ]
-ignore_errors = false
+ignore_errors = true
