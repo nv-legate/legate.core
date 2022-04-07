@@ -81,5 +81,6 @@ module = [
     "legate.core.transform",
     "legate.core.types",
     "legate.core.utils",
+    "legate.timing.*",
 ]
 ignore_errors = false
