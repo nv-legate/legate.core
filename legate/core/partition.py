@@ -15,10 +15,10 @@
 from __future__ import annotations
 
 from enum import IntEnum, unique
-from typing import TYPE_CHECKING, Any, Optional, Sequence, Type, Union
+from typing import TYPE_CHECKING, Optional, Sequence, Type, Union
 
 if TYPE_CHECKING:
-    from . import Domain, Region, Partition as LegionPartition
+    from . import FutureMap, Region, Partition as LegionPartition
     from .runtime import Runtime
 
 from . import (
@@ -57,10 +57,10 @@ class Replicate(PartitionBase):
     def requirement(self) -> Type[Broadcast]:
         return Broadcast
 
-    def is_complete_for(self, extents: tuple[int, ...], offsets: Any) -> bool:
+    def is_complete_for(self, extents: Shape, offsets: Shape) -> bool:
         return True
 
-    def is_disjoint_for(self, launch_domain: Domain) -> bool:
+    def is_disjoint_for(self, launch_domain: Rect) -> bool:
         return launch_domain is None
 
     def __hash__(self) -> int:
@@ -198,13 +198,13 @@ class Tiling(PartitionBase):
 
         return my_lo <= offsets and offsets + extents <= my_hi
 
-    def is_disjoint_for(self, launch_domain: Domain) -> bool:
+    def is_disjoint_for(self, launch_domain: Rect) -> bool:
         return launch_domain.get_volume() <= self.color_shape.volume()
 
     def has_color(self, color: Shape) -> bool:
         return color >= 0 and color < self._color_shape
 
-    def get_subregion_size(self, extents: Any, color: Shape) -> Shape:
+    def get_subregion_size(self, extents: Shape, color: Shape) -> Shape:
         lo = self._tile_shape * color + self._offset
         hi = self._tile_shape * (color + 1) + self._offset
         lo = Shape(max(0, coord) for coord in lo)
@@ -285,7 +285,7 @@ class Tiling(PartitionBase):
 
 class Weighted(PartitionBase):
     def __init__(
-        self, runtime: Runtime, color_shape: Shape, weights: Any
+        self, runtime: Runtime, color_shape: Shape, weights: FutureMap
     ) -> None:
         self._runtime = runtime
         self._color_shape = color_shape
@@ -347,11 +347,11 @@ class Weighted(PartitionBase):
             for restriction in restrictions
         )
 
-    def is_complete_for(self, extents: Any, offsets: Any) -> bool:
+    def is_complete_for(self, extents: Shape, offsets: Shape) -> bool:
         # Weighted partition is complete by definition
         return True
 
-    def is_disjoint_for(self, launch_domain: Domain) -> bool:
+    def is_disjoint_for(self, launch_domain: Rect) -> bool:
         # Weighted partition is disjoint by definition
         return True
 
