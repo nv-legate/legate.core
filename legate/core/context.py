@@ -27,7 +27,6 @@ if TYPE_CHECKING:
 
     from . import ArgumentMap, Rect
     from .communicator import NCCLCommunicator
-    from .corelib import CoreLib
     from .legate import Library
     from .runtime import Runtime
     from .shape import Shape
@@ -141,7 +140,7 @@ class Context:
         return self._library
 
     @property
-    def core_library(self) -> CoreLib:
+    def core_library(self) -> Any:
         return self._runtime.core_library
 
     @property

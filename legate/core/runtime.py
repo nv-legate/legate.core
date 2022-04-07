@@ -937,7 +937,7 @@ class Runtime:
         self._outstanding_ops = []
         self._schedule(ops)
 
-    def submit(self, op):
+    def submit(self, op) -> None:
         self._outstanding_ops.append(op)
         if len(self._outstanding_ops) >= self._window_size:
             self.flush_scheduling_window()
@@ -1123,7 +1123,7 @@ class Runtime:
         self.index_spaces[bounds] = result
         return result
 
-    def create_field_space(self):
+    def create_field_space(self) -> FieldSpace:
         return FieldSpace(self.legion_context, self.legion_runtime)
 
     def create_region(self, index_space, field_space):
@@ -1152,7 +1152,9 @@ class Runtime:
             index_space, functor, index_partition
         )
 
-    def extract_scalar(self, future, idx, launch_domain=None):
+    def extract_scalar(
+        self, future, idx, launch_domain=None
+    ) -> Union[Future, FutureMap]:
         if isinstance(future, FutureMap):
             assert launch_domain is not None
             launcher = TaskLauncher(
@@ -1176,7 +1178,7 @@ class Runtime:
             else:
                 return launcher.execute(launch_domain)
 
-    def reduce_future_map(self, future_map, redop):
+    def reduce_future_map(self, future_map, redop) -> Future:
         if isinstance(future_map, Future):
             return future_map
         else:

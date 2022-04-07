@@ -71,7 +71,6 @@ module = [
     "legate.core",
     "legate.core.communicator",
     "legate.core.io",
-    "legate.core.operation",
     "legate.core.runtime",
     "legate.core.solver",
     "legate.core.store",

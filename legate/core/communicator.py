@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from . import Rect
+from . import FutureMap, Rect
 from .launcher import TaskLauncher as Task
 
 
@@ -36,14 +36,14 @@ class Communicator(ABC):
         self._comms[volume] = comm
         return comm
 
-    def _transform_communicator(self, comm, launch_domain):
+    def _transform_communicator(self, comm, launch_domain: Rect):
         if launch_domain in self._nd_comms:
             return self._nd_comms[launch_domain]
         comm = self._runtime.delinearize_future_map(comm, launch_domain)
         self._nd_comms[launch_domain] = comm
         return comm
 
-    def get_communicator(self, launch_domain):
+    def get_communicator(self, launch_domain: Rect) -> FutureMap:
         comm = self._get_1d_communicator(launch_domain.get_volume())
         if launch_domain.dim > 1:
             comm = self._transform_communicator(comm, launch_domain)

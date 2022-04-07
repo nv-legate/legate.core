@@ -14,7 +14,9 @@
 #
 from __future__ import annotations
 
-from . import Future, Rect
+from typing import Any
+
+from . import FieldSpace, Future, Rect
 from .constraints import Alignment, Broadcast, Containment
 from .partition import REPLICATE
 from .shape import Shape
@@ -138,19 +140,19 @@ class Strategy:
         partition = self.get_partition(part)
         return partition.get_requirement(self.launch_ndim, part.store)
 
-    def get_partition(self, part):
+    def get_partition(self, part) -> Any:
         assert not part.store.unbound
         if part not in self._strategy:
             raise ValueError(f"No strategy is found for {part}")
         return self._strategy[part]
 
-    def get_field_space(self, part):
+    def get_field_space(self, part) -> FieldSpace:
         assert part.store.unbound
         if part not in self._fspaces:
             raise ValueError(f"No strategy is found for {part}")
         return self._fspaces[part]
 
-    def is_key_part(self, part):
+    def is_key_part(self, part) -> bool:
         return part in self._key_parts
 
     def __str__(self):
