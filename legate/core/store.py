@@ -908,6 +908,10 @@ class Store:
     def transform(self):
         return self._transform
 
+    @property
+    def transformed(self):
+        return not self._transform.bottom
+
     def attach_external_allocation(self, context, alloc, share):
         if not isinstance(alloc, (memoryview, DistributedAllocation)):
             raise ValueError(

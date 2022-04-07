@@ -277,6 +277,7 @@ class Store {
 
  public:
   bool valid() const;
+  bool transformed() const { return transform_ != nullptr; }
 
  public:
   int32_t dim() const { return dim_; }
