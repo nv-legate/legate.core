@@ -15,6 +15,9 @@
 
 class DataType:
     id: int
+    num_fields: int
+    num_buffers: int
+    def equals(self, other: object) -> bool: ...
 
 def binary(length: int) -> DataType: ...
 def bool_() -> DataType: ...

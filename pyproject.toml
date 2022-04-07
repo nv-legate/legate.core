@@ -74,6 +74,7 @@ module = [
     "legate.core.corelib",
     "legate.core.install_info",
     "legate.core.launcher",
+    "legate.core.legate",
     "legate.core.partition",
     "legate.core.projection",
     "legate.core.shape",

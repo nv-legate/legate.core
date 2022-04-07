@@ -13,6 +13,8 @@
 # limitations under the License.
 #
 
+from typing import Any, Union
+
 from .lib import (
     DataType,
     binary,
@@ -29,6 +31,29 @@ from .lib import (
     uint32,
     uint64,
 )
+
+class Field:
+    name: str
+    type: DataType
+    def __init__(self, *args: Any, **kwargs: Any) -> None: ...
+    def with_name(self, name: str) -> Field: ...
+
+def field(
+    name: Union[str, bytes],
+    type: DataType,
+    nullable: bool = True,
+    metadata: Any = None,
+) -> Field: ...
+
+class Schema:
+    types: Any
+    def field(self, i: Union[str, int]) -> Field: ...
+    def get_all_field_indices(self, name: str) -> list[int]: ...
+    def get_field_index(self, name: str) -> int: ...
+    def __len__(self) -> int: ...
+    def __getitem__(self, idx: int) -> Field: ...
+
+def schema(fields: Any, metadata: Any = None) -> Schema: ...
 
 class ExtensionType:
     def __init__(self, dtype: DataType, name: str) -> None: ...
@@ -47,4 +72,7 @@ __all__ = (
     "float16",
     "float32",
     "float64",
+    "Field",
+    "Schema",
+    "DataType",
 )
