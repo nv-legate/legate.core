@@ -1200,8 +1200,12 @@ class IndexAttach:
         query = legion.legion_memory_query_create(machine)
         legion.legion_memory_query_only_kind(query, legion.SYSTEM_MEM)
         legion.legion_memory_query_local_address_space(query)
-        assert legion.legion_memory_query_count(query) > 0
+        sysmem_count = legion.legion_memory_query_count(query)
+        assert sysmem_count > 0
         mem = legion.legion_memory_query_first(query)
+        if sysmem_count > 1:
+            # TODO: We should check if the capacity of this memory is 0
+            mem = legion.legion_memory_query_next(query, mem)
         legion.legion_memory_query_destroy(query)
         legion.legion_machine_destroy(machine)
         for (sub_region, buf) in shard_local_data.items():

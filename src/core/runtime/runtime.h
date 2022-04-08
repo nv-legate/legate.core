@@ -30,10 +30,14 @@ class Core {
  public:
   static void parse_config(void);
   static void shutdown(void);
+  static void show_progress(const Legion::Task* task,
+                            Legion::Context ctx,
+                            Legion::Runtime* runtime,
+                            const char* task_name);
 
  public:
   // Configuration settings
-  static bool show_progress;
+  static bool show_progress_requested;
   static bool use_empty_task;
 };
 

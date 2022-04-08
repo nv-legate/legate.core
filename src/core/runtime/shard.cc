@@ -122,6 +122,23 @@ ShardingID find_sharding_functor_by_projection_functor(Legion::ProjectionID proj
   return functor_id_table[proj_id];
 }
 
+struct callback_args_t {
+  Legion::ShardID shard_id;
+  Legion::ProjectionID proj_id;
+};
+
+static void sharding_functor_registration_callback(const Legion::RegistrationCallbackArgs& args)
+{
+  auto p_args   = static_cast<callback_args_t*>(args.buffer.get_ptr());
+  auto shard_id = p_args->shard_id;
+  auto proj_id  = p_args->proj_id;
+
+  auto runtime = Runtime::get_runtime();
+  auto sharding_functor =
+    new legate::LegateShardingFunctor(legate::find_legate_projection_functor(proj_id));
+  runtime->register_sharding_functor(shard_id, sharding_functor, false /*silence warnings*/);
+}
+
 }  // namespace legate
 
 extern "C" {
@@ -130,10 +147,13 @@ void legate_create_sharding_functor_using_projection(Legion::ShardID shard_id,
                                                      Legion::ProjectionID proj_id)
 {
   auto runtime = Runtime::get_runtime();
-  auto sharding_functor =
-    new legate::LegateShardingFunctor(legate::find_legate_projection_functor(proj_id));
-  runtime->register_sharding_functor(shard_id, sharding_functor, true /*silence warnings*/);
-  const std::lock_guard<std::mutex> lock(legate::functor_table_lock);
-  legate::functor_id_table[proj_id] = shard_id;
+  legate::callback_args_t args{shard_id, proj_id};
+  {
+    const std::lock_guard<std::mutex> lock(legate::functor_table_lock);
+    legate::functor_id_table[proj_id] = shard_id;
+  }
+  UntypedBuffer buffer(&args, sizeof(args));
+  Legion::Runtime::perform_registration_callback(
+    legate::sharding_functor_registration_callback, buffer, false /*global*/, false /*dedup*/);
 }
 }

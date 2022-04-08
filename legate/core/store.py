@@ -845,8 +845,17 @@ class Store:
             # store before it is set, that means the producer task is
             # sitting in the queue, so we should flush the queue.
             self._runtime.flush_scheduling_window()
-            # At this point, we should have the shape set.
-            assert self._shape is not None
+
+            # If the shape is still None, this store has not been passed to any
+            # task yet. Accessing the shape of an uninitialized store is
+            # illegal.
+            if self._shape is None:
+                raise ValueError(
+                    "Accessing the shape of an uninitialized unbound store "
+                    "is illegal. This error usually happens when you try to "
+                    "transform the uninitialized unbound store before you "
+                    "pass it to any task."
+                )
         return self._shape
 
     @property
@@ -898,6 +907,10 @@ class Store:
     @property
     def transform(self):
         return self._transform
+
+    @property
+    def transformed(self):
+        return not self._transform.bottom
 
     def attach_external_allocation(self, context, alloc, share):
         if not isinstance(alloc, (memoryview, DistributedAllocation)):
@@ -951,8 +964,15 @@ class Store:
     # Convert a store in N-D space to that in (N+1)-D space.
     # The extra_dim specifies the added dimension
     def promote(self, extra_dim, dim_size=1):
+        extra_dim = extra_dim + self.ndim if extra_dim < 0 else extra_dim
+        if extra_dim < 0 or extra_dim > self.ndim:
+            raise ValueError(
+                f"Invalid promotion on dimension {extra_dim} for a "
+                f"{self.ndim}-D store"
+            )
+
         transform = Promote(self._runtime, extra_dim, dim_size)
-        old_shape = self._shape
+        old_shape = self.shape
         shape = transform.compute_shape(old_shape)
         if old_shape == shape:
             return self
@@ -967,9 +987,21 @@ class Store:
     # Take a hyperplane of an N-D store for a given index
     # to create an (N-1)-D store
     def project(self, dim, index):
-        assert dim < self.ndim
+        dim = dim + self.ndim if dim < 0 else dim
+        if dim < 0 or dim >= self.ndim:
+            raise ValueError(
+                f"Invalid projection on dimension {dim} for a {self.ndim}-D "
+                "store"
+            )
+
+        old_shape = self.shape
+        if index < 0 or index >= old_shape[dim]:
+            raise ValueError(
+                f"Out-of-bounds projection on dimension {dim} with index "
+                f"{index} for a store of shape {old_shape}"
+            )
+
         transform = Project(self._runtime, dim, index)
-        old_shape = self._shape
         shape = transform.compute_shape(old_shape)
         if old_shape == shape:
             return self
@@ -990,9 +1022,10 @@ class Store:
         )
 
     def slice(self, dim, sl):
+        dim = dim + self.ndim if dim < 0 else dim
         if dim < 0 or dim >= self.ndim:
             raise ValueError(
-                f"Invalid dimension {dim} for a {self.ndim}-D store"
+                f"Invalid slicing of dimension {dim} for a {self.ndim}-D store"
             )
 
         size = self.shape[dim]
@@ -1003,9 +1036,12 @@ class Store:
         step = 1 if sl.step is None else sl.step
 
         if step != 1:
-            raise ValueError(f"Unsupported slicing: {sl}")
-        if start >= size or stop > size:
-            raise ValueError(f"Out of bounds: {sl} for a shape {self.shape}")
+            raise NotImplementedError(f"Unsupported slicing: {sl}")
+        elif start >= size or stop > size:
+            raise ValueError(
+                f"Out-of-bounds slicing {sl} on dimension {dim} for a store "
+                f"of shape {self.shape}"
+            )
 
         transform = Shift(self._runtime, dim, -start)
         shape = self.shape
@@ -1036,6 +1072,12 @@ class Store:
         elif len(axes) != len(set(axes)):
             raise ValueError(f"duplicate axes found: {axes}")
 
+        for val in axes:
+            if val < 0 or val >= self.ndim:
+                raise ValueError(
+                    f"invalid axis {val} for a {self.ndim}-D store"
+                )
+
         if all(idx == val for idx, val in enumerate(axes)):
             return self
 
@@ -1051,6 +1093,13 @@ class Store:
         )
 
     def delinearize(self, dim, shape):
+        dim = dim + self.ndim if dim < 0 else dim
+        if dim < 0 or dim >= self.ndim:
+            raise ValueError(
+                f"Invalid delinearization of dimension {dim} "
+                f"for a {self.ndim}-D store"
+            )
+
         if len(shape) == 1:
             return self
         s = Shape(shape)
