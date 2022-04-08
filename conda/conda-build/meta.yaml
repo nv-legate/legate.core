@@ -1,18 +1,32 @@
 {% set name = "legate-core" %}
+{% if package_version is defined %}
+    {% set version = package_version %}
+{% elif 'dev' in environ.get('GIT_DESCRIBE_TAG', '') %}
+    {% set version = environ.get('GIT_DESCRIBE_TAG', '') ~ environ.get('GIT_DESCRIBE_NUMBER', '') %}
+{% else %}
+    {% set version = environ.get('GIT_DESCRIBE_TAG', '') %}
+{% endif %}
+{% set major_version = version.split(".")[0] %}
+{% set minor_version = version.split(".")[1] %}
+{% set patch_version = version.split(".")[2] %}
 
 package:
   name: {{ name|lower }}
-  version: {{ environ.get('GIT_DESCRIBE_TAG', environ.get('GIT_FULL_HASH', '')) }}
+  version: {{ version }}
 
 source:
+{% if package_tar is defined %}
+  url: {{ package_tar }}
+{% else %}
   git_url: ../../
-
+{% endif %}
 
 build:
   skip: true # [not linux]
   number: 0
   missing_dso_whitelist:
     -  '*libcuda.so*'
+  string: "py{{ CONDA_PY }}{{ GIT_DESCRIBE_HASH }}_{{ PKG_BUILDNUM }}"
 
 requirements:
   build:
@@ -60,4 +74,4 @@ about:
 
 extra:
   recipe-maintainers:
-    - mavaz
+    - m3vaz
