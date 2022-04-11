@@ -16,8 +16,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Callable, Iterable, Optional, Union
 
-from typing_extensions import Literal
-
 import legate.core.types as ty
 
 from . import Future, FutureMap, Point, Rect
@@ -184,7 +182,7 @@ class Operation:
     def execute(self) -> None:
         self._context.runtime.submit(self)
 
-    def get_tag(self, strategy: Strategy, part: Any) -> Literal[1, 0]:
+    def get_tag(self, strategy: Strategy, part: Any) -> int:
         if strategy.is_key_part(part):
             return 1  # LEGATE_CORE_KEY_STORE_TAG
         else:
@@ -347,7 +345,7 @@ class AutoTask(Task):
 
         def get_requirement(
             store: Store, part_symb: PartSym
-        ) -> tuple[Any, Literal[1, 0], StorePartition]:
+        ) -> tuple[Any, int, StorePartition]:
             store_part = store.partition(strategy.get_partition(part_symb))
             req = store_part.get_requirement(strategy.launch_ndim)
             tag = self.get_tag(strategy, part_symb)
@@ -677,7 +675,7 @@ class Copy(Operation):
 
         def get_requirement(
             store: Store, part_symb: PartSym
-        ) -> tuple[Any, Literal[1, 0], StorePartition]:
+        ) -> tuple[Any, int, StorePartition]:
             store_part = store.partition(strategy.get_partition(part_symb))
             req = store_part.get_requirement(strategy.launch_ndim)
             tag = self.get_tag(strategy, part_symb)
