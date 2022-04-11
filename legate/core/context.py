@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     import numpy.typing as npt
 
     from . import ArgumentMap, Rect
-    from .communicator import NCCLCommunicator
+    from .communicator import Communicator
     from .legate import Library
     from .runtime import Runtime
     from .shape import Shape
@@ -255,7 +255,7 @@ class Context:
             ndim=ndim,
         )
 
-    def get_nccl_communicator(self) -> NCCLCommunicator:
+    def get_nccl_communicator(self) -> Communicator:
         return self._runtime.get_nccl_communicator()
 
     def issue_execution_fence(self, block: bool = False) -> None:

@@ -52,6 +52,7 @@ from .transform import IdentityTransform
 
 if TYPE_CHECKING:
     from . import ArgumentMap, IndexPartition
+    from .communicator import Communicator
     from .operation import Operation
 
 
@@ -730,7 +731,7 @@ class CommunicatorManager:
     def destroy(self) -> None:
         self._nccl.destroy()
 
-    def get_nccl_communicator(self) -> NCCLCommunicator:
+    def get_nccl_communicator(self) -> Communicator:
         return self._nccl
 
 
@@ -1195,7 +1196,7 @@ class Runtime:
         if block:
             future.wait()
 
-    def get_nccl_communicator(self) -> NCCLCommunicator:
+    def get_nccl_communicator(self) -> Communicator:
         return self._comm_manager.get_nccl_communicator()
 
     def delinearize_future_map(self, future_map, new_domain):
