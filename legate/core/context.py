@@ -24,6 +24,7 @@ from .types import TypeSystem
 
 if TYPE_CHECKING:
     import numpy.typing as npt
+    from pyarrow import DataType
 
     from . import ArgumentMap, Rect
     from .communicator import Communicator
@@ -186,9 +187,9 @@ class Context:
         return self._shard_scope.translate(shard_id)
 
     def get_tunable(
-        self, tunable_id: int, dtype: Any, mapper_id: int = 0  # DataType
+        self, tunable_id: int, dtype: DataType, mapper_id: int = 0
     ) -> npt.NDArray[Any]:
-        dtype = np.dtype(dtype.to_pandas_dtype())
+        dt = np.dtype(dtype.to_pandas_dtype())
         mapper_id = self.get_mapper_id(mapper_id)
         fut = Future(
             legion.legion_runtime_select_tunable_value(
@@ -199,10 +200,8 @@ class Context:
                 0,
             )
         )
-        buf = fut.get_buffer(dtype.itemsize)
-        return np.frombuffer(  # type: ignore [no-untyped-call]
-            buf, dtype=dtype
-        )[0]
+        buf = fut.get_buffer(dt.itemsize)
+        return np.frombuffer(buf, dtype=dt)[0]  # type: ignore [no-untyped-call] # noqa: E501
 
     def get_unique_op_id(self) -> int:
         return self._runtime.get_unique_op_id()
