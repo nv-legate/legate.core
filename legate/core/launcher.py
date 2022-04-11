@@ -47,6 +47,7 @@ if TYPE_CHECKING:
     from .context import Context
     from .runtime import Runtime
     from .store import Store
+    from .types import DTType
 
 
 LegionTask = Union[IndexTask, SingleTask, IndexCopy, SingleCopy]
@@ -78,8 +79,6 @@ _SERIALIZERS = {
 }
 
 EntryType = Tuple[Union["Broadcast", "Partition"], int, int]
-
-DTType = Union[bool, pa.lib.DataType]
 
 
 def _pack(

@@ -15,11 +15,13 @@
 from __future__ import annotations
 
 from enum import IntEnum, unique
-from typing import Any
+from typing import Any, Union
 
 import pyarrow as pa
 
 from . import legion
+
+DTType = Union[bool, pa.lib.DataType]
 
 
 class Complex64Dtype(pa.ExtensionType):

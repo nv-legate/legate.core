@@ -33,6 +33,7 @@ if TYPE_CHECKING:
     from .constraints import Constraint
     from .context import Context
     from .solver import Strategy
+    from .types import DTType
 
 ProjFunc = Callable[[Point], Point]
 
@@ -225,7 +226,7 @@ class Task(Operation):
     ) -> None:
         super().__init__(context, mapper_id=mapper_id, op_id=op_id)
         self._task_id = task_id
-        self._scalar_args: list[tuple[Any, Any]] = []
+        self._scalar_args: list[tuple[Any, DTType]] = []
         self._comm_args: list[Communicator] = []
 
     @property
@@ -236,10 +237,10 @@ class Task(Operation):
         libname = self.context.library.get_name()
         return f"{libname}.Task(tid:{self._task_id}, uid:{self._op_id})"
 
-    def add_scalar_arg(self, value: Any, dtype: Any) -> None:
+    def add_scalar_arg(self, value: Any, dtype: DTType) -> None:
         self._scalar_args.append((value, dtype))
 
-    def add_dtype_arg(self, dtype: Any) -> None:
+    def add_dtype_arg(self, dtype: DTType) -> None:
         code = self._context.type_system[dtype].code
         self._scalar_args.append((code, ty.int32))
 
