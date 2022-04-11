@@ -131,7 +131,7 @@ class Operation:
         self._check_store(store)
         if partition is None:
             partition = self._get_unique_partition(store)
-        self._inputs.append(store)  # XXXX
+        self._inputs.append(store)
         self._input_parts.append(partition)
 
     def add_output(
@@ -174,7 +174,7 @@ class Operation:
         self, store: Store, axes: Optional[Union[int, Iterable[int]]] = None
     ) -> None:
         self._check_store(store)
-        part = self._get_unique_partition(store)  # XXXXX
+        part = self._get_unique_partition(store)
         self.add_constraint(part.broadcast(axes=axes))
 
     def add_constraint(self, constraint: Constraint) -> None:
@@ -445,7 +445,7 @@ class ManualTask(Task):
         if isinstance(arg, Store):
             self._input_parts.append(arg.partition(REPLICATE))
         else:
-            self._input_parts.append(arg)  # XXXXX
+            self._input_parts.append(arg)
         self._input_projs.append(proj)
 
     def add_output(  # type: ignore [override]
@@ -611,7 +611,7 @@ class Copy(Operation):
                         f"input, but got {tuple(src.store.shape)} and "
                         f"{tuple(tgt.store.shape)}"
                     )
-                constraints.append(src == tgt)  # XXXXX
+                constraints.append(src == tgt)
         else:
             if len(self._source_indirects) > 0:
                 output_parts = (
@@ -680,7 +680,7 @@ class Copy(Operation):
             tag = self.get_tag(strategy, part_symb)
             return req, tag, store_part
 
-        for store, part_symb in zip(self._inputs, self._input_parts):  # XXXX
+        for store, part_symb in zip(self._inputs, self._input_parts):
             req, tag, _ = get_requirement(store, part_symb)
             launcher.add_input(store, req, tag=tag)
 

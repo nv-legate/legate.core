@@ -372,7 +372,7 @@ class Partition:
         )
 
 
-Proj = Union[Broadcast, Partition]  # XXX Protocol
+Proj = Union[Broadcast, Partition]  # TODO: (bev) Protocol
 
 
 class RegionReq:
@@ -556,7 +556,7 @@ class FieldSet:
     ) -> dict[Any, list[Union[int, FieldID]]]:
         coalesced: dict[Any, list[Union[int, FieldID]]] = {}
         for field_id, proj_set in self._fields.items():
-            proj_infos = proj_set.coalesce(error_on_interference)  # line 496
+            proj_infos = proj_set.coalesce(error_on_interference)
             for key in proj_infos:
                 if key in coalesced:
                     coalesced[key].append(field_id)
