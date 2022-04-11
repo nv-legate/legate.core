@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import weakref
+from typing import TYPE_CHECKING
 
 from . import (
     Attach,
@@ -39,6 +40,10 @@ from .transform import (
     Transpose,
 )
 from .types import _Dtype
+
+if TYPE_CHECKING:
+    from . import BufferBuilder, Rect
+    from .launcher import Proj
 
 
 class InlineMappedAllocation:
@@ -473,7 +478,7 @@ class StoragePartition:
             self._partition, self._complete
         )
 
-    def is_disjoint_for(self, launch_domain):
+    def is_disjoint_for(self, launch_domain: Rect) -> bool:
         return self._partition.is_disjoint_for(launch_domain)
 
 
@@ -719,10 +724,10 @@ class Storage:
         else:
             return None
 
-    def set_key_partition(self, partition):
+    def set_key_partition(self, partition) -> None:
         self._key_partition = partition
 
-    def reset_key_partition(self):
+    def reset_key_partition(self) -> None:
         self._key_partition = None
 
     def find_or_create_legion_partition(self, functor, complete):
@@ -773,7 +778,7 @@ class StorePartition:
             shape=child_storage.extents,
         )
 
-    def get_requirement(self, launch_ndim, proj_fn=None):
+    def get_requirement(self, launch_ndim: int, proj_fn=None) -> Proj:
         part = self._storage_partition.find_or_create_legion_partition()
         if part is not None:
             proj_id = self._store.compute_projection(proj_fn, launch_ndim)
@@ -784,7 +789,7 @@ class StorePartition:
             proj_id = None
         return self._partition.requirement(part, proj_id)
 
-    def is_disjoint_for(self, launch_domain):
+    def is_disjoint_for(self, launch_domain: Rect) -> bool:
         return self._storage_partition.is_disjoint_for(launch_domain)
 
 
@@ -797,7 +802,7 @@ class Store:
         transform,
         shape=None,
         ndim=None,
-    ):
+    ) -> None:
         """
         Unlike in Arrow where all data is backed by objects that
         implement the Python Buffer protocol, in Legate data is backed
@@ -935,7 +940,7 @@ class Store:
     def comm_volume(self):
         return self._storage.volume()
 
-    def set_storage(self, data):
+    def set_storage(self, data) -> None:
         self._storage.set_data(data)
         if self._shape is None:
             assert isinstance(data, RegionField)
@@ -1131,7 +1136,7 @@ class Store:
     def overlaps(self, other):
         return self._storage.overlaps(other._storage)
 
-    def serialize(self, buf):
+    def serialize(self, buf: BufferBuilder) -> None:
         buf.pack_bool(self.kind is Future)
         buf.pack_bool(self.unbound)
         buf.pack_32bit_int(self.ndim)
@@ -1143,7 +1148,7 @@ class Store:
         part = self._storage.find_key_partition(restrictions)
         return part is not None and (part.even or self._transform.bottom)
 
-    def set_key_partition(self, partition):
+    def set_key_partition(self, partition) -> None:
         assert isinstance(partition, PartitionBase)
         self._key_partition = partition
         # We also update the storage's key partition for other stores
@@ -1229,7 +1234,7 @@ class Store:
             complete=complete,
         )
 
-    def partition(self, partition):
+    def partition(self, partition) -> StorePartition:
         storage_partition = self._storage.partition(
             self.invert_partition(partition),
         )

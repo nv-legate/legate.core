@@ -14,14 +14,20 @@
 #
 from __future__ import annotations
 
-from collections.abc import MutableSet
-from typing import Any, Hashable, Iterator, Optional, TypeVar
+from typing import (
+    Any,
+    Hashable,
+    Iterable,
+    Iterator,
+    MutableSet,
+    Optional,
+    TypeVar,
+)
 
-TOrderedSet = TypeVar("TOrderedSet", bound="OrderedSet")
+T = TypeVar("T", bound="Hashable")
 
 
-# todo: (bev) use MutableSet[Hashable] when feasible
-class OrderedSet(MutableSet):  # type: ignore [type-arg]
+class OrderedSet(MutableSet[T]):
     """
     A set() variant whose iterator returns elements in insertion order.
 
@@ -31,29 +37,29 @@ class OrderedSet(MutableSet):  # type: ignore [type-arg]
     shards in a replicated context.
     """
 
-    def __init__(self, copy_from: Optional[TOrderedSet] = None) -> None:
-        self._dict: dict[Hashable, None] = {}
+    def __init__(self, copy_from: Optional[Iterable[T]] = None) -> None:
+        self._dict: dict[T, None] = {}
         if copy_from is not None:
             for obj in copy_from:
                 self.add(obj)
 
-    def add(self, obj: Hashable) -> None:
+    def add(self, obj: T) -> None:
         self._dict[obj] = None
 
-    def update(self, other: TOrderedSet) -> None:
+    def update(self, other: Iterable[T]) -> None:
         for obj in other:
             self.add(obj)
 
-    def discard(self, obj: Hashable) -> None:
+    def discard(self, obj: T) -> None:
         self._dict.pop(obj, None)
 
     def __len__(self) -> int:
         return len(self._dict)
 
-    def __contains__(self, obj: Hashable) -> bool:
+    def __contains__(self, obj: object) -> bool:
         return obj in self._dict
 
-    def __iter__(self) -> Iterator[Hashable]:
+    def __iter__(self) -> Iterator[T]:
         return iter(self._dict)
 
 

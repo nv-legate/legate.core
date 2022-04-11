@@ -20,7 +20,7 @@ import struct
 import weakref
 from collections import deque
 from functools import reduce
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 from legion_top import cleanup_items, top_level
 
@@ -51,19 +51,21 @@ from .store import RegionField, Storage, Store
 from .transform import IdentityTransform
 
 if TYPE_CHECKING:
-    from . import IndexPartition
+    from . import ArgumentMap, IndexPartition
+    from .communicator import Communicator
+    from .operation import Operation
 
 
 # A Field holds a reference to a field in a region tree
 class Field:
-    __slots__ = [
+    __slots__ = (
         "runtime",
         "region",
         "field_id",
         "dtype",
         "shape",
         "own",
-    ]
+    )
 
     def __init__(
         self,
@@ -722,14 +724,14 @@ class PartitionManager:
 
 
 class CommunicatorManager:
-    def __init__(self, runtime):
+    def __init__(self, runtime: Runtime):
         self._runtime = runtime
         self._nccl = NCCLCommunicator(runtime)
 
-    def destroy(self):
+    def destroy(self) -> None:
         self._nccl.destroy()
 
-    def get_nccl_communicator(self):
+    def get_nccl_communicator(self) -> Communicator:
         return self._nccl
 
 
@@ -801,7 +803,7 @@ class Runtime:
             legion.LEGATE_CORE_TUNABLE_FIELD_REUSE_FREQUENCY,
             ty.uint32,
         )
-        self._empty_argmap = legion.legion_argument_map_create()
+        self._empty_argmap: ArgumentMap = legion.legion_argument_map_create()
 
         # A projection functor and its corresponding sharding functor
         # have the same local id
@@ -901,12 +903,12 @@ class Runtime:
 
         self.destroyed = True
 
-    def get_unique_op_id(self):
+    def get_unique_op_id(self) -> int:
         op_id = self._unique_op_id
         self._unique_op_id += 1
         return op_id
 
-    def dispatch(self, op, redop=None):
+    def dispatch(self, op: Operation, redop: Optional[int] = None):
         self._attachment_manager.perform_detachments()
         self._attachment_manager.prune_detachments()
         if redop:
@@ -936,7 +938,7 @@ class Runtime:
         self._outstanding_ops = []
         self._schedule(ops)
 
-    def submit(self, op):
+    def submit(self, op) -> None:
         self._outstanding_ops.append(op)
         if len(self._outstanding_ops) >= self._window_size:
             self.flush_scheduling_window()
@@ -1013,7 +1015,7 @@ class Runtime:
         storage=None,
         optimize_scalar=False,
         ndim=None,
-    ):
+    ) -> Store:
         if ndim is not None and shape is not None:
             raise ValueError("ndim cannot be used with shape")
         elif ndim is None and shape is None:
@@ -1073,7 +1075,7 @@ class Runtime:
         if self.field_managers is not None:
             self.field_managers[key].free_field(region, field_id)
 
-    def import_output_region(self, out_region, field_id, dtype):
+    def import_output_region(self, out_region, field_id, dtype) -> RegionField:
         region = out_region.get_region()
         shape = Shape(ispace=region.index_space)
 
@@ -1092,7 +1094,7 @@ class Runtime:
 
         return RegionField(self, region, field, shape)
 
-    def create_output_region(self, fspace, fields, ndim):
+    def create_output_region(self, fspace, fields, ndim) -> OutputRegion:
         return OutputRegion(
             self.legion_context,
             self.legion_runtime,
@@ -1122,7 +1124,7 @@ class Runtime:
         self.index_spaces[bounds] = result
         return result
 
-    def create_field_space(self):
+    def create_field_space(self) -> FieldSpace:
         return FieldSpace(self.legion_context, self.legion_runtime)
 
     def create_region(self, index_space, field_space):
@@ -1151,7 +1153,9 @@ class Runtime:
             index_space, functor, index_partition
         )
 
-    def extract_scalar(self, future, idx, launch_domain=None):
+    def extract_scalar(
+        self, future, idx, launch_domain=None
+    ) -> Union[Future, FutureMap]:
         if isinstance(future, FutureMap):
             assert launch_domain is not None
             launcher = TaskLauncher(
@@ -1175,7 +1179,7 @@ class Runtime:
             else:
                 return launcher.execute(launch_domain)
 
-    def reduce_future_map(self, future_map, redop):
+    def reduce_future_map(self, future_map, redop) -> Future:
         if isinstance(future_map, Future):
             return future_map
         else:
@@ -1186,13 +1190,13 @@ class Runtime:
                 mapper=self.core_context.get_mapper_id(0),
             )
 
-    def issue_execution_fence(self, block=False):
+    def issue_execution_fence(self, block: bool = False) -> None:
         fence = Fence(mapping=False)
         future = fence.launch(self.legion_runtime, self.legion_context)
         if block:
             future.wait()
 
-    def get_nccl_communicator(self):
+    def get_nccl_communicator(self) -> Communicator:
         return self._comm_manager.get_nccl_communicator()
 
     def delinearize_future_map(self, future_map, new_domain):
