@@ -248,7 +248,9 @@ class Task(Operation):
             launcher.add_scalar_arg(arg, dtype)
 
     def _demux_scalar_stores(
-        self, result: Any, launch_domain: Union[Rect, None]
+        self,
+        result: Union[Future, FutureMap],
+        launch_domain: Union[Rect, None],
     ) -> None:
         num_unbound_outs = len(self.unbound_outputs)
         num_scalar_outs = len(self.scalar_outputs)
