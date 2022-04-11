@@ -268,7 +268,8 @@ def run_legate(
         ]
         for var in cmd_env:
             if (
-                var == LIB_PATH
+                var.endswith("PATH")
+                or var.startswith("CONDA_")
                 or var.startswith("LEGATE_")
                 or var.startswith("LEGION_")
                 or var.startswith("LG_")

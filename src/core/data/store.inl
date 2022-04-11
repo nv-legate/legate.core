@@ -227,12 +227,20 @@ VAL FutureWrapper::scalar() const
     return future_.get_result<VAL>();
 }
 
-template <typename VAL>
-void OutputRegionField::return_data(Buffer<VAL>& buffer, size_t num_elements)
+template <typename T, int32_t DIM>
+Buffer<T, DIM> OutputRegionField::create_output_buffer(const Legion::Point<DIM>& extents,
+                                                       bool return_buffer)
+{
+  return out_.create_buffer<T, DIM>(extents, fid_, nullptr, return_buffer);
+}
+
+template <typename T, int32_t DIM>
+void OutputRegionField::return_data(Buffer<T, DIM>& buffer, const Legion::Point<DIM>& extents)
 {
   assert(!bound_);
-  out_.return_data(fid_, buffer, &num_elements);
-  num_elements_[0] = num_elements;
+  out_.return_data(extents, fid_, buffer);
+  // We will use this value only when the unbound store is 1D
+  num_elements_[0] = extents[0];
 }
 
 template <typename T, int DIM>
@@ -339,6 +347,14 @@ AccessorRD<OP, EXCLUSIVE, DIM> Store::reduce_accessor(const Legion::Rect<DIM>& b
   return region_field_.reduce_accessor<OP, EXCLUSIVE, DIM>(redop_id_, bounds);
 }
 
+template <typename T, int32_t DIM>
+Buffer<T, DIM> Store::create_output_buffer(const Legion::Point<DIM>& extents,
+                                           bool return_buffer /*= false*/)
+{
+  assert(is_output_store_);
+  return output_field_.create_output_buffer<T, DIM>(extents, return_buffer);
+}
+
 template <int32_t DIM>
 Legion::Rect<DIM> Store::shape() const
 {
@@ -358,11 +374,11 @@ VAL Store::scalar() const
   return future_.scalar<VAL>();
 }
 
-template <typename VAL>
-void Store::return_data(Buffer<VAL>& buffer, size_t num_elements)
+template <typename T, int32_t DIM>
+void Store::return_data(Buffer<T, DIM>& buffer, const Legion::Point<DIM>& extents)
 {
   assert(is_output_store_);
-  output_field_.return_data(buffer, num_elements);
+  output_field_.return_data(buffer, extents);
 }
 
 }  // namespace legate

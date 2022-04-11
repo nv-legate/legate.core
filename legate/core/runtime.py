@@ -20,17 +20,12 @@ import struct
 import weakref
 from collections import deque
 from functools import reduce
+from typing import TYPE_CHECKING, Union
 
-from legion_cffi import ffi  # Make sure we only have one ffi instance
 from legion_top import cleanup_items, top_level
 
-from legate.core import types as ty
-
-from .communicator import NCCLCommunicator
-from .context import Context
-from .corelib import CoreLib
-from .launcher import TaskLauncher
-from .legion import (
+from . import ffi  # Make sure we only have one ffi instance
+from . import (
     Fence,
     FieldSpace,
     Future,
@@ -42,7 +37,12 @@ from .legion import (
     legate_task_postamble,
     legate_task_preamble,
     legion,
+    types as ty,
 )
+from .communicator import NCCLCommunicator
+from .context import Context
+from .corelib import CoreLib
+from .launcher import TaskLauncher
 from .partition import Restriction
 from .projection import is_identity_projection, pack_symbolic_projection_repr
 from .shape import Shape
@@ -50,9 +50,11 @@ from .solver import Partitioner
 from .store import RegionField, Storage, Store
 from .transform import IdentityTransform
 
+if TYPE_CHECKING:
+    from . import IndexPartition
+
 
 # A Field holds a reference to a field in a region tree
-# that can be used by many different RegionField objects
 class Field:
     __slots__ = [
         "runtime",
@@ -707,11 +709,13 @@ class PartitionManager:
         num_tiles = (shape // tile_shape).volume()
         return not (num_tiles > 256 and num_tiles > 16 * self._num_pieces)
 
-    def find_partition(self, index_space, functor):
+    def find_partition(
+        self, index_space, functor
+    ) -> Union[IndexPartition, None]:
         key = (index_space, functor)
         return self._index_partitions.get(key)
 
-    def record_partition(self, index_space, functor, index_partition):
+    def record_partition(self, index_space, functor, index_partition) -> None:
         key = (index_space, functor)
         assert key not in self._index_partitions
         self._index_partitions[key] = index_partition
@@ -730,6 +734,9 @@ class CommunicatorManager:
 
 
 class Runtime:
+    _legion_runtime: Union[legion.legion_runtime_t, None]
+    _legion_context: Union[legion.legion_context_t, None]
+
     def __init__(self, core_library):
         """
         This is a class that implements the Legate runtime.
@@ -989,7 +996,7 @@ class Runtime:
                 spec, *pack_symbolic_projection_repr(src_ndim, dims)
             )
 
-    def get_transform_code(self, name):
+    def get_transform_code(self, name) -> int:
         return getattr(
             self.core_library, f"LEGATE_CORE_TRANSFORM_{name.upper()}"
         )
@@ -1005,9 +1012,16 @@ class Runtime:
         shape=None,
         storage=None,
         optimize_scalar=False,
+        ndim=None,
     ):
+        if ndim is not None and shape is not None:
+            raise ValueError("ndim cannot be used with shape")
+        elif ndim is None and shape is None:
+            ndim = 1
+
         if shape is not None and not isinstance(shape, Shape):
             shape = Shape(shape)
+
         if storage is None:
             if not optimize_scalar or shape.volume() > 1:
                 kind = RegionField
@@ -1022,6 +1036,7 @@ class Runtime:
             storage,
             IdentityTransform(),
             shape=shape,
+            ndim=ndim,
         )
 
     def find_or_create_region_manager(self, shape, region=None):
@@ -1077,18 +1092,19 @@ class Runtime:
 
         return RegionField(self, region, field, shape)
 
-    def create_output_region(self, fspace, fields):
+    def create_output_region(self, fspace, fields, ndim):
         return OutputRegion(
             self.legion_context,
             self.legion_runtime,
             field_space=fspace,
             fields=fields,
+            ndim=ndim,
         )
 
     def has_attachment(self, alloc):
         return self._attachment_manager.has_attachment(alloc)
 
-    def find_or_create_index_space(self, bounds):
+    def find_or_create_index_space(self, bounds) -> IndexSpace:
         if bounds in self.index_spaces:
             return self.index_spaces[bounds]
         # Haven't seen this before so make it now
@@ -1125,10 +1141,12 @@ class Runtime:
             handle,
         )
 
-    def find_partition(self, index_space, functor):
+    def find_partition(
+        self, index_space, functor
+    ) -> Union[IndexPartition, None]:
         return self._partition_manager.find_partition(index_space, functor)
 
-    def record_partition(self, index_space, functor, index_partition):
+    def record_partition(self, index_space, functor, index_partition) -> None:
         self._partition_manager.record_partition(
             index_space, functor, index_partition
         )
@@ -1177,11 +1195,27 @@ class Runtime:
     def get_nccl_communicator(self):
         return self._comm_manager.get_nccl_communicator()
 
+    def delinearize_future_map(self, future_map, new_domain):
+        new_domain = self.find_or_create_index_space(new_domain)
+        functor = (
+            self.core_library.legate_linearizing_point_transform_functor()
+        )
+        handle = legion.legion_future_map_transform(
+            self.legion_runtime,
+            self.legion_context,
+            future_map.handle,
+            new_domain.handle,
+            # CFFI constructs a legion_point_transform_functor_t from this list
+            [functor],
+            False,
+        )
+        return FutureMap(handle)
+
 
 _runtime = Runtime(CoreLib())
 
 
-def _cleanup_legate_runtime():
+def _cleanup_legate_runtime() -> None:
     global _runtime
     _runtime.destroy()
     del _runtime
@@ -1191,17 +1225,17 @@ def _cleanup_legate_runtime():
 cleanup_items.append(_cleanup_legate_runtime)
 
 
-def get_legion_runtime():
+def get_legion_runtime() -> legion.legion_runtime_t:
     return _runtime.legion_runtime
 
 
-def get_legion_context():
+def get_legion_context() -> legion.legion_context_t:
     return _runtime.legion_context
 
 
-def legate_add_library(library):
+def legate_add_library(library) -> None:
     _runtime.register_library(library)
 
 
-def get_legate_runtime():
+def get_legate_runtime() -> Runtime:
     return _runtime

@@ -16,9 +16,7 @@ from __future__ import annotations
 
 from enum import IntEnum, unique
 
-import legate.core.types as ty
-
-from .legion import (
+from . import (
     ArgumentMap,
     BufferBuilder,
     Copy as SingleCopy,
@@ -26,6 +24,7 @@ from .legion import (
     IndexCopy,
     IndexTask,
     Task as SingleTask,
+    types as ty,
 )
 
 
@@ -310,27 +309,28 @@ class RegionReq:
 
 
 class OutputReq:
-    def __init__(self, runtime, fspace):
+    def __init__(self, runtime, fspace, ndim):
         self.runtime = runtime
         self.fspace = fspace
+        self.ndim = ndim
         self.output_region = None
 
     def __str__(self):
-        return f"OutputReq({self.fspace})"
+        return f"OutputReq({self.fspace}, {self.ndim})"
 
     def __repr__(self):
         return str(self)
 
     def __hash__(self):
-        return hash(self.fspace)
+        return hash((self.fspace, self.ndim))
 
     def __eq__(self, other):
-        return self.fspace == other.fspace
+        return self.fspace == other.fspace and self.ndim == other.ndim
 
     def _create_output_region(self, fields):
         assert self.output_region is None
         self.output_region = self.runtime.create_output_region(
-            self.fspace, fields
+            self.fspace, fields, self.ndim
         )
 
     def add(self, task, fields):
@@ -646,7 +646,7 @@ class TaskLauncher:
             )
 
     def add_unbound_output(self, store, fspace, field_id):
-        req = OutputReq(self._runtime, fspace)
+        req = OutputReq(self._runtime, fspace, store.ndim)
 
         self._out_analyzer.insert(req, field_id, store)
 
@@ -654,7 +654,7 @@ class TaskLauncher:
             RegionFieldArg(
                 self._out_analyzer,
                 store,
-                1,
+                store.ndim,
                 req,
                 field_id,
                 -1,

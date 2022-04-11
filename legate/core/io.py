@@ -16,17 +16,9 @@ from __future__ import annotations
 
 from typing import Iterable, Tuple, Union
 
-from legion_cffi import ffi  # Make sure we only have one ffi instance
-
+from . import ffi  # Make sure we only have one ffi instance
+from . import FutureMap, IndexPartition, PartitionByDomain, Point, Rect, legion
 from .legate import Array, Table
-from .legion import (
-    FutureMap,
-    IndexPartition,
-    PartitionByDomain,
-    Point,
-    Rect,
-    legion,
-)
 from .partition import Tiling
 from .runtime import _runtime
 from .shape import Shape

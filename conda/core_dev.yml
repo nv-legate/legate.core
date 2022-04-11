@@ -7,13 +7,16 @@ dependencies:
   - clang>=8
   - clang-tools>=8
   - nccl
+  - mock
   - numpy
   - pre-commit
   - pyarrow>=5
   - pydata-sphinx-theme
   - pynvml
+  - pytest
   - python>=3.7
   - setuptools>=60
   - sphinx
   - sphinx-copybutton
   - sphinx-markdown-tables
+  - typing_extensions

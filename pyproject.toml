@@ -68,8 +68,13 @@ ignore_errors = true
 
 [[tool.mypy.overrides]]
 module = [
-    "legate.core.legion",
+    "legate.core._legion.*",
+    "legate.core.corelib",
+    "legate.core.install_info",
+    "legate.core.partition",
     "legate.core.projection",
+    "legate.core.shape",
+    "legate.core.transform",
     "legate.core.types",
     "legate.core.utils",
 ]

@@ -16,9 +16,9 @@ from __future__ import annotations
 
 import legate.core.types as ty
 
+from . import Future, FutureMap, Rect
 from .constraints import PartSym
 from .launcher import CopyLauncher, TaskLauncher
-from .legion import Future, FutureMap, Rect
 from .partition import REPLICATE, Weighted
 from .shape import Shape
 from .store import Store, StorePartition
@@ -241,8 +241,10 @@ class Task(Operation):
                 assert num_unbound_outs == 1
                 assert isinstance(result, FutureMap)
                 output = self.outputs[self.unbound_outputs[0]]
-                partition = Weighted(runtime, launch_shape, result)
-                output.set_key_partition(partition)
+                # TODO: need to track partitions for N-D unbound stores
+                if output.ndim == 1:
+                    partition = Weighted(runtime, launch_shape, result)
+                    output.set_key_partition(partition)
         else:
             idx = 0
             # TODO: We can potentially deduplicate these extraction tasks
@@ -250,6 +252,9 @@ class Task(Operation):
             if launch_shape is not None:
                 for out_idx in self.unbound_outputs:
                     output = self.outputs[out_idx]
+                    # TODO: need to track partitions for N-D unbound stores
+                    if output.ndim > 1:
+                        continue
                     weights = runtime.extract_scalar(
                         result, idx, launch_domain
                     )
@@ -282,9 +287,8 @@ class Task(Operation):
     def _add_communicators(self, launcher, launch_domain):
         if launch_domain is None:
             return
-        volume = launch_domain.get_volume()
         for comm in self._comm_args:
-            handle = comm.get_communicator(volume)
+            handle = comm.get_communicator(launch_domain)
             launcher.add_communicator(handle)
 
 

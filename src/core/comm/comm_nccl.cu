@@ -72,6 +72,8 @@ static ncclUniqueId init_nccl_id(const Legion::Task* task,
                                  Legion::Context context,
                                  Legion::Runtime* runtime)
 {
+  Core::show_progress(task, context, runtime, task->get_task_name());
+
   ncclUniqueId id;
   CHECK_NCCL(ncclGetUniqueId(&id));
   return id;
@@ -82,6 +84,8 @@ static ncclComm_t* init_nccl(const Legion::Task* task,
                              Legion::Context context,
                              Legion::Runtime* runtime)
 {
+  Core::show_progress(task, context, runtime, task->get_task_name());
+
   assert(task->futures.size() == 1);
 
   auto id          = task->futures[0].get_result<ncclUniqueId>();
@@ -126,6 +130,8 @@ static void finalize_nccl(const Legion::Task* task,
                           Legion::Context context,
                           Legion::Runtime* runtime)
 {
+  Core::show_progress(task, context, runtime, task->get_task_name());
+
   assert(task->futures.size() == 1);
   auto comm = task->futures[0].get_result<ncclComm_t*>();
   CHECK_NCCL(ncclCommDestroy(*comm));
@@ -137,17 +143,17 @@ void register_tasks(Legion::Machine machine,
                     const LibraryContext& context)
 {
   const TaskID init_nccl_id_task_id  = context.get_task_id(LEGATE_CORE_INIT_NCCL_ID_TASK_ID);
-  const char* init_nccl_id_task_name = "Initialize NCCL ID";
+  const char* init_nccl_id_task_name = "core::comm::nccl::init_id";
   runtime->attach_name(
     init_nccl_id_task_id, init_nccl_id_task_name, false /*mutable*/, true /*local only*/);
 
   const TaskID init_nccl_task_id  = context.get_task_id(LEGATE_CORE_INIT_NCCL_TASK_ID);
-  const char* init_nccl_task_name = "Initialize NCCL";
+  const char* init_nccl_task_name = "core::comm::nccl::init";
   runtime->attach_name(
     init_nccl_task_id, init_nccl_task_name, false /*mutable*/, true /*local only*/);
 
   const TaskID finalize_nccl_task_id  = context.get_task_id(LEGATE_CORE_FINALIZE_NCCL_TASK_ID);
-  const char* finalize_nccl_task_name = "Finalize NCCL";
+  const char* finalize_nccl_task_name = "core::comm::nccl::finalize";
   runtime->attach_name(
     finalize_nccl_task_id, finalize_nccl_task_name, false /*mutable*/, true /*local only*/);
 

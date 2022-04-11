@@ -43,9 +43,10 @@ TaskDeserializer::TaskDeserializer(const LegionTask* task,
 
 void TaskDeserializer::_unpack(Store& value)
 {
-  auto is_future = unpack<bool>();
-  auto dim       = unpack<int32_t>();
-  auto code      = unpack<LegateTypeCode>();
+  auto is_future        = unpack<bool>();
+  auto is_output_region = unpack<bool>();
+  auto dim              = unpack<int32_t>();
+  auto code             = unpack<LegateTypeCode>();
 
   auto transform = unpack_transform();
 
@@ -54,7 +55,7 @@ void TaskDeserializer::_unpack(Store& value)
     auto fut      = unpack<FutureWrapper>();
     if (redop_id != -1 && !first_task_) fut.initialize_with_identity(redop_id);
     value = Store(dim, code, redop_id, fut, transform);
-  } else if (dim >= 0) {
+  } else if (!is_output_region) {
     auto redop_id = unpack<int32_t>();
     auto rf       = unpack<RegionField>();
     value         = Store(dim, code, redop_id, std::move(rf), std::move(transform));
@@ -101,7 +102,6 @@ void TaskDeserializer::_unpack(RegionField& value)
 void TaskDeserializer::_unpack(OutputRegionField& value)
 {
   auto dim = unpack<int32_t>();
-  assert(dim == 1);
   auto idx = unpack<uint32_t>();
   auto fid = unpack<int32_t>();
 
@@ -127,9 +127,10 @@ MapperDeserializer::MapperDeserializer(const LegionTask* task,
 
 void MapperDeserializer::_unpack(Store& value)
 {
-  auto is_future = unpack<bool>();
-  auto dim       = unpack<int32_t>();
-  auto code      = unpack<LegateTypeCode>();
+  auto is_future        = unpack<bool>();
+  auto is_output_region = unpack<bool>();
+  auto dim              = unpack<int32_t>();
+  auto code             = unpack<LegateTypeCode>();
 
   auto transform = unpack_transform();
 
@@ -139,8 +140,7 @@ void MapperDeserializer::_unpack(Store& value)
     auto fut = unpack<FutureWrapper>();
     value    = Store(dim, code, fut, std::move(transform));
   } else {
-    auto is_output_region = dim < 0;
-    auto redop_id         = unpack<int32_t>();
+    auto redop_id = unpack<int32_t>();
     RegionField rf;
     _unpack(rf, is_output_region);
     value =

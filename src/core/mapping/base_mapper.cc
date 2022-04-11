@@ -600,8 +600,19 @@ void BaseMapper::map_task(const MapperContext ctx,
     if (req_indices.empty()) continue;
 
     if (mapping.for_unbound_stores()) {
-      for (auto req_idx : req_indices)
+      for (auto req_idx : req_indices) {
         output.output_targets[req_idx] = get_target_memory(task.target_proc, mapping.policy.target);
+        auto ndim                      = mapping.stores.front().dim();
+
+        // FIXME: Unbound stores can have more than one dimension later
+        std::vector<DimensionKind> dimension_ordering;
+        for (int32_t dim = ndim - 1; dim >= 0; --dim)
+          dimension_ordering.push_back(
+            static_cast<DimensionKind>(static_cast<int32_t>(DimensionKind::LEGION_DIM_X) + dim));
+        dimension_ordering.push_back(DimensionKind::LEGION_DIM_F);
+        output.output_constraints[req_idx].ordering_constraint =
+          OrderingConstraint(dimension_ordering, false);
+      }
       continue;
     }
 
