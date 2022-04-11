@@ -39,10 +39,10 @@ class Expr(Protocol):
     def unknowns(self) -> Iterator[Expr]:
         ...
 
-    def __eq__(self, rhs: Expr) -> Alignment:  # type: ignore [override]
+    def __eq__(self, rhs: Expr) -> Constraint:  # type: ignore [override]
         return Alignment(self, rhs)
 
-    def __le__(self, rhs: Expr) -> Containment:
+    def __le__(self, rhs: Expr) -> Constraint:
         return Containment(self, rhs)
 
     def __add__(self, offset: tuple[int]) -> Translate:
@@ -87,7 +87,7 @@ class Lit(Expr):
     def __repr__(self) -> str:
         return f"Lit({self._part})"
 
-    def subst(self, mapping: dict[PartSym, Expr]) -> Lit:
+    def subst(self, mapping: dict[PartSym, Expr]) -> Expr:
         return self
 
     def reduce(self) -> Lit:
@@ -134,7 +134,7 @@ class PartSym(Expr):
     def __hash__(self) -> int:
         return hash((self._op_hash, self._id))
 
-    def subst(self, mapping: dict[PartSym, Expr]) -> Lit:
+    def subst(self, mapping: dict[PartSym, Expr]) -> Expr:
         return Lit(mapping[self])
 
     def reduce(self) -> PartSym:
@@ -165,7 +165,7 @@ class Translate(Expr):
     def __repr__(self) -> str:
         return f"{self._expr} + {self._offset}"
 
-    def subst(self, mapping: dict[PartSym, Expr]) -> Translate:
+    def subst(self, mapping: dict[PartSym, Expr]) -> Expr:
         return Translate(self._expr.subst(mapping), self._offset)
 
     def reduce(self) -> Lit:
