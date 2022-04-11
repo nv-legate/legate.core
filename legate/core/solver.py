@@ -14,13 +14,16 @@
 #
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING
 
 from . import FieldSpace, Future, Rect
 from .constraints import Alignment, Broadcast, Containment
 from .partition import REPLICATE
 from .shape import Shape
 from .utils import OrderedSet
+
+if TYPE_CHECKING:
+    from .partition import PartitionBase
 
 
 def join_restrictions(x, y):
@@ -140,7 +143,7 @@ class Strategy:
         partition = self.get_partition(part)
         return partition.get_requirement(self.launch_ndim, part.store)
 
-    def get_partition(self, part) -> Any:
+    def get_partition(self, part) -> PartitionBase:
         assert not part.store.unbound
         if part not in self._strategy:
             raise ValueError(f"No strategy is found for {part}")
