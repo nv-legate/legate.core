@@ -18,7 +18,7 @@ from enum import IntEnum, unique
 from typing import TYPE_CHECKING, Any, Optional, Sequence, Tuple, Union
 
 import pyarrow as pa
-from typing_extensions import overload
+from typing_extensions import Protocol, overload
 
 from . import (
     ArgumentMap,
@@ -96,6 +96,11 @@ def _pack(
         serializer(buf, value)
 
 
+class LauncherArg(Protocol):
+    def pack(self, buf: BufferBuilder) -> None:
+        ...
+
+
 class ScalarArg:
     def __init__(
         self,
@@ -128,9 +133,6 @@ class ScalarArg:
     def __str__(self) -> str:
         return f"ScalarArg({self._value}, {self._dtype}, {self._untyped})"
 
-    def __repr__(self) -> str:
-        return str(self)
-
 
 class FutureStoreArg:
     def __init__(
@@ -151,9 +153,6 @@ class FutureStoreArg:
 
     def __str__(self) -> str:
         return f"FutureStoreArg({self._store})"
-
-    def __repr__(self) -> str:
-        return str(self)
 
 
 class RegionFieldArg:
@@ -211,9 +210,6 @@ class RegionFieldArg:
 
     def __str__(self) -> str:
         return f"RegionFieldArg({self._dim}, {self._req}, {self._field_id})"
-
-    def __repr__(self) -> str:
-        return str(self)
 
 
 LegionTaskMethod = Any
@@ -682,9 +678,9 @@ class TaskLauncher:
         self._core_types = self._runtime.core_context.type_system
         self._task_id = task_id
         self._mapper_id = mapper_id
-        self._inputs: list[Union[RegionFieldArg, FutureStoreArg]] = []
-        self._outputs: list[Union[RegionFieldArg, FutureStoreArg]] = []
-        self._reductions: list[Union[RegionFieldArg, FutureStoreArg]] = []
+        self._inputs: list[LauncherArg] = []
+        self._outputs: list[LauncherArg] = []
+        self._reductions: list[LauncherArg] = []
         self._scalars: list[ScalarArg] = []
         self._comms: list[FutureMap] = []
         self._req_analyzer = RequirementAnalyzer(error_on_interference)
@@ -733,7 +729,7 @@ class TaskLauncher:
 
     def add_store(
         self,
-        args: list[Union[RegionFieldArg, FutureStoreArg]],  # TODO: (bev) ABC?
+        args: list[LauncherArg],
         store: Store,
         proj: Proj,
         perm: Permission,
@@ -836,7 +832,7 @@ class TaskLauncher:
     @staticmethod
     def pack_args(
         argbuf: BufferBuilder,
-        args: Sequence[Union[ScalarArg, RegionFieldArg, FutureStoreArg]],
+        args: Sequence[LauncherArg],
     ) -> None:
         argbuf.pack_32bit_uint(len(args))
         for arg in args:
