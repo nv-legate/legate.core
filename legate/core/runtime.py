@@ -1153,11 +1153,20 @@ class Runtime:
             index_space, functor, index_partition
         )
 
-    def extract_scalar(
-        self, future, idx, launch_domain=None
-    ) -> Union[Future, FutureMap]:
+    def extract_scalar(self, future, idx) -> Future:
+        launcher = TaskLauncher(
+            self.core_context,
+            self.core_library.LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,
+            tag=self.core_library.LEGATE_CPU_VARIANT,
+        )
+        launcher.add_future(future)
+        launcher.add_scalar_arg(idx, ty.int32)
+        return launcher.execute_single()
+
+    def extract_scalar_with_domain(
+        self, future, idx, launch_domain
+    ) -> FutureMap:
         if isinstance(future, FutureMap):
-            assert launch_domain is not None
             launcher = TaskLauncher(
                 self.core_context,
                 self.core_library.LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,
@@ -1174,10 +1183,7 @@ class Runtime:
             )
             launcher.add_future(future)
             launcher.add_scalar_arg(idx, ty.int32)
-            if launch_domain is None:
-                return launcher.execute_single()
-            else:
-                return launcher.execute(launch_domain)
+            return launcher.execute(launch_domain)
 
     def reduce_future_map(self, future_map, redop) -> Future:
         if isinstance(future_map, Future):

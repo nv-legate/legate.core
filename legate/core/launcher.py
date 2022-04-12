@@ -912,7 +912,7 @@ class TaskLauncher:
 
     def execute(
         self, launch_domain: Rect, redop: Optional[int] = None
-    ) -> Union[Future, FutureMap]:
+    ) -> FutureMap:
         # Note that we should hold a reference to this buffer
         # until we launch a task, otherwise the Python GC will
         # collect the Python object holding the buffer, which
