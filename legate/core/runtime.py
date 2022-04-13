@@ -20,7 +20,7 @@ import struct
 import weakref
 from collections import deque
 from functools import reduce
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Union
 
 from legion_top import cleanup_items, top_level
 
@@ -908,13 +908,15 @@ class Runtime:
         self._unique_op_id += 1
         return op_id
 
-    def dispatch(self, op: Operation, redop: Optional[int] = None):
+    def dispatch(self, op: Operation) -> FutureMap:
         self._attachment_manager.perform_detachments()
         self._attachment_manager.prune_detachments()
-        if redop:
-            return op.launch(self.legion_runtime, self.legion_context, redop)
-        else:
-            return op.launch(self.legion_runtime, self.legion_context)
+        return op.launch(self.legion_runtime, self.legion_context)
+
+    def dispatch_single(self, op: Operation) -> Future:
+        self._attachment_manager.perform_detachments()
+        self._attachment_manager.prune_detachments()
+        return op.launch(self.legion_runtime, self.legion_context)
 
     def _schedule(self, ops):
         # TODO: For now we run the partitioner for each operation separately.

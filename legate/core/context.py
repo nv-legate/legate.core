@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from . import ArgumentMap, Rect
     from .communicator import Communicator
     from .legate import Library
+    from .operation import FutureMap
     from .runtime import Runtime
     from .shape import Shape
     from .store import RegionField, Store
@@ -234,8 +235,11 @@ class Context:
         return Copy(self, mapper_id)
 
     # TODO (bev) add ABC for dispatchable ops
-    def dispatch(self, op: Any, redop: Optional[int] = None) -> Any:
-        return self._runtime.dispatch(op, redop)
+    def dispatch(self, op: Any) -> FutureMap:
+        return self._runtime.dispatch(op)
+
+    def dispatch_single(self, op: Any) -> Future:
+        return self._runtime.dispatch_single(op)
 
     def create_store(
         self,

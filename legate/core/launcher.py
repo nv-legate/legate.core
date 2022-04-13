@@ -910,27 +910,19 @@ class TaskLauncher:
             task.set_point(self._point)
         return task
 
-    def execute(
-        self, launch_domain: Rect, redop: Optional[int] = None
-    ) -> FutureMap:
+    def execute(self, launch_domain: Rect) -> FutureMap:
         # Note that we should hold a reference to this buffer
         # until we launch a task, otherwise the Python GC will
         # collect the Python object holding the buffer, which
         # in turn will deallocate the C side buffer.
-        argbuf = BufferBuilder()
-        task = self.build_task(launch_domain, argbuf)
-        if redop is not None:
-            result = self._context.dispatch(task, redop=redop)
-        else:
-            result = self._context.dispatch(task)
-
+        task = self.build_task(launch_domain, BufferBuilder())
+        result = self._context.dispatch(task)
         self._out_analyzer.update_storages()
-
         return result
 
     def execute_single(self) -> Future:
         argbuf = BufferBuilder()
-        result = self._context.dispatch(self.build_single_task(argbuf))
+        result = self._context.dispatch_single(self.build_single_task(argbuf))
         self._out_analyzer.update_storages()
         return result
 
@@ -1046,10 +1038,10 @@ class CopyLauncher:
 
     def execute(
         self, launch_domain: Rect, redop: Optional[int] = None
-    ) -> Union[Future, FutureMap]:
+    ) -> FutureMap:
         copy = self.build_copy(launch_domain)
         return self._context.dispatch(copy)
 
     def execute_single(self) -> Future:
         copy = self.build_single_copy()
-        return self._context.dispatch(copy)
+        return self._context.dispatch_single(copy)
