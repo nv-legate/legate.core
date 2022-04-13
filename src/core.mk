@@ -17,6 +17,7 @@
 # General source files
 GEN_CPU_SRC	= core/legate_c.cc                 \
 							core/comm/comm.cc                \
+							core/comm/comm_cpu.cc            \
 							core/data/allocator.cc           \
 							core/data/scalar.cc              \
 							core/data/store.cc               \

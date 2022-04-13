@@ -18,6 +18,7 @@
 #ifdef LEGATE_USE_CUDA
 #include "core/comm/comm_nccl.h"
 #endif
+#include "core/comm/comm_cpu.h"
 
 namespace legate {
 namespace comm {
@@ -29,6 +30,7 @@ void register_tasks(Legion::Machine machine,
 #ifdef LEGATE_USE_CUDA
   nccl::register_tasks(machine, runtime, context);
 #endif
+  cpu::register_tasks(machine, runtime, context);
 }
 
 }  // namespace comm
