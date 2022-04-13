@@ -5,13 +5,13 @@
 # vNN.NN.NN
 # vNN.NN.NN.dev
 {% elif 'dev' in environ.get('GIT_DESCRIBE_TAG', '') %}
-    {% set version = environ.get('GIT_DESCRIBE_TAG', '') ~ environ.get('GIT_DESCRIBE_NUMBER', '') %}
+    {% set version = (environ.get('GIT_DESCRIBE_TAG', '') ~ environ.get('GIT_DESCRIBE_NUMBER', '')).lstrip('v') %}
 {% else %}
-    {% set version = environ.get('GIT_DESCRIBE_TAG', '') %}
+    {% set version = environ.get('GIT_DESCRIBE_TAG', '').lstrip('v') %}
 {% endif %}
-{% set major_version = version.split(".")[0] %}
-{% set minor_version = version.split(".")[1] %}
-{% set patch_version = version.split(".")[2] %}
+{% set cuda_version='.'.join(environ.get('CUDA', '11.5').split('.')[:2]) %}
+{% set cuda_major=cuda_version.split('.')[0] %}
+{% set py_version=environ.get('CONDA_PY', 36) %}
 
 package:
   name: {{ name|lower }}
@@ -26,10 +26,10 @@ source:
 
 build:
   skip: true # [not linux]
-  number: 0
+  number: {{ GIT_DESCRIBE_NUMBER }}
   missing_dso_whitelist:
     -  '*libcuda.so*'
-  string: "py{{ CONDA_PY }}{{ GIT_DESCRIBE_HASH }}_{{ PKG_BUILDNUM }}"
+  string: "cuda{{ cuda_major }}_py{{ py_version }}_{{ GIT_DESCRIBE_HASH }}_{{ PKG_BUILDNUM }}"
 
 requirements:
   build:
@@ -41,13 +41,13 @@ requirements:
     - sysroot_linux-64 2.17  # [linux64]
   host:
     - python
-    - cuda-compiler >=11.5
-    - cuda-libraries-dev >=11.5
-    - cudatoolkit >=11.5
+    - cuda-compiler >={{ cuda_version }}
+    - cuda-libraries-dev >={{ cuda_version }}
+    - cudatoolkit >={{ cuda_version }}
     - nccl
   run:
     - python
-    - cudatoolkit >=11.5
+    - cudatoolkit >={{ cuda_version }}
     - openmp
     - zlib
     - numpy
