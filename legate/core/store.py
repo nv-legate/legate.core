@@ -1197,7 +1197,7 @@ class Store:
                 partition = Tiling(self._runtime, tile_shape, launch_shape)
             return partition
 
-    def compute_projection(self, proj_fn=None, launch_ndim=None) -> Any:
+    def compute_projection(self, proj_fn=None, launch_ndim=None) -> int:
         assert proj_fn is None or launch_ndim is not None
         # Handle the most common case before we do any analysis
         if self._transform.bottom and proj_fn is None:
