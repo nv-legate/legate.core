@@ -43,8 +43,11 @@ static collComm_t init_coll_cpu(const Legion::Task* task,
                                 Legion::Runtime* runtime)
 {
   Core::show_progress(task, context, runtime, task->get_task_name());
-
+#if 0
   const int* mapping_table = (const int*)task->args;
+#else
+  const int* mapping_table = (const int*)task->futures[0].get_buffer(Memory::SYSTEM_MEM);
+#endif
   const int point = task->index_point[0];
   int num_ranks = task->index_domain.get_volume();
 
@@ -78,6 +81,11 @@ void register_tasks(Legion::Machine machine,
                     Legion::Runtime* runtime,
                     const LibraryContext& context)
 {
+  const InputArgs &command_args = Legion::Runtime::get_input_args();
+  int argc = command_args.argc;
+  char **argv = command_args.argv;
+  collInit(argc, argv, 0);
+
   const TaskID init_coll_cpu_mapping_task_id  = context.get_task_id(LEGATE_CORE_INIT_COLL_CPU_MAPPING_TASK_ID);
   const char* init_coll_cpu_mapping_task_name = "core::comm::cpu::init_mapping";
   runtime->attach_name(

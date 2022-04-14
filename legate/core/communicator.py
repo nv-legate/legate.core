@@ -15,8 +15,11 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from asyncio import futures
+import numpy as np
+import ctypes
 
-from . import Rect
+from . import Rect, Point, Future
 from .launcher import TaskLauncher as Task
 
 
@@ -87,5 +90,39 @@ class NCCLCommunicator(Communicator):
 
     def _finalize(self, volume, handle):
         task = Task(self._context, self._finalize_nccl, tag=self._tag)
+        task.add_future_map(handle)
+        task.execute(Rect([volume]))
+
+
+class CPUCommunicator(Communicator):
+    def __init__(self, runtime):
+        super(CPUCommunicator, self).__init__(runtime)
+        library = runtime.core_library
+
+        self._init_coll_cpu_mapping = library.LEGATE_CORE_INIT_COLL_CPU_MAPPING_TASK_ID
+        self._init_coll_cpu = library.LEGATE_CORE_INIT_COLL_CPU_TASK_ID
+        self._finalize_coll_cpu = library.LEGATE_CORE_FINALIZE_COLL_CPU_TASK_ID
+        self._tag = library.LEGATE_CPU_VARIANT
+
+    def _initialize(self, volume):
+        task = Task(self._context, self._init_coll_cpu_mapping, tag=self._tag)
+        mapping_table_fm = task.execute(Rect([volume]))
+        mapping_table_fm.wait()
+        mapping_table = []
+        for i in range(volume):
+            f = mapping_table_fm.get_future(Point([i]))
+            mapping_per_rank = np.frombuffer(f.get_buffer(), dtype = np.int32)[0]
+            mapping_table.append(mapping_per_rank)
+        mapping_table_future = Future()
+        future_size = ctypes.sizeof(ctypes.c_int) * volume
+        mapping_table_future.set_value(mapping_table, future_size)
+        task = Task(self._context, self._init_coll_cpu, tag=self._tag)
+        task.add_future(mapping_table_future)
+        handle = task.execute(Rect([volume]))
+        self._runtime.issue_execution_fence()
+        return handle
+
+    def _finalize(self, volume, handle):
+        task = Task(self._context, self._finalize_coll_cpu, tag=self._tag)
         task.add_future_map(handle)
         task.execute(Rect([volume]))
