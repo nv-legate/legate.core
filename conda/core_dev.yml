@@ -6,8 +6,8 @@ dependencies:
   - cffi
   - clang>=8
   - clang-tools>=8
-  - nccl
   - mock
+  - nccl
   - numpy
   - pre-commit
   - pyarrow>=5
