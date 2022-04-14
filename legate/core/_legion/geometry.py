@@ -143,7 +143,7 @@ class Rect:
         assert self._lo.dim == self._hi.dim
         return self._lo.dim
 
-    def get_volume(self) -> float:
+    def get_volume(self) -> int:
         volume = 1
         for i in range(self.dim):
             volume *= self.hi[i] - self.lo[i] + 1

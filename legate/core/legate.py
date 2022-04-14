@@ -29,7 +29,7 @@ class Array:
     def __init__(
         self,
         dtype: pyarrow.DataType,
-        stores: list[Store],
+        stores: list[Optional[Store]],
         children: Optional[list[Array]] = None,
     ) -> None:
         """
@@ -67,7 +67,7 @@ class Array:
                 "({1}).".format(dtype.num_buffers, len(self._stores))
             )
 
-    def stores(self) -> list[Store]:
+    def stores(self) -> list[Optional[Store]]:
         """
         Return a list of the Store object that represent
         the data stored in this array.
@@ -80,7 +80,7 @@ class Array:
     @staticmethod
     def from_stores(
         dtype: pyarrow.DataType,
-        stores: list[Store],
+        stores: list[Optional[Store]],
         children: Optional[list[Array]] = None,
     ) -> Array:
         """

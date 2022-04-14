@@ -333,7 +333,7 @@ class Task(Operation):
         if launch_domain is None:
             return
         for comm in self._comm_args:
-            handle = comm.get_communicator(launch_domain)
+            handle = comm.get_handle(launch_domain)
             launcher.add_communicator(handle)
 
 

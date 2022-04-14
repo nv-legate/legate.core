@@ -1005,7 +1005,7 @@ class Runtime:
             self.core_library, f"LEGATE_CORE_TRANSFORM_{name.upper()}"
         )
 
-    def create_future(self, data, size):
+    def create_future(self, data, size) -> Future:
         future = Future()
         future.set_value(self.legion_runtime, data, size)
         return future
@@ -1207,7 +1207,7 @@ class Runtime:
     def get_nccl_communicator(self) -> Communicator:
         return self._comm_manager.get_nccl_communicator()
 
-    def delinearize_future_map(self, future_map, new_domain):
+    def delinearize_future_map(self, future_map, new_domain) -> FutureMap:
         new_domain = self.find_or_create_index_space(new_domain)
         functor = (
             self.core_library.legate_linearizing_point_transform_functor()
