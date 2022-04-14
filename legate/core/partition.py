@@ -17,10 +17,6 @@ from __future__ import annotations
 from enum import IntEnum, unique
 from typing import TYPE_CHECKING, Optional, Sequence, Type, Union
 
-if TYPE_CHECKING:
-    from . import FutureMap, Region, Partition as LegionPartition
-    from .runtime import Runtime
-
 from . import (
     IndexPartition,
     PartitionByRestriction,
@@ -31,6 +27,10 @@ from . import (
 )
 from .launcher import Broadcast, Partition
 from .shape import Shape
+
+if TYPE_CHECKING:
+    from . import FutureMap, Partition as LegionPartition, Region
+    from .runtime import Runtime
 
 
 @unique
