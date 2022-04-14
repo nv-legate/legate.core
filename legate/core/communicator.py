@@ -115,7 +115,8 @@ class CPUCommunicator(Communicator):
             mapping_per_rank = np.frombuffer(f.get_buffer(), dtype = np.int32)[0]
             mapping_table.append(mapping_per_rank)
         mapping_table_future = Future()
-        future_size = ctypes.sizeof(ctypes.c_int) * volume
+        # future_size = ctypes.sizeof(ctypes.c_int) * volume
+        future_size = mapping_table.itemsize * volume
         mapping_table_future.set_value(mapping_table, future_size)
         task = Task(self._context, self._init_coll_cpu, tag=self._tag)
         task.add_future(mapping_table_future)
