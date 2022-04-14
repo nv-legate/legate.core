@@ -1005,7 +1005,7 @@ class Runtime:
             self.core_library, f"LEGATE_CORE_TRANSFORM_{name.upper()}"
         )
 
-    def create_future(self, data, size):
+    def create_future(self, data, size) -> Future:
         future = Future()
         future.set_value(self.legion_runtime, data, size)
         return future

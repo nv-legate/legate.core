@@ -14,7 +14,7 @@
 #
 from __future__ import annotations
 
-from typing import Iterable, Tuple, Union
+from typing import TYPE_CHECKING, Callable, Iterable, Optional, Union
 
 from . import ffi  # Make sure we only have one ffi instance
 from . import FutureMap, IndexPartition, PartitionByDomain, Point, Rect, legion
@@ -23,6 +23,11 @@ from .partition import Tiling
 from .runtime import _runtime
 from .shape import Shape
 from .store import DistributedAllocation, Store
+
+if TYPE_CHECKING:
+    from pyarrow import DataType
+
+    from . import Partition
 
 
 class DataSplit:
@@ -35,14 +40,14 @@ class DataSplit:
     def make_partition(
         self,
         store: Store,
-        colors: Union[int, Tuple[int]],
+        colors: tuple[int],
         local_colors: Iterable[Point],
-    ):
+    ) -> Partition:
         raise NotImplementedError("Implement in derived classes")
 
 
 class CustomSplit(DataSplit):
-    def __init__(self, get_subdomain):
+    def __init__(self, get_subdomain: Callable[[Point], Rect]) -> None:
         """
         Used to describe an arbitrary partitioning of the incoming data. Note
         that Legate may not be able to effectively re-use this arbitrary
@@ -58,7 +63,9 @@ class CustomSplit(DataSplit):
         """
         self.get_subdomain = get_subdomain
 
-    def make_partition(self, store, colors, local_colors):
+    def make_partition(
+        self, store: Store, colors: tuple[int], local_colors: Iterable[Point]
+    ) -> Partition:
         fut_size = ffi.sizeof("legion_domain_t")
         futures = {}
         for c in local_colors:
@@ -85,7 +92,7 @@ class CustomSplit(DataSplit):
 
 
 class TiledSplit(DataSplit):
-    def __init__(self, tile_shape):
+    def __init__(self, tile_shape: Union[int, tuple[int]]) -> None:
         """
         Used to describe a tiling of the domain, where tiles are all of equal
         size, and packed according to color order.
@@ -97,7 +104,9 @@ class TiledSplit(DataSplit):
         """
         self.tile_shape = tile_shape
 
-    def make_partition(self, store, colors, local_colors):
+    def make_partition(
+        self, store: Store, colors: tuple[int], local_colors: Iterable[Point]
+    ) -> Partition:
         functor = Tiling(
             _runtime,
             Shape(self.tile_shape),
@@ -110,8 +119,13 @@ class TiledSplit(DataSplit):
 
 
 def ingest(
-    dtype, shape, colors, data_split, get_buffer, get_local_colors=None
-):
+    dtype: DataType,
+    shape: Union[int, tuple[int]],
+    colors: tuple[int],
+    data_split: DataSplit,
+    get_buffer: Callable[[Point], memoryview],
+    get_local_colors: Optional[Callable[[], Iterable[Point]]] = None,
+) -> Table:
     """
     Construct a single-column Table backed by a collection of buffers
     distributed across the machine.
@@ -185,41 +199,42 @@ def ingest(
         raise TypeError(
             f"data_split: expected a DataSplit object but got {data_split}"
         )
-    if get_local_colors is None:
 
-        # Assign colors following the default sharding
-        def get_local_colors():
-            sid = _runtime.core_context.get_sharding_id(
-                _runtime.core_library.LEGATE_CORE_LINEARIZE_SHARD_ID
-            )
-            shard = legion.legion_runtime_local_shard(
-                _runtime.legion_runtime, _runtime.legion_context
-            )
-            domain = Rect(colors).raw()
-            total_shards = legion.legion_runtime_total_shards(
-                _runtime.legion_runtime, _runtime.legion_context
-            )
-            points_size = ffi.new("size_t *")
-            points_size[0] = 1
-            for c in colors:
-                points_size[0] *= c
-            points_ptr = ffi.new("legion_domain_point_t[%s]" % points_size[0])
-            legion.legion_sharding_functor_invert(
-                sid,
-                shard,
-                domain,
-                domain,
-                total_shards,
-                points_ptr,
-                points_size,
-            )
-            points = []
-            for i in range(points_size[0]):
-                points.append(Point(points_ptr[i]))
-            return points
+    # Assign colors following the default sharding
+    def default_get_local_colors() -> list[Point]:
+        sid = _runtime.core_context.get_sharding_id(
+            _runtime.core_library.LEGATE_CORE_LINEARIZE_SHARD_ID
+        )
+        shard = legion.legion_runtime_local_shard(
+            _runtime.legion_runtime, _runtime.legion_context
+        )
+        domain = Rect(colors).raw()
+        total_shards = legion.legion_runtime_total_shards(
+            _runtime.legion_runtime, _runtime.legion_context
+        )
+        points_size = ffi.new("size_t *")
+        points_size[0] = 1
+        for c in colors:
+            points_size[0] *= c
+        points_ptr = ffi.new("legion_domain_point_t[%s]" % points_size[0])
+        legion.legion_sharding_functor_invert(
+            sid,
+            shard,
+            domain,
+            domain,
+            total_shards,
+            points_ptr,
+            points_size,
+        )
+        points = []
+        for i in range(points_size[0]):
+            points.append(Point(points_ptr[i]))
+        return points
 
     store = _runtime.core_context.create_store(dtype, shape)
-    local_colors = get_local_colors()
+    local_colors = (
+        get_local_colors() if get_local_colors else default_get_local_colors()
+    )
     partition = data_split.make_partition(store, colors, local_colors)
     shard_local_buffers = {c: get_buffer(c) for c in local_colors}
     alloc = DistributedAllocation(partition, shard_local_buffers)
