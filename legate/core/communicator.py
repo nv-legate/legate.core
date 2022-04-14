@@ -18,6 +18,7 @@ from abc import ABC, abstractmethod
 from asyncio import futures
 import numpy as np
 import ctypes
+import array
 
 from . import Rect, Point, Future
 from .launcher import TaskLauncher as Task
@@ -108,7 +109,7 @@ class CPUCommunicator(Communicator):
         task = Task(self._context, self._init_coll_cpu_mapping, tag=self._tag)
         mapping_table_fm = task.execute(Rect([volume]))
         mapping_table_fm.wait()
-        mapping_table = []
+        mapping_table = array.array('i')
         for i in range(volume):
             f = mapping_table_fm.get_future(Point([i]))
             mapping_per_rank = np.frombuffer(f.get_buffer(), dtype = np.int32)[0]
