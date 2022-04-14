@@ -46,9 +46,6 @@ class Operation:
         self._inputs: list[Store] = []
         self._outputs: list[Store] = []
         self._reductions: list[tuple[Store, int]] = []
-        self._input_parts: list[PartSym] = []
-        self._output_parts: list[PartSym] = []
-        self._reduction_parts: list[PartSym] = []
         self._unbound_outputs: list[int] = []
         self._scalar_outputs: list[int] = []
         self._scalar_reductions: list[int] = []
@@ -123,39 +120,6 @@ class Operation:
                 "this store, a partition should be specified."
             )
         return parts[0]
-
-    def add_input(
-        self, store: Store, partition: Optional[PartSym] = None
-    ) -> None:
-        self._check_store(store)
-        if partition is None:
-            partition = self._get_unique_partition(store)
-        self._inputs.append(store)
-        self._input_parts.append(partition)
-
-    def add_output(
-        self, store: Store, partition: Optional[PartSym] = None
-    ) -> None:
-        self._check_store(store, allow_unbound=True)
-        if store.kind is Future:
-            self._scalar_outputs.append(len(self._outputs))
-        elif store.unbound:
-            self._unbound_outputs.append(len(self._outputs))
-        if partition is None:
-            partition = self._get_unique_partition(store)
-        self._outputs.append(store)
-        self._output_parts.append(partition)
-
-    def add_reduction(
-        self, store: Store, redop: int, partition: Optional[PartSym] = None
-    ) -> None:
-        self._check_store(store)
-        if store.kind is Future:
-            self._scalar_reductions.append(len(self._reductions))
-        if partition is None:
-            partition = self._get_unique_partition(store)
-        self._reductions.append((store, redop))
-        self._reduction_parts.append(partition)
 
     def add_alignment(self, store1: Store, store2: Store) -> None:
         self._check_store(store1)
@@ -337,7 +301,55 @@ class Task(Operation):
             launcher.add_communicator(handle)
 
 
-class AutoTask(Task):
+class PartSymTask(Task):
+    def __init__(
+        self,
+        context: Context,
+        task_id: int,
+        mapper_id: int = 0,
+        op_id: int = 0,
+    ) -> None:
+        super().__init__(context, task_id, mapper_id, op_id)
+
+        self._input_parts: list[PartSym] = []
+        self._output_parts: list[PartSym] = []
+        self._reduction_parts: list[PartSym] = []
+
+    def add_input(
+        self, store: Store, partition: Optional[PartSym] = None
+    ) -> None:
+        self._check_store(store)
+        if partition is None:
+            partition = self._get_unique_partition(store)
+        self._inputs.append(store)
+        self._input_parts.append(partition)
+
+    def add_output(
+        self, store: Store, partition: Optional[PartSym] = None
+    ) -> None:
+        self._check_store(store, allow_unbound=True)
+        if store.kind is Future:
+            self._scalar_outputs.append(len(self._outputs))
+        elif store.unbound:
+            self._unbound_outputs.append(len(self._outputs))
+        if partition is None:
+            partition = self._get_unique_partition(store)
+        self._outputs.append(store)
+        self._output_parts.append(partition)
+
+    def add_reduction(
+        self, store: Store, redop: int, partition: Optional[PartSym] = None
+    ) -> None:
+        self._check_store(store)
+        if store.kind is Future:
+            self._scalar_reductions.append(len(self._reductions))
+        if partition is None:
+            partition = self._get_unique_partition(store)
+        self._reductions.append((store, redop))
+        self._reduction_parts.append(partition)
+
+
+class AutoTask(PartSymTask):
     def __init__(
         self,
         context: Context,
@@ -427,9 +439,9 @@ class ManualTask(Task):
         self._output_projs: list[Union[ProjFunc, None]] = []
         self._reduction_projs: list[Union[ProjFunc, None]] = []
 
-        self._input_parts: list[StorePartition] = []  # type: ignore [assignment] # noqa: E501
-        self._output_parts: list[StorePartition] = []  # type: ignore [assignment] # noqa: E501
-        self._reduction_parts: list[tuple[StorePartition, int]] = []  # type: ignore [assignment] # noqa: E501
+        self._input_parts: list[StorePartition] = []
+        self._output_parts: list[StorePartition] = []
+        self._reduction_parts: list[tuple[StorePartition, int]] = []
 
     @property
     def launch_ndim(self) -> int:
@@ -445,7 +457,7 @@ class ManualTask(Task):
                 f"Expected a Store or StorePartition, but got {type(arg)}"
             )
 
-    def add_input(  # type: ignore [override]
+    def add_input(
         self,
         arg: Union[Store, StorePartition],
         proj: Optional[ProjFunc] = None,
@@ -457,7 +469,7 @@ class ManualTask(Task):
             self._input_parts.append(arg)
         self._input_projs.append(proj)
 
-    def add_output(  # type: ignore [override]
+    def add_output(
         self,
         arg: Union[Store, StorePartition],
         proj: Optional[ProjFunc] = None,
@@ -476,7 +488,7 @@ class ManualTask(Task):
             self._output_parts.append(arg)
         self._output_projs.append(proj)
 
-    def add_reduction(  # type: ignore [override]
+    def add_reduction(
         self,
         arg: Union[Store, StorePartition],
         redop: int,
@@ -557,7 +569,7 @@ class ManualTask(Task):
         self._demux_scalar_stores(result, self._launch_domain)
 
 
-class Copy(Operation):
+class Copy(PartSymTask):
     def __init__(self, context: Context, mapper_id: int = 0) -> None:
         super().__init__(context, mapper_id)
         self._source_indirects: list[Store] = []
@@ -731,7 +743,7 @@ class _RadixProj:
         return (p[0] * self._radix + self._offset,)
 
 
-class Reduce(Task):
+class Reduce(PartSymTask):
     def __init__(
         self,
         context: Context,
