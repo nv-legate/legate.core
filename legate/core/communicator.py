@@ -29,34 +29,34 @@ class Communicator(ABC):
         self._runtime = runtime
         self._context = runtime.core_context
 
-        self._comms: dict[int, FutureMap] = {}
+        self._handles: dict[int, FutureMap] = {}
         # From launch domains to communicator future maps transformed to N-D
-        self._nd_comms: dict[Rect, FutureMap] = {}
+        self._nd_handles: dict[Rect, FutureMap] = {}
 
-    def _get_1d_communicator(self, volume: int) -> FutureMap:
-        if volume in self._comms:
-            return self._comms[volume]
+    def _get_1d_handle(self, volume: int) -> FutureMap:
+        if volume in self._handles:
+            return self._handles[volume]
         comm = self._initialize(volume)
-        self._comms[volume] = comm
+        self._handles[volume] = comm
         return comm
 
-    def _transform_communicator(
+    def _transform_handle(
         self, comm: FutureMap, launch_domain: Rect
     ) -> FutureMap:
-        if launch_domain in self._nd_comms:
-            return self._nd_comms[launch_domain]
+        if launch_domain in self._nd_handles:
+            return self._nd_handles[launch_domain]
         comm = self._runtime.delinearize_future_map(comm, launch_domain)
-        self._nd_comms[launch_domain] = comm
+        self._nd_handles[launch_domain] = comm
         return comm
 
-    def get_communicator(self, launch_domain: Rect) -> FutureMap:
-        comm = self._get_1d_communicator(launch_domain.get_volume())
+    def get_handle(self, launch_domain: Rect) -> FutureMap:
+        comm = self._get_1d_handle(launch_domain.get_volume())
         if launch_domain.dim > 1:
-            comm = self._transform_communicator(comm, launch_domain)
+            comm = self._transform_handle(comm, launch_domain)
         return comm
 
     def destroy(self) -> None:
-        for volume, handle in self._comms.items():
+        for volume, handle in self._handles.items():
             self._finalize(volume, handle)
 
     @abstractmethod
