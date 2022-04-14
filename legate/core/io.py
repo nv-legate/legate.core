@@ -226,10 +226,7 @@ def ingest(
             points_ptr,
             points_size,
         )
-        points = []
-        for i in range(points_size[0]):
-            points.append(Point(points_ptr[i]))
-        return points
+        return [Point(points_ptr[i]) for i in range(points_size[0])]
 
     store = _runtime.core_context.create_store(dtype, shape)
     local_colors = (
