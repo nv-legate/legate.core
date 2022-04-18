@@ -20,6 +20,7 @@ from typing import Any, Union
 import pyarrow as pa
 
 from . import legion
+from .corelib import core_library
 
 DTType = Union[bool, pa.lib.DataType]
 
@@ -72,6 +73,7 @@ float32 = pa.float32()
 float64 = pa.float64()
 complex64 = Complex64Dtype()
 complex128 = Complex128Dtype()
+string = pa.string()
 
 
 class _Dtype:
@@ -92,6 +94,10 @@ class _Dtype:
     @property
     def code(self) -> int:
         return self._code
+
+    @property
+    def variable_size(self) -> bool:
+        return self._size_in_bytes < 0
 
     def reduction_op_id(self, op: int) -> int:
         if op not in self._redop_ids:
@@ -131,6 +137,12 @@ class _Dtype:
         return f"_Dtype({self._dtype}, {self.size}, {self.code})"
 
 
+corelib = core_library._lib
+
+
+# TODO: We should redefine these in Legate and use them instead
+
+
 @unique
 class ReductionOp(IntEnum):
     ADD = legion.LEGION_REDOP_KIND_SUM
@@ -143,6 +155,8 @@ class ReductionOp(IntEnum):
     AND = legion.LEGION_REDOP_KIND_AND
     XOR = legion.LEGION_REDOP_KIND_XOR
 
+
+# TODO: These should use the enum in legate_c.h
 
 _CORE_DTYPES = [
     _Dtype(bool, 1, legion.LEGION_TYPE_BOOL),
@@ -160,6 +174,7 @@ _CORE_DTYPES = [
     _Dtype(float64, 8, legion.LEGION_TYPE_FLOAT64),
     _Dtype(complex64, 8, legion.LEGION_TYPE_COMPLEX64),
     _Dtype(complex128, 16, legion.LEGION_TYPE_COMPLEX128),
+    _Dtype(string, -1, legion.LEGION_TYPE_COMPLEX128 + 1),
 ]
 
 

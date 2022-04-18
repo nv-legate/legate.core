@@ -41,7 +41,7 @@ from . import (
 )
 from .communicator import NCCLCommunicator
 from .context import Context
-from .corelib import CoreLib
+from .corelib import core_library
 from .launcher import TaskLauncher
 from .partition import Restriction
 from .projection import is_identity_projection, pack_symbolic_projection_repr
@@ -1224,7 +1224,7 @@ class Runtime:
         return FutureMap(handle)
 
 
-_runtime = Runtime(CoreLib())
+_runtime = Runtime(core_library)
 
 
 def _cleanup_legate_runtime() -> None:

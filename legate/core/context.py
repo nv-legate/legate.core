@@ -20,6 +20,7 @@ import numpy as np
 
 from . import Future, legion
 from .operation import AutoTask, Copy, ManualTask, Reduce
+from .resource import ResourceScope
 from .types import TypeSystem
 
 if TYPE_CHECKING:
@@ -33,41 +34,6 @@ if TYPE_CHECKING:
     from .runtime import Runtime
     from .shape import Shape
     from .store import RegionField, Store
-
-
-class ResourceConfig:
-    __slots__ = (
-        "max_tasks",
-        "max_mappers",
-        "max_reduction_ops",
-        "max_projections",
-        "max_shardings",
-    )
-
-    def __init__(self) -> None:
-        self.max_tasks = 1_000_000
-        self.max_mappers = 1
-        self.max_reduction_ops = 0
-        self.max_projections = 0
-        self.max_shardings = 0
-
-
-class ResourceScope:
-    def __init__(
-        self, context: Context, base: Optional[int], category: str
-    ) -> None:
-        self._context = context
-        self._base = base
-        self._category = category
-
-    @property
-    def scope(self) -> str:
-        return self._context._library.get_name()
-
-    def translate(self, resource_id: int) -> int:
-        if self._base is None:
-            raise ValueError(f"{self.scope} has not {self._category}")
-        return self._base + resource_id
 
 
 class Context:

@@ -842,6 +842,10 @@ class Store:
         if not self.unbound:
             if any(extent < 0 for extent in self._shape.extents):
                 raise ValueError(f"Invalid shape: {self._shape}")
+        if dtype.variable_size:
+            raise NotImplementedError(
+                f"Store does not yet support variable size type {dtype}"
+            )
 
     @property
     def shape(self):

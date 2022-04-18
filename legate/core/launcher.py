@@ -76,6 +76,7 @@ _SERIALIZERS = {
     ty.uint64: BufferBuilder.pack_64bit_uint,
     ty.float32: BufferBuilder.pack_32bit_float,
     ty.float64: BufferBuilder.pack_64bit_float,
+    ty.string: BufferBuilder.pack_string,
 }
 
 EntryType = Tuple[Union["Broadcast", "Partition"], int, int]
@@ -89,6 +90,10 @@ def _pack(
     serializer = _SERIALIZERS[dtype]
 
     if is_tuple:
+        if dtype == ty.string:
+            raise NotImplementedError(
+                "Passing a tuple of strings is not yet supported"
+            )
         buf.pack_32bit_uint(len(value))
         for v in value:
             serializer(buf, v)
