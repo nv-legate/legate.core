@@ -35,7 +35,7 @@ class RegionField {
   RegionField(const Legion::Task* task, int32_t dim, uint32_t idx, Legion::FieldID fid);
 
  public:
-  RegionField(const RegionField& other) = default;
+  RegionField(const RegionField& other)            = default;
   RegionField& operator=(const RegionField& other) = default;
 
  public:
@@ -79,7 +79,7 @@ class FutureWrapper {
   FutureWrapper(const Legion::Domain& domain);
 
  public:
-  FutureWrapper(const FutureWrapper& other) = default;
+  FutureWrapper(const FutureWrapper& other)            = default;
   FutureWrapper& operator=(const FutureWrapper& other) = default;
 
  public:
@@ -111,7 +111,7 @@ class Store {
         std::shared_ptr<StoreTransform> transform = nullptr);
 
  public:
-  Store(const Store& other) = default;
+  Store(const Store& other)            = default;
   Store& operator=(const Store& other) = default;
 
  public:

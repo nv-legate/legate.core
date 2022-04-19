@@ -35,7 +35,7 @@ class Communicator {
   Communicator(Legion::Future future) : future_(future) {}
 
  public:
-  Communicator(const Communicator&) = default;
+  Communicator(const Communicator&)            = default;
   Communicator& operator=(const Communicator&) = default;
 
  public:

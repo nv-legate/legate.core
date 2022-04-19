@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 import weakref
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from . import (
     Attach,
@@ -69,7 +69,7 @@ class InlineMappedAllocation:
 
 
 class DistributedAllocation:
-    def __init__(self, partition, shard_local_buffers):
+    def __init__(self, partition, shard_local_buffers) -> None:
         """
         Represents a distributed collection of buffers, to be
         collectively attached as sub-regions of the same
@@ -842,6 +842,10 @@ class Store:
         if not self.unbound:
             if any(extent < 0 for extent in self._shape.extents):
                 raise ValueError(f"Invalid shape: {self._shape}")
+        if dtype.variable_size:
+            raise NotImplementedError(
+                f"Store does not yet support variable size type {dtype}"
+            )
 
     @property
     def shape(self):
@@ -1197,7 +1201,7 @@ class Store:
                 partition = Tiling(self._runtime, tile_shape, launch_shape)
             return partition
 
-    def compute_projection(self, proj_fn=None, launch_ndim=None):
+    def compute_projection(self, proj_fn=None, launch_ndim=None) -> int:
         assert proj_fn is None or launch_ndim is not None
         # Handle the most common case before we do any analysis
         if self._transform.bottom and proj_fn is None:
@@ -1225,7 +1229,9 @@ class Store:
     def find_restrictions(self):
         return self._transform.convert_restrictions(self._storage.restrictions)
 
-    def find_or_create_legion_partition(self, partition, complete=False):
+    def find_or_create_legion_partition(
+        self, partition, complete=False
+    ) -> Any:
         # Create a Legion partition for a given functor.
         # Before we do that, we need to map the partition back
         # to the original coordinate space.

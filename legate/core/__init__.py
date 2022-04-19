@@ -84,11 +84,11 @@ from ._legion import (
 )
 
 # Import select types for Legate library construction
-from .context import ResourceConfig
 from .legate import (
     Array,
     Library,
 )
+from .resource import ResourceConfig
 from .runtime import (
     get_legate_runtime,
     get_legion_context,

@@ -291,7 +291,7 @@ class Task(Operation):
                     # TODO: need to track partitions for N-D unbound stores
                     if output.ndim > 1:
                         continue
-                    weights = runtime.extract_scalar(
+                    weights = runtime.extract_scalar_with_domain(
                         result, idx, launch_domain
                     )
                     partition = Weighted(runtime, launch_shape, weights)
@@ -301,19 +301,26 @@ class Task(Operation):
                 idx += len(self.unbound_outputs)
             for out_idx in self.scalar_outputs:
                 output = self.outputs[out_idx]
-                output.set_storage(
-                    runtime.extract_scalar(result, idx, launch_domain)
+                data = (
+                    runtime.extract_scalar(result, idx)
+                    if launch_domain is None
+                    else runtime.extract_scalar_with_domain(
+                        result, idx, launch_domain
+                    )
                 )
+                output.set_storage(data)
                 idx += 1
             for red_idx in self.scalar_reductions:
                 (output, redop) = self.reductions[red_idx]
                 redop_id = output.type.reduction_op_id(redop)
-                output.set_storage(
-                    runtime.reduce_future_map(
-                        runtime.extract_scalar(result, idx, launch_domain),
-                        redop_id,
+                data = (
+                    runtime.extract_scalar(result, idx)
+                    if launch_domain is None
+                    else runtime.extract_scalar_with_domain(
+                        result, idx, launch_domain
                     )
                 )
+                output.set_storage(runtime.reduce_future_map(data, redop_id))
                 idx += 1
 
     def add_nccl_communicator(self) -> None:
@@ -326,7 +333,7 @@ class Task(Operation):
         if launch_domain is None:
             return
         for comm in self._comm_args:
-            handle = comm.get_communicator(launch_domain)
+            handle = comm.get_handle(launch_domain)
             launcher.add_communicator(handle)
 
 
@@ -393,6 +400,7 @@ class AutoTask(Task):
         if self.uses_communicator:
             self._context.issue_execution_fence()
 
+        result: Union[Future, FutureMap]
         if launch_domain is not None:
             result = launcher.execute(launch_domain)
         else:

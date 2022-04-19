@@ -20,6 +20,7 @@ import numpy as np
 
 from . import Future, legion
 from .operation import AutoTask, Copy, ManualTask, Reduce
+from .resource import ResourceScope
 from .types import TypeSystem
 
 if TYPE_CHECKING:
@@ -29,44 +30,10 @@ if TYPE_CHECKING:
     from . import ArgumentMap, Rect
     from .communicator import Communicator
     from .legate import Library
+    from .operation import FutureMap
     from .runtime import Runtime
     from .shape import Shape
     from .store import RegionField, Store
-
-
-class ResourceConfig:
-    __slots__ = (
-        "max_tasks",
-        "max_mappers",
-        "max_reduction_ops",
-        "max_projections",
-        "max_shardings",
-    )
-
-    def __init__(self) -> None:
-        self.max_tasks = 1_000_000
-        self.max_mappers = 1
-        self.max_reduction_ops = 0
-        self.max_projections = 0
-        self.max_shardings = 0
-
-
-class ResourceScope:
-    def __init__(
-        self, context: Context, base: Optional[int], category: str
-    ) -> None:
-        self._context = context
-        self._base = base
-        self._category = category
-
-    @property
-    def scope(self) -> str:
-        return self._context._library.get_name()
-
-    def translate(self, resource_id: int) -> int:
-        if self._base is None:
-            raise ValueError(f"{self.scope} has not {self._category}")
-        return self._base + resource_id
 
 
 class Context:
@@ -234,8 +201,11 @@ class Context:
         return Copy(self, mapper_id)
 
     # TODO (bev) add ABC for dispatchable ops
-    def dispatch(self, op: Any, redop: Optional[int] = None) -> Any:
-        return self._runtime.dispatch(op, redop)
+    def dispatch(self, op: Any) -> FutureMap:
+        return self._runtime.dispatch(op)
+
+    def dispatch_single(self, op: Any) -> Future:
+        return self._runtime.dispatch_single(op)
 
     def create_store(
         self,
@@ -265,6 +235,10 @@ class Context:
     ) -> Store:
         result = self.create_store(store.type)
         unique_op_id = self.get_unique_op_id()
+
+        # Make sure we flush the scheduling window, as we will bypass
+        # the partitioner below
+        self.runtime.flush_scheduling_window()
 
         # A single Reduce operation is mapepd to a whole reduction tree
         task = Reduce(self, task_id, radix, mapper_id, unique_op_id)

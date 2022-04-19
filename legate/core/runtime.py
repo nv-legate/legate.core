@@ -20,7 +20,7 @@ import struct
 import weakref
 from collections import deque
 from functools import reduce
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Union
 
 from legion_top import cleanup_items, top_level
 
@@ -41,7 +41,7 @@ from . import (
 )
 from .communicator import NCCLCommunicator
 from .context import Context
-from .corelib import CoreLib
+from .corelib import core_library
 from .launcher import TaskLauncher
 from .partition import Restriction
 from .projection import is_identity_projection, pack_symbolic_projection_repr
@@ -908,13 +908,15 @@ class Runtime:
         self._unique_op_id += 1
         return op_id
 
-    def dispatch(self, op: Operation, redop: Optional[int] = None):
+    def dispatch(self, op: Operation) -> FutureMap:
         self._attachment_manager.perform_detachments()
         self._attachment_manager.prune_detachments()
-        if redop:
-            return op.launch(self.legion_runtime, self.legion_context, redop)
-        else:
-            return op.launch(self.legion_runtime, self.legion_context)
+        return op.launch(self.legion_runtime, self.legion_context)
+
+    def dispatch_single(self, op: Operation) -> Future:
+        self._attachment_manager.perform_detachments()
+        self._attachment_manager.prune_detachments()
+        return op.launch(self.legion_runtime, self.legion_context)
 
     def _schedule(self, ops):
         # TODO: For now we run the partitioner for each operation separately.
@@ -1003,7 +1005,7 @@ class Runtime:
             self.core_library, f"LEGATE_CORE_TRANSFORM_{name.upper()}"
         )
 
-    def create_future(self, data, size):
+    def create_future(self, data, size) -> Future:
         future = Future()
         future.set_value(self.legion_runtime, data, size)
         return future
@@ -1153,11 +1155,20 @@ class Runtime:
             index_space, functor, index_partition
         )
 
-    def extract_scalar(
-        self, future, idx, launch_domain=None
-    ) -> Union[Future, FutureMap]:
+    def extract_scalar(self, future, idx) -> Future:
+        launcher = TaskLauncher(
+            self.core_context,
+            self.core_library.LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,
+            tag=self.core_library.LEGATE_CPU_VARIANT,
+        )
+        launcher.add_future(future)
+        launcher.add_scalar_arg(idx, ty.int32)
+        return launcher.execute_single()
+
+    def extract_scalar_with_domain(
+        self, future, idx, launch_domain
+    ) -> FutureMap:
         if isinstance(future, FutureMap):
-            assert launch_domain is not None
             launcher = TaskLauncher(
                 self.core_context,
                 self.core_library.LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,
@@ -1174,10 +1185,7 @@ class Runtime:
             )
             launcher.add_future(future)
             launcher.add_scalar_arg(idx, ty.int32)
-            if launch_domain is None:
-                return launcher.execute_single()
-            else:
-                return launcher.execute(launch_domain)
+            return launcher.execute(launch_domain)
 
     def reduce_future_map(self, future_map, redop) -> Future:
         if isinstance(future_map, Future):
@@ -1199,7 +1207,7 @@ class Runtime:
     def get_nccl_communicator(self) -> Communicator:
         return self._comm_manager.get_nccl_communicator()
 
-    def delinearize_future_map(self, future_map, new_domain):
+    def delinearize_future_map(self, future_map, new_domain) -> FutureMap:
         new_domain = self.find_or_create_index_space(new_domain)
         functor = (
             self.core_library.legate_linearizing_point_transform_functor()
@@ -1216,7 +1224,7 @@ class Runtime:
         return FutureMap(handle)
 
 
-_runtime = Runtime(CoreLib())
+_runtime = Runtime(core_library)
 
 
 def _cleanup_legate_runtime() -> None:

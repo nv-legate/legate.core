@@ -125,17 +125,18 @@ DomainAffineTransform Promote::inverse_transform(int32_t in_dim) const
   auto out_dim = in_dim - 1;
 
   DomainTransform transform;
-  transform.m = out_dim;
+  transform.m = std::max<int32_t>(out_dim, 1);
   transform.n = in_dim;
-  for (int32_t i = 0; i < out_dim; ++i)
-    for (int32_t j = 0; j < in_dim; ++j) transform.matrix[i * in_dim + j] = 0;
+  for (int32_t i = 0; i < transform.m; ++i)
+    for (int32_t j = 0; j < transform.n; ++j) transform.matrix[i * in_dim + j] = 0;
 
-  for (int32_t j = 0, i = 0; j < in_dim; ++j)
-    if (j != extra_dim_) transform.matrix[i++ * in_dim + j] = 1;
+  if (out_dim > 0)
+    for (int32_t j = 0, i = 0; j < transform.n; ++j)
+      if (j != extra_dim_) transform.matrix[i++ * in_dim + j] = 1;
 
   DomainPoint offset;
-  offset.dim = out_dim;
-  for (int32_t i = 0; i < out_dim; ++i) offset[i] = 0;
+  offset.dim = std::max<int32_t>(out_dim, 1);
+  for (int32_t i = 0; i < transform.m; ++i) offset[i] = 0;
 
   DomainAffineTransform result;
   result.transform = transform;
