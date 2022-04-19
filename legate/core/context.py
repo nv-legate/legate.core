@@ -236,6 +236,10 @@ class Context:
         result = self.create_store(store.type)
         unique_op_id = self.get_unique_op_id()
 
+        # Make sure we flush the scheduling window, as we will bypass
+        # the partitioner below
+        self.runtime.flush_scheduling_window()
+
         # A single Reduce operation is mapepd to a whole reduction tree
         task = Reduce(self, task_id, radix, mapper_id, unique_op_id)
         task.add_input(store)
