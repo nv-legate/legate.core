@@ -217,14 +217,9 @@ class Task(Operation):
 
         if self._is_fused:
             launcher.add_fusion_metadata(self._is_fused, self._fusion_metadata)
-        if  self._is_fused: #fused ops re-use encapsulated unfused partitions
-            input_parts = self._unfused_input_parts
-            output_parts = self._unfused_output_parts
-            reduction_parts = self._unfused_reduction_parts
-        else:
-            input_parts = self._input_parts
-            output_parts = self._output_parts
-            reduction_parts = self._reduction_parts
+        input_parts = self._input_parts
+        output_parts = self._output_parts
+        reduction_parts = self._reduction_parts
 
         for input, input_part in zip(self._inputs, input_parts):
             proj = strategy.get_projection(input_part)

@@ -35,7 +35,7 @@ class EqClass(object):
     def _add(self, var1, var2):
         cls = set([var1, var2])
         cls_id = self._next_class_id
-        self._next_class_id + 1
+        self._next_class_id += 1
         self._classes[cls_id] = cls
         self._class_ids[var1] = cls_id
         self._class_ids[var2] = cls_id

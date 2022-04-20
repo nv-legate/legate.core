@@ -46,6 +46,7 @@ from .shape import Shape
 from .solver import Partitioner, Strategy
 from .store import RegionField, Store, FusionMetadata
 import numpy as np
+from .constraints import Alignment
 
 
 
@@ -751,14 +752,6 @@ class FusionChecker(object):
             partitioner = Partitioner(self.runtime, [op], must_be_single=must_be_single)
             self.partitioners.append( partitioner )
             strategy = partitioner.partition_stores()
-            for output, part, in zip(op._outputs, op._output_parts):
-                partition = strategy.get_partition(part)
-                output.set_key_partition(partition)
-                key_part = partition
-                #check if input and output should be aligned
-                for input in op._inputs:
-                    if op.has_constraint(input, output):
-                        input.set_key_partition(key_part)
             self.strategies.append(strategy)
         self.strategies.reverse()
 
@@ -1183,28 +1176,11 @@ class Runtime(object):
         fusion_checker.register_constraint(ValidProducerConsumer())
         can_fuse,fusable_sets, partitions = fusion_checker.can_fuse()
                 
-        super_strategies = []
-        z=0
-        for fusable_set in fusable_sets:   
-            #create super strategy for this fusable set
-            super_strat = {}
-            super_fspace = {}
-            super_keystore = set()
-            start,end = fusable_set
-            for j in range(start,end):
-                super_strat = {**(super_strat.copy()), **partitions[j]._strategy}
-                super_fspace = {**(super_fspace.copy()), **partitions[j]._fspaces}
-                super_keystore = super_keystore.union(partitions[j]._key_parts)
-            super_strategies.append(Strategy(partitions[start]._launch_shape, super_strat, super_fspace, super_keystore))
-       
-       
         #once fusion in the core is playing nicely with the mapepr
         #the following two lines will be removed, and be replaced 
         #with the 2 subsequent (commented out) lines
         fused_id = self._contexts["cunumeric"].fused_id
         numpy_context = self._contexts["cunumeric"]
-        #fused_id = self._contexts["legate.core"]._library.fused_id
-        #numpy_context = self._contexts["legate.core"]
 
         opID=0
         new_op_list = []
@@ -1225,39 +1201,30 @@ class Runtime(object):
                 fused_task.add_fusion_metadata(fusion_metadata) #sets fused_task._is_fused to true
 
                 #add typical inputs and outputs of all subtasks to fused task
-                key_part = None
-                fused_task._unfused_input_parts = []
-                fused_task._unfused_output_parts = []
-                fused_task._unfused_reduction_parts = []
                 for j,op in enumerate(op_subset):
                     for scalar in op._scalar_args:
                         fused_task.add_scalar_arg(scalar[0], ty.int32)
                     for (reduction, redop), part in zip(op._reductions, op._reduction_parts):
                         fused_task.add_reduction(reduction, redop)
-                        fused_task._unfused_reduction_parts.append(part)
                     for input,part in zip(op._inputs, op._input_parts):
                         fused_task.add_input(input)   
-                        fused_task._unfused_input_parts.append(part)
                     for output,part in zip(op._outputs, op._output_parts):
                         fused_task.add_output(output)   
-                        fused_task._unfused_output_parts.append(part)
                     for future in op._futures:
                         fused_task.add_future(future)
+                    for constraint in op._constraints:
+                        if (isinstance(constraint, Alignment)):
+                            fused_task.add_alignment(constraint._lhs.store, constraint._rhs.store)
                     opID+=1
                 new_op_list.append(fused_task)
         strats=[]
    
-        redoPar=False
         for i,fused_task in enumerate(new_op_list):
-            if redoPar:
-                must_be_single = any(len(gop.scalar_outputs) > 0 for gop in [fused_task])
-                partitioner = Partitioner(self, [fused_task], must_be_single=must_be_single)
-                strategy = partitioner.partition_stores()
-                fused_task.strategy = strategy
-                strats.append(strategy)
-            else:
-                fused_task.strategy = super_strategies[i]
-                strats.append( super_strategies[i])
+            must_be_single = any(len(gop.scalar_outputs) > 0 for gop in [fused_task])
+            partitioner = Partitioner(self, [fused_task], must_be_single=must_be_single)
+            strategy = partitioner.partition_stores()
+            fused_task.strategy = strategy
+            strats.append(strategy)
         return new_op_list, strats       
 
     def _launch_outstanding(self, force_eval=True):        
