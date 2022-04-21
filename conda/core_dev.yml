@@ -8,7 +8,7 @@ dependencies:
   - clang-tools>=8
   - mock
   - nccl
-  - numpy
+  - numpy>=1.22
   - pre-commit
   - pyarrow>=5
   - pydata-sphinx-theme
