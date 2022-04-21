@@ -36,7 +36,7 @@ endif
 RM	:= rm
 
 CC_FLAGS ?=
-CC_FLAGS += -std=c++14 -Wfatal-errors
+CC_FLAGS += -std=c++17 -Wfatal-errors
 CC_FLAGS += -I$(LEGATE_DIR)/include
 
 ifneq ($(strip $(BOOTSTRAP)), 1)
@@ -55,7 +55,7 @@ endif
 endif
 
 NVCC_FLAGS ?=
-NVCC_FLAGS += -std=c++14 --expt-relaxed-constexpr --expt-extended-lambda -ccbin=$(CXX)
+NVCC_FLAGS += -std=c++17 --expt-relaxed-constexpr --expt-extended-lambda -ccbin=$(CXX)
 NVCC_FLAGS += -I$(LEGATE_DIR)/include
 
 DEVICE_LD_FLAGS ?=
