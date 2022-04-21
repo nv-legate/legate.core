@@ -168,7 +168,7 @@ class Context:
             )
         )
         buf = fut.get_buffer(dt.itemsize)
-        return np.frombuffer(buf, dtype=dt)[0]  # type: ignore [no-untyped-call] # noqa: E501
+        return np.frombuffer(buf, dtype=dt)[0]
 
     def get_unique_op_id(self) -> int:
         return self._runtime.get_unique_op_id()
