@@ -15,6 +15,8 @@
  */
 
 #include "core/comm/comm_nccl.h"
+#include "core/cuda/cuda_help.h"
+#include "core/cuda/stream_pool.h"
 #include "legate.h"
 
 #include <nccl.h>
@@ -30,30 +32,11 @@ struct _Payload {
   uint64_t field1;
 };
 
-#define CHECK_CUDA(expr)                    \
-  do {                                      \
-    cudaError_t result = (expr);            \
-    check_cuda(result, __FILE__, __LINE__); \
-  } while (false)
-
 #define CHECK_NCCL(expr)                    \
   do {                                      \
     ncclResult_t result = (expr);           \
     check_nccl(result, __FILE__, __LINE__); \
   } while (false)
-
-inline void check_cuda(cudaError_t error, const char* file, int line)
-{
-  if (error != cudaSuccess) {
-    fprintf(stderr,
-            "Internal CUDA failure with error %s (%s) in file %s at line %d\n",
-            cudaGetErrorString(error),
-            cudaGetErrorName(error),
-            file,
-            line);
-    exit(error);
-  }
-}
 
 inline void check_nccl(ncclResult_t error, const char* file, int line)
 {
@@ -98,8 +81,7 @@ static ncclComm_t* init_nccl(const Legion::Task* task,
 
   if (num_ranks == 1) return comm;
 
-  cudaStream_t stream;
-  CHECK_CUDA(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
+  auto stream = cuda::StreamPool::get_stream_pool().get_stream();
 
   // Perform a warm-up all-to-all
 
@@ -119,8 +101,6 @@ static ncclComm_t* init_nccl(const Legion::Task* task,
   CHECK_NCCL(ncclGroupEnd());
 
   CHECK_NCCL(ncclAllGather(src_buffer.ptr(0), tgt_buffer.ptr(0), 1, ncclUint64, *comm, stream));
-
-  cudaStreamDestroy(stream);
 
   return comm;
 }
