@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <assert.h>
 #include <cuda_runtime.h>
 
 #define CHECK_CUDA(expr)                                      \

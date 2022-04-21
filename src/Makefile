@@ -44,14 +44,6 @@ NVCC_FLAGS ?=
 
 LD_FLAGS ?=
 
-ifeq ($(strip $(DEBUG)),1)
-
-CC_FLAGS += -DDEBUG_LEGATE
-
-NVCCC_FLAGS += -DDEBUG_LEGATE
-
-endif
-
 ifeq ($(strip $(USE_CUDA)),1)
 
 NVCC_FLAGS += -I$(NCCL_DIR)/include

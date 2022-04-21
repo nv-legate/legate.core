@@ -86,6 +86,14 @@ endif
 NVCC_FLAGS += -g
 endif
 
+ifeq ($(strip $(DEBUG)),1)
+
+CC_FLAGS += -DDEBUG_LEGATE
+
+NVCC_FLAGS += -DDEBUG_LEGATE
+
+endif
+
 # machine architecture (generally "native" unless cross-compiling)
 MARCH ?= native
 
