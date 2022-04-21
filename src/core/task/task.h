@@ -25,6 +25,7 @@
 #include "core/runtime/runtime.h"
 #include "core/task/return.h"
 #include "core/utilities/deserializer.h"
+#include "core/utilities/nvtx_help.h"
 #include "core/utilities/typedefs.h"
 
 namespace legate {
@@ -88,6 +89,10 @@ class LegateTask {
                                           Legion::Context legion_context,
                                           Legion::Runtime* runtime)
   {
+#ifdef LEGATE_USE_CUDA
+    nvtx::Range auto_range(task_name());
+#endif
+
     Core::show_progress(task, legion_context, runtime, task_name());
 
     TaskContext context(task, regions, legion_context, runtime);
