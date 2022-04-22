@@ -498,6 +498,12 @@ class PartitionManager:
             ty.int64,
         )
 
+        if self._num_pieces == 0:
+            raise RuntimeError(
+                "No processors are available to run Legate tasks. Please "
+                "enable at least one processor of any kind. "
+            )
+
         self._launch_spaces = {}
         factors = list()
         pieces = self._num_pieces
