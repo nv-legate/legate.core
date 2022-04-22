@@ -31,6 +31,7 @@ from . import (
     Task as SingleTask,
     types as ty,
 )
+from .utils import OrderedSet
 
 if TYPE_CHECKING:
     from . import (
@@ -470,10 +471,10 @@ class OutputReq:
 
 class ProjectionSet:
     def __init__(self) -> None:
-        self._entries: dict[Permission, set[EntryType]] = {}
+        self._entries: dict[Permission, OrderedSet[EntryType]] = {}
 
     def _create(self, perm: Permission, entry: EntryType) -> None:
-        self._entries[perm] = set([entry])
+        self._entries[perm] = OrderedSet([entry])
 
     def _update(self, perm: Permission, entry: EntryType) -> None:
         entries = self._entries[perm]
@@ -495,20 +496,20 @@ class ProjectionSet:
         self, error_on_interference: bool
     ) -> Union[
         list[tuple[Permission, Union[Broadcast, Partition], int, int]],
-        list[tuple[Permission, set[EntryType]]],
+        list[tuple[Permission, OrderedSet[EntryType]]],
     ]:
         if len(self._entries) == 1:
             perm = list(self._entries.keys())[0]
             return [(perm, *entry) for entry in self._entries[perm]]
-        all_perms = set(self._entries.keys())
+        all_perms = OrderedSet(self._entries.keys())
         # If the fields is requested with conflicting permissions,
         # promote them to read write permission.
-        if len(all_perms - set([Permission.NO_ACCESS])) > 1:
+        if len(all_perms - OrderedSet([Permission.NO_ACCESS])) > 1:
             perm = Permission.READ_WRITE
 
             # When the field requires read write permission,
             # all projections must be the same
-            all_entries: set[EntryType] = set()
+            all_entries: OrderedSet[EntryType] = OrderedSet()
             for entry in self._entries.values():
                 all_entries = all_entries | entry
             if len(all_entries) > 1:
@@ -618,7 +619,7 @@ class RequirementAnalyzer:
 class OutputAnalyzer:
     def __init__(self, runtime: Runtime) -> None:
         self._runtime = runtime
-        self._groups: dict[Any, set[tuple[int, Store]]] = {}
+        self._groups: dict[Any, OrderedSet[tuple[int, Store]]] = {}
         self._requirements: list[tuple[OutputReq, Any]] = []
         self._requirement_map: dict[tuple[OutputReq, int], int] = {}
 
@@ -638,7 +639,7 @@ class OutputAnalyzer:
     def insert(self, req: OutputReq, field_id: int, store: Store) -> None:
         group = self._groups.get(req)
         if group is None:
-            group = set()
+            group = OrderedSet()
             self._groups[req] = group
         group.add((field_id, store))
 
@@ -646,7 +647,7 @@ class OutputAnalyzer:
         for req, group in self._groups.items():
             req_idx = len(self._requirements)
             fields = []
-            field_set = set()
+            field_set = OrderedSet()
             for field_id, store in group:
                 self._requirement_map[(req, field_id)] = req_idx
                 if field_id in field_set:
