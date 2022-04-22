@@ -939,7 +939,7 @@ class Runtime:
         for op, strategy in zip(ops, strategies):
             op.launch(strategy)
 
-    def flush_scheduling_window(self):
+    def flush_scheduling_window(self) -> None:
         if len(self._outstanding_ops) == 0:
             return
         ops = self._outstanding_ops

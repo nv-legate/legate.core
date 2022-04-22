@@ -15,7 +15,15 @@
 from __future__ import annotations
 
 from enum import IntEnum, unique
-from typing import TYPE_CHECKING, Any, Optional, Sequence, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+)
 
 import pyarrow as pa
 from typing_extensions import Protocol, overload
@@ -64,7 +72,9 @@ class Permission(IntEnum):
     TARGET_INDIRECT = 6
 
 
-_SERIALIZERS = {
+Serializer = Callable[[BufferBuilder, Any], None]
+
+_SERIALIZERS: dict[Any, Serializer] = {
     bool: BufferBuilder.pack_bool,
     ty.int8: BufferBuilder.pack_8bit_int,
     ty.int16: BufferBuilder.pack_16bit_int,
@@ -82,9 +92,7 @@ _SERIALIZERS = {
 EntryType = Tuple[Union["Broadcast", "Partition"], int, int]
 
 
-def _pack(
-    buf: BufferBuilder, value: Any, dtype: DTType, is_tuple: bool
-) -> None:
+def _pack(buf: BufferBuilder, value: Any, dtype: Any, is_tuple: bool) -> None:
     if dtype not in _SERIALIZERS:
         raise ValueError(f"Unsupported data type: {dtype}")
     serializer = _SERIALIZERS[dtype]
