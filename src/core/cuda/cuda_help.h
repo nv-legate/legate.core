@@ -18,6 +18,7 @@
 
 #include <assert.h>
 #include <cuda_runtime.h>
+#include <stdio.h>
 
 #define CHECK_CUDA(expr)                                      \
   do {                                                        \
