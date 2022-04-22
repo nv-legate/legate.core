@@ -17,6 +17,7 @@
 #include "core/comm/comm_nccl.h"
 #include "core/cuda/cuda_help.h"
 #include "core/cuda/stream_pool.h"
+#include "core/utilities/nvtx_help.h"
 #include "legate.h"
 
 #include <nccl.h>
@@ -55,10 +56,13 @@ static ncclUniqueId init_nccl_id(const Legion::Task* task,
                                  Legion::Context context,
                                  Legion::Runtime* runtime)
 {
+  legate::nvtx::Range auto_range("core::comm::nccl::init_id");
+
   Core::show_progress(task, context, runtime, task->get_task_name());
 
   ncclUniqueId id;
   CHECK_NCCL(ncclGetUniqueId(&id));
+
   return id;
 }
 
@@ -67,6 +71,8 @@ static ncclComm_t* init_nccl(const Legion::Task* task,
                              Legion::Context context,
                              Legion::Runtime* runtime)
 {
+  legate::nvtx::Range auto_range("core::comm::nccl::init");
+
   Core::show_progress(task, context, runtime, task->get_task_name());
 
   assert(task->futures.size() == 1);
@@ -110,6 +116,8 @@ static void finalize_nccl(const Legion::Task* task,
                           Legion::Context context,
                           Legion::Runtime* runtime)
 {
+  legate::nvtx::Range auto_range("core::comm::nccl::finalize");
+
   Core::show_progress(task, context, runtime, task->get_task_name());
 
   assert(task->futures.size() == 1);
