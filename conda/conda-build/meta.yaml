@@ -1,9 +1,9 @@
 {% set name = "legate-core" %}
 {% if package_version is defined %}
     {% set version = package_version %}
-# The tag must be in one of the two formats (where N is a digit):
-# vNN.NN.NN
-# vNN.NN.NN.dev
+## The tag must be in one of the two formats (where N is a digit):
+## vNN.NN.NN
+## vNN.NN.NN.dev
 {% elif 'dev' in environ.get('GIT_DESCRIBE_TAG', '') %}
     {% set version = (environ.get('GIT_DESCRIBE_TAG', '') ~ environ.get('GIT_DESCRIBE_NUMBER', '')).lstrip('v') %}
 {% else %}
