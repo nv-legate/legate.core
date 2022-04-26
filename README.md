@@ -215,7 +215,7 @@ Legate Core is available [on conda](https://anaconda.org/legate/legate-core):
 conda install -c nvidia -c conda-forge -c legate legate-core
 ```
 
-Pre-built docker images containing all Legate libraries, as well as specialized
+Docker image build scripts, as well as specialized
 install scripts for supported clusters are available on the
 [quickstart](https://github.com/nv-legate/quickstart) repo.
 

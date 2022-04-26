@@ -56,11 +56,11 @@ struct DimOrdering {
   DimOrdering() {}
 
  public:
-  DimOrdering(const DimOrdering&) = default;
+  DimOrdering(const DimOrdering&)            = default;
   DimOrdering& operator=(const DimOrdering&) = default;
 
  public:
-  DimOrdering(DimOrdering&&) = default;
+  DimOrdering(DimOrdering&&)            = default;
   DimOrdering& operator=(DimOrdering&&) = default;
 
  public:
@@ -97,11 +97,11 @@ struct InstanceMappingPolicy {
   InstanceMappingPolicy() {}
 
  public:
-  InstanceMappingPolicy(const InstanceMappingPolicy&) = default;
+  InstanceMappingPolicy(const InstanceMappingPolicy&)            = default;
   InstanceMappingPolicy& operator=(const InstanceMappingPolicy&) = default;
 
  public:
-  InstanceMappingPolicy(InstanceMappingPolicy&&) = default;
+  InstanceMappingPolicy(InstanceMappingPolicy&&)            = default;
   InstanceMappingPolicy& operator=(InstanceMappingPolicy&&) = default;
 
  public:
@@ -125,11 +125,11 @@ struct StoreMapping {
   StoreMapping() {}
 
  public:
-  StoreMapping(const StoreMapping&) = default;
+  StoreMapping(const StoreMapping&)            = default;
   StoreMapping& operator=(const StoreMapping&) = default;
 
  public:
-  StoreMapping(StoreMapping&&) = default;
+  StoreMapping(StoreMapping&&)            = default;
   StoreMapping& operator=(StoreMapping&&) = default;
 
  public:

@@ -370,7 +370,7 @@ class BufferBuilder:
             self.pack_64bit_int(transform.offset[x])
 
     def pack_string(self, string: str) -> None:
-        self.pack_32bit_int(len(string))
+        self.pack_32bit_uint(len(string))
         for char in string:
             self.pack_char(char)
 

@@ -402,9 +402,13 @@ calls into NCCL either directly or through some other Legate library.
             verbose_check_call(
                 ["make"] + flags + ["clean"], cwd=legion_python_dir
             )
+        # Explicitly ask for C++14, otherwise the Legion build will use C++11.
+        env = dict(os.environ.items())
+        env["CXXFLAGS"] = "-std=c++14 " + env.get("CXXFLAGS", "")
         verbose_check_call(
             ["make"] + flags + ["-j", str(thread_count), "install"],
             cwd=legion_python_dir,
+            env=env,
         )
         verbose_check_call(
             [

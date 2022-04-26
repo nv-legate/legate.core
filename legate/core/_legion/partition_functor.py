@@ -306,7 +306,7 @@ class EqualPartition(PartitionFunctor):
 
 
 class PartitionByWeights(PartitionFunctor):
-    def __init__(self, weights: Union[FutureMap, list[int]]) -> None:
+    def __init__(self, weights: FutureMap) -> None:
         """
         PartitionByWeights will construct an IndexPartition with the number of
         points in each child IndexSpace being allocated proportionally to the
@@ -330,24 +330,6 @@ class PartitionByWeights(PartitionFunctor):
                 context,
                 parent.handle,
                 self.weights.handle,
-                color_space.handle,
-                1,
-                part_id,
-            )
-        elif isinstance(self.weights, list):
-            num_weights = len(self.weights)
-            colors = ffi.new("legion_domain_point_t[%d]" % num_weights)
-            weights = ffi.new("int[%d]" % num_weights)
-            for i in range(num_weights):
-                colors[i] = Point([i]).raw()
-                weights[i] = self.weights[i]
-            return legion.legion_index_partition_create_by_weights(
-                runtime,
-                context,
-                parent.handle,
-                colors,
-                weights,
-                num_weights,
                 color_space.handle,
                 1,
                 part_id,

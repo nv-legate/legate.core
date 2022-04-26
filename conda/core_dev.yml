@@ -6,9 +6,9 @@ dependencies:
   - cffi
   - clang>=8
   - clang-tools>=8
-  - nccl
   - mock
-  - numpy
+  - nccl
+  - numpy>=1.22
   - pre-commit
   - pyarrow>=5
   - pydata-sphinx-theme

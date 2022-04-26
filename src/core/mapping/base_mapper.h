@@ -42,7 +42,7 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
   virtual ~BaseMapper(void);
 
  private:
-  BaseMapper(const BaseMapper& rhs) = delete;
+  BaseMapper(const BaseMapper& rhs)            = delete;
   BaseMapper& operator=(const BaseMapper& rhs) = delete;
 
  protected:

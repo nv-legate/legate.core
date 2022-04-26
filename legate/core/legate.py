@@ -15,15 +15,23 @@
 from __future__ import annotations
 
 import platform
-from typing import Any
+from typing import TYPE_CHECKING, Any, Iterator, Optional, Union
 
 import pyarrow
 
-from .context import ResourceConfig
+from .resource import ResourceConfig
+
+if TYPE_CHECKING:
+    from .store import Store
 
 
 class Array:
-    def __init__(self, dtype, stores, children=None) -> None:
+    def __init__(
+        self,
+        dtype: pyarrow.DataType,
+        stores: list[Optional[Store]],
+        children: Optional[list[Array]] = None,
+    ) -> None:
         """
         An Array is a collection of one or more Store objects that can
         represent a uniformly typed set of potentially nullable data values.
@@ -59,7 +67,7 @@ class Array:
                 "({1}).".format(dtype.num_buffers, len(self._stores))
             )
 
-    def stores(self):
+    def stores(self) -> list[Optional[Store]]:
         """
         Return a list of the Store object that represent
         the data stored in this array.
@@ -70,7 +78,11 @@ class Array:
         return stores
 
     @staticmethod
-    def from_stores(dtype, stores, children=None):
+    def from_stores(
+        dtype: pyarrow.DataType,
+        stores: list[Optional[Store]],
+        children: Optional[list[Array]] = None,
+    ) -> Array:
         """
         Construct an Array from a DataType and a list of Store objects
 
@@ -90,15 +102,15 @@ class Array:
         return Array(dtype, stores.copy(), children.copy() if children else [])
 
     @property
-    def type(self):
+    def type(self) -> pyarrow.DataType:
         return self._type
 
-    def __len__(self):
+    def __len__(self) -> int:
         raise NotImplementedError("Array.__len__")
 
 
 class Table:
-    def __init__(self, schema, columns) -> None:
+    def __init__(self, schema: pyarrow.Schema, columns: list[Array]) -> None:
         """
         A Table is a collection of top-level, equal-length Array
         objects. It is designed to be as close as possible to the PyArrow
@@ -115,7 +127,7 @@ class Table:
         self._columns = columns
 
     @property
-    def __legate_data_interface__(self):
+    def __legate_data_interface__(self) -> dict[str, Any]:
         """
         The Legate data interface allows for different Legate libraries to get
         access to the base Legion primitives that back objects from different
@@ -133,7 +145,7 @@ class Table:
             names and types of the field data to 'Array' objects containing
             Store objects
         """
-        result = dict()
+        result: dict[str, Any] = dict()
         result["version"] = 1
         data = {}
         for index, column in enumerate(self._columns):
@@ -141,7 +153,9 @@ class Table:
         result["data"] = data
         return result
 
-    def add_column(self, index, field, column):
+    def add_column(
+        self, index: int, field: Union[str, pyarrow.Field], column: Array
+    ) -> Table:
         """
         Add column to Table at position.
         A new table is returned with the column added, the original table
@@ -179,7 +193,9 @@ class Table:
             columns.append(column)
         return Table(pyarrow.schema(fields), columns)
 
-    def append_column(self, field, column):
+    def append_column(
+        self, field: Union[str, pyarrow.Field], column: Array
+    ) -> Table:
         """
         Append column at end of columns.
 
@@ -196,7 +212,7 @@ class Table:
         """
         return self.add_column(len(self._columns), field, column)
 
-    def _ensure_integer_index(self, i):
+    def _ensure_integer_index(self, i: Union[str, int]) -> int:
         """
         Ensure integer index (convert string column name to integer if needed).
         """
@@ -220,7 +236,7 @@ class Table:
         else:
             raise TypeError("Index must either be string or integer")
 
-    def column(self, index):
+    def column(self, index: Union[int, str]) -> Array:
         """
         Select a column by its column name, or numeric index.
 
@@ -240,7 +256,7 @@ class Table:
             )
         return self._columns[index]
 
-    def drop(self, columns):
+    def drop(self, columns: list[str]) -> Table:
         """
         Drop one or more columns and return a new table.
 
@@ -266,16 +282,16 @@ class Table:
 
         indices.sort()
         fields = []
-        columns = []
+        cols: list[Array] = []
         skip_index = 0
-        for idx, col in enumerate(self._columns):
+        for idx, elt in enumerate(self._columns):
             if skip_index < len(indices) and idx == indices[skip_index]:
                 continue
             fields.append(self._schema.field(idx))
-            columns.append(col)
-        return Table(pyarrow.schema(fields), columns)
+            cols.append(elt)
+        return Table(pyarrow.schema(fields), cols)
 
-    def field(self, index):
+    def field(self, index: Union[int, str]) -> pyarrow.Field:
         """
         Select a schema field by its column name or numeric index.
 
@@ -291,7 +307,12 @@ class Table:
         return self._schema.field(index)
 
     @staticmethod
-    def from_arrays(arrays, names=None, schema=None, metadata=None):
+    def from_arrays(
+        arrays: list[Array],
+        names: Optional[list[str]] = None,
+        schema: Optional[pyarrow.Schema] = None,
+        metadata: Optional[dict[str, Any]] = None,
+    ) -> Table:
         """
         Construct a Table from a list of Arrays.
 
@@ -337,7 +358,7 @@ class Table:
                     raise TypeError("Schema type and Array type must match")
         return Table(schema, arrays.copy())
 
-    def itercolumns(self):
+    def itercolumns(self) -> Iterator[Array]:
         """
         Iterator over all columns in their numerical order.
 
@@ -348,7 +369,7 @@ class Table:
         for column in self._columns:
             yield column
 
-    def remove_column(self, index):
+    def remove_column(self, index: int) -> Table:
         """
         Create new Table with the indicated column removed.
 
@@ -374,7 +395,7 @@ class Table:
             columns.append(col)
         return Table(pyarrow.schema(fields), columns)
 
-    def rename_columns(self, names):
+    def rename_columns(self, names: list[str]) -> Table:
         """
         Create new table with columns renamed to provided names.
         """
@@ -388,7 +409,9 @@ class Table:
             fields.append(field.with_name(names[index]))
         return Table(pyarrow.schema(fields), self._columns.copy())
 
-    def set_column(self, index, field, column):
+    def set_column(
+        self, index: int, field: Union[str, pyarrow.Field], column: Array
+    ) -> Table:
         """
         Replace column in Table at position.
 
@@ -423,7 +446,7 @@ class Table:
         return Table(pyarrow.schema(fields), columns)
 
     @property
-    def column_names(self):
+    def column_names(self) -> list[str]:
         """
         Return a list of the names of the table's columns.
         """
@@ -433,21 +456,21 @@ class Table:
         ]
 
     @property
-    def columns(self):
+    def columns(self) -> list[Array]:
         """
         Return a list of the columns in numerical order.
         """
         return self._columns.copy()
 
     @property
-    def num_columns(self):
+    def num_columns(self) -> int:
         """
         Return the number of columns in the table.
         """
         return len(self._columns)
 
     @property
-    def num_rows(self):
+    def num_rows(self) -> int:
         """
         Return the number of rows in the table.
         """
@@ -456,14 +479,14 @@ class Table:
         return len(self._columns[0])
 
     @property
-    def schema(self):
+    def schema(self) -> pyarrow.Schema:
         """
         Return the schema of the table and its columns.
         """
         return self._schema
 
     @property
-    def shape(self):
+    def shape(self) -> tuple[int, int]:
         """
         Dimensions of the table: (#rows, #columns).
 
@@ -533,3 +556,4 @@ class Library:
             return ".so"
         elif os_name == "Darwin":
             return ".dylib"
+        raise RuntimeError(f"unknown platform {os_name!r}")

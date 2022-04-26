@@ -14,11 +14,16 @@
 #
 from __future__ import annotations
 
-from . import Future, Rect
+from typing import TYPE_CHECKING
+
+from . import FieldSpace, Future, Rect
 from .constraints import Alignment, Broadcast, Containment
 from .partition import REPLICATE
 from .shape import Shape
 from .utils import OrderedSet
+
+if TYPE_CHECKING:
+    from .partition import PartitionBase
 
 
 def join_restrictions(x, y):
@@ -40,7 +45,7 @@ class EqClass:
     def _add(self, var1, var2):
         cls = set([var1, var2])
         cls_id = self._next_class_id
-        self._next_class_id + 1
+        self._next_class_id += 1
         self._classes[cls_id] = cls
         self._class_ids[var1] = cls_id
         self._class_ids[var2] = cls_id
@@ -138,19 +143,19 @@ class Strategy:
         partition = self.get_partition(part)
         return partition.get_requirement(self.launch_ndim, part.store)
 
-    def get_partition(self, part):
+    def get_partition(self, part) -> PartitionBase:
         assert not part.store.unbound
         if part not in self._strategy:
             raise ValueError(f"No strategy is found for {part}")
         return self._strategy[part]
 
-    def get_field_space(self, part):
+    def get_field_space(self, part) -> FieldSpace:
         assert part.store.unbound
         if part not in self._fspaces:
             raise ValueError(f"No strategy is found for {part}")
         return self._fspaces[part]
 
-    def is_key_part(self, part):
+    def is_key_part(self, part) -> bool:
         return part in self._key_parts
 
     def __str__(self):

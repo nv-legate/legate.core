@@ -62,21 +62,22 @@ typedef enum legate_core_variant_t {
 
 // Match these to numpy_field_type_offsets in legate/numpy/config.py
 typedef enum legate_core_type_code_t {
-  BOOL_LT         = LEGION_TYPE_BOOL,
-  INT8_LT         = LEGION_TYPE_INT8,
-  INT16_LT        = LEGION_TYPE_INT16,
-  INT32_LT        = LEGION_TYPE_INT32,
-  INT64_LT        = LEGION_TYPE_INT64,
-  UINT8_LT        = LEGION_TYPE_UINT8,
-  UINT16_LT       = LEGION_TYPE_UINT16,
-  UINT32_LT       = LEGION_TYPE_UINT32,
-  UINT64_LT       = LEGION_TYPE_UINT64,
-  HALF_LT         = LEGION_TYPE_FLOAT16,
-  FLOAT_LT        = LEGION_TYPE_FLOAT32,
-  DOUBLE_LT       = LEGION_TYPE_FLOAT64,
-  COMPLEX64_LT    = LEGION_TYPE_COMPLEX64,
-  COMPLEX128_LT   = LEGION_TYPE_COMPLEX128,
-  MAX_TYPE_NUMBER = LEGION_TYPE_TOTAL,  // this must be last
+  BOOL_LT       = LEGION_TYPE_BOOL,
+  INT8_LT       = LEGION_TYPE_INT8,
+  INT16_LT      = LEGION_TYPE_INT16,
+  INT32_LT      = LEGION_TYPE_INT32,
+  INT64_LT      = LEGION_TYPE_INT64,
+  UINT8_LT      = LEGION_TYPE_UINT8,
+  UINT16_LT     = LEGION_TYPE_UINT16,
+  UINT32_LT     = LEGION_TYPE_UINT32,
+  UINT64_LT     = LEGION_TYPE_UINT64,
+  HALF_LT       = LEGION_TYPE_FLOAT16,
+  FLOAT_LT      = LEGION_TYPE_FLOAT32,
+  DOUBLE_LT     = LEGION_TYPE_FLOAT64,
+  COMPLEX64_LT  = LEGION_TYPE_COMPLEX64,
+  COMPLEX128_LT = LEGION_TYPE_COMPLEX128,
+  STRING_LT     = COMPLEX128_LT + 1,
+  MAX_TYPE_NUMBER,
 } legate_core_type_code_t;
 
 typedef enum legate_core_transform_t {
