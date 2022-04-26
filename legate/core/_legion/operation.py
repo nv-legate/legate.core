@@ -14,7 +14,7 @@
 #
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Generic, Optional, TypeVar, Union
 
 from .. import ffi, legion
 from .future import Future
@@ -26,12 +26,23 @@ from .space import IndexSpace
 from .util import ExternalResources, FieldID, dispatch
 
 if TYPE_CHECKING:
-    from ..context import Context
-    from ..runtime import Runtime
     from . import FieldListLike, FutureMap, Rect
 
 
-class InlineMapping:
+T = TypeVar("T")
+
+
+class Dispatchable(Generic[T]):
+    def launch(
+        self,
+        runtime: legion.legion_runtime_t,
+        context: legion.legion_context_t,
+        **kwargs: Any,
+    ) -> T:
+        ...
+
+
+class InlineMapping(Dispatchable[PhysicalRegion]):
     def __init__(
         self,
         region: Region,
@@ -105,7 +116,12 @@ class InlineMapping:
             )
 
     @dispatch
-    def launch(self, runtime: Runtime, context: Context) -> PhysicalRegion:
+    def launch(
+        self,
+        runtime: legion.legion_runtime_t,
+        context: legion.legion_context_t,
+        **kwargs: Any,
+    ) -> PhysicalRegion:
         """
         Dispatch the inline mapping to the runtime
 
@@ -121,7 +137,7 @@ class InlineMapping:
         )
 
 
-class Fill:
+class Fill(Dispatchable[None]):
     def __init__(
         self,
         region: Region,
@@ -199,14 +215,19 @@ class Fill:
         )
 
     @dispatch
-    def launch(self, runtime: Runtime, context: Context) -> None:
+    def launch(
+        self,
+        runtime: legion.legion_runtime_t,
+        context: legion.legion_context_t,
+        **kwargs: Any,
+    ) -> None:
         """
         Dispatch the fill to the runtime
         """
         legion.legion_fill_launcher_execute(runtime, context, self.launcher)
 
 
-class IndexFill:
+class IndexFill(Dispatchable[None]):
     def __init__(
         self,
         partition: Partition,
@@ -319,7 +340,12 @@ class IndexFill:
         )
 
     @dispatch
-    def launch(self, runtime: Runtime, context: Context) -> None:
+    def launch(
+        self,
+        runtime: legion.legion_runtime_t,
+        context: legion.legion_context_t,
+        **kwargs: Any,
+    ) -> None:
         """
         Dispatch the index fill to the runtime
         """
@@ -328,7 +354,7 @@ class IndexFill:
         )
 
 
-class Copy:
+class Copy(Dispatchable[None]):
     def __init__(self, mapper: int = 0, tag: int = 0) -> None:
         """
         A Copy object provides a mechanism for launching explicit
@@ -608,7 +634,12 @@ class Copy:
         )
 
     @dispatch
-    def launch(self, runtime: Runtime, context: Context) -> None:
+    def launch(
+        self,
+        runtime: legion.legion_runtime_t,
+        context: legion.legion_context_t,
+        **kwargs: Any,
+    ) -> None:
         """
         Dispatch the copy operation to the runtime
         """
@@ -620,7 +651,7 @@ class Copy:
         legion.legion_copy_launcher_execute(runtime, context, self.launcher)
 
 
-class IndexCopy:
+class IndexCopy(Dispatchable[None]):
     def __init__(self, domain: Rect, mapper: int = 0, tag: int = 0) -> None:
         """
         An IndexCopy object provides a mechanism for launching explicit
@@ -1011,7 +1042,12 @@ class IndexCopy:
         )
 
     @dispatch
-    def launch(self, runtime: Runtime, context: Context) -> None:
+    def launch(
+        self,
+        runtime: legion.legion_runtime_t,
+        context: legion.legion_context_t,
+        **kwargs: Any,
+    ) -> None:
         if self.src_req_index != self.dst_req_index:
             raise RuntimeError(
                 "Number of source and destination requirements "
@@ -1022,7 +1058,7 @@ class IndexCopy:
         )
 
 
-class Attach:
+class Attach(Dispatchable[PhysicalRegion]):
     def __init__(
         self,
         region: Region,
@@ -1085,7 +1121,12 @@ class Attach:
         legion.legion_attach_launcher_set_mapped(self.launcher, mapped)
 
     @dispatch
-    def launch(self, runtime: Runtime, context: Context) -> PhysicalRegion:
+    def launch(
+        self,
+        runtime: legion.legion_runtime_t,
+        context: legion.legion_context_t,
+        **kwargs: Any,
+    ) -> PhysicalRegion:
         """
         Dispatch the attach operation to the runtime
 
@@ -1101,7 +1142,7 @@ class Attach:
         )
 
 
-class Detach:
+class Detach(Dispatchable[Future]):
     def __init__(self, region: PhysicalRegion, flush: bool = True) -> None:
         """
         A Detach operation will unbind an external resource from a logical
@@ -1122,9 +1163,14 @@ class Detach:
         self.region = region.region
         self.flush = flush
 
+    @dispatch
     def launch(
-        self, runtime: Runtime, context: Context, unordered: bool = False
-    ) -> Union[Future, None]:
+        self,
+        runtime: legion.legion_runtime_t,
+        context: legion.legion_context_t,
+        unordered: bool = False,
+        **kwargs: Any,
+    ) -> Future:
         """
         Dispatch the detach operation to the runtime
 
@@ -1137,7 +1183,7 @@ class Detach:
         # Check to see if we're still inside the context of the task
         # If not then we just need to leak this detach because it can't be done
         if context not in _pending_unordered:
-            return None
+            return Future()
         if unordered:
             future = Future()
             _pending_unordered[context].append(((self, future), type(self)))
@@ -1154,7 +1200,7 @@ class Detach:
             )
 
 
-class IndexAttach:
+class IndexAttach(Dispatchable[ExternalResources]):
     def __init__(
         self,
         parent: Region,
@@ -1240,7 +1286,12 @@ class IndexAttach:
         )
 
     @dispatch
-    def launch(self, runtime: Runtime, context: Context) -> ExternalResources:
+    def launch(
+        self,
+        runtime: legion.legion_runtime_t,
+        context: legion.legion_context_t,
+        **kwargs: Any,
+    ) -> ExternalResources:
         """
         Dispatch the operation to the runtime
 
@@ -1255,7 +1306,7 @@ class IndexAttach:
         )
 
 
-class IndexDetach:
+class IndexDetach(Dispatchable[Future]):
     def __init__(
         self, external_resources: ExternalResources, flush: bool = True
     ) -> None:
@@ -1276,7 +1327,12 @@ class IndexDetach:
         self.external_resources = external_resources
         self.flush = flush
 
-    def launch(self, runtime: Runtime, context: Context) -> Future:
+    def launch(
+        self,
+        runtime: legion.legion_runtime_t,
+        context: legion.legion_context_t,
+        **kwargs: Any,
+    ) -> Future:
         """
         Dispatch the operation to the runtime
 
@@ -1295,7 +1351,7 @@ class IndexDetach:
         )
 
 
-class Acquire:
+class Acquire(Dispatchable[None]):
     def __init__(
         self,
         region: Region,
@@ -1340,14 +1396,19 @@ class Acquire:
             )
 
     @dispatch
-    def launch(self, runtime: Runtime, context: Context) -> None:
+    def launch(
+        self,
+        runtime: legion.legion_runtime_t,
+        context: legion.legion_context_t,
+        **kwargs: Any,
+    ) -> None:
         """
         Dispatch the acquire operation to the runtime
         """
         legion.legion_acquire_launcher_execute(runtime, context, self.launcher)
 
 
-class Release:
+class Release(Dispatchable[None]):
     def __init__(
         self,
         region: Region,
@@ -1391,7 +1452,12 @@ class Release:
             )
 
     @dispatch
-    def launch(self, runtime: Runtime, context: Context) -> None:
+    def launch(
+        self,
+        runtime: legion.legion_runtime_t,
+        context: legion.legion_context_t,
+        **kwargs: Any,
+    ) -> None:
         """
         Dispatch the release operation to the runtime
         """

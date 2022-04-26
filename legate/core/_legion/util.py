@@ -25,12 +25,12 @@ from .partition import IndexPartition
 from .pending import _pending_deletions, _pending_unordered
 
 if TYPE_CHECKING:
-    from ..context import Context
-    from ..runtime import Runtime
     from . import AffineTransform, FieldSpace
 
 
-def legate_task_preamble(runtime: Runtime, context: Context) -> None:
+def legate_task_preamble(
+    runtime: legion.legion_runtime_t, context: legion.legion_context_t
+) -> None:
     """
     This function sets up internal Legate state for a task in Python.
     In general, users only need to worry about calling this function
@@ -42,7 +42,9 @@ def legate_task_preamble(runtime: Runtime, context: Context) -> None:
     _pending_unordered[context] = list()
 
 
-def legate_task_progress(runtime: Runtime, context: Context) -> None:
+def legate_task_progress(
+    runtime: legion.legion_runtime_t, context: legion.legion_context_t
+) -> None:
     """
     This method will progress any internal Legate Core functionality
     that is running in the background. Legate clients do not need to
@@ -122,7 +124,9 @@ def legate_task_progress(runtime: Runtime, context: Context) -> None:
         _pending_deletions.clear()
 
 
-def legate_task_postamble(runtime: Runtime, context: Context) -> None:
+def legate_task_postamble(
+    runtime: legion.legion_runtime_t, context: legion.legion_context_t
+) -> None:
     """
     This function cleans up internal Legate state for a task in Python.
     In general, users only need to worry about calling this function
@@ -138,11 +142,14 @@ def legate_task_postamble(runtime: Runtime, context: Context) -> None:
 # to dispatch any unordered deletions while the task is live
 def dispatch(func: Any) -> Any:
     def launch(
-        launcher: Any, runtime: Runtime, context: Context, *args: Any
+        launcher: Any,
+        runtime: legion.legion_runtime_t,
+        context: legion.legion_context_t,
+        **kwargs: Any,
     ) -> Any:
         # This context should always be in the dictionary
         legate_task_progress(runtime, context)
-        return func(launcher, runtime, context, *args)
+        return func(launcher, runtime, context, **kwargs)
 
     return launch
 

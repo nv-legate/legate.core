@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 import weakref
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from . import (
     Attach,
@@ -42,8 +42,9 @@ from .transform import (
 from .types import _Dtype
 
 if TYPE_CHECKING:
-    from . import BufferBuilder, Rect
+    from . import BufferBuilder, Context, Rect, Region, Runtime
     from .launcher import Proj
+    from .runtime import Field
 
 
 class InlineMappedAllocation:
@@ -92,15 +93,18 @@ class DistributedAllocation:
         self.shard_local_buffers = shard_local_buffers
 
 
+Attachable = Union[memoryview, DistributedAllocation]
+
+
 # A region field holds a reference to a field in a logical region
 class RegionField:
     def __init__(
         self,
-        runtime,
-        region,
-        field,
-        shape,
-        parent=None,
+        runtime: Runtime,
+        region: Region,
+        field: Field,
+        shape: Shape,
+        parent: Optional[RegionField] = None,
     ):
         self.runtime = runtime
         self.attachment_manager = runtime.attachment_manager
@@ -154,7 +158,9 @@ class RegionField:
             return None
         return self.launch_space
 
-    def attach_external_allocation(self, context, alloc, share):
+    def attach_external_allocation(
+        self, context: Context, alloc: Attachable, share: bool
+    ):
         assert self.parent is None
         # If we already have some memory attached, detach it first
         if self.attached_alloc is not None:
@@ -485,16 +491,16 @@ class StoragePartition:
 class Storage:
     def __init__(
         self,
-        runtime,
-        extents,
-        level,
-        dtype,
-        data=None,
-        kind=RegionField,
-        parent=None,
-        color=None,
-        offsets=None,
-    ):
+        runtime: Runtime,
+        extents: Optional[Shape],
+        level: int,
+        dtype: Any,
+        data: Union[None, RegionField, Future] = None,
+        kind: type = RegionField,
+        parent: Optional[Storage] = None,
+        color: Optional[Shape] = None,
+        offsets: Optional[Shape] = None,
+    ) -> None:
         assert (
             data is None
             or isinstance(data, RegionField)
@@ -651,7 +657,9 @@ class Storage:
                 assert isinstance(self.parent._partition, Tiling)
                 return lhs.color == rhs.color
 
-    def attach_external_allocation(self, context, alloc, share):
+    def attach_external_allocation(
+        self, context: Context, alloc: Attachable, share: bool
+    ) -> None:
         # If the storage has not been set, and this is a non-temporary
         # singleton attachment, we can reuse an existing RegionField that was
         # previously attached to this buffer.
@@ -921,7 +929,9 @@ class Store:
     def transformed(self):
         return not self._transform.bottom
 
-    def attach_external_allocation(self, context, alloc, share):
+    def attach_external_allocation(
+        self, context: Context, alloc: Attachable, share: bool
+    ) -> None:
         if not isinstance(alloc, (memoryview, DistributedAllocation)):
             raise ValueError(
                 f"Only a memoryview or DistributedAllocation object can be "

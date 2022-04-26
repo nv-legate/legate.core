@@ -219,7 +219,7 @@ class Context:
         return self._runtime.create_store(
             dtype,
             shape=shape,
-            storage=storage,
+            data=storage,
             optimize_scalar=optimize_scalar,
             ndim=ndim,
         )

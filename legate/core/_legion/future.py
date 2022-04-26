@@ -14,15 +14,11 @@
 #
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Optional
+from typing import Any, Optional
 
 from .. import ffi, legion
 from .geometry import Point, Rect
 from .pending import _pending_deletions
-
-if TYPE_CHECKING:
-    from ..context import Context
-    from ..runtime import Runtime
 
 
 class Future:
@@ -80,7 +76,11 @@ class Future:
         self.handle = None
 
     def set_value(
-        self, runtime: Runtime, data: Any, size: int, type: object = None
+        self,
+        runtime: legion.legion_runtime_t,
+        data: Any,
+        size: int,
+        type: object = None,
     ) -> None:
         """
         Parameters
@@ -152,6 +152,8 @@ class Future:
         -------
         bool indicating if the future has completed or not
         """
+        if self.handle is None:
+            return True
         return legion.legion_future_is_ready_subscribe(self.handle, subscribe)
 
     def wait(self) -> None:
@@ -228,8 +230,8 @@ class FutureMap:
 
     def reduce(
         self,
-        context: Context,
-        runtime: Runtime,
+        context: legion.legion_context_t,
+        runtime: legion.legion_runtime_t,
         redop: int,
         deterministic: bool = False,
         mapper: int = 0,
@@ -272,7 +274,10 @@ class FutureMap:
 
     @classmethod
     def from_list(
-        cls, context: Context, runtime: Runtime, futures: list[Future]
+        cls,
+        context: legion.legion_context_t,
+        runtime: legion.legion_runtime_t,
+        futures: list[Future],
     ) -> Any:
         """
         Construct a FutureMap from a list of futures
@@ -313,8 +318,8 @@ class FutureMap:
     @classmethod
     def from_dict(
         cls,
-        context: Context,
-        runtime: Runtime,
+        context: legion.legion_context_t,
+        runtime: legion.legion_runtime_t,
         domain: Rect,
         futures: dict[Point, Future],
         collective: bool = False,

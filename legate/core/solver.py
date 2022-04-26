@@ -14,7 +14,7 @@
 #
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 
 from . import FieldSpace, Future, Rect
 from .constraints import Alignment, Broadcast, Containment
@@ -23,7 +23,7 @@ from .shape import Shape
 from .utils import OrderedSet
 
 if TYPE_CHECKING:
-    from .partition import PartitionBase
+    from . import Operation, PartitionBase, Runtime
 
 
 def join_restrictions(x, y):
@@ -172,7 +172,12 @@ class Strategy:
 
 
 class Partitioner:
-    def __init__(self, runtime, ops, must_be_single=False):
+    def __init__(
+        self,
+        runtime: Runtime,
+        ops: List[Operation],
+        must_be_single: bool = False,
+    ):
         self._runtime = runtime
         self._ops = ops
         self._must_be_single = must_be_single
@@ -344,7 +349,7 @@ class Partitioner:
         else:
             return None
 
-    def partition_stores(self):
+    def partition_stores(self) -> Strategy:
         unknowns = OrderedSet()
         constraints = EqClass()
         broadcasts = {}
