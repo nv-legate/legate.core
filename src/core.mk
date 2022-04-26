@@ -18,6 +18,7 @@
 GEN_CPU_SRC	= core/legate_c.cc                 \
 							core/comm/comm.cc                \
 							core/comm/comm_cpu.cc            \
+							core/comm/coll.cc								 \
 							core/data/allocator.cc           \
 							core/data/scalar.cc              \
 							core/data/store.cc               \
@@ -38,6 +39,19 @@ GEN_CPU_SRC	= core/legate_c.cc                 \
 							core/utilities/machine.cc        \
 							core/utilities/linearize.cc
 
+ifeq ($(strip $(USE_GASNET)),1)
+# $(error   VAR is)
+GEN_CPU_SRC	+= core/comm/alltoall_thread_mpi.cc  \
+					  	 core/comm/alltoallv_thread_mpi.cc \
+							 core/comm/gather_thread_mpi.cc 	 \
+							 core/comm/allgather_thread_mpi.cc \
+							 core/comm/bcast_thread_mpi.cc
+else
+GEN_CPU_SRC	+= core/comm/alltoall_thread_local.cc  \
+				  		 core/comm/alltoallv_thread_local.cc \
+				  		 core/comm/allgather_thread_local.cc
+endif
+
 # Source files for GPUs
 GEN_GPU_SRC	= core/comm/comm_nccl.cu   \
 							core/cuda/stream_pool.cu
@@ -48,6 +62,7 @@ INSTALL_HEADERS = legate.h                        \
 									legate_preamble.h               \
 									core/legate_c.h                 \
 									core/comm/communicator.h        \
+									core/comm/coll.h								\
 									core/cuda/cuda_help.h           \
 									core/cuda/stream_pool.h         \
 									core/data/allocator.h           \

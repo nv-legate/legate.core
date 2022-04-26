@@ -17,7 +17,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
-from . import FutureMap, Rect
+from . import FutureMap, Rect, Point
 from .launcher import TaskLauncher as Task
 
 if TYPE_CHECKING:
@@ -110,18 +110,10 @@ class CPUCommunicator(Communicator):
     def _initialize(self, volume):
         task = Task(self._context, self._init_coll_cpu_mapping, tag=self._tag)
         mapping_table_fm = task.execute(Rect([volume]))
-        mapping_table_fm.wait()
-        mapping_table = array.array('i')
+        task = Task(self._context, self._init_coll_cpu, tag=self._tag)
         for i in range(volume):
             f = mapping_table_fm.get_future(Point([i]))
-            mapping_per_rank = np.frombuffer(f.get_buffer(), dtype = np.int32)[0]
-            mapping_table.append(mapping_per_rank)
-        mapping_table_future = Future()
-        # future_size = ctypes.sizeof(ctypes.c_int) * volume
-        future_size = mapping_table.itemsize * volume
-        mapping_table_future.set_value(mapping_table, future_size)
-        task = Task(self._context, self._init_coll_cpu, tag=self._tag)
-        task.add_future(mapping_table_future)
+            task.add_future(f)
         handle = task.execute(Rect([volume]))
         self._runtime.issue_execution_fence()
         return handle

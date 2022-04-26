@@ -17,7 +17,7 @@
 #include "core/comm/comm_cpu.h"
 #include "legate.h"
 
-#include "core/comm/coll/coll.h"
+#include "core/comm/coll.h"
 
 using namespace Legion;
 
@@ -30,6 +30,7 @@ static int init_coll_cpu_mapping(const Legion::Task* task,
                                  Legion::Context context,
                                  Legion::Runtime* runtime)
 {
+  Core::show_progress(task, context, runtime, task->get_task_name());
   int mpi_rank = 0;
 #if defined (LEGATE_USE_GASNET)
   MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
@@ -43,13 +44,15 @@ static collComm_t init_coll_cpu(const Legion::Task* task,
                                 Legion::Runtime* runtime)
 {
   Core::show_progress(task, context, runtime, task->get_task_name());
-#if 0
-  const int* mapping_table = (const int*)task->args;
-#else
-  const int* mapping_table = (const int*)task->futures[0].get_buffer(Memory::SYSTEM_MEM);
-#endif
+
   const int point = task->index_point[0];
   int num_ranks = task->index_domain.get_volume();
+  assert(task->futures.size() == static_cast<size_t>(num_ranks));
+  int *mapping_table = (int *)malloc(sizeof(int) * num_ranks);
+  for (int i = 0; i < num_ranks; i++) {
+    const int* mapping_table_element = (const int*)task->futures[i].get_buffer(Memory::SYSTEM_MEM);
+    mapping_table[i] = *mapping_table_element;
+  }
 
   collComm_t comm = (collComm_t)malloc(sizeof(Coll_Comm));
 
@@ -60,6 +63,7 @@ static collComm_t init_coll_cpu(const Legion::Task* task,
 #endif
 
   assert(mapping_table[point] == comm->mpi_rank);
+  free(mapping_table);
   return comm;
 }
 
