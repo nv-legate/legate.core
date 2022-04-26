@@ -182,6 +182,11 @@ set(LEGATE_CORE_CUDA_DEFS "")
 set(LEGATE_CORE_CXX_OPTIONS "")
 set(LEGATE_CORE_CUDA_OPTIONS "")
 
+if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
+  list(APPEND LEGATE_CORE_CXX_DEFS DEBUG_LEGATE)
+  list(APPEND LEGATE_CORE_CUDA_DEFS DEBUG_LEGATE)
+endif()
+
 if(Legion_USE_CUDA)
   list(APPEND LEGATE_CORE_CXX_DEFS LEGATE_USE_CUDA)
   list(APPEND LEGATE_CORE_CUDA_DEFS LEGATE_USE_CUDA)
@@ -222,7 +227,9 @@ list(APPEND LEGATE_CORE_SOURCES
 )
 
 if(Legion_USE_CUDA)
-  list(APPEND LEGATE_CORE_SOURCES src/core/comm/comm_nccl.cu)
+  list(APPEND LEGATE_CORE_SOURCES
+  src/core/comm/comm_nccl.cu
+  src/core/cuda/stream_pool.cu)
 endif()
 
 add_library(legate_core ${LEGATE_CORE_SOURCES})
@@ -233,7 +240,7 @@ set_target_properties(legate_core
                       LIBRARY_OUTPUT_NAME                 lgcore
                       BUILD_RPATH                         "\$ORIGIN"
                       INSTALL_RPATH                       "\$ORIGIN"
-                      CXX_STANDARD                        14
+                      CXX_STANDARD                        17
                       CXX_STANDARD_REQUIRED               ON
                       POSITION_INDEPENDENT_CODE           ON
                       INTERFACE_POSITION_INDEPENDENT_CODE ON)
@@ -250,7 +257,7 @@ target_include_directories(legate_core
 
 if(Legion_USE_CUDA)
   set_target_properties(legate_core
-             PROPERTIES CUDA_STANDARD                     14
+             PROPERTIES CUDA_STANDARD                     17
                         CUDA_STANDARD_REQUIRED            ON)
 
   list(APPEND LEGATE_CORE_CUDA_OPTIONS --expt-relaxed-constexpr)
@@ -301,6 +308,11 @@ install(
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/legate/core/comm)
 
 install(
+  FILES src/core/cuda/cuda_help.h
+        src/core/cuda/stream_pool.h
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/legate/core/cuda)
+
+install(
   FILES src/core/data/allocator.h
         src/core/data/buffer.h
         src/core/data/scalar.h
@@ -333,6 +345,7 @@ install(
         src/core/utilities/deserializer.inl
         src/core/utilities/dispatch.h
         src/core/utilities/machine.h
+        src/core/utilities/nvtx_help.h
         src/core/utilities/span.h
         src/core/utilities/type_traits.h
         src/core/utilities/typedefs.h
