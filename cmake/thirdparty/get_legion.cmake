@@ -15,7 +15,7 @@
 #=============================================================================
 
 function(find_or_configure_legion)
-  set(oneValueArgs VERSION REPOSITORY PINNED_TAG GASNet_CONDUIT EXCLUDE_FROM_ALL)
+  set(oneValueArgs VERSION REPOSITORY PINNED_TAG EXCLUDE_FROM_ALL)
   cmake_parse_arguments(PKG "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
   set(Legion_CUDA_ARCH "")
@@ -43,7 +43,6 @@ function(find_or_configure_legion)
                          "Legion_REDOP_COMPLEX ON"
                          "Legion_GPU_REDUCTIONS OFF"
                          "Legion_CUDA_ARCH ${Legion_CUDA_ARCH}"
-                         "GASNet_CONDUIT ${PGK_GASNet_CONDUIT}"
   )
 endfunction()
 
@@ -58,6 +57,5 @@ endif()
 find_or_configure_legion(VERSION          0.0.1 # Legion doesn't have a version in its `CMakeLists.txt`
                          REPOSITORY       ${LEGATE_CORE_LEGION_REPOSITORY}
                          PINNED_TAG       ${LEGATE_CORE_LEGION_BRANCH}
-                         GASNet_CONDUIT   ${LEGATE_CORE_GASNET_CONDUIT}
                          EXCLUDE_FROM_ALL ${LEGATE_CORE_EXCLUDE_LEGION_FROM_ALL}
 )
