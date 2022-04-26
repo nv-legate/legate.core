@@ -92,7 +92,8 @@ if(Legion_USE_LLVM)
   # ```
   # foreach(C IN LISTS LLVM_FIND_COMPONENTS)
   # ```
-  # This changes the value of the C variable globally, interfering with FindMPI.cmake
+  # This changes the value of the `C` variable globally, interfering with FindMPI.cmake
+  cmake_policy(SET CMP0124 NEW)
   set(CMAKE_POLICY_DEFAULT_CMP0124 NEW)
 endif()
 
