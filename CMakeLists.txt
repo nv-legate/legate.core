@@ -76,7 +76,7 @@ endif()
 
 set_or_default(GASNet_ROOT_DIR GASNET)
 set_or_default(NCCL_DIR NCCL_PATH)
-set_or_default(CPM_Thrust_SOURCE THRUST_PATH)
+set_or_default(Thrust_DIR THRUST_PATH)
 set_or_default(CUDA_TOOLKIT_ROOT_DIR CUDA)
 
 option(Legion_SPY "Enable detailed logging for Legion Spy" OFF)
@@ -86,6 +86,15 @@ option(Legion_USE_HDF5 "Enable support for HDF5" OFF)
 option(Legion_USE_GASNet "Enable the distributed GASNet backend" OFF)
 option(Legion_USE_OpenMP "Use OpenMP" OFF)
 option(Legion_USE_Python "Use Python" OFF)
+
+if(Legion_USE_LLVM)
+  # Prevent `foreach` variables from leaking. FindLLVM.cmake does:
+  # ```
+  # foreach(C IN LISTS LLVM_FIND_COMPONENTS)
+  # ```
+  # This changes the value of the C variable globally, interfering with FindMPI.cmake
+  set(CMAKE_POLICY_DEFAULT_CMP0124 NEW)
+endif()
 
 if(Legion_USE_GASNet AND (NOT GASNet_ROOT_DIR))
   option(Legion_EMBED_GASNet "Embed a custom GASNet build into Legion" ON)
