@@ -43,15 +43,13 @@ int collGatherMPI(const void *sendbuf, int sendcount, collDataType_t sendtype,
   assert(root == global_comm->mapping_table.global_rank[root]);
 
   int tag;
-
-  assert(global_comm->starting_tag >= 0);
   
   // non-root
   if (global_rank != root) {
-    tag = global_comm->starting_tag * 10000 + global_rank;
+    tag = global_rank * 10 + GATHER_TAG;
 #ifdef DEBUG_PRINT
-    printf("Gather Send global_rank %d, rank %d, tid %d, send to %d (%d), tag %d\n", 
-      global_rank, global_comm.mpi_rank, global_comm.tid, 
+    printf("Gather Send global_rank %d, mpi rank %d, send to %d (%d), tag %d\n", 
+      global_rank, global_comm->mpi_rank, 
       root, root_mpi_rank, tag);
 #endif
     return MPI_Send(sendbuf, sendcount, sendtype, root_mpi_rank, tag, global_comm->comm);
@@ -66,10 +64,10 @@ int collGatherMPI(const void *sendbuf, int sendcount, collDataType_t sendtype,
 	for(int i = 0 ; i < total_size; i++) {
     recvfrom_mpi_rank = global_comm->mapping_table.mpi_rank[i];
     assert(i == global_comm->mapping_table.global_rank[i]);
-    tag = global_comm->starting_tag * 10000 + i;
+    tag = i * 10 + GATHER_TAG;
 #ifdef DEBUG_PRINT
-    printf("Gather i: %d === global_rank %d, rank %d, tid %d, recv %p, from %d (%d), tag %d\n", 
-      i, global_rank, global_comm.mpi_rank, global_comm.tid, 
+    printf("Gather i: %d === global_rank %d, mpi rank %d, recv %p, from %d (%d), tag %d\n", 
+      i, global_rank, global_comm->mpi_rank, 
       dst, i, recvfrom_mpi_rank, tag);
 #endif
     assert(dst != NULL);

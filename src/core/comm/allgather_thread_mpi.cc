@@ -47,12 +47,10 @@ int collAllgatherMPI(const void *sendbuf, int sendcount, collDataType_t sendtype
   }
   
 #ifdef ALLGATHER_USE_BCAST
-  global_comm->starting_tag = 0;
   collGatherMPI(sendbuf_tmp, sendcount, sendtype, 
                 recvbuf, recvcount, recvtype, 
                 0, global_comm);
 
-  global_comm->starting_tag = 1;
   collBcastMPI(recvbuf, recvcount * total_size, recvtype, 
                0, global_comm);
 #else

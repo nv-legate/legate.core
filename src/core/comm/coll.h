@@ -26,6 +26,28 @@
 
 #if defined (LEGATE_USE_GASNET)
 #include <mpi.h>
+#define BCAST_TAG     0
+#define GATHER_TAG    1
+#define ALLTOALL_TAG  2
+#define ALLTOALLV_TAG 3
+
+typedef MPI_Datatype collDataType_t;
+// TODO: fix it
+extern MPI_Datatype collChar;
+extern MPI_Datatype collInt8;
+extern MPI_Datatype collUint8;
+extern MPI_Datatype collInt;
+extern MPI_Datatype collUint32;
+extern MPI_Datatype collInt64;
+extern MPI_Datatype collUint64;
+extern MPI_Datatype collFloat;
+extern MPI_Datatype collDouble;
+
+typedef struct mapping_table_s {
+  int *mpi_rank;
+  int *global_rank;
+} mapping_table_t;
+
 #else
 #include <stdbool.h>
 #define MAX_NB_THREADS 128
@@ -39,23 +61,9 @@ typedef struct local_buffer_s {
 
 extern local_buffer_t local_buffer[BUFFER_SWAP_SIZE];
 
-#endif
-
-#if defined (LEGATE_USE_GASNET)
-typedef MPI_Datatype collDataType_t;
-// TODO: fix it
-extern MPI_Datatype collChar;
-extern MPI_Datatype collInt;
-extern MPI_Datatype collFloat;
-extern MPI_Datatype collDouble;
-
-typedef struct mapping_table_s {
-  int *mpi_rank; // just for verification
-  int *global_rank;
-} mapping_table_t;
-#else // local
 typedef enum { 
-  collChar       = 0,
+  collInt8       = 0, collChar       = 0,
+  collUint8      = 1,
   collInt        = 2,
   collUint32     = 3,
   collInt64      = 4,
@@ -73,13 +81,10 @@ typedef struct Coll_Comm_s {
   volatile local_buffer_t *local_buffer;
   int current_buffer_idx;
 #endif
-  int mpi_comm_size; // not used
-  int nb_threads; // not used
   int mpi_rank;
-  int tid; // not used
+  int mpi_comm_size;
   int global_rank;
   int global_comm_size;
-  int starting_tag;
   bool status;
 } Coll_Comm;
 

@@ -24,10 +24,16 @@
 
 #if defined (LEGATE_USE_GASNET)
 MPI_Datatype collChar = MPI_CHAR;
+MPI_Datatype collInt8 = MPI_INT8_T;
+MPI_Datatype collUint8 = MPI_UINT8_T;
 MPI_Datatype collInt = MPI_INT;
+MPI_Datatype collUint32 = MPI_UINT32_T;
+MPI_Datatype collInt64 = MPI_INT64_T;
+MPI_Datatype collUint64 = MPI_UINT64_T;
 MPI_Datatype collFloat = MPI_FLOAT;
 MPI_Datatype collDouble = MPI_DOUBLE;
 #else
+#include <stdint.h>
 local_buffer_t local_buffer[BUFFER_SWAP_SIZE];
 
 static pthread_barrier_t local_barrier;
@@ -36,10 +42,18 @@ static bool coll_local_inited = false;
 
 size_t get_dtype_size(collDataType_t dtype)
 {
-  if (dtype == collChar) {
+  if (dtype == collInt8 || dtype == collChar) {
     return sizeof(char);
+  } else if (dtype == collUint8) {
+    return sizeof(uint8_t);
   } else if (dtype == collInt) {
     return sizeof(int);
+  } else if (dtype == collUint32) {
+    return sizeof(uint32_t);
+  } else if (dtype == collInt64) {
+    return sizeof(int64_t);
+  } else if (dtype == collUint64) {
+    return sizeof(uint64_t);
   } else if (dtype == collFloat) {
     return sizeof(float);
   } else if (dtype == collDouble) {
@@ -55,12 +69,12 @@ int collCommCreate(collComm_t global_comm, int global_comm_size, int global_rank
 {
   global_comm->global_comm_size = global_comm_size;
   global_comm->global_rank = global_rank;
-  global_comm->starting_tag = 0;
   global_comm->status = true;
 #if defined(LEGATE_USE_GASNET)
-  int mpi_rank;
+  int mpi_rank, mpi_comm_size;
   MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
-  global_comm->mpi_comm_size = 1;
+  MPI_Comm_size(MPI_COMM_WORLD, &mpi_comm_size);
+  global_comm->mpi_comm_size = mpi_comm_size;
   global_comm->mpi_rank = mpi_rank;
   global_comm->comm = MPI_COMM_WORLD;
   if (mapping_table != NULL) {
@@ -174,12 +188,12 @@ int collBcast(void *buf, int count, collDataType_t type,
               collComm_t global_comm)
 {
 #if defined(LEGATE_USE_GASNET)
-  printf("MPI Bcast: global_rank %d, total_size %d\n", global_comm->global_rank, global_comm->mpi_comm_size * global_comm->nb_threads);
+  printf("MPI Bcast: global_rank %d, total_size %d\n", global_comm->global_rank, global_comm->global_comm_size);
   return collBcast(buf, count, type, 
                    root,
                    global_comm);
 #else
-  printf("Local Bcast: global_rank %d, total_size %d, send_buf %p\n", global_comm->global_rank, global_comm->mpi_comm_size * global_comm->nb_threads, buf);
+  printf("Local Bcast: global_rank %d, total_size %d, send_buf %p\n", global_comm->global_rank, global_comm->global_comm_size, buf);
   assert(0);
 #endif 
 }
