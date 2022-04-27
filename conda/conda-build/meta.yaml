@@ -1,13 +1,14 @@
 {% set name = "legate-core" %}
+{% set default_env_var = '' %}
 {% if package_version is defined %}
     {% set version = package_version %}
 ## The tag must be in one of the two formats (where N is a digit):
 ## vNN.NN.NN
 ## vNN.NN.NN.dev
-{% elif 'dev' in environ.get('GIT_DESCRIBE_TAG', '') %}
-    {% set version = (environ.get('GIT_DESCRIBE_TAG', '') ~ environ.get('GIT_DESCRIBE_NUMBER', '')).lstrip('v') %}
+{% elif 'dev' in environ.get('GIT_DESCRIBE_TAG', default_env_var) %}
+    {% set version = (environ.get('GIT_DESCRIBE_TAG') ~ environ.get('GIT_DESCRIBE_NUMBER', default_env_var)).lstrip('v') %}
 {% else %}
-    {% set version = environ.get('GIT_DESCRIBE_TAG', '').lstrip('v') %}
+    {% set version = environ.get('GIT_DESCRIBE_TAG', default_env_var).lstrip('v') %}
 {% endif %}
 {% set cuda_version='.'.join(environ.get('CUDA', '11.5').split('.')[:2]) %}
 {% set cuda_major=cuda_version.split('.')[0] %}
