@@ -14,7 +14,7 @@
 #
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Generic, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from .. import ffi, legion
 from .future import Future
@@ -23,23 +23,10 @@ from .partition import Partition
 from .pending import _pending_unordered
 from .region import PhysicalRegion, Region
 from .space import IndexSpace
-from .util import ExternalResources, FieldID, dispatch
+from .util import Dispatchable, ExternalResources, FieldID, dispatch
 
 if TYPE_CHECKING:
     from . import FieldListLike, FutureMap, Rect
-
-
-T = TypeVar("T")
-
-
-class Dispatchable(Generic[T]):
-    def launch(
-        self,
-        runtime: legion.legion_runtime_t,
-        context: legion.legion_context_t,
-        **kwargs: Any,
-    ) -> T:
-        ...
 
 
 class InlineMapping(Dispatchable[PhysicalRegion]):

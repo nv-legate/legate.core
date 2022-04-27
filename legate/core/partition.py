@@ -14,6 +14,7 @@
 #
 from __future__ import annotations
 
+from abc import ABC, abstractmethod, abstractproperty
 from enum import IntEnum, unique
 from typing import TYPE_CHECKING, Optional, Sequence, Type, Union
 
@@ -40,8 +41,38 @@ class Restriction(IntEnum):
     UNRESTRICTED = 1
 
 
-class PartitionBase:
-    pass
+class PartitionBase(ABC):
+    @abstractproperty
+    def even(self) -> bool:
+        ...
+
+    @abstractmethod
+    def construct(
+        self, region: Region, complete: bool = False
+    ) -> Optional[LegionPartition]:
+        ...
+
+    @abstractmethod
+    def is_complete_for(self, extents: Shape, offsets: Shape) -> bool:
+        ...
+
+    @abstractmethod
+    def is_disjoint_for(self, launch_domain: Rect) -> bool:
+        ...
+
+    @abstractmethod
+    def satisfies_restriction(
+        self, restrictions: Sequence[Restriction]
+    ) -> bool:
+        ...
+
+    @abstractmethod
+    def needs_delinearization(self, launch_ndim: int) -> bool:
+        ...
+
+    @abstractproperty
+    def requirement(self) -> Union[Type[Broadcast], Type[Partition]]:
+        ...
 
 
 class Replicate(PartitionBase):
@@ -54,7 +85,7 @@ class Replicate(PartitionBase):
         return True
 
     @property
-    def requirement(self) -> Type[Broadcast]:
+    def requirement(self) -> Union[Type[Broadcast], Type[Partition]]:
         return Broadcast
 
     def is_complete_for(self, extents: Shape, offsets: Shape) -> bool:
@@ -89,7 +120,9 @@ class Replicate(PartitionBase):
     def translate_range(self, offset: float) -> Replicate:
         return self
 
-    def construct(self, region: Region, complete: bool = False) -> None:
+    def construct(
+        self, region: Region, complete: bool = False
+    ) -> Optional[LegionPartition]:
         return None
 
 
@@ -147,7 +180,7 @@ class Tiling(PartitionBase):
         return True
 
     @property
-    def requirement(self) -> Type[Partition]:
+    def requirement(self) -> Union[Type[Broadcast], Type[Partition]]:
         return Partition
 
     @property
@@ -248,7 +281,7 @@ class Tiling(PartitionBase):
 
     def construct(
         self, region: Region, complete: bool = False
-    ) -> LegionPartition:
+    ) -> Optional[LegionPartition]:
         index_space = region.index_space
         index_partition = self._runtime.find_partition(index_space, self)
         if index_partition is None:
@@ -312,7 +345,7 @@ class Weighted(PartitionBase):
         return False
 
     @property
-    def requirement(self) -> Type[Partition]:
+    def requirement(self) -> Union[Type[Broadcast], Type[Partition]]:
         return Partition
 
     def __hash__(self) -> int:
@@ -366,7 +399,7 @@ class Weighted(PartitionBase):
 
     def construct(
         self, region: Region, complete: bool = False
-    ) -> LegionPartition:
+    ) -> Optional[LegionPartition]:
         assert complete
 
         index_space = region.index_space

@@ -39,7 +39,7 @@ from . import (
     legion,
     types as ty,
 )
-from ._legion import Dispatchable
+from ._legion.util import Dispatchable
 from .communicator import NCCLCommunicator
 from .context import Context
 from .corelib import core_library
@@ -566,7 +566,7 @@ class PartitionManager:
         ] = {}
 
     def compute_launch_shape(
-        self, store: Store, restrictions: tuple[Restriction]
+        self, store: Store, restrictions: tuple[Restriction, ...]
     ) -> Optional[Shape]:
         shape = store.shape
         assert len(restrictions) == shape.ndim

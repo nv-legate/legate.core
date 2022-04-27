@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 import struct
-from typing import TYPE_CHECKING, Any, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Generic, List, Optional, TypeVar, Union
 
 import numpy as np
 
@@ -152,6 +152,19 @@ def dispatch(func: Any) -> Any:
         return func(launcher, runtime, context, **kwargs)
 
     return launch
+
+
+T = TypeVar("T")
+
+
+class Dispatchable(Generic[T]):
+    def launch(
+        self,
+        runtime: legion.legion_runtime_t,
+        context: legion.legion_context_t,
+        **kwargs: Any,
+    ) -> T:
+        ...
 
 
 class FieldID:

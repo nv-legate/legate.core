@@ -22,7 +22,7 @@ from .legate import Array, Table
 from .partition import Tiling
 from .runtime import _runtime
 from .shape import Shape
-from .store import DistributedAllocation, Store
+from .store import DistributedAllocation, RegionField, Store
 
 if TYPE_CHECKING:
     from pyarrow import DataType
@@ -83,6 +83,7 @@ class CustomSplit(DataSplit):
             futures,
             collective=True,
         )
+        assert isinstance(store.storage, RegionField)
         region = store.storage.region
         index_partition = IndexPartition(
             _runtime.legion_context,
@@ -120,6 +121,7 @@ class TiledSplit(DataSplit):
         )
         store.set_key_partition(functor)
         part = store.find_or_create_legion_partition(functor, complete=True)
+        assert part is not None
         assert store.compute_projection() == 0
         return part
 

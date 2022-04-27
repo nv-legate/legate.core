@@ -55,7 +55,7 @@ if TYPE_CHECKING:
     from ._legion.util import FieldListLike
     from .context import Context
     from .runtime import Runtime
-    from .store import Store
+    from .store import RegionField, Store
     from .types import DTType
 
 
@@ -260,11 +260,10 @@ _single_copy_calls: dict[Permission, LegionTaskMethod] = {
 
 
 class Broadcast:
-    __slots__ = ("part", "proj", "redop")
-
     # Use the same signature as Partition's constructor
     # so that the caller can construct projection objects in a uniform way
-    def __init__(self, part: LegionPartition, proj: int) -> None:
+    def __init__(self, part: Optional[LegionPartition], proj: int) -> None:
+        assert part is None
         self.part = part
         self.proj = proj
         self.redop: Union[int, None] = None
@@ -324,9 +323,8 @@ class Broadcast:
 
 
 class Partition:
-    __slots__ = ("part", "proj", "redop")
-
-    def __init__(self, part: LegionPartition, proj: int) -> None:
+    def __init__(self, part: Optional[LegionPartition], proj: int) -> None:
+        assert part is not None
         self.part = part
         self.proj = proj
         self.redop = None
@@ -519,7 +517,7 @@ class ProjectionSet:
             # all projections must be the same
             all_entries: OrderedSet[EntryType] = OrderedSet()
             for entry in self._entries.values():
-                all_entries = all_entries | entry
+                all_entries.update(entry)
             if len(all_entries) > 1:
                 if error_on_interference:
                     raise ValueError(
@@ -655,7 +653,7 @@ class OutputAnalyzer:
         for req, group in self._groups.items():
             req_idx = len(self._requirements)
             fields = []
-            field_set = OrderedSet()
+            field_set: OrderedSet[int] = OrderedSet()
             for field_id, store in group:
                 self._requirement_map[(req, field_id)] = req_idx
                 if field_id in field_set:
@@ -752,6 +750,9 @@ class TaskLauncher:
     ) -> None:
         redop = -1 if proj.redop is None else proj.redop
         if store.kind is Future:
+            if TYPE_CHECKING:
+                assert isinstance(store.storage, Future)
+
             has_storage = perm != Permission.WRITE
             read_only = perm == Permission.READ
             if has_storage:
@@ -759,6 +760,9 @@ class TaskLauncher:
             args.append(FutureStoreArg(store, read_only, has_storage, redop))
 
         else:
+            if TYPE_CHECKING:
+                assert isinstance(store.storage, RegionField)
+
             region = store.storage.region
             field_id = store.storage.field.field_id
 
@@ -970,6 +974,9 @@ class CopyLauncher:
     ) -> None:
         assert store.kind is not Future
         assert store._transform.bottom
+
+        if TYPE_CHECKING:
+            assert isinstance(store.storage, RegionField)
 
         region = store.storage.region
         field_id = store.storage.field.field_id

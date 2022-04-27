@@ -15,11 +15,11 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Callable, Iterable, Optional, Union
+from typing import TYPE_CHECKING, Any, Iterable, Optional, Union
 
 import legate.core.types as ty
 
-from . import Future, FutureMap, Point, Rect
+from . import Future, FutureMap, Rect
 from .constraints import PartSym
 from .launcher import CopyLauncher, TaskLauncher
 from .partition import REPLICATE, Weighted
@@ -31,10 +31,9 @@ if TYPE_CHECKING:
     from .communicator import Communicator
     from .constraints import Constraint
     from .context import Context
+    from .projection import ProjFn, ProjOut, SymbolicPoint
     from .solver import Strategy
     from .types import DTType
-
-ProjFunc = Callable[[Point], Point]
 
 
 class Operation(ABC):
@@ -291,14 +290,12 @@ class Task(Operation):
 
         num_all_scalars = num_unbound_outs + num_scalar_outs + num_scalar_reds
         launch_shape = Shape(c + 1 for c in launch_domain.hi)
+        assert num_scalar_outs == 0
 
         if num_all_scalars == 0:
             return
         elif num_all_scalars == 1:
-            if num_scalar_outs == 1:
-                output = self.outputs[self.scalar_outputs[0]]
-                output.set_storage(result)
-            elif num_scalar_reds == 1:
+            if num_scalar_reds == 1:
                 (output, redop) = self.reductions[self.scalar_reductions[0]]
                 redop_id = output.type.reduction_op_id(redop)
                 output.set_storage(runtime.reduce_future_map(result, redop_id))
@@ -323,13 +320,6 @@ class Task(Operation):
                 )
                 partition = Weighted(runtime, launch_shape, weights)
                 output.set_key_partition(partition)
-                idx += 1
-            for out_idx in self.scalar_outputs:
-                output = self.outputs[out_idx]
-                data = runtime.extract_scalar_with_domain(
-                    result, idx, launch_domain
-                )
-                output.set_storage(data)
                 idx += 1
             for red_idx in self.scalar_reductions:
                 (output, redop) = self.reductions[red_idx]
@@ -452,9 +442,9 @@ class ManualTask(Task):
     ) -> None:
         super().__init__(context, task_id, mapper_id, op_id)
         self._launch_domain: Rect = launch_domain
-        self._input_projs: list[Union[ProjFunc, None]] = []
-        self._output_projs: list[Union[ProjFunc, None]] = []
-        self._reduction_projs: list[Union[ProjFunc, None]] = []
+        self._input_projs: list[Union[ProjFn, None]] = []
+        self._output_projs: list[Union[ProjFn, None]] = []
+        self._reduction_projs: list[Union[ProjFn, None]] = []
 
         self._input_parts: list[StorePartition] = []  # type: ignore [assignment] # noqa: E501
         self._output_parts: list[StorePartition] = []  # type: ignore [assignment] # noqa: E501
@@ -477,7 +467,7 @@ class ManualTask(Task):
     def add_input(  # type: ignore [override]
         self,
         arg: Union[Store, StorePartition],
-        proj: Optional[ProjFunc] = None,
+        proj: Optional[ProjFn] = None,
     ) -> None:
         self._check_arg(arg)
         if isinstance(arg, Store):
@@ -489,7 +479,7 @@ class ManualTask(Task):
     def add_output(  # type: ignore [override]
         self,
         arg: Union[Store, StorePartition],
-        proj: Optional[ProjFunc] = None,
+        proj: Optional[ProjFn] = None,
     ) -> None:
         self._check_arg(arg)
         if isinstance(arg, Store):
@@ -509,7 +499,7 @@ class ManualTask(Task):
         self,
         arg: Union[Store, StorePartition],
         redop: int,
-        proj: Optional[ProjFunc] = None,
+        proj: Optional[ProjFn] = None,
     ) -> None:
         self._check_arg(arg)
         if isinstance(arg, Store):
@@ -756,7 +746,7 @@ class _RadixProj:
         self._radix = radix
         self._offset = offset
 
-    def __call__(self, p: tuple[int, ...]) -> tuple[int]:
+    def __call__(self, p: SymbolicPoint) -> ProjOut:
         return (p[0] * self._radix + self._offset,)
 
 

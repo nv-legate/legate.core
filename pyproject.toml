@@ -69,6 +69,5 @@ ignore_errors = false
 [[tool.mypy.overrides]]
 module = [
     "legate.core.solver",
-    "legate.core.store",
 ]
 ignore_errors = true

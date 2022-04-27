@@ -14,22 +14,18 @@
 #
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from .. import ffi, legion
 from .future import Future, FutureMap
 from .geometry import Point, Rect
-from .operation import Dispatchable
 from .partition import Partition
 from .pending import _pending_deletions
 from .region import Region
-from .util import FieldID, dispatch
+from .util import Dispatchable, FieldID, dispatch
 
 if TYPE_CHECKING:
     from . import FieldListLike, IndexSpace, OutputRegion
-
-
-T = TypeVar("T")
 
 
 class Task(Dispatchable[Future]):
