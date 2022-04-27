@@ -76,6 +76,8 @@ static void finalize_coll_cpu(const Legion::Task* task,
 
   assert(task->futures.size() == 1);
   collComm_t comm = task->futures[0].get_result<collComm_t>();
+  const int point = task->index_point[0];
+  assert(comm->global_rank == point);
   collCommDestroy(comm);
   free(comm);
   comm = NULL;
