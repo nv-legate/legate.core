@@ -50,16 +50,23 @@ typedef struct mapping_table_s {
 
 #else
 #include <stdbool.h>
-#define MAX_NB_THREADS 128
-#define BUFFER_SWAP_SIZE 2
 
-typedef struct local_buffer_s {
+#define MAX_NB_THREADS 128
+#define MAX_NB_COMMS 64
+
+typedef struct shared_buffer_s {
   const void* buffers[MAX_NB_THREADS];
   const int* displs[MAX_NB_THREADS];
   bool buffers_ready[MAX_NB_THREADS];
-} local_buffer_t;
+} shared_buffer_t;
 
-extern local_buffer_t local_buffer[BUFFER_SWAP_SIZE];
+typedef struct shared_data_s {
+  shared_buffer_t shared_buffer;
+  pthread_barrier_t barrier;
+  bool ready_flag;
+} shared_data_t;
+
+extern shared_data_t shared_data[MAX_NB_COMMS];
 
 typedef enum { 
   collInt8       = 0, collChar       = 0,
@@ -78,13 +85,13 @@ typedef struct Coll_Comm_s {
   MPI_Comm comm;
   mapping_table_t mapping_table;
 #else
-  volatile local_buffer_t *local_buffer;
-  int current_buffer_idx;
+  volatile shared_buffer_t *shared_buffer;
 #endif
   int mpi_rank;
   int mpi_comm_size;
   int global_rank;
   int global_comm_size;
+  int unique_id;
   bool status;
 } Coll_Comm;
 
@@ -94,7 +101,7 @@ typedef Coll_Comm* collComm_t;
 extern "C" {
 #endif
 
-int collCommCreate(collComm_t global_comm, int global_comm_size, int global_rank, const int *mapping_table);
+int collCommCreate(collComm_t global_comm, int global_comm_size, int global_rank, int unique_id, const int *mapping_table);
 
 int collCommDestroy(collComm_t global_comm);
 
@@ -121,9 +128,11 @@ int collBcast(void *buf, int count, collDataType_t type,
               int root,
               collComm_t global_comm);
 
-int collInit(int argc, char *argv[], int nb_threads=0);
+int collInit(int argc, char *argv[]);
 
 int collFinalize(void);
+
+int collGetUniqueId(int* id);
 
 #if defined (LEGATE_USE_GASNET)
 int collAlltoallvMPI(const void *sendbuf, const int sendcounts[],
@@ -167,7 +176,7 @@ int collAllgatherLocal(const void *sendbuf, int sendcount, collDataType_t sendty
 
 void collUpdateBuffer(collComm_t global_comm);
 
-void collBarrierLocal(void);
+void collBarrierLocal(collComm_t global_comm);
 #endif
 
 #ifdef __cplusplus

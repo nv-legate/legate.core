@@ -34,9 +34,8 @@ MPI_Datatype collFloat = MPI_FLOAT;
 MPI_Datatype collDouble = MPI_DOUBLE;
 #else
 #include <stdint.h>
-local_buffer_t local_buffer[BUFFER_SWAP_SIZE];
 
-static pthread_barrier_t local_barrier;
+shared_data_t shared_data[MAX_NB_COMMS];
 
 static bool coll_local_inited = false;
 
@@ -65,11 +64,14 @@ size_t get_dtype_size(collDataType_t dtype)
 } 
 #endif
 
-int collCommCreate(collComm_t global_comm, int global_comm_size, int global_rank, const int *mapping_table)
+static int current_unique_id;
+
+int collCommCreate(collComm_t global_comm, int global_comm_size, int global_rank, int unique_id, const int *mapping_table)
 {
   global_comm->global_comm_size = global_comm_size;
   global_comm->global_rank = global_rank;
   global_comm->status = true;
+  global_comm->unique_id = unique_id;
 #if defined(LEGATE_USE_GASNET)
   int mpi_rank, mpi_comm_size;
   MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
@@ -88,7 +90,13 @@ int collCommCreate(collComm_t global_comm, int global_comm_size, int global_rank
 #else
   global_comm->mpi_comm_size = 1;
   global_comm->mpi_rank = 0;
-  global_comm->current_buffer_idx = 0;
+  shared_data_t *data = &(shared_data[global_comm->unique_id]);
+  if (global_comm->global_rank == 0) {
+    pthread_barrier_init(&(data->barrier), NULL, global_comm->global_comm_size);
+    data->ready_flag = true;
+  }
+  __sync_synchronize();
+  while(data->ready_flag == false);
 #endif
   return collSuccess;
 }
@@ -104,6 +112,14 @@ int collCommDestroy(collComm_t global_comm)
     free(global_comm->mapping_table.mpi_rank);
     global_comm->mapping_table.mpi_rank = NULL;
   }
+#else
+  shared_data_t *data = &(shared_data[global_comm->unique_id]);
+  if (global_comm->global_rank == 0) {
+    pthread_barrier_destroy(&(data->barrier));
+    data->ready_flag = false;
+  }
+  __sync_synchronize();
+  while(data->ready_flag == true);
 #endif
   global_comm->status = false;
   return collSuccess;
@@ -115,15 +131,15 @@ int collAlltoallv(const void *sendbuf, const int sendcounts[],
                   const int rdispls[], collDataType_t recvtype, 
                   collComm_t global_comm)
 {
+  printf("Alltoallv: global_rank %d, mpi_rank %d, unique_id %d, comm_size %d\n", 
+         global_comm->global_rank, global_comm->mpi_rank, global_comm->unique_id, global_comm->global_comm_size);
 #if defined(LEGATE_USE_GASNET)
-  printf("MPI Alltoallv: global_rank %d, total_size %d\n", global_comm->global_rank, global_comm->global_comm_size);
   return collAlltoallvMPI(sendbuf, sendcounts,
                           sdispls, sendtype,
                           recvbuf, recvcounts,
                           rdispls, recvtype, 
                           global_comm);
 #else
-  printf("Local Alltoallv: global_rank %d, total_size %d, send_buf %p\n", global_comm->global_rank, global_comm->global_comm_size, sendbuf);
   return collAlltoallvLocal(sendbuf, sendcounts,
                             sdispls, sendtype,
                             recvbuf, recvcounts,
@@ -136,13 +152,13 @@ int collAlltoall(const void *sendbuf, int sendcount, collDataType_t sendtype,
                  void *recvbuf, int recvcount, collDataType_t recvtype, 
                  collComm_t global_comm)
 {
+  printf("Alltoall: global_rank %d, mpi_rank %d, unique_id %d, comm_size %d\n", 
+         global_comm->global_rank, global_comm->mpi_rank, global_comm->unique_id, global_comm->global_comm_size);
 #if defined(LEGATE_USE_GASNET)
-  printf("MPI Alltoall: global_rank %d, total_size %d\n", global_comm->global_rank, global_comm->global_comm_size);
   return collAlltoallMPI(sendbuf, sendcount, sendtype, 
                          recvbuf, recvcount, recvtype,
                          global_comm);
 #else
-  printf("Local Alltoall: global_rank %d, total_size %d, send_buf %p\n", global_comm->global_rank, global_comm->global_comm_size, sendbuf);
   return collAlltoallLocal(sendbuf, sendcount, sendtype, 
                            recvbuf, recvcount, recvtype,
                            global_comm);
@@ -155,13 +171,12 @@ int collGather(const void *sendbuf, int sendcount, collDataType_t sendtype,
                collComm_t global_comm)
 {
 #if defined(LEGATE_USE_GASNET)
-  printf("MPI Gather: global_rank %d, total_size %d\n", global_comm->global_rank, global_comm->global_comm_size);
   return collGatherMPI(sendbuf, sendcount, sendtype, 
                        recvbuf, recvcount, recvtype,
                        root,
                        global_comm);
 #else
-  printf("Local Gather: global_rank %d, total_size %d, send_buf %p\n", global_comm->global_rank, global_comm->global_comm_size, sendbuf);
+  printf("Not implemented\n");
   assert(0);
 #endif  
 }
@@ -170,13 +185,13 @@ int collAllgather(const void *sendbuf, int sendcount, collDataType_t sendtype,
                   void *recvbuf, int recvcount, collDataType_t recvtype, 
                   collComm_t global_comm)
 {
+  printf("Allgather: global_rank %d, mpi_rank %d, unique_id %d, comm_size %d\n", 
+         global_comm->global_rank, global_comm->mpi_rank, global_comm->unique_id, global_comm->global_comm_size);
 #if defined(LEGATE_USE_GASNET)
-  printf("MPI Allgather: global_rank %d, total_size %d\n", global_comm->global_rank, global_comm->global_comm_size);
   return collAllgatherMPI(sendbuf, sendcount, sendtype, 
                           recvbuf, recvcount, recvtype,
                           global_comm);
 #else
-  printf("Local Allgather: global_rank %d, total_size %d, send_buf %p\n", global_comm->global_rank, global_comm->global_comm_size, sendbuf);
   return collAllgatherLocal(sendbuf, sendcount, sendtype, 
                             recvbuf, recvcount, recvtype,
                             global_comm);
@@ -187,35 +202,36 @@ int collBcast(void *buf, int count, collDataType_t type,
               int root,
               collComm_t global_comm)
 {
+  printf("Bcast: global_rank %d, mpi_rank %d, unique_id %d, comm_size %d\n", 
+         global_comm->global_rank, global_comm->mpi_rank, global_comm->unique_id, global_comm->global_comm_size);
 #if defined(LEGATE_USE_GASNET)
-  printf("MPI Bcast: global_rank %d, total_size %d\n", global_comm->global_rank, global_comm->global_comm_size);
   return collBcast(buf, count, type, 
                    root,
                    global_comm);
 #else
-  printf("Local Bcast: global_rank %d, total_size %d, send_buf %p\n", global_comm->global_rank, global_comm->global_comm_size, buf);
+  printf("Not implemented\n");
   assert(0);
 #endif 
 }
 
 // called from main thread
-int collInit(int argc, char *argv[], int nb_threads)
+int collInit(int argc, char *argv[])
 {
+  current_unique_id = 0;
 #if defined(LEGATE_USE_GASNET)
   int provided;
   return MPI_Init_thread(&argc,&argv, MPI_THREAD_MULTIPLE, &provided);
 #else
-  assert(nb_threads > 0);
-  for (int i = 0; i < BUFFER_SWAP_SIZE; i++) {
-    local_buffer_t *buffer = &(local_buffer[i]);
+  for (int i = 0; i < MAX_NB_COMMS; i++) {
+    shared_data_t *data = &(shared_data[i]);
+    data->ready_flag = false;
+    shared_buffer_t *buffer = &(data->shared_buffer);
     for (int j = 0; j < MAX_NB_THREADS; j++) {
       buffer->buffers[j] = NULL;
       buffer->displs[j] = NULL;
       buffer->buffers_ready[j] = false;
     }
   }
-
-  pthread_barrier_init(&local_barrier, NULL, nb_threads);
 
   coll_local_inited = true;
   return collSuccess;
@@ -228,27 +244,35 @@ int collFinalize(void)
   return MPI_Finalize();
 #else
   assert(coll_local_inited == true);
-  pthread_barrier_destroy(&local_barrier);
   coll_local_inited = false;
   return collSuccess;
 #endif
+}
+
+int collGetUniqueId(int* id) 
+{
+  *id = current_unique_id;
+  current_unique_id ++;
+  current_unique_id %= 10;
+  return collSuccess;
 }
 
 #ifndef LEGATE_USE_GASNET
 void collUpdateBuffer(collComm_t global_comm)
 {
   int global_rank = global_comm->global_rank;
-  local_buffer[global_comm->current_buffer_idx].buffers_ready[global_rank] = false;
-  local_buffer[global_comm->current_buffer_idx].buffers[global_rank] = NULL;
-  local_buffer[global_comm->current_buffer_idx].displs[global_rank] = NULL;
-  global_comm->current_buffer_idx ++;
-  global_comm->current_buffer_idx %= BUFFER_SWAP_SIZE;
+  volatile shared_data_t *data = &(shared_data[global_comm->unique_id]);
+  volatile shared_buffer_t *shared_buffer = &(data->shared_buffer);
+  shared_buffer->buffers[global_rank] = NULL;
+  shared_buffer->displs[global_rank] = NULL;
+  shared_buffer->buffers_ready[global_rank] = false;
   // printf("rank %d, buffer idx %d\n", global_comm->global_rank, global_comm->current_buffer_idx);
 }
 
-void collBarrierLocal(void)
+void collBarrierLocal(collComm_t global_comm)
 {
   assert(coll_local_inited == true);
-  pthread_barrier_wait(&local_barrier);
+  shared_data_t *data = &(shared_data[global_comm->unique_id]);
+  pthread_barrier_wait(&(data->barrier));
 }
 #endif

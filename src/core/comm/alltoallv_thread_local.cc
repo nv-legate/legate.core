@@ -50,11 +50,12 @@ int collAlltoallvLocal(const void *sendbuf, const int sendcounts[],
   } else {
     sendbuf_tmp = const_cast<void*>(sendbuf);
   }
-
-  global_comm->local_buffer = &(local_buffer[global_comm->current_buffer_idx]);
-  global_comm->local_buffer->buffers[global_rank] = (void *)sendbuf_tmp;
-  global_comm->local_buffer->displs[global_rank] = (int *)sdispls;
-  global_comm->local_buffer->buffers_ready[global_rank] = true;
+  
+  volatile shared_data_t *data = &(shared_data[global_comm->unique_id]);
+  global_comm->shared_buffer = &(data->shared_buffer);
+  global_comm->shared_buffer->buffers[global_rank] = (void *)sendbuf_tmp;
+  global_comm->shared_buffer->displs[global_rank] = (int *)sdispls;
+  global_comm->shared_buffer->buffers_ready[global_rank] = true;
   __sync_synchronize();
 
   int recvfrom_global_rank;
@@ -63,9 +64,9 @@ int collAlltoallvLocal(const void *sendbuf, const int sendcounts[],
   int *displs = NULL;
 	for(int i = 1 ; i < total_size + 1; i++) {
     recvfrom_global_rank = (global_rank + total_size - i) % total_size;
-    while (global_comm->local_buffer->buffers_ready[recvfrom_global_rank] != true);
-    src_base = const_cast<void*>(global_comm->local_buffer->buffers[recvfrom_global_rank]);
-    displs = const_cast<int*>(global_comm->local_buffer->displs[recvfrom_global_rank]);
+    while (global_comm->shared_buffer->buffers_ready[recvfrom_global_rank] != true);
+    src_base = const_cast<void*>(global_comm->shared_buffer->buffers[recvfrom_global_rank]);
+    displs = const_cast<int*>(global_comm->shared_buffer->displs[recvfrom_global_rank]);
     char *src = (char*)src_base + (ptrdiff_t)displs[recvfrom_seg_id] * sendtype_extent;
     char *dst = (char*)recvbuf + (ptrdiff_t)rdispls[recvfrom_global_rank] * recvtype_extent;
 #ifdef DEBUG_PRINT
@@ -76,7 +77,7 @@ int collAlltoallvLocal(const void *sendbuf, const int sendcounts[],
     memcpy(dst, src, recvcounts[recvfrom_global_rank] * recvtype_extent);
 	}
 
-  collBarrierLocal();
+  collBarrierLocal(global_comm);
   if (sendbuf == recvbuf) {
     free(sendbuf_tmp);
   }

@@ -65,8 +65,8 @@ int collAlltoallvMPI(const void *sendbuf, const int sendcounts[],
     assert(sendto_global_rank == global_comm->mapping_table.global_rank[sendto_global_rank]);
     assert(recvfrom_global_rank == global_comm->mapping_table.global_rank[recvfrom_global_rank]);
     // tag: seg idx + rank_idx + tag
-    int send_tag = (sendto_global_rank * 10000 + global_rank) * 10 + ALLTOALLV_TAG; // which dst seg it sends to (in dst rank)
-    int recv_tag = (global_rank * 10000 + recvfrom_global_rank) * 10 + ALLTOALLV_TAG; // idx of current seg we are receving (in src/my rank)
+    int send_tag = ((sendto_global_rank * 10000 + global_rank) * 10 + ALLTOALLV_TAG) * 10 + global_comm->unique_id; // which dst seg it sends to (in dst rank)
+    int recv_tag = ((global_rank * 10000 + recvfrom_global_rank) * 10 + ALLTOALLV_TAG) * 10 + global_comm->unique_id; // idx of current seg we are receving (in src/my rank)
 #ifdef DEBUG_PRINT
     printf("i: %d === global_rank %d, mpi rank %d, send %d to %d, send_tag %d, recv %d from %d, recv_tag %d\n", 
       i, global_rank, global_comm->mpi_rank, 

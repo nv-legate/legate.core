@@ -48,16 +48,17 @@ int collAllgatherLocal(const void *sendbuf, int sendcount, collDataType_t sendty
     sendbuf_tmp = const_cast<void*>(sendbuf);
   }
 
-  global_comm->local_buffer = &(local_buffer[global_comm->current_buffer_idx]);
-  global_comm->local_buffer->buffers[global_rank] = sendbuf_tmp;
-  global_comm->local_buffer->buffers_ready[global_rank] = true;
+  volatile shared_data_t *data = &(shared_data[global_comm->unique_id]);
+  global_comm->shared_buffer = &(data->shared_buffer);
+  global_comm->shared_buffer->buffers[global_rank] = sendbuf_tmp;
+  global_comm->shared_buffer->buffers_ready[global_rank] = true;
   __sync_synchronize();
 
   int recvfrom_global_rank;
 	for(int i = 0 ; i < total_size; i++) {
     recvfrom_global_rank = i;
-    while (global_comm->local_buffer->buffers_ready[recvfrom_global_rank] != true);
-    char* src = (char*)global_comm->local_buffer->buffers[recvfrom_global_rank];
+    while (global_comm->shared_buffer->buffers_ready[recvfrom_global_rank] != true);
+    char* src = (char*)global_comm->shared_buffer->buffers[recvfrom_global_rank];
     char* dst = (char*)recvbuf + (ptrdiff_t)recvfrom_global_rank * recvtype_extent * recvcount;
 #ifdef DEBUG_PRINT
     printf("i: %d === global_rank %d, dtype %d, copy rank %d (%p) to rank %d (%p)\n", 
@@ -66,7 +67,7 @@ int collAllgatherLocal(const void *sendbuf, int sendcount, collDataType_t sendty
     memcpy(dst, src, sendcount * sendtype_extent);
 	}
 
-  collBarrierLocal();
+  collBarrierLocal(global_comm);
   if (sendbuf == recvbuf) {
     free(sendbuf_tmp);
   }
