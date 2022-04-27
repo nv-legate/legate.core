@@ -237,6 +237,10 @@ int collFinalize(void)
 #ifndef LEGATE_USE_GASNET
 void collUpdateBuffer(collComm_t global_comm)
 {
+  int global_rank = global_comm->global_rank;
+  local_buffer[global_comm->current_buffer_idx].buffers_ready[global_rank] = false;
+  local_buffer[global_comm->current_buffer_idx].buffers[global_rank] = NULL;
+  local_buffer[global_comm->current_buffer_idx].displs[global_rank] = NULL;
   global_comm->current_buffer_idx ++;
   global_comm->current_buffer_idx %= BUFFER_SWAP_SIZE;
   // printf("rank %d, buffer idx %d\n", global_comm->global_rank, global_comm->current_buffer_idx);
