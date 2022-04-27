@@ -39,7 +39,7 @@ from . import (
     legion,
     types as ty,
 )
-from .communicator import NCCLCommunicator
+from .communicator import NCCLCommunicator, CPUCommunicator
 from .context import Context
 from .corelib import core_library
 from .launcher import TaskLauncher
@@ -733,12 +733,17 @@ class CommunicatorManager:
     def __init__(self, runtime: Runtime):
         self._runtime = runtime
         self._nccl = NCCLCommunicator(runtime)
+        self._cpu = CPUCommunicator(runtime)
 
     def destroy(self) -> None:
         self._nccl.destroy()
+        self._cpu.destroy()
 
     def get_nccl_communicator(self) -> Communicator:
         return self._nccl
+
+    def get_cpu_communicator(self) -> Communicator:
+        return self._cpu
 
 
 class Runtime:
@@ -1212,6 +1217,9 @@ class Runtime:
 
     def get_nccl_communicator(self) -> Communicator:
         return self._comm_manager.get_nccl_communicator()
+
+    def get_cpu_communicator(self) -> Communicator:
+        return self._comm_manager.get_cpu_communicator()
 
     def delinearize_future_map(self, future_map, new_domain) -> FutureMap:
         new_domain = self.find_or_create_index_space(new_domain)
