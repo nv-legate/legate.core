@@ -65,9 +65,3 @@ module = [
     "legate.*",
 ]
 ignore_errors = false
-
-[[tool.mypy.overrides]]
-module = [
-    "legate.core.solver",
-]
-ignore_errors = true

@@ -123,6 +123,7 @@ class Shift(Transform):
     def invert(self, partition: PartitionBase) -> PartitionBase:
         if isinstance(partition, Tiling):
             offset = partition.offset[self._dim] - self._offset
+            assert partition.color_shape is not None
             return Tiling(
                 self._runtime,
                 partition.tile_shape,
@@ -152,6 +153,7 @@ class Shift(Transform):
     def convert(self, partition: PartitionBase) -> PartitionBase:
         if isinstance(partition, Tiling):
             offset = partition.offset[self._dim] + self._offset
+            assert partition.color_shape is not None
             return Tiling(
                 self._runtime,
                 partition.tile_shape,
@@ -214,6 +216,7 @@ class Promote(Transform):
 
     def invert(self, partition: PartitionBase) -> PartitionBase:
         if isinstance(partition, Tiling):
+            assert partition.color_shape is not None
             return Tiling(
                 self._runtime,
                 partition.tile_shape.drop(self._extra_dim),
@@ -244,6 +247,7 @@ class Promote(Transform):
 
     def convert(self, partition: PartitionBase) -> PartitionBase:
         if isinstance(partition, Tiling):
+            assert partition.color_shape is not None
             return Tiling(
                 self._runtime,
                 partition.tile_shape.insert(self._extra_dim, self._dim_size),
@@ -309,6 +313,7 @@ class Project(Transform):
 
     def invert(self, partition: PartitionBase) -> PartitionBase:
         if isinstance(partition, Tiling):
+            assert partition.color_shape is not None
             return Tiling(
                 self._runtime,
                 partition.tile_shape.insert(self._dim, 1),
@@ -340,6 +345,7 @@ class Project(Transform):
 
     def convert(self, partition: PartitionBase) -> PartitionBase:
         if isinstance(partition, Tiling):
+            assert partition.color_shape is not None
             return Tiling(
                 self._runtime,
                 partition.tile_shape.drop(self._dim),
@@ -404,6 +410,7 @@ class Transpose(Transform):
 
     def invert(self, partition: PartitionBase) -> PartitionBase:
         if isinstance(partition, Tiling):
+            assert partition.color_shape is not None
             return Tiling(
                 self._runtime,
                 partition.tile_shape.map(self._inverse),
@@ -432,6 +439,7 @@ class Transpose(Transform):
 
     def convert(self, partition: PartitionBase) -> PartitionBase:
         if isinstance(partition, Tiling):
+            assert partition.color_shape is not None
             return Tiling(
                 self._runtime,
                 partition.tile_shape.map(self._axes),
@@ -492,6 +500,7 @@ class Delinearize(Transform):
 
     def invert(self, partition: PartitionBase) -> PartitionBase:
         if isinstance(partition, Tiling):
+            assert partition.color_shape is not None
             color_shape = partition.color_shape[
                 self._dim + 1 : self._dim + self._shape.ndim
             ]

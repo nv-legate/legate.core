@@ -43,6 +43,10 @@ class Restriction(IntEnum):
 
 class PartitionBase(ABC):
     @abstractproperty
+    def color_shape(self) -> Optional[Shape]:
+        ...
+
+    @abstractproperty
     def even(self) -> bool:
         ...
 
@@ -57,7 +61,7 @@ class PartitionBase(ABC):
         ...
 
     @abstractmethod
-    def is_disjoint_for(self, launch_domain: Rect) -> bool:
+    def is_disjoint_for(self, launch_domain: Optional[Rect]) -> bool:
         ...
 
     @abstractmethod
@@ -77,7 +81,7 @@ class PartitionBase(ABC):
 
 class Replicate(PartitionBase):
     @property
-    def color_shape(self) -> None:
+    def color_shape(self) -> Optional[Shape]:
         return None
 
     @property
@@ -91,7 +95,7 @@ class Replicate(PartitionBase):
     def is_complete_for(self, extents: Shape, offsets: Shape) -> bool:
         return True
 
-    def is_disjoint_for(self, launch_domain: Rect) -> bool:
+    def is_disjoint_for(self, launch_domain: Optional[Rect]) -> bool:
         return launch_domain is None
 
     def __hash__(self) -> int:
@@ -172,7 +176,7 @@ class Tiling(PartitionBase):
         return self._tile_shape
 
     @property
-    def color_shape(self) -> Shape:
+    def color_shape(self) -> Optional[Shape]:
         return self._color_shape
 
     @property
@@ -220,19 +224,22 @@ class Tiling(PartitionBase):
         for dim, restriction in enumerate(restrictions):
             if (
                 restriction == Restriction.RESTRICTED
-                and self.color_shape[dim] > 1
+                and self._color_shape[dim] > 1
             ):
                 return False
         return True
 
     def is_complete_for(self, extents: Shape, offsets: Shape) -> bool:
         my_lo = self._offset
-        my_hi = self._offset + self.tile_shape * self.color_shape
+        my_hi = self._offset + self.tile_shape * self._color_shape
 
         return my_lo <= offsets and offsets + extents <= my_hi
 
-    def is_disjoint_for(self, launch_domain: Rect) -> bool:
-        return launch_domain.get_volume() <= self.color_shape.volume()
+    def is_disjoint_for(self, launch_domain: Optional[Rect]) -> bool:
+        return (
+            launch_domain is None
+            or launch_domain.get_volume() <= self._color_shape.volume()
+        )
 
     def has_color(self, color: Shape) -> bool:
         return color >= 0 and color < self._color_shape
@@ -296,7 +303,7 @@ class Tiling(PartitionBase):
             extent = Rect(hi, lo, exclusive=False)
 
             color_space = self._runtime.find_or_create_index_space(
-                self.color_shape
+                self._color_shape
             )
             functor = PartitionByRestriction(transform, extent)
             if complete:
@@ -337,7 +344,7 @@ class Weighted(PartitionBase):
         return self._runtime
 
     @property
-    def color_shape(self) -> Shape:
+    def color_shape(self) -> Optional[Shape]:
         return self._color_shape
 
     @property
@@ -384,7 +391,7 @@ class Weighted(PartitionBase):
         # Weighted partition is complete by definition
         return True
 
-    def is_disjoint_for(self, launch_domain: Rect) -> bool:
+    def is_disjoint_for(self, launch_domain: Optional[Rect]) -> bool:
         # Weighted partition is disjoint by definition
         return True
 
@@ -406,7 +413,7 @@ class Weighted(PartitionBase):
         index_partition = self._runtime.find_partition(index_space, self)
         if index_partition is None:
             color_space = self._runtime.find_or_create_index_space(
-                self.color_shape
+                self._color_shape
             )
             functor = PartitionByWeights(self._weights)
             kind = legion.LEGION_DISJOINT_COMPLETE_KIND

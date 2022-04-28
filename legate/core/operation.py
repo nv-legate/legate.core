@@ -772,10 +772,12 @@ class Reduce(Task):
         opart = output.partition(strategy.get_partition(self._input_parts[0]))
 
         done = False
-        launch_domain = strategy.launch_domain if strategy.parallel else None
-        fan_in = (
-            strategy.launch_domain.get_volume() if strategy.parallel else 1
-        )
+        launch_domain = None
+        fan_in = 1
+        if strategy.parallel:
+            assert strategy.launch_domain is not None
+            launch_domain = strategy.launch_domain
+            fan_in = launch_domain.get_volume()
 
         proj_fns = list(
             _RadixProj(self._radix, off) for off in range(self._radix)

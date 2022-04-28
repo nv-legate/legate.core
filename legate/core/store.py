@@ -516,7 +516,7 @@ class StoragePartition:
             self._partition, self._complete
         )
 
-    def is_disjoint_for(self, launch_domain: Rect) -> bool:
+    def is_disjoint_for(self, launch_domain: Optional[Rect]) -> bool:
         return self._partition.is_disjoint_for(launch_domain)
 
 
@@ -864,7 +864,7 @@ class StorePartition:
             proj_id = 0
         return self._partition.requirement(part, proj_id)
 
-    def is_disjoint_for(self, launch_domain: Rect) -> bool:
+    def is_disjoint_for(self, launch_domain: Optional[Rect]) -> bool:
         return self._storage_partition.is_disjoint_for(launch_domain)
 
 
@@ -1245,7 +1245,7 @@ class Store:
 
     def compute_key_partition(
         self, restrictions: tuple[Restriction, ...]
-    ) -> Optional[PartitionBase]:
+    ) -> PartitionBase:
         if (
             self._key_partition is not None
             and self._key_partition.satisfies_restriction(restrictions)
