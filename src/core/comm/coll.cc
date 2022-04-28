@@ -98,6 +98,11 @@ int collCommCreate(collComm_t global_comm, int global_comm_size, int global_rank
   __sync_synchronize();
   while(data->ready_flag == false);
 #endif
+  if (global_comm->global_comm_size % global_comm->mpi_comm_size == 0) {
+    global_comm->nb_threads = global_comm->global_comm_size / global_comm->mpi_comm_size;
+  } else {
+    global_comm->nb_threads = global_comm->global_comm_size / global_comm->mpi_comm_size + 1;
+  }
   return collSuccess;
 }
 
