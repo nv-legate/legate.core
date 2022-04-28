@@ -40,7 +40,7 @@ int collBcastMPI(void *buf, int count, collDataType_t type,
   
   // non-root
   if (global_rank != root) {
-    tag = (global_rank * 10 + BCAST_TAG) * 10 + global_comm->unique_id;
+    tag = collGenerateBcastTag(global_rank, global_comm);
 #ifdef DEBUG_PRINT
     printf("Bcast Recv global_rank %d, mpi rank %d, send to %d (%d), tag %d\n", 
            global_rank, global_comm->mpi_rank, 
@@ -54,7 +54,7 @@ int collBcastMPI(void *buf, int count, collDataType_t type,
 	for(int i = 0 ; i < total_size; i++) {
     sendto_mpi_rank = global_comm->mapping_table.mpi_rank[i];
     assert(i == global_comm->mapping_table.global_rank[i]);
-    tag = (i * 10 + BCAST_TAG) * 10 + global_comm->unique_id;
+    tag = collGenerateBcastTag(i, global_comm);
 #ifdef DEBUG_PRINT
     printf("Bcast i: %d === global_rank %d, mpi rank %d, send to %d (%d), tag %d\n", 
            i, global_rank, global_comm->mpi_rank, 

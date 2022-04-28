@@ -26,10 +26,13 @@
 
 #if defined (LEGATE_USE_GASNET)
 #include <mpi.h>
+
 #define BCAST_TAG     0
 #define GATHER_TAG    1
 #define ALLTOALL_TAG  2
 #define ALLTOALLV_TAG 3
+
+#define MAX_COLL_TYPES 10
 
 typedef MPI_Datatype collDataType_t;
 // TODO: fix it
@@ -158,6 +161,14 @@ int collAllgatherMPI(const void *sendbuf, int sendcount, collDataType_t sendtype
 int collBcastMPI(void *buf, int count, collDataType_t type, 
                  int root,
                  collComm_t global_comm);
+
+int collGenerateAlltoallTag(int rank1, int rank2, collComm_t global_comm);
+
+int collGenerateAlltoallvTag(int rank1, int rank2, collComm_t global_comm);
+
+int collGenerateBcastTag(int rank, collComm_t global_comm);
+
+int collGenerateGatherTag(int rank, collComm_t global_comm);
 #else
 size_t get_dtype_size(collDataType_t dtype);
 
