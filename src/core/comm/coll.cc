@@ -18,6 +18,7 @@
 #include <assert.h>
 #include <string.h>
 #include <cstdlib>
+#include <limits.h>
 #include <pthread.h>
 
 #include "coll.h"
@@ -273,6 +274,7 @@ int collGenerateAlltoallTag(int rank1, int rank2, collComm_t global_comm)
 #else
   int tag = ((rank1 % global_comm->nb_threads * 10000 + rank2) * MAX_COLL_TYPES + ALLTOALL_TAG) * 10 + global_comm->unique_id;
 #endif
+  assert(tag < INT_MAX && tag > 0);
   return tag;
 }
 
@@ -286,18 +288,21 @@ int collGenerateAlltoallvTag(int rank1, int rank2, collComm_t global_comm)
 #else
   int tag = ((rank1 % global_comm->nb_threads * 10000 + rank2) * MAX_COLL_TYPES + ALLTOALLV_TAG) * 10 + global_comm->unique_id;
 #endif
+  assert(tag < INT_MAX && tag > 0);
   return tag;
 }
 
 int collGenerateBcastTag(int rank, collComm_t global_comm)
 {
  int tag = (rank * MAX_COLL_TYPES + BCAST_TAG) * 10 + global_comm->unique_id;
+ assert(tag < INT_MAX && tag >= 0);
  return tag;
 }
 
 int collGenerateGatherTag(int rank, collComm_t global_comm)
 {
   int tag = (rank * MAX_COLL_TYPES + GATHER_TAG) * 10 + global_comm->unique_id;
+  assert(tag < INT_MAX && tag > 0);
   return tag;
 }
 
