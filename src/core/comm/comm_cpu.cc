@@ -68,7 +68,7 @@ static collComm_t init_cpucoll(const Legion::Task* task,
   const int point = task->index_point[0];
   int num_ranks = task->index_domain.get_volume();
 
-  assert(task->futures.size() == static_cast<size_t>(num_ranks+1));
+  assert(task->futures.size() == static_cast<size_t>(num_ranks + 1));
   const int* unique_id = (const int*)task->futures[0].get_buffer(Memory::SYSTEM_MEM);
   
  #if defined (LEGATE_USE_GASNET)
