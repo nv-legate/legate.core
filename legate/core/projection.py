@@ -111,7 +111,7 @@ def execute_functor_symbolically(
     return point
 
 
-def is_identity_projection(src_ndims: int, dims: tuple[ProjExpr, ...]) -> bool:
+def is_identity_projection(src_ndims: int, dims: SymbolicPoint) -> bool:
     return src_ndims == len(dims) and all(
         isinstance(coord, ProjExpr) and coord.is_identity(dim)
         for dim, coord in enumerate(dims)
