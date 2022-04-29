@@ -63,11 +63,7 @@ class OrderedSet(MutableSet[T]):
         return iter(self._dict)
 
     def remove_all(self, other: OrderedSet[T]) -> OrderedSet[T]:
-        result: OrderedSet[T] = OrderedSet()
-        for obj in self:
-            if obj not in other:
-                result.add(obj)
-        return result
+        return OrderedSet(obj for obj in self if obj not in other)
 
 
 def cast_tuple(value: Any) -> tuple[Any, ...]:
