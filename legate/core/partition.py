@@ -41,6 +41,9 @@ class Restriction(IntEnum):
     UNRESTRICTED = 1
 
 
+RequirementType = Union[Type[Broadcast], Type[Partition]]
+
+
 class PartitionBase(ABC):
     @abstractproperty
     def color_shape(self) -> Optional[Shape]:
@@ -75,7 +78,7 @@ class PartitionBase(ABC):
         ...
 
     @abstractproperty
-    def requirement(self) -> Union[Type[Broadcast], Type[Partition]]:
+    def requirement(self) -> RequirementType:
         ...
 
 
@@ -89,7 +92,7 @@ class Replicate(PartitionBase):
         return True
 
     @property
-    def requirement(self) -> Union[Type[Broadcast], Type[Partition]]:
+    def requirement(self) -> RequirementType:
         return Broadcast
 
     def is_complete_for(self, extents: Shape, offsets: Shape) -> bool:
@@ -184,7 +187,7 @@ class Tiling(PartitionBase):
         return True
 
     @property
-    def requirement(self) -> Union[Type[Broadcast], Type[Partition]]:
+    def requirement(self) -> RequirementType:
         return Partition
 
     @property
@@ -352,7 +355,7 @@ class Weighted(PartitionBase):
         return False
 
     @property
-    def requirement(self) -> Union[Type[Broadcast], Type[Partition]]:
+    def requirement(self) -> RequirementType:
         return Partition
 
     def __hash__(self) -> int:
