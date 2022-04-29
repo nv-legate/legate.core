@@ -276,7 +276,11 @@ int collGetUniqueId(int* id)
 {
   *id = current_unique_id;
   current_unique_id++;
+#if defined(LEGATE_USE_GASNET)
   current_unique_id = current_unique_id % 10;
+#else
+  assert(current_unique_id <= MAX_NB_COMMS);
+#endif
   return collSuccess;
 }
 
