@@ -14,19 +14,23 @@
  *
  */
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
 #include <string.h>
 
 #include "coll.h"
- 
-int collAlltoallvLocal(const void *sendbuf, const int sendcounts[],
-                       const int sdispls[], collDataType_t sendtype,
-                       void *recvbuf, const int recvcounts[],
-                       const int rdispls[], collDataType_t recvtype, 
+
+int collAlltoallvLocal(const void* sendbuf,
+                       const int sendcounts[],
+                       const int sdispls[],
+                       collDataType_t sendtype,
+                       void* recvbuf,
+                       const int recvcounts[],
+                       const int rdispls[],
+                       collDataType_t recvtype,
                        collComm_t global_comm)
-{	
+{
   int res;
 
   assert(sendtype == recvtype);
@@ -35,52 +39,63 @@ int collAlltoallvLocal(const void *sendbuf, const int sendcounts[],
 
   int sendtype_extent = get_dtype_size(sendtype);
   int recvtype_extent = get_dtype_size(recvtype);
- 
+
   int global_rank = global_comm->global_rank;
 
-  void *sendbuf_tmp = NULL;
+  void* sendbuf_tmp = NULL;
 
   // MPI_IN_PLACE
   if (sendbuf == recvbuf) {
-    int total_send_count = sdispls[total_size-1] + sendcounts[total_size-1];
-    sendbuf_tmp = (void *)malloc(sendtype_extent * total_send_count);
+    int total_send_count = sdispls[total_size - 1] + sendcounts[total_size - 1];
+    sendbuf_tmp          = (void*)malloc(sendtype_extent * total_send_count);
     memcpy(sendbuf_tmp, recvbuf, sendtype_extent * total_send_count);
     // int * sendval = (int*)sendbuf_tmp;
-    // printf("malloc %p, size %ld, [%d]\n", sendbuf_tmp, sendtype_extent * total_send_count, sendval[0]);
+    // printf("malloc %p, size %ld, [%d]\n", sendbuf_tmp, sendtype_extent * total_send_count,
+    // sendval[0]);
   } else {
     sendbuf_tmp = const_cast<void*>(sendbuf);
   }
-  
-  volatile shared_data_t *data = &(shared_data[global_comm->unique_id]);
-  global_comm->shared_buffer = &(data->shared_buffer);
-  global_comm->shared_buffer->buffers[global_rank] = (void *)sendbuf_tmp;
-  global_comm->shared_buffer->displs[global_rank] = (int *)sdispls;
+
+  volatile shared_data_t* data                           = &(shared_data[global_comm->unique_id]);
+  global_comm->shared_buffer                             = &(data->shared_buffer);
+  global_comm->shared_buffer->buffers[global_rank]       = (void*)sendbuf_tmp;
+  global_comm->shared_buffer->displs[global_rank]        = (int*)sdispls;
   global_comm->shared_buffer->buffers_ready[global_rank] = true;
   __sync_synchronize();
 
   int recvfrom_global_rank;
   int recvfrom_seg_id = global_rank;
-  void *src_base = NULL;
-  int *displs = NULL;
-	for(int i = 1 ; i < total_size + 1; i++) {
+  void* src_base      = NULL;
+  int* displs         = NULL;
+  for (int i = 1; i < total_size + 1; i++) {
     recvfrom_global_rank = (global_rank + total_size - i) % total_size;
-    while (global_comm->shared_buffer->buffers_ready[recvfrom_global_rank] != true);
-    src_base = const_cast<void*>(global_comm->shared_buffer->buffers[recvfrom_global_rank]);
-    displs = const_cast<int*>(global_comm->shared_buffer->displs[recvfrom_global_rank]);
-    char *src = (char*)src_base + (ptrdiff_t)displs[recvfrom_seg_id] * sendtype_extent;
-    char *dst = (char*)recvbuf + (ptrdiff_t)rdispls[recvfrom_global_rank] * recvtype_extent;
+    while (global_comm->shared_buffer->buffers_ready[recvfrom_global_rank] != true)
+      ;
+    src_base  = const_cast<void*>(global_comm->shared_buffer->buffers[recvfrom_global_rank]);
+    displs    = const_cast<int*>(global_comm->shared_buffer->displs[recvfrom_global_rank]);
+    char* src = (char*)src_base + (ptrdiff_t)displs[recvfrom_seg_id] * sendtype_extent;
+    char* dst = (char*)recvbuf + (ptrdiff_t)rdispls[recvfrom_global_rank] * recvtype_extent;
 #ifdef DEBUG_PRINT
-    printf("i: %d === global_rank %d, dtype %d, copy rank %d (seg %d, sdispls %d, %p) to rank %d (seg %d, rdispls %d, %p)\n", 
-      i, global_rank, sendtype_extent, recvfrom_global_rank, recvfrom_seg_id, sdispls[recvfrom_seg_id], src, 
-      global_rank, recvfrom_global_rank, rdispls[recvfrom_global_rank], dst);
+    printf(
+      "i: %d === global_rank %d, dtype %d, copy rank %d (seg %d, sdispls %d, %p) to rank %d (seg "
+      "%d, rdispls %d, %p)\n",
+      i,
+      global_rank,
+      sendtype_extent,
+      recvfrom_global_rank,
+      recvfrom_seg_id,
+      sdispls[recvfrom_seg_id],
+      src,
+      global_rank,
+      recvfrom_global_rank,
+      rdispls[recvfrom_global_rank],
+      dst);
 #endif
     memcpy(dst, src, recvcounts[recvfrom_global_rank] * recvtype_extent);
-	}
+  }
 
   collBarrierLocal(global_comm);
-  if (sendbuf == recvbuf) {
-    free(sendbuf_tmp);
-  }
+  if (sendbuf == recvbuf) { free(sendbuf_tmp); }
 
   __sync_synchronize();
 

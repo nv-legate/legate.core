@@ -49,7 +49,7 @@ static int init_cpucoll_mapping(const Legion::Task* task,
 
   Core::show_progress(task, context, runtime, task->get_task_name());
   int mpi_rank = 0;
-#if defined (LEGATE_USE_GASNET)
+#if defined(LEGATE_USE_GASNET)
   MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
 #endif
 
@@ -66,15 +66,16 @@ static collComm_t init_cpucoll(const Legion::Task* task,
   Core::show_progress(task, context, runtime, task->get_task_name());
 
   const int point = task->index_point[0];
-  int num_ranks = task->index_domain.get_volume();
+  int num_ranks   = task->index_domain.get_volume();
 
   assert(task->futures.size() == static_cast<size_t>(num_ranks + 1));
   const int* unique_id = (const int*)task->futures[0].get_buffer(Memory::SYSTEM_MEM);
-  
- #if defined (LEGATE_USE_GASNET)
-  int *mapping_table = (int *)malloc(sizeof(int) * num_ranks);
+
+#if defined(LEGATE_USE_GASNET)
+  int* mapping_table = (int*)malloc(sizeof(int) * num_ranks);
   for (int i = 0; i < num_ranks; i++) {
-    const int* mapping_table_element = (const int*)task->futures[i+1].get_buffer(Memory::SYSTEM_MEM);
+    const int* mapping_table_element =
+      (const int*)task->futures[i + 1].get_buffer(Memory::SYSTEM_MEM);
     mapping_table[i] = *mapping_table_element;
   }
 
@@ -112,9 +113,9 @@ void register_tasks(Legion::Machine machine,
                     Legion::Runtime* runtime,
                     const LibraryContext& context)
 {
-  const InputArgs &command_args = Legion::Runtime::get_input_args();
-  int argc = command_args.argc;
-  char **argv = command_args.argv;
+  const InputArgs& command_args = Legion::Runtime::get_input_args();
+  int argc                      = command_args.argc;
+  char** argv                   = command_args.argv;
   collInit(argc, argv);
 
   const TaskID init_cpucoll_id_task_id  = context.get_task_id(LEGATE_CORE_INIT_CPUCOLL_ID_TASK_ID);
@@ -122,17 +123,20 @@ void register_tasks(Legion::Machine machine,
   runtime->attach_name(
     init_cpucoll_id_task_id, init_cpucoll_id_task_name, false /*mutable*/, true /*local only*/);
 
-  const TaskID init_cpucoll_mapping_task_id  = context.get_task_id(LEGATE_CORE_INIT_CPUCOLL_MAPPING_TASK_ID);
+  const TaskID init_cpucoll_mapping_task_id =
+    context.get_task_id(LEGATE_CORE_INIT_CPUCOLL_MAPPING_TASK_ID);
   const char* init_cpucoll_mapping_task_name = "core::comm::cpu::init_mapping";
-  runtime->attach_name(
-    init_cpucoll_mapping_task_id, init_cpucoll_mapping_task_name, false /*mutable*/, true /*local only*/);
+  runtime->attach_name(init_cpucoll_mapping_task_id,
+                       init_cpucoll_mapping_task_name,
+                       false /*mutable*/,
+                       true /*local only*/);
 
   const TaskID init_cpucoll_task_id  = context.get_task_id(LEGATE_CORE_INIT_CPUCOLL_TASK_ID);
   const char* init_cpucoll_task_name = "core::comm::cpu::init";
   runtime->attach_name(
     init_cpucoll_task_id, init_cpucoll_task_name, false /*mutable*/, true /*local only*/);
 
-  const TaskID finalize_cpucoll_task_id  = context.get_task_id(LEGATE_CORE_FINALIZE_CPUCOLL_TASK_ID);
+  const TaskID finalize_cpucoll_task_id = context.get_task_id(LEGATE_CORE_FINALIZE_CPUCOLL_TASK_ID);
   const char* finalize_cpucoll_task_name = "core::comm::cpu::finalize";
   runtime->attach_name(
     finalize_cpucoll_task_id, finalize_cpucoll_task_name, false /*mutable*/, true /*local only*/);
@@ -152,12 +156,13 @@ void register_tasks(Legion::Machine machine,
     runtime->register_task_variant<int, init_cpucoll_id>(registrar, LEGATE_CPU_VARIANT);
   }
   {
-    auto registrar =
-      make_registrar(init_cpucoll_mapping_task_id, init_cpucoll_mapping_task_name, Processor::LOC_PROC);
+    auto registrar = make_registrar(
+      init_cpucoll_mapping_task_id, init_cpucoll_mapping_task_name, Processor::LOC_PROC);
     runtime->register_task_variant<int, init_cpucoll_mapping>(registrar, LEGATE_CPU_VARIANT);
   }
   {
-    auto registrar = make_registrar(init_cpucoll_task_id, init_cpucoll_task_name, Processor::LOC_PROC);
+    auto registrar =
+      make_registrar(init_cpucoll_task_id, init_cpucoll_task_name, Processor::LOC_PROC);
     runtime->register_task_variant<collComm_t, init_cpucoll>(registrar, LEGATE_CPU_VARIANT);
   }
   {

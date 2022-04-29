@@ -17,7 +17,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
-from . import FutureMap, Rect, Point
+from . import FutureMap, Point, Rect
 from .launcher import TaskLauncher as Task
 
 if TYPE_CHECKING:
@@ -103,14 +103,19 @@ class CPUCommunicator(Communicator):
         library = runtime.core_library
 
         self._init_cpucoll_id = library.LEGATE_CORE_INIT_CPUCOLL_ID_TASK_ID
-        self._init_cpucoll_mapping = library.LEGATE_CORE_INIT_CPUCOLL_MAPPING_TASK_ID
+        self._init_cpucoll_mapping = (
+            library.LEGATE_CORE_INIT_CPUCOLL_MAPPING_TASK_ID
+        )
         self._init_cpucoll = library.LEGATE_CORE_INIT_CPUCOLL_TASK_ID
         self._finalize_cpucoll = library.LEGATE_CORE_FINALIZE_CPUCOLL_TASK_ID
         self._tag = library.LEGATE_CPU_VARIANT
 
     def _initialize(self, volume):
         task = Task(
-            self._context, self._init_cpucoll_id, tag=self._tag, side_effect=True
+            self._context,
+            self._init_cpucoll_id,
+            tag=self._tag,
+            side_effect=True,
         )
         cpucoll_id = task.execute_single()
         task = Task(self._context, self._init_cpucoll_mapping, tag=self._tag)

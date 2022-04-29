@@ -39,7 +39,7 @@ from . import (
     legion,
     types as ty,
 )
-from .communicator import NCCLCommunicator, CPUCommunicator
+from .communicator import CPUCommunicator, NCCLCommunicator
 from .context import Context
 from .corelib import core_library
 from .launcher import TaskLauncher
