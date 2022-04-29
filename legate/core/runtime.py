@@ -1294,18 +1294,13 @@ class Runtime:
     def get_nccl_communicator(self) -> Communicator:
         return self._comm_manager.get_nccl_communicator()
 
-<<<<<<< HEAD
     def get_cpu_communicator(self) -> Communicator:
         return self._comm_manager.get_cpu_communicator()
 
-    def delinearize_future_map(self, future_map, new_domain) -> FutureMap:
-        new_domain = self.find_or_create_index_space(new_domain)
-=======
     def delinearize_future_map(
         self, future_map: FutureMap, new_domain: Rect
     ) -> FutureMap:
         ispace = self.find_or_create_index_space(new_domain)
->>>>>>> upstream/branch-22.05
         functor = (
             self.core_library.legate_linearizing_point_transform_functor()
         )
