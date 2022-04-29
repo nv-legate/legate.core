@@ -30,8 +30,6 @@ static int init_cpucoll_id(const Legion::Task* task,
                            Legion::Context context,
                            Legion::Runtime* runtime)
 {
-  legate::nvtx::Range auto_range("core::comm::cpu::init_id");
-
   Core::show_progress(task, context, runtime, task->get_task_name());
 
   int id;
@@ -45,8 +43,6 @@ static int init_cpucoll_mapping(const Legion::Task* task,
                                 Legion::Context context,
                                 Legion::Runtime* runtime)
 {
-  legate::nvtx::Range auto_range("core::comm::cpu::init_mapping");
-
   Core::show_progress(task, context, runtime, task->get_task_name());
   int mpi_rank = 0;
 #if defined(LEGATE_USE_GASNET)
@@ -61,8 +57,6 @@ static collComm_t init_cpucoll(const Legion::Task* task,
                                Legion::Context context,
                                Legion::Runtime* runtime)
 {
-  legate::nvtx::Range auto_range("core::comm::cpu::init");
-
   Core::show_progress(task, context, runtime, task->get_task_name());
 
   const int point = task->index_point[0];
@@ -71,6 +65,8 @@ static collComm_t init_cpucoll(const Legion::Task* task,
   assert(task->futures.size() == static_cast<size_t>(num_ranks + 1));
   const int* unique_id = (const int*)task->futures[0].get_buffer(Memory::SYSTEM_MEM);
 
+  collComm_t comm = (collComm_t)malloc(sizeof(Coll_Comm));
+
 #if defined(LEGATE_USE_GASNET)
   int* mapping_table = (int*)malloc(sizeof(int) * num_ranks);
   for (int i = 0; i < num_ranks; i++) {
@@ -78,8 +74,6 @@ static collComm_t init_cpucoll(const Legion::Task* task,
       (const int*)task->futures[i + 1].get_buffer(Memory::SYSTEM_MEM);
     mapping_table[i] = *mapping_table_element;
   }
-
-  collComm_t comm = (collComm_t)malloc(sizeof(Coll_Comm));
 
   collCommCreate(comm, num_ranks, point, *unique_id, mapping_table);
   assert(mapping_table[point] == comm->mpi_rank);
@@ -96,8 +90,6 @@ static void finalize_cpucoll(const Legion::Task* task,
                              Legion::Context context,
                              Legion::Runtime* runtime)
 {
-  legate::nvtx::Range auto_range("core::comm::cpu::finalize");
-
   Core::show_progress(task, context, runtime, task->get_task_name());
 
   assert(task->futures.size() == 1);
