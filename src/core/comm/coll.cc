@@ -66,7 +66,7 @@ size_t get_dtype_size(collDataType_t dtype)
 }
 #endif
 
-static std::atomic<int> current_unique_id (0);
+static std::atomic<int> current_unique_id(0);
 
 int collCommCreate(collComm_t global_comm,
                    int global_comm_size,
@@ -95,8 +95,8 @@ int collCommCreate(collComm_t global_comm,
   global_comm->mpi_comm_size = 1;
   global_comm->mpi_rank      = 0;
   if (global_comm->global_rank == 0) {
-    shared_data_t* data = shared_data[global_comm->unique_id];
-    data                = (shared_data_t*)malloc(sizeof(shared_data_t));
+    shared_data_t* data     = shared_data[global_comm->unique_id];
+    data                    = (shared_data_t*)malloc(sizeof(shared_data_t));
     shared_buffer_t* buffer = &(data->shared_buffer);
     for (int j = 0; j < MAX_NB_THREADS; j++) {
       buffer->buffers[j]       = NULL;
@@ -253,9 +253,7 @@ int collInit(int argc, char* argv[])
   int provided;
   return MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided);
 #else
-  for (int i = 0; i < MAX_NB_COMMS; i++) {
-    shared_data[i] = NULL;
-  }
+  for (int i = 0; i < MAX_NB_COMMS; i++) { shared_data[i] = NULL; }
 
   coll_local_inited = true;
   return collSuccess;
@@ -268,9 +266,7 @@ int collFinalize(void)
   return MPI_Finalize();
 #else
   assert(coll_local_inited == true);
-  for (int i = 0; i < MAX_NB_COMMS; i++) {
-    assert(shared_data[i] == NULL);
-  }
+  for (int i = 0; i < MAX_NB_COMMS; i++) { assert(shared_data[i] == NULL); }
   coll_local_inited = false;
   return collSuccess;
 #endif
