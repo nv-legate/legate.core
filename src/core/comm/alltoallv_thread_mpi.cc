@@ -22,9 +22,9 @@
 
 #include "coll.h"
 
-int collAlltoallvMPIInplace(void *recvbuf, const int recvcounts[],
-                            const int rdispls[], collDataType_t recvtype, 
-                            collComm_t global_comm)
+static int collAlltoallvMPIInplace(void *recvbuf, const int recvcounts[],
+                                   const int rdispls[], collDataType_t recvtype, 
+                                   collComm_t global_comm)
 {
   int res;
 

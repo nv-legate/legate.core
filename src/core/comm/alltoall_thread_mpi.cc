@@ -23,8 +23,8 @@
 
 #define ALLTOALL_USE_SENDRECV
 
-int collAlltoallMPIInplace(void *recvbuf, int recvcount, collDataType_t recvtype, 
-                           collComm_t global_comm)
+static int collAlltoallMPIInplace(void *recvbuf, int recvcount, collDataType_t recvtype, 
+                                  collComm_t global_comm)
 {	
   int res;
 

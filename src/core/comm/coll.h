@@ -138,6 +138,7 @@ int collFinalize(void);
 
 int collGetUniqueId(int* id);
 
+// The following functions should not be called by users
 #if defined (LEGATE_USE_GASNET)
 int collAlltoallvMPI(const void *sendbuf, const int sendcounts[],
                      const int sdispls[], collDataType_t sendtype,
