@@ -52,6 +52,7 @@ int collAlltoallvMPIInplace(void *recvbuf, const int recvcounts[],
   }
 
   char *tmp_buffer = (char *)malloc(sizeof(char) * max_size);
+  assert(tmp_buffer != NULL);
 
   int right, left, right_mpi_rank, left_mpi_rank, send_tag, recv_tag;
   for (int i = 1 ; i <= (total_size >> 1) ; ++i) {
@@ -133,6 +134,7 @@ int collAlltoallvMPI(const void *sendbuf, const int sendcounts[],
   if (sendbuf == recvbuf) {
     int total_send_count = sdispls[total_size-1] + sendcounts[total_size-1];
     sendbuf_tmp = (void *)malloc(sendtype_extent * total_send_count);
+    assert(sendbuf_tmp != NULL);
     memcpy(sendbuf_tmp, recvbuf, sendtype_extent * total_send_count);
   } else {
     sendbuf_tmp = const_cast<void*>(sendbuf);

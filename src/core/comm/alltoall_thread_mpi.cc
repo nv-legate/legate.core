@@ -38,6 +38,7 @@ int collAlltoallMPIInplace(void *recvbuf, int recvcount, collDataType_t recvtype
   size_t packed_size = 0;
 
   char *tmp_buffer = (char *)malloc(sizeof(char) * max_size);
+  assert(tmp_buffer != NULL);
  
   int global_rank = global_comm->global_rank;
 
@@ -114,6 +115,7 @@ int collAlltoallMPI(const void *sendbuf, int sendcount, collDataType_t sendtype,
   // MPI_IN_PLACE
   if (sendbuf == recvbuf) {
     sendbuf_tmp = (void *)malloc(total_size * sendtype_extent * sendcount);
+    assert(sendbuf_tmp != NULL);
     memcpy(sendbuf_tmp, recvbuf, total_size * sendtype_extent * sendcount);
   } else {
     sendbuf_tmp = const_cast<void*>(sendbuf);
