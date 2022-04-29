@@ -26,15 +26,25 @@ function(find_or_configure_legion)
     list(JOIN Legion_CUDA_ARCH "," Legion_CUDA_ARCH)
   endif()
 
+  include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/find_package_helpers.cmake)
+  set_package_dir_if_built(NAME            Legion
+                           BUILD_ARTIFACTS lib/librealm.so
+                                           lib/libregent.so
+                                           lib/liblegion.so)
+
   rapids_cpm_find(Legion  ${PKG_VERSION}
-      GLOBAL_TARGETS      Legion::Legion Legion::Realm
+      GLOBAL_TARGETS      Legion::Realm
+                          Legion::Regent
+                          Legion::Legion
+                          Legion::RealmRuntime
+                          Legion::LegionRuntime
       BUILD_EXPORT_SET    legate-core-exports
       INSTALL_EXPORT_SET  legate-core-exports
       CPM_ARGS
         GIT_REPOSITORY   ${PKG_REPOSITORY}
         GIT_TAG          ${PKG_PINNED_TAG}
         EXCLUDE_FROM_ALL ${PKG_EXCLUDE_FROM_ALL}
-        OPTIONS          "CMAKE_CXX_STANDARD 14"
+        OPTIONS          "CMAKE_CXX_STANDARD 17"
                          "Legion_BUILD_BINDINGS ON"
                          "Legion_BUILD_APPS OFF"
                          "Legion_BUILD_TESTS OFF"
@@ -44,17 +54,20 @@ function(find_or_configure_legion)
                          "Legion_GPU_REDUCTIONS OFF"
                          "Legion_CUDA_ARCH ${Legion_CUDA_ARCH}"
   )
+
 endfunction()
 
-if(NOT LEGATE_CORE_LEGION_BRANCH)
+if(NOT DEFINED LEGATE_CORE_LEGION_BRANCH)
   set(LEGATE_CORE_LEGION_BRANCH control_replication)
 endif()
 
-if(NOT LEGATE_CORE_LEGION_REPOSITORY)
+if(NOT DEFINED LEGATE_CORE_LEGION_REPOSITORY)
   set(LEGATE_CORE_LEGION_REPOSITORY https://gitlab.com/StanfordLegion/legion.git)
 endif()
 
-find_or_configure_legion(VERSION          0.0.1 # Legion doesn't have a version in its `CMakeLists.txt`
+set(LEGATE_CORE_Legion_MIN_VERSION "${LEGATE_CORE_VERSION_MAJOR}.${LEGATE_CORE_VERSION_MINOR}")
+
+find_or_configure_legion(VERSION          "${LEGATE_CORE_Legion_MIN_VERSION}.0"
                          REPOSITORY       ${LEGATE_CORE_LEGION_REPOSITORY}
                          PINNED_TAG       ${LEGATE_CORE_LEGION_BRANCH}
                          EXCLUDE_FROM_ALL ${LEGATE_CORE_EXCLUDE_LEGION_FROM_ALL}

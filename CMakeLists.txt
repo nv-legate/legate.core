@@ -16,6 +16,9 @@
 
 cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
 
+cmake_policy(SET CMP0077 NEW)
+cmake_policy(SET CMP0126 NEW)
+
 ##############################################################################
 # - Download and initialize RAPIDS CMake helpers -----------------------------
 
@@ -78,6 +81,7 @@ set_or_default(GASNet_ROOT_DIR GASNET)
 set_or_default(NCCL_DIR NCCL_PATH)
 set_or_default(Thrust_DIR THRUST_PATH)
 set_or_default(CUDA_TOOLKIT_ROOT_DIR CUDA)
+set_or_default(CMAKE_CUDA_ARCHITECTURES GPU_ARCH ALL)
 
 option(Legion_SPY "Enable detailed logging for Legion Spy" OFF)
 option(Legion_USE_LLVM "Use LLVM JIT operations" OFF)
@@ -104,8 +108,6 @@ endif()
 set_or_default(GASNet_CONDUIT CONDUIT "udp")
 
 option(LEGATE_CORE_EXCLUDE_LEGION_FROM_ALL "Exclude Legion targets from legate.core's 'all' target" OFF)
-set(LEGATE_CORE_LEGION_REPOSITORY https://gitlab.com/StanfordLegion/legion.git)
-set(LEGATE_CORE_LEGION_BRANCH control_replication)
 
 include(CMakeDependentOption)
 cmake_dependent_option(Legion_HIJACK_CUDART
@@ -130,7 +132,10 @@ if(Legion_USE_CUDA)
 endif()
 
 if(Legion_USE_CUDA)
-  # Needs to run before `project` call
+  include(cmake/Modules/cuda_arch_helpers.cmake)
+  # Needs to run before `rapids_cuda_init_architectures`
+  set_cuda_arch_from_names()
+  # Needs to run before `project`
   rapids_cuda_init_architectures(LEGATE_CORE)
   project(LEGATE_CORE VERSION 22.05.00 LANGUAGES C CXX CUDA)
 else()
@@ -245,28 +250,57 @@ set_target_properties(legate_core
                       POSITION_INDEPENDENT_CODE           ON
                       INTERFACE_POSITION_INDEPENDENT_CODE ON)
 
+###
+# Preinclude `realm_defines.h` and `legion_defines.h` in all compilations.
+# TODO: It isn't possible to expose this as part of the public legate_core
+# target's interface in a portable way, so this code needs to be duplicated
+# in cuNumeric.
+#
+# A better solution would be to add #include directives to the requisite
+# legate.core and cuNumeric headers.
+###
+
+get_target_property(realm_includes Legion::RealmRuntime INTERFACE_INCLUDE_DIRECTORIES)
+get_target_property(legion_includes Legion::LegionRuntime INTERFACE_INCLUDE_DIRECTORIES)
+
+set(extra_includes "")
+foreach(_dir IN LISTS realm_includes legion_includes)
+  if(EXISTS "${_dir}/realm_defines.h")
+    list(APPEND extra_includes "${_dir}/realm_defines.h")
+  endif()
+  if(EXISTS "${_dir}/legion_defines.h")
+    list(APPEND extra_includes "${_dir}/legion_defines.h")
+  endif()
+endforeach()
+
+list(REMOVE_DUPLICATES extra_includes)
+list(TRANSFORM extra_includes PREPEND "SHELL:-include ")
+
 target_link_libraries(legate_core PUBLIC Legion::Legion)
-target_compile_options(legate_core PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${LEGATE_CORE_CXX_OPTIONS}>")
-target_compile_definitions(legate_core PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${LEGATE_CORE_CXX_DEFS}>")
+target_compile_options(legate_core PRIVATE ${extra_includes} "$<$<COMPILE_LANGUAGE:CXX>:${LEGATE_CORE_CXX_OPTIONS}>")
+target_compile_definitions(legate_core PUBLIC "$<$<COMPILE_LANGUAGE:CXX>:${LEGATE_CORE_CXX_DEFS}>")
 target_include_directories(legate_core
-  PRIVATE
+  PUBLIC
     $<BUILD_INTERFACE:${LEGATE_CORE_SOURCE_DIR}/src>
   INTERFACE
     $<INSTALL_INTERFACE:include/legate>
 )
 
 if(Legion_USE_CUDA)
+
+  add_cuda_architecture_defines(LEGATE_CORE_CUDA_DEFS)
+
   set_target_properties(legate_core
              PROPERTIES CUDA_STANDARD                     17
                         CUDA_STANDARD_REQUIRED            ON)
 
-  list(APPEND LEGATE_CORE_CUDA_OPTIONS --expt-relaxed-constexpr)
-  list(APPEND LEGATE_CORE_CUDA_OPTIONS --expt-extended-lambda)
   list(APPEND LEGATE_CORE_CUDA_OPTIONS -Xfatbin=-compress-all)
+  list(APPEND LEGATE_CORE_CUDA_OPTIONS --expt-extended-lambda)
+  list(APPEND LEGATE_CORE_CUDA_OPTIONS --expt-relaxed-constexpr)
 
-  target_link_libraries(legate_core PUBLIC legate::Thrust NCCL::NCCL)
+  target_link_libraries(legate_core PUBLIC legate::Thrust PRIVATE NCCL::NCCL)
   target_compile_options(legate_core PRIVATE "$<$<COMPILE_LANGUAGE:CUDA>:${LEGATE_CORE_CUDA_OPTIONS}>")
-  target_compile_definitions(legate_core PRIVATE "$<$<COMPILE_LANGUAGE:CUDA>:${LEGATE_CORE_CUDA_DEFS}>")
+  target_compile_definitions(legate_core PUBLIC "$<$<COMPILE_LANGUAGE:CUDA>:${LEGATE_CORE_CUDA_DEFS}>")
 
   file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld"
           [=[
