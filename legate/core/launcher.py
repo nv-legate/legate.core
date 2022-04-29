@@ -929,10 +929,6 @@ class TaskLauncher:
         return task
 
     def execute(self, launch_domain: Rect) -> FutureMap:
-        # Note that we should hold a reference to this buffer
-        # until we launch a task, otherwise the Python GC will
-        # collect the Python object holding the buffer, which
-        # in turn will deallocate the C side buffer.
         task = self.build_task(launch_domain, BufferBuilder())
         result = self._context.dispatch(task)
         self._out_analyzer.update_storages()
