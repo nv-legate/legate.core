@@ -21,7 +21,7 @@ from .. import ffi, legion
 from .partition import IndexPartition, Partition
 from .pending import _pending_deletions, _pending_unordered
 from .space import IndexSpace
-from .util import FieldID, dispatch
+from .util import Dispatchable, FieldID, dispatch
 
 if TYPE_CHECKING:
     from . import FieldListLike, FieldSpace
@@ -440,7 +440,7 @@ class OutputRegion:
         return self.partition
 
 
-class PhysicalRegion:
+class PhysicalRegion(Dispatchable[None]):
     def __init__(self, handle: Any, region: Region) -> None:
         """
         A PhysicalRegion object represents an actual mapping of a logical
@@ -519,6 +519,7 @@ class PhysicalRegion:
         self,
         runtime: legion.legion_runtime_t,
         context: legion.legion_context_t,
+        **kwargs: Any,
     ) -> None:
         self.remap(runtime, context)
 

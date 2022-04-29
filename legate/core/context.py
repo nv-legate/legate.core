@@ -14,7 +14,7 @@
 #
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union
 
 import numpy as np
 
@@ -28,12 +28,14 @@ if TYPE_CHECKING:
     from pyarrow import DataType
 
     from . import ArgumentMap, Rect
+    from ._legion.util import Dispatchable
     from .communicator import Communicator
     from .legate import Library
-    from .operation import FutureMap
     from .runtime import Runtime
     from .shape import Shape
     from .store import RegionField, Store
+
+T = TypeVar("T")
 
 
 class Context:
@@ -200,11 +202,10 @@ class Context:
     def create_copy(self, mapper_id: int = 0) -> Copy:
         return Copy(self, mapper_id)
 
-    # TODO (bev) add ABC for dispatchable ops
-    def dispatch(self, op: Any) -> FutureMap:
+    def dispatch(self, op: Dispatchable[T]) -> T:
         return self._runtime.dispatch(op)
 
-    def dispatch_single(self, op: Any) -> Future:
+    def dispatch_single(self, op: Dispatchable[T]) -> T:
         return self._runtime.dispatch_single(op)
 
     def create_store(
@@ -219,7 +220,7 @@ class Context:
         return self._runtime.create_store(
             dtype,
             shape=shape,
-            storage=storage,
+            data=storage,
             optimize_scalar=optimize_scalar,
             ndim=ndim,
         )

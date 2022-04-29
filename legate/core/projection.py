@@ -82,21 +82,25 @@ class ProjExpr:
 
 
 # todo: (bev) use tuple[...] when feasible
-Point = Tuple[Union[ProjExpr, int], ...]
+SymbolicPoint = Tuple[ProjExpr, ...]
+
+ProjOut = Tuple[Union[int, ProjExpr], ...]
+
+ProjFn = Callable[[SymbolicPoint], ProjOut]
 
 
 def execute_functor_symbolically(
-    ndim: int, proj_fn: Optional[Callable[[Point], Point]] = None
-) -> Point:
-    point: Point = tuple(ProjExpr(dim=dim) for dim in range(ndim))
+    ndim: int, proj_fn: Optional[ProjFn] = None
+) -> SymbolicPoint:
+    point: SymbolicPoint = tuple(ProjExpr(dim=dim) for dim in range(ndim))
     if proj_fn is not None:
-        point = proj_fn(point)
+        result = proj_fn(point)
         if not isinstance(point, tuple):
             raise ValueError("Projection function must return a tuple")
 
         point = tuple(
             ProjExpr(offset=v, weight=0) if isinstance(v, int) else v
-            for v in point
+            for v in result
         )
         if any(not isinstance(c, ProjExpr) for c in point):
             raise ValueError(
@@ -107,7 +111,7 @@ def execute_functor_symbolically(
     return point
 
 
-def is_identity_projection(src_ndims: int, dims: tuple[ProjExpr]) -> bool:
+def is_identity_projection(src_ndims: int, dims: SymbolicPoint) -> bool:
     return src_ndims == len(dims) and all(
         isinstance(coord, ProjExpr) and coord.is_identity(dim)
         for dim, coord in enumerate(dims)
@@ -115,7 +119,7 @@ def is_identity_projection(src_ndims: int, dims: tuple[ProjExpr]) -> bool:
 
 
 def pack_symbolic_projection_repr(
-    src_ndim: int, dims: tuple[ProjExpr]
+    src_ndim: int, dims: tuple[ProjExpr, ...]
 ) -> tuple[int, int, Any, Any, Any]:
     tgt_ndim = len(dims)
     dims_c = ffi.new(f"int32_t[{tgt_ndim}]")
