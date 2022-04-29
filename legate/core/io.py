@@ -22,7 +22,7 @@ from .legate import Array, Table
 from .partition import Tiling
 from .runtime import _runtime
 from .shape import Shape
-from .store import DistributedAllocation, Store
+from .store import DistributedAllocation, RegionField, Store
 
 if TYPE_CHECKING:
     from pyarrow import DataType
@@ -40,7 +40,7 @@ class DataSplit:
     def make_partition(
         self,
         store: Store,
-        colors: tuple[int],
+        colors: tuple[int, ...],
         local_colors: Iterable[Point],
     ) -> Partition:
         raise NotImplementedError("Implement in derived classes")
@@ -64,7 +64,10 @@ class CustomSplit(DataSplit):
         self.get_subdomain = get_subdomain
 
     def make_partition(
-        self, store: Store, colors: tuple[int], local_colors: Iterable[Point]
+        self,
+        store: Store,
+        colors: tuple[int, ...],
+        local_colors: Iterable[Point],
     ) -> Partition:
         fut_size = ffi.sizeof("legion_domain_t")
         futures = {}
@@ -80,6 +83,7 @@ class CustomSplit(DataSplit):
             futures,
             collective=True,
         )
+        assert isinstance(store.storage, RegionField)
         region = store.storage.region
         index_partition = IndexPartition(
             _runtime.legion_context,
@@ -105,7 +109,10 @@ class TiledSplit(DataSplit):
         self.tile_shape = tile_shape
 
     def make_partition(
-        self, store: Store, colors: tuple[int], local_colors: Iterable[Point]
+        self,
+        store: Store,
+        colors: tuple[int, ...],
+        local_colors: Iterable[Point],
     ) -> Partition:
         functor = Tiling(
             _runtime,
@@ -114,14 +121,15 @@ class TiledSplit(DataSplit):
         )
         store.set_key_partition(functor)
         part = store.find_or_create_legion_partition(functor, complete=True)
+        assert part is not None
         assert store.compute_projection() == 0
         return part
 
 
 def ingest(
     dtype: DataType,
-    shape: Union[int, tuple[int]],
-    colors: tuple[int],
+    shape: Union[int, tuple[int, ...]],
+    colors: tuple[int, ...],
     data_split: DataSplit,
     get_buffer: Callable[[Point], memoryview],
     get_local_colors: Optional[Callable[[], Iterable[Point]]] = None,
@@ -228,7 +236,7 @@ def ingest(
         )
         return [Point(points_ptr[i]) for i in range(points_size[0])]
 
-    store = _runtime.core_context.create_store(dtype, shape)
+    store = _runtime.core_context.create_store(dtype, Shape(shape))
     local_colors = (
         get_local_colors() if get_local_colors else default_get_local_colors()
     )
