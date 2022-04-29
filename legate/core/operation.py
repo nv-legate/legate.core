@@ -14,8 +14,9 @@
 #
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Iterable, Optional, Union
+
+from typing_extensions import Protocol
 
 import legate.core.types as ty
 
@@ -36,24 +37,24 @@ if TYPE_CHECKING:
     from .types import DTType
 
 
-class Operation(ABC):
-    def __init__(
-        self, context: Context, mapper_id: int = 0, op_id: int = 0
-    ) -> None:
-        self._context = context
-        self._mapper_id = mapper_id
-        self._op_id = op_id
-        self._inputs: list[Store] = []
-        self._outputs: list[Store] = []
-        self._reductions: list[tuple[Store, int]] = []
-        self._unbound_outputs: list[int] = []
-        self._scalar_outputs: list[int] = []
-        self._scalar_reductions: list[int] = []
-        self._partitions: dict[Store, list[PartSym]] = {}
-        self._constraints: list[Constraint] = []
-        self._all_parts: list[PartSym] = []
-        self._launch_domain: Union[Rect, None] = None
-        self._error_on_interference = True
+class OperationProtocol(Protocol):
+    _context: Context
+    _mapper_id: int
+    _op_id: int
+    _inputs: list[Store]
+    _outputs: list[Store]
+    _reductions: list[tuple[Store, int]]
+    _unbound_outputs: list[int]
+    _scalar_outputs: list[int]
+    _scalar_reductions: list[int]
+    _partitions: dict[Store, list[PartSym]]
+    _constraints: list[Constraint]
+    _all_parts: list[PartSym]
+    _launch_domain: Union[Rect, None]
+    _error_on_interference: bool
+
+    def launch(self, strategy: Strategy) -> None:
+        ...
 
     @property
     def context(self) -> Context:
@@ -95,31 +96,43 @@ class Operation(ABC):
     def all_unknowns(self) -> list[PartSym]:
         return self._all_parts
 
+
+class TaskProtocol(OperationProtocol, Protocol):
+    _task_id: int
+    _scalar_args: list[tuple[Any, DTType]]
+    _comm_args: list[Communicator]
+
+
+class Operation(OperationProtocol):
+    def __init__(
+        self,
+        context: Context,
+        mapper_id: int = 0,
+        op_id: int = 0,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(**kwargs)
+        self._context = context
+        self._mapper_id = mapper_id
+        self._op_id = op_id
+        self._inputs: list[Store] = []
+        self._outputs: list[Store] = []
+        self._reductions: list[tuple[Store, int]] = []
+        self._unbound_outputs: list[int] = []
+        self._scalar_outputs: list[int] = []
+        self._scalar_reductions: list[int] = []
+        self._partitions: dict[Store, list[PartSym]] = {}
+        self._constraints: list[Constraint] = []
+        self._all_parts: list[PartSym] = []
+        self._launch_domain: Union[Rect, None] = None
+        self._error_on_interference = True
+
     def get_all_stores(self) -> OrderedSet[Store]:
         result: OrderedSet[Store] = OrderedSet()
         result.update(self._inputs)
         result.update(self._outputs)
         result.update(store for (store, _) in self._reductions)
         return result
-
-    @staticmethod
-    def _check_store(store: Store, allow_unbound: bool = False) -> None:
-        if not isinstance(store, Store):
-            raise ValueError(f"Expected a Store, but got {type(store)}")
-        elif not allow_unbound and store.unbound:
-            raise ValueError("Expected a bound Store")
-
-    def _get_unique_partition(self, store: Store) -> PartSym:
-        if store not in self._partitions:
-            return self.declare_partition(store)
-
-        parts = self._partitions[store]
-        if len(parts) > 1:
-            raise RuntimeError(
-                "Ambiguous store argument. When multple partitions exist for "
-                "this store, a partition should be specified."
-            )
-        return parts[0]
 
     def add_alignment(self, store1: Store, store2: Store) -> None:
         self._check_store(store1)
@@ -145,6 +158,25 @@ class Operation(ABC):
 
     def execute(self) -> None:
         self._context.runtime.submit(self)
+
+    @staticmethod
+    def _check_store(store: Store, allow_unbound: bool = False) -> None:
+        if not isinstance(store, Store):
+            raise ValueError(f"Expected a Store, but got {type(store)}")
+        elif not allow_unbound and store.unbound:
+            raise ValueError("Expected a bound Store")
+
+    def _get_unique_partition(self, store: Store) -> PartSym:
+        if store not in self._partitions:
+            return self.declare_partition(store)
+
+        parts = self._partitions[store]
+        if len(parts) > 1:
+            raise RuntimeError(
+                "Ambiguous store argument. When multple partitions exist for "
+                "this store, a partition should be specified."
+            )
+        return parts[0]
 
     def get_tag(self, strategy: Strategy, part: Any) -> int:
         if strategy.is_key_part(part):
@@ -177,20 +209,14 @@ class Operation(ABC):
         self._all_parts.append(sym)
         return sym
 
-    @abstractmethod
-    def launch(self, strategy: Strategy) -> None:
-        ...
 
-
-class Task(Operation):
+class Task(TaskProtocol):
     def __init__(
         self,
-        context: Context,
         task_id: int,
-        mapper_id: int = 0,
-        op_id: int = 0,
+        **kwargs: Any,
     ) -> None:
-        super().__init__(context, mapper_id=mapper_id, op_id=op_id)
+        super().__init__(**kwargs)
         self._task_id = task_id
         self._scalar_args: list[tuple[Any, DTType]] = []
         self._comm_args: list[Communicator] = []
@@ -320,15 +346,17 @@ class Task(Operation):
             launcher.add_communicator(handle)
 
 
-class PartSymTask(Task):
+class AutoOperation(Operation):
     def __init__(
         self,
         context: Context,
-        task_id: int,
         mapper_id: int = 0,
         op_id: int = 0,
+        **kwargs: Any,
     ) -> None:
-        super().__init__(context, task_id, mapper_id, op_id)
+        super().__init__(
+            context=context, mapper_id=mapper_id, op_id=op_id, **kwargs
+        )
 
         self._input_parts: list[PartSym] = []
         self._output_parts: list[PartSym] = []
@@ -368,15 +396,22 @@ class PartSymTask(Task):
         self._reduction_parts.append(partition)
 
 
-class AutoTask(PartSymTask):
+class AutoTask(AutoOperation, Task):
     def __init__(
         self,
         context: Context,
         task_id: int,
         mapper_id: int = 0,
         op_id: int = 0,
+        **kwargs: Any,
     ) -> None:
-        super().__init__(context, task_id, mapper_id, op_id)
+        super().__init__(
+            context=context,
+            task_id=task_id,
+            mapper_id=mapper_id,
+            op_id=op_id,
+            **kwargs,
+        )
 
     def launch(self, strategy: Strategy) -> None:
         launcher = TaskLauncher(self.context, self._task_id, self.mapper_id)
@@ -443,7 +478,7 @@ class AutoTask(PartSymTask):
         self._demux_scalar_stores(result, launch_domain)
 
 
-class ManualTask(Task):
+class ManualTask(Operation, Task):
     def __init__(
         self,
         context: Context,
@@ -452,7 +487,9 @@ class ManualTask(Task):
         mapper_id: int = 0,
         op_id: int = 0,
     ) -> None:
-        super().__init__(context, task_id, mapper_id, op_id)
+        super().__init__(
+            context=context, task_id=task_id, mapper_id=mapper_id, op_id=op_id
+        )
         self._launch_domain: Rect = launch_domain
         self._input_projs: list[Union[ProjFn, None]] = []
         self._output_projs: list[Union[ProjFn, None]] = []
@@ -588,9 +625,9 @@ class ManualTask(Task):
         self._demux_scalar_stores(result, self._launch_domain)
 
 
-class Copy(PartSymTask):
+class Copy(AutoOperation):
     def __init__(self, context: Context, mapper_id: int = 0) -> None:
-        super().__init__(context, mapper_id)
+        super().__init__(context=context, mapper_id=mapper_id)
         self._source_indirects: list[Store] = []
         self._target_indirects: list[Store] = []
         self._source_indirect_parts: list[PartSym] = []
@@ -762,7 +799,7 @@ class _RadixProj:
         return (p[0] * self._radix + self._offset,)
 
 
-class Reduce(PartSymTask):
+class Reduce(AutoOperation):
     def __init__(
         self,
         context: Context,
@@ -771,9 +808,10 @@ class Reduce(PartSymTask):
         mapper_id: int,
         op_id: int,
     ) -> None:
-        super().__init__(context, task_id, mapper_id, op_id)
+        super().__init__(context=context, mapper_id=mapper_id, op_id=op_id)
         self._runtime = context.runtime
         self._radix = radix
+        self._task_id = task_id
 
     def launch(self, strategy: Strategy) -> None:
         assert len(self._inputs) == 1 and len(self._outputs) == 1
