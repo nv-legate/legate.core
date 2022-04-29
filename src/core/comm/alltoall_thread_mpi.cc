@@ -22,6 +22,72 @@
 #include "coll.h"
 
 #define ALLTOALL_USE_SENDRECV
+
+int collAlltoallMPIInplace(void *recvbuf, int recvcount, collDataType_t recvtype, 
+                           collComm_t global_comm)
+{	
+  int res;
+
+  int total_size = global_comm->global_comm_size;
+	MPI_Status status;
+  MPI_Request request;
+
+  MPI_Aint lb, recvtype_extent;
+  MPI_Type_get_extent(recvtype, &lb, &recvtype_extent);
+  size_t max_size = recvtype_extent * recvcount;
+  size_t packed_size = 0;
+
+  char *tmp_buffer = (char *)malloc(sizeof(char) * max_size);
+ 
+  int global_rank = global_comm->global_rank;
+
+  int right, left, right_mpi_rank, left_mpi_rank, send_tag, recv_tag;
+  for (int i = 1 ; i <= (total_size >> 1) ; ++i) {
+    right = (global_rank + i) % total_size;
+    left  = (global_rank + total_size - i) % total_size;
+    right_mpi_rank = global_comm->mapping_table.mpi_rank[right];
+    left_mpi_rank = global_comm->mapping_table.mpi_rank[left];
+    assert(right == global_comm->mapping_table.global_rank[right]);
+    assert(left == global_comm->mapping_table.global_rank[left]);
+
+    char *send_tmp_buffer = (char *)recvbuf + right * recvcount * recvtype_extent;
+    memcpy(tmp_buffer, send_tmp_buffer, recvcount * recvtype_extent);
+    packed_size = max_size;
+    
+    // receive data from the right
+    recv_tag = collGenerateAlltoallTag(global_rank, right, global_comm);
+    res = MPI_Irecv((char *)recvbuf + right * recvcount * recvtype_extent, recvcount, recvtype, right_mpi_rank, recv_tag, global_comm->comm, &request);
+    assert(res == MPI_SUCCESS);
+
+    if (left != right) {
+      // send data to the left
+      send_tag = collGenerateAlltoallTag(left, global_rank, global_comm);
+      res = MPI_Send((char *)recvbuf + left * recvcount * recvtype_extent, recvcount, recvtype, left_mpi_rank, send_tag, global_comm->comm);
+      assert(res == MPI_SUCCESS);
+
+      res = MPI_Wait(&request, MPI_STATUSES_IGNORE);
+      assert(res == MPI_SUCCESS);
+
+      // receive data from the left
+      recv_tag = collGenerateAlltoallTag(global_rank, left, global_comm);
+      res = MPI_Irecv((char *)recvbuf + left * recvcount * recvtype_extent, recvcount, recvtype, left_mpi_rank, recv_tag, global_comm->comm, &request);
+      assert(res == MPI_SUCCESS);
+    }
+
+    // send data to the right
+    assert(packed_size == recvtype_extent * recvcount);
+    send_tag = collGenerateAlltoallTag(right, global_rank, global_comm);
+    res = MPI_Send(tmp_buffer, packed_size, MPI_PACKED, right_mpi_rank, send_tag, global_comm->comm);
+    assert(res == MPI_SUCCESS);
+
+    res = MPI_Wait(&request, MPI_STATUSES_IGNORE);
+    assert(res == MPI_SUCCESS);
+  }
+
+  free(tmp_buffer);
+
+  return collSuccess;
+}
  
 int collAlltoallMPI(const void *sendbuf, int sendcount, collDataType_t sendtype, 
                     void *recvbuf, int recvcount, collDataType_t recvtype, 
@@ -41,12 +107,14 @@ int collAlltoallMPI(const void *sendbuf, int sendcount, collDataType_t sendtype,
 
   void *sendbuf_tmp = NULL;
 
+  // if (sendbuf == recvbuf) {
+  //   return collAlltoallMPIInplace(recvbuf, recvcount, recvtype, global_comm);
+  // }
+
   // MPI_IN_PLACE
   if (sendbuf == recvbuf) {
     sendbuf_tmp = (void *)malloc(total_size * sendtype_extent * sendcount);
     memcpy(sendbuf_tmp, recvbuf, total_size * sendtype_extent * sendcount);
-    // int * sendval = (int*)sendbuf_tmp;
-    // printf("malloc %p, size %ld, [%d]\n", sendbuf_tmp, total_size * recvtype_extent * recvcount, sendval[0]);
   } else {
     sendbuf_tmp = const_cast<void*>(sendbuf);
   }

@@ -18,8 +18,92 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
+#include <algorithm>
 
 #include "coll.h"
+
+int collAlltoallvMPIInplace(void *recvbuf, const int recvcounts[],
+                            const int rdispls[], collDataType_t recvtype, 
+                            collComm_t global_comm)
+{
+  int res;
+
+  int total_size = global_comm->global_comm_size;
+  int global_rank = global_comm->global_rank;
+	MPI_Status status;
+  MPI_Request request;
+
+  MPI_Aint lb, recvtype_extent;
+  MPI_Type_get_extent(recvtype, &lb, &recvtype_extent);
+  
+  size_t max_size = 0;
+  size_t packed_size = 0;
+  for (int i = 0; i < total_size ; ++i) {
+    if (i == global_rank) {
+      continue;
+    }
+    packed_size = recvcounts[i] * recvtype_extent;
+    max_size = std::max(packed_size, max_size);
+  }
+
+  // Easy way out
+  if ((1 == total_size) || (0 == max_size) ) {
+    return collSuccess;
+  }
+
+  char *tmp_buffer = (char *)malloc(sizeof(char) * max_size);
+
+  int right, left, right_mpi_rank, left_mpi_rank, send_tag, recv_tag;
+  for (int i = 1 ; i <= (total_size >> 1) ; ++i) {
+    right = (global_rank + i) % total_size;
+    left  = (global_rank + total_size - i) % total_size;
+    right_mpi_rank = global_comm->mapping_table.mpi_rank[right];
+    left_mpi_rank = global_comm->mapping_table.mpi_rank[left];
+    assert(right == global_comm->mapping_table.global_rank[right]);
+    assert(left == global_comm->mapping_table.global_rank[left]);
+
+    if( 0 != recvcounts[right] ) {  /* nothing to exchange with the peer on the right */
+
+      char *send_tmp_buffer = (char *)recvbuf + rdispls[right] * recvtype_extent;
+      memcpy(tmp_buffer, send_tmp_buffer, recvcounts[right] * recvtype_extent);
+      packed_size = max_size;
+      
+      // receive data from the right
+      recv_tag = collGenerateAlltoallTag(global_rank, right, global_comm);
+      res = MPI_Irecv((char *)recvbuf + rdispls[right] * recvtype_extent, recvcounts[right], recvtype, right_mpi_rank, recv_tag, global_comm->comm, &request);
+      assert(res == MPI_SUCCESS);
+    }
+
+    if( (left != right) && (0 != recvcounts[left]) ) {
+      // send data to the left
+      send_tag = collGenerateAlltoallTag(left, global_rank, global_comm);
+      res = MPI_Send((char *)recvbuf + rdispls[left] * recvtype_extent, recvcounts[left], recvtype, left_mpi_rank, send_tag, global_comm->comm);
+      assert(res == MPI_SUCCESS);
+
+      res = MPI_Wait(&request, MPI_STATUSES_IGNORE);
+      assert(res == MPI_SUCCESS);
+
+      // receive data from the left
+      recv_tag = collGenerateAlltoallTag(global_rank, left, global_comm);
+      res = MPI_Irecv((char *)recvbuf + rdispls[left] * recvtype_extent, recvcounts[left], recvtype, left_mpi_rank, recv_tag, global_comm->comm, &request);
+      assert(res == MPI_SUCCESS);
+    }
+
+    if( 0 != recvcounts[right] ) {  /* nothing to exchange with the peer on the right */
+      // send data to the right
+      send_tag = collGenerateAlltoallTag(right, global_rank, global_comm);
+      res = MPI_Send(tmp_buffer, packed_size, MPI_PACKED, right_mpi_rank, send_tag, global_comm->comm);
+      assert(res == MPI_SUCCESS);
+    }
+
+    res = MPI_Wait(&request, MPI_STATUSES_IGNORE);
+    assert(res == MPI_SUCCESS);
+  }
+
+  free(tmp_buffer);
+
+  return collSuccess;
+}
  
 int collAlltoallvMPI(const void *sendbuf, const int sendcounts[],
                      const int sdispls[], collDataType_t sendtype,
@@ -41,13 +125,15 @@ int collAlltoallvMPI(const void *sendbuf, const int sendcounts[],
 
   void *sendbuf_tmp = NULL;
 
+  // if (sendbuf == recvbuf) {
+  //   return collAlltoallvMPIInplace(recvbuf, recvcounts, rdispls, recvtype, global_comm);
+  // }
+
   // MPI_IN_PLACE
   if (sendbuf == recvbuf) {
     int total_send_count = sdispls[total_size-1] + sendcounts[total_size-1];
     sendbuf_tmp = (void *)malloc(sendtype_extent * total_send_count);
     memcpy(sendbuf_tmp, recvbuf, sendtype_extent * total_send_count);
-    // int * sendval = (int*)sendbuf_tmp;
-    // printf("malloc %p, size %ld, [%d]\n", sendbuf_tmp, total_size * recvtype_extent * recvcount, sendval[0]);
   } else {
     sendbuf_tmp = const_cast<void*>(sendbuf);
   }
