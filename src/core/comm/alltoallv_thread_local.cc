@@ -56,7 +56,7 @@ int collAlltoallvLocal(const void* sendbuf,
     sendbuf_tmp = const_cast<void*>(sendbuf);
   }
 
-  volatile shared_data_t* data                           = &(shared_data[global_comm->unique_id]);
+  volatile shared_data_t* data                           = shared_data[global_comm->unique_id];
   global_comm->shared_buffer                             = &(data->shared_buffer);
   global_comm->shared_buffer->buffers[global_rank]       = (void*)sendbuf_tmp;
   global_comm->shared_buffer->displs[global_rank]        = (int*)sdispls;

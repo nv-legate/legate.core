@@ -69,7 +69,7 @@ typedef struct shared_data_s {
   bool ready_flag;
 } shared_data_t;
 
-extern shared_data_t shared_data[MAX_NB_COMMS];
+extern shared_data_t* shared_data[MAX_NB_COMMS];
 
 typedef enum {
   collInt8   = 0,
