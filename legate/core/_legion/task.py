@@ -465,7 +465,7 @@ class Task(Dispatchable[Future]):
             )
 
 
-class IndexTask(Dispatchable[FutureMap]):
+class IndexTask(Dispatchable[Union[Future, FutureMap]]):
 
     point_args: Union[list[Any], None]
 
