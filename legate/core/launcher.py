@@ -33,6 +33,7 @@ from . import (
     BufferBuilder,
     Copy as SingleCopy,
     Future,
+    FutureMap,
     IndexCopy,
     IndexTask,
     Partition as LegionPartition,
@@ -45,7 +46,6 @@ if TYPE_CHECKING:
     from . import (
         FieldID,
         FieldSpace,
-        FutureMap,
         IndexSpace,
         OutputRegion,
         Point,
@@ -931,6 +931,7 @@ class TaskLauncher:
     def execute(self, launch_domain: Rect) -> FutureMap:
         task = self.build_task(launch_domain, BufferBuilder())
         result = self._context.dispatch(task)
+        assert isinstance(result, FutureMap)
         self._out_analyzer.update_storages()
         return result
 
@@ -1055,10 +1056,10 @@ class CopyLauncher:
 
     def execute(
         self, launch_domain: Rect, redop: Optional[int] = None
-    ) -> FutureMap:
+    ) -> None:
         copy = self.build_copy(launch_domain)
-        return self._context.dispatch(copy)
+        self._context.dispatch(copy)
 
-    def execute_single(self) -> Future:
+    def execute_single(self) -> None:
         copy = self.build_single_copy()
-        return self._context.dispatch_single(copy)
+        self._context.dispatch_single(copy)
