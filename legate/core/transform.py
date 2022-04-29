@@ -14,7 +14,7 @@
 #
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Tuple, Union
+from typing import TYPE_CHECKING, Tuple
 
 import numpy as np
 from typing_extensions import Protocol
@@ -27,6 +27,7 @@ from .shape import Shape
 if TYPE_CHECKING:
     from . import BufferBuilder
     from .partition import PartitionBase
+    from .projection import SymbolicPoint
     from .runtime import Runtime
 
 
@@ -75,9 +76,7 @@ class TransformProto(Protocol):
     def invert_partition(self, partition: PartitionBase) -> PartitionBase:
         ...
 
-    def invert_dimensions(
-        self, dims: tuple[Union[int, ProjExpr], ...]
-    ) -> tuple[Union[int, ProjExpr], ...]:
+    def invert_symbolic_point(self, dims: SymbolicPoint) -> SymbolicPoint:
         ...
 
     def convert_restrictions(self, restrictions: Restrictions) -> Restrictions:
@@ -124,6 +123,7 @@ class Shift(Transform):
     def invert(self, partition: PartitionBase) -> PartitionBase:
         if isinstance(partition, Tiling):
             offset = partition.offset[self._dim] - self._offset
+            assert partition.color_shape is not None
             return Tiling(
                 self._runtime,
                 partition.tile_shape,
@@ -144,9 +144,7 @@ class Shift(Transform):
     def invert_point(self, point: Shape) -> Shape:
         return point.update(self._dim, point[self._dim] - self._offset)
 
-    def invert_dimensions(
-        self, dims: tuple[Union[int, ProjExpr], ...]
-    ) -> tuple[Union[int, ProjExpr], ...]:
+    def invert_symbolic_point(self, dims: SymbolicPoint) -> SymbolicPoint:
         return dims
 
     def invert_restrictions(self, restrictions: Restrictions) -> Restrictions:
@@ -155,6 +153,7 @@ class Shift(Transform):
     def convert(self, partition: PartitionBase) -> PartitionBase:
         if isinstance(partition, Tiling):
             offset = partition.offset[self._dim] + self._offset
+            assert partition.color_shape is not None
             return Tiling(
                 self._runtime,
                 partition.tile_shape,
@@ -217,6 +216,7 @@ class Promote(Transform):
 
     def invert(self, partition: PartitionBase) -> PartitionBase:
         if isinstance(partition, Tiling):
+            assert partition.color_shape is not None
             return Tiling(
                 self._runtime,
                 partition.tile_shape.drop(self._extra_dim),
@@ -237,9 +237,7 @@ class Promote(Transform):
     def invert_point(self, point: Shape) -> Shape:
         return point.drop(self._extra_dim)
 
-    def invert_dimensions(
-        self, dims: tuple[Union[int, ProjExpr], ...]
-    ) -> tuple[Union[int, ProjExpr], ...]:
+    def invert_symbolic_point(self, dims: SymbolicPoint) -> SymbolicPoint:
         return dims[: self._extra_dim] + dims[self._extra_dim + 1 :]
 
     def invert_restrictions(self, restrictions: Restrictions) -> Restrictions:
@@ -249,6 +247,7 @@ class Promote(Transform):
 
     def convert(self, partition: PartitionBase) -> PartitionBase:
         if isinstance(partition, Tiling):
+            assert partition.color_shape is not None
             return Tiling(
                 self._runtime,
                 partition.tile_shape.insert(self._extra_dim, self._dim_size),
@@ -314,6 +313,7 @@ class Project(Transform):
 
     def invert(self, partition: PartitionBase) -> PartitionBase:
         if isinstance(partition, Tiling):
+            assert partition.color_shape is not None
             return Tiling(
                 self._runtime,
                 partition.tile_shape.insert(self._dim, 1),
@@ -334,9 +334,7 @@ class Project(Transform):
     def invert_point(self, point: Shape) -> Shape:
         return point.insert(self._dim, self._index)
 
-    def invert_dimensions(
-        self, dims: tuple[Union[int, ProjExpr], ...]
-    ) -> tuple[Union[int, ProjExpr], ...]:
+    def invert_symbolic_point(self, dims: SymbolicPoint) -> SymbolicPoint:
         return dims[: self._dim] + (ProjExpr(-1),) + dims[self._dim :]
 
     def invert_restrictions(self, restrictions: Restrictions) -> Restrictions:
@@ -347,6 +345,7 @@ class Project(Transform):
 
     def convert(self, partition: PartitionBase) -> PartitionBase:
         if isinstance(partition, Tiling):
+            assert partition.color_shape is not None
             return Tiling(
                 self._runtime,
                 partition.tile_shape.drop(self._dim),
@@ -411,6 +410,7 @@ class Transpose(Transform):
 
     def invert(self, partition: PartitionBase) -> PartitionBase:
         if isinstance(partition, Tiling):
+            assert partition.color_shape is not None
             return Tiling(
                 self._runtime,
                 partition.tile_shape.map(self._inverse),
@@ -431,9 +431,7 @@ class Transpose(Transform):
     def invert_point(self, point: Shape) -> Shape:
         return point.map(self._inverse)
 
-    def invert_dimensions(
-        self, dims: tuple[Union[int, ProjExpr], ...]
-    ) -> tuple[Union[int, ProjExpr], ...]:
+    def invert_symbolic_point(self, dims: SymbolicPoint) -> SymbolicPoint:
         return tuple(dims[idx] for idx in self._inverse)
 
     def invert_restrictions(self, restrictions: Restrictions) -> Restrictions:
@@ -441,6 +439,7 @@ class Transpose(Transform):
 
     def convert(self, partition: PartitionBase) -> PartitionBase:
         if isinstance(partition, Tiling):
+            assert partition.color_shape is not None
             return Tiling(
                 self._runtime,
                 partition.tile_shape.map(self._axes),
@@ -501,6 +500,7 @@ class Delinearize(Transform):
 
     def invert(self, partition: PartitionBase) -> PartitionBase:
         if isinstance(partition, Tiling):
+            assert partition.color_shape is not None
             color_shape = partition.color_shape[
                 self._dim + 1 : self._dim + self._shape.ndim
             ]
@@ -551,9 +551,7 @@ class Delinearize(Transform):
     def invert_point(self, point: Shape) -> Shape:
         raise NonInvertibleError()
 
-    def invert_dimensions(
-        self, dims: tuple[Union[int, ProjExpr], ...]
-    ) -> tuple[Union[int, ProjExpr], ...]:
+    def invert_symbolic_point(self, dims: SymbolicPoint) -> SymbolicPoint:
         left = dims[: self._dim + 1]
         right = dims[self._dim + self._shape.ndim :]
         return left + right
@@ -598,7 +596,9 @@ class Delinearize(Transform):
 
 
 class TransformStackBase(TransformProto, Protocol):
-    pass
+    @property
+    def bottom(self) -> bool:
+        ...
 
 
 class TransformStack(TransformStackBase):
@@ -655,11 +655,9 @@ class TransformStack(TransformStackBase):
             self._transform.invert(partition)
         )
 
-    def invert_dimensions(
-        self, dims: tuple[Union[int, ProjExpr], ...]
-    ) -> tuple[Union[int, ProjExpr], ...]:
-        return self._parent.invert_dimensions(
-            self._transform.invert_dimensions(dims)
+    def invert_symbolic_point(self, dims: SymbolicPoint) -> SymbolicPoint:
+        return self._parent.invert_symbolic_point(
+            self._transform.invert_symbolic_point(dims)
         )
 
     def convert_restrictions(self, restrictions: Restrictions) -> Restrictions:
@@ -724,9 +722,7 @@ class IdentityTransform(TransformStackBase):
     def invert_partition(self, partition: PartitionBase) -> PartitionBase:
         return partition
 
-    def invert_dimensions(
-        self, dims: tuple[Union[int, ProjExpr], ...]
-    ) -> tuple[Union[int, ProjExpr], ...]:
+    def invert_symbolic_point(self, dims: SymbolicPoint) -> SymbolicPoint:
         return dims
 
     def convert_restrictions(self, restrictions: Restrictions) -> Restrictions:

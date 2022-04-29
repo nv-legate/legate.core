@@ -17,9 +17,9 @@ from __future__ import annotations
 import os
 from typing import Any, Union
 
-from .context import ResourceConfig
 from .install_info import header, libpath
 from .legate import Library
+from .resource import ResourceConfig
 
 
 class CoreLib(Library):
@@ -55,3 +55,6 @@ class CoreLib(Library):
         if not self._lib:
             raise RuntimeError("CoreLib was never initialized")
         self._lib.legate_shutdown()
+
+
+core_library = CoreLib()

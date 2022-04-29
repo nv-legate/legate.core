@@ -22,6 +22,7 @@ from .operation import (
     Attach,
     Copy,
     Detach,
+    Dispatchable,
     Fill,
     IndexAttach,
     IndexCopy,

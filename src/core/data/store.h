@@ -36,7 +36,7 @@ class RegionField {
   RegionField& operator=(RegionField&& other) noexcept;
 
  private:
-  RegionField(const RegionField& other) = delete;
+  RegionField(const RegionField& other)            = delete;
   RegionField& operator=(const RegionField& other) = delete;
 
  public:
@@ -169,7 +169,7 @@ class OutputRegionField {
   OutputRegionField& operator=(OutputRegionField&& other) noexcept;
 
  private:
-  OutputRegionField(const OutputRegionField& other) = delete;
+  OutputRegionField(const OutputRegionField& other)            = delete;
   OutputRegionField& operator=(const OutputRegionField& other) = delete;
 
  public:
@@ -272,7 +272,7 @@ class Store {
   Store& operator=(Store&& other) noexcept;
 
  private:
-  Store(const Store& other) = delete;
+  Store(const Store& other)            = delete;
   Store& operator=(const Store& other) = delete;
 
  public:

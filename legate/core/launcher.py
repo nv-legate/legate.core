@@ -15,7 +15,15 @@
 from __future__ import annotations
 
 from enum import IntEnum, unique
-from typing import TYPE_CHECKING, Any, Optional, Sequence, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+)
 
 import pyarrow as pa
 from typing_extensions import Protocol, overload
@@ -25,18 +33,19 @@ from . import (
     BufferBuilder,
     Copy as SingleCopy,
     Future,
+    FutureMap,
     IndexCopy,
     IndexTask,
     Partition as LegionPartition,
     Task as SingleTask,
     types as ty,
 )
+from .utils import OrderedSet
 
 if TYPE_CHECKING:
     from . import (
         FieldID,
         FieldSpace,
-        FutureMap,
         IndexSpace,
         OutputRegion,
         Point,
@@ -46,7 +55,7 @@ if TYPE_CHECKING:
     from ._legion.util import FieldListLike
     from .context import Context
     from .runtime import Runtime
-    from .store import Store
+    from .store import RegionField, Store
     from .types import DTType
 
 
@@ -64,7 +73,9 @@ class Permission(IntEnum):
     TARGET_INDIRECT = 6
 
 
-_SERIALIZERS = {
+Serializer = Callable[[BufferBuilder, Any], None]
+
+_SERIALIZERS: dict[Any, Serializer] = {
     bool: BufferBuilder.pack_bool,
     ty.int8: BufferBuilder.pack_8bit_int,
     ty.int16: BufferBuilder.pack_16bit_int,
@@ -76,19 +87,22 @@ _SERIALIZERS = {
     ty.uint64: BufferBuilder.pack_64bit_uint,
     ty.float32: BufferBuilder.pack_32bit_float,
     ty.float64: BufferBuilder.pack_64bit_float,
+    ty.string: BufferBuilder.pack_string,
 }
 
 EntryType = Tuple[Union["Broadcast", "Partition"], int, int]
 
 
-def _pack(
-    buf: BufferBuilder, value: Any, dtype: DTType, is_tuple: bool
-) -> None:
+def _pack(buf: BufferBuilder, value: Any, dtype: Any, is_tuple: bool) -> None:
     if dtype not in _SERIALIZERS:
         raise ValueError(f"Unsupported data type: {dtype}")
     serializer = _SERIALIZERS[dtype]
 
     if is_tuple:
+        if dtype == ty.string:
+            raise NotImplementedError(
+                "Passing a tuple of strings is not yet supported"
+            )
         buf.pack_32bit_uint(len(value))
         for v in value:
             serializer(buf, v)
@@ -246,11 +260,10 @@ _single_copy_calls: dict[Permission, LegionTaskMethod] = {
 
 
 class Broadcast:
-    __slots__ = ("part", "proj", "redop")
-
     # Use the same signature as Partition's constructor
     # so that the caller can construct projection objects in a uniform way
-    def __init__(self, part: LegionPartition, proj: int) -> None:
+    def __init__(self, part: Optional[LegionPartition], proj: int) -> None:
+        assert part is None
         self.part = part
         self.proj = proj
         self.redop: Union[int, None] = None
@@ -310,9 +323,8 @@ class Broadcast:
 
 
 class Partition:
-    __slots__ = ("part", "proj", "redop")
-
-    def __init__(self, part: LegionPartition, proj: int) -> None:
+    def __init__(self, part: Optional[LegionPartition], proj: int) -> None:
+        assert part is not None
         self.part = part
         self.proj = proj
         self.redop = None
@@ -465,10 +477,10 @@ class OutputReq:
 
 class ProjectionSet:
     def __init__(self) -> None:
-        self._entries: dict[Permission, set[EntryType]] = {}
+        self._entries: dict[Permission, OrderedSet[EntryType]] = {}
 
     def _create(self, perm: Permission, entry: EntryType) -> None:
-        self._entries[perm] = set([entry])
+        self._entries[perm] = OrderedSet([entry])
 
     def _update(self, perm: Permission, entry: EntryType) -> None:
         entries = self._entries[perm]
@@ -490,22 +502,22 @@ class ProjectionSet:
         self, error_on_interference: bool
     ) -> Union[
         list[tuple[Permission, Union[Broadcast, Partition], int, int]],
-        list[tuple[Permission, set[EntryType]]],
+        list[tuple[Permission, OrderedSet[EntryType]]],
     ]:
         if len(self._entries) == 1:
             perm = list(self._entries.keys())[0]
             return [(perm, *entry) for entry in self._entries[perm]]
-        all_perms = set(self._entries.keys())
+        all_perms = OrderedSet(self._entries.keys())
         # If the fields is requested with conflicting permissions,
         # promote them to read write permission.
-        if len(all_perms - set([Permission.NO_ACCESS])) > 1:
+        if len(all_perms - OrderedSet([Permission.NO_ACCESS])) > 1:
             perm = Permission.READ_WRITE
 
             # When the field requires read write permission,
             # all projections must be the same
-            all_entries: set[EntryType] = set()
+            all_entries: OrderedSet[EntryType] = OrderedSet()
             for entry in self._entries.values():
-                all_entries = all_entries | entry
+                all_entries.update(entry)
             if len(all_entries) > 1:
                 if error_on_interference:
                     raise ValueError(
@@ -613,7 +625,7 @@ class RequirementAnalyzer:
 class OutputAnalyzer:
     def __init__(self, runtime: Runtime) -> None:
         self._runtime = runtime
-        self._groups: dict[Any, set[tuple[int, Store]]] = {}
+        self._groups: dict[Any, OrderedSet[tuple[int, Store]]] = {}
         self._requirements: list[tuple[OutputReq, Any]] = []
         self._requirement_map: dict[tuple[OutputReq, int], int] = {}
 
@@ -633,7 +645,7 @@ class OutputAnalyzer:
     def insert(self, req: OutputReq, field_id: int, store: Store) -> None:
         group = self._groups.get(req)
         if group is None:
-            group = set()
+            group = OrderedSet()
             self._groups[req] = group
         group.add((field_id, store))
 
@@ -641,7 +653,7 @@ class OutputAnalyzer:
         for req, group in self._groups.items():
             req_idx = len(self._requirements)
             fields = []
-            field_set = set()
+            field_set: OrderedSet[int] = OrderedSet()
             for field_id, store in group:
                 self._requirement_map[(req, field_id)] = req_idx
                 if field_id in field_set:
@@ -738,6 +750,9 @@ class TaskLauncher:
     ) -> None:
         redop = -1 if proj.redop is None else proj.redop
         if store.kind is Future:
+            if TYPE_CHECKING:
+                assert isinstance(store.storage, Future)
+
             has_storage = perm != Permission.WRITE
             read_only = perm == Permission.READ
             if has_storage:
@@ -745,6 +760,9 @@ class TaskLauncher:
             args.append(FutureStoreArg(store, read_only, has_storage, redop))
 
         else:
+            if TYPE_CHECKING:
+                assert isinstance(store.storage, RegionField)
+
             region = store.storage.region
             field_id = store.storage.field.field_id
 
@@ -911,12 +929,9 @@ class TaskLauncher:
         return task
 
     def execute(self, launch_domain: Rect) -> FutureMap:
-        # Note that we should hold a reference to this buffer
-        # until we launch a task, otherwise the Python GC will
-        # collect the Python object holding the buffer, which
-        # in turn will deallocate the C side buffer.
         task = self.build_task(launch_domain, BufferBuilder())
         result = self._context.dispatch(task)
+        assert isinstance(result, FutureMap)
         self._out_analyzer.update_storages()
         return result
 
@@ -956,6 +971,9 @@ class CopyLauncher:
     ) -> None:
         assert store.kind is not Future
         assert store._transform.bottom
+
+        if TYPE_CHECKING:
+            assert isinstance(store.storage, RegionField)
 
         region = store.storage.region
         field_id = store.storage.field.field_id
@@ -1038,10 +1056,10 @@ class CopyLauncher:
 
     def execute(
         self, launch_domain: Rect, redop: Optional[int] = None
-    ) -> FutureMap:
+    ) -> None:
         copy = self.build_copy(launch_domain)
-        return self._context.dispatch(copy)
+        self._context.dispatch(copy)
 
-    def execute_single(self) -> Future:
+    def execute_single(self) -> None:
         copy = self.build_single_copy()
-        return self._context.dispatch_single(copy)
+        self._context.dispatch_single(copy)

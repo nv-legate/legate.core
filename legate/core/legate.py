@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Any, Iterator, Optional, Union
 
 import pyarrow
 
-from .context import ResourceConfig
+from .resource import ResourceConfig
 
 if TYPE_CHECKING:
     from .store import Store

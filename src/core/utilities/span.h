@@ -38,6 +38,8 @@ struct Span {
     assert(pos < size_);
     return data_[pos];
   }
+  const T* begin() const { return &data_[0]; }
+  const T* end() const { return &data_[size_]; }
 
  public:
   decltype(auto) subspan(size_t off)

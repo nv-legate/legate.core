@@ -14,11 +14,12 @@
 #
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, Iterable, Optional, Union
+from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING, Any, Iterable, Optional, Union
 
 import legate.core.types as ty
 
-from . import Future, FutureMap, Point, Rect
+from . import Future, FutureMap, Rect
 from .constraints import PartSym
 from .launcher import CopyLauncher, TaskLauncher
 from .partition import REPLICATE, Weighted
@@ -30,13 +31,12 @@ if TYPE_CHECKING:
     from .communicator import Communicator
     from .constraints import Constraint
     from .context import Context
+    from .projection import ProjFn, ProjOut, SymbolicPoint
     from .solver import Strategy
     from .types import DTType
 
-ProjFunc = Callable[[Point], Point]
 
-
-class Operation:
+class Operation(ABC):
     def __init__(
         self, context: Context, mapper_id: int = 0, op_id: int = 0
     ) -> None:
@@ -177,6 +177,10 @@ class Operation:
         self._all_parts.append(sym)
         return sym
 
+    @abstractmethod
+    def launch(self, strategy: Strategy) -> None:
+        ...
+
 
 class Task(Operation):
     def __init__(
@@ -210,22 +214,13 @@ class Task(Operation):
         for (arg, dtype) in self._scalar_args:
             launcher.add_scalar_arg(arg, dtype)
 
-    def _demux_scalar_stores(
-        self,
-        result: Union[Future, FutureMap],
-        launch_domain: Union[Rect, None],
-    ) -> None:
+    def _demux_scalar_stores_future(self, result: Future) -> None:
         num_unbound_outs = len(self.unbound_outputs)
         num_scalar_outs = len(self.scalar_outputs)
         num_scalar_reds = len(self.scalar_reductions)
         runtime = self.context.runtime
 
         num_all_scalars = num_unbound_outs + num_scalar_outs + num_scalar_reds
-        launch_shape = (
-            None
-            if launch_domain is None
-            else Shape(c + 1 for c in launch_domain.hi)
-        )
 
         if num_all_scalars == 0:
             return
@@ -234,12 +229,42 @@ class Task(Operation):
                 output = self.outputs[self.scalar_outputs[0]]
                 output.set_storage(result)
             elif num_scalar_reds == 1:
+                (output, _) = self.reductions[self.scalar_reductions[0]]
+                output.set_storage(result)
+        else:
+            idx = len(self.unbound_outputs)
+            for out_idx in self.scalar_outputs:
+                output = self.outputs[out_idx]
+                output.set_storage(runtime.extract_scalar(result, idx))
+                idx += 1
+            for red_idx in self.scalar_reductions:
+                (output, _) = self.reductions[red_idx]
+                output.set_storage(runtime.extract_scalar(result, idx))
+                idx += 1
+
+    def _demux_scalar_stores_future_map(
+        self,
+        result: FutureMap,
+        launch_domain: Rect,
+    ) -> None:
+        num_unbound_outs = len(self.unbound_outputs)
+        num_scalar_outs = len(self.scalar_outputs)
+        num_scalar_reds = len(self.scalar_reductions)
+        runtime = self.context.runtime
+
+        num_all_scalars = num_unbound_outs + num_scalar_outs + num_scalar_reds
+        launch_shape = Shape(c + 1 for c in launch_domain.hi)
+        assert num_scalar_outs == 0
+
+        if num_all_scalars == 0:
+            return
+        elif num_all_scalars == 1:
+            if num_scalar_reds == 1:
                 (output, redop) = self.reductions[self.scalar_reductions[0]]
                 redop_id = output.type.reduction_op_id(redop)
                 output.set_storage(runtime.reduce_future_map(result, redop_id))
-            elif launch_shape is not None:
+            else:
                 assert num_unbound_outs == 1
-                assert isinstance(result, FutureMap)
                 output = self.outputs[self.unbound_outputs[0]]
                 # TODO: need to track partitions for N-D unbound stores
                 if output.ndim == 1:
@@ -249,43 +274,37 @@ class Task(Operation):
             idx = 0
             # TODO: We can potentially deduplicate these extraction tasks
             # by grouping output stores that are mapped to the same field space
-            if launch_shape is not None:
-                for out_idx in self.unbound_outputs:
-                    output = self.outputs[out_idx]
-                    # TODO: need to track partitions for N-D unbound stores
-                    if output.ndim > 1:
-                        continue
-                    weights = runtime.extract_scalar_with_domain(
-                        result, idx, launch_domain
-                    )
-                    partition = Weighted(runtime, launch_shape, weights)
-                    output.set_key_partition(partition)
-                    idx += 1
-            else:
-                idx += len(self.unbound_outputs)
-            for out_idx in self.scalar_outputs:
+            for out_idx in self.unbound_outputs:
                 output = self.outputs[out_idx]
-                data = (
-                    runtime.extract_scalar(result, idx)
-                    if launch_domain is None
-                    else runtime.extract_scalar_with_domain(
-                        result, idx, launch_domain
-                    )
+                # TODO: need to track partitions for N-D unbound stores
+                if output.ndim > 1:
+                    continue
+                weights = runtime.extract_scalar_with_domain(
+                    result, idx, launch_domain
                 )
-                output.set_storage(data)
+                partition = Weighted(runtime, launch_shape, weights)
+                output.set_key_partition(partition)
                 idx += 1
             for red_idx in self.scalar_reductions:
                 (output, redop) = self.reductions[red_idx]
                 redop_id = output.type.reduction_op_id(redop)
-                data = (
-                    runtime.extract_scalar(result, idx)
-                    if launch_domain is None
-                    else runtime.extract_scalar_with_domain(
-                        result, idx, launch_domain
-                    )
+                data = runtime.extract_scalar_with_domain(
+                    result, idx, launch_domain
                 )
                 output.set_storage(runtime.reduce_future_map(data, redop_id))
                 idx += 1
+
+    def _demux_scalar_stores(
+        self,
+        result: Union[Future, FutureMap],
+        launch_domain: Union[Rect, None],
+    ) -> None:
+        if launch_domain is None:
+            assert isinstance(result, Future)
+            self._demux_scalar_stores_future(result)
+        else:
+            assert isinstance(result, FutureMap)
+            self._demux_scalar_stores_future_map(result, launch_domain)
 
     def add_nccl_communicator(self) -> None:
         comm = self._context.get_nccl_communicator()
@@ -435,9 +454,9 @@ class ManualTask(Task):
     ) -> None:
         super().__init__(context, task_id, mapper_id, op_id)
         self._launch_domain: Rect = launch_domain
-        self._input_projs: list[Union[ProjFunc, None]] = []
-        self._output_projs: list[Union[ProjFunc, None]] = []
-        self._reduction_projs: list[Union[ProjFunc, None]] = []
+        self._input_projs: list[Union[ProjFn, None]] = []
+        self._output_projs: list[Union[ProjFn, None]] = []
+        self._reduction_projs: list[Union[ProjFn, None]] = []
 
         self._input_parts: list[StorePartition] = []
         self._output_parts: list[StorePartition] = []
@@ -460,7 +479,7 @@ class ManualTask(Task):
     def add_input(
         self,
         arg: Union[Store, StorePartition],
-        proj: Optional[ProjFunc] = None,
+        proj: Optional[ProjFn] = None,
     ) -> None:
         self._check_arg(arg)
         if isinstance(arg, Store):
@@ -472,7 +491,7 @@ class ManualTask(Task):
     def add_output(
         self,
         arg: Union[Store, StorePartition],
-        proj: Optional[ProjFunc] = None,
+        proj: Optional[ProjFn] = None,
     ) -> None:
         self._check_arg(arg)
         if isinstance(arg, Store):
@@ -492,7 +511,7 @@ class ManualTask(Task):
         self,
         arg: Union[Store, StorePartition],
         redop: int,
-        proj: Optional[ProjFunc] = None,
+        proj: Optional[ProjFn] = None,
     ) -> None:
         self._check_arg(arg)
         if isinstance(arg, Store):
@@ -739,7 +758,7 @@ class _RadixProj:
         self._radix = radix
         self._offset = offset
 
-    def __call__(self, p: tuple[int, ...]) -> tuple[int]:
+    def __call__(self, p: SymbolicPoint) -> ProjOut:
         return (p[0] * self._radix + self._offset,)
 
 
@@ -765,10 +784,12 @@ class Reduce(PartSymTask):
         opart = output.partition(strategy.get_partition(self._input_parts[0]))
 
         done = False
-        launch_domain = strategy.launch_domain if strategy.parallel else None
-        fan_in = (
-            strategy.launch_domain.get_volume() if strategy.parallel else 1
-        )
+        launch_domain = None
+        fan_in = 1
+        if strategy.parallel:
+            assert strategy.launch_domain is not None
+            launch_domain = strategy.launch_domain
+            fan_in = launch_domain.get_volume()
 
         proj_fns = list(
             _RadixProj(self._radix, off) for off in range(self._radix)

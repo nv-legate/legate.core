@@ -143,7 +143,7 @@ class AffineTransform:
             raise ValueError("Dimension mismatch")
         pin = np.ones(self.N + 1, dtype=np.int64)
         pin[: self.N] = point
-        pout = np.dot(self.transform, pin)  # type: ignore[no-untyped-call]
+        pout = np.dot(self.transform, pin)
         return tuple(pout[: self.M])
 
     def compose(self, outer: AffineTransform) -> AffineTransform:

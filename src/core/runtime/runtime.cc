@@ -36,11 +36,13 @@ static const char* const core_library_name = "legate.core";
 
 /*static*/ bool Core::use_empty_task = false;
 
+/*static*/ bool Core::synchronize_stream_view = false;
+
 /*static*/ void Core::parse_config(void)
 {
 #ifndef LEGATE_USE_CUDA
   const char* need_cuda = getenv("LEGATE_NEED_CUDA");
-  if (need_cuda != NULL) {
+  if (need_cuda != nullptr) {
     fprintf(stderr,
             "Legate was run with GPUs but was not built with GPU support. "
             "Please install Legate again with the \"--cuda\" flag.\n");
@@ -49,7 +51,7 @@ static const char* const core_library_name = "legate.core";
 #endif
 #ifndef LEGATE_USE_OPENMP
   const char* need_openmp = getenv("LEGATE_NEED_OPENMP");
-  if (need_openmp != NULL) {
+  if (need_openmp != nullptr) {
     fprintf(stderr,
             "Legate was run with OpenMP processors but was not built with "
             "OpenMP support. Please install Legate again with the \"--openmp\" flag.\n");
@@ -58,7 +60,7 @@ static const char* const core_library_name = "legate.core";
 #endif
 #ifndef LEGATE_USE_GASNET
   const char* need_gasnet = getenv("LEGATE_NEED_GASNET");
-  if (need_gasnet != NULL) {
+  if (need_gasnet != nullptr) {
     fprintf(stderr,
             "Legate was run on multiple nodes but was not built with "
             "GASNet support. Please install Legate again with the \"--gasnet\" flag.\n");
@@ -66,10 +68,13 @@ static const char* const core_library_name = "legate.core";
   }
 #endif
   const char* progress = getenv("LEGATE_SHOW_PROGRESS");
-  if (progress != NULL) show_progress_requested = true;
+  if (progress != nullptr) show_progress_requested = true;
 
   const char* empty_task = getenv("LEGATE_EMPTY_TASK");
-  if (empty_task != NULL && atoi(empty_task) > 0) use_empty_task = true;
+  if (empty_task != nullptr && atoi(empty_task) > 0) use_empty_task = true;
+
+  const char* sync_stream_view = getenv("LEGATE_SYNC_STREAM_VIEW");
+  if (sync_stream_view != nullptr && atoi(sync_stream_view) > 0) synchronize_stream_view = true;
 }
 
 static ReturnValues extract_scalar_task(const Task* task,

@@ -39,6 +39,7 @@ class Core {
   // Configuration settings
   static bool show_progress_requested;
   static bool use_empty_task;
+  static bool synchronize_stream_view;
 };
 
 }  // namespace legate

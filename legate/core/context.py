@@ -14,12 +14,13 @@
 #
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union
 
 import numpy as np
 
 from . import Future, legion
 from .operation import AutoTask, Copy, ManualTask, Reduce
+from .resource import ResourceScope
 from .types import TypeSystem
 
 if TYPE_CHECKING:
@@ -27,47 +28,14 @@ if TYPE_CHECKING:
     from pyarrow import DataType
 
     from . import ArgumentMap, Rect
+    from ._legion.util import Dispatchable
     from .communicator import Communicator
     from .legate import Library
-    from .operation import FutureMap
     from .runtime import Runtime
     from .shape import Shape
     from .store import RegionField, Store
 
-
-class ResourceConfig:
-    __slots__ = (
-        "max_tasks",
-        "max_mappers",
-        "max_reduction_ops",
-        "max_projections",
-        "max_shardings",
-    )
-
-    def __init__(self) -> None:
-        self.max_tasks = 1_000_000
-        self.max_mappers = 1
-        self.max_reduction_ops = 0
-        self.max_projections = 0
-        self.max_shardings = 0
-
-
-class ResourceScope:
-    def __init__(
-        self, context: Context, base: Optional[int], category: str
-    ) -> None:
-        self._context = context
-        self._base = base
-        self._category = category
-
-    @property
-    def scope(self) -> str:
-        return self._context._library.get_name()
-
-    def translate(self, resource_id: int) -> int:
-        if self._base is None:
-            raise ValueError(f"{self.scope} has not {self._category}")
-        return self._base + resource_id
+T = TypeVar("T")
 
 
 class Context:
@@ -202,7 +170,7 @@ class Context:
             )
         )
         buf = fut.get_buffer(dt.itemsize)
-        return np.frombuffer(buf, dtype=dt)[0]  # type: ignore [no-untyped-call] # noqa: E501
+        return np.frombuffer(buf, dtype=dt)[0]
 
     def get_unique_op_id(self) -> int:
         return self._runtime.get_unique_op_id()
@@ -234,11 +202,10 @@ class Context:
     def create_copy(self, mapper_id: int = 0) -> Copy:
         return Copy(self, mapper_id)
 
-    # TODO (bev) add ABC for dispatchable ops
-    def dispatch(self, op: Any) -> FutureMap:
+    def dispatch(self, op: Dispatchable[T]) -> T:
         return self._runtime.dispatch(op)
 
-    def dispatch_single(self, op: Any) -> Future:
+    def dispatch_single(self, op: Dispatchable[T]) -> T:
         return self._runtime.dispatch_single(op)
 
     def create_store(
@@ -253,7 +220,7 @@ class Context:
         return self._runtime.create_store(
             dtype,
             shape=shape,
-            storage=storage,
+            data=storage,
             optimize_scalar=optimize_scalar,
             ndim=ndim,
         )
@@ -269,6 +236,10 @@ class Context:
     ) -> Store:
         result = self.create_store(store.type)
         unique_op_id = self.get_unique_op_id()
+
+        # Make sure we flush the scheduling window, as we will bypass
+        # the partitioner below
+        self.runtime.flush_scheduling_window()
 
         # A single Reduce operation is mapepd to a whole reduction tree
         task = Reduce(self, task_id, radix, mapper_id, unique_op_id)
