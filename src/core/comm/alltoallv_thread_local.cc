@@ -66,7 +66,8 @@ int collAlltoallvLocal(const void* sendbuf,
   int* displs         = NULL;
   for (int i = 1; i < total_size + 1; i++) {
     recvfrom_global_rank = (global_rank + total_size - i) % total_size;
-    while (global_comm->shared_data->buffers[recvfrom_global_rank] == NULL)
+    while (global_comm->shared_data->buffers[recvfrom_global_rank] == NULL ||
+           global_comm->shared_data->displs[recvfrom_global_rank] == NULL)
       ;
     src_base  = const_cast<void*>(global_comm->shared_data->buffers[recvfrom_global_rank]);
     displs    = const_cast<int*>(global_comm->shared_data->displs[recvfrom_global_rank]);
