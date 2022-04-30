@@ -57,19 +57,14 @@ typedef struct mapping_table_s {
 #define MAX_NB_THREADS 128
 #define MAX_NB_COMMS 64
 
-typedef struct shared_buffer_s {
-  const void* buffers[MAX_NB_THREADS];
-  const int* displs[MAX_NB_THREADS];
-  bool buffers_ready[MAX_NB_THREADS];
-} shared_buffer_t;
-
 typedef struct shared_data_s {
-  shared_buffer_t shared_buffer;
+  void* buffers[MAX_NB_THREADS];
+  int* displs[MAX_NB_THREADS];
   pthread_barrier_t barrier;
   bool ready_flag;
 } shared_data_t;
 
-extern shared_data_t* shared_data[MAX_NB_COMMS];
+extern volatile shared_data_t shared_data[MAX_NB_COMMS];
 
 typedef enum {
   collInt8   = 0,
@@ -89,7 +84,7 @@ typedef struct Coll_Comm_s {
   MPI_Comm comm;
   mapping_table_t mapping_table;
 #else
-  volatile shared_buffer_t* shared_buffer;
+  volatile shared_data_t* shared_data;
 #endif
   int mpi_rank;
   int mpi_comm_size;

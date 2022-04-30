@@ -53,18 +53,15 @@ int collAllgatherLocal(const void* sendbuf,
     sendbuf_tmp = const_cast<void*>(sendbuf);
   }
 
-  volatile shared_data_t* data                           = shared_data[global_comm->unique_id];
-  global_comm->shared_buffer                             = &(data->shared_buffer);
-  global_comm->shared_buffer->buffers[global_rank]       = sendbuf_tmp;
-  global_comm->shared_buffer->buffers_ready[global_rank] = true;
+  global_comm->shared_data->buffers[global_rank] = sendbuf_tmp;
   __sync_synchronize();
 
   int recvfrom_global_rank;
   for (int i = 0; i < total_size; i++) {
     recvfrom_global_rank = i;
-    while (global_comm->shared_buffer->buffers_ready[recvfrom_global_rank] != true)
+    while (global_comm->shared_data->buffers[recvfrom_global_rank] == NULL)
       ;
-    char* src = (char*)global_comm->shared_buffer->buffers[recvfrom_global_rank];
+    char* src = (char*)global_comm->shared_data->buffers[recvfrom_global_rank];
     char* dst = (char*)recvbuf + (ptrdiff_t)recvfrom_global_rank * recvtype_extent * recvcount;
 #ifdef DEBUG_PRINT
     printf("i: %d === global_rank %d, dtype %d, copy rank %d (%p) to rank %d (%p)\n",

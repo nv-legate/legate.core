@@ -54,10 +54,7 @@ int collAlltoallLocal(const void* sendbuf,
     sendbuf_tmp = const_cast<void*>(sendbuf);
   }
 
-  volatile shared_data_t* data                           = shared_data[global_comm->unique_id];
-  global_comm->shared_buffer                             = &(data->shared_buffer);
-  global_comm->shared_buffer->buffers[global_rank]       = sendbuf_tmp;
-  global_comm->shared_buffer->buffers_ready[global_rank] = true;
+  global_comm->shared_data->buffers[global_rank] = sendbuf_tmp;
   __sync_synchronize();
 
   int recvfrom_global_rank;
@@ -65,9 +62,9 @@ int collAlltoallLocal(const void* sendbuf,
   void* src_base      = NULL;
   for (int i = 1; i < total_size + 1; i++) {
     recvfrom_global_rank = (global_rank + total_size - i) % total_size;
-    while (global_comm->shared_buffer->buffers_ready[recvfrom_global_rank] != true)
+    while (global_comm->shared_data->buffers[recvfrom_global_rank] == NULL)
       ;
-    src_base  = const_cast<void*>(global_comm->shared_buffer->buffers[recvfrom_global_rank]);
+    src_base  = const_cast<void*>(global_comm->shared_data->buffers[recvfrom_global_rank]);
     char* src = (char*)src_base + (ptrdiff_t)recvfrom_seg_id * sendtype_extent * sendcount;
     char* dst = (char*)recvbuf + (ptrdiff_t)recvfrom_global_rank * recvtype_extent * recvcount;
 #ifdef DEBUG_PRINT
