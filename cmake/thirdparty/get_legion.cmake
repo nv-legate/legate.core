@@ -55,18 +55,6 @@ function(find_or_configure_legion)
                          "Legion_CUDA_ARCH ${Legion_CUDA_ARCH}"
   )
 
-  if(TARGET Regent AND NOT (TARGET Legion::Regent))
-    add_library(Legion::Regent ALIAS Regent)
-  endif()
-
-  if(TARGET RealmRuntime AND NOT (TARGET Legion::RealmRuntime))
-    add_library(Legion::RealmRuntime ALIAS RealmRuntime)
-  endif()
-
-  if(TARGET LegionRuntime AND NOT (TARGET Legion::LegionRuntime))
-    add_library(Legion::LegionRuntime ALIAS LegionRuntime)
-  endif()
-
 endfunction()
 
 if(NOT DEFINED LEGATE_CORE_LEGION_BRANCH)

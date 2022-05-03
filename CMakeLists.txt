@@ -17,7 +17,9 @@
 cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
 
 cmake_policy(SET CMP0077 NEW)
+set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 cmake_policy(SET CMP0126 NEW)
+set(CMAKE_POLICY_DEFAULT_CMP0126 NEW)
 
 ##############################################################################
 # - Download and initialize RAPIDS CMake helpers -----------------------------
@@ -90,16 +92,6 @@ option(Legion_USE_HDF5 "Enable support for HDF5" OFF)
 option(Legion_USE_GASNet "Enable the distributed GASNet backend" OFF)
 option(Legion_USE_OpenMP "Use OpenMP" OFF)
 option(Legion_USE_Python "Use Python" OFF)
-
-if(Legion_USE_LLVM)
-  # Prevent `foreach` variables from leaking. FindLLVM.cmake does:
-  # ```
-  # foreach(C IN LISTS LLVM_FIND_COMPONENTS)
-  # ```
-  # This changes the value of the `C` variable globally, interfering with FindMPI.cmake
-  cmake_policy(SET CMP0124 NEW)
-  set(CMAKE_POLICY_DEFAULT_CMP0124 NEW)
-endif()
 
 if(Legion_USE_GASNet AND (NOT GASNet_ROOT_DIR))
   option(Legion_EMBED_GASNet "Embed a custom GASNet build into Legion" ON)
