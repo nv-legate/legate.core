@@ -45,6 +45,7 @@ function(find_or_configure_legion)
         GIT_TAG          ${PKG_PINNED_TAG}
         EXCLUDE_FROM_ALL ${PKG_EXCLUDE_FROM_ALL}
         OPTIONS          "CMAKE_CXX_STANDARD 17"
+                         "Legion_VERSION ${PKG_VERSION}"
                          "Legion_BUILD_BINDINGS ON"
                          "Legion_BUILD_APPS OFF"
                          "Legion_BUILD_TESTS OFF"
