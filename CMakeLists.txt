@@ -266,6 +266,11 @@ foreach(_dir IN LISTS realm_includes legion_includes)
 endforeach()
 
 list(REMOVE_DUPLICATES extra_includes)
+list(LENGTH extra_includes num_extra_includes)
+if(num_extra_includes GREATER 2)
+  list(SORT extra_includes)
+  list(SUBLIST extra_includes 0 2 extra_includes)
+endif()
 list(TRANSFORM extra_includes PREPEND "SHELL:-include ")
 
 target_link_libraries(legate_core PUBLIC Legion::Legion)
