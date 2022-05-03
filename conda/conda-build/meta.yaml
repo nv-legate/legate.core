@@ -1,5 +1,10 @@
 {% set name = "legate-core" %}
 {% set default_env_var = '' %}
+{% if build_number is defined %}
+    {# do nothing if defined #}
+{% else %}
+    {% set build_number = environ.get('GIT_DESCRIBE_NUMBER', '0') %}
+{% endif %}
 {% if package_version is defined %}
     {% set version = package_version %}
 ## The tag must be in one of the two formats (where N is a digit):
@@ -27,7 +32,7 @@ source:
 
 build:
   skip: true # [not linux]
-  number: {{ GIT_DESCRIBE_NUMBER }}
+  number: {{ build_number }}
   missing_dso_whitelist:
     -  '*libcuda.so*'
   string: "cuda{{ cuda_major }}_py{{ py_version }}_{{ GIT_DESCRIBE_HASH }}_{{ PKG_BUILDNUM }}"
@@ -46,6 +51,7 @@ requirements:
     - cuda-libraries-dev >={{ cuda_version }}
     - cudatoolkit >={{ cuda_version }}
     - nccl
+    - cuda-nvtx >={{ cuda_version }}
   run:
     - python
     - cudatoolkit >={{ cuda_version }}
