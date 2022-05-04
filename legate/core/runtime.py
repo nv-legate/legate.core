@@ -22,7 +22,7 @@ from collections import deque
 from functools import reduce
 from typing import TYPE_CHECKING, Union
 
-from legion_top import cleanup_items, top_level
+from legion_top import add_cleanup_item, top_level
 
 from . import ffi  # Make sure we only have one ffi instance
 from . import (
@@ -1240,7 +1240,7 @@ def _cleanup_legate_runtime() -> None:
     gc.collect()
 
 
-cleanup_items.append(_cleanup_legate_runtime)
+add_cleanup_item(_cleanup_legate_runtime)
 
 
 def get_legion_runtime() -> legion.legion_runtime_t:
