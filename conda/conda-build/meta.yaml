@@ -43,7 +43,7 @@ build:
 {% if not gpu_enabled %}
   track_features:
     - cpu_only
- script_env:
+  script_env:
     - CPU_ONLY=1
 {% endif %}
 
