@@ -90,6 +90,8 @@ int collCommCreate(collComm_t global_comm,
   int *tag_ub, flag;
 #if defined(USE_NEW_COMM)
   MPI_Comm comm = communicators[unique_id];
+  // MPI_Comm comm;
+  // MPI_Comm_dup(MPI_COMM_WORLD, &comm);
 #else
   MPI_Comm comm = MPI_COMM_WORLD;
 #endif
@@ -283,6 +285,13 @@ int collInit(int argc, char* argv[])
 int collFinalize(void)
 {
 #if defined(LEGATE_USE_GASNET)
+#if defined(USE_NEW_COMM)
+  int res;
+  for (int i = 0; i < MAX_NB_COMMS; i++) {
+    res = MPI_Comm_free(&communicators[i]);
+    assert(res == MPI_SUCCESS);
+  }
+#endif
   return MPI_Finalize();
 #else
   assert(coll_local_inited == true);
