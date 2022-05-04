@@ -80,11 +80,16 @@ int collCommCreate(collComm_t global_comm,
   global_comm->unique_id        = unique_id;
 #if defined(LEGATE_USE_GASNET)
   int mpi_rank, mpi_comm_size;
-  MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &mpi_comm_size);
+  int *tag_ub, flag;
+  MPI_Comm comm = MPI_COMM_WORLD;
+  MPI_Comm_get_attr(comm, MPI_TAG_UB, &tag_ub, &flag);
+  assert(flag);
+  assert(*tag_ub == INT_MAX);
+  MPI_Comm_rank(comm, &mpi_rank);
+  MPI_Comm_size(comm, &mpi_comm_size);
   global_comm->mpi_comm_size = mpi_comm_size;
   global_comm->mpi_rank      = mpi_rank;
-  global_comm->comm          = MPI_COMM_WORLD;
+  global_comm->comm          = comm;
   if (mapping_table != NULL) {
     global_comm->mapping_table.global_rank = (int*)malloc(sizeof(int) * global_comm_size);
     global_comm->mapping_table.mpi_rank    = (int*)malloc(sizeof(int) * global_comm_size);
@@ -241,8 +246,9 @@ int collInit(int argc, char* argv[])
 {
   current_unique_id = 0;
 #if defined(LEGATE_USE_GASNET)
-  int provided;
-  return MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided);
+  int provided, res;
+  res = MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided);
+  assert(res == MPI_SUCCESS);
 #else
   for (int i = 0; i < MAX_NB_COMMS; i++) {
     shared_data[i].ready_flag = false;
@@ -253,8 +259,8 @@ int collInit(int argc, char* argv[])
   }
 
   coll_local_inited = true;
-  return collSuccess;
 #endif
+  return collSuccess;
 }
 
 int collFinalize(void)
@@ -274,7 +280,7 @@ int collGetUniqueId(int* id)
   *id = current_unique_id;
   current_unique_id++;
 #if defined(LEGATE_USE_GASNET)
-  current_unique_id = current_unique_id % 10;
+  current_unique_id = current_unique_id % MAX_NB_COMMS;
 #else
   assert(current_unique_id <= MAX_NB_COMMS);
 #endif
@@ -290,11 +296,12 @@ int collGenerateAlltoallTag(int rank1, int rank2, collComm_t global_comm)
   // * 10000 + recvfrom_global_rank) * 10 + ALLTOALL_TAG) * 10 + global_comm->unique_id; // idx of
   // current seg we are receving (in src/my rank)
 #if 1
-  int tag = ((rank1 * 10000 + rank2) * MAX_COLL_TYPES + ALLTOALL_TAG) * 10 + global_comm->unique_id;
+  int tag = ((rank1 * 10000 + rank2) * MAX_COLL_TYPES + ALLTOALL_TAG) * MAX_NB_COMMS +
+            global_comm->unique_id;
 #else
-  int tag =
-    ((rank1 % global_comm->nb_threads * 10000 + rank2) * MAX_COLL_TYPES + ALLTOALL_TAG) * 10 +
-    global_comm->unique_id;
+  int tag = ((rank1 % global_comm->nb_threads * 10000 + rank2) * MAX_COLL_TYPES + ALLTOALL_TAG) *
+              MAX_NB_COMMS +
+            global_comm->unique_id;
 #endif
   assert(tag < INT_MAX && tag > 0);
   return tag;
@@ -308,12 +315,12 @@ int collGenerateAlltoallvTag(int rank1, int rank2, collComm_t global_comm)
   // * 10000 + recvfrom_global_rank) * 10 + ALLTOALLV_TAG) * 10 + global_comm->unique_id; // idx of
   // current seg we are receving (in src/my rank)
 #if 1
-  int tag =
-    ((rank1 * 10000 + rank2) * MAX_COLL_TYPES + ALLTOALLV_TAG) * 10 + global_comm->unique_id;
+  int tag = ((rank1 * 10000 + rank2) * MAX_COLL_TYPES + ALLTOALLV_TAG) * MAX_NB_COMMS +
+            global_comm->unique_id;
 #else
-  int tag =
-    ((rank1 % global_comm->nb_threads * 10000 + rank2) * MAX_COLL_TYPES + ALLTOALLV_TAG) * 10 +
-    global_comm->unique_id;
+  int tag = ((rank1 % global_comm->nb_threads * 10000 + rank2) * MAX_COLL_TYPES + ALLTOALLV_TAG) *
+              MAX_NB_COMMS +
+            global_comm->unique_id;
 #endif
   assert(tag < INT_MAX && tag > 0);
   return tag;
@@ -321,14 +328,14 @@ int collGenerateAlltoallvTag(int rank1, int rank2, collComm_t global_comm)
 
 int collGenerateBcastTag(int rank, collComm_t global_comm)
 {
-  int tag = (rank * MAX_COLL_TYPES + BCAST_TAG) * 10 + global_comm->unique_id;
+  int tag = (rank * MAX_COLL_TYPES + BCAST_TAG) * MAX_NB_COMMS + global_comm->unique_id;
   assert(tag < INT_MAX && tag >= 0);
   return tag;
 }
 
 int collGenerateGatherTag(int rank, collComm_t global_comm)
 {
-  int tag = (rank * MAX_COLL_TYPES + GATHER_TAG) * 10 + global_comm->unique_id;
+  int tag = (rank * MAX_COLL_TYPES + GATHER_TAG) * MAX_NB_COMMS + global_comm->unique_id;
   assert(tag < INT_MAX && tag > 0);
   return tag;
 }

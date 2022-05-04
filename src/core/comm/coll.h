@@ -24,6 +24,8 @@
 #define collSuccess 0
 #define collError 1
 
+#define MAX_NB_COMMS 10
+
 #if defined(LEGATE_USE_GASNET)
 #include <mpi.h>
 
@@ -55,7 +57,6 @@ typedef struct mapping_table_s {
 #include <stdbool.h>
 
 #define MAX_NB_THREADS 128
-#define MAX_NB_COMMS 64
 
 typedef struct shared_data_s {
   void* buffers[MAX_NB_THREADS];
