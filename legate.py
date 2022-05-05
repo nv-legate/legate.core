@@ -502,6 +502,8 @@ def run_legate(
     if opts:
         cmd += opts
 
+    # Create output directory
+    os.makedirs(log_dir, exist_ok=True)
     # Launch the child process
     if verbose and (launcher != "none" or rank_id == "0"):
         print(
@@ -708,7 +710,8 @@ def driver():
         type=str,
         default=os.getcwd(),
         dest="logdir",
-        help="Directory for Legate log files (defaults to current directory)",
+        help="Directory for Legate log files (automatically created if it "
+        "doesn't exist; defaults to current directory)",
     )
     parser.add_argument(
         "--logging",
