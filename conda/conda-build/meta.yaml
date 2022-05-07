@@ -1,5 +1,10 @@
 {% set name = "legate-core" %}
 {% set default_env_var = '' %}
+{% if build_number is defined %}
+    {# do nothing if defined #}
+{% else %}
+    {% set build_number = environ.get('GIT_DESCRIBE_NUMBER', '0') %}
+{% endif %}
 {% if package_version is defined %}
     {% set version = package_version %}
 ## The tag must be in one of the two formats (where N is a digit):
@@ -27,10 +32,20 @@ source:
 
 build:
   skip: true # [not linux]
-  number: {{ GIT_DESCRIBE_NUMBER }}
+  number: {{ build_number }}
   missing_dso_whitelist:
     -  '*libcuda.so*'
+{% if not gpu_enabled %}
+  string: "cuda{{ cuda_major }}_py{{ py_version }}_{{ GIT_DESCRIBE_HASH }}_{{ PKG_BUILDNUM }}_cpu"
+{% else %}
   string: "cuda{{ cuda_major }}_py{{ py_version }}_{{ GIT_DESCRIBE_HASH }}_{{ PKG_BUILDNUM }}"
+{% endif %}
+{% if not gpu_enabled %}
+  track_features:
+    - cpu_only
+  script_env:
+    - CPU_ONLY=1
+{% endif %}
 
 requirements:
   build:
@@ -42,13 +57,18 @@ requirements:
     - sysroot_linux-64 2.17  # [linux64]
   host:
     - python
+{% if gpu_enabled %}
     - cuda-compiler >={{ cuda_version }}
     - cuda-libraries-dev >={{ cuda_version }}
     - cudatoolkit >={{ cuda_version }}
     - nccl
+    - cuda-nvtx >={{ cuda_version }}
+{% endif %}
   run:
     - python
+{% if gpu_enabled %}
     - cudatoolkit >={{ cuda_version }}
+{% endif %}
     - openmp
     - zlib
     - numpy
@@ -56,7 +76,9 @@ requirements:
     - pyarrow >=5.0.0
     
   run_constrained:
+{% if gpu_enabled %}
     - __cuda >= 8.0
+{% endif %}
     - __glibc >=2.17  # [linux]
 
 test:

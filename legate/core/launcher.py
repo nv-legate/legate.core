@@ -944,7 +944,12 @@ class TaskLauncher:
 
 class CopyLauncher:
     def __init__(
-        self, context: Context, mapper_id: int = 0, tag: int = 0
+        self,
+        context: Context,
+        source_oor: bool = True,
+        target_oor: bool = True,
+        mapper_id: int = 0,
+        tag: int = 0,
     ) -> None:
         assert type(tag) != bool
         self._context = context
@@ -954,6 +959,8 @@ class CopyLauncher:
         self._tag = tag
         self._sharding_space: Union[IndexSpace, None] = None
         self._point: Union[Point, None] = None
+        self._source_oor = source_oor
+        self._target_oor = target_oor
 
     @property
     def library_mapper_id(self) -> int:
@@ -1031,6 +1038,8 @@ class CopyLauncher:
             req.proj.add(copy, req, fields, _index_copy_calls)
         if self._sharding_space is not None:
             copy.set_sharding_space(self._sharding_space)
+        copy.set_possible_src_indirect_out_of_range(self._source_oor)
+        copy.set_possible_dst_indirect_out_of_range(self._target_oor)
         return copy
 
     def build_single_copy(self) -> SingleCopy:
@@ -1052,6 +1061,8 @@ class CopyLauncher:
             copy.set_sharding_space(self._sharding_space)
         if self._point is not None:
             copy.set_point(self._point)
+        copy.set_possible_src_indirect_out_of_range(self._source_oor)
+        copy.set_possible_dst_indirect_out_of_range(self._target_oor)
         return copy
 
     def execute(
