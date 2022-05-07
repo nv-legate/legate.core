@@ -632,6 +632,8 @@ class Copy(AutoOperation):
         self._target_indirects: list[Store] = []
         self._source_indirect_parts: list[PartSym] = []
         self._target_indirect_parts: list[PartSym] = []
+        self._source_indirect_out_of_range = True
+        self._target_indirect_out_of_range = True
 
     def get_name(self) -> str:
         libname = self.context.library.get_name()
@@ -676,6 +678,12 @@ class Copy(AutoOperation):
             partition = self._get_unique_partition(store)
         self._target_indirects.append(store)
         self._target_indirect_parts.append(partition)
+
+    def set_source_indirect_out_of_range(self, flag: bool) -> None:
+        self._source_indirect_out_of_range = flag
+
+    def set_target_indirect_out_of_range(self, flag: bool) -> None:
+        self._target_indirect_out_of_range = flag
 
     @property
     def constraints(self) -> list[Constraint]:
@@ -737,7 +745,12 @@ class Copy(AutoOperation):
         )
 
     def launch(self, strategy: Strategy) -> None:
-        launcher = CopyLauncher(self.context, self.mapper_id)
+        launcher = CopyLauncher(
+            self.context,
+            source_oor=self._source_indirect_out_of_range,
+            target_oor=self._target_indirect_out_of_range,
+            mapper_id=self.mapper_id,
+        )
 
         assert len(self._inputs) == len(self._outputs) or len(
             self._inputs
