@@ -17,13 +17,13 @@ from typing import Any, Callable
 
 from legion_cffi.lib import legion_context_t, legion_runtime_t
 
-cleanup_items: list[Callable[[], None]]
+def add_cleanup_item(callback: Callable[[], None]) -> None: ...
 
 class top_level:
     runtime: list[legion_runtime_t]
     context: list[legion_context_t]
 
 __all__ = (
-    "cleanup_items",
+    "add_cleanup_item",
     "top_level",
 )
