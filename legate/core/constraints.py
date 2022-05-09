@@ -15,9 +15,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import TYPE_CHECKING, Any, Iterator, Optional, Union
-
-from typing_extensions import Protocol
+from typing import TYPE_CHECKING, Any, Iterator, Optional, Protocol, Union
 
 from .partition import Restriction
 
