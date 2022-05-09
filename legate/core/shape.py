@@ -15,9 +15,9 @@
 from __future__ import annotations
 
 from functools import reduce
-from typing import TYPE_CHECKING, Iterable, Iterator, Optional, Union
+from typing import TYPE_CHECKING, Iterable, Iterator, Optional, Union, overload
 
-from typing_extensions import TypeAlias, overload
+from typing_extensions import TypeAlias
 
 if TYPE_CHECKING:
     from . import IndexSpace

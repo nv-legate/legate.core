@@ -14,10 +14,9 @@
 #
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING, Protocol, Tuple
 
 import numpy as np
-from typing_extensions import Protocol
 
 from . import AffineTransform
 from .partition import Replicate, Restriction, Tiling
