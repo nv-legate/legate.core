@@ -1,6 +1,3 @@
-# We rely on an environment variable to determine if we need to build cpu-only bits
-export CXXFLAGS="$CXXFLAGS -std=c++17"
-
 install_args=()
 
 # We rely on an environment variable to determine if we need to build cpu-only bits
