@@ -229,10 +229,10 @@ Windows.
 
 Legate Core requires the following:
 
-  - Python >= 3.7
-  - [CUDA](https://developer.nvidia.com/cuda-downloads) >= 8.0
+  - Python >= 3.8
+  - [CUDA](https://developer.nvidia.com/cuda-downloads) >= 10.2
   - GNU Make
-  - C++14 compatible compiler (g++, clang, or nvc++)
+  - C++17 compatible compiler (g++, clang, or nvc++)
   - the Python packages listed in the [conda environment file](conda/core_dev.yml)
 
 You can install the required Python packages by creating a new conda environment:
@@ -270,13 +270,14 @@ single-node, CPU-only installation of Legate into `targetdir` will be performed 
 ```
 To add GPU support for Legate simply use the `--cuda` flag. The first time you request
 GPU support you will need to use the `--with-cuda` flag to specify the location
-of your CUDA installation. For later invocations you do not need to use this 
-flag again the installation scripts will remember the location of your CUDA 
-installation until you tell it differently. You can also specify the name of the
-CUDA architecture you want to target with the `--arch` flag (the default is `volta`
-but you can also specify `kepler`, `maxwell`, `pascal`, or `ampere`).
+of your CUDA installation and the `--with-nccl` flag to specify the path to your NCCL
+installation. For later invocations you do not need to use these
+flags again and the installation scripts will remember the locations you provided
+until you tell them differently. You can also specify the name of the
+CUDA architecture you want to target with the `--arch` flag (by default the srcipt
+tries to auto-detect the architecture of the first CUDA-capable GPU that is available.)
 ```
-./install.py --cuda --with-cuda /usr/local/cuda/ --arch volta
+./install.py --cuda --with-cuda /usr/local/cuda/ --with-nccl "$CONDA_PREFIX" --arch ampere
 ```
 For multi-node support Legate uses [GASNet](https://gasnet.lbl.gov/) which can be
 requested using the the `--gasnet` flag. If you have an existing GASNet installation
@@ -289,7 +290,7 @@ interconnects). For example this would be an installation for a
 ```
 ./install.py --gasnet --conduit ibv --cuda --arch ampere
 ```
-Alternatively here is an install line for the 
+Alternatively here is an install line for the
 [Piz-Daint](https://www.cscs.ch/computers/dismissed/piz-daint-piz-dora/) supercomputer:
 ```
 ./install.py --gasnet --conduit aries --cuda --arch pascal
@@ -315,7 +316,7 @@ desired Python installation.
 Sometimes, the search for the Python library may fail.  In such situation, the 
 build system generates a warning:
 ```
-runtime.mk: cannot find libpython3.6*.so - falling back to using LD_LIBRARY_PATH
+runtime.mk: cannot find libpython3.8*.so - falling back to using LD_LIBRARY_PATH
 ```
 In this case, Legate will use the Python library that is available at runtime, if any.
 To explicitly specify the Python library to use, `PYTHON_LIB` should be set to the 
