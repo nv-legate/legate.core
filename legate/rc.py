@@ -57,8 +57,7 @@ def check_legion(msg: str = LEGION_WARNING) -> None:
 
 
 class _UnsetType:
-    def __repr__(self) -> str:
-        return "Unset"
+    pass
 
 
 Unset = _UnsetType()
@@ -93,6 +92,7 @@ NargsType: TypeAlias = Literal["?", "*", "+", "..."]
 
 @dataclass(frozen=True)
 class ArgSpec:
+    dest: str
     action: NotRequired[ActionType] = Unset
     nargs: NotRequired[Union[int, NargsType]] = Unset
     const: NotRequired[Any] = Unset
@@ -101,7 +101,6 @@ class ArgSpec:
     choices: NotRequired[Sequence[Any]] = Unset
     help: NotRequired[str] = Unset
     metavar: NotRequired[str] = Unset
-    dest: str = Unset
 
 
 @dataclass(frozen=True)
