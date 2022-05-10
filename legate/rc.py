@@ -117,12 +117,22 @@ def parse_command_args(libname: str, args: Iterable[Argument]) -> Namespace:
             f"Invalid library {libname!r} for command line arguments"
         )
 
-    parser = ArgumentParser(prog=libname, allow_abbrev=False)
+    parser = ArgumentParser(
+        prog=f"<{libname} program>", add_help=False, allow_abbrev=False
+    )
+
+    has_custom_help = False
 
     for arg in args:
+        if arg.name == "help":
+            has_custom_help = True
         argname = f"-{libname}:{arg.name}"
         kwargs = dict(entries(arg.spec))
         parser.add_argument(argname, **kwargs)
+
+    if f"-{libname}:help" in sys.argv and not has_custom_help:
+        parser.print_help()
+        sys.exit()
 
     args, extra = parser.parse_known_args()
 
