@@ -14,7 +14,7 @@
 #
 from __future__ import annotations
 
-from .rc import check_legion
+from ..rc import check_legion, parse_command_args
 
 check_legion()
 
