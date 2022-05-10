@@ -12,10 +12,13 @@ if [ -z "$CPU_ONLY" ]; then
   install_args+=("--arch" "70,75,80")
 fi
 
-#CPU targeting
+# openblas support
+install_args+=("--with-openblas" "$PREFIX")
+
+# CPU targeting
 install_args+=("--march" "haswell")
 
-#openMP support
+# openMP support
 install_args+=("--openmp")
 
 # Target directory
