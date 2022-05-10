@@ -14,28 +14,11 @@
 #
 from __future__ import annotations
 
-# Perform a check to see if we're running inside of Legion Python
-# If we're not then we should raise an error message
-try:
-    from legion_cffi import ffi, lib as legion
+from .rc import check_legion
 
-    # Now confirm that we are actually inside of a task
-    using_legion_python = legion.legion_runtime_has_context()
-except ModuleNotFoundError:
-    using_legion_python = False
-except AttributeError:
-    using_legion_python = False
-if not using_legion_python:
-    raise RuntimeError(
-        "All Legate programs must be run with a legion_python interperter. We "
-        'recommend that you use the Legate driver script "bin/legate" found '
-        "in the installation directory to launch Legate programs as it "
-        "provides easy-to-use flags for invoking legion_python. You can see "
-        'options for using the driver script with "bin/legate --help". You '
-        "can also invoke legion_python directly. "
-        'Use "bin/legate --verbose ..." to see some examples of how to call '
-        "legion_python directly."
-    )
+check_legion()
+
+from legion_cffi import ffi, lib as legion
 
 from ._legion import (
     LEGATE_MAX_DIM,
