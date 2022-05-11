@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import sys
+import warnings
 from argparse import ArgumentParser, Namespace
 from dataclasses import dataclass, fields
 from typing import Any, Iterable, Literal, Sequence, Type, TypeVar, Union
@@ -93,7 +94,7 @@ NargsType: TypeAlias = Literal["?", "*", "+", "..."]
 @dataclass(frozen=True)
 class ArgSpec:
     dest: str
-    action: NotRequired[ActionType] = Unset
+    action: NotRequired[ActionType] = "store_true"
     nargs: NotRequired[Union[int, NargsType]] = Unset
     const: NotRequired[Any] = Unset
     default: NotRequired[Any] = Unset
@@ -120,20 +121,29 @@ def parse_command_args(libname: str, args: Iterable[Argument]) -> Namespace:
         prog=f"<{libname} program>", add_help=False, allow_abbrev=False
     )
 
-    has_custom_help = False
+    lib_prefix = f"-{libname}:"
+
+    argnames = [arg.name for arg in args]
 
     for arg in args:
-        if arg.name == "help":
-            has_custom_help = True
-        argname = f"-{libname}:{arg.name}"
+        argname = f"{lib_prefix}{arg.name}"
         kwargs = dict(entries(arg.spec))
         parser.add_argument(argname, **kwargs)
 
-    if f"-{libname}:help" in sys.argv and not has_custom_help:
+    has_custom_help = "help" in argnames
+
+    if f"{lib_prefix}help" in sys.argv and not has_custom_help:
         parser.print_help()
         sys.exit()
 
     args, extra = parser.parse_known_args()
+
+    for item in extra:
+        if item.startswith(lib_prefix):
+            warnings.warn(
+                f"Unrecognized argument {item!r} for {libname} (passed on as-is)"  # noqa: E501
+            )
+            break
 
     sys.argv = sys.argv[:1] + extra
 
