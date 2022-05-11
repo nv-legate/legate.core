@@ -769,14 +769,14 @@ def driver():
         dest="nsys",
         action="store_true",
         required=False,
-        help="run Legate with Nsight",
+        help="run Legate with Nsight Systems",
     )
     parser.add_argument(
         "--nsys-targets",
         dest="nsys_targets",
         default="cublas,cuda,cudnn,nvtx,ucx",
         required=False,
-        help="Specify profiling targets for Nsight",
+        help="Specify profiling targets for Nsight Systems",
     )
     parser.add_argument(
         "--nsys-extra",
@@ -784,7 +784,7 @@ def driver():
         action="append",
         default=[],
         required=False,
-        help="Specify extra flags for Nsight",
+        help="Specify extra flags for Nsight Systems",
     )
     parser.add_argument(
         "--progress",
