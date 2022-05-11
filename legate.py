@@ -120,6 +120,8 @@ def run_legate(
     module,
     nvprof,
     nsys,
+    nsys_targets,
+    nsys_extra,
     progress,
     freeze_on_error,
     no_tensor_cores,
@@ -391,12 +393,12 @@ def run_legate(
             "nsys",
             "profile",
             "-t",
-            "cublas,cuda,cudnn,nvtx",
-            "-s",
-            "none",
+            nsys_targets,
             "-o",
             os.path.join(log_dir, "legate_%s" % rank_id),
-        ]
+        ] + nsys_extra
+        if "-s" not in nsys_extra:
+            cmd += ["-s", "none"]
     # Add memcheck right before the binary
     if memcheck:
         cmd += ["cuda-memcheck"]
@@ -767,7 +769,22 @@ def driver():
         dest="nsys",
         action="store_true",
         required=False,
-        help="run Legate with nsys",
+        help="run Legate with Nsight",
+    )
+    parser.add_argument(
+        "--nsys-targets",
+        dest="nsys_targets",
+        default="cublas,cuda,cudnn,nvtx,ucx",
+        required=False,
+        help="Specify profiling targets for Nsight",
+    )
+    parser.add_argument(
+        "--nsys-extra",
+        dest="nsys_extra",
+        action="append",
+        default=[],
+        required=False,
+        help="Specify extra flags for Nsight",
     )
     parser.add_argument(
         "--progress",
@@ -894,6 +911,8 @@ def driver():
         args.module,
         args.nvprof,
         args.nsys,
+        args.nsys_targets,
+        args.nsys_extra,
         args.progress,
         args.freeze_on_error,
         args.no_tensor_cores,
