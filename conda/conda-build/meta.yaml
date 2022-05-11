@@ -55,7 +55,11 @@ build:
     - CPU_ONLY=1
 {% endif %}
   run_exports:
+{% if not gpu_enabled_bool %}
+    - {{ pin_subpackage(name, min_pin="x.x.x", max_pin="x.x.x") }} =*_cpu
+{% else %}
     - {{ pin_subpackage(name, min_pin="x.x.x", max_pin="x.x.x") }}
+{% endif %}
 {% if gpu_enabled_bool %}
 # prevent nccl from pulling in cudatoolkit
 # once an nccl package compatible with cuda-* packages is introduced, this can be removed
