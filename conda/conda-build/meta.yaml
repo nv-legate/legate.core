@@ -35,49 +35,54 @@ build:
   number: {{ build_number }}
   missing_dso_whitelist:
     -  '*libcuda.so*'
-{% if not gpu_enabled %}
+{% if gpu_enabled == "false" %}
   string: "cuda{{ cuda_major }}_py{{ py_version }}_{{ GIT_DESCRIBE_HASH }}_{{ PKG_BUILDNUM }}_cpu"
 {% else %}
   string: "cuda{{ cuda_major }}_py{{ py_version }}_{{ GIT_DESCRIBE_HASH }}_{{ PKG_BUILDNUM }}"
 {% endif %}
-{% if not gpu_enabled %}
+{% if gpu_enabled == "false" %}
   track_features:
     - cpu_only
   script_env:
     - CPU_ONLY=1
+{% endif %}
+  run_exports:
+    - {{ pin_subpackage(name, min_pin="x.x.x", max_pin="x.x.x") }}
+{% if gpu_enabled == "true" %}
+# prevent nccl from pulling in cudatoolkit
+# once an nccl package compatible with cuda-* packages is introduced, this can be removed
+#  ignore_run_exports:
+#    - cudatoolkit
 {% endif %}
 
 requirements:
   build:
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
-    - {{ compiler('fortran') }}
-    - zlib
     - make
-    - sysroot_linux-64 2.17  # [linux64]
+{% if gpu_enabled == "true" %}
+    - cuda-nvcc ={{ cuda_version }}
+{% endif %}
   host:
+    - zlib
     - python
-{% if gpu_enabled %}
-    - cuda-compiler >={{ cuda_version }}
-    - cuda-libraries-dev >={{ cuda_version }}
-    - cudatoolkit >={{ cuda_version }}
+{% if gpu_enabled == "true" %}
     - nccl
-    - cuda-nvtx >={{ cuda_version }}
+    - cuda-nvtx ={{ cuda_version }}
+    - cuda-driver-dev ={{ cuda_version }}
+    - cuda-cudart-dev ={{ cuda_version }}
 {% endif %}
   run:
-    - python
-{% if gpu_enabled %}
-    - cudatoolkit >={{ cuda_version }}
-{% endif %}
-    - openmp
-    - zlib
-    - numpy
     - cffi
     - pyarrow >=5.0.0
-    
+{% if gpu_enabled == "true" %}
+    - cuda-cudart
+    - nccl
+{% endif %}
+
   run_constrained:
-{% if gpu_enabled %}
-    - __cuda >= 8.0
+{% if gpu_enabled == "true" %}
+    - __cuda >= 11.4
 {% endif %}
     - __glibc >=2.17  # [linux]
 
@@ -91,9 +96,9 @@ about:
   license_file: LICENSE
   summary: 'Scalable Computational Code'
   description: |
-    The Legate project endeavors to democratize computing by 
-    making it possible for all programmers to leverage the power 
-    of large clusters of CPUs and GPUs by running the same code 
+    The Legate project endeavors to democratize computing by
+    making it possible for all programmers to leverage the power
+    of large clusters of CPUs and GPUs by running the same code
     that runs on a desktop or a laptop at scale.
   doc_url: https://github.com/nv-legate/legate.core
   dev_url: https://github.com/nv-legate/legate.core
