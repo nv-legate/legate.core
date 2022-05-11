@@ -165,6 +165,9 @@ class Test_parse_command_args:
             record[0].message.args[0]
             == "Unrecognized argument '-foo:bar' for foo (passed on as-is)"
         )
+        assert out == ""
+        assert vars(ns) == {}
+        assert sys.argv == ["app", "-foo:bar", "-foo:baz"]
 
 
 if __name__ == "__main__":
