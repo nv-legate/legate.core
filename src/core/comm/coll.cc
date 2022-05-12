@@ -35,7 +35,7 @@ MPI_Datatype collUint64 = MPI_UINT64_T;
 MPI_Datatype collFloat  = MPI_FLOAT;
 MPI_Datatype collDouble = MPI_DOUBLE;
 
-// #define USE_NEW_COMM
+#define USE_NEW_COMM
 
 #if defined(USE_NEW_COMM)
 MPI_Comm communicators[MAX_NB_COMMS];
