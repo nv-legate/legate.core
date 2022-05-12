@@ -1,9 +1,12 @@
+# Do not compile with NDEBUG until Legion handles it without warnings
+export CPPFLAGS="$CPPFLAGS -UNDEBUG"
+
 install_args=()
 
 # We rely on an environment variable to determine if we need to build cpu-only bits
 if [ -z "$CPU_ONLY" ]; then
   # cuda, relying on the stub library provided by the toolkit
-  install_args+=("--cuda" "--with-cuda" "$PREFIX")
+  install_args+=("--cuda" "--with-cuda" "$BUILD_PREFIX")
 
   # nccl, relying on the conda nccl package
   install_args+=("--with-nccl" "$PREFIX")
