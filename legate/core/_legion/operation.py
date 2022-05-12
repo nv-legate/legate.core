@@ -26,7 +26,7 @@ from .space import IndexSpace
 from .util import Dispatchable, ExternalResources, FieldID, dispatch
 
 if TYPE_CHECKING:
-    from . import FieldListLike, FutureMap, Rect
+    from . import FieldListLike, Rect
 
 
 class InlineMapping(Dispatchable[PhysicalRegion]):
@@ -130,7 +130,7 @@ class Fill(Dispatchable[None]):
         region: Region,
         parent: Region,
         field: Union[int, FieldID],
-        future: FutureMap,
+        future: Future,
         mapper: int = 0,
         tag: int = 0,
     ) -> None:
