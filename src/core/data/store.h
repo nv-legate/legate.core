@@ -254,16 +254,16 @@ class Store {
  public:
   Store() {}
   Store(int32_t dim,
-        LegateTypeCode code,
+        int32_t code,
         int32_t redop_id,
         FutureWrapper future,
         std::shared_ptr<StoreTransform> transform = nullptr);
   Store(int32_t dim,
-        LegateTypeCode code,
+        int32_t code,
         int32_t redop_id,
         RegionField&& region_field,
         std::shared_ptr<StoreTransform> transform = nullptr);
-  Store(LegateTypeCode code,
+  Store(int32_t code,
         OutputRegionField&& output,
         std::shared_ptr<StoreTransform> transform = nullptr);
 
@@ -281,7 +281,11 @@ class Store {
 
  public:
   int32_t dim() const { return dim_; }
-  LegateTypeCode code() const { return code_; }
+  template <typename TYPE_CODE = LegateTypeCode>
+  TYPE_CODE code() const
+  {
+    return static_cast<TYPE_CODE>(code_);
+  }
 
  public:
   template <typename T, int32_t DIM>
@@ -336,7 +340,7 @@ class Store {
   bool is_future_{false};
   bool is_output_store_{false};
   int32_t dim_{-1};
-  LegateTypeCode code_{MAX_TYPE_NUMBER};
+  int32_t code_{-1};
   int32_t redop_id_{-1};
 
  private:
