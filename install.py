@@ -770,6 +770,14 @@ def install(
         cwd=legate_core_dir,
     )
     verbose_check_call(
+        [
+            "cp",
+            "scripts/lgpatch.py",
+            os.path.join(install_dir, "bin", "lgpatch"),
+        ],
+        cwd=legate_core_dir,
+    )
+    verbose_check_call(
         ["cp", "bind.sh", os.path.join(install_dir, "bin", "bind.sh")],
         cwd=legate_core_dir,
     )
