@@ -20,13 +20,14 @@ from typing import (
     Any,
     Callable,
     Optional,
+    Protocol,
     Sequence,
     Tuple,
     Union,
+    overload,
 )
 
 import pyarrow as pa
-from typing_extensions import Protocol, overload
 
 from . import (
     ArgumentMap,

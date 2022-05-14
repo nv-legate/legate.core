@@ -19,12 +19,13 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 from .. import ffi, legion
 from ..types import _Dtype
 from .env import LEGATE_MAX_FIELDS
+from .field import FieldID
 from .future import Future
 from .geometry import Domain
 from .pending import _pending_unordered
 
 if TYPE_CHECKING:
-    from . import FieldID, IndexPartition, Rect
+    from . import IndexPartition, Rect
 
 
 class IndexSpace:

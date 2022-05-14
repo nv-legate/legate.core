@@ -14,9 +14,7 @@
 #
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Iterable, Optional, Union
-
-from typing_extensions import Protocol
+from typing import TYPE_CHECKING, Any, Iterable, Optional, Protocol, Union
 
 import legate.core.types as ty
 

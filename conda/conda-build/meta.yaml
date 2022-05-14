@@ -1,4 +1,12 @@
 {% set name = "legate-core" %}
+{% if gpu_enabled == "true" %}
+  {% set gpu_enabled_bool = true %}
+{% elif gpu_enabled == "false" %}
+  {% set gpu_enabled_bool = false %}
+{% else %}
+  {# We need to have a default value for the initial pass over the recipe #}
+  {% set gpu_enabled_bool = false %}
+{% endif %}
 {% set default_env_var = '' %}
 {% if build_number is defined %}
     {# do nothing if defined #}
@@ -35,49 +43,58 @@ build:
   number: {{ build_number }}
   missing_dso_whitelist:
     -  '*libcuda.so*'
-{% if not gpu_enabled %}
+{% if not gpu_enabled_bool %}
   string: "cuda{{ cuda_major }}_py{{ py_version }}_{{ GIT_DESCRIBE_HASH }}_{{ PKG_BUILDNUM }}_cpu"
 {% else %}
   string: "cuda{{ cuda_major }}_py{{ py_version }}_{{ GIT_DESCRIBE_HASH }}_{{ PKG_BUILDNUM }}"
 {% endif %}
-{% if not gpu_enabled %}
+{% if not gpu_enabled_bool %}
   track_features:
     - cpu_only
   script_env:
     - CPU_ONLY=1
+{% endif %}
+  run_exports:
+{% if not gpu_enabled_bool %}
+    - {{ pin_subpackage(name, min_pin="x.x.x", max_pin="x.x.x") }} =*_cpu
+{% else %}
+    - {{ pin_subpackage(name, min_pin="x.x.x", max_pin="x.x.x") }}
+{% endif %}
+{% if gpu_enabled_bool %}
+# prevent nccl from pulling in cudatoolkit
+# once an nccl package compatible with cuda-* packages is introduced, this can be removed
+#  ignore_run_exports:
+#    - cudatoolkit
 {% endif %}
 
 requirements:
   build:
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
-    - {{ compiler('fortran') }}
-    - zlib
     - make
-    - sysroot_linux-64 2.17  # [linux64]
+{% if gpu_enabled_bool %}
+    - cuda-nvcc ={{ cuda_version }}
+{% endif %}
   host:
+    - zlib
     - python
-{% if gpu_enabled %}
-    - cuda-compiler >={{ cuda_version }}
-    - cuda-libraries-dev >={{ cuda_version }}
-    - cudatoolkit >={{ cuda_version }}
+{% if gpu_enabled_bool %}
     - nccl
-    - cuda-nvtx >={{ cuda_version }}
+    - cuda-nvtx ={{ cuda_version }}
+    - cuda-driver-dev ={{ cuda_version }}
+    - cuda-cudart-dev ={{ cuda_version }}
 {% endif %}
   run:
-    - python
-{% if gpu_enabled %}
-    - cudatoolkit >={{ cuda_version }}
-{% endif %}
-    - openmp
-    - zlib
-    - numpy
     - cffi
     - pyarrow >=5.0.0
-    
+{% if gpu_enabled_bool %}
+    - cuda-cudart
+    - nccl
+{% endif %}
+
   run_constrained:
-{% if gpu_enabled %}
-    - __cuda >= 8.0
+{% if gpu_enabled_bool %}
+    - __cuda >= 11.4
 {% endif %}
     - __glibc >=2.17  # [linux]
 
@@ -91,9 +108,9 @@ about:
   license_file: LICENSE
   summary: 'Scalable Computational Code'
   description: |
-    The Legate project endeavors to democratize computing by 
-    making it possible for all programmers to leverage the power 
-    of large clusters of CPUs and GPUs by running the same code 
+    The Legate project endeavors to democratize computing by
+    making it possible for all programmers to leverage the power
+    of large clusters of CPUs and GPUs by running the same code
     that runs on a desktop or a laptop at scale.
   doc_url: https://github.com/nv-legate/legate.core
   dev_url: https://github.com/nv-legate/legate.core

@@ -20,12 +20,13 @@ from typing import TYPE_CHECKING, Any, Generic, List, Optional, TypeVar, Union
 import numpy as np
 
 from .. import legion
+from .field import FieldID
 from .geometry import Point
 from .partition import IndexPartition
 from .pending import _pending_deletions, _pending_unordered
 
 if TYPE_CHECKING:
-    from . import AffineTransform, FieldSpace
+    from . import AffineTransform
 
 
 def legate_task_preamble(
@@ -165,41 +166,6 @@ class Dispatchable(Generic[T]):
         **kwargs: Any,
     ) -> T:
         ...
-
-
-class FieldID:
-    def __init__(self, field_space: FieldSpace, fid: int, type: Any) -> None:
-        """
-        A FieldID class wraps a `legion_field_id_t` in the Legion C API.
-        It provides a canonical way to represent an allocated field in a
-        field space and means by which to deallocate the field.
-
-        Parameters
-        ----------
-        field_space : FieldSpace
-            The owner field space for this field
-        fid : int
-            The ID for this field
-        type : type
-            The type of this field
-        """
-        self.field_space = field_space
-        self._type = type
-        self.field_id = fid
-
-    def destroy(self, unordered: bool = False) -> None:
-        """
-        Deallocate this field from the field space
-        """
-        self.field_space.destroy_field(self.field_id, unordered)
-
-    @property
-    def fid(self) -> int:
-        return self.field_id
-
-    @property
-    def type(self) -> Any:
-        return self._type
 
 
 # todo: (bev) use list[...] when feasible
