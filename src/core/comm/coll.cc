@@ -87,9 +87,13 @@ int collCommCreate(collComm_t global_comm,
   global_comm->unique_id        = unique_id;
 #if defined(LEGATE_USE_GASNET)
   int mpi_rank, mpi_comm_size;
-  int *tag_ub, flag;
+  int *tag_ub, flag, res;
 #if defined(USE_NEW_COMM)
+  int compare_result;
   MPI_Comm comm = communicators[unique_id];
+  res           = MPI_Comm_compare(comm, MPI_COMM_WORLD, &compare_result);
+  assert(res == MPI_SUCCESS);
+  assert(compare_result = MPI_CONGRUENT);
   // MPI_Comm comm;
   // MPI_Comm_dup(MPI_COMM_WORLD, &comm);
 #else
