@@ -63,23 +63,21 @@ static collComm_t init_cpucoll(const Legion::Task* task,
   int num_ranks   = task->index_domain.get_volume();
 
   assert(task->futures.size() == static_cast<size_t>(num_ranks + 1));
-  const int* unique_id = (const int*)task->futures[0].get_buffer(Memory::SYSTEM_MEM);
+  const int unique_id = task->futures[0].get_result<int>();
 
   collComm_t comm = (collComm_t)malloc(sizeof(Coll_Comm));
 
 #if defined(LEGATE_USE_GASNET)
   int* mapping_table = (int*)malloc(sizeof(int) * num_ranks);
   for (int i = 0; i < num_ranks; i++) {
-    const int* mapping_table_element =
-      (const int*)task->futures[i + 1].get_buffer(Memory::SYSTEM_MEM);
-    mapping_table[i] = *mapping_table_element;
+    const int mapping_table_element = task->futures[i + 1].get_result<int>();
+    mapping_table[i]                = mapping_table_element;
   }
-
-  collCommCreate(comm, num_ranks, point, *unique_id, mapping_table);
+  collCommCreate(comm, num_ranks, point, unique_id, mapping_table);
   assert(mapping_table[point] == comm->mpi_rank);
   free(mapping_table);
 #else
-  collCommCreate(comm, num_ranks, point, *unique_id, NULL);
+  collCommCreate(comm, num_ranks, point, unique_id, NULL);
 #endif
 
   return comm;
