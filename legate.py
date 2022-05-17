@@ -114,6 +114,7 @@ def run_legate(
     log_dir,
     user_logging_levels,
     log_to_file,
+    keep_logs,
     gdb,
     cuda_gdb,
     memcheck,
@@ -468,8 +469,13 @@ def run_legate(
     if dataflow or event:
         cmd += ["-lg:spy"]
         logging_levels.append("legion_spy=2")
+        # Spy output is dumped to the same place as other logging, so we must
+        # redirect all logging to a file, even if the user didn't ask for it.
         if user_logging_levels is not None and not log_to_file:
-            print("WARNING: Logging output is being redirected to a file")
+            print(
+                "WARNING: Logging output is being redirected to a file in "
+                f"directory {log_dir}"
+            )
         log_to_file = True
     logging_levels = ",".join(logging_levels)
     if user_logging_levels is not None:
@@ -530,6 +536,7 @@ def run_legate(
                 + " ".join([shlex.quote(t) for t in prof_cmd]),
                 flush=True,
             )
+            keep_logs = True
         else:
             if verbose:
                 print(
@@ -537,6 +544,7 @@ def run_legate(
                     flush=True,
                 )
             subprocess.check_call(prof_cmd, cwd=log_dir)
+        if not keep_logs:
             # Clean up our mess of Legion Prof files
             for n in range(ranks):
                 os.remove(os.path.join(log_dir, "legate_" + str(n) + ".prof"))
@@ -560,6 +568,7 @@ def run_legate(
                 + " ".join([shlex.quote(t) for t in spy_cmd]),
                 flush=True,
             )
+            keep_logs = True
         else:
             if verbose:
                 print(
@@ -567,14 +576,12 @@ def run_legate(
                     flush=True,
                 )
             subprocess.check_call(spy_cmd, cwd=log_dir)
+        if user_logging_levels is None and not keep_logs:
             # Clean up our mess of Legion Spy files, unless the user is doing
             # some extra logging, in which case theirs and Spy's logs will be
             # in the same file.
-            if user_logging_levels is None:
-                for n in range(ranks):
-                    os.remove(
-                        os.path.join(log_dir, "legate_" + str(n) + ".log")
-                    )
+            for n in range(ranks):
+                os.remove(os.path.join(log_dir, "legate_" + str(n) + ".log"))
     return result
 
 
@@ -728,6 +735,13 @@ def driver():
         action="store_true",
         required=False,
         help="redirect logging output to a file inside --logdir",
+    )
+    parser.add_argument(
+        "--keep-logs",
+        dest="keep_logs",
+        action="store_true",
+        required=False,
+        help="don't delete profiler & spy dumps after processing",
     )
     parser.add_argument(
         "--gdb",
@@ -905,6 +919,7 @@ def driver():
         args.logdir,
         args.user_logging_levels,
         args.log_to_file,
+        args.keep_logs,
         args.gdb,
         args.cuda_gdb,
         args.memcheck,
