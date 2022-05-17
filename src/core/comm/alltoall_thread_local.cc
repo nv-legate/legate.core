@@ -21,6 +21,10 @@
 
 #include "coll.h"
 
+namespace legate {
+namespace comm {
+namespace coll {
+
 int collAlltoallLocal(const void* sendbuf,
                       int sendcount,
                       CollDataType sendtype,
@@ -91,3 +95,7 @@ int collAlltoallLocal(const void* sendbuf,
 
   return collSuccess;
 }
+
+}  // namespace coll
+}  // namespace comm
+}  // namespace legate

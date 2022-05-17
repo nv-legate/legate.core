@@ -21,6 +21,10 @@
 
 #include "coll.h"
 
+namespace legate {
+namespace comm {
+namespace coll {
+
 #define ALLTOALL_USE_SENDRECV
 
 static int collAlltoallMPIInplace(void* recvbuf,
@@ -265,3 +269,7 @@ int collAlltoallMPI(const void* sendbuf,
 
   return collSuccess;
 }
+
+}  // namespace coll
+}  // namespace comm
+}  // namespace legate

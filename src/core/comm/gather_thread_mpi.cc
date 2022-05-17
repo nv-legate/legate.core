@@ -21,6 +21,10 @@
 
 #include "coll.h"
 
+namespace legate {
+namespace comm {
+namespace coll {
+
 int collGatherMPI(const void* sendbuf,
                   int sendcount,
                   CollDataType sendtype,
@@ -92,3 +96,7 @@ int collGatherMPI(const void* sendbuf,
 
   return collSuccess;
 }
+
+}  // namespace coll
+}  // namespace comm
+}  // namespace legate

@@ -21,6 +21,10 @@
 
 #include "coll.h"
 
+namespace legate {
+namespace comm {
+namespace coll {
+
 #define ALLGATHER_USE_BCAST
 
 int collAllgatherMPI(const void* sendbuf,
@@ -68,3 +72,7 @@ int collAllgatherMPI(const void* sendbuf,
 
   return collSuccess;
 }
+
+}  // namespace coll
+}  // namespace comm
+}  // namespace legate

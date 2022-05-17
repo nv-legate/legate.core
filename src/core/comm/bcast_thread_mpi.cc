@@ -21,6 +21,10 @@
 
 #include "coll.h"
 
+namespace legate {
+namespace comm {
+namespace coll {
+
 int collBcastMPI(void* buf, int count, CollDataType type, int root, collComm_t global_comm)
 {
   int res;
@@ -73,3 +77,7 @@ int collBcastMPI(void* buf, int count, CollDataType type, int root, collComm_t g
 
   return collSuccess;
 }
+
+}  // namespace coll
+}  // namespace comm
+}  // namespace legate

@@ -24,6 +24,10 @@
 
 #include "coll.h"
 
+namespace legate {
+namespace comm {
+namespace coll {
+
 #if defined(LEGATE_USE_GASNET)
 MPI_Datatype CollChar   = MPI_CHAR;
 MPI_Datatype CollInt8   = MPI_INT8_T;
@@ -411,3 +415,7 @@ void collBarrierLocal(collComm_t global_comm)
   pthread_barrier_wait((pthread_barrier_t*)&(global_comm->shared_data->barrier));
 }
 #endif
+
+}  // namespace coll
+}  // namespace comm
+}  // namespace legate

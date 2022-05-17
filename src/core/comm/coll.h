@@ -18,15 +18,23 @@
 
 //#define DEBUG_PRINT
 
+#include <stdbool.h>
 #include <stddef.h>
+
+#if defined(LEGATE_USE_GASNET)
+#include <mpi.h>
+#endif
 
 #define collSuccess 0
 #define collError 1
 
 #define MAX_NB_COMMS 100
 
+namespace legate {
+namespace comm {
+namespace coll {
+
 #if defined(LEGATE_USE_GASNET)
-#include <mpi.h>
 
 #define BCAST_TAG 0
 #define GATHER_TAG 1
@@ -53,7 +61,6 @@ struct RankMappingTable {
 };
 
 #else
-#include <stdbool.h>
 
 #define MAX_NB_THREADS 128
 
@@ -96,10 +103,6 @@ typedef struct Coll_Comm_s {
 } Coll_Comm;
 
 typedef Coll_Comm* collComm_t;
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 int collCommCreate(collComm_t global_comm,
                    int global_comm_size,
@@ -232,6 +235,6 @@ void collUpdateBuffer(collComm_t global_comm);
 void collBarrierLocal(collComm_t global_comm);
 #endif
 
-#ifdef __cplusplus
-}
-#endif
+}  // namespace coll
+}  // namespace comm
+}  // namespace legate
