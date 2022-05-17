@@ -14,8 +14,7 @@
  *
  */
 
-#ifndef COLL_H
-#define COLL_H
+#pragma once
 
 //#define DEBUG_PRINT
 
@@ -236,5 +235,3 @@ void collBarrierLocal(collComm_t global_comm);
 #ifdef __cplusplus
 }
 #endif
-
-#endif  // ifndef COLL_H
