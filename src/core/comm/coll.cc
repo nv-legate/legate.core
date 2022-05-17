@@ -44,9 +44,7 @@ MPI_Comm communicators[MAX_NB_COMMS];
 #else
 #include <stdint.h>
 
-volatile shared_data_t shared_data[MAX_NB_COMMS];
-
-static bool coll_local_inited = false;
+volatile ThreadSharedData shared_data[MAX_NB_COMMS];
 
 size_t get_dtype_size(collDataType_t dtype)
 {
@@ -74,6 +72,8 @@ size_t get_dtype_size(collDataType_t dtype)
 #endif
 
 static std::atomic<int> current_unique_id(0);
+
+static bool coll_inited = false;
 
 int collCommCreate(collComm_t global_comm,
                    int global_comm_size,
@@ -123,7 +123,7 @@ int collCommCreate(collComm_t global_comm,
     shared_data[global_comm->unique_id].ready_flag = true;
   }
   __sync_synchronize();
-  volatile shared_data_t* data = &(shared_data[global_comm->unique_id]);
+  volatile ThreadSharedData* data = &(shared_data[global_comm->unique_id]);
   while (data->ready_flag != true) { data = &(shared_data[global_comm->unique_id]); }
   global_comm->shared_data = &(shared_data[global_comm->unique_id]);
   assert(global_comm->shared_data->ready_flag == true);
@@ -153,7 +153,7 @@ int collCommDestroy(collComm_t global_comm)
     shared_data[global_comm->unique_id].ready_flag = false;
   }
   __sync_synchronize();
-  volatile shared_data_t* data = &(shared_data[global_comm->unique_id]);
+  volatile ThreadSharedData* data = &(shared_data[global_comm->unique_id]);
   while (data->ready_flag != false) { data = &(shared_data[global_comm->unique_id]); }
 #endif
   global_comm->status = false;
@@ -287,14 +287,15 @@ int collInit(int argc, char* argv[])
       shared_data[i].displs[j]  = NULL;
     }
   }
-
-  coll_local_inited = true;
 #endif
+  coll_inited = true;
   return collSuccess;
 }
 
 int collFinalize(void)
 {
+  assert(coll_inited == true);
+  coll_inited = false;
 #if defined(LEGATE_USE_GASNET)
 #if defined(USE_NEW_COMM)
   int res;
@@ -305,9 +306,7 @@ int collFinalize(void)
 #endif
   return MPI_Finalize();
 #else
-  assert(coll_local_inited == true);
   for (int i = 0; i < MAX_NB_COMMS; i++) { assert(shared_data[i].ready_flag == false); }
-  coll_local_inited = false;
   return collSuccess;
 #endif
 }
@@ -408,7 +407,7 @@ void collUpdateBuffer(collComm_t global_comm)
 
 void collBarrierLocal(collComm_t global_comm)
 {
-  assert(coll_local_inited == true);
+  assert(coll_inited == true);
   pthread_barrier_wait((pthread_barrier_t*)&(global_comm->shared_data->barrier));
 }
 #endif

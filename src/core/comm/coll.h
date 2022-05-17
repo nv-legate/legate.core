@@ -47,24 +47,24 @@ extern MPI_Datatype collUint64;
 extern MPI_Datatype collFloat;
 extern MPI_Datatype collDouble;
 
-typedef struct mapping_table_s {
+struct RankMappingTable {
   int* mpi_rank;
   int* global_rank;
-} mapping_table_t;
+};
 
 #else
 #include <stdbool.h>
 
 #define MAX_NB_THREADS 128
 
-typedef struct shared_data_s {
+struct ThreadSharedData {
   void* buffers[MAX_NB_THREADS];
   int* displs[MAX_NB_THREADS];
   pthread_barrier_t barrier;
   bool ready_flag;
-} shared_data_t;
+};
 
-extern volatile shared_data_t shared_data[MAX_NB_COMMS];
+extern volatile ThreadSharedData shared_data[MAX_NB_COMMS];
 
 typedef enum {
   collInt8   = 0,
@@ -82,9 +82,9 @@ typedef enum {
 typedef struct Coll_Comm_s {
 #if defined(LEGATE_USE_GASNET)
   MPI_Comm comm;
-  mapping_table_t mapping_table;
+  RankMappingTable mapping_table;
 #else
-  volatile shared_data_t* shared_data;
+  volatile ThreadSharedData* shared_data;
 #endif
   int mpi_rank;
   int mpi_comm_size;
