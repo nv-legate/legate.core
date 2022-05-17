@@ -33,7 +33,7 @@ int collAlltoallvLocal(const void* sendbuf,
                        const int recvcounts[],
                        const int rdispls[],
                        CollDataType recvtype,
-                       collComm_t global_comm)
+                       CollComm global_comm)
 {
   int res;
 

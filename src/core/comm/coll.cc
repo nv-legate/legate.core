@@ -79,7 +79,7 @@ static std::atomic<int> current_unique_id(0);
 
 static bool coll_inited = false;
 
-int collCommCreate(collComm_t global_comm,
+int collCommCreate(CollComm global_comm,
                    int global_comm_size,
                    int global_rank,
                    int unique_id,
@@ -140,7 +140,7 @@ int collCommCreate(collComm_t global_comm,
   return collSuccess;
 }
 
-int collCommDestroy(collComm_t global_comm)
+int collCommDestroy(CollComm global_comm)
 {
 #if defined(LEGATE_USE_GASNET)
   if (global_comm->mapping_table.global_rank != NULL) {
@@ -172,7 +172,7 @@ int collAlltoallv(const void* sendbuf,
                   const int recvcounts[],
                   const int rdispls[],
                   CollDataType recvtype,
-                  collComm_t global_comm)
+                  CollComm global_comm)
 {
   printf("Alltoallv: global_rank %d, mpi_rank %d, unique_id %d, comm_size %d\n",
          global_comm->global_rank,
@@ -194,7 +194,7 @@ int collAlltoall(const void* sendbuf,
                  void* recvbuf,
                  int recvcount,
                  CollDataType recvtype,
-                 collComm_t global_comm)
+                 CollComm global_comm)
 {
   printf("Alltoall: global_rank %d, mpi_rank %d, unique_id %d, comm_size %d\n",
          global_comm->global_rank,
@@ -215,7 +215,7 @@ int collGather(const void* sendbuf,
                int recvcount,
                CollDataType recvtype,
                int root,
-               collComm_t global_comm)
+               CollComm global_comm)
 {
 #if defined(LEGATE_USE_GASNET)
   return collGatherMPI(
@@ -232,7 +232,7 @@ int collAllgather(const void* sendbuf,
                   void* recvbuf,
                   int recvcount,
                   CollDataType recvtype,
-                  collComm_t global_comm)
+                  CollComm global_comm)
 {
   printf("Allgather: global_rank %d, mpi_rank %d, unique_id %d, comm_size %d\n",
          global_comm->global_rank,
@@ -247,7 +247,7 @@ int collAllgather(const void* sendbuf,
 #endif
 }
 
-int collBcast(void* buf, int count, CollDataType type, int root, collComm_t global_comm)
+int collBcast(void* buf, int count, CollDataType type, int root, CollComm global_comm)
 {
   printf("Bcast: global_rank %d, mpi_rank %d, unique_id %d, comm_size %d\n",
          global_comm->global_rank,
@@ -332,7 +332,7 @@ int collGetUniqueId(int* id)
 }
 
 #if defined(LEGATE_USE_GASNET)
-int collGenerateAlltoallTag(int rank1, int rank2, collComm_t global_comm)
+int collGenerateAlltoallTag(int rank1, int rank2, CollComm global_comm)
 {
   // tag: seg idx + rank_idx + tag
   // int send_tag = ((sendto_global_rank * 10000 + global_rank) * 10 + ALLTOALL_TAG) * 10 +
@@ -355,7 +355,7 @@ int collGenerateAlltoallTag(int rank1, int rank2, collComm_t global_comm)
   return tag;
 }
 
-int collGenerateAlltoallvTag(int rank1, int rank2, collComm_t global_comm)
+int collGenerateAlltoallvTag(int rank1, int rank2, CollComm global_comm)
 {
   // tag: seg idx + rank_idx + tag
   // int send_tag = ((sendto_global_rank * 10000 + global_rank) * 10 + ALLTOALLV_TAG) * 10 +
@@ -378,7 +378,7 @@ int collGenerateAlltoallvTag(int rank1, int rank2, collComm_t global_comm)
   return tag;
 }
 
-int collGenerateBcastTag(int rank, collComm_t global_comm)
+int collGenerateBcastTag(int rank, CollComm global_comm)
 {
 #if defined(USE_NEW_COMM)
   int tag = rank * MAX_COLL_TYPES + BCAST_TAG;
@@ -389,7 +389,7 @@ int collGenerateBcastTag(int rank, collComm_t global_comm)
   return tag;
 }
 
-int collGenerateGatherTag(int rank, collComm_t global_comm)
+int collGenerateGatherTag(int rank, CollComm global_comm)
 {
 #if defined(USE_NEW_COMM)
   int tag = rank * MAX_COLL_TYPES + GATHER_TAG;
@@ -401,7 +401,7 @@ int collGenerateGatherTag(int rank, collComm_t global_comm)
 }
 
 #else
-void collUpdateBuffer(collComm_t global_comm)
+void collUpdateBuffer(CollComm global_comm)
 {
   int global_rank                                = global_comm->global_rank;
   global_comm->shared_data->buffers[global_rank] = NULL;
@@ -409,7 +409,7 @@ void collUpdateBuffer(collComm_t global_comm)
   // printf("rank %d, buffer idx %d\n", global_comm->global_rank, global_comm->current_buffer_idx);
 }
 
-void collBarrierLocal(collComm_t global_comm)
+void collBarrierLocal(CollComm global_comm)
 {
   assert(coll_inited == true);
   pthread_barrier_wait((pthread_barrier_t*)&(global_comm->shared_data->barrier));

@@ -32,7 +32,7 @@ int collGatherMPI(const void* sendbuf,
                   int recvcount,
                   CollDataType recvtype,
                   int root,
-                  collComm_t global_comm)
+                  CollComm global_comm)
 {
   int res;
 

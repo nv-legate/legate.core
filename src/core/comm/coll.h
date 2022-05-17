@@ -102,15 +102,15 @@ typedef struct Coll_Comm_s {
   bool status;
 } Coll_Comm;
 
-typedef Coll_Comm* collComm_t;
+typedef Coll_Comm* CollComm;
 
-int collCommCreate(collComm_t global_comm,
+int collCommCreate(CollComm global_comm,
                    int global_comm_size,
                    int global_rank,
                    int unique_id,
                    const int* mapping_table);
 
-int collCommDestroy(collComm_t global_comm);
+int collCommDestroy(CollComm global_comm);
 
 int collAlltoallv(const void* sendbuf,
                   const int sendcounts[],
@@ -120,7 +120,7 @@ int collAlltoallv(const void* sendbuf,
                   const int recvcounts[],
                   const int rdispls[],
                   CollDataType recvtype,
-                  collComm_t global_comm);
+                  CollComm global_comm);
 
 int collAlltoall(const void* sendbuf,
                  int sendcount,
@@ -128,7 +128,7 @@ int collAlltoall(const void* sendbuf,
                  void* recvbuf,
                  int recvcount,
                  CollDataType recvtype,
-                 collComm_t global_comm);
+                 CollComm global_comm);
 
 int collGather(const void* sendbuf,
                int sendcount,
@@ -137,7 +137,7 @@ int collGather(const void* sendbuf,
                int recvcount,
                CollDataType recvtype,
                int root,
-               collComm_t global_comm);
+               CollComm global_comm);
 
 int collAllgather(const void* sendbuf,
                   int sendcount,
@@ -145,9 +145,9 @@ int collAllgather(const void* sendbuf,
                   void* recvbuf,
                   int recvcount,
                   CollDataType recvtype,
-                  collComm_t global_comm);
+                  CollComm global_comm);
 
-int collBcast(void* buf, int count, CollDataType type, int root, collComm_t global_comm);
+int collBcast(void* buf, int count, CollDataType type, int root, CollComm global_comm);
 
 int collInit(int argc, char* argv[]);
 
@@ -165,7 +165,7 @@ int collAlltoallvMPI(const void* sendbuf,
                      const int recvcounts[],
                      const int rdispls[],
                      CollDataType recvtype,
-                     collComm_t global_comm);
+                     CollComm global_comm);
 
 int collAlltoallMPI(const void* sendbuf,
                     int sendcount,
@@ -173,7 +173,7 @@ int collAlltoallMPI(const void* sendbuf,
                     void* recvbuf,
                     int recvcount,
                     CollDataType recvtype,
-                    collComm_t global_comm);
+                    CollComm global_comm);
 
 int collGatherMPI(const void* sendbuf,
                   int sendcount,
@@ -182,7 +182,7 @@ int collGatherMPI(const void* sendbuf,
                   int recvcount,
                   CollDataType recvtype,
                   int root,
-                  collComm_t global_comm);
+                  CollComm global_comm);
 
 int collAllgatherMPI(const void* sendbuf,
                      int sendcount,
@@ -190,17 +190,17 @@ int collAllgatherMPI(const void* sendbuf,
                      void* recvbuf,
                      int recvcount,
                      CollDataType recvtype,
-                     collComm_t global_comm);
+                     CollComm global_comm);
 
-int collBcastMPI(void* buf, int count, CollDataType type, int root, collComm_t global_comm);
+int collBcastMPI(void* buf, int count, CollDataType type, int root, CollComm global_comm);
 
-int collGenerateAlltoallTag(int rank1, int rank2, collComm_t global_comm);
+int collGenerateAlltoallTag(int rank1, int rank2, CollComm global_comm);
 
-int collGenerateAlltoallvTag(int rank1, int rank2, collComm_t global_comm);
+int collGenerateAlltoallvTag(int rank1, int rank2, CollComm global_comm);
 
-int collGenerateBcastTag(int rank, collComm_t global_comm);
+int collGenerateBcastTag(int rank, CollComm global_comm);
 
-int collGenerateGatherTag(int rank, collComm_t global_comm);
+int collGenerateGatherTag(int rank, CollComm global_comm);
 #else
 size_t get_dtype_size(CollDataType dtype);
 
@@ -212,7 +212,7 @@ int collAlltoallvLocal(const void* sendbuf,
                        const int recvcounts[],
                        const int rdispls[],
                        CollDataType recvtype,
-                       collComm_t global_comm);
+                       CollComm global_comm);
 
 int collAlltoallLocal(const void* sendbuf,
                       int sendcount,
@@ -220,7 +220,7 @@ int collAlltoallLocal(const void* sendbuf,
                       void* recvbuf,
                       int recvcount,
                       CollDataType recvtype,
-                      collComm_t global_comm);
+                      CollComm global_comm);
 
 int collAllgatherLocal(const void* sendbuf,
                        int sendcount,
@@ -228,11 +228,11 @@ int collAllgatherLocal(const void* sendbuf,
                        void* recvbuf,
                        int recvcount,
                        CollDataType recvtype,
-                       collComm_t global_comm);
+                       CollComm global_comm);
 
-void collUpdateBuffer(collComm_t global_comm);
+void collUpdateBuffer(CollComm global_comm);
 
-void collBarrierLocal(collComm_t global_comm);
+void collBarrierLocal(CollComm global_comm);
 #endif
 
 }  // namespace coll

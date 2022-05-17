@@ -30,7 +30,7 @@ namespace coll {
 static int collAlltoallMPIInplace(void* recvbuf,
                                   int recvcount,
                                   CollDataType recvtype,
-                                  collComm_t global_comm)
+                                  CollComm global_comm)
 {
   int res;
 
@@ -120,7 +120,7 @@ int collAlltoallMPI(const void* sendbuf,
                     void* recvbuf,
                     int recvcount,
                     CollDataType recvtype,
-                    collComm_t global_comm)
+                    CollComm global_comm)
 {
   int res;
 
