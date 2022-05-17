@@ -25,7 +25,7 @@
 static int collAlltoallvMPIInplace(void* recvbuf,
                                    const int recvcounts[],
                                    const int rdispls[],
-                                   collDataType_t recvtype,
+                                   CollDataType recvtype,
                                    collComm_t global_comm)
 {
   int res;
@@ -125,11 +125,11 @@ static int collAlltoallvMPIInplace(void* recvbuf,
 int collAlltoallvMPI(const void* sendbuf,
                      const int sendcounts[],
                      const int sdispls[],
-                     collDataType_t sendtype,
+                     CollDataType sendtype,
                      void* recvbuf,
                      const int recvcounts[],
                      const int rdispls[],
-                     collDataType_t recvtype,
+                     CollDataType recvtype,
                      collComm_t global_comm)
 {
   int res;

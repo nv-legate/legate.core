@@ -21,7 +21,7 @@
 
 #include "coll.h"
 
-int collBcastMPI(void* buf, int count, collDataType_t type, int root, collComm_t global_comm)
+int collBcastMPI(void* buf, int count, CollDataType type, int root, collComm_t global_comm)
 {
   int res;
 

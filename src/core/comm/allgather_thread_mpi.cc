@@ -25,10 +25,10 @@
 
 int collAllgatherMPI(const void* sendbuf,
                      int sendcount,
-                     collDataType_t sendtype,
+                     CollDataType sendtype,
                      void* recvbuf,
                      int recvcount,
-                     collDataType_t recvtype,
+                     CollDataType recvtype,
                      collComm_t global_comm)
 {
   int total_size = global_comm->global_comm_size;

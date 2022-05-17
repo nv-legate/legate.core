@@ -23,10 +23,10 @@
 
 int collAllgatherLocal(const void* sendbuf,
                        int sendcount,
-                       collDataType_t sendtype,
+                       CollDataType sendtype,
                        void* recvbuf,
                        int recvcount,
-                       collDataType_t recvtype,
+                       CollDataType recvtype,
                        collComm_t global_comm)
 {
   assert(recvcount == sendcount);

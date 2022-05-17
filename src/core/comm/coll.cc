@@ -25,15 +25,15 @@
 #include "coll.h"
 
 #if defined(LEGATE_USE_GASNET)
-MPI_Datatype collChar   = MPI_CHAR;
-MPI_Datatype collInt8   = MPI_INT8_T;
-MPI_Datatype collUint8  = MPI_UINT8_T;
-MPI_Datatype collInt    = MPI_INT;
-MPI_Datatype collUint32 = MPI_UINT32_T;
-MPI_Datatype collInt64  = MPI_INT64_T;
-MPI_Datatype collUint64 = MPI_UINT64_T;
-MPI_Datatype collFloat  = MPI_FLOAT;
-MPI_Datatype collDouble = MPI_DOUBLE;
+MPI_Datatype CollChar   = MPI_CHAR;
+MPI_Datatype CollInt8   = MPI_INT8_T;
+MPI_Datatype CollUint8  = MPI_UINT8_T;
+MPI_Datatype CollInt    = MPI_INT;
+MPI_Datatype CollUint32 = MPI_UINT32_T;
+MPI_Datatype CollInt64  = MPI_INT64_T;
+MPI_Datatype CollUint64 = MPI_UINT64_T;
+MPI_Datatype CollFloat  = MPI_FLOAT;
+MPI_Datatype CollDouble = MPI_DOUBLE;
 
 #define USE_NEW_COMM
 
@@ -46,23 +46,23 @@ MPI_Comm communicators[MAX_NB_COMMS];
 
 volatile ThreadSharedData shared_data[MAX_NB_COMMS];
 
-size_t get_dtype_size(collDataType_t dtype)
+size_t get_dtype_size(CollDataType dtype)
 {
-  if (dtype == collInt8 || dtype == collChar) {
+  if (dtype == CollInt8 || dtype == CollChar) {
     return sizeof(char);
-  } else if (dtype == collUint8) {
+  } else if (dtype == CollUint8) {
     return sizeof(uint8_t);
-  } else if (dtype == collInt) {
+  } else if (dtype == CollInt) {
     return sizeof(int);
-  } else if (dtype == collUint32) {
+  } else if (dtype == CollUint32) {
     return sizeof(uint32_t);
-  } else if (dtype == collInt64) {
+  } else if (dtype == CollInt64) {
     return sizeof(int64_t);
-  } else if (dtype == collUint64) {
+  } else if (dtype == CollUint64) {
     return sizeof(uint64_t);
-  } else if (dtype == collFloat) {
+  } else if (dtype == CollFloat) {
     return sizeof(float);
-  } else if (dtype == collDouble) {
+  } else if (dtype == CollDouble) {
     return sizeof(double);
   } else {
     assert(0);
@@ -163,11 +163,11 @@ int collCommDestroy(collComm_t global_comm)
 int collAlltoallv(const void* sendbuf,
                   const int sendcounts[],
                   const int sdispls[],
-                  collDataType_t sendtype,
+                  CollDataType sendtype,
                   void* recvbuf,
                   const int recvcounts[],
                   const int rdispls[],
-                  collDataType_t recvtype,
+                  CollDataType recvtype,
                   collComm_t global_comm)
 {
   printf("Alltoallv: global_rank %d, mpi_rank %d, unique_id %d, comm_size %d\n",
@@ -186,10 +186,10 @@ int collAlltoallv(const void* sendbuf,
 
 int collAlltoall(const void* sendbuf,
                  int sendcount,
-                 collDataType_t sendtype,
+                 CollDataType sendtype,
                  void* recvbuf,
                  int recvcount,
-                 collDataType_t recvtype,
+                 CollDataType recvtype,
                  collComm_t global_comm)
 {
   printf("Alltoall: global_rank %d, mpi_rank %d, unique_id %d, comm_size %d\n",
@@ -206,10 +206,10 @@ int collAlltoall(const void* sendbuf,
 
 int collGather(const void* sendbuf,
                int sendcount,
-               collDataType_t sendtype,
+               CollDataType sendtype,
                void* recvbuf,
                int recvcount,
-               collDataType_t recvtype,
+               CollDataType recvtype,
                int root,
                collComm_t global_comm)
 {
@@ -224,10 +224,10 @@ int collGather(const void* sendbuf,
 
 int collAllgather(const void* sendbuf,
                   int sendcount,
-                  collDataType_t sendtype,
+                  CollDataType sendtype,
                   void* recvbuf,
                   int recvcount,
-                  collDataType_t recvtype,
+                  CollDataType recvtype,
                   collComm_t global_comm)
 {
   printf("Allgather: global_rank %d, mpi_rank %d, unique_id %d, comm_size %d\n",
@@ -243,7 +243,7 @@ int collAllgather(const void* sendbuf,
 #endif
 }
 
-int collBcast(void* buf, int count, collDataType_t type, int root, collComm_t global_comm)
+int collBcast(void* buf, int count, CollDataType type, int root, collComm_t global_comm)
 {
   printf("Bcast: global_rank %d, mpi_rank %d, unique_id %d, comm_size %d\n",
          global_comm->global_rank,
