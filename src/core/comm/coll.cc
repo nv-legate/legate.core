@@ -263,9 +263,16 @@ int collInit(int argc, char* argv[])
 {
   current_unique_id = 0;
 #if defined(LEGATE_USE_GASNET)
-  int provided, res;
-  res = MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided);
-  assert(res == MPI_SUCCESS);
+  int provided, res, init_flag = 0;
+  MPI_Initialized(&init_flag);
+  if (!init_flag) {
+    res = MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided);
+    assert(res == MPI_SUCCESS);
+  } else {
+    printf(
+      "Warning: MPI has been initialized by others, make sure MPI is initialized with "
+      "MPI_THREAD_MULTIPLE\n");
+  }
 #if defined(USE_NEW_COMM)
   for (int i = 0; i < MAX_NB_COMMS; i++) {
     res = MPI_Comm_dup(MPI_COMM_WORLD, &communicators[i]);
