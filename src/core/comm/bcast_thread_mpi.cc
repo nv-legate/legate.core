@@ -40,6 +40,8 @@ int collBcastMPI(void* buf, int count, CollDataType type, int root, CollComm glo
 
   int tag;
 
+  MPI_Datatype mpi_type = collDtypeToMPIDtype(type);
+
   // non-root
   if (global_rank != root) {
     tag = collGenerateBcastTag(global_rank, global_comm);
@@ -51,7 +53,7 @@ int collBcastMPI(void* buf, int count, CollDataType type, int root, CollComm glo
            root_mpi_rank,
            tag);
 #endif
-    return MPI_Recv(buf, count, type, root_mpi_rank, tag, global_comm->comm, &status);
+    return MPI_Recv(buf, count, mpi_type, root_mpi_rank, tag, global_comm->comm, &status);
   }
 
   // root
@@ -70,7 +72,7 @@ int collBcastMPI(void* buf, int count, CollDataType type, int root, CollComm glo
            tag);
 #endif
     if (global_rank != i) {
-      res = MPI_Send(buf, count, type, sendto_mpi_rank, tag, global_comm->comm);
+      res = MPI_Send(buf, count, mpi_type, sendto_mpi_rank, tag, global_comm->comm);
       assert(res == MPI_SUCCESS);
     }
   }

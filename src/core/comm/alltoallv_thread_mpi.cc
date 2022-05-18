@@ -29,7 +29,7 @@ namespace coll {
 static int collAlltoallvMPIInplace(void* recvbuf,
                                    const int recvcounts[],
                                    const int rdispls[],
-                                   CollDataType recvtype,
+                                   MPI_Datatype recvtype,
                                    CollComm global_comm)
 {
   int res;
@@ -142,16 +142,19 @@ int collAlltoallvMPI(const void* sendbuf,
   int total_size = global_comm->global_comm_size;
   MPI_Status status;
 
+  MPI_Datatype mpi_sendtype = collDtypeToMPIDtype(sendtype);
+  MPI_Datatype mpi_recvtype = collDtypeToMPIDtype(recvtype);
+
   MPI_Aint lb, sendtype_extent, recvtype_extent;
-  MPI_Type_get_extent(sendtype, &lb, &sendtype_extent);
-  MPI_Type_get_extent(recvtype, &lb, &recvtype_extent);
+  MPI_Type_get_extent(mpi_sendtype, &lb, &sendtype_extent);
+  MPI_Type_get_extent(mpi_recvtype, &lb, &recvtype_extent);
 
   int global_rank = global_comm->global_rank;
 
   void* sendbuf_tmp = NULL;
 
   // if (sendbuf == recvbuf) {
-  //   return collAlltoallvMPIInplace(recvbuf, recvcounts, rdispls, recvtype, global_comm);
+  //   return collAlltoallvMPIInplace(recvbuf, recvcounts, rdispls, mpi_recvtype, global_comm);
   // }
 
   // MPI_IN_PLACE
@@ -195,12 +198,12 @@ int collAlltoallvMPI(const void* sendbuf,
 #endif
     res = MPI_Sendrecv(src,
                        scount,
-                       sendtype,
+                       mpi_sendtype,
                        sendto_mpi_rank,
                        send_tag,
                        dst,
                        rcount,
-                       recvtype,
+                       mpi_recvtype,
                        recvfrom_mpi_rank,
                        recv_tag,
                        global_comm->comm,

@@ -42,6 +42,9 @@ int collGatherMPI(const void* sendbuf,
 
   int global_rank = global_comm->global_rank;
 
+  MPI_Datatype mpi_sendtype = collDtypeToMPIDtype(sendtype);
+  MPI_Datatype mpi_recvtype = collDtypeToMPIDtype(recvtype);
+
   // MPI_IN_PLACE
   if (sendbuf == recvbuf) { assert(0); }
 
@@ -61,12 +64,12 @@ int collGatherMPI(const void* sendbuf,
            root_mpi_rank,
            tag);
 #endif
-    return MPI_Send(sendbuf, sendcount, sendtype, root_mpi_rank, tag, global_comm->comm);
+    return MPI_Send(sendbuf, sendcount, mpi_sendtype, root_mpi_rank, tag, global_comm->comm);
   }
 
   // root
   MPI_Aint incr, lb, recvtype_extent;
-  MPI_Type_get_extent(recvtype, &lb, &recvtype_extent);
+  MPI_Type_get_extent(mpi_recvtype, &lb, &recvtype_extent);
   incr      = recvtype_extent * (ptrdiff_t)recvcount;
   char* dst = (char*)recvbuf;
   int recvfrom_mpi_rank;
@@ -88,7 +91,8 @@ int collGatherMPI(const void* sendbuf,
     if (global_rank == i) {
       memcpy(dst, sendbuf, incr);
     } else {
-      res = MPI_Recv(dst, recvcount, recvtype, recvfrom_mpi_rank, tag, global_comm->comm, &status);
+      res =
+        MPI_Recv(dst, recvcount, mpi_recvtype, recvfrom_mpi_rank, tag, global_comm->comm, &status);
       assert(res == MPI_SUCCESS);
     }
     dst += incr;

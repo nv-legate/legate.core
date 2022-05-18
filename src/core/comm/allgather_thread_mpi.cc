@@ -25,8 +25,6 @@ namespace legate {
 namespace comm {
 namespace coll {
 
-#define ALLGATHER_USE_BCAST
-
 int collAllgatherMPI(const void* sendbuf,
                      int sendcount,
                      CollDataType sendtype,
@@ -37,8 +35,10 @@ int collAllgatherMPI(const void* sendbuf,
 {
   int total_size = global_comm->global_comm_size;
 
+  MPI_Datatype mpi_sendtype = collDtypeToMPIDtype(sendtype);
+
   MPI_Aint lb, sendtype_extent, recvtype_extent;
-  MPI_Type_get_extent(sendtype, &lb, &sendtype_extent);
+  MPI_Type_get_extent(mpi_sendtype, &lb, &sendtype_extent);
 
   int global_rank = global_comm->global_rank;
 
@@ -55,18 +55,9 @@ int collAllgatherMPI(const void* sendbuf,
     sendbuf_tmp = const_cast<void*>(sendbuf);
   }
 
-#ifdef ALLGATHER_USE_BCAST
   collGatherMPI(sendbuf_tmp, sendcount, sendtype, recvbuf, recvcount, recvtype, 0, global_comm);
 
   collBcastMPI(recvbuf, recvcount * total_size, recvtype, 0, global_comm);
-#else
-  int global_rank = global_comm->mpi_rank * global_comm->nb_threads + global_comm->tid;
-  for (int i = 0; i < total_size; i++) {
-    // printf("global_rank %d, i %d\n", global_rank, i);
-    global_comm.starting_tag = i;
-    Coll_Gather_thread(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, i, global_comm);
-  }
-#endif
 
   if (sendbuf == recvbuf) { free(sendbuf_tmp); }
 

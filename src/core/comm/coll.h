@@ -44,18 +44,6 @@ enum CollTag : int {
   MAX_TAG       = 10,
 };
 
-typedef MPI_Datatype CollDataType;
-// TODO: fix it
-extern MPI_Datatype CollChar;
-extern MPI_Datatype CollInt8;
-extern MPI_Datatype CollUint8;
-extern MPI_Datatype CollInt;
-extern MPI_Datatype CollUint32;
-extern MPI_Datatype CollInt64;
-extern MPI_Datatype CollUint64;
-extern MPI_Datatype CollFloat;
-extern MPI_Datatype CollDouble;
-
 struct RankMappingTable {
   int* mpi_rank;
   int* global_rank;
@@ -73,19 +61,19 @@ struct ThreadSharedData {
 };
 
 extern volatile ThreadSharedData shared_data[MAX_NB_COMMS];
+#endif
 
-typedef enum {
+enum class CollDataType : int {
   CollInt8   = 0,
-  CollChar   = 0,
-  CollUint8  = 1,
-  CollInt    = 2,
-  CollUint32 = 3,
-  CollInt64  = 4,
-  CollUint64 = 5,
+  CollChar   = 1,
+  CollUint8  = 2,
+  CollInt    = 3,
+  CollUint32 = 4,
+  CollInt64  = 5,
+  CollUint64 = 6,
   CollFloat  = 7,
   CollDouble = 8,
-} CollDataType;
-#endif
+};
 
 typedef struct Coll_Comm_s {
 #if defined(LEGATE_USE_GASNET)
@@ -195,6 +183,8 @@ int collAllgatherMPI(const void* sendbuf,
 
 int collBcastMPI(void* buf, int count, CollDataType type, int root, CollComm global_comm);
 
+MPI_Datatype collDtypeToMPIDtype(CollDataType dtype);
+
 int collGenerateAlltoallTag(int rank1, int rank2, CollComm global_comm);
 
 int collGenerateAlltoallvTag(int rank1, int rank2, CollComm global_comm);
@@ -203,7 +193,7 @@ int collGenerateBcastTag(int rank, CollComm global_comm);
 
 int collGenerateGatherTag(int rank, CollComm global_comm);
 #else
-size_t collLocalDtypeSize(CollDataType dtype);
+size_t collGetDtypeSize(CollDataType dtype);
 
 int collAlltoallvLocal(const void* sendbuf,
                        const int sendcounts[],

@@ -22,6 +22,10 @@
 #include <atomic>
 #include <cstdlib>
 
+#ifndef LEGATE_USE_GASNET
+#include <stdint.h>
+#endif
+
 #include "coll.h"
 
 namespace legate {
@@ -29,15 +33,6 @@ namespace comm {
 namespace coll {
 
 #if defined(LEGATE_USE_GASNET)
-MPI_Datatype CollChar   = MPI_CHAR;
-MPI_Datatype CollInt8   = MPI_INT8_T;
-MPI_Datatype CollUint8  = MPI_UINT8_T;
-MPI_Datatype CollInt    = MPI_INT;
-MPI_Datatype CollUint32 = MPI_UINT32_T;
-MPI_Datatype CollInt64  = MPI_INT64_T;
-MPI_Datatype CollUint64 = MPI_UINT64_T;
-MPI_Datatype CollFloat  = MPI_FLOAT;
-MPI_Datatype CollDouble = MPI_DOUBLE;
 
 #define USE_NEW_COMM
 
@@ -46,33 +41,9 @@ MPI_Comm communicators[MAX_NB_COMMS];
 #endif
 
 #else
-#include <stdint.h>
 
 volatile ThreadSharedData shared_data[MAX_NB_COMMS];
 
-size_t collLocalDtypeSize(CollDataType dtype)
-{
-  if (dtype == CollInt8 || dtype == CollChar) {
-    return sizeof(char);
-  } else if (dtype == CollUint8) {
-    return sizeof(uint8_t);
-  } else if (dtype == CollInt) {
-    return sizeof(int);
-  } else if (dtype == CollUint32) {
-    return sizeof(uint32_t);
-  } else if (dtype == CollInt64) {
-    return sizeof(int64_t);
-  } else if (dtype == CollUint64) {
-    return sizeof(uint64_t);
-  } else if (dtype == CollFloat) {
-    return sizeof(float);
-  } else if (dtype == CollDouble) {
-    return sizeof(double);
-  } else {
-    assert(0);
-    return -1;
-  }
-}
 #endif
 
 static std::atomic<int> current_unique_id(0);
@@ -331,7 +302,43 @@ int collGetUniqueId(int* id)
   return collSuccess;
 }
 
+// MPI_Datatype CollChar   = MPI_CHAR;
+// MPI_Datatype CollInt8   = MPI_INT8_T;
+// MPI_Datatype CollUint8  = MPI_UINT8_T;
+// MPI_Datatype CollInt    = MPI_INT;
+// MPI_Datatype CollUint32 = MPI_UINT32_T;
+// MPI_Datatype CollInt64  = MPI_INT64_T;
+// MPI_Datatype CollUint64 = MPI_UINT64_T;
+// MPI_Datatype CollFloat  = MPI_FLOAT;
+// MPI_Datatype CollDouble = MPI_DOUBLE;
+
 #if defined(LEGATE_USE_GASNET)
+MPI_Datatype collDtypeToMPIDtype(CollDataType dtype)
+{
+  if (dtype == CollDataType::CollInt8) {
+    return MPI_INT8_T;
+  } else if (dtype == CollDataType::CollChar) {
+    return MPI_CHAR;
+  } else if (dtype == CollDataType::CollUint8) {
+    return MPI_UINT8_T;
+  } else if (dtype == CollDataType::CollInt) {
+    return MPI_INT;
+  } else if (dtype == CollDataType::CollUint32) {
+    return MPI_UINT32_T;
+  } else if (dtype == CollDataType::CollInt64) {
+    return MPI_INT64_T;
+  } else if (dtype == CollDataType::CollUint64) {
+    return MPI_UINT64_T;
+  } else if (dtype == CollDataType::CollFloat) {
+    return MPI_FLOAT;
+  } else if (dtype == CollDataType::CollDouble) {
+    return MPI_DOUBLE;
+  } else {
+    assert(0);
+    return MPI_BYTE;
+  }
+}
+
 int collGenerateAlltoallTag(int rank1, int rank2, CollComm global_comm)
 {
   // tag: seg idx + rank_idx + tag
@@ -403,6 +410,30 @@ int collGenerateGatherTag(int rank, CollComm global_comm)
 }
 
 #else
+size_t collGetDtypeSize(CollDataType dtype)
+{
+  if (dtype == CollDataType::CollInt8 || dtype == CollDataType::CollChar) {
+    return sizeof(char);
+  } else if (dtype == CollDataType::CollUint8) {
+    return sizeof(uint8_t);
+  } else if (dtype == CollDataType::CollInt) {
+    return sizeof(int);
+  } else if (dtype == CollDataType::CollUint32) {
+    return sizeof(uint32_t);
+  } else if (dtype == CollDataType::CollInt64) {
+    return sizeof(int64_t);
+  } else if (dtype == CollDataType::CollUint64) {
+    return sizeof(uint64_t);
+  } else if (dtype == CollDataType::CollFloat) {
+    return sizeof(float);
+  } else if (dtype == CollDataType::CollDouble) {
+    return sizeof(double);
+  } else {
+    assert(0);
+    return -1;
+  }
+}
+
 void collUpdateBuffer(CollComm global_comm)
 {
   int global_rank                                = global_comm->global_rank;

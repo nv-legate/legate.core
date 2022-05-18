@@ -29,7 +29,7 @@ namespace coll {
 
 static int collAlltoallMPIInplace(void* recvbuf,
                                   int recvcount,
-                                  CollDataType recvtype,
+                                  MPI_Datatype recvtype,
                                   CollComm global_comm)
 {
   int res;
@@ -128,16 +128,19 @@ int collAlltoallMPI(const void* sendbuf,
   int total_size = global_comm->global_comm_size;
   MPI_Status status;
 
+  MPI_Datatype mpi_sendtype = collDtypeToMPIDtype(sendtype);
+  MPI_Datatype mpi_recvtype = collDtypeToMPIDtype(recvtype);
+
   MPI_Aint lb, sendtype_extent, recvtype_extent;
-  MPI_Type_get_extent(sendtype, &lb, &sendtype_extent);
-  MPI_Type_get_extent(recvtype, &lb, &recvtype_extent);
+  MPI_Type_get_extent(mpi_sendtype, &lb, &sendtype_extent);
+  MPI_Type_get_extent(mpi_recvtype, &lb, &recvtype_extent);
 
   int global_rank = global_comm->global_rank;
 
   void* sendbuf_tmp = NULL;
 
   // if (sendbuf == recvbuf) {
-  //   return collAlltoallMPIInplace(recvbuf, recvcount, recvtype, global_comm);
+  //   return collAlltoallMPIInplace(recvbuf, recvcount, mpi_recvtype, global_comm);
   // }
 
   // MPI_IN_PLACE
@@ -179,12 +182,12 @@ int collAlltoallMPI(const void* sendbuf,
 #endif
     res = MPI_Sendrecv(src,
                        sendcount,
-                       sendtype,
+                       mpi_sendtype,
                        sendto_mpi_rank,
                        send_tag,
                        dst,
                        recvcount,
-                       recvtype,
+                       mpi_recvtype,
                        recvfrom_mpi_rank,
                        recv_tag,
                        global_comm->comm,
@@ -215,12 +218,12 @@ int collAlltoallMPI(const void* sendbuf,
 #endif
     res = MPI_Sendrecv(src,
                        sendcount,
-                       sendtype,
+                       mpi_sendtype,
                        dest_mpi_rank,
                        send_tag,
                        dst,
                        recvcount,
-                       recvtype,
+                       mpi_recvtype,
                        dest_mpi_rank,
                        recv_tag,
                        global_comm->comm,
@@ -234,7 +237,7 @@ int collAlltoallMPI(const void* sendbuf,
     char* src     = (char*)sendbuf_tmp + i * sendtype_extent * sendcount;
     dest_mpi_rank = global_comm->mapping_table.mpi_rank[i];
     tag           = collGenerateAlltoallTag(i, global_rank, global_comm);
-    res           = MPI_Send(src, sendcount, sendtype, dest_mpi_rank, tag, global_comm->comm);
+    res           = MPI_Send(src, sendcount, mpi_sendtype, dest_mpi_rank, tag, global_comm->comm);
     assert(res == MPI_SUCCESS);
 #ifdef DEBUG_PRINT
     printf("i: %d === global_rank %d, mpi rank %d, send %d to %d, send_tag %d\n",
@@ -260,7 +263,7 @@ int collAlltoallMPI(const void* sendbuf,
            dest_mpi_rank,
            tag);
 #endif
-    res = MPI_Recv(dst, recvcount, recvtype, dest_mpi_rank, tag, global_comm->comm, &status);
+    res = MPI_Recv(dst, recvcount, mpi_recvtype, dest_mpi_rank, tag, global_comm->comm, &status);
     assert(res == MPI_SUCCESS);
   }
 #endif

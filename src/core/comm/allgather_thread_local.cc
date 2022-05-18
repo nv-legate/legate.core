@@ -38,8 +38,8 @@ int collAllgatherLocal(const void* sendbuf,
 
   int total_size = global_comm->global_comm_size;
 
-  int sendtype_extent = collLocalDtypeSize(sendtype);
-  int recvtype_extent = collLocalDtypeSize(recvtype);
+  int sendtype_extent = collGetDtypeSize(sendtype);
+  int recvtype_extent = collGetDtypeSize(recvtype);
   assert(sendtype_extent == recvtype_extent);
 
   int global_rank = global_comm->global_rank;
