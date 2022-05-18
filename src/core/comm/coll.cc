@@ -50,7 +50,7 @@ MPI_Comm communicators[MAX_NB_COMMS];
 
 volatile ThreadSharedData shared_data[MAX_NB_COMMS];
 
-size_t get_dtype_size(CollDataType dtype)
+size_t collLocalDtypeSize(CollDataType dtype)
 {
   if (dtype == CollInt8 || dtype == CollChar) {
     return sizeof(char);

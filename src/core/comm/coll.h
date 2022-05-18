@@ -203,7 +203,7 @@ int collGenerateBcastTag(int rank, CollComm global_comm);
 
 int collGenerateGatherTag(int rank, CollComm global_comm);
 #else
-size_t get_dtype_size(CollDataType dtype);
+size_t collLocalDtypeSize(CollDataType dtype);
 
 int collAlltoallvLocal(const void* sendbuf,
                        const int sendcounts[],

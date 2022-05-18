@@ -40,8 +40,8 @@ int collAlltoallLocal(const void* sendbuf,
 
   int total_size = global_comm->global_comm_size;
 
-  int sendtype_extent = get_dtype_size(sendtype);
-  int recvtype_extent = get_dtype_size(recvtype);
+  int sendtype_extent = collLocalDtypeSize(sendtype);
+  int recvtype_extent = collLocalDtypeSize(recvtype);
 
   int global_rank = global_comm->global_rank;
 
