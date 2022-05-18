@@ -36,12 +36,13 @@ namespace coll {
 
 #if defined(LEGATE_USE_GASNET)
 
-#define BCAST_TAG 0
-#define GATHER_TAG 1
-#define ALLTOALL_TAG 2
-#define ALLTOALLV_TAG 3
-
-#define MAX_COLL_TYPES 10
+enum CollTag : int {
+  BCAST_TAG     = 0,
+  GATHER_TAG    = 1,
+  ALLTOALL_TAG  = 2,
+  ALLTOALLV_TAG = 3,
+  MAX_TAG       = 10,
+};
 
 typedef MPI_Datatype CollDataType;
 // TODO: fix it

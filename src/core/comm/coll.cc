@@ -340,15 +340,16 @@ int collGenerateAlltoallTag(int rank1, int rank2, CollComm global_comm)
   // * 10000 + recvfrom_global_rank) * 10 + ALLTOALL_TAG) * 10 + global_comm->unique_id; // idx of
   // current seg we are receving (in src/my rank)
 #if defined(USE_NEW_COMM)
-  int tag = (rank1 * 10000 + rank2) * MAX_COLL_TYPES + ALLTOALL_TAG;
+  int tag = (rank1 * 10000 + rank2) * CollTag::MAX_TAG + CollTag::ALLTOALL_TAG;
 #else
 #if 1
-  int tag       = ((rank1 * 10000 + rank2) * MAX_COLL_TYPES + ALLTOALL_TAG) * MAX_NB_COMMS +
+  int tag = ((rank1 * 10000 + rank2) * CollTag::MAX_TAG + CollTag::ALLTOALL_TAG) * MAX_NB_COMMS +
             global_comm->unique_id;
 #else
-  int tag = ((rank1 % global_comm->nb_threads * 10000 + rank2) * MAX_COLL_TYPES + ALLTOALL_TAG) *
-              MAX_NB_COMMS +
-            global_comm->unique_id;
+  int tag =
+    ((rank1 % global_comm->nb_threads * 10000 + rank2) * CollTag::MAX_TAG + CollTag::ALLTOALL_TAG) *
+      MAX_NB_COMMS +
+    global_comm->unique_id;
 #endif
 #endif
   assert(tag < INT_MAX && tag > 0);
@@ -363,13 +364,14 @@ int collGenerateAlltoallvTag(int rank1, int rank2, CollComm global_comm)
   // * 10000 + recvfrom_global_rank) * 10 + ALLTOALLV_TAG) * 10 + global_comm->unique_id; // idx of
   // current seg we are receving (in src/my rank)
 #if defined(USE_NEW_COMM)
-  int tag = (rank1 * 10000 + rank2) * MAX_COLL_TYPES + ALLTOALLV_TAG;
+  int tag = (rank1 * 10000 + rank2) * CollTag::MAX_TAG + CollTag::ALLTOALLV_TAG;
 #else
 #if 1
-  int tag = ((rank1 * 10000 + rank2) * MAX_COLL_TYPES + ALLTOALLV_TAG) * MAX_NB_COMMS +
+  int tag = ((rank1 * 10000 + rank2) * CollTag::MAX_TAG + CollTag::ALLTOALLV_TAG) * MAX_NB_COMMS +
             global_comm->unique_id;
 #else
-  int tag = ((rank1 % global_comm->nb_threads * 10000 + rank2) * MAX_COLL_TYPES + ALLTOALLV_TAG) *
+  int tag = ((rank1 % global_comm->nb_threads * 10000 + rank2) * CollTag::MAX_TAG +
+             CollTag::ALLTOALLV_TAG) *
               MAX_NB_COMMS +
             global_comm->unique_id;
 #endif
@@ -381,9 +383,9 @@ int collGenerateAlltoallvTag(int rank1, int rank2, CollComm global_comm)
 int collGenerateBcastTag(int rank, CollComm global_comm)
 {
 #if defined(USE_NEW_COMM)
-  int tag = rank * MAX_COLL_TYPES + BCAST_TAG;
+  int tag = rank * CollTag::MAX_TAG + CollTag::BCAST_TAG;
 #else
-  int tag = (rank * MAX_COLL_TYPES + BCAST_TAG) * MAX_NB_COMMS + global_comm->unique_id;
+  int tag = (rank * CollTag::MAX_TAG + CollTag::BCAST_TAG) * MAX_NB_COMMS + global_comm->unique_id;
 #endif
   assert(tag < INT_MAX && tag >= 0);
   return tag;
@@ -392,9 +394,9 @@ int collGenerateBcastTag(int rank, CollComm global_comm)
 int collGenerateGatherTag(int rank, CollComm global_comm)
 {
 #if defined(USE_NEW_COMM)
-  int tag = rank * MAX_COLL_TYPES + GATHER_TAG;
+  int tag = rank * CollTag::MAX_TAG + CollTag::GATHER_TAG;
 #else
-  int tag = (rank * MAX_COLL_TYPES + GATHER_TAG) * MAX_NB_COMMS + global_comm->unique_id;
+  int tag = (rank * CollTag::MAX_TAG + CollTag::GATHER_TAG) * MAX_NB_COMMS + global_comm->unique_id;
 #endif
   assert(tag < INT_MAX && tag > 0);
   return tag;
