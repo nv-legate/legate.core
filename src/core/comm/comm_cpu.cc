@@ -33,7 +33,7 @@ static int init_cpucoll_id(const Legion::Task* task,
   Core::show_progress(task, context, runtime, task->get_task_name());
 
   int id;
-  collGetUniqueId(&id);
+  coll::collGetUniqueId(&id);
 
   return id;
 }
@@ -52,10 +52,10 @@ static int init_cpucoll_mapping(const Legion::Task* task,
   return mpi_rank;
 }
 
-static collComm_t init_cpucoll(const Legion::Task* task,
-                               const std::vector<Legion::PhysicalRegion>& regions,
-                               Legion::Context context,
-                               Legion::Runtime* runtime)
+static coll::CollComm init_cpucoll(const Legion::Task* task,
+                                   const std::vector<Legion::PhysicalRegion>& regions,
+                                   Legion::Context context,
+                                   Legion::Runtime* runtime)
 {
   Core::show_progress(task, context, runtime, task->get_task_name());
 
@@ -65,7 +65,7 @@ static collComm_t init_cpucoll(const Legion::Task* task,
   assert(task->futures.size() == static_cast<size_t>(num_ranks + 1));
   const int unique_id = task->futures[0].get_result<int>();
 
-  collComm_t comm = (collComm_t)malloc(sizeof(Coll_Comm));
+  coll::CollComm comm = (coll::CollComm)malloc(sizeof(coll::Coll_Comm));
 
 #if defined(LEGATE_USE_GASNET)
   int* mapping_table = (int*)malloc(sizeof(int) * num_ranks);
@@ -73,11 +73,11 @@ static collComm_t init_cpucoll(const Legion::Task* task,
     const int mapping_table_element = task->futures[i + 1].get_result<int>();
     mapping_table[i]                = mapping_table_element;
   }
-  collCommCreate(comm, num_ranks, point, unique_id, mapping_table);
+  coll::collCommCreate(comm, num_ranks, point, unique_id, mapping_table);
   assert(mapping_table[point] == comm->mpi_rank);
   free(mapping_table);
 #else
-  collCommCreate(comm, num_ranks, point, unique_id, NULL);
+  coll::collCommCreate(comm, num_ranks, point, unique_id, NULL);
 #endif
 
   return comm;
@@ -91,10 +91,10 @@ static void finalize_cpucoll(const Legion::Task* task,
   Core::show_progress(task, context, runtime, task->get_task_name());
 
   assert(task->futures.size() == 1);
-  collComm_t comm = task->futures[0].get_result<collComm_t>();
-  const int point = task->index_point[0];
+  coll::CollComm comm = task->futures[0].get_result<coll::CollComm>();
+  const int point     = task->index_point[0];
   assert(comm->global_rank == point);
-  collCommDestroy(comm);
+  coll::collCommDestroy(comm);
   free(comm);
   comm = NULL;
 }
@@ -106,7 +106,7 @@ void register_tasks(Legion::Machine machine,
   const InputArgs& command_args = Legion::Runtime::get_input_args();
   int argc                      = command_args.argc;
   char** argv                   = command_args.argv;
-  collInit(argc, argv);
+  coll::collInit(argc, argv);
 
   const TaskID init_cpucoll_id_task_id  = context.get_task_id(LEGATE_CORE_INIT_CPUCOLL_ID_TASK_ID);
   const char* init_cpucoll_id_task_name = "core::comm::cpu::init_id";
@@ -153,7 +153,7 @@ void register_tasks(Legion::Machine machine,
   {
     auto registrar =
       make_registrar(init_cpucoll_task_id, init_cpucoll_task_name, Processor::LOC_PROC);
-    runtime->register_task_variant<collComm_t, init_cpucoll>(registrar, LEGATE_CPU_VARIANT);
+    runtime->register_task_variant<coll::CollComm, init_cpucoll>(registrar, LEGATE_CPU_VARIANT);
   }
   {
     auto registrar =
