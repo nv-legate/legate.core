@@ -37,13 +37,11 @@ namespace coll {
 #define USE_NEW_COMM
 
 #if defined(USE_NEW_COMM)
-MPI_Comm communicators[MAX_NB_COMMS];
+static MPI_Comm communicators[MAX_NB_COMMS];
 #endif
 
 #else
-
-volatile ThreadSharedData shared_data[MAX_NB_COMMS];
-
+static volatile ThreadSharedData shared_data[MAX_NB_COMMS];
 #endif
 
 static std::atomic<int> current_unique_id(0);
@@ -301,16 +299,6 @@ int collGetUniqueId(int* id)
 #endif
   return collSuccess;
 }
-
-// MPI_Datatype CollChar   = MPI_CHAR;
-// MPI_Datatype CollInt8   = MPI_INT8_T;
-// MPI_Datatype CollUint8  = MPI_UINT8_T;
-// MPI_Datatype CollInt    = MPI_INT;
-// MPI_Datatype CollUint32 = MPI_UINT32_T;
-// MPI_Datatype CollInt64  = MPI_INT64_T;
-// MPI_Datatype CollUint64 = MPI_UINT64_T;
-// MPI_Datatype CollFloat  = MPI_FLOAT;
-// MPI_Datatype CollDouble = MPI_DOUBLE;
 
 #if defined(LEGATE_USE_GASNET)
 MPI_Datatype collDtypeToMPIDtype(CollDataType dtype)

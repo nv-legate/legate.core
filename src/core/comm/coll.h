@@ -59,8 +59,6 @@ struct ThreadSharedData {
   pthread_barrier_t barrier;
   bool ready_flag;
 };
-
-extern volatile ThreadSharedData shared_data[MAX_NB_COMMS];
 #endif
 
 enum class CollDataType : int {
