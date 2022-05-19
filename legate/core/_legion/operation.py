@@ -450,6 +450,7 @@ class Copy(Dispatchable[None]):
         parent: Optional[Region] = None,
         tag: int = 0,
         redop: int = 0,
+        privilege: int = legion.LEGION_WRITE_DISCARD,
         coherence: int = legion.LEGION_EXCLUSIVE,
         **kwargs: Any,
     ) -> None:
@@ -468,6 +469,9 @@ class Copy(Dispatchable[None]):
             A mapping tag to pass to the mapper for context of this requirement
         redop : int
             Optional reduction operator ID to reduce to the destination fields
+        privilege : int
+            Optional privilege for the destination. Ignored when `redop` is
+            non-zero. WRITE_DISCARD by default.
         coherence : int
             The coherence mode for which to access this region
         """
@@ -475,7 +479,7 @@ class Copy(Dispatchable[None]):
             legion.legion_copy_launcher_add_dst_region_requirement_logical_region(  # noqa: E501
                 self.launcher,
                 region.handle,
-                legion.LEGION_WRITE_DISCARD,
+                privilege,
                 coherence,
                 region.get_root().handle if parent is None else parent.handle,
                 tag,
@@ -775,6 +779,7 @@ class IndexCopy(Dispatchable[None]):
         parent: Optional[Region] = None,
         tag: int = 0,
         redop: int = 0,
+        privilege: int = legion.LEGION_WRITE_DISCARD,
         coherence: int = legion.LEGION_EXCLUSIVE,
         **kwargs: Any,
     ) -> None:
@@ -797,6 +802,9 @@ class IndexCopy(Dispatchable[None]):
             A mapping tag to pass to the mapper for context of this requirement
         redop : int
             Optional reduction operator ID to reduce the destination fields
+        privilege : int
+            Optional privilege for the destination. Ignored when `redop` is
+            non-zero. WRITE_DISCARD by default.
         coherence : int
             The coherence mode for which to access this region
         """
@@ -806,7 +814,7 @@ class IndexCopy(Dispatchable[None]):
                     self.launcher,
                     upper_bound.handle,
                     projection,
-                    legion.LEGION_WRITE_DISCARD,
+                    privilege,
                     coherence,
                     upper_bound.get_root().handle
                     if parent is None
@@ -833,7 +841,7 @@ class IndexCopy(Dispatchable[None]):
                     self.launcher,
                     upper_bound.handle,
                     projection,
-                    legion.LEGION_WRITE_DISCARD,
+                    privilege,
                     coherence,
                     upper_bound.get_root().handle
                     if parent is None

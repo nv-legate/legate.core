@@ -760,6 +760,8 @@ class Copy(AutoOperation):
             self._target_indirects
         ) == len(self._outputs)
 
+        scatter = len(self._target_indirects) > 0
+
         def get_requirement(
             store: Store, part_symb: PartSym
         ) -> tuple[Any, int, StorePartition]:
@@ -775,7 +777,10 @@ class Copy(AutoOperation):
         for store, part_symb in zip(self._outputs, self._output_parts):
             assert not store.unbound
             req, tag, store_part = get_requirement(store, part_symb)
-            launcher.add_output(store, req, tag=tag)
+            if scatter:
+                launcher.add_inout(store, req, tag=tag)
+            else:
+                launcher.add_output(store, req, tag=tag)
 
         for ((store, redop), part_symb) in zip(
             self._reductions, self._reduction_parts

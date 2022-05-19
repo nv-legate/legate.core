@@ -39,6 +39,7 @@ from . import (
     IndexTask,
     Partition as LegionPartition,
     Task as SingleTask,
+    legion,
     types as ty,
 )
 from .utils import OrderedSet
@@ -229,6 +230,19 @@ class RegionFieldArg:
 
 LegionTaskMethod = Any
 
+
+def _index_copy_add_rw_dst_requirement(*args, **kwargs):
+    IndexCopy.add_dst_requirement(
+        *args, privilege=legion.LEGION_READ_WRITE, **kwargs
+    )
+
+
+def _single_copy_add_rw_dst_requirement(*args, **kwargs):
+    SingleCopy.add_dst_requirement(
+        *args, privilege=legion.LEGION_READ_WRITE, **kwargs
+    )
+
+
 _single_task_calls: dict[Permission, LegionTaskMethod] = {
     Permission.NO_ACCESS: SingleTask.add_no_access_requirement,
     Permission.READ: SingleTask.add_read_requirement,
@@ -248,6 +262,7 @@ _index_task_calls: dict[Permission, LegionTaskMethod] = {
 _index_copy_calls: dict[Permission, LegionTaskMethod] = {
     Permission.READ: IndexCopy.add_src_requirement,
     Permission.WRITE: IndexCopy.add_dst_requirement,
+    Permission.READ_WRITE: _index_copy_add_rw_dst_requirement,
     Permission.SOURCE_INDIRECT: IndexCopy.add_src_indirect_requirement,
     Permission.TARGET_INDIRECT: IndexCopy.add_dst_indirect_requirement,
 }
@@ -255,6 +270,7 @@ _index_copy_calls: dict[Permission, LegionTaskMethod] = {
 _single_copy_calls: dict[Permission, LegionTaskMethod] = {
     Permission.READ: SingleCopy.add_src_requirement,
     Permission.WRITE: SingleCopy.add_dst_requirement,
+    Permission.READ_WRITE: _single_copy_add_rw_dst_requirement,
     Permission.SOURCE_INDIRECT: SingleCopy.add_src_indirect_requirement,
     Permission.TARGET_INDIRECT: SingleCopy.add_dst_indirect_requirement,
 }
@@ -999,6 +1015,11 @@ class CopyLauncher:
         self, store: Store, proj: Proj, tag: int = 0, flags: int = 0
     ) -> None:
         self.add_store(store, proj, Permission.WRITE, tag, flags)
+
+    def add_inout(
+        self, store: Store, proj: Proj, tag: int = 0, flags: int = 0
+    ) -> None:
+        self.add_store(store, proj, Permission.READ_WRITE, tag, flags)
 
     def add_reduction(
         self, store: Store, proj: Proj, tag: int = 0, flags: int = 0
