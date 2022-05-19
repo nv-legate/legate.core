@@ -760,6 +760,11 @@ class Copy(AutoOperation):
             self._target_indirects
         ) == len(self._outputs)
 
+        # FIXME: today a copy is a scatter copy only when a target indirection
+        # is given. In the future, we may pass store transforms directly to
+        # Legion and some transforms turn some copies into scatter copies even
+        # when no target indirection is provided. So, this scatter copy check
+        # will need to be extended accordingly.
         scatter = len(self._target_indirects) > 0
 
         def get_requirement(
