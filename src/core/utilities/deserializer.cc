@@ -120,7 +120,7 @@ namespace mapping {
 MapperDeserializer::MapperDeserializer(const LegionTask* task,
                                        MapperRuntime* runtime,
                                        MapperContext context)
-  : BaseDeserializer(task), runtime_(runtime), context_(context)
+  : BaseDeserializer(task), runtime_(runtime), context_(context), future_index_(0)
 {
   first_task_ = false;
 }
@@ -163,7 +163,7 @@ void MapperDeserializer::_unpack(FutureWrapper& value)
     domain.rect_data[idx + domain.dim] = point[idx] - 1;
   }
 
-  value = FutureWrapper(domain);
+  value = FutureWrapper(future_index_++, domain);
 }
 
 void MapperDeserializer::_unpack(RegionField& value, bool is_output_region)
