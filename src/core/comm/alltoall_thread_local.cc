@@ -20,10 +20,14 @@
 #include <string.h>
 
 #include "coll.h"
+#include "legion.h"
 
 namespace legate {
 namespace comm {
 namespace coll {
+
+using namespace Legion;
+extern Logger log_coll;
 
 int collAlltoallLocal(const void* sendbuf,
                       int sendcount,
@@ -70,8 +74,8 @@ int collAlltoallLocal(const void* sendbuf,
     char* src = (char*)src_base + (ptrdiff_t)recvfrom_seg_id * sendtype_extent * sendcount;
     char* dst = (char*)recvbuf + (ptrdiff_t)recvfrom_global_rank * recvtype_extent * recvcount;
 #ifdef DEBUG_PRINT
-    printf(
-      "i: %d === global_rank %d, dtype %d, copy rank %d (seg %d, %p) to rank %d (seg %d, %p)\n",
+    log_coll.info(
+      "i: %d === global_rank %d, dtype %d, copy rank %d (seg %d, %p) to rank %d (seg %d, %p)",
       i,
       global_rank,
       sendtype_extent,
@@ -91,7 +95,7 @@ int collAlltoallLocal(const void* sendbuf,
   collUpdateBuffer(global_comm);
   __sync_synchronize();
 
-  return collSuccess;
+  return CollSuccess;
 }
 
 }  // namespace coll

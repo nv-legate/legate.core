@@ -20,10 +20,14 @@
 #include <string.h>
 
 #include "coll.h"
+#include "legion.h"
 
 namespace legate {
 namespace comm {
 namespace coll {
+
+using namespace Legion;
+extern Logger log_coll;
 
 int collBcastMPI(void* buf, int count, CollDataType type, int root, CollComm global_comm)
 {
@@ -62,13 +66,13 @@ int collBcastMPI(void* buf, int count, CollDataType type, int root, CollComm glo
     assert(i == global_comm->mapping_table.global_rank[i]);
     tag = collGenerateBcastTag(i, global_comm);
 #ifdef DEBUG_PRINT
-    printf("Bcast i: %d === global_rank %d, mpi rank %d, send to %d (%d), tag %d\n",
-           i,
-           global_rank,
-           global_comm->mpi_rank,
-           i,
-           sendto_mpi_rank,
-           tag);
+    log_coll.info("Bcast i: %d === global_rank %d, mpi rank %d, send to %d (%d), tag %d",
+                  i,
+                  global_rank,
+                  global_comm->mpi_rank,
+                  i,
+                  sendto_mpi_rank,
+                  tag);
 #endif
     if (global_rank != i) {
       res = MPI_Send(buf, count, mpi_type, sendto_mpi_rank, tag, global_comm->comm);
@@ -76,7 +80,7 @@ int collBcastMPI(void* buf, int count, CollDataType type, int root, CollComm glo
     }
   }
 
-  return collSuccess;
+  return CollSuccess;
 }
 
 }  // namespace coll

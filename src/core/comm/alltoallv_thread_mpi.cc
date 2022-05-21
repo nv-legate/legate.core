@@ -21,10 +21,14 @@
 #include <algorithm>
 
 #include "coll.h"
+#include "legion.h"
 
 namespace legate {
 namespace comm {
 namespace coll {
+
+using namespace Legion;
+extern Logger log_coll;
 
 static int collAlltoallvMPIInplace(void* recvbuf,
                                    const int recvcounts[],
@@ -51,7 +55,7 @@ static int collAlltoallvMPIInplace(void* recvbuf,
   }
 
   // Easy way out
-  if ((1 == total_size) || (0 == max_size)) { return collSuccess; }
+  if ((1 == total_size) || (0 == max_size)) { return CollSuccess; }
 
   char* tmp_buffer = (char*)malloc(sizeof(char) * max_size);
   assert(tmp_buffer != NULL);
@@ -123,7 +127,7 @@ static int collAlltoallvMPIInplace(void* recvbuf,
 
   free(tmp_buffer);
 
-  return collSuccess;
+  return CollSuccess;
 }
 
 int collAlltoallvMPI(const void* sendbuf,
@@ -182,9 +186,9 @@ int collAlltoallvMPI(const void* sendbuf,
     int send_tag = collGenerateAlltoallvTag(sendto_global_rank, global_rank, global_comm);
     int recv_tag = collGenerateAlltoallvTag(global_rank, recvfrom_global_rank, global_comm);
 #ifdef DEBUG_PRINT
-    printf(
+    log_coll.info(
       "i: %d === global_rank %d, mpi rank %d, send %d to %d, send_tag %d, recv %d from %d, "
-      "recv_tag %d\n",
+      "recv_tag %d",
       i,
       global_rank,
       global_comm->mpi_rank,
@@ -212,7 +216,7 @@ int collAlltoallvMPI(const void* sendbuf,
 
   if (sendbuf == recvbuf) { free(sendbuf_tmp); }
 
-  return collSuccess;
+  return CollSuccess;
 }
 
 }  // namespace coll

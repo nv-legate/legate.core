@@ -59,7 +59,7 @@ int collAllgatherMPI(const void* sendbuf,
 
   if (sendbuf == recvbuf) { free(sendbuf_tmp); }
 
-  return collSuccess;
+  return CollSuccess;
 }
 
 }  // namespace coll

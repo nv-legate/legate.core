@@ -20,10 +20,14 @@
 #include <string.h>
 
 #include "coll.h"
+#include "legion.h"
 
 namespace legate {
 namespace comm {
 namespace coll {
+
+using namespace Legion;
+extern Logger log_coll;
 
 #define ALLTOALL_USE_SENDRECV
 
@@ -111,7 +115,7 @@ static int collAlltoallMPIInplace(void* recvbuf,
 
   free(tmp_buffer);
 
-  return collSuccess;
+  return CollSuccess;
 }
 
 int collAlltoallMPI(const void* sendbuf,
@@ -166,9 +170,9 @@ int collAlltoallMPI(const void* sendbuf,
     int send_tag = collGenerateAlltoallTag(sendto_global_rank, global_rank, global_comm);
     int recv_tag = collGenerateAlltoallTag(global_rank, recvfrom_global_rank, global_comm);
 #ifdef DEBUG_PRINT
-    printf(
+    log_coll.info(
       "i: %d === global_rank %d, mpi rank %d, send %d to %d, send_tag %d, recv %d from %d, "
-      "recv_tag %d\n",
+      "recv_tag %d",
       i,
       global_rank,
       global_comm->mpi_rank,
@@ -202,9 +206,9 @@ int collAlltoallMPI(const void* sendbuf,
     int send_tag  = collGenerateAlltoallTag(i, global_rank, global_comm);
     int recv_tag  = collGenerateAlltoallTag(global_rank, i, global_comm);
 #ifdef DEBUG_PRINT
-    printf(
+    log_coll.info(
       "i: %d === global_rank %d, mpi rank %d, send %d to %d, send_tag %d, recv %d from %d, "
-      "recv_tag %d\n",
+      "recv_tag %d",
       i,
       global_rank,
       global_comm->mpi_rank,
@@ -239,13 +243,13 @@ int collAlltoallMPI(const void* sendbuf,
     res           = MPI_Send(src, sendcount, mpi_sendtype, dest_mpi_rank, tag, global_comm->comm);
     assert(res == MPI_SUCCESS);
 #ifdef DEBUG_PRINT
-    printf("i: %d === global_rank %d, mpi rank %d, send %d to %d, send_tag %d\n",
-           i,
-           global_rank,
-           global_comm->mpi_rank,
-           i,
-           dest_mpi_rank,
-           tag);
+    log_coll.info("i: %d === global_rank %d, mpi rank %d, send %d to %d, send_tag %d",
+                  i,
+                  global_rank,
+                  global_comm->mpi_rank,
+                  i,
+                  dest_mpi_rank,
+                  tag);
 #endif
   }
 
@@ -254,13 +258,13 @@ int collAlltoallMPI(const void* sendbuf,
     dest_mpi_rank = global_comm->mapping_table.mpi_rank[i];
     tag           = collGenerateAlltoallTag(global_rank, i, global_comm);
 #ifdef DEBUG_PRINT
-    printf("i: %d === global_rank %d, mpi rank %d, recv %d from %d, recv_tag %d\n",
-           i,
-           global_rank,
-           global_comm->mpi_rank,
-           i,
-           dest_mpi_rank,
-           tag);
+    log_coll.info("i: %d === global_rank %d, mpi rank %d, recv %d from %d, recv_tag %d",
+                  i,
+                  global_rank,
+                  global_comm->mpi_rank,
+                  i,
+                  dest_mpi_rank,
+                  tag);
 #endif
     res = MPI_Recv(dst, recvcount, mpi_recvtype, dest_mpi_rank, tag, global_comm->comm, &status);
     assert(res == MPI_SUCCESS);
@@ -269,7 +273,7 @@ int collAlltoallMPI(const void* sendbuf,
 
   if (sendbuf == recvbuf) { free(sendbuf_tmp); }
 
-  return collSuccess;
+  return CollSuccess;
 }
 
 }  // namespace coll

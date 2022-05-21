@@ -26,9 +26,6 @@
 #include <mpi.h>
 #endif
 
-#define collSuccess 0
-#define collError 1
-
 namespace legate {
 namespace comm {
 namespace coll {
@@ -60,6 +57,11 @@ enum class CollDataType : int {
   CollUint64 = 6,
   CollFloat  = 7,
   CollDouble = 8,
+};
+
+enum CollStatus : int {
+  CollSuccess = 0,
+  CollError   = 1,
 };
 
 struct Coll_Comm {
