@@ -20,6 +20,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <vector>
 
 #if defined(LEGATE_USE_GASNET)
 #include <mpi.h>
@@ -28,21 +29,11 @@
 #define collSuccess 0
 #define collError 1
 
-#define MAX_NB_COMMS 100
-
 namespace legate {
 namespace comm {
 namespace coll {
 
 #if defined(LEGATE_USE_GASNET)
-
-enum CollTag : int {
-  BCAST_TAG     = 0,
-  GATHER_TAG    = 1,
-  ALLTOALL_TAG  = 2,
-  ALLTOALLV_TAG = 3,
-  MAX_TAG       = 10,
-};
 
 struct RankMappingTable {
   int* mpi_rank;
@@ -51,13 +42,11 @@ struct RankMappingTable {
 
 #else
 
-#define MAX_NB_THREADS 128
-
-struct ThreadSharedData {
-  void* buffers[MAX_NB_THREADS];
-  int* displs[MAX_NB_THREADS];
+struct ThreadComm {
   pthread_barrier_t barrier;
   bool ready_flag;
+  void** buffers;
+  int** displs;
 };
 #endif
 
@@ -73,12 +62,12 @@ enum class CollDataType : int {
   CollDouble = 8,
 };
 
-typedef struct Coll_Comm_s {
+struct Coll_Comm {
 #if defined(LEGATE_USE_GASNET)
   MPI_Comm comm;
   RankMappingTable mapping_table;
 #else
-  volatile ThreadSharedData* shared_data;
+  volatile ThreadComm* comm;
 #endif
   int mpi_rank;
   int mpi_comm_size;
@@ -87,7 +76,7 @@ typedef struct Coll_Comm_s {
   int nb_threads;
   int unique_id;
   bool status;
-} Coll_Comm;
+};
 
 typedef Coll_Comm* CollComm;
 

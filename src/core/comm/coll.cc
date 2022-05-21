@@ -32,22 +32,33 @@ namespace legate {
 namespace comm {
 namespace coll {
 
+#define MAX_NB_COMMS 100
+
 #if defined(LEGATE_USE_GASNET)
+
+enum CollTag : int {
+  BCAST_TAG     = 0,
+  GATHER_TAG    = 1,
+  ALLTOALL_TAG  = 2,
+  ALLTOALLV_TAG = 3,
+  MAX_TAG       = 10,
+};
 
 #define USE_NEW_COMM
 
 #if defined(USE_NEW_COMM)
-static MPI_Comm communicators[MAX_NB_COMMS];
+static std::vector<MPI_Comm> mpi_comms;
 #endif
 
 #else
-static volatile ThreadSharedData shared_data[MAX_NB_COMMS];
+static std::vector<ThreadComm> thread_comms;
 #endif
 
 static std::atomic<int> current_unique_id(0);
 
 static bool coll_inited = false;
 
+// functions start here
 int collCommCreate(CollComm global_comm,
                    int global_comm_size,
                    int global_rank,
@@ -63,7 +74,7 @@ int collCommCreate(CollComm global_comm,
   int *tag_ub, flag, res;
 #if defined(USE_NEW_COMM)
   int compare_result;
-  MPI_Comm comm = communicators[unique_id];
+  MPI_Comm comm = mpi_comms[unique_id];
   res           = MPI_Comm_compare(comm, MPI_COMM_WORLD, &compare_result);
   assert(res == MPI_SUCCESS);
   assert(compare_result = MPI_CONGRUENT);
@@ -80,26 +91,36 @@ int collCommCreate(CollComm global_comm,
   global_comm->mpi_comm_size = mpi_comm_size;
   global_comm->mpi_rank      = mpi_rank;
   global_comm->comm          = comm;
-  if (mapping_table != NULL) {
-    global_comm->mapping_table.global_rank = (int*)malloc(sizeof(int) * global_comm_size);
-    global_comm->mapping_table.mpi_rank    = (int*)malloc(sizeof(int) * global_comm_size);
-    memcpy(global_comm->mapping_table.mpi_rank, mapping_table, sizeof(int) * global_comm_size);
-    for (int i = 0; i < global_comm_size; i++) { global_comm->mapping_table.global_rank[i] = i; }
-  }
+  assert(mapping_table != NULL);
+  global_comm->mapping_table.global_rank = (int*)malloc(sizeof(int) * global_comm_size);
+  global_comm->mapping_table.mpi_rank    = (int*)malloc(sizeof(int) * global_comm_size);
+  memcpy(global_comm->mapping_table.mpi_rank, mapping_table, sizeof(int) * global_comm_size);
+  for (int i = 0; i < global_comm_size; i++) { global_comm->mapping_table.global_rank[i] = i; }
 #else
+  assert(mapping_table == NULL);
   global_comm->mpi_comm_size = 1;
   global_comm->mpi_rank      = 0;
   if (global_comm->global_rank == 0) {
-    pthread_barrier_init((pthread_barrier_t*)&(shared_data[global_comm->unique_id].barrier),
+    pthread_barrier_init((pthread_barrier_t*)&(thread_comms[global_comm->unique_id].barrier),
                          NULL,
                          global_comm->global_comm_size);
-    shared_data[global_comm->unique_id].ready_flag = true;
+    thread_comms[global_comm->unique_id].buffers = (void**)malloc(sizeof(void*) * global_comm_size);
+    thread_comms[global_comm->unique_id].displs  = (int**)malloc(sizeof(int*) * global_comm_size);
+    for (int i = 0; i < global_comm_size; i++) {
+      thread_comms[global_comm->unique_id].buffers[i] = NULL;
+      thread_comms[global_comm->unique_id].displs[i]  = NULL;
+    }
+    __sync_synchronize();
+    thread_comms[global_comm->unique_id].ready_flag = true;
   }
   __sync_synchronize();
-  volatile ThreadSharedData* data = &(shared_data[global_comm->unique_id]);
-  while (data->ready_flag != true) { data = &(shared_data[global_comm->unique_id]); }
-  global_comm->shared_data = &(shared_data[global_comm->unique_id]);
-  assert(global_comm->shared_data->ready_flag == true);
+  volatile ThreadComm* data = &(thread_comms[global_comm->unique_id]);
+  while (data->ready_flag != true) { data = &(thread_comms[global_comm->unique_id]); }
+  global_comm->comm = &(thread_comms[global_comm->unique_id]);
+  collBarrierLocal(global_comm);
+  assert(global_comm->comm->ready_flag == true);
+  assert(global_comm->comm->buffers != NULL);
+  assert(global_comm->comm->displs != NULL);
 #endif
   if (global_comm->global_comm_size % global_comm->mpi_comm_size == 0) {
     global_comm->nb_threads = global_comm->global_comm_size / global_comm->mpi_comm_size;
@@ -121,13 +142,19 @@ int collCommDestroy(CollComm global_comm)
     global_comm->mapping_table.mpi_rank = NULL;
   }
 #else
+  collBarrierLocal(global_comm);
   if (global_comm->global_rank == 0) {
-    pthread_barrier_destroy((pthread_barrier_t*)&(shared_data[global_comm->unique_id].barrier));
-    shared_data[global_comm->unique_id].ready_flag = false;
+    pthread_barrier_destroy((pthread_barrier_t*)&(thread_comms[global_comm->unique_id].barrier));
+    free(thread_comms[global_comm->unique_id].buffers);
+    thread_comms[global_comm->unique_id].buffers = NULL;
+    free(thread_comms[global_comm->unique_id].displs);
+    thread_comms[global_comm->unique_id].displs = NULL;
+    __sync_synchronize();
+    thread_comms[global_comm->unique_id].ready_flag = false;
   }
   __sync_synchronize();
-  volatile ThreadSharedData* data = &(shared_data[global_comm->unique_id]);
-  while (data->ready_flag != false) { data = &(shared_data[global_comm->unique_id]); }
+  volatile ThreadComm* data = &(thread_comms[global_comm->unique_id]);
+  while (data->ready_flag != false) { data = &(thread_comms[global_comm->unique_id]); }
 #endif
   global_comm->status = false;
   return collSuccess;
@@ -247,18 +274,18 @@ int collInit(int argc, char* argv[])
       "MPI_THREAD_MULTIPLE\n");
   }
 #if defined(USE_NEW_COMM)
+  mpi_comms.resize(MAX_NB_COMMS, MPI_COMM_NULL);
   for (int i = 0; i < MAX_NB_COMMS; i++) {
-    res = MPI_Comm_dup(MPI_COMM_WORLD, &communicators[i]);
+    res = MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comms[i]);
     assert(res == MPI_SUCCESS);
   }
 #endif
 #else
+  thread_comms.resize(MAX_NB_COMMS);
   for (int i = 0; i < MAX_NB_COMMS; i++) {
-    shared_data[i].ready_flag = false;
-    for (int j = 0; j < MAX_NB_THREADS; j++) {
-      shared_data[i].buffers[j] = NULL;
-      shared_data[i].displs[j]  = NULL;
-    }
+    thread_comms[i].ready_flag = false;
+    thread_comms[i].buffers    = NULL;
+    thread_comms[i].displs     = NULL;
   }
 #endif
   coll_inited = true;
@@ -273,13 +300,15 @@ int collFinalize(void)
 #if defined(USE_NEW_COMM)
   int res;
   for (int i = 0; i < MAX_NB_COMMS; i++) {
-    res = MPI_Comm_free(&communicators[i]);
+    res = MPI_Comm_free(&mpi_comms[i]);
     assert(res == MPI_SUCCESS);
   }
+  mpi_comms.clear();
 #endif
   return MPI_Finalize();
 #else
-  for (int i = 0; i < MAX_NB_COMMS; i++) { assert(shared_data[i].ready_flag == false); }
+  for (int i = 0; i < MAX_NB_COMMS; i++) { assert(thread_comms[i].ready_flag == false); }
+  thread_comms.clear();
   return collSuccess;
 #endif
 }
@@ -424,16 +453,16 @@ size_t collGetDtypeSize(CollDataType dtype)
 
 void collUpdateBuffer(CollComm global_comm)
 {
-  int global_rank                                = global_comm->global_rank;
-  global_comm->shared_data->buffers[global_rank] = NULL;
-  global_comm->shared_data->displs[global_rank]  = NULL;
+  int global_rank                         = global_comm->global_rank;
+  global_comm->comm->buffers[global_rank] = NULL;
+  global_comm->comm->displs[global_rank]  = NULL;
   // printf("rank %d, buffer idx %d\n", global_comm->global_rank, global_comm->current_buffer_idx);
 }
 
 void collBarrierLocal(CollComm global_comm)
 {
   assert(coll_inited == true);
-  pthread_barrier_wait((pthread_barrier_t*)&(global_comm->shared_data->barrier));
+  pthread_barrier_wait((pthread_barrier_t*)&(global_comm->comm->barrier));
 }
 #endif
 
