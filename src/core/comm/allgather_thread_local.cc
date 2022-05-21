@@ -88,6 +88,7 @@ int collAllgatherLocal(const void* sendbuf,
   __sync_synchronize();
 
   collUpdateBuffer(global_comm);
+  collBarrierLocal(global_comm);
 
   return CollSuccess;
 }

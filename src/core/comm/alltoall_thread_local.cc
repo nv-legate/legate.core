@@ -92,8 +92,10 @@ int collAlltoallLocal(const void* sendbuf,
   collBarrierLocal(global_comm);
   if (sendbuf == recvbuf) { free(sendbuf_tmp); }
 
-  collUpdateBuffer(global_comm);
   __sync_synchronize();
+
+  collUpdateBuffer(global_comm);
+  collBarrierLocal(global_comm);
 
   return CollSuccess;
 }
