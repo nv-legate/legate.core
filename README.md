@@ -241,13 +241,13 @@ Legate Core requires the following:
 You can install the required Python packages by creating a new conda environment:
 
 ```
-conda env create -n legate -f conda/core_dev.yml
+conda env create -n legate -f conda/environment-test-3.10.yml
 ```
 
 or by updating an existing environment:
 
 ```
-conda env update -f conda/core_dev.yml
+conda env update -f conda/environment-test-3.10.yml
 ```
 
 Note that conda will need to install an environment-local copy of the CUDA
