@@ -50,10 +50,8 @@ int collAlltoallLocal(const void* sendbuf,
   // MPI_IN_PLACE
   if (sendbuf == recvbuf) {
     sendbuf_tmp = (void*)malloc(total_size * sendtype_extent * sendcount);
+    assert(sendbuf_tmp != NULL);
     memcpy(sendbuf_tmp, recvbuf, total_size * sendtype_extent * sendcount);
-    // int * sendval = (int*)sendbuf_tmp;
-    // printf("malloc %p, size %ld, [%d]\n", sendbuf_tmp, total_size * recvtype_extent * recvcount,
-    // sendval[0]);
   } else {
     sendbuf_tmp = const_cast<void*>(sendbuf);
   }

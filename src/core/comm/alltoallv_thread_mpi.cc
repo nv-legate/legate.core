@@ -138,7 +138,6 @@ int collAlltoallvMPI(const void* sendbuf,
 {
   int res;
 
-  // int total_size = global_comm.mpi_comm_size * global_comm.nb_threads;
   int total_size = global_comm->global_comm_size;
   MPI_Status status;
 

@@ -456,7 +456,6 @@ void collUpdateBuffer(CollComm global_comm)
   int global_rank                         = global_comm->global_rank;
   global_comm->comm->buffers[global_rank] = NULL;
   global_comm->comm->displs[global_rank]  = NULL;
-  // printf("rank %d, buffer idx %d\n", global_comm->global_rank, global_comm->current_buffer_idx);
 }
 
 void collBarrierLocal(CollComm global_comm)

@@ -52,10 +52,8 @@ int collAlltoallvLocal(const void* sendbuf,
   if (sendbuf == recvbuf) {
     int total_send_count = sdispls[total_size - 1] + sendcounts[total_size - 1];
     sendbuf_tmp          = (void*)malloc(sendtype_extent * total_send_count);
+    assert(sendbuf_tmp != NULL);
     memcpy(sendbuf_tmp, recvbuf, sendtype_extent * total_send_count);
-    // int * sendval = (int*)sendbuf_tmp;
-    // printf("malloc %p, size %ld, [%d]\n", sendbuf_tmp, sendtype_extent * total_send_count,
-    // sendval[0]);
   } else {
     sendbuf_tmp = const_cast<void*>(sendbuf);
   }
