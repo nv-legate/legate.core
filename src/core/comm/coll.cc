@@ -36,8 +36,6 @@ namespace coll {
 using namespace Legion;
 Logger log_coll("coll");
 
-#define MAX_NB_COMMS 100
-
 #if defined(LEGATE_USE_GASNET)
 
 enum CollTag : int {
@@ -51,16 +49,18 @@ enum CollTag : int {
 #define USE_NEW_COMM
 
 #if defined(USE_NEW_COMM)
-static std::vector<MPI_Comm> mpi_comms;
+static MPI_Comm* mpi_comms;
 #endif
 
 #else
-static std::vector<ThreadComm> thread_comms;
+static ThreadComm* thread_comms;
 #endif
 
 static std::atomic<int> current_unique_id(0);
 
 static bool coll_inited = false;
+
+static constexpr int const MAX_NB_COMMS = 100;
 
 // functions start here
 int collCommCreate(CollComm global_comm,
@@ -283,14 +283,16 @@ int collInit(int argc, char* argv[])
       "MPI_THREAD_MULTIPLE\n");
   }
 #if defined(USE_NEW_COMM)
-  mpi_comms.resize(MAX_NB_COMMS, MPI_COMM_NULL);
+  mpi_comms = (MPI_Comm*)malloc(sizeof(MPI_Comm) * MAX_NB_COMMS);
+  assert(mpi_comms != NULL);
   for (int i = 0; i < MAX_NB_COMMS; i++) {
     res = MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comms[i]);
     assert(res == MPI_SUCCESS);
   }
 #endif
 #else
-  thread_comms.resize(MAX_NB_COMMS);
+  thread_comms = (ThreadComm*)malloc(sizeof(ThreadComm) * MAX_NB_COMMS);
+  assert(thread_comms != NULL);
   for (int i = 0; i < MAX_NB_COMMS; i++) {
     thread_comms[i].ready_flag = false;
     thread_comms[i].buffers    = NULL;
@@ -312,12 +314,14 @@ int collFinalize(void)
     res = MPI_Comm_free(&mpi_comms[i]);
     assert(res == MPI_SUCCESS);
   }
-  mpi_comms.clear();
+  free(mpi_comms);
+  mpi_comms = NULL;
 #endif
   return MPI_Finalize();
 #else
   for (int i = 0; i < MAX_NB_COMMS; i++) { assert(thread_comms[i].ready_flag == false); }
-  thread_comms.clear();
+  free(thread_comms);
+  thread_comms = NULL;
   return CollSuccess;
 #endif
 }
