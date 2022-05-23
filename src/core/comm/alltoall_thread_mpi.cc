@@ -233,42 +233,6 @@ int collAlltoallMPI(const void* sendbuf,
                        &status);
     assert(res == MPI_SUCCESS);
   }
-#else
-  int tag;
-  int dest_mpi_rank;
-  for (int i = 0; i < total_size; i++) {
-    char* src     = (char*)sendbuf_tmp + i * sendtype_extent * sendcount;
-    dest_mpi_rank = global_comm->mapping_table.mpi_rank[i];
-    tag           = collGenerateAlltoallTag(i, global_rank, global_comm);
-    res           = MPI_Send(src, sendcount, mpi_sendtype, dest_mpi_rank, tag, global_comm->comm);
-    assert(res == MPI_SUCCESS);
-#ifdef DEBUG_PRINT
-    log_coll.info("i: %d === global_rank %d, mpi rank %d, send %d to %d, send_tag %d",
-                  i,
-                  global_rank,
-                  global_comm->mpi_rank,
-                  i,
-                  dest_mpi_rank,
-                  tag);
-#endif
-  }
-
-  for (int i = 0; i < total_size; i++) {
-    char* dst     = (char*)recvbuf + i * recvtype_extent * recvcount;
-    dest_mpi_rank = global_comm->mapping_table.mpi_rank[i];
-    tag           = collGenerateAlltoallTag(global_rank, i, global_comm);
-#ifdef DEBUG_PRINT
-    log_coll.info("i: %d === global_rank %d, mpi rank %d, recv %d from %d, recv_tag %d",
-                  i,
-                  global_rank,
-                  global_comm->mpi_rank,
-                  i,
-                  dest_mpi_rank,
-                  tag);
-#endif
-    res = MPI_Recv(dst, recvcount, mpi_recvtype, dest_mpi_rank, tag, global_comm->comm, &status);
-    assert(res == MPI_SUCCESS);
-  }
 #endif
 
   if (sendbuf == recvbuf) { free(sendbuf_tmp); }
