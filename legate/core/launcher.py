@@ -15,20 +15,31 @@
 from __future__ import annotations
 
 from enum import IntEnum, unique
-from typing import TYPE_CHECKING, Any, Optional, Sequence, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Optional,
+    Protocol,
+    Sequence,
+    Tuple,
+    Union,
+    overload,
+)
 
 import pyarrow as pa
-from typing_extensions import Protocol, overload
 
 from . import (
     ArgumentMap,
     BufferBuilder,
     Copy as SingleCopy,
     Future,
+    FutureMap,
     IndexCopy,
     IndexTask,
     Partition as LegionPartition,
     Task as SingleTask,
+    legion,
     types as ty,
 )
 from .utils import OrderedSet
@@ -37,7 +48,6 @@ if TYPE_CHECKING:
     from . import (
         FieldID,
         FieldSpace,
-        FutureMap,
         IndexSpace,
         OutputRegion,
         Point,
@@ -47,7 +57,7 @@ if TYPE_CHECKING:
     from ._legion.util import FieldListLike
     from .context import Context
     from .runtime import Runtime
-    from .store import Store
+    from .store import RegionField, Store
     from .types import DTType
 
 
@@ -65,7 +75,9 @@ class Permission(IntEnum):
     TARGET_INDIRECT = 6
 
 
-_SERIALIZERS = {
+Serializer = Callable[[BufferBuilder, Any], None]
+
+_SERIALIZERS: dict[Any, Serializer] = {
     bool: BufferBuilder.pack_bool,
     ty.int8: BufferBuilder.pack_8bit_int,
     ty.int16: BufferBuilder.pack_16bit_int,
@@ -83,9 +95,7 @@ _SERIALIZERS = {
 EntryType = Tuple[Union["Broadcast", "Partition"], int, int]
 
 
-def _pack(
-    buf: BufferBuilder, value: Any, dtype: DTType, is_tuple: bool
-) -> None:
+def _pack(buf: BufferBuilder, value: Any, dtype: Any, is_tuple: bool) -> None:
     if dtype not in _SERIALIZERS:
         raise ValueError(f"Unsupported data type: {dtype}")
     serializer = _SERIALIZERS[dtype]
@@ -220,6 +230,19 @@ class RegionFieldArg:
 
 LegionTaskMethod = Any
 
+
+def _index_copy_add_rw_dst_requirement(*args, **kwargs):
+    IndexCopy.add_dst_requirement(
+        *args, privilege=legion.LEGION_READ_WRITE, **kwargs
+    )
+
+
+def _single_copy_add_rw_dst_requirement(*args, **kwargs):
+    SingleCopy.add_dst_requirement(
+        *args, privilege=legion.LEGION_READ_WRITE, **kwargs
+    )
+
+
 _single_task_calls: dict[Permission, LegionTaskMethod] = {
     Permission.NO_ACCESS: SingleTask.add_no_access_requirement,
     Permission.READ: SingleTask.add_read_requirement,
@@ -239,6 +262,7 @@ _index_task_calls: dict[Permission, LegionTaskMethod] = {
 _index_copy_calls: dict[Permission, LegionTaskMethod] = {
     Permission.READ: IndexCopy.add_src_requirement,
     Permission.WRITE: IndexCopy.add_dst_requirement,
+    Permission.READ_WRITE: _index_copy_add_rw_dst_requirement,
     Permission.SOURCE_INDIRECT: IndexCopy.add_src_indirect_requirement,
     Permission.TARGET_INDIRECT: IndexCopy.add_dst_indirect_requirement,
 }
@@ -246,17 +270,17 @@ _index_copy_calls: dict[Permission, LegionTaskMethod] = {
 _single_copy_calls: dict[Permission, LegionTaskMethod] = {
     Permission.READ: SingleCopy.add_src_requirement,
     Permission.WRITE: SingleCopy.add_dst_requirement,
+    Permission.READ_WRITE: _single_copy_add_rw_dst_requirement,
     Permission.SOURCE_INDIRECT: SingleCopy.add_src_indirect_requirement,
     Permission.TARGET_INDIRECT: SingleCopy.add_dst_indirect_requirement,
 }
 
 
 class Broadcast:
-    __slots__ = ("part", "proj", "redop")
-
     # Use the same signature as Partition's constructor
     # so that the caller can construct projection objects in a uniform way
-    def __init__(self, part: LegionPartition, proj: int) -> None:
+    def __init__(self, part: Optional[LegionPartition], proj: int) -> None:
+        assert part is None
         self.part = part
         self.proj = proj
         self.redop: Union[int, None] = None
@@ -316,9 +340,8 @@ class Broadcast:
 
 
 class Partition:
-    __slots__ = ("part", "proj", "redop")
-
-    def __init__(self, part: LegionPartition, proj: int) -> None:
+    def __init__(self, part: Optional[LegionPartition], proj: int) -> None:
+        assert part is not None
         self.part = part
         self.proj = proj
         self.redop = None
@@ -511,7 +534,7 @@ class ProjectionSet:
             # all projections must be the same
             all_entries: OrderedSet[EntryType] = OrderedSet()
             for entry in self._entries.values():
-                all_entries = all_entries | entry
+                all_entries.update(entry)
             if len(all_entries) > 1:
                 if error_on_interference:
                     raise ValueError(
@@ -647,7 +670,7 @@ class OutputAnalyzer:
         for req, group in self._groups.items():
             req_idx = len(self._requirements)
             fields = []
-            field_set = OrderedSet()
+            field_set: OrderedSet[int] = OrderedSet()
             for field_id, store in group:
                 self._requirement_map[(req, field_id)] = req_idx
                 if field_id in field_set:
@@ -744,6 +767,9 @@ class TaskLauncher:
     ) -> None:
         redop = -1 if proj.redop is None else proj.redop
         if store.kind is Future:
+            if TYPE_CHECKING:
+                assert isinstance(store.storage, Future)
+
             has_storage = perm != Permission.WRITE
             read_only = perm == Permission.READ
             if has_storage:
@@ -751,6 +777,9 @@ class TaskLauncher:
             args.append(FutureStoreArg(store, read_only, has_storage, redop))
 
         else:
+            if TYPE_CHECKING:
+                assert isinstance(store.storage, RegionField)
+
             region = store.storage.region
             field_id = store.storage.field.field_id
 
@@ -917,12 +946,9 @@ class TaskLauncher:
         return task
 
     def execute(self, launch_domain: Rect) -> FutureMap:
-        # Note that we should hold a reference to this buffer
-        # until we launch a task, otherwise the Python GC will
-        # collect the Python object holding the buffer, which
-        # in turn will deallocate the C side buffer.
         task = self.build_task(launch_domain, BufferBuilder())
         result = self._context.dispatch(task)
+        assert isinstance(result, FutureMap)
         self._out_analyzer.update_storages()
         return result
 
@@ -935,7 +961,12 @@ class TaskLauncher:
 
 class CopyLauncher:
     def __init__(
-        self, context: Context, mapper_id: int = 0, tag: int = 0
+        self,
+        context: Context,
+        source_oor: bool = True,
+        target_oor: bool = True,
+        mapper_id: int = 0,
+        tag: int = 0,
     ) -> None:
         assert type(tag) != bool
         self._context = context
@@ -945,6 +976,8 @@ class CopyLauncher:
         self._tag = tag
         self._sharding_space: Union[IndexSpace, None] = None
         self._point: Union[Point, None] = None
+        self._source_oor = source_oor
+        self._target_oor = target_oor
 
     @property
     def library_mapper_id(self) -> int:
@@ -963,6 +996,9 @@ class CopyLauncher:
         assert store.kind is not Future
         assert store._transform.bottom
 
+        if TYPE_CHECKING:
+            assert isinstance(store.storage, RegionField)
+
         region = store.storage.region
         field_id = store.storage.field.field_id
 
@@ -979,6 +1015,11 @@ class CopyLauncher:
         self, store: Store, proj: Proj, tag: int = 0, flags: int = 0
     ) -> None:
         self.add_store(store, proj, Permission.WRITE, tag, flags)
+
+    def add_inout(
+        self, store: Store, proj: Proj, tag: int = 0, flags: int = 0
+    ) -> None:
+        self.add_store(store, proj, Permission.READ_WRITE, tag, flags)
 
     def add_reduction(
         self, store: Store, proj: Proj, tag: int = 0, flags: int = 0
@@ -1019,6 +1060,8 @@ class CopyLauncher:
             req.proj.add(copy, req, fields, _index_copy_calls)
         if self._sharding_space is not None:
             copy.set_sharding_space(self._sharding_space)
+        copy.set_possible_src_indirect_out_of_range(self._source_oor)
+        copy.set_possible_dst_indirect_out_of_range(self._target_oor)
         return copy
 
     def build_single_copy(self) -> SingleCopy:
@@ -1040,14 +1083,16 @@ class CopyLauncher:
             copy.set_sharding_space(self._sharding_space)
         if self._point is not None:
             copy.set_point(self._point)
+        copy.set_possible_src_indirect_out_of_range(self._source_oor)
+        copy.set_possible_dst_indirect_out_of_range(self._target_oor)
         return copy
 
     def execute(
         self, launch_domain: Rect, redop: Optional[int] = None
-    ) -> FutureMap:
+    ) -> None:
         copy = self.build_copy(launch_domain)
-        return self._context.dispatch(copy)
+        self._context.dispatch(copy)
 
-    def execute_single(self) -> Future:
+    def execute_single(self) -> None:
         copy = self.build_single_copy()
-        return self._context.dispatch_single(copy)
+        self._context.dispatch_single(copy)

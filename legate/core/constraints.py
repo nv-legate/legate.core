@@ -15,14 +15,14 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import TYPE_CHECKING, Any, Iterator, Optional, Sequence, Union
-
-from typing_extensions import Protocol
+from typing import TYPE_CHECKING, Any, Iterator, Optional, Protocol, Union
 
 from .partition import Restriction
 
 if TYPE_CHECKING:
+    from .partition import PartitionBase
     from .store import Store
+    from .transform import Restrictions
 
 
 class Expr(Protocol):
@@ -30,13 +30,13 @@ class Expr(Protocol):
     def ndim(self) -> int:
         ...
 
-    def subst(self, mapping: dict[PartSym, Expr]) -> Expr:
+    def subst(self, mapping: dict[PartSym, PartitionBase]) -> Expr:
         ...
 
     def reduce(self) -> Expr:
         ...
 
-    def unknowns(self) -> Iterator[Expr]:
+    def unknowns(self) -> Iterator[PartSym]:
         ...
 
     def __eq__(self, rhs: Expr) -> Constraint:  # type: ignore [override]
@@ -51,25 +51,6 @@ class Expr(Protocol):
         elif self.ndim != len(offset):
             raise ValueError("Dimensions don't match")
         return Translate(self, offset)
-
-    def broadcast(
-        self, axes: Optional[Union[int, Iterable[int]]] = None
-    ) -> Broadcast:
-        if axes is None:
-            axes = set(range(self.ndim))
-        else:
-            if isinstance(axes, Iterable):
-                axes = set(axes)
-            else:
-                axes = {axes}
-        restrictions = []
-        for i in range(self.ndim):
-            restrictions.append(
-                Restriction.RESTRICTED
-                if i in axes
-                else Restriction.UNRESTRICTED
-            )
-        return Broadcast(self, restrictions)
 
 
 class Lit(Expr):
@@ -87,13 +68,13 @@ class Lit(Expr):
     def __repr__(self) -> str:
         return f"Lit({self._part})"
 
-    def subst(self, mapping: dict[PartSym, Expr]) -> Expr:
+    def subst(self, mapping: dict[PartSym, PartitionBase]) -> Expr:
         return self
 
     def reduce(self) -> Lit:
         return self
 
-    def unknowns(self) -> Iterator[Expr]:
+    def unknowns(self) -> Iterator[PartSym]:
         pass
 
 
@@ -134,7 +115,7 @@ class PartSym(Expr):
     def __hash__(self) -> int:
         return hash((self._op_hash, self._id))
 
-    def subst(self, mapping: dict[PartSym, Expr]) -> Expr:
+    def subst(self, mapping: dict[PartSym, PartitionBase]) -> Expr:
         return Lit(mapping[self])
 
     def reduce(self) -> PartSym:
@@ -142,6 +123,22 @@ class PartSym(Expr):
 
     def unknowns(self) -> Iterator[PartSym]:
         yield self
+
+    def broadcast(
+        self, axes: Optional[Union[int, Iterable[int]]] = None
+    ) -> Broadcast:
+        if axes is None:
+            axes = set(range(self.ndim))
+        else:
+            if isinstance(axes, Iterable):
+                axes = set(axes)
+            else:
+                axes = {axes}
+        restrictions = tuple(
+            Restriction.RESTRICTED if i in axes else Restriction.UNRESTRICTED
+            for i in range(self.ndim)
+        )
+        return Broadcast(self, restrictions)
 
 
 class Translate(Expr):
@@ -165,7 +162,7 @@ class Translate(Expr):
     def __repr__(self) -> str:
         return f"{self._expr} + {self._offset}"
 
-    def subst(self, mapping: dict[PartSym, Expr]) -> Expr:
+    def subst(self, mapping: dict[PartSym, PartitionBase]) -> Expr:
         return Translate(self._expr.subst(mapping), self._offset)
 
     def reduce(self) -> Lit:
@@ -174,7 +171,7 @@ class Translate(Expr):
         part = expr._part
         return Lit(part.translate_range(self._offset))
 
-    def unknowns(self) -> Iterator[Expr]:
+    def unknowns(self) -> Iterator[PartSym]:
         for unknown in self._expr.unknowns():
             yield unknown
 
@@ -210,9 +207,7 @@ class Containment(Constraint):
 
 
 class Broadcast(Constraint):
-    def __init__(
-        self, expr: Expr, restrictions: Sequence[Restriction]
-    ) -> None:
+    def __init__(self, expr: PartSym, restrictions: Restrictions) -> None:
         self._expr = expr
         self._restrictions = restrictions
 

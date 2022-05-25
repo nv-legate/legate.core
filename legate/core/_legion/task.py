@@ -22,15 +22,13 @@ from .geometry import Point, Rect
 from .partition import Partition
 from .pending import _pending_deletions
 from .region import Region
-from .util import FieldID, dispatch
+from .util import Dispatchable, FieldID, dispatch
 
 if TYPE_CHECKING:
-    from ..context import Context
-    from ..runtime import Runtime
     from . import FieldListLike, IndexSpace, OutputRegion
 
 
-class Task:
+class Task(Dispatchable[Future]):
     def __init__(
         self,
         task_id: int,
@@ -431,7 +429,12 @@ class Task:
         )
 
     @dispatch
-    def launch(self, runtime: Runtime, context: Context) -> Future:
+    def launch(
+        self,
+        runtime: legion.legion_runtime_t,
+        context: legion.legion_context_t,
+        **kwargs: Any,
+    ) -> Future:
         """
         Dispatch the task launch to the runtime
 
@@ -462,7 +465,7 @@ class Task:
             )
 
 
-class IndexTask:
+class IndexTask(Dispatchable[Union[Future, FutureMap]]):
 
     point_args: Union[list[Any], None]
 
@@ -1017,7 +1020,11 @@ class IndexTask:
 
     @dispatch
     def launch(
-        self, runtime: Runtime, context: Context, redop: int = 0
+        self,
+        runtime: legion.legion_runtime_t,
+        context: legion.legion_context_t,
+        redop: int = 0,
+        **kwargs: Any,
     ) -> Union[Future, FutureMap]:
         """
         Launch this index space task to the runtime
@@ -1087,7 +1094,7 @@ class IndexTask:
                 )
 
 
-class Fence:
+class Fence(Dispatchable[Future]):
     def __init__(self, mapping: bool = False) -> None:
         """
         A Fence operation provides a mechanism for inserting either
@@ -1107,7 +1114,12 @@ class Fence:
         self.mapping = mapping
 
     @dispatch
-    def launch(self, runtime: Runtime, context: Context) -> Future:
+    def launch(
+        self,
+        runtime: legion.legion_runtime_t,
+        context: legion.legion_context_t,
+        **kwargs: Any,
+    ) -> Future:
         """
         Dispatch this fence to the runtime
         """

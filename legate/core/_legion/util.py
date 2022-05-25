@@ -15,22 +15,23 @@
 from __future__ import annotations
 
 import struct
-from typing import TYPE_CHECKING, Any, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Generic, List, Optional, TypeVar, Union
 
 import numpy as np
 
 from .. import legion
+from .field import FieldID
 from .geometry import Point
 from .partition import IndexPartition
 from .pending import _pending_deletions, _pending_unordered
 
 if TYPE_CHECKING:
-    from ..context import Context
-    from ..runtime import Runtime
-    from . import AffineTransform, FieldSpace
+    from . import AffineTransform
 
 
-def legate_task_preamble(runtime: Runtime, context: Context) -> None:
+def legate_task_preamble(
+    runtime: legion.legion_runtime_t, context: legion.legion_context_t
+) -> None:
     """
     This function sets up internal Legate state for a task in Python.
     In general, users only need to worry about calling this function
@@ -42,7 +43,9 @@ def legate_task_preamble(runtime: Runtime, context: Context) -> None:
     _pending_unordered[context] = list()
 
 
-def legate_task_progress(runtime: Runtime, context: Context) -> None:
+def legate_task_progress(
+    runtime: legion.legion_runtime_t, context: legion.legion_context_t
+) -> None:
     """
     This method will progress any internal Legate Core functionality
     that is running in the background. Legate clients do not need to
@@ -122,7 +125,9 @@ def legate_task_progress(runtime: Runtime, context: Context) -> None:
         _pending_deletions.clear()
 
 
-def legate_task_postamble(runtime: Runtime, context: Context) -> None:
+def legate_task_postamble(
+    runtime: legion.legion_runtime_t, context: legion.legion_context_t
+) -> None:
     """
     This function cleans up internal Legate state for a task in Python.
     In general, users only need to worry about calling this function
@@ -138,48 +143,29 @@ def legate_task_postamble(runtime: Runtime, context: Context) -> None:
 # to dispatch any unordered deletions while the task is live
 def dispatch(func: Any) -> Any:
     def launch(
-        launcher: Any, runtime: Runtime, context: Context, *args: Any
+        launcher: Any,
+        runtime: legion.legion_runtime_t,
+        context: legion.legion_context_t,
+        **kwargs: Any,
     ) -> Any:
         # This context should always be in the dictionary
         legate_task_progress(runtime, context)
-        return func(launcher, runtime, context, *args)
+        return func(launcher, runtime, context, **kwargs)
 
     return launch
 
 
-class FieldID:
-    def __init__(self, field_space: FieldSpace, fid: int, type: Any) -> None:
-        """
-        A FieldID class wraps a `legion_field_id_t` in the Legion C API.
-        It provides a canonical way to represent an allocated field in a
-        field space and means by which to deallocate the field.
+T = TypeVar("T")
 
-        Parameters
-        ----------
-        field_space : FieldSpace
-            The owner field space for this field
-        fid : int
-            The ID for this field
-        type : type
-            The type of this field
-        """
-        self.field_space = field_space
-        self._type = type
-        self.field_id = fid
 
-    def destroy(self, unordered: bool = False) -> None:
-        """
-        Deallocate this field from the field space
-        """
-        self.field_space.destroy_field(self.field_id, unordered)
-
-    @property
-    def fid(self) -> int:
-        return self.field_id
-
-    @property
-    def type(self) -> Any:
-        return self._type
+class Dispatchable(Generic[T]):
+    def launch(
+        self,
+        runtime: legion.legion_runtime_t,
+        context: legion.legion_context_t,
+        **kwargs: Any,
+    ) -> T:
+        ...
 
 
 # todo: (bev) use list[...] when feasible

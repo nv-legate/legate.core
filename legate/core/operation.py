@@ -14,11 +14,11 @@
 #
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, Iterable, Optional, Union
+from typing import TYPE_CHECKING, Any, Iterable, Optional, Protocol, Union
 
 import legate.core.types as ty
 
-from . import Future, FutureMap, Point, Rect
+from . import Future, FutureMap, Rect
 from .constraints import PartSym
 from .launcher import CopyLauncher, TaskLauncher
 from .partition import REPLICATE, Weighted
@@ -30,33 +30,29 @@ if TYPE_CHECKING:
     from .communicator import Communicator
     from .constraints import Constraint
     from .context import Context
+    from .projection import ProjFn, ProjOut, SymbolicPoint
     from .solver import Strategy
     from .types import DTType
 
-ProjFunc = Callable[[Point], Point]
 
+class OperationProtocol(Protocol):
+    _context: Context
+    _mapper_id: int
+    _op_id: int
+    _inputs: list[Store]
+    _outputs: list[Store]
+    _reductions: list[tuple[Store, int]]
+    _unbound_outputs: list[int]
+    _scalar_outputs: list[int]
+    _scalar_reductions: list[int]
+    _partitions: dict[Store, list[PartSym]]
+    _constraints: list[Constraint]
+    _all_parts: list[PartSym]
+    _launch_domain: Union[Rect, None]
+    _error_on_interference: bool
 
-class Operation:
-    def __init__(
-        self, context: Context, mapper_id: int = 0, op_id: int = 0
-    ) -> None:
-        self._context = context
-        self._mapper_id = mapper_id
-        self._op_id = op_id
-        self._inputs: list[Store] = []
-        self._outputs: list[Store] = []
-        self._reductions: list[tuple[Store, int]] = []
-        self._input_parts: list[PartSym] = []
-        self._output_parts: list[PartSym] = []
-        self._reduction_parts: list[PartSym] = []
-        self._unbound_outputs: list[int] = []
-        self._scalar_outputs: list[int] = []
-        self._scalar_reductions: list[int] = []
-        self._partitions: dict[Store, list[PartSym]] = {}
-        self._constraints: list[Constraint] = []
-        self._all_parts: list[PartSym] = []
-        self._launch_domain: Union[Rect, None] = None
-        self._error_on_interference = True
+    def launch(self, strategy: Strategy) -> None:
+        ...
 
     @property
     def context(self) -> Context:
@@ -98,12 +94,68 @@ class Operation:
     def all_unknowns(self) -> list[PartSym]:
         return self._all_parts
 
+
+class TaskProtocol(OperationProtocol, Protocol):
+    _task_id: int
+    _scalar_args: list[tuple[Any, DTType]]
+    _comm_args: list[Communicator]
+
+
+class Operation(OperationProtocol):
+    def __init__(
+        self,
+        context: Context,
+        mapper_id: int = 0,
+        op_id: int = 0,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(**kwargs)
+        self._context = context
+        self._mapper_id = mapper_id
+        self._op_id = op_id
+        self._inputs: list[Store] = []
+        self._outputs: list[Store] = []
+        self._reductions: list[tuple[Store, int]] = []
+        self._unbound_outputs: list[int] = []
+        self._scalar_outputs: list[int] = []
+        self._scalar_reductions: list[int] = []
+        self._partitions: dict[Store, list[PartSym]] = {}
+        self._constraints: list[Constraint] = []
+        self._all_parts: list[PartSym] = []
+        self._launch_domain: Union[Rect, None] = None
+        self._error_on_interference = True
+
     def get_all_stores(self) -> OrderedSet[Store]:
         result: OrderedSet[Store] = OrderedSet()
         result.update(self._inputs)
         result.update(self._outputs)
         result.update(store for (store, _) in self._reductions)
         return result
+
+    def add_alignment(self, store1: Store, store2: Store) -> None:
+        self._check_store(store1)
+        self._check_store(store2)
+        if store1.shape != store2.shape:
+            raise ValueError(
+                "Stores must have the same shape to be aligned, "
+                f"but got {store1.shape} and {store2.shape}"
+            )
+        part1 = self._get_unique_partition(store1)
+        part2 = self._get_unique_partition(store2)
+        self.add_constraint(part1 == part2)
+
+    def add_broadcast(
+        self, store: Store, axes: Optional[Union[int, Iterable[int]]] = None
+    ) -> None:
+        self._check_store(store)
+        part = self._get_unique_partition(store)
+        self.add_constraint(part.broadcast(axes=axes))
+
+    def add_constraint(self, constraint: Constraint) -> None:
+        self._constraints.append(constraint)
+
+    def execute(self) -> None:
+        self._context.runtime.submit(self)
 
     @staticmethod
     def _check_store(store: Store, allow_unbound: bool = False) -> None:
@@ -123,6 +175,190 @@ class Operation:
                 "this store, a partition should be specified."
             )
         return parts[0]
+
+    def get_tag(self, strategy: Strategy, part: Any) -> int:
+        if strategy.is_key_part(part):
+            return 1  # LEGATE_CORE_KEY_STORE_TAG
+        else:
+            return 0
+
+    def _get_symbol_id(self) -> int:
+        return len(self._all_parts)
+
+    def get_name(self) -> str:
+        libname = self.context.library.get_name()
+        return f"{libname}.Operation(uid:{self._op_id})"
+
+    def declare_partition(
+        self, store: Store, disjoint: bool = True, complete: bool = True
+    ) -> PartSym:
+        sym = PartSym(
+            self._op_id,
+            self.get_name(),
+            store,
+            self._get_symbol_id(),
+            disjoint=disjoint,
+            complete=complete,
+        )
+        if store not in self._partitions:
+            self._partitions[store] = [sym]
+        else:
+            self._partitions[store].append(sym)
+        self._all_parts.append(sym)
+        return sym
+
+
+class Task(TaskProtocol):
+    def __init__(
+        self,
+        task_id: int,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(**kwargs)
+        self._task_id = task_id
+        self._scalar_args: list[tuple[Any, DTType]] = []
+        self._comm_args: list[Communicator] = []
+
+    @property
+    def uses_communicator(self) -> bool:
+        return len(self._comm_args) > 0
+
+    def get_name(self) -> str:
+        libname = self.context.library.get_name()
+        return f"{libname}.Task(tid:{self._task_id}, uid:{self._op_id})"
+
+    def add_scalar_arg(self, value: Any, dtype: DTType) -> None:
+        self._scalar_args.append((value, dtype))
+
+    def add_dtype_arg(self, dtype: DTType) -> None:
+        code = self._context.type_system[dtype].code
+        self._scalar_args.append((code, ty.int32))
+
+    def _add_scalar_args_to_launcher(self, launcher: TaskLauncher) -> None:
+        for (arg, dtype) in self._scalar_args:
+            launcher.add_scalar_arg(arg, dtype)
+
+    def _demux_scalar_stores_future(self, result: Future) -> None:
+        num_unbound_outs = len(self.unbound_outputs)
+        num_scalar_outs = len(self.scalar_outputs)
+        num_scalar_reds = len(self.scalar_reductions)
+        runtime = self.context.runtime
+
+        num_all_scalars = num_unbound_outs + num_scalar_outs + num_scalar_reds
+
+        if num_all_scalars == 0:
+            return
+        elif num_all_scalars == 1:
+            if num_scalar_outs == 1:
+                output = self.outputs[self.scalar_outputs[0]]
+                output.set_storage(result)
+            elif num_scalar_reds == 1:
+                (output, _) = self.reductions[self.scalar_reductions[0]]
+                output.set_storage(result)
+        else:
+            idx = len(self.unbound_outputs)
+            for out_idx in self.scalar_outputs:
+                output = self.outputs[out_idx]
+                output.set_storage(runtime.extract_scalar(result, idx))
+                idx += 1
+            for red_idx in self.scalar_reductions:
+                (output, _) = self.reductions[red_idx]
+                output.set_storage(runtime.extract_scalar(result, idx))
+                idx += 1
+
+    def _demux_scalar_stores_future_map(
+        self,
+        result: FutureMap,
+        launch_domain: Rect,
+    ) -> None:
+        num_unbound_outs = len(self.unbound_outputs)
+        num_scalar_outs = len(self.scalar_outputs)
+        num_scalar_reds = len(self.scalar_reductions)
+        runtime = self.context.runtime
+
+        num_all_scalars = num_unbound_outs + num_scalar_outs + num_scalar_reds
+        launch_shape = Shape(c + 1 for c in launch_domain.hi)
+        assert num_scalar_outs == 0
+
+        if num_all_scalars == 0:
+            return
+        elif num_all_scalars == 1:
+            if num_scalar_reds == 1:
+                (output, redop) = self.reductions[self.scalar_reductions[0]]
+                redop_id = output.type.reduction_op_id(redop)
+                output.set_storage(runtime.reduce_future_map(result, redop_id))
+            else:
+                assert num_unbound_outs == 1
+                output = self.outputs[self.unbound_outputs[0]]
+                # TODO: need to track partitions for N-D unbound stores
+                if output.ndim == 1:
+                    partition = Weighted(runtime, launch_shape, result)
+                    output.set_key_partition(partition)
+        else:
+            idx = 0
+            # TODO: We can potentially deduplicate these extraction tasks
+            # by grouping output stores that are mapped to the same field space
+            for out_idx in self.unbound_outputs:
+                output = self.outputs[out_idx]
+                # TODO: need to track partitions for N-D unbound stores
+                if output.ndim > 1:
+                    continue
+                weights = runtime.extract_scalar_with_domain(
+                    result, idx, launch_domain
+                )
+                partition = Weighted(runtime, launch_shape, weights)
+                output.set_key_partition(partition)
+                idx += 1
+            for red_idx in self.scalar_reductions:
+                (output, redop) = self.reductions[red_idx]
+                redop_id = output.type.reduction_op_id(redop)
+                data = runtime.extract_scalar_with_domain(
+                    result, idx, launch_domain
+                )
+                output.set_storage(runtime.reduce_future_map(data, redop_id))
+                idx += 1
+
+    def _demux_scalar_stores(
+        self,
+        result: Union[Future, FutureMap],
+        launch_domain: Union[Rect, None],
+    ) -> None:
+        if launch_domain is None:
+            assert isinstance(result, Future)
+            self._demux_scalar_stores_future(result)
+        else:
+            assert isinstance(result, FutureMap)
+            self._demux_scalar_stores_future_map(result, launch_domain)
+
+    def add_nccl_communicator(self) -> None:
+        comm = self._context.get_nccl_communicator()
+        self._comm_args.append(comm)
+
+    def _add_communicators(
+        self, launcher: TaskLauncher, launch_domain: Union[Rect, None]
+    ) -> None:
+        if launch_domain is None:
+            return
+        for comm in self._comm_args:
+            handle = comm.get_handle(launch_domain)
+            launcher.add_communicator(handle)
+
+
+class AutoOperation(Operation):
+    def __init__(
+        self,
+        context: Context,
+        mapper_id: int = 0,
+        op_id: int = 0,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(
+            context=context, mapper_id=mapper_id, op_id=op_id, **kwargs
+        )
+
+        self._input_parts: list[PartSym] = []
+        self._output_parts: list[PartSym] = []
+        self._reduction_parts: list[PartSym] = []
 
     def add_input(
         self, store: Store, partition: Optional[PartSym] = None
@@ -157,195 +393,23 @@ class Operation:
         self._reductions.append((store, redop))
         self._reduction_parts.append(partition)
 
-    def add_alignment(self, store1: Store, store2: Store) -> None:
-        self._check_store(store1)
-        self._check_store(store2)
-        if store1.shape != store2.shape:
-            raise ValueError(
-                "Stores must have the same shape to be aligned, "
-                f"but got {store1.shape} and {store2.shape}"
-            )
-        part1 = self._get_unique_partition(store1)
-        part2 = self._get_unique_partition(store2)
-        self.add_constraint(part1 == part2)
 
-    def add_broadcast(
-        self, store: Store, axes: Optional[Union[int, Iterable[int]]] = None
-    ) -> None:
-        self._check_store(store)
-        part = self._get_unique_partition(store)
-        self.add_constraint(part.broadcast(axes=axes))
-
-    def add_constraint(self, constraint: Constraint) -> None:
-        self._constraints.append(constraint)
-
-    def execute(self) -> None:
-        self._context.runtime.submit(self)
-
-    def get_tag(self, strategy: Strategy, part: Any) -> int:
-        if strategy.is_key_part(part):
-            return 1  # LEGATE_CORE_KEY_STORE_TAG
-        else:
-            return 0
-
-    def _get_symbol_id(self) -> int:
-        return len(self._all_parts)
-
-    def get_name(self) -> str:
-        libname = self.context.library.get_name()
-        return f"{libname}.Operation(uid:{self._op_id})"
-
-    def declare_partition(
-        self, store: Store, disjoint: bool = True, complete: bool = True
-    ) -> PartSym:
-        sym = PartSym(
-            self._op_id,
-            self.get_name(),
-            store,
-            self._get_symbol_id(),
-            disjoint=disjoint,
-            complete=complete,
-        )
-        if store not in self._partitions:
-            self._partitions[store] = [sym]
-        else:
-            self._partitions[store].append(sym)
-        self._all_parts.append(sym)
-        return sym
-
-
-class Task(Operation):
+class AutoTask(AutoOperation, Task):
     def __init__(
         self,
         context: Context,
         task_id: int,
         mapper_id: int = 0,
         op_id: int = 0,
+        **kwargs: Any,
     ) -> None:
-        super().__init__(context, mapper_id=mapper_id, op_id=op_id)
-        self._task_id = task_id
-        self._scalar_args: list[tuple[Any, DTType]] = []
-        self._comm_args: list[Communicator] = []
-
-    @property
-    def uses_communicator(self) -> bool:
-        return len(self._comm_args) > 0
-
-    def get_name(self) -> str:
-        libname = self.context.library.get_name()
-        return f"{libname}.Task(tid:{self._task_id}, uid:{self._op_id})"
-
-    def add_scalar_arg(self, value: Any, dtype: DTType) -> None:
-        self._scalar_args.append((value, dtype))
-
-    def add_dtype_arg(self, dtype: DTType) -> None:
-        code = self._context.type_system[dtype].code
-        self._scalar_args.append((code, ty.int32))
-
-    def _add_scalar_args_to_launcher(self, launcher: TaskLauncher) -> None:
-        for (arg, dtype) in self._scalar_args:
-            launcher.add_scalar_arg(arg, dtype)
-
-    def _demux_scalar_stores(
-        self,
-        result: Union[Future, FutureMap],
-        launch_domain: Union[Rect, None],
-    ) -> None:
-        num_unbound_outs = len(self.unbound_outputs)
-        num_scalar_outs = len(self.scalar_outputs)
-        num_scalar_reds = len(self.scalar_reductions)
-        runtime = self.context.runtime
-
-        num_all_scalars = num_unbound_outs + num_scalar_outs + num_scalar_reds
-        launch_shape = (
-            None
-            if launch_domain is None
-            else Shape(c + 1 for c in launch_domain.hi)
+        super().__init__(
+            context=context,
+            task_id=task_id,
+            mapper_id=mapper_id,
+            op_id=op_id,
+            **kwargs,
         )
-
-        if num_all_scalars == 0:
-            return
-        elif num_all_scalars == 1:
-            if num_scalar_outs == 1:
-                output = self.outputs[self.scalar_outputs[0]]
-                output.set_storage(result)
-            elif num_scalar_reds == 1:
-                (output, redop) = self.reductions[self.scalar_reductions[0]]
-                redop_id = output.type.reduction_op_id(redop)
-                output.set_storage(runtime.reduce_future_map(result, redop_id))
-            elif launch_shape is not None:
-                assert num_unbound_outs == 1
-                assert isinstance(result, FutureMap)
-                output = self.outputs[self.unbound_outputs[0]]
-                # TODO: need to track partitions for N-D unbound stores
-                if output.ndim == 1:
-                    partition = Weighted(runtime, launch_shape, result)
-                    output.set_key_partition(partition)
-        else:
-            idx = 0
-            # TODO: We can potentially deduplicate these extraction tasks
-            # by grouping output stores that are mapped to the same field space
-            if launch_shape is not None:
-                for out_idx in self.unbound_outputs:
-                    output = self.outputs[out_idx]
-                    # TODO: need to track partitions for N-D unbound stores
-                    if output.ndim > 1:
-                        continue
-                    weights = runtime.extract_scalar_with_domain(
-                        result, idx, launch_domain
-                    )
-                    partition = Weighted(runtime, launch_shape, weights)
-                    output.set_key_partition(partition)
-                    idx += 1
-            else:
-                idx += len(self.unbound_outputs)
-            for out_idx in self.scalar_outputs:
-                output = self.outputs[out_idx]
-                data = (
-                    runtime.extract_scalar(result, idx)
-                    if launch_domain is None
-                    else runtime.extract_scalar_with_domain(
-                        result, idx, launch_domain
-                    )
-                )
-                output.set_storage(data)
-                idx += 1
-            for red_idx in self.scalar_reductions:
-                (output, redop) = self.reductions[red_idx]
-                redop_id = output.type.reduction_op_id(redop)
-                data = (
-                    runtime.extract_scalar(result, idx)
-                    if launch_domain is None
-                    else runtime.extract_scalar_with_domain(
-                        result, idx, launch_domain
-                    )
-                )
-                output.set_storage(runtime.reduce_future_map(data, redop_id))
-                idx += 1
-
-    def add_nccl_communicator(self) -> None:
-        comm = self._context.get_nccl_communicator()
-        self._comm_args.append(comm)
-
-    def _add_communicators(
-        self, launcher: TaskLauncher, launch_domain: Union[Rect, None]
-    ) -> None:
-        if launch_domain is None:
-            return
-        for comm in self._comm_args:
-            handle = comm.get_handle(launch_domain)
-            launcher.add_communicator(handle)
-
-
-class AutoTask(Task):
-    def __init__(
-        self,
-        context: Context,
-        task_id: int,
-        mapper_id: int = 0,
-        op_id: int = 0,
-    ) -> None:
-        super().__init__(context, task_id, mapper_id, op_id)
 
     def launch(self, strategy: Strategy) -> None:
         launcher = TaskLauncher(self.context, self._task_id, self.mapper_id)
@@ -412,7 +476,7 @@ class AutoTask(Task):
         self._demux_scalar_stores(result, launch_domain)
 
 
-class ManualTask(Task):
+class ManualTask(Operation, Task):
     def __init__(
         self,
         context: Context,
@@ -421,15 +485,17 @@ class ManualTask(Task):
         mapper_id: int = 0,
         op_id: int = 0,
     ) -> None:
-        super().__init__(context, task_id, mapper_id, op_id)
+        super().__init__(
+            context=context, task_id=task_id, mapper_id=mapper_id, op_id=op_id
+        )
         self._launch_domain: Rect = launch_domain
-        self._input_projs: list[Union[ProjFunc, None]] = []
-        self._output_projs: list[Union[ProjFunc, None]] = []
-        self._reduction_projs: list[Union[ProjFunc, None]] = []
+        self._input_projs: list[Union[ProjFn, None]] = []
+        self._output_projs: list[Union[ProjFn, None]] = []
+        self._reduction_projs: list[Union[ProjFn, None]] = []
 
-        self._input_parts: list[StorePartition] = []  # type: ignore [assignment] # noqa: E501
-        self._output_parts: list[StorePartition] = []  # type: ignore [assignment] # noqa: E501
-        self._reduction_parts: list[tuple[StorePartition, int]] = []  # type: ignore [assignment] # noqa: E501
+        self._input_parts: list[StorePartition] = []
+        self._output_parts: list[StorePartition] = []
+        self._reduction_parts: list[tuple[StorePartition, int]] = []
 
     @property
     def launch_ndim(self) -> int:
@@ -445,10 +511,10 @@ class ManualTask(Task):
                 f"Expected a Store or StorePartition, but got {type(arg)}"
             )
 
-    def add_input(  # type: ignore [override]
+    def add_input(
         self,
         arg: Union[Store, StorePartition],
-        proj: Optional[ProjFunc] = None,
+        proj: Optional[ProjFn] = None,
     ) -> None:
         self._check_arg(arg)
         if isinstance(arg, Store):
@@ -457,10 +523,10 @@ class ManualTask(Task):
             self._input_parts.append(arg)
         self._input_projs.append(proj)
 
-    def add_output(  # type: ignore [override]
+    def add_output(
         self,
         arg: Union[Store, StorePartition],
-        proj: Optional[ProjFunc] = None,
+        proj: Optional[ProjFn] = None,
     ) -> None:
         self._check_arg(arg)
         if isinstance(arg, Store):
@@ -476,11 +542,11 @@ class ManualTask(Task):
             self._output_parts.append(arg)
         self._output_projs.append(proj)
 
-    def add_reduction(  # type: ignore [override]
+    def add_reduction(
         self,
         arg: Union[Store, StorePartition],
         redop: int,
-        proj: Optional[ProjFunc] = None,
+        proj: Optional[ProjFn] = None,
     ) -> None:
         self._check_arg(arg)
         if isinstance(arg, Store):
@@ -557,13 +623,15 @@ class ManualTask(Task):
         self._demux_scalar_stores(result, self._launch_domain)
 
 
-class Copy(Operation):
+class Copy(AutoOperation):
     def __init__(self, context: Context, mapper_id: int = 0) -> None:
-        super().__init__(context, mapper_id)
+        super().__init__(context=context, mapper_id=mapper_id)
         self._source_indirects: list[Store] = []
         self._target_indirects: list[Store] = []
         self._source_indirect_parts: list[PartSym] = []
         self._target_indirect_parts: list[PartSym] = []
+        self._source_indirect_out_of_range = True
+        self._target_indirect_out_of_range = True
 
     def get_name(self) -> str:
         libname = self.context.library.get_name()
@@ -608,6 +676,12 @@ class Copy(Operation):
             partition = self._get_unique_partition(store)
         self._target_indirects.append(store)
         self._target_indirect_parts.append(partition)
+
+    def set_source_indirect_out_of_range(self, flag: bool) -> None:
+        self._source_indirect_out_of_range = flag
+
+    def set_target_indirect_out_of_range(self, flag: bool) -> None:
+        self._target_indirect_out_of_range = flag
 
     @property
     def constraints(self) -> list[Constraint]:
@@ -669,7 +743,12 @@ class Copy(Operation):
         )
 
     def launch(self, strategy: Strategy) -> None:
-        launcher = CopyLauncher(self.context, self.mapper_id)
+        launcher = CopyLauncher(
+            self.context,
+            source_oor=self._source_indirect_out_of_range,
+            target_oor=self._target_indirect_out_of_range,
+            mapper_id=self.mapper_id,
+        )
 
         assert len(self._inputs) == len(self._outputs) or len(
             self._inputs
@@ -680,6 +759,13 @@ class Copy(Operation):
         assert len(self._target_indirects) == 0 or len(
             self._target_indirects
         ) == len(self._outputs)
+
+        # FIXME: today a copy is a scatter copy only when a target indirection
+        # is given. In the future, we may pass store transforms directly to
+        # Legion and some transforms turn some copies into scatter copies even
+        # when no target indirection is provided. So, this scatter copy check
+        # will need to be extended accordingly.
+        scatter = len(self._target_indirects) > 0
 
         def get_requirement(
             store: Store, part_symb: PartSym
@@ -696,7 +782,10 @@ class Copy(Operation):
         for store, part_symb in zip(self._outputs, self._output_parts):
             assert not store.unbound
             req, tag, store_part = get_requirement(store, part_symb)
-            launcher.add_output(store, req, tag=tag)
+            if scatter:
+                launcher.add_inout(store, req, tag=tag)
+            else:
+                launcher.add_output(store, req, tag=tag)
 
         for ((store, redop), part_symb) in zip(
             self._reductions, self._reduction_parts
@@ -727,11 +816,11 @@ class _RadixProj:
         self._radix = radix
         self._offset = offset
 
-    def __call__(self, p: tuple[int, ...]) -> tuple[int]:
+    def __call__(self, p: SymbolicPoint) -> ProjOut:
         return (p[0] * self._radix + self._offset,)
 
 
-class Reduce(Task):
+class Reduce(AutoOperation):
     def __init__(
         self,
         context: Context,
@@ -740,9 +829,10 @@ class Reduce(Task):
         mapper_id: int,
         op_id: int,
     ) -> None:
-        super().__init__(context, task_id, mapper_id, op_id)
+        super().__init__(context=context, mapper_id=mapper_id, op_id=op_id)
         self._runtime = context.runtime
         self._radix = radix
+        self._task_id = task_id
 
     def launch(self, strategy: Strategy) -> None:
         assert len(self._inputs) == 1 and len(self._outputs) == 1
@@ -753,10 +843,12 @@ class Reduce(Task):
         opart = output.partition(strategy.get_partition(self._input_parts[0]))
 
         done = False
-        launch_domain = strategy.launch_domain if strategy.parallel else None
-        fan_in = (
-            strategy.launch_domain.get_volume() if strategy.parallel else 1
-        )
+        launch_domain = None
+        fan_in = 1
+        if strategy.parallel:
+            assert strategy.launch_domain is not None
+            launch_domain = strategy.launch_domain
+            fan_in = launch_domain.get_volume()
 
         proj_fns = list(
             _RadixProj(self._radix, off) for off in range(self._radix)

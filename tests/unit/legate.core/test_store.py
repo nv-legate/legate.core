@@ -21,7 +21,8 @@ from legate.core import get_legate_runtime, types as ty
 class Test_store_creation:
     def test_bound(self) -> None:
         runtime = get_legate_runtime()
-        store = runtime.create_store(ty.int64, shape=(4, 4))
+        context = runtime.core_context
+        store = context.create_store(ty.int64, shape=(4, 4))
         assert not store.unbound
         assert store.ndim == 2
         assert store.shape == (4, 4)
@@ -30,7 +31,8 @@ class Test_store_creation:
 
     def test_unbound(self) -> None:
         runtime = get_legate_runtime()
-        store = runtime.create_store(ty.int64)
+        context = runtime.core_context
+        store = context.create_store(ty.int64)
         assert store.unbound
         assert store.ndim == 1
         assert store.type == ty.int64
@@ -42,7 +44,8 @@ class Test_store_creation:
 class Test_store_valid_transform:
     def test_bound(self) -> None:
         runtime = get_legate_runtime()
-        store = runtime.create_store(ty.int64, shape=(4, 3))
+        context = runtime.core_context
+        store = context.create_store(ty.int64, shape=(4, 3))
 
         promoted = store.promote(0, 5)
         assert promoted.shape == (5, 4, 3)
@@ -68,7 +71,8 @@ class Test_store_valid_transform:
 class Test_store_invalid_transform:
     def test_bound(self) -> None:
         runtime = get_legate_runtime()
-        store = runtime.create_store(ty.int64, shape=(4, 3))
+        context = runtime.core_context
+        store = context.create_store(ty.int64, shape=(4, 3))
 
         with pytest.raises(ValueError):
             store.promote(3, 5)
@@ -111,6 +115,13 @@ class Test_store_invalid_transform:
 
     def test_unbound(self) -> None:
         runtime = get_legate_runtime()
-        store = runtime.create_store(ty.int64)
+        context = runtime.core_context
+        store = context.create_store(ty.int64)
         with pytest.raises(ValueError):
             store.promote(1, 1)
+
+
+if __name__ == "__main__":
+    import sys
+
+    sys.exit(pytest.main(sys.argv))

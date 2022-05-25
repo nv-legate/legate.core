@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 from .env import LEGATE_MAX_DIM, LEGATE_MAX_FIELDS
+from .field import FieldID
 from .future import Future, FutureMap
 from .geometry import Point, Rect, Domain
 from .operation import (
@@ -22,6 +23,7 @@ from .operation import (
     Attach,
     Copy,
     Detach,
+    Dispatchable,
     Fill,
     IndexAttach,
     IndexCopy,
@@ -48,7 +50,6 @@ from .util import (
     dispatch,
     BufferBuilder,
     ExternalResources,
-    FieldID,
     FieldListLike,
     legate_task_preamble,
     legate_task_postamble,
