@@ -838,6 +838,10 @@ class Runtime:
             legion.LEGATE_CORE_TUNABLE_WINDOW_SIZE,
             ty.uint32,
         )
+        self.nccl_needs_barrier = self._core_context.get_tunable(
+            legion.LEGATE_CORE_TUNABLE_NCCL_NEEDS_BARRIER,
+            ty.bool_,
+        )
 
         # Now we initialize managers
         self._attachment_manager = AttachmentManager(self)
@@ -859,6 +863,7 @@ class Runtime:
             legion.LEGATE_CORE_TUNABLE_FIELD_REUSE_FREQUENCY,
             ty.uint32,
         )
+        print(self.nccl_needs_barrier)
         self._empty_argmap: ArgumentMap = legion.legion_argument_map_create()
 
         # A projection functor and its corresponding sharding functor

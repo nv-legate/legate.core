@@ -21,6 +21,7 @@
 #include "legate.h"
 
 #include <nccl.h>
+#include <nvml.h>
 
 using namespace Legion;
 
@@ -39,12 +40,30 @@ struct _Payload {
     check_nccl(result, __FILE__, __LINE__); \
   } while (false)
 
+#define CHECK_NVML(expr)                    \
+  do {                                      \
+    nvmlReturn_t result = (expr);           \
+    check_nvml(result, __FILE__, __LINE__); \
+  } while (false)
+
 inline void check_nccl(ncclResult_t error, const char* file, int line)
 {
   if (error != ncclSuccess) {
     fprintf(stderr,
             "Internal NCCL failure with error %s in file %s at line %d\n",
             ncclGetErrorString(error),
+            file,
+            line);
+    exit(error);
+  }
+}
+
+inline void check_nvml(nvmlReturn_t error, const char* file, int line)
+{
+  if (error != NVML_SUCCESS) {
+    fprintf(stderr,
+            "Internal NVML failure with error %s in file %s at line %d\n",
+            nvmlErrorString(error),
             file,
             line);
     exit(error);
@@ -168,6 +187,20 @@ void register_tasks(Legion::Machine machine,
       make_registrar(finalize_nccl_task_id, finalize_nccl_task_name, Processor::TOC_PROC);
     runtime->register_task_variant<finalize_nccl>(registrar, LEGATE_GPU_VARIANT);
   }
+}
+
+static const char* MIN_VERSION_WITH_HANG_FIX = "520";
+
+bool needs_barrier()
+{
+  CHECK_NVML(nvmlInit_v2());
+
+  char version[NVML_SYSTEM_DRIVER_VERSION_BUFFER_SIZE];
+  uint32_t length = NVML_SYSTEM_DRIVER_VERSION_BUFFER_SIZE;
+  CHECK_NVML(nvmlSystemGetDriverVersion(version, length));
+
+  CHECK_NVML(nvmlShutdown());
+  return strcmp(version, MIN_VERSION_WITH_HANG_FIX) < 0;
 }
 
 }  // namespace nccl
