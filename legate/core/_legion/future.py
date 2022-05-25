@@ -80,7 +80,7 @@ class Future:
         runtime: legion.legion_runtime_t,
         data: Any,
         size: int,
-        type: object = None,
+        type: Optional[Any] = None,
     ) -> None:
         """
         Parameters
@@ -100,6 +100,42 @@ class Future:
             runtime, ffi.from_buffer(data), size
         )
         self._type = type
+
+    @classmethod
+    def from_buffer(
+        cls,
+        runtime: legion.legion_runtime_t,
+        buf: Any,
+        type: Optional[Any] = None,
+    ) -> Future:
+        """
+        Construct a future from a buffer storing data
+
+        Parameters
+        ----------
+        buf : buffer
+            Buffer to create a future from
+        Returns
+        -------
+        Future
+        """
+        return cls(
+            legion.legion_future_from_untyped_pointer(
+                runtime, ffi.from_buffer(buf), len(buf)
+            ),
+            type=type,
+        )
+
+    @classmethod
+    def from_cdata(
+        cls,
+        runtime: legion.legion_runtime_t,
+        cdata: ffi.CData,
+        type: Optional[Any] = None,
+    ) -> Future:
+        return cls.from_buffer(
+            runtime, ffi.buffer(ffi.addressof(cdata)), type=type
+        )
 
     def get_buffer(self, size: Optional[int] = None) -> Any:
         """
