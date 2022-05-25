@@ -476,6 +476,14 @@ void collBarrierLocal(CollComm global_comm)
 }
 #endif
 
+void* collAllocateInlineBuffer(const void* recvbuf, size_t size)
+{
+  void* sendbuf_tmp = malloc(size);
+  assert(sendbuf_tmp != NULL);
+  memcpy(sendbuf_tmp, recvbuf, size);
+  return sendbuf_tmp;
+}
+
 }  // namespace coll
 }  // namespace comm
 }  // namespace legate

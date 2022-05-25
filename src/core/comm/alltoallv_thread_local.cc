@@ -49,16 +49,12 @@ int collAlltoallvLocal(const void* sendbuf,
   int sendtype_extent = collGetDtypeSize(sendtype);
   int recvtype_extent = collGetDtypeSize(recvtype);
 
-  void* sendbuf_tmp = NULL;
+  const void* sendbuf_tmp = sendbuf;
 
   // MPI_IN_PLACE
   if (sendbuf == recvbuf) {
     int total_send_count = sdispls[total_size - 1] + sendcounts[total_size - 1];
-    sendbuf_tmp          = (void*)malloc(sendtype_extent * total_send_count);
-    assert(sendbuf_tmp != NULL);
-    memcpy(sendbuf_tmp, recvbuf, sendtype_extent * total_send_count);
-  } else {
-    sendbuf_tmp = const_cast<void*>(sendbuf);
+    sendbuf_tmp          = collAllocateInlineBuffer(recvbuf, sendtype_extent * total_send_count);
   }
 
   global_comm->comm->displs[global_rank]  = sdispls;
@@ -80,7 +76,7 @@ int collAlltoallvLocal(const void* sendbuf,
                 static_cast<ptrdiff_t>(displs[recvfrom_seg_id]) * sendtype_extent;
     char* dst = static_cast<char*>(recvbuf) +
                 static_cast<ptrdiff_t>(rdispls[recvfrom_global_rank]) * recvtype_extent;
-#ifdef DEBUG_PRINT
+#ifdef COLL_DEBUG_PRINT
     log_coll.debug(
       "i: %d === global_rank %d, dtype %d, copy rank %d (seg %d, sdispls %d, %p) to rank %d (seg "
       "%d, rdispls %d, %p)",
@@ -100,7 +96,7 @@ int collAlltoallvLocal(const void* sendbuf,
   }
 
   collBarrierLocal(global_comm);
-  if (sendbuf == recvbuf) { free(sendbuf_tmp); }
+  if (sendbuf == recvbuf) { free(const_cast<void*>(sendbuf_tmp)); }
 
   __sync_synchronize();
 

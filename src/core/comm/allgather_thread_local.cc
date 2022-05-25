@@ -40,22 +40,17 @@ int collAllgatherLocal(const void* sendbuf,
   assert(recvcount == sendcount);
   assert(sendtype == recvtype);
 
-  int total_size = global_comm->global_comm_size;
+  int total_size  = global_comm->global_comm_size;
+  int global_rank = global_comm->global_rank;
 
   int sendtype_extent = collGetDtypeSize(sendtype);
   int recvtype_extent = collGetDtypeSize(recvtype);
 
-  int global_rank = global_comm->global_rank;
-
-  void* sendbuf_tmp = NULL;
+  const void* sendbuf_tmp = sendbuf;
 
   // MPI_IN_PLACE
   if (sendbuf == recvbuf) {
-    sendbuf_tmp = (void*)malloc(sendtype_extent * sendcount);
-    assert(sendbuf_tmp != NULL);
-    memcpy(sendbuf_tmp, recvbuf, sendtype_extent * sendcount);
-  } else {
-    sendbuf_tmp = const_cast<void*>(sendbuf);
+    sendbuf_tmp = collAllocateInlineBuffer(recvbuf, sendtype_extent * sendcount);
   }
 
   global_comm->comm->buffers[global_rank] = sendbuf_tmp;
@@ -67,7 +62,7 @@ int collAllgatherLocal(const void* sendbuf,
     const void* src = global_comm->comm->buffers[recvfrom_global_rank];
     char* dst       = static_cast<char*>(recvbuf) +
                 static_cast<ptrdiff_t>(recvfrom_global_rank) * recvtype_extent * recvcount;
-#ifdef DEBUG_PRINT
+#ifdef COLL_DEBUG_PRINT
     log_coll.debug("i: %d === global_rank %d, dtype %d, copy rank %d (%p) to rank %d (%p)",
                    i,
                    global_rank,
@@ -81,7 +76,7 @@ int collAllgatherLocal(const void* sendbuf,
   }
 
   collBarrierLocal(global_comm);
-  if (sendbuf == recvbuf) { free(sendbuf_tmp); }
+  if (sendbuf == recvbuf) { free(const_cast<void*>(sendbuf_tmp)); }
 
   __sync_synchronize();
 

@@ -215,6 +215,8 @@ void collUpdateBuffer(CollComm global_comm);
 void collBarrierLocal(CollComm global_comm);
 #endif
 
+void* collAllocateInlineBuffer(const void* recvbuf, size_t size);
+
 }  // namespace coll
 }  // namespace comm
 }  // namespace legate
