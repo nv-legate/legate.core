@@ -18,7 +18,7 @@
 GEN_CPU_SRC	= core/legate_c.cc                 \
 							core/comm/comm.cc                \
 							core/comm/comm_cpu.cc            \
-							core/comm/coll.cc				 \
+							core/comm/coll.cc		 \
 							core/data/allocator.cc           \
 							core/data/scalar.cc              \
 							core/data/store.cc               \
@@ -61,7 +61,7 @@ INSTALL_HEADERS = legate.h                        \
 									legate_preamble.h               \
 									core/legate_c.h                 \
 									core/comm/communicator.h        \
-									core/comm/coll.h				\
+									core/comm/coll.h		\
 									core/cuda/cuda_help.h           \
 									core/cuda/stream_pool.h         \
 									core/data/allocator.h           \
