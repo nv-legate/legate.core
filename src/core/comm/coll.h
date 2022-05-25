@@ -42,8 +42,8 @@ struct RankMappingTable {
 struct ThreadComm {
   pthread_barrier_t barrier;
   bool ready_flag;
-  void** buffers;
-  int** displs;
+  const void** buffers;
+  const int** displs;
 };
 #endif
 

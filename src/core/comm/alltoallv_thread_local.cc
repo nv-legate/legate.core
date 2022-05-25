@@ -43,12 +43,11 @@ int collAlltoallvLocal(const void* sendbuf,
 
   assert(sendtype == recvtype);
 
-  int total_size = global_comm->global_comm_size;
+  int total_size  = global_comm->global_comm_size;
+  int global_rank = global_comm->global_rank;
 
   int sendtype_extent = collGetDtypeSize(sendtype);
   int recvtype_extent = collGetDtypeSize(recvtype);
-
-  int global_rank = global_comm->global_rank;
 
   void* sendbuf_tmp = NULL;
 
@@ -62,25 +61,27 @@ int collAlltoallvLocal(const void* sendbuf,
     sendbuf_tmp = const_cast<void*>(sendbuf);
   }
 
-  global_comm->comm->displs[global_rank]  = const_cast<int*>(sdispls);
-  global_comm->comm->buffers[global_rank] = const_cast<void*>(sendbuf_tmp);
+  global_comm->comm->displs[global_rank]  = sdispls;
+  global_comm->comm->buffers[global_rank] = sendbuf_tmp;
   __sync_synchronize();
 
   int recvfrom_global_rank;
-  int recvfrom_seg_id = global_rank;
-  void* src_base      = NULL;
-  int* displs         = NULL;
+  int recvfrom_seg_id  = global_rank;
+  const void* src_base = nullptr;
+  const int* displs    = nullptr;
   for (int i = 1; i < total_size + 1; i++) {
     recvfrom_global_rank = (global_rank + total_size - i) % total_size;
-    while (global_comm->comm->buffers[recvfrom_global_rank] == NULL ||
-           global_comm->comm->displs[recvfrom_global_rank] == NULL)
+    while (global_comm->comm->buffers[recvfrom_global_rank] == nullptr ||
+           global_comm->comm->displs[recvfrom_global_rank] == nullptr)
       ;
-    src_base  = const_cast<void*>(global_comm->comm->buffers[recvfrom_global_rank]);
-    displs    = const_cast<int*>(global_comm->comm->displs[recvfrom_global_rank]);
-    char* src = (char*)src_base + (ptrdiff_t)displs[recvfrom_seg_id] * sendtype_extent;
-    char* dst = (char*)recvbuf + (ptrdiff_t)rdispls[recvfrom_global_rank] * recvtype_extent;
+    src_base  = global_comm->comm->buffers[recvfrom_global_rank];
+    displs    = global_comm->comm->displs[recvfrom_global_rank];
+    char* src = static_cast<char*>(const_cast<void*>(src_base)) +
+                static_cast<ptrdiff_t>(displs[recvfrom_seg_id]) * sendtype_extent;
+    char* dst = static_cast<char*>(recvbuf) +
+                static_cast<ptrdiff_t>(rdispls[recvfrom_global_rank]) * recvtype_extent;
 #ifdef DEBUG_PRINT
-    log_coll.info(
+    log_coll.debug(
       "i: %d === global_rank %d, dtype %d, copy rank %d (seg %d, sdispls %d, %p) to rank %d (seg "
       "%d, rdispls %d, %p)",
       i,

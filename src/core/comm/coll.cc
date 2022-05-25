@@ -108,8 +108,10 @@ int collCommCreate(CollComm global_comm,
     pthread_barrier_init((pthread_barrier_t*)&(thread_comms[global_comm->unique_id].barrier),
                          NULL,
                          global_comm->global_comm_size);
-    thread_comms[global_comm->unique_id].buffers = (void**)malloc(sizeof(void*) * global_comm_size);
-    thread_comms[global_comm->unique_id].displs  = (int**)malloc(sizeof(int*) * global_comm_size);
+    thread_comms[global_comm->unique_id].buffers =
+      (const void**)malloc(sizeof(void*) * global_comm_size);
+    thread_comms[global_comm->unique_id].displs =
+      (const int**)malloc(sizeof(int*) * global_comm_size);
     for (int i = 0; i < global_comm_size; i++) {
       thread_comms[global_comm->unique_id].buffers[i] = NULL;
       thread_comms[global_comm->unique_id].displs[i]  = NULL;

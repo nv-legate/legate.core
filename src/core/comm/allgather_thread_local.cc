@@ -44,7 +44,6 @@ int collAllgatherLocal(const void* sendbuf,
 
   int sendtype_extent = collGetDtypeSize(sendtype);
   int recvtype_extent = collGetDtypeSize(recvtype);
-  assert(sendtype_extent == recvtype_extent);
 
   int global_rank = global_comm->global_rank;
 
@@ -62,22 +61,21 @@ int collAllgatherLocal(const void* sendbuf,
   global_comm->comm->buffers[global_rank] = sendbuf_tmp;
   __sync_synchronize();
 
-  int recvfrom_global_rank;
-  for (int i = 0; i < total_size; i++) {
-    recvfrom_global_rank = i;
-    while (global_comm->comm->buffers[recvfrom_global_rank] == NULL)
+  for (int recvfrom_global_rank = 0; recvfrom_global_rank < total_size; recvfrom_global_rank++) {
+    while (global_comm->comm->buffers[recvfrom_global_rank] == nullptr)
       ;
-    char* src = (char*)global_comm->comm->buffers[recvfrom_global_rank];
-    char* dst = (char*)recvbuf + (ptrdiff_t)recvfrom_global_rank * recvtype_extent * recvcount;
+    const void* src = global_comm->comm->buffers[recvfrom_global_rank];
+    char* dst       = static_cast<char*>(recvbuf) +
+                static_cast<ptrdiff_t>(recvfrom_global_rank) * recvtype_extent * recvcount;
 #ifdef DEBUG_PRINT
-    log_coll.info("i: %d === global_rank %d, dtype %d, copy rank %d (%p) to rank %d (%p)",
-                  i,
-                  global_rank,
-                  sendtype_extent,
-                  recvfrom_global_rank,
-                  src,
-                  global_rank,
-                  dst);
+    log_coll.debug("i: %d === global_rank %d, dtype %d, copy rank %d (%p) to rank %d (%p)",
+                   i,
+                   global_rank,
+                   sendtype_extent,
+                   recvfrom_global_rank,
+                   src,
+                   global_rank,
+                   dst);
 #endif
     memcpy(dst, src, sendcount * sendtype_extent);
   }
