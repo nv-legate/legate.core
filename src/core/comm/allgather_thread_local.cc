@@ -57,12 +57,13 @@ int collAllgatherLocal(const void* sendbuf,
   __sync_synchronize();
 
   for (int recvfrom_global_rank = 0; recvfrom_global_rank < total_size; recvfrom_global_rank++) {
+    // wait for other threads to update the buffer address
     while (global_comm->comm->buffers[recvfrom_global_rank] == nullptr)
       ;
     const void* src = global_comm->comm->buffers[recvfrom_global_rank];
     char* dst       = static_cast<char*>(recvbuf) +
                 static_cast<ptrdiff_t>(recvfrom_global_rank) * recvtype_extent * recvcount;
-#ifdef COLL_DEBUG_PRINT
+#ifdef DEBUG_LEGATE
     log_coll.debug("i: %d === global_rank %d, dtype %d, copy rank %d (%p) to rank %d (%p)",
                    i,
                    global_rank,

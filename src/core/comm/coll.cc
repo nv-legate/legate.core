@@ -82,8 +82,6 @@ int collCommCreate(CollComm global_comm,
   res           = MPI_Comm_compare(comm, MPI_COMM_WORLD, &compare_result);
   assert(res == MPI_SUCCESS);
   assert(compare_result = MPI_CONGRUENT);
-  // MPI_Comm comm;
-  // MPI_Comm_dup(MPI_COMM_WORLD, &comm);
 #else
   MPI_Comm comm = MPI_COMM_WORLD;
 #endif
@@ -95,13 +93,13 @@ int collCommCreate(CollComm global_comm,
   global_comm->mpi_comm_size = mpi_comm_size;
   global_comm->mpi_rank      = mpi_rank;
   global_comm->comm          = comm;
-  assert(mapping_table != NULL);
+  assert(mapping_table != nullptr);
   global_comm->mapping_table.global_rank = (int*)malloc(sizeof(int) * global_comm_size);
   global_comm->mapping_table.mpi_rank    = (int*)malloc(sizeof(int) * global_comm_size);
   memcpy(global_comm->mapping_table.mpi_rank, mapping_table, sizeof(int) * global_comm_size);
   for (int i = 0; i < global_comm_size; i++) { global_comm->mapping_table.global_rank[i] = i; }
 #else
-  assert(mapping_table == NULL);
+  assert(mapping_table == nullptr);
   global_comm->mpi_comm_size = 1;
   global_comm->mpi_rank      = 0;
   if (global_comm->global_rank == 0) {
@@ -113,8 +111,8 @@ int collCommCreate(CollComm global_comm,
     thread_comms[global_comm->unique_id].displs =
       (const int**)malloc(sizeof(int*) * global_comm_size);
     for (int i = 0; i < global_comm_size; i++) {
-      thread_comms[global_comm->unique_id].buffers[i] = NULL;
-      thread_comms[global_comm->unique_id].displs[i]  = NULL;
+      thread_comms[global_comm->unique_id].buffers[i] = nullptr;
+      thread_comms[global_comm->unique_id].displs[i]  = nullptr;
     }
     __sync_synchronize();
     thread_comms[global_comm->unique_id].ready_flag = true;
@@ -125,8 +123,8 @@ int collCommCreate(CollComm global_comm,
   global_comm->comm = &(thread_comms[global_comm->unique_id]);
   collBarrierLocal(global_comm);
   assert(global_comm->comm->ready_flag == true);
-  assert(global_comm->comm->buffers != NULL);
-  assert(global_comm->comm->displs != NULL);
+  assert(global_comm->comm->buffers != nullptr);
+  assert(global_comm->comm->displs != nullptr);
 #endif
   if (global_comm->global_comm_size % global_comm->mpi_comm_size == 0) {
     global_comm->nb_threads = global_comm->global_comm_size / global_comm->mpi_comm_size;
@@ -139,22 +137,22 @@ int collCommCreate(CollComm global_comm,
 int collCommDestroy(CollComm global_comm)
 {
 #if defined(LEGATE_USE_GASNET)
-  if (global_comm->mapping_table.global_rank != NULL) {
+  if (global_comm->mapping_table.global_rank != nullptr) {
     free(global_comm->mapping_table.global_rank);
-    global_comm->mapping_table.global_rank = NULL;
+    global_comm->mapping_table.global_rank = nullptr;
   }
-  if (global_comm->mapping_table.mpi_rank != NULL) {
+  if (global_comm->mapping_table.mpi_rank != nullptr) {
     free(global_comm->mapping_table.mpi_rank);
-    global_comm->mapping_table.mpi_rank = NULL;
+    global_comm->mapping_table.mpi_rank = nullptr;
   }
 #else
   collBarrierLocal(global_comm);
   if (global_comm->global_rank == 0) {
     pthread_barrier_destroy((pthread_barrier_t*)&(thread_comms[global_comm->unique_id].barrier));
     free(thread_comms[global_comm->unique_id].buffers);
-    thread_comms[global_comm->unique_id].buffers = NULL;
+    thread_comms[global_comm->unique_id].buffers = nullptr;
     free(thread_comms[global_comm->unique_id].displs);
-    thread_comms[global_comm->unique_id].displs = NULL;
+    thread_comms[global_comm->unique_id].displs = nullptr;
     __sync_synchronize();
     thread_comms[global_comm->unique_id].ready_flag = false;
   }
@@ -295,8 +293,8 @@ int collInit(int argc, char* argv[])
   thread_comms.resize(MAX_NB_COMMS);
   for (int i = 0; i < MAX_NB_COMMS; i++) {
     thread_comms[i].ready_flag = false;
-    thread_comms[i].buffers    = NULL;
-    thread_comms[i].displs     = NULL;
+    thread_comms[i].buffers    = nullptr;
+    thread_comms[i].displs     = nullptr;
   }
 #endif
   coll_inited = true;
@@ -465,8 +463,8 @@ size_t collGetDtypeSize(CollDataType dtype)
 void collUpdateBuffer(CollComm global_comm)
 {
   int global_rank                         = global_comm->global_rank;
-  global_comm->comm->buffers[global_rank] = NULL;
-  global_comm->comm->displs[global_rank]  = NULL;
+  global_comm->comm->buffers[global_rank] = nullptr;
+  global_comm->comm->displs[global_rank]  = nullptr;
 }
 
 void collBarrierLocal(CollComm global_comm)
@@ -479,7 +477,7 @@ void collBarrierLocal(CollComm global_comm)
 void* collAllocateInlineBuffer(const void* recvbuf, size_t size)
 {
   void* sendbuf_tmp = malloc(size);
-  assert(sendbuf_tmp != NULL);
+  assert(sendbuf_tmp != nullptr);
   memcpy(sendbuf_tmp, recvbuf, size);
   return sendbuf_tmp;
 }

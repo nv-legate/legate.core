@@ -63,6 +63,7 @@ int collAlltoallLocal(const void* sendbuf,
   const void* src_base = nullptr;
   for (int i = 1; i < total_size + 1; i++) {
     recvfrom_global_rank = (global_rank + total_size - i) % total_size;
+    // wait for other threads to update the buffer address
     while (global_comm->comm->buffers[recvfrom_global_rank] == nullptr)
       ;
     src_base  = global_comm->comm->buffers[recvfrom_global_rank];
@@ -70,7 +71,7 @@ int collAlltoallLocal(const void* sendbuf,
                 static_cast<ptrdiff_t>(recvfrom_seg_id) * sendtype_extent * sendcount;
     char* dst = static_cast<char*>(recvbuf) +
                 static_cast<ptrdiff_t>(recvfrom_global_rank) * recvtype_extent * recvcount;
-#ifdef COLL_DEBUG_PRINT
+#ifdef DEBUG_LEGATE
     log_coll.debug(
       "i: %d === global_rank %d, dtype %d, copy rank %d (seg %d, %p) to rank %d (seg %d, %p)",
       i,

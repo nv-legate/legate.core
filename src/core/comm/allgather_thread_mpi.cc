@@ -33,24 +33,19 @@ int collAllgatherMPI(const void* sendbuf,
                      CollDataType recvtype,
                      CollComm global_comm)
 {
-  int total_size = global_comm->global_comm_size;
+  int total_size  = global_comm->global_comm_size;
+  int global_rank = global_comm->global_rank;
 
   MPI_Datatype mpi_sendtype = collDtypeToMPIDtype(sendtype);
 
   MPI_Aint lb, sendtype_extent, recvtype_extent;
   MPI_Type_get_extent(mpi_sendtype, &lb, &sendtype_extent);
 
-  int global_rank = global_comm->global_rank;
-
-  void* sendbuf_tmp = NULL;
+  void* sendbuf_tmp = const_cast<void*>(sendbuf);
 
   // MPI_IN_PLACE
   if (sendbuf == recvbuf) {
-    sendbuf_tmp = (void*)malloc(sendtype_extent * sendcount);
-    assert(sendbuf_tmp != NULL);
-    memcpy(sendbuf_tmp, recvbuf, sendtype_extent * sendcount);
-  } else {
-    sendbuf_tmp = const_cast<void*>(sendbuf);
+    sendbuf_tmp = collAllocateInlineBuffer(recvbuf, sendtype_extent * sendcount);
   }
 
   collGatherMPI(sendbuf_tmp, sendcount, sendtype, recvbuf, recvcount, recvtype, 0, global_comm);

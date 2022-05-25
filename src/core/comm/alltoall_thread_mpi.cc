@@ -127,9 +127,10 @@ int collAlltoallMPI(const void* sendbuf,
                     CollComm global_comm)
 {
   int res;
-
-  int total_size = global_comm->global_comm_size;
   MPI_Status status;
+
+  int total_size  = global_comm->global_comm_size;
+  int global_rank = global_comm->global_rank;
 
   MPI_Datatype mpi_sendtype = collDtypeToMPIDtype(sendtype);
   MPI_Datatype mpi_recvtype = collDtypeToMPIDtype(recvtype);
@@ -138,9 +139,7 @@ int collAlltoallMPI(const void* sendbuf,
   MPI_Type_get_extent(mpi_sendtype, &lb, &sendtype_extent);
   MPI_Type_get_extent(mpi_recvtype, &lb, &recvtype_extent);
 
-  int global_rank = global_comm->global_rank;
-
-  void* sendbuf_tmp = NULL;
+  void* sendbuf_tmp = const_cast<void*>(sendbuf);
 
   // if (sendbuf == recvbuf) {
   //   return collAlltoallMPIInplace(recvbuf, recvcount, mpi_recvtype, global_comm);
@@ -148,11 +147,7 @@ int collAlltoallMPI(const void* sendbuf,
 
   // MPI_IN_PLACE
   if (sendbuf == recvbuf) {
-    sendbuf_tmp = (void*)malloc(total_size * sendtype_extent * sendcount);
-    assert(sendbuf_tmp != NULL);
-    memcpy(sendbuf_tmp, recvbuf, total_size * sendtype_extent * sendcount);
-  } else {
-    sendbuf_tmp = const_cast<void*>(sendbuf);
+    sendbuf_tmp = collAllocateInlineBuffer(recvbuf, total_size * sendtype_extent * sendcount);
   }
 
 #ifdef ALLTOALL_USE_SENDRECV
@@ -160,8 +155,10 @@ int collAlltoallMPI(const void* sendbuf,
   for (int i = 1; i < total_size + 1; i++) {
     sendto_global_rank   = (global_rank + i) % total_size;
     recvfrom_global_rank = (global_rank + total_size - i) % total_size;
-    char* src = (char*)sendbuf_tmp + (ptrdiff_t)sendto_global_rank * sendtype_extent * sendcount;
-    char* dst = (char*)recvbuf + (ptrdiff_t)recvfrom_global_rank * recvtype_extent * recvcount;
+    char* src            = static_cast<char*>(sendbuf_tmp) +
+                static_cast<ptrdiff_t>(sendto_global_rank) * sendtype_extent * sendcount;
+    char* dst = static_cast<char*>(recvbuf) +
+                static_cast<ptrdiff_t>(recvfrom_global_rank) * recvtype_extent * recvcount;
     sendto_mpi_rank   = global_comm->mapping_table.mpi_rank[sendto_global_rank];
     recvfrom_mpi_rank = global_comm->mapping_table.mpi_rank[recvfrom_global_rank];
     assert(sendto_global_rank == global_comm->mapping_table.global_rank[sendto_global_rank]);
@@ -169,8 +166,8 @@ int collAlltoallMPI(const void* sendbuf,
     // tag: seg idx + rank_idx + tag
     int send_tag = collGenerateAlltoallTag(sendto_global_rank, global_rank, global_comm);
     int recv_tag = collGenerateAlltoallTag(global_rank, recvfrom_global_rank, global_comm);
-#ifdef DEBUG_PRINT
-    log_coll.info(
+#ifdef DEBUG_LEGATE
+    log_coll.debug(
       "i: %d === global_rank %d, mpi rank %d, send %d to %d, send_tag %d, recv %d from %d, "
       "recv_tag %d",
       i,
@@ -205,8 +202,8 @@ int collAlltoallMPI(const void* sendbuf,
     dest_mpi_rank = global_comm->mapping_table.mpi_rank[i];
     int send_tag  = collGenerateAlltoallTag(i, global_rank, global_comm);
     int recv_tag  = collGenerateAlltoallTag(global_rank, i, global_comm);
-#ifdef DEBUG_PRINT
-    log_coll.info(
+#ifdef DEBUG_LEGATE
+    log_coll.debug(
       "i: %d === global_rank %d, mpi rank %d, send %d to %d, send_tag %d, recv %d from %d, "
       "recv_tag %d",
       i,

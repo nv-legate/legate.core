@@ -31,30 +31,27 @@ extern Logger log_coll;
 
 int collBcastMPI(void* buf, int count, CollDataType type, int root, CollComm global_comm)
 {
-  int res;
-
-  int total_size = global_comm->global_comm_size;
+  int res, tag;
   MPI_Status status;
 
+  int total_size  = global_comm->global_comm_size;
   int global_rank = global_comm->global_rank;
 
   int root_mpi_rank = global_comm->mapping_table.mpi_rank[root];
   assert(root == global_comm->mapping_table.global_rank[root]);
-
-  int tag;
 
   MPI_Datatype mpi_type = collDtypeToMPIDtype(type);
 
   // non-root
   if (global_rank != root) {
     tag = collGenerateBcastTag(global_rank, global_comm);
-#ifdef DEBUG_PRINT
-    printf("Bcast Recv global_rank %d, mpi rank %d, send to %d (%d), tag %d\n",
-           global_rank,
-           global_comm->mpi_rank,
-           root,
-           root_mpi_rank,
-           tag);
+#ifdef DEBUG_LEGATE
+    log_coll.debug("Bcast Recv global_rank %d, mpi rank %d, send to %d (%d), tag %d",
+                   global_rank,
+                   global_comm->mpi_rank,
+                   root,
+                   root_mpi_rank,
+                   tag);
 #endif
     return MPI_Recv(buf, count, mpi_type, root_mpi_rank, tag, global_comm->comm, &status);
   }
@@ -65,14 +62,14 @@ int collBcastMPI(void* buf, int count, CollDataType type, int root, CollComm glo
     sendto_mpi_rank = global_comm->mapping_table.mpi_rank[i];
     assert(i == global_comm->mapping_table.global_rank[i]);
     tag = collGenerateBcastTag(i, global_comm);
-#ifdef DEBUG_PRINT
-    log_coll.info("Bcast i: %d === global_rank %d, mpi rank %d, send to %d (%d), tag %d",
-                  i,
-                  global_rank,
-                  global_comm->mpi_rank,
-                  i,
-                  sendto_mpi_rank,
-                  tag);
+#ifdef DEBUG_LEGATE
+    log_coll.debug("Bcast i: %d === global_rank %d, mpi rank %d, send to %d (%d), tag %d",
+                   i,
+                   global_rank,
+                   global_comm->mpi_rank,
+                   i,
+                   sendto_mpi_rank,
+                   tag);
 #endif
     if (global_rank != i) {
       res = MPI_Send(buf, count, mpi_type, sendto_mpi_rank, tag, global_comm->comm);
