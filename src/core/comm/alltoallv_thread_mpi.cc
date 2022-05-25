@@ -58,7 +58,7 @@ static int collAlltoallvMPIInplace(void* recvbuf,
   if ((1 == total_size) || (0 == max_size)) { return CollSuccess; }
 
   char* tmp_buffer = (char*)malloc(sizeof(char) * max_size);
-  assert(tmp_buffer != NULL);
+  assert(tmp_buffer != nullptr);
 
   int right, left, right_mpi_rank, left_mpi_rank, send_tag, recv_tag;
   for (int i = 1; i <= (total_size >> 1); ++i) {

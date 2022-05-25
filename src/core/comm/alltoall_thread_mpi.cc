@@ -48,7 +48,7 @@ static int collAlltoallMPIInplace(void* recvbuf,
   size_t packed_size = 0;
 
   char* tmp_buffer = (char*)malloc(sizeof(char) * max_size);
-  assert(tmp_buffer != NULL);
+  assert(tmp_buffer != nullptr);
 
   int global_rank = global_comm->global_rank;
 

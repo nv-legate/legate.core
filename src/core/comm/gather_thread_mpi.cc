@@ -89,7 +89,7 @@ int collGatherMPI(const void* sendbuf,
                    recvfrom_mpi_rank,
                    tag);
 #endif
-    assert(dst != NULL);
+    assert(dst != nullptr);
     if (global_rank == i) {
       memcpy(dst, sendbuf, incr);
     } else {
