@@ -89,6 +89,7 @@ class TaskDeserializer : public BaseDeserializer<TaskDeserializer> {
   void _unpack(RegionField& value);
   void _unpack(OutputRegionField& value);
   void _unpack(comm::Communicator& value);
+  void _unpack(Legion::PhaseBarrier& future);
 
  private:
   Span<const Legion::Future> futures_;

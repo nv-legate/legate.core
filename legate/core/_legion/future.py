@@ -130,7 +130,7 @@ class Future:
     def from_cdata(
         cls,
         runtime: legion.legion_runtime_t,
-        cdata: ffi.CData,
+        cdata: Any,
         type: Optional[Any] = None,
     ) -> Future:
         return cls.from_buffer(
