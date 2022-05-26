@@ -20,6 +20,9 @@
 #include "core/mapping/task.h"
 #include "core/utilities/machine.h"
 
+#include "legion/legion_c.h"
+#include "legion/legion_c_util.h"
+
 using LegionTask = Legion::Task;
 
 using namespace Legion;
@@ -113,6 +116,14 @@ void TaskDeserializer::_unpack(comm::Communicator& value)
   auto future = futures_[0];
   futures_    = futures_.subspan(1);
   value       = comm::Communicator(future);
+}
+
+void TaskDeserializer::_unpack(Legion::PhaseBarrier& barrier)
+{
+  auto future   = futures_[0];
+  futures_      = futures_.subspan(1);
+  auto barrier_ = future.get_result<legion_phase_barrier_t>();
+  barrier       = CObjectWrapper::unwrap(barrier_);
 }
 
 namespace mapping {

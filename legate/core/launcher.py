@@ -720,6 +720,7 @@ class TaskLauncher:
         self._output_regions: list[OutputRegion] = []
         self._error_on_interference = error_on_interference
         self._has_side_effect = side_effect
+        self._insert_barrier = False
 
     @property
     def library_task_id(self) -> int:
@@ -856,6 +857,9 @@ class TaskLauncher:
     def add_communicator(self, handle: FutureMap) -> None:
         self._comms.append(handle)
 
+    def insert_barrier(self) -> None:
+        self._insert_barrier = True
+
     def set_sharding_space(self, space: IndexSpace) -> None:
         self._sharding_space = space
 
@@ -881,6 +885,7 @@ class TaskLauncher:
         self.pack_args(argbuf, self._outputs)
         self.pack_args(argbuf, self._reductions)
         self.pack_args(argbuf, self._scalars)
+        argbuf.pack_bool(self._insert_barrier)
         argbuf.pack_32bit_uint(len(self._comms))
 
         task = IndexTask(
@@ -899,6 +904,11 @@ class TaskLauncher:
             req.proj.add(task, req, fields, _index_task_calls)
         for future in self._future_args:
             task.add_future(future)
+        if self._insert_barrier:
+            volume = launch_domain.get_volume()
+            arrival, wait = self._runtime.get_barriers(volume)
+            task.add_future(arrival)
+            task.add_future(wait)
         for (out_req, fields) in self._out_analyzer.requirements:
             out_req.add(task, fields)
         for comm in self._comms:

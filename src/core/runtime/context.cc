@@ -150,7 +150,17 @@ TaskContext::TaskContext(const Legion::Task* task,
   outputs_    = dez.unpack<std::vector<Store>>();
   reductions_ = dez.unpack<std::vector<Store>>();
   scalars_    = dez.unpack<std::vector<Scalar>>();
-  if (task->is_index_space) comms_ = dez.unpack<std::vector<comm::Communicator>>();
+
+  bool insert_barrier = false;
+  Legion::PhaseBarrier arrival, wait;
+  if (task->is_index_space) {
+    insert_barrier = dez.unpack<bool>();
+    if (insert_barrier) {
+      arrival = dez.unpack<Legion::PhaseBarrier>();
+      wait    = dez.unpack<Legion::PhaseBarrier>();
+    }
+    comms_ = dez.unpack<std::vector<comm::Communicator>>();
+  }
   // For reduction tree cases, some input stores may be mapped to NO_REGION
   // when the number of subregions isn't a multiple of the chosen radix.
   // To simplify the programming mode, we filter out those "invalid" stores out.
@@ -159,6 +169,16 @@ TaskContext::TaskContext(const Legion::Task* task,
     for (auto& input : inputs_)
       if (input.valid()) inputs.push_back(std::move(input));
     inputs_.swap(inputs);
+  }
+
+  // CUDA drivers < 520 have a bug that causes deadlock under certain circumstances
+  // if the application has multiple threads that launch blocking kernels, such as
+  // NCCL all-reduce kernels. This barrier prevents such deadlock by making sure
+  // all CUDA driver calls from Realm are done before any of the GPU tasks starts
+  // making progress.
+  if (insert_barrier) {
+    arrival.arrive();
+    wait.wait();
   }
 }
 
