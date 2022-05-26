@@ -231,16 +231,14 @@ class RegionFieldArg:
 LegionTaskMethod = Any
 
 
-def _index_copy_add_rw_dst_requirement(*args, **kwargs):
-    IndexCopy.add_dst_requirement(
-        *args, privilege=legion.LEGION_READ_WRITE, **kwargs
-    )
+def _index_copy_add_rw_dst_requirement(*args: Any, **kwargs: Any) -> None:
+    kwargs["privilege"] = legion.LEGION_READ_WRITE
+    IndexCopy.add_dst_requirement(*args, **kwargs)
 
 
-def _single_copy_add_rw_dst_requirement(*args, **kwargs):
-    SingleCopy.add_dst_requirement(
-        *args, privilege=legion.LEGION_READ_WRITE, **kwargs
-    )
+def _single_copy_add_rw_dst_requirement(*args: Any, **kwargs: Any) -> None:
+    kwargs["privilege"] = legion.LEGION_READ_WRITE
+    SingleCopy.add_dst_requirement(*args, **kwargs)
 
 
 _single_task_calls: dict[Permission, LegionTaskMethod] = {
