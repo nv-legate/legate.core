@@ -54,7 +54,7 @@ int collAlltoallvLocal(const void* sendbuf,
   // MPI_IN_PLACE
   if (sendbuf == recvbuf) {
     int total_send_count = sdispls[total_size - 1] + sendcounts[total_size - 1];
-    sendbuf_tmp          = collAllocateInlineBuffer(recvbuf, sendtype_extent * total_send_count);
+    sendbuf_tmp          = collAllocateInplaceBuffer(recvbuf, sendtype_extent * total_send_count);
   }
 
   global_comm->comm->displs[global_rank]  = sdispls;

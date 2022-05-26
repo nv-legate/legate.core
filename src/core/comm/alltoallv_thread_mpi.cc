@@ -155,14 +155,12 @@ int collAlltoallvMPI(const void* sendbuf,
 
   void* sendbuf_tmp = const_cast<void*>(sendbuf);
 
-  // if (sendbuf == recvbuf) {
-  //   return collAlltoallvMPIInplace(recvbuf, recvcounts, rdispls, mpi_recvtype, global_comm);
-  // }
-
   // MPI_IN_PLACE
   if (sendbuf == recvbuf) {
+    // not sure which way is better
+    // return collAlltoallvMPIInplace(recvbuf, recvcounts, rdispls, mpi_recvtype, global_comm);
     int total_send_count = sdispls[total_size - 1] + sendcounts[total_size - 1];
-    sendbuf_tmp          = collAllocateInlineBuffer(recvbuf, sendtype_extent * total_send_count);
+    sendbuf_tmp          = collAllocateInplaceBuffer(recvbuf, sendtype_extent * total_send_count);
   }
 
   int sendto_global_rank, recvfrom_global_rank, sendto_mpi_rank, recvfrom_mpi_rank;

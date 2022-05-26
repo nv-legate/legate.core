@@ -141,13 +141,11 @@ int collAlltoallMPI(const void* sendbuf,
 
   void* sendbuf_tmp = const_cast<void*>(sendbuf);
 
-  // if (sendbuf == recvbuf) {
-  //   return collAlltoallMPIInplace(recvbuf, recvcount, mpi_recvtype, global_comm);
-  // }
-
   // MPI_IN_PLACE
   if (sendbuf == recvbuf) {
-    sendbuf_tmp = collAllocateInlineBuffer(recvbuf, total_size * sendtype_extent * sendcount);
+    // Not sure which way is better
+    // return collAlltoallMPIInplace(recvbuf, recvcount, mpi_recvtype, global_comm);
+    sendbuf_tmp = collAllocateInplaceBuffer(recvbuf, total_size * sendtype_extent * sendcount);
   }
 
 #ifdef ALLTOALL_USE_SENDRECV

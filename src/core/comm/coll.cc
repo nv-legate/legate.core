@@ -474,7 +474,7 @@ void collBarrierLocal(CollComm global_comm)
 }
 #endif
 
-void* collAllocateInlineBuffer(const void* recvbuf, size_t size)
+void* collAllocateInplaceBuffer(const void* recvbuf, size_t size)
 {
   void* sendbuf_tmp = malloc(size);
   assert(sendbuf_tmp != nullptr);

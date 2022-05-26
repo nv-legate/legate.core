@@ -50,7 +50,7 @@ int collAllgatherLocal(const void* sendbuf,
 
   // MPI_IN_PLACE
   if (sendbuf == recvbuf) {
-    sendbuf_tmp = collAllocateInlineBuffer(recvbuf, sendtype_extent * sendcount);
+    sendbuf_tmp = collAllocateInplaceBuffer(recvbuf, sendtype_extent * sendcount);
   }
 
   global_comm->comm->buffers[global_rank] = sendbuf_tmp;
