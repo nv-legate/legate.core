@@ -118,6 +118,11 @@ class CPUCommunicator(Communicator):
         self._init_cpucoll = library.LEGATE_CORE_INIT_CPUCOLL_TASK_ID
         self._finalize_cpucoll = library.LEGATE_CORE_FINALIZE_CPUCOLL_TASK_ID
         self._tag = library.LEGATE_CPU_VARIANT
+        self._needs_barrier = False
+
+    @property
+    def needs_barrier(self) -> bool:
+        return self._needs_barrier
 
     def _initialize(self, volume):
         task = Task(
