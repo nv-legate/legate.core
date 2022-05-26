@@ -171,6 +171,11 @@ TaskContext::TaskContext(const Legion::Task* task,
     inputs_.swap(inputs);
   }
 
+  // CUDA drivers < 520 have a bug that causes deadlock under certain circumstances
+  // if the application has multiple threads that launch blocking kernels, such as
+  // NCCL all-reduce kernels. This barrier prevents such deadlock by making sure
+  // all CUDA driver calls from Realm are done before any of the GPU tasks starts
+  // making progress.
   if (insert_barrier) {
     arrival.arrive();
     wait.wait();
