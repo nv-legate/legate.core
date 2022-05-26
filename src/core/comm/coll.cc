@@ -46,13 +46,8 @@ enum CollTag : int {
   MAX_TAG       = 10,
 };
 
-#define USE_NEW_COMM
-
-#if defined(USE_NEW_COMM)
 static std::vector<MPI_Comm> mpi_comms;
-#endif
-
-#else
+#else  // undef LEGATE_USE_GASNET
 static std::vector<ThreadComm> thread_comms;
 #endif
 
@@ -76,15 +71,12 @@ int collCommCreate(CollComm global_comm,
 #if defined(LEGATE_USE_GASNET)
   int mpi_rank, mpi_comm_size;
   int *tag_ub, flag, res;
-#if defined(USE_NEW_COMM)
   int compare_result;
   MPI_Comm comm = mpi_comms[unique_id];
   res           = MPI_Comm_compare(comm, MPI_COMM_WORLD, &compare_result);
   assert(res == MPI_SUCCESS);
   assert(compare_result = MPI_CONGRUENT);
-#else
-  MPI_Comm comm = MPI_COMM_WORLD;
-#endif
+
   MPI_Comm_get_attr(comm, MPI_TAG_UB, &tag_ub, &flag);
   assert(flag);
   assert(*tag_ub == INT_MAX);
@@ -282,13 +274,11 @@ int collInit(int argc, char* argv[])
       "Warning: MPI has been initialized by others, make sure MPI is initialized with "
       "MPI_THREAD_MULTIPLE\n");
   }
-#if defined(USE_NEW_COMM)
   mpi_comms.resize(MAX_NB_COMMS, MPI_COMM_NULL);
   for (int i = 0; i < MAX_NB_COMMS; i++) {
     res = MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comms[i]);
     assert(res == MPI_SUCCESS);
   }
-#endif
 #else
   thread_comms.resize(MAX_NB_COMMS);
   for (int i = 0; i < MAX_NB_COMMS; i++) {
@@ -306,14 +296,12 @@ int collFinalize(void)
   assert(coll_inited == true);
   coll_inited = false;
 #if defined(LEGATE_USE_GASNET)
-#if defined(USE_NEW_COMM)
   int res;
   for (int i = 0; i < MAX_NB_COMMS; i++) {
     res = MPI_Comm_free(&mpi_comms[i]);
     assert(res == MPI_SUCCESS);
   }
   mpi_comms.clear();
-#endif
   return MPI_Finalize();
 #else
   for (int i = 0; i < MAX_NB_COMMS; i++) { assert(thread_comms[i].ready_flag == false); }
@@ -326,15 +314,7 @@ int collGetUniqueId(int* id)
 {
   *id = current_unique_id;
   current_unique_id++;
-#if defined(USE_NEW_COMM)
   assert(current_unique_id <= MAX_NB_COMMS);
-#else
-#if defined(LEGATE_USE_GASNET)
-  current_unique_id = current_unique_id % MAX_NB_COMMS;
-#else
-  assert(current_unique_id <= MAX_NB_COMMS);
-#endif
-#endif
   return CollSuccess;
 }
 
@@ -372,18 +352,14 @@ int collGenerateAlltoallTag(int rank1, int rank2, CollComm global_comm)
   // global_comm->unique_id; // which dst seg it sends to (in dst rank) int recv_tag = ((global_rank
   // * 10000 + recvfrom_global_rank) * 10 + ALLTOALL_TAG) * 10 + global_comm->unique_id; // idx of
   // current seg we are receving (in src/my rank)
-#if defined(USE_NEW_COMM)
+#if 1
   int tag = (rank1 * 10000 + rank2) * CollTag::MAX_TAG + CollTag::ALLTOALL_TAG;
 #else
-#if 1
-  int tag = ((rank1 * 10000 + rank2) * CollTag::MAX_TAG + CollTag::ALLTOALL_TAG) * MAX_NB_COMMS +
-            global_comm->unique_id;
-#else
+  // still under testing
   int tag =
     ((rank1 % global_comm->nb_threads * 10000 + rank2) * CollTag::MAX_TAG + CollTag::ALLTOALL_TAG) *
       MAX_NB_COMMS +
     global_comm->unique_id;
-#endif
 #endif
   assert(tag < INT_MAX && tag > 0);
   return tag;
@@ -396,18 +372,14 @@ int collGenerateAlltoallvTag(int rank1, int rank2, CollComm global_comm)
   // global_comm->unique_id; // which dst seg it sends to (in dst rank) int recv_tag = ((global_rank
   // * 10000 + recvfrom_global_rank) * 10 + ALLTOALLV_TAG) * 10 + global_comm->unique_id; // idx of
   // current seg we are receving (in src/my rank)
-#if defined(USE_NEW_COMM)
+#if 1
   int tag = (rank1 * 10000 + rank2) * CollTag::MAX_TAG + CollTag::ALLTOALLV_TAG;
 #else
-#if 1
-  int tag = ((rank1 * 10000 + rank2) * CollTag::MAX_TAG + CollTag::ALLTOALLV_TAG) * MAX_NB_COMMS +
-            global_comm->unique_id;
-#else
+  // still under testing
   int tag = ((rank1 % global_comm->nb_threads * 10000 + rank2) * CollTag::MAX_TAG +
              CollTag::ALLTOALLV_TAG) *
               MAX_NB_COMMS +
             global_comm->unique_id;
-#endif
 #endif
   assert(tag < INT_MAX && tag > 0);
   return tag;
@@ -415,27 +387,19 @@ int collGenerateAlltoallvTag(int rank1, int rank2, CollComm global_comm)
 
 int collGenerateBcastTag(int rank, CollComm global_comm)
 {
-#if defined(USE_NEW_COMM)
   int tag = rank * CollTag::MAX_TAG + CollTag::BCAST_TAG;
-#else
-  int tag = (rank * CollTag::MAX_TAG + CollTag::BCAST_TAG) * MAX_NB_COMMS + global_comm->unique_id;
-#endif
   assert(tag < INT_MAX && tag >= 0);
   return tag;
 }
 
 int collGenerateGatherTag(int rank, CollComm global_comm)
 {
-#if defined(USE_NEW_COMM)
   int tag = rank * CollTag::MAX_TAG + CollTag::GATHER_TAG;
-#else
-  int tag = (rank * CollTag::MAX_TAG + CollTag::GATHER_TAG) * MAX_NB_COMMS + global_comm->unique_id;
-#endif
   assert(tag < INT_MAX && tag > 0);
   return tag;
 }
 
-#else
+#else  // undef LEGATE_USE_GASNET
 size_t collGetDtypeSize(CollDataType dtype)
 {
   if (dtype == CollDataType::CollInt8 || dtype == CollDataType::CollChar) {
