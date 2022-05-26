@@ -27,6 +27,8 @@ void register_tasks(Legion::Machine machine,
                     Legion::Runtime* runtime,
                     const LibraryContext& context);
 
+bool needs_barrier();
+
 }  // namespace nccl
 }  // namespace comm
 }  // namespace legate
