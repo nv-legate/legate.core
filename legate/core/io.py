@@ -17,7 +17,15 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Callable, Iterable, Optional, Union
 
 from . import ffi  # Make sure we only have one ffi instance
-from . import FutureMap, IndexPartition, PartitionByDomain, Point, Rect, legion
+from . import (
+    Future,
+    FutureMap,
+    IndexPartition,
+    PartitionByDomain,
+    Point,
+    Rect,
+    legion,
+)
 from .legate import Array, Table
 from .partition import Tiling
 from .runtime import _runtime
@@ -69,13 +77,10 @@ class CustomSplit(DataSplit):
         colors: tuple[int, ...],
         local_colors: Iterable[Point],
     ) -> Partition:
-        fut_size = ffi.sizeof("legion_domain_t")
         futures = {}
         for c in local_colors:
             rect = self.get_subdomain(c)
-            futures[c] = _runtime.create_future(
-                ffi.buffer(ffi.addressof(rect.raw())), fut_size
-            )
+            futures[c] = Future.from_cdata(_runtime.legion_runtime, rect.raw())
         domains = FutureMap.from_dict(
             _runtime.legion_context,
             _runtime.legion_runtime,

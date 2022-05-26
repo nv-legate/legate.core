@@ -20,6 +20,7 @@
 #include "core/utilities/nvtx_help.h"
 #include "legate.h"
 
+#include <cuda.h>
 #include <nccl.h>
 
 using namespace Legion;
@@ -168,6 +169,27 @@ void register_tasks(Legion::Machine machine,
       make_registrar(finalize_nccl_task_id, finalize_nccl_task_name, Processor::TOC_PROC);
     runtime->register_task_variant<finalize_nccl>(registrar, LEGATE_GPU_VARIANT);
   }
+}
+
+bool needs_barrier()
+{
+  int32_t ver;
+  auto status = cuDriverGetVersion(&ver);
+  if (status != CUDA_SUCCESS) {
+    const char* error_string;
+    cuGetErrorString(status, &error_string);
+    fprintf(stderr,
+            "Internal CUDA failure with error %s in file %s at line %d\n",
+            error_string,
+            __FILE__,
+            __LINE__);
+    exit(status);
+  }
+
+  int32_t major = ver / 1000;
+  int32_t minor = (ver - major * 1000) / 10;
+
+  return major < 11 || major == 11 && minor < 8;
 }
 
 }  // namespace nccl
