@@ -84,6 +84,7 @@ set_or_default(NCCL_DIR NCCL_PATH)
 set_or_default(Thrust_DIR THRUST_PATH)
 set_or_default(CUDA_TOOLKIT_ROOT_DIR CUDA)
 set_or_default(CMAKE_CUDA_ARCHITECTURES GPU_ARCH ALL)
+set_or_default(Legion_HIJACK_CUDART USE_CUDART_HIJACK OFF)
 
 option(Legion_SPY "Enable detailed logging for Legion Spy" OFF)
 option(Legion_USE_LLVM "Use LLVM JIT operations" OFF)
@@ -105,8 +106,18 @@ include(CMakeDependentOption)
 cmake_dependent_option(Legion_HIJACK_CUDART
   "Allow Legion to hijack and rewrite application calls into the CUDA runtime"
   ON
-  Legion_USE_CUDA;"DEFINED ENV{USE_CUDART_HIJACK} AND $ENV{USE_CUDART_HIJACK} STREQUAL 1"
+  "Legion_USE_CUDA;Legion_HIJACK_CUDART"
   OFF)
+
+if(Legion_HIJACK_CUDART)
+  message(WARNING [=[
+#####################################################################
+Warning: Realm's CUDA runtime hijack is incompatible with NCCL.
+Please note that your code will crash catastrophically as soon as it
+calls into NCCL either directly or through some other Legate library.
+#####################################################################
+]=])
+endif()
 
 if(Legion_USE_CUDA)
   if(BUILD_SHARED_LIBS)
@@ -178,6 +189,9 @@ set(LEGATE_CORE_CXX_DEFS "")
 set(LEGATE_CORE_CUDA_DEFS "")
 set(LEGATE_CORE_CXX_OPTIONS "")
 set(LEGATE_CORE_CUDA_OPTIONS "")
+
+include(cmake/Modules/set_cpu_arch_flags.cmake)
+set_cpu_arch_flags(LEGATE_CORE_CXX_OPTIONS)
 
 if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
   list(APPEND LEGATE_CORE_CXX_DEFS DEBUG_LEGATE)
