@@ -96,7 +96,7 @@ int collCommCreate(CollComm global_comm,
   global_comm->mpi_rank      = 0;
   if (global_comm->global_rank == 0) {
     pthread_barrier_init((pthread_barrier_t*)&(thread_comms[global_comm->unique_id].barrier),
-                         NULL,
+                         nullptr,
                          global_comm->global_comm_size);
     thread_comms[global_comm->unique_id].buffers =
       (const void**)malloc(sizeof(void*) * global_comm_size);
