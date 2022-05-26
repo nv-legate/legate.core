@@ -177,12 +177,12 @@ bool needs_barrier()
   auto status = cuDriverGetVersion(&ver);
   if (status != CUDA_SUCCESS) {
     const char* error_string;
-    cuGetErrorString(status, &error_string),
-      fprintf(stderr,
-              "Internal CUDA failure with error %s in file %s at line %d\n",
-              error_string,
-              __FILE__,
-              __LINE__);
+    cuGetErrorString(status, &error_string);
+    fprintf(stderr,
+            "Internal CUDA failure with error %s in file %s at line %d\n",
+            error_string,
+            __FILE__,
+            __LINE__);
     exit(status);
   }
 
