@@ -19,6 +19,9 @@
 #include "legate.h"
 
 #include "core/mapping/core_mapper.h"
+#ifdef LEGATE_USE_CUDA
+#include "core/comm/comm_nccl.h"
+#endif
 
 namespace legate {
 
@@ -405,6 +408,14 @@ void CoreMapper::select_tunable_value(const MapperContext ctx,
     }
     case LEGATE_CORE_TUNABLE_FIELD_REUSE_FREQUENCY: {
       pack_tunable<uint32_t>(field_reuse_freq, output);
+      return;
+    }
+    case LEGATE_CORE_TUNABLE_NCCL_NEEDS_BARRIER: {
+#ifdef LEGATE_USE_CUDA
+      pack_tunable<bool>(local_gpus.empty() ? false : comm::nccl::needs_barrier(), output);
+#else
+      pack_tunable<bool>(false, output);
+#endif
       return;
     }
   }

@@ -346,6 +346,8 @@ class Task(TaskProtocol):
         for comm in self._comm_args:
             handle = comm.get_handle(launch_domain)
             launcher.add_communicator(handle)
+        if any(comm.needs_barrier for comm in self._comm_args):
+            launcher.insert_barrier()
 
 
 class AutoOperation(Operation):

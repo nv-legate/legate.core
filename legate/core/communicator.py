@@ -14,7 +14,7 @@
 #
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+from abc import ABC, abstractmethod, abstractproperty
 from typing import TYPE_CHECKING
 
 from . import FutureMap, Point, Rect
@@ -59,6 +59,10 @@ class Communicator(ABC):
         for volume, handle in self._handles.items():
             self._finalize(volume, handle)
 
+    @abstractproperty
+    def needs_barrier(self) -> bool:
+        ...
+
     @abstractmethod
     def _initialize(self, volume: int) -> FutureMap:
         ...
@@ -77,6 +81,11 @@ class NCCLCommunicator(Communicator):
         self._init_nccl = library.LEGATE_CORE_INIT_NCCL_TASK_ID
         self._finalize_nccl = library.LEGATE_CORE_FINALIZE_NCCL_TASK_ID
         self._tag = library.LEGATE_GPU_VARIANT
+        self._needs_barrier = runtime.nccl_needs_barrier
+
+    @property
+    def needs_barrier(self) -> bool:
+        return self._needs_barrier
 
     def _initialize(self, volume: int) -> FutureMap:
         # This doesn't need to run on a GPU, but will use it anyway

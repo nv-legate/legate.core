@@ -844,6 +844,14 @@ class Runtime:
             ty.uint32,
         )
 
+        self._barriers: List[legion.legion_phase_barrier_t] = []
+        self.nccl_needs_barrier = bool(
+            self._core_context.get_tunable(
+                legion.LEGATE_CORE_TUNABLE_NCCL_NEEDS_BARRIER,
+                ty.bool_,
+            )
+        )
+
         # Now we initialize managers
         self._attachment_manager = AttachmentManager(self)
         self._partition_manager = PartitionManager(self)
@@ -948,6 +956,10 @@ class Runtime:
         self.flush_scheduling_window()
 
         self._comm_manager.destroy()
+        for barrier in self._barriers:
+            legion.legion_phase_barrier_destroy(
+                self.legion_runtime, self.legion_context, barrier
+            )
 
         # Destroy all libraries. Note that we should do this
         # from the lastly added one to the first one
@@ -1314,6 +1326,21 @@ class Runtime:
             False,
         )
         return FutureMap(handle)
+
+    def get_barriers(self, count: int) -> tuple[Future, Future]:
+        arrival_barrier = legion.legion_phase_barrier_create(
+            self.legion_runtime, self.legion_context, count
+        )
+        wait_barrier = legion.legion_phase_barrier_advance(
+            self.legion_runtime, self.legion_context, arrival_barrier
+        )
+        # TODO: For now we destroy these barriers during shutdown
+        self._barriers.append(arrival_barrier)
+        self._barriers.append(wait_barrier)
+        return (
+            Future.from_cdata(self.legion_runtime, arrival_barrier),
+            Future.from_cdata(self.legion_runtime, wait_barrier),
+        )
 
 
 _runtime = Runtime(core_library)
