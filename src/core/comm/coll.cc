@@ -270,9 +270,9 @@ int collInit(int argc, char* argv[])
     res = MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided);
     assert(res == MPI_SUCCESS);
   } else {
-    printf(
+    log_coll.print(
       "Warning: MPI has been initialized by others, make sure MPI is initialized with "
-      "MPI_THREAD_MULTIPLE\n");
+      "MPI_THREAD_MULTIPLE");
   }
   mpi_comms.resize(MAX_NB_COMMS, MPI_COMM_NULL);
   for (int i = 0; i < MAX_NB_COMMS; i++) {
