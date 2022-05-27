@@ -140,9 +140,9 @@ if(Legion_USE_CUDA)
   set_cuda_arch_from_names()
   # Needs to run before `project`
   rapids_cuda_init_architectures(LEGATE_CORE)
-  project(LEGATE_CORE VERSION 22.05.00 LANGUAGES C CXX CUDA)
+  project(LEGATE_CORE VERSION 22.07.00 LANGUAGES C CXX CUDA)
 else()
-  project(LEGATE_CORE VERSION 22.05.00 LANGUAGES C CXX)
+  project(LEGATE_CORE VERSION 22.07.00 LANGUAGES C CXX)
 endif()
 
 # Write the version header
