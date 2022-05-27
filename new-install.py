@@ -311,6 +311,14 @@ def install_legion_python(legion_src_dir, install_dir):
     verbose_check_call(
         [
             "cp",
+            "legion_c_util.h",
+            os.path.join(install_dir, "include", "legion", "legion_c_util.h"),
+        ],
+        cwd=os.path.join(legion_src_dir, "runtime", "legion"),
+    )
+    verbose_check_call(
+        [
+            "cp",
             "legion_spy.py",
             os.path.join(install_dir, "share", "legate", "legion_spy.py"),
         ],
