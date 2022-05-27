@@ -63,7 +63,6 @@ class Partition:
         if handle is None:
             handle = legion.legion_logical_partition_create(
                 runtime,
-                context,
                 parent.handle,
                 index_partition.handle,
             )
