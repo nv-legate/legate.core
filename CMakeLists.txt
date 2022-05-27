@@ -157,6 +157,10 @@ rapids_cmake_build_type(Release)
 # Needed to integrate with LLVM/clang tooling
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# ##################################################################################################
+# * conda environment -----------------------------------------------------------------------------
+rapids_cmake_support_conda_env(conda_env MODIFY_PREFIX_PATH)
+
 ##############################################################################
 # - Dependencies -------------------------------------------------------------
 
@@ -255,6 +259,11 @@ set_target_properties(legate_core
                       CXX_STANDARD_REQUIRED               ON
                       POSITION_INDEPENDENT_CODE           ON
                       INTERFACE_POSITION_INDEPENDENT_CODE ON)
+
+# Add Conda library, and include paths if specified
+if(TARGET conda_env)
+  target_link_libraries(legate_core PRIVATE conda_env)
+endif()
 
 ###
 # Preinclude `realm_defines.h` and `legion_defines.h` in all compilations.
