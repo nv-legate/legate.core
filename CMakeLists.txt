@@ -100,6 +100,7 @@ endif()
 
 set_or_default(GASNet_CONDUIT CONDUIT "udp")
 
+option(LEGATE_CORE_STATIC_CUDA_RUNTIME "Statically link the cuda runtime library" OFF)
 option(LEGATE_CORE_EXCLUDE_LEGION_FROM_ALL "Exclude Legion targets from legate.core's 'all' target" OFF)
 
 include(CMakeDependentOption)
@@ -124,13 +125,16 @@ if(Legion_USE_CUDA)
     if(Legion_HIJACK_CUDART)
       # Must statically link CUDA if HIJACK_CUDART is set
       set(Legion_CUDA_DYNAMIC_LOAD OFF)
+      set(CUDA_USE_STATIC_CUDA_RUNTIME ON)
     elseif(NOT DEFINED Legion_CUDA_DYNAMIC_LOAD)
       # If HIJACK_CUDART isn't set and BUILD_SHARED_LIBS is true, default Legion_CUDA_DYNAMIC_LOAD to true
       set(Legion_CUDA_DYNAMIC_LOAD ON)
+      set(CUDA_USE_STATIC_CUDA_RUNTIME OFF)
     endif()
   elseif(NOT DEFINED Legion_CUDA_DYNAMIC_LOAD)
     # If BUILD_SHARED_LIBS is false, default Legion_CUDA_DYNAMIC_LOAD to false also
     set(Legion_CUDA_DYNAMIC_LOAD OFF)
+    set(CUDA_USE_STATIC_CUDA_RUNTIME ON)
   endif()
 endif()
 
@@ -140,9 +144,9 @@ if(Legion_USE_CUDA)
   set_cuda_arch_from_names()
   # Needs to run before `project`
   rapids_cuda_init_architectures(LEGATE_CORE)
-  project(LEGATE_CORE VERSION 22.05.00 LANGUAGES C CXX CUDA)
+  project(LEGATE_CORE VERSION 22.07.00 LANGUAGES C CXX CUDA)
 else()
-  project(LEGATE_CORE VERSION 22.05.00 LANGUAGES C CXX)
+  project(LEGATE_CORE VERSION 22.07.00 LANGUAGES C CXX)
 endif()
 
 # Write the version header
@@ -157,8 +161,17 @@ rapids_cmake_build_type(Release)
 # Needed to integrate with LLVM/clang tooling
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# ##################################################################################################
+# * conda environment -----------------------------------------------------------------------------
+rapids_cmake_support_conda_env(conda_env MODIFY_PREFIX_PATH)
+
 ##############################################################################
 # - Dependencies -------------------------------------------------------------
+rapids_find_package(
+  CUDAToolkit REQUIRED
+  BUILD_EXPORT_SET legate-core-exports
+  INSTALL_EXPORT_SET legate-core-exports
+)
 
 # add third party dependencies using CPM
 rapids_cpm_init()
@@ -255,6 +268,23 @@ set_target_properties(legate_core
                       CXX_STANDARD_REQUIRED               ON
                       POSITION_INDEPENDENT_CODE           ON
                       INTERFACE_POSITION_INDEPENDENT_CODE ON)
+
+# Add Conda library, and include paths if specified
+if(TARGET conda_env)
+  target_link_libraries(legate_core PRIVATE conda_env)
+endif()
+
+if(Legion_USE_CUDA)
+  if (LEGATE_CORE_STATIC_CUDA_RUNTIME)
+    set_target_properties(legate_core PROPERTIES CUDA_RUNTIME_LIBRARY Static)
+    # Make sure to export to consumers what runtime we used
+    target_link_libraries(legate_core PUBLIC CUDA::cudart_static)
+  else()
+    set_target_properties(legate_core PROPERTIES CUDA_RUNTIME_LIBRARY Shared)
+    # Make sure to export to consumers what runtime we used
+    target_link_libraries(legate_core PUBLIC CUDA::cudart)
+  endif()
+endif()
 
 ###
 # Preinclude `realm_defines.h` and `legion_defines.h` in all compilations.
