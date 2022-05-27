@@ -100,6 +100,7 @@ endif()
 
 set_or_default(GASNet_CONDUIT CONDUIT "udp")
 
+option(LEGATE_CORE_STATIC_CUDA_RUNTIME "Statically link the cuda runtime library" OFF)
 option(LEGATE_CORE_EXCLUDE_LEGION_FROM_ALL "Exclude Legion targets from legate.core's 'all' target" OFF)
 
 include(CMakeDependentOption)
@@ -124,13 +125,16 @@ if(Legion_USE_CUDA)
     if(Legion_HIJACK_CUDART)
       # Must statically link CUDA if HIJACK_CUDART is set
       set(Legion_CUDA_DYNAMIC_LOAD OFF)
+      set(CUDA_USE_STATIC_CUDA_RUNTIME ON)
     elseif(NOT DEFINED Legion_CUDA_DYNAMIC_LOAD)
       # If HIJACK_CUDART isn't set and BUILD_SHARED_LIBS is true, default Legion_CUDA_DYNAMIC_LOAD to true
       set(Legion_CUDA_DYNAMIC_LOAD ON)
+      set(CUDA_USE_STATIC_CUDA_RUNTIME OFF)
     endif()
   elseif(NOT DEFINED Legion_CUDA_DYNAMIC_LOAD)
     # If BUILD_SHARED_LIBS is false, default Legion_CUDA_DYNAMIC_LOAD to false also
     set(Legion_CUDA_DYNAMIC_LOAD OFF)
+    set(CUDA_USE_STATIC_CUDA_RUNTIME ON)
   endif()
 endif()
 
@@ -163,6 +167,11 @@ rapids_cmake_support_conda_env(conda_env MODIFY_PREFIX_PATH)
 
 ##############################################################################
 # - Dependencies -------------------------------------------------------------
+rapids_find_package(
+  CUDAToolkit REQUIRED
+  BUILD_EXPORT_SET legate-core-exports
+  INSTALL_EXPORT_SET legate-core-exports
+)
 
 # add third party dependencies using CPM
 rapids_cpm_init()
@@ -263,6 +272,18 @@ set_target_properties(legate_core
 # Add Conda library, and include paths if specified
 if(TARGET conda_env)
   target_link_libraries(legate_core PRIVATE conda_env)
+endif()
+
+if(Legion_USE_CUDA)
+  if (LEGATE_CORE_STATIC_CUDA_RUNTIME)
+    set_target_properties(legate_core PROPERTIES CUDA_RUNTIME_LIBRARY Static)
+    # Make sure to export to consumers what runtime we used
+    target_link_libraries(legate_core PUBLIC CUDA::cudart_static)
+  else()
+    set_target_properties(legate_core PROPERTIES CUDA_RUNTIME_LIBRARY Shared)
+    # Make sure to export to consumers what runtime we used
+    target_link_libraries(legate_core PUBLIC CUDA::cudart)
+  endif()
 endif()
 
 ###
