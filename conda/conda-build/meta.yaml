@@ -88,7 +88,7 @@ requirements:
     - cffi
     - pyarrow >=5.0.0
 {% if gpu_enabled_bool %}
-    - cuda-cudart
+    - cuda-cudart >={{ cuda_version }}
     - nccl
 {% endif %}
 
