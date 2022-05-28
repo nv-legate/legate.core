@@ -54,6 +54,7 @@ function(find_or_configure_legion)
                          "Legion_REDOP_COMPLEX ON"
                          "Legion_GPU_REDUCTIONS OFF"
                          "Legion_CUDA_ARCH ${Legion_CUDA_ARCH}"
+                         "Legion_PYTHON_EXTRA_INSTALL_ARGS --single-version-externally-managed --root=/"
   )
 
 endfunction()
