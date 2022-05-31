@@ -27,11 +27,8 @@ namespace nvtx {
 
 class Range {
  public:
-  Range(const char* message) { range_ = nvtxRangeStartA(message); }
-  ~Range() { nvtxRangeEnd(range_); }
-
- private:
-  nvtxRangeId_t range_;
+  Range(const char* message) { nvtxRangePushA(message); }
+  ~Range() { nvtxRangePop(); }
 };
 
 }  // namespace nvtx
