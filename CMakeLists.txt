@@ -68,14 +68,14 @@ set_or_default(Legion_BOUNDS_CHECKS CHECK_BOUNDS OFF)
 set_or_default(Legion_MAX_DIM LEGION_MAX_DIM 4)
 
 # Check the max dimensions
-if ((Legion_MAX_DIM LESS 1) OR (Legion_MAX_DIM GREATER 9))
+if((Legion_MAX_DIM LESS 1) OR (Legion_MAX_DIM GREATER 9))
   message(FATAL_ERROR "The maximum number of Legate dimensions must be between 1 and 9 inclusive")
 endif()
 
 set_or_default(Legion_MAX_FIELDS LEGION_MAX_FIELDS 256)
 
 # Check that max fields is between 32 and 4096 and is a power of 2
-if (NOT Legion_MAX_FIELDS MATCHES "^(32|64|128|256|512|1024|2048|4096)$")
+if(NOT Legion_MAX_FIELDS MATCHES "^(32|64|128|256|512|1024|2048|4096)$")
   message(FATAL_ERROR "The maximum number of Legate fields must be a power of 2 between 32 and 4096 inclusive")
 endif()
 
@@ -275,7 +275,7 @@ if(TARGET conda_env)
 endif()
 
 if(Legion_USE_CUDA)
-  if (LEGATE_CORE_STATIC_CUDA_RUNTIME)
+  if(LEGATE_CORE_STATIC_CUDA_RUNTIME)
     set_target_properties(legate_core PROPERTIES CUDA_RUNTIME_LIBRARY Static)
     # Make sure to export to consumers what runtime we used
     target_link_libraries(legate_core PUBLIC CUDA::cudart_static)
@@ -290,14 +290,25 @@ endif()
 # Preinclude `realm_defines.h` and `legion_defines.h` in all compilations.
 # TODO: It isn't possible to expose this as part of the public legate_core
 # target's interface in a portable way, so this code needs to be duplicated
-# in cuNumeric.
+# in both legate.core and cuNumeric.
 #
 # A better solution would be to add #include directives to the requisite
 # legate.core and cuNumeric headers.
 ###
 
-get_target_property(realm_includes Legion::RealmRuntime INTERFACE_INCLUDE_DIRECTORIES)
-get_target_property(legion_includes Legion::LegionRuntime INTERFACE_INCLUDE_DIRECTORIES)
+set(realm_includes "")
+if(TARGET Legion::RealmRuntime)
+  get_target_property(realm_includes Legion::RealmRuntime INTERFACE_INCLUDE_DIRECTORIES)
+elseif(TARGET Legion::Realm)
+  get_target_property(realm_includes Legion::Realm INTERFACE_INCLUDE_DIRECTORIES)
+endif()
+
+set(legion_includes "")
+if(TARGET Legion::LegionRuntime)
+  get_target_property(legion_includes Legion::LegionRuntime INTERFACE_INCLUDE_DIRECTORIES)
+elseif(TARGET Legion::Legion)
+  get_target_property(legion_includes Legion::Legion INTERFACE_INCLUDE_DIRECTORIES)
+endif()
 
 set(extra_includes "")
 foreach(_dir IN LISTS realm_includes legion_includes)
