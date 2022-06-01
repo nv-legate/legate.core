@@ -70,18 +70,17 @@ int collCommCreate(CollComm global_comm,
   global_comm->unique_id        = unique_id;
 #ifdef LEGATE_USE_GASNET
   int mpi_rank, mpi_comm_size;
-  int *tag_ub, flag, res;
+  int *tag_ub, flag;
   int compare_result;
   MPI_Comm comm = mpi_comms[unique_id];
-  res           = MPI_Comm_compare(comm, MPI_COMM_WORLD, &compare_result);
-  assert(res == MPI_SUCCESS);
+  CHECK_MPI(MPI_Comm_compare(comm, MPI_COMM_WORLD, &compare_result));
   assert(compare_result = MPI_CONGRUENT);
 
-  MPI_Comm_get_attr(comm, MPI_TAG_UB, &tag_ub, &flag);
+  CHECK_MPI(MPI_Comm_get_attr(comm, MPI_TAG_UB, &tag_ub, &flag));
   assert(flag);
   assert(*tag_ub == INT_MAX);
-  MPI_Comm_rank(comm, &mpi_rank);
-  MPI_Comm_size(comm, &mpi_comm_size);
+  CHECK_MPI(MPI_Comm_rank(comm, &mpi_rank));
+  CHECK_MPI(MPI_Comm_size(comm, &mpi_comm_size));
   global_comm->mpi_comm_size = mpi_comm_size;
   global_comm->mpi_rank      = mpi_rank;
   global_comm->comm          = comm;
@@ -245,21 +244,17 @@ int collInit(int argc, char* argv[])
 {
   current_unique_id = 0;
 #ifdef LEGATE_USE_GASNET
-  int provided, res, init_flag = 0;
-  MPI_Initialized(&init_flag);
+  int provided, init_flag = 0;
+  CHECK_MPI(MPI_Initialized(&init_flag));
   if (!init_flag) {
-    res = MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided);
-    assert(res == MPI_SUCCESS);
+    CHECK_MPI(MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided));
   } else {
     log_coll.print(
       "Warning: MPI has been initialized by others, make sure MPI is initialized with "
       "MPI_THREAD_MULTIPLE");
   }
   mpi_comms.resize(MAX_NB_COMMS, MPI_COMM_NULL);
-  for (int i = 0; i < MAX_NB_COMMS; i++) {
-    res = MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comms[i]);
-    assert(res == MPI_SUCCESS);
-  }
+  for (int i = 0; i < MAX_NB_COMMS; i++) { CHECK_MPI(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comms[i])); }
 #else
   thread_comms.resize(MAX_NB_COMMS);
   for (int i = 0; i < MAX_NB_COMMS; i++) {
@@ -277,11 +272,7 @@ int collFinalize(void)
   assert(coll_inited == true);
   coll_inited = false;
 #ifdef LEGATE_USE_GASNET
-  int res;
-  for (int i = 0; i < MAX_NB_COMMS; i++) {
-    res = MPI_Comm_free(&mpi_comms[i]);
-    assert(res == MPI_SUCCESS);
-  }
+  for (int i = 0; i < MAX_NB_COMMS; i++) { CHECK_MPI(MPI_Comm_free(&mpi_comms[i])); }
   mpi_comms.clear();
   return MPI_Finalize();
 #else

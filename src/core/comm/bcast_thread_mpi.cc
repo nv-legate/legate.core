@@ -31,7 +31,7 @@ extern Logger log_coll;
 
 int bcastMPI(void* buf, int count, CollDataType type, int root, CollComm global_comm)
 {
-  int res, tag;
+  int tag;
   MPI_Status status;
 
   int total_size  = global_comm->global_comm_size;
@@ -53,7 +53,8 @@ int bcastMPI(void* buf, int count, CollDataType type, int root, CollComm global_
                    root_mpi_rank,
                    tag);
 #endif
-    return MPI_Recv(buf, count, mpi_type, root_mpi_rank, tag, global_comm->comm, &status);
+    CHECK_MPI(MPI_Recv(buf, count, mpi_type, root_mpi_rank, tag, global_comm->comm, &status));
+    return CollSuccess;
   }
 
   // root
@@ -72,8 +73,7 @@ int bcastMPI(void* buf, int count, CollDataType type, int root, CollComm global_
                    tag);
 #endif
     if (global_rank != i) {
-      res = MPI_Send(buf, count, mpi_type, sendto_mpi_rank, tag, global_comm->comm);
-      assert(res == MPI_SUCCESS);
+      CHECK_MPI(MPI_Send(buf, count, mpi_type, sendto_mpi_rank, tag, global_comm->comm));
     }
   }
 

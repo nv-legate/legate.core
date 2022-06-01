@@ -30,6 +30,12 @@ namespace coll {
 
 #ifdef LEGATE_USE_GASNET
 
+#define CHECK_MPI(expr)                    \
+  do {                                     \
+    int result = (expr);                   \
+    check_mpi(result, __FILE__, __LINE__); \
+  } while (false)
+
 struct RankMappingTable {
   int* mpi_rank;
   int* global_rank;
@@ -169,6 +175,21 @@ void collBarrierLocal(CollComm global_comm);
 #endif
 
 void* collAllocateInplaceBuffer(const void* recvbuf, size_t size);
+
+#ifdef LEGATE_USE_GASNET
+inline void check_mpi(int error, const char* file, int line)
+{
+  if (error != MPI_SUCCESS) {
+    fprintf(
+      stderr, "Internal MPI failure with error code %d in file %s at line %d\n", error, file, line);
+#ifdef DEBUG_LEGATE
+    assert(false);
+#else
+    exit(error);
+#endif
+  }
+}
+#endif
 
 }  // namespace coll
 }  // namespace comm

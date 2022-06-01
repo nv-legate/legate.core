@@ -36,8 +36,6 @@ static int alltoallvMPIInplace(void* recvbuf,
                                MPI_Datatype recvtype,
                                CollComm global_comm)
 {
-  int res;
-
   int total_size  = global_comm->global_comm_size;
   int global_rank = global_comm->global_rank;
   MPI_Status status;
@@ -77,52 +75,46 @@ static int alltoallvMPIInplace(void* recvbuf,
 
       // receive data from the right
       recv_tag = collGenerateAlltoallTag(global_rank, right, global_comm);
-      res      = MPI_Irecv((char*)recvbuf + rdispls[right] * recvtype_extent,
-                      recvcounts[right],
-                      recvtype,
-                      right_mpi_rank,
-                      recv_tag,
-                      global_comm->comm,
-                      &request);
-      assert(res == MPI_SUCCESS);
+      CHECK_MPI(MPI_Irecv((char*)recvbuf + rdispls[right] * recvtype_extent,
+                          recvcounts[right],
+                          recvtype,
+                          right_mpi_rank,
+                          recv_tag,
+                          global_comm->comm,
+                          &request));
     }
 
     if ((left != right) && (0 != recvcounts[left])) {
       // send data to the left
       send_tag = collGenerateAlltoallTag(left, global_rank, global_comm);
-      res      = MPI_Send((char*)recvbuf + rdispls[left] * recvtype_extent,
-                     recvcounts[left],
-                     recvtype,
-                     left_mpi_rank,
-                     send_tag,
-                     global_comm->comm);
-      assert(res == MPI_SUCCESS);
+      CHECK_MPI(MPI_Send((char*)recvbuf + rdispls[left] * recvtype_extent,
+                         recvcounts[left],
+                         recvtype,
+                         left_mpi_rank,
+                         send_tag,
+                         global_comm->comm));
 
-      res = MPI_Wait(&request, MPI_STATUSES_IGNORE);
-      assert(res == MPI_SUCCESS);
+      CHECK_MPI(MPI_Wait(&request, MPI_STATUSES_IGNORE));
 
       // receive data from the left
       recv_tag = collGenerateAlltoallTag(global_rank, left, global_comm);
-      res      = MPI_Irecv((char*)recvbuf + rdispls[left] * recvtype_extent,
-                      recvcounts[left],
-                      recvtype,
-                      left_mpi_rank,
-                      recv_tag,
-                      global_comm->comm,
-                      &request);
-      assert(res == MPI_SUCCESS);
+      CHECK_MPI(MPI_Irecv((char*)recvbuf + rdispls[left] * recvtype_extent,
+                          recvcounts[left],
+                          recvtype,
+                          left_mpi_rank,
+                          recv_tag,
+                          global_comm->comm,
+                          &request));
     }
 
     if (0 != recvcounts[right]) { /* nothing to exchange with the peer on the right */
       // send data to the right
       send_tag = collGenerateAlltoallTag(right, global_rank, global_comm);
-      res =
-        MPI_Send(tmp_buffer, packed_size, MPI_PACKED, right_mpi_rank, send_tag, global_comm->comm);
-      assert(res == MPI_SUCCESS);
+      CHECK_MPI(
+        MPI_Send(tmp_buffer, packed_size, MPI_PACKED, right_mpi_rank, send_tag, global_comm->comm));
     }
 
-    res = MPI_Wait(&request, MPI_STATUSES_IGNORE);
-    assert(res == MPI_SUCCESS);
+    CHECK_MPI(MPI_Wait(&request, MPI_STATUSES_IGNORE));
   }
 
   free(tmp_buffer);
@@ -139,7 +131,6 @@ int alltoallvMPI(const void* sendbuf,
                  CollDataType type,
                  CollComm global_comm)
 {
-  int res;
   MPI_Status status;
 
   int total_size  = global_comm->global_comm_size;
@@ -155,7 +146,7 @@ int alltoallvMPI(const void* sendbuf,
   // MPI_IN_PLACE
   if (sendbuf == recvbuf) {
     // not sure which way is better
-    // return collAlltoallvMPIInplace(recvbuf, recvcounts, rdispls, mpi_recvtype, global_comm);
+    // return alltoallvMPIInplace(recvbuf, recvcounts, rdispls, mpi_type, global_comm);
     int total_send_count = sdispls[total_size - 1] + sendcounts[total_size - 1];
     sendbuf_tmp          = collAllocateInplaceBuffer(recvbuf, type_extent * total_send_count);
   }
@@ -192,19 +183,18 @@ int alltoallvMPI(const void* sendbuf,
       recvfrom_mpi_rank,
       recv_tag);
 #endif
-    res = MPI_Sendrecv(src,
-                       scount,
-                       mpi_type,
-                       sendto_mpi_rank,
-                       send_tag,
-                       dst,
-                       rcount,
-                       mpi_type,
-                       recvfrom_mpi_rank,
-                       recv_tag,
-                       global_comm->comm,
-                       &status);
-    assert(res == MPI_SUCCESS);
+    CHECK_MPI(MPI_Sendrecv(src,
+                           scount,
+                           mpi_type,
+                           sendto_mpi_rank,
+                           send_tag,
+                           dst,
+                           rcount,
+                           mpi_type,
+                           recvfrom_mpi_rank,
+                           recv_tag,
+                           global_comm->comm,
+                           &status));
   }
 
   if (sendbuf == recvbuf) { free(sendbuf_tmp); }

@@ -32,7 +32,6 @@ extern Logger log_coll;
 int gatherMPI(
   const void* sendbuf, void* recvbuf, int count, CollDataType type, int root, CollComm global_comm)
 {
-  int res;
   MPI_Status status;
 
   int total_size  = global_comm->global_comm_size;
@@ -59,7 +58,8 @@ int gatherMPI(
                    root_mpi_rank,
                    tag);
 #endif
-    return MPI_Send(sendbuf, count, mpi_type, root_mpi_rank, tag, global_comm->comm);
+    CHECK_MPI(MPI_Send(sendbuf, count, mpi_type, root_mpi_rank, tag, global_comm->comm));
+    return CollSuccess;
   }
 
   // root
@@ -87,8 +87,7 @@ int gatherMPI(
     if (global_rank == i) {
       memcpy(dst, sendbuf, incr);
     } else {
-      res = MPI_Recv(dst, count, mpi_type, recvfrom_mpi_rank, tag, global_comm->comm, &status);
-      assert(res == MPI_SUCCESS);
+      CHECK_MPI(MPI_Recv(dst, count, mpi_type, recvfrom_mpi_rank, tag, global_comm->comm, &status));
     }
     dst += incr;
   }
