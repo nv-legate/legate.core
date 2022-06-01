@@ -27,8 +27,6 @@ from typing import (
     overload,
 )
 
-import pyarrow as pa
-
 from . import (
     ArgumentMap,
     BufferBuilder,
@@ -748,7 +746,7 @@ class TaskLauncher:
     def add_scalar_arg(
         self,
         value: Any,
-        dtype: Union[bool, pa.lib.DataType],
+        dtype: DTType,
         untyped: bool = True,
     ) -> None:
         self._scalars.append(
