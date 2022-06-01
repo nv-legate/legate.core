@@ -20,7 +20,7 @@
 #include <stddef.h>
 #include <vector>
 
-#if defined(LEGATE_USE_GASNET)
+#ifdef LEGATE_USE_GASNET
 #include <mpi.h>
 #endif
 
@@ -28,7 +28,7 @@ namespace legate {
 namespace comm {
 namespace coll {
 
-#if defined(LEGATE_USE_GASNET)
+#ifdef LEGATE_USE_GASNET
 
 struct RankMappingTable {
   int* mpi_rank;
@@ -63,7 +63,7 @@ enum CollStatus : int {
 };
 
 struct Coll_Comm {
-#if defined(LEGATE_USE_GASNET)
+#ifdef LEGATE_USE_GASNET
   MPI_Comm comm;
   RankMappingTable mapping_table;
 #else
@@ -115,7 +115,7 @@ int collFinalize(void);
 int collGetUniqueId(int* id);
 
 // The following functions should not be called by users
-#if defined(LEGATE_USE_GASNET)
+#ifdef LEGATE_USE_GASNET
 int alltoallvMPI(const void* sendbuf,
                  const int sendcounts[],
                  const int sdispls[],

@@ -36,7 +36,7 @@ namespace coll {
 using namespace Legion;
 Logger log_coll("coll");
 
-#if defined(LEGATE_USE_GASNET)
+#ifdef LEGATE_USE_GASNET
 
 enum CollTag : int {
   BCAST_TAG     = 0,
@@ -68,7 +68,7 @@ int collCommCreate(CollComm global_comm,
   global_comm->global_rank      = global_rank;
   global_comm->status           = true;
   global_comm->unique_id        = unique_id;
-#if defined(LEGATE_USE_GASNET)
+#ifdef LEGATE_USE_GASNET
   int mpi_rank, mpi_comm_size;
   int *tag_ub, flag, res;
   int compare_result;
@@ -128,7 +128,7 @@ int collCommCreate(CollComm global_comm,
 
 int collCommDestroy(CollComm global_comm)
 {
-#if defined(LEGATE_USE_GASNET)
+#ifdef LEGATE_USE_GASNET
   if (global_comm->mapping_table.global_rank != nullptr) {
     free(global_comm->mapping_table.global_rank);
     global_comm->mapping_table.global_rank = nullptr;
@@ -170,7 +170,7 @@ int collAlltoallv(const void* sendbuf,
                  global_comm->mpi_rank,
                  global_comm->unique_id,
                  global_comm->global_comm_size);
-#if defined(LEGATE_USE_GASNET)
+#ifdef LEGATE_USE_GASNET
   return alltoallvMPI(
     sendbuf, sendcounts, sdispls, recvbuf, recvcounts, rdispls, type, global_comm);
 #else
@@ -187,7 +187,7 @@ int collAlltoall(
                  global_comm->mpi_rank,
                  global_comm->unique_id,
                  global_comm->global_comm_size);
-#if defined(LEGATE_USE_GASNET)
+#ifdef LEGATE_USE_GASNET
   return alltoallMPI(sendbuf, recvbuf, count, type, global_comm);
 #else
   return alltoallLocal(sendbuf, recvbuf, count, type, global_comm);
@@ -202,7 +202,7 @@ int collGather(
                  global_comm->mpi_rank,
                  global_comm->unique_id,
                  global_comm->global_comm_size);
-#if defined(LEGATE_USE_GASNET)
+#ifdef LEGATE_USE_GASNET
   return gatherMPI(sendbuf, recvbuf, count, type, root, global_comm);
 #else
   printf("Not implemented\n");
@@ -218,7 +218,7 @@ int collAllgather(
                  global_comm->mpi_rank,
                  global_comm->unique_id,
                  global_comm->global_comm_size);
-#if defined(LEGATE_USE_GASNET)
+#ifdef LEGATE_USE_GASNET
   return allgatherMPI(sendbuf, recvbuf, count, type, global_comm);
 #else
   return allgatherLocal(sendbuf, recvbuf, count, type, global_comm);
@@ -232,7 +232,7 @@ int collBcast(void* buf, int count, CollDataType type, int root, CollComm global
                  global_comm->mpi_rank,
                  global_comm->unique_id,
                  global_comm->global_comm_size);
-#if defined(LEGATE_USE_GASNET)
+#ifdef LEGATE_USE_GASNET
   return bcastMPI(buf, count, type, root, global_comm);
 #else
   printf("Not implemented\n");
@@ -244,7 +244,7 @@ int collBcast(void* buf, int count, CollDataType type, int root, CollComm global
 int collInit(int argc, char* argv[])
 {
   current_unique_id = 0;
-#if defined(LEGATE_USE_GASNET)
+#ifdef LEGATE_USE_GASNET
   int provided, res, init_flag = 0;
   MPI_Initialized(&init_flag);
   if (!init_flag) {
@@ -276,7 +276,7 @@ int collFinalize(void)
 {
   assert(coll_inited == true);
   coll_inited = false;
-#if defined(LEGATE_USE_GASNET)
+#ifdef LEGATE_USE_GASNET
   int res;
   for (int i = 0; i < MAX_NB_COMMS; i++) {
     res = MPI_Comm_free(&mpi_comms[i]);
@@ -299,7 +299,7 @@ int collGetUniqueId(int* id)
   return CollSuccess;
 }
 
-#if defined(LEGATE_USE_GASNET)
+#ifdef LEGATE_USE_GASNET
 MPI_Datatype collDtypeToMPIDtype(CollDataType dtype)
 {
   if (dtype == CollDataType::CollInt8) {

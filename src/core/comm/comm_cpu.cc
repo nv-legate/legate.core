@@ -67,7 +67,7 @@ static coll::CollComm init_cpucoll(const Legion::Task* task,
 
   coll::CollComm comm = (coll::CollComm)malloc(sizeof(coll::Coll_Comm));
 
-#if defined(LEGATE_USE_GASNET)
+#ifdef LEGATE_USE_GASNET
   int* mapping_table = (int*)malloc(sizeof(int) * num_ranks);
   for (int i = 0; i < num_ranks; i++) {
     const int mapping_table_element = task->futures[i + 1].get_result<int>();
