@@ -350,8 +350,12 @@ to this:
 import cunumeric as np
 ```
 After this, you can use the `legate` driver script in the `bin` directory of
-your installation to run any Python program. For example, to run your script
-in the default configuration (4 CPUs cores and 4 GB of memory) just run:
+your installation to run any Python program. **Note that the default python
+interpreter (`python`) will not work with programs that use Legate libraries, you
+need to use this custom driver script.**
+
+For example, to run your script in the default configuration (4 CPUs cores and
+4 GB of memory) just run:
 ```
 installdir/bin/legate my_python_program.py [other args]
 ```
