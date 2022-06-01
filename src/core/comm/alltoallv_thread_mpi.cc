@@ -179,7 +179,8 @@ int alltoallvMPI(const void* sendbuf,
     int recv_tag = collGenerateAlltoallvTag(global_rank, recvfrom_global_rank, global_comm);
 #ifdef DEBUG_LEGATE
     log_coll.debug(
-      "i: %d === global_rank %d, mpi rank %d, send %d to %d, send_tag %d, recv %d from %d, "
+      "AlltoallvMPI i: %d === global_rank %d, mpi rank %d, send %d to %d, send_tag %d, recv %d "
+      "from %d, "
       "recv_tag %d",
       i,
       global_rank,

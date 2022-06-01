@@ -29,8 +29,6 @@ namespace coll {
 using namespace Legion;
 extern Logger log_coll;
 
-#define ALLTOALL_USE_SENDRECV
-
 static int alltoallMPIInplace(void* recvbuf,
                               int recvcount,
                               MPI_Datatype recvtype,
@@ -141,7 +139,6 @@ int alltoallMPI(
     sendbuf_tmp = collAllocateInplaceBuffer(recvbuf, total_size * type_extent * count);
   }
 
-#ifdef ALLTOALL_USE_SENDRECV
   int sendto_global_rank, recvfrom_global_rank, sendto_mpi_rank, recvfrom_mpi_rank;
   for (int i = 1; i < total_size + 1; i++) {
     sendto_global_rank   = (global_rank + i) % total_size;
@@ -159,7 +156,8 @@ int alltoallMPI(
     int recv_tag = collGenerateAlltoallTag(global_rank, recvfrom_global_rank, global_comm);
 #ifdef DEBUG_LEGATE
     log_coll.debug(
-      "i: %d === global_rank %d, mpi rank %d, send %d to %d, send_tag %d, recv %d from %d, "
+      "AlltoallMPI i: %d === global_rank %d, mpi rank %d, send %d to %d, send_tag %d, recv %d from "
+      "%d, "
       "recv_tag %d",
       i,
       global_rank,
@@ -185,43 +183,6 @@ int alltoallMPI(
                        &status);
     assert(res == MPI_SUCCESS);
   }
-#elif defined(ALLTOALL_USE_SENDRECV_OLD)
-  int dest_mpi_rank;
-  for (int i = 0; i < total_size; i++) {
-    char* src     = (char*)sendbuf_tmp + i * sendtype_extent * sendcount;
-    char* dst     = (char*)recvbuf + i * recvtype_extent * recvcount;
-    dest_mpi_rank = global_comm->mapping_table.mpi_rank[i];
-    int send_tag  = collGenerateAlltoallTag(i, global_rank, global_comm);
-    int recv_tag  = collGenerateAlltoallTag(global_rank, i, global_comm);
-#ifdef DEBUG_LEGATE
-    log_coll.debug(
-      "i: %d === global_rank %d, mpi rank %d, send %d to %d, send_tag %d, recv %d from %d, "
-      "recv_tag %d",
-      i,
-      global_rank,
-      global_comm->mpi_rank,
-      i,
-      dest_mpi_rank,
-      send_tag,
-      i,
-      dest_mpi_rank,
-      recv_tag);
-#endif
-    res = MPI_Sendrecv(src,
-                       sendcount,
-                       mpi_sendtype,
-                       dest_mpi_rank,
-                       send_tag,
-                       dst,
-                       recvcount,
-                       mpi_recvtype,
-                       dest_mpi_rank,
-                       recv_tag,
-                       global_comm->comm,
-                       &status);
-    assert(res == MPI_SUCCESS);
-  }
-#endif
 
   if (sendbuf == recvbuf) { free(sendbuf_tmp); }
 

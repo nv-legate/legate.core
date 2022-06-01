@@ -53,14 +53,15 @@ int allgatherLocal(
     char* dst       = static_cast<char*>(recvbuf) +
                 static_cast<ptrdiff_t>(recvfrom_global_rank) * type_extent * count;
 #ifdef DEBUG_LEGATE
-    log_coll.debug("i: %d === global_rank %d, dtype %d, copy rank %d (%p) to rank %d (%p)",
-                   i,
-                   global_rank,
-                   sendtype_extent,
-                   recvfrom_global_rank,
-                   src,
-                   global_rank,
-                   dst);
+    log_coll.debug(
+      "AllgatherLocal i: %d === global_rank %d, dtype %d, copy rank %d (%p) to rank %d (%p)",
+      i,
+      global_rank,
+      sendtype_extent,
+      recvfrom_global_rank,
+      src,
+      global_rank,
+      dst);
 #endif
     memcpy(dst, src, count * type_extent);
   }

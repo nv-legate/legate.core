@@ -64,7 +64,8 @@ int alltoallLocal(
                 static_cast<ptrdiff_t>(recvfrom_global_rank) * type_extent * count;
 #ifdef DEBUG_LEGATE
     log_coll.debug(
-      "i: %d === global_rank %d, dtype %d, copy rank %d (seg %d, %p) to rank %d (seg %d, %p)",
+      "AlltoallLocal i: %d === global_rank %d, dtype %d, copy rank %d (seg %d, %p) to rank %d (seg "
+      "%d, %p)",
       i,
       global_rank,
       sendtype_extent,

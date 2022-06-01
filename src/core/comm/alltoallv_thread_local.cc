@@ -75,7 +75,8 @@ int alltoallvLocal(const void* sendbuf,
                 static_cast<ptrdiff_t>(rdispls[recvfrom_global_rank]) * type_extent;
 #ifdef DEBUG_LEGATE
     log_coll.debug(
-      "i: %d === global_rank %d, dtype %d, copy rank %d (seg %d, sdispls %d, %p) to rank %d (seg "
+      "AlltoallvLocal i: %d === global_rank %d, dtype %d, copy rank %d (seg %d, sdispls %d, %p) to "
+      "rank %d (seg "
       "%d, rdispls %d, %p)",
       i,
       global_rank,

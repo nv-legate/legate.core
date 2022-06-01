@@ -52,7 +52,7 @@ int gatherMPI(
   if (global_rank != root) {
     tag = collGenerateGatherTag(global_rank, global_comm);
 #ifdef DEBUG_LEGATE
-    log_coll.debug("Gather Send global_rank %d, mpi rank %d, send to %d (%d), tag %d",
+    log_coll.debug("GatherMPI: non-root send global_rank %d, mpi rank %d, send to %d (%d), tag %d",
                    global_rank,
                    global_comm->mpi_rank,
                    root,
@@ -73,14 +73,15 @@ int gatherMPI(
     assert(i == global_comm->mapping_table.global_rank[i]);
     tag = collGenerateGatherTag(i, global_comm);
 #ifdef DEBUG_LEGATE
-    log_coll.debug("Gather i: %d === global_rank %d, mpi rank %d, recv %p, from %d (%d), tag %d",
-                   i,
-                   global_rank,
-                   global_comm->mpi_rank,
-                   dst,
-                   i,
-                   recvfrom_mpi_rank,
-                   tag);
+    log_coll.debug(
+      "GatherMPI: root i %d === global_rank %d, mpi rank %d, recv %p, from %d (%d), tag %d",
+      i,
+      global_rank,
+      global_comm->mpi_rank,
+      dst,
+      i,
+      recvfrom_mpi_rank,
+      tag);
 #endif
     assert(dst != nullptr);
     if (global_rank == i) {
