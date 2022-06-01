@@ -204,7 +204,7 @@ int collGather(
 #ifdef LEGATE_USE_GASNET
   return gatherMPI(sendbuf, recvbuf, count, type, root, global_comm);
 #else
-  printf("Not implemented\n");
+  fprintf(stderr, "Not implemented\n");
   assert(0);
 #endif
 }
@@ -234,7 +234,7 @@ int collBcast(void* buf, int count, CollDataType type, int root, CollComm global
 #ifdef LEGATE_USE_GASNET
   return bcastMPI(buf, count, type, root, global_comm);
 #else
-  printf("Not implemented\n");
+  fprintf(stderr, "Not implemented\n");
   assert(0);
 #endif
 }
