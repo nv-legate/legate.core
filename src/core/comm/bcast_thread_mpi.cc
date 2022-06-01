@@ -40,11 +40,11 @@ int bcastMPI(void* buf, int count, CollDataType type, int root, CollComm global_
   int root_mpi_rank = global_comm->mapping_table.mpi_rank[root];
   assert(root == global_comm->mapping_table.global_rank[root]);
 
-  MPI_Datatype mpi_type = collDtypeToMPIDtype(type);
+  MPI_Datatype mpi_type = dtypeToMPIDtype(type);
 
   // non-root
   if (global_rank != root) {
-    tag = collGenerateBcastTag(global_rank, global_comm);
+    tag = generateBcastTag(global_rank, global_comm);
 #ifdef DEBUG_LEGATE
     log_coll.debug("BcastMPI: non-root recv global_rank %d, mpi rank %d, send to %d (%d), tag %d",
                    global_rank,
@@ -62,7 +62,7 @@ int bcastMPI(void* buf, int count, CollDataType type, int root, CollComm global_
   for (int i = 0; i < total_size; i++) {
     sendto_mpi_rank = global_comm->mapping_table.mpi_rank[i];
     assert(i == global_comm->mapping_table.global_rank[i]);
-    tag = collGenerateBcastTag(i, global_comm);
+    tag = generateBcastTag(i, global_comm);
 #ifdef DEBUG_LEGATE
     log_coll.debug("BcastMPI: root i %d === global_rank %d, mpi rank %d, send to %d (%d), tag %d",
                    i,

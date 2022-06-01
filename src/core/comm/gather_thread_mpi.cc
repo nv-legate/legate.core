@@ -37,7 +37,7 @@ int gatherMPI(
   int total_size  = global_comm->global_comm_size;
   int global_rank = global_comm->global_rank;
 
-  MPI_Datatype mpi_type = collDtypeToMPIDtype(type);
+  MPI_Datatype mpi_type = dtypeToMPIDtype(type);
 
   // Should not see inplace here
   if (sendbuf == recvbuf) { assert(0); }
@@ -49,7 +49,7 @@ int gatherMPI(
 
   // non-root
   if (global_rank != root) {
-    tag = collGenerateGatherTag(global_rank, global_comm);
+    tag = generateGatherTag(global_rank, global_comm);
 #ifdef DEBUG_LEGATE
     log_coll.debug("GatherMPI: non-root send global_rank %d, mpi rank %d, send to %d (%d), tag %d",
                    global_rank,
@@ -71,7 +71,7 @@ int gatherMPI(
   for (int i = 0; i < total_size; i++) {
     recvfrom_mpi_rank = global_comm->mapping_table.mpi_rank[i];
     assert(i == global_comm->mapping_table.global_rank[i]);
-    tag = collGenerateGatherTag(i, global_comm);
+    tag = generateGatherTag(i, global_comm);
 #ifdef DEBUG_LEGATE
     log_coll.debug(
       "GatherMPI: root i %d === global_rank %d, mpi rank %d, recv %p, from %d (%d), tag %d",

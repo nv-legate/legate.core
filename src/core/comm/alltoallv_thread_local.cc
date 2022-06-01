@@ -43,14 +43,14 @@ int alltoallvLocal(const void* sendbuf,
   int total_size  = global_comm->global_comm_size;
   int global_rank = global_comm->global_rank;
 
-  int type_extent = collGetDtypeSize(type);
+  int type_extent = getDtypeSize(type);
 
   const void* sendbuf_tmp = sendbuf;
 
   // MPI_IN_PLACE
   if (sendbuf == recvbuf) {
     int total_send_count = sdispls[total_size - 1] + sendcounts[total_size - 1];
-    sendbuf_tmp          = collAllocateInplaceBuffer(recvbuf, type_extent * total_send_count);
+    sendbuf_tmp          = allocateInplaceBuffer(recvbuf, type_extent * total_send_count);
   }
 
   global_comm->comm->displs[global_rank]  = sdispls;
@@ -93,13 +93,13 @@ int alltoallvLocal(const void* sendbuf,
     memcpy(dst, src, recvcounts[recvfrom_global_rank] * type_extent);
   }
 
-  collBarrierLocal(global_comm);
+  barrierLocal(global_comm);
   if (sendbuf == recvbuf) { free(const_cast<void*>(sendbuf_tmp)); }
 
   __sync_synchronize();
 
-  collUpdateBuffer(global_comm);
-  collBarrierLocal(global_comm);
+  resetLocalBuffer(global_comm);
+  barrierLocal(global_comm);
 
   return CollSuccess;
 }

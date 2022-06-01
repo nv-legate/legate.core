@@ -37,13 +37,13 @@ int alltoallLocal(
   int total_size  = global_comm->global_comm_size;
   int global_rank = global_comm->global_rank;
 
-  int type_extent = collGetDtypeSize(type);
+  int type_extent = getDtypeSize(type);
 
   const void* sendbuf_tmp = sendbuf;
 
   // MPI_IN_PLACE
   if (sendbuf == recvbuf) {
-    sendbuf_tmp = collAllocateInplaceBuffer(recvbuf, total_size * type_extent * count);
+    sendbuf_tmp = allocateInplaceBuffer(recvbuf, total_size * type_extent * count);
   }
 
   global_comm->comm->buffers[global_rank] = sendbuf_tmp;
@@ -79,13 +79,13 @@ int alltoallLocal(
     memcpy(dst, src, count * type_extent);
   }
 
-  collBarrierLocal(global_comm);
+  barrierLocal(global_comm);
   if (sendbuf == recvbuf) { free(const_cast<void*>(sendbuf_tmp)); }
 
   __sync_synchronize();
 
-  collUpdateBuffer(global_comm);
-  collBarrierLocal(global_comm);
+  resetLocalBuffer(global_comm);
+  barrierLocal(global_comm);
 
   return CollSuccess;
 }

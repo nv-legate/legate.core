@@ -74,7 +74,7 @@ static int alltoallvMPIInplace(void* recvbuf,
       packed_size = max_size;
 
       // receive data from the right
-      recv_tag = collGenerateAlltoallTag(global_rank, right, global_comm);
+      recv_tag = generateAlltoallTag(global_rank, right, global_comm);
       CHECK_MPI(MPI_Irecv((char*)recvbuf + rdispls[right] * recvtype_extent,
                           recvcounts[right],
                           recvtype,
@@ -86,7 +86,7 @@ static int alltoallvMPIInplace(void* recvbuf,
 
     if ((left != right) && (0 != recvcounts[left])) {
       // send data to the left
-      send_tag = collGenerateAlltoallTag(left, global_rank, global_comm);
+      send_tag = generateAlltoallTag(left, global_rank, global_comm);
       CHECK_MPI(MPI_Send((char*)recvbuf + rdispls[left] * recvtype_extent,
                          recvcounts[left],
                          recvtype,
@@ -97,7 +97,7 @@ static int alltoallvMPIInplace(void* recvbuf,
       CHECK_MPI(MPI_Wait(&request, MPI_STATUSES_IGNORE));
 
       // receive data from the left
-      recv_tag = collGenerateAlltoallTag(global_rank, left, global_comm);
+      recv_tag = generateAlltoallTag(global_rank, left, global_comm);
       CHECK_MPI(MPI_Irecv((char*)recvbuf + rdispls[left] * recvtype_extent,
                           recvcounts[left],
                           recvtype,
@@ -109,7 +109,7 @@ static int alltoallvMPIInplace(void* recvbuf,
 
     if (0 != recvcounts[right]) { /* nothing to exchange with the peer on the right */
       // send data to the right
-      send_tag = collGenerateAlltoallTag(right, global_rank, global_comm);
+      send_tag = generateAlltoallTag(right, global_rank, global_comm);
       CHECK_MPI(
         MPI_Send(tmp_buffer, packed_size, MPI_PACKED, right_mpi_rank, send_tag, global_comm->comm));
     }
@@ -136,7 +136,7 @@ int alltoallvMPI(const void* sendbuf,
   int total_size  = global_comm->global_comm_size;
   int global_rank = global_comm->global_rank;
 
-  MPI_Datatype mpi_type = collDtypeToMPIDtype(type);
+  MPI_Datatype mpi_type = dtypeToMPIDtype(type);
 
   MPI_Aint lb, type_extent;
   MPI_Type_get_extent(mpi_type, &lb, &type_extent);
@@ -148,7 +148,7 @@ int alltoallvMPI(const void* sendbuf,
     // not sure which way is better
     // return alltoallvMPIInplace(recvbuf, recvcounts, rdispls, mpi_type, global_comm);
     int total_send_count = sdispls[total_size - 1] + sendcounts[total_size - 1];
-    sendbuf_tmp          = collAllocateInplaceBuffer(recvbuf, type_extent * total_send_count);
+    sendbuf_tmp          = allocateInplaceBuffer(recvbuf, type_extent * total_send_count);
   }
 
   int sendto_global_rank, recvfrom_global_rank, sendto_mpi_rank, recvfrom_mpi_rank;
@@ -166,8 +166,8 @@ int alltoallvMPI(const void* sendbuf,
     assert(sendto_global_rank == global_comm->mapping_table.global_rank[sendto_global_rank]);
     assert(recvfrom_global_rank == global_comm->mapping_table.global_rank[recvfrom_global_rank]);
     // tag: seg idx + rank_idx + tag
-    int send_tag = collGenerateAlltoallvTag(sendto_global_rank, global_rank, global_comm);
-    int recv_tag = collGenerateAlltoallvTag(global_rank, recvfrom_global_rank, global_comm);
+    int send_tag = generateAlltoallvTag(sendto_global_rank, global_rank, global_comm);
+    int recv_tag = generateAlltoallvTag(global_rank, recvfrom_global_rank, global_comm);
 #ifdef DEBUG_LEGATE
     log_coll.debug(
       "AlltoallvMPI i: %d === global_rank %d, mpi rank %d, send %d to %d, send_tag %d, recv %d "

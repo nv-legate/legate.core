@@ -113,7 +113,7 @@ int collCommCreate(CollComm global_comm,
   volatile ThreadComm* data = &(thread_comms[global_comm->unique_id]);
   while (data->ready_flag != true) { data = &(thread_comms[global_comm->unique_id]); }
   global_comm->comm = &(thread_comms[global_comm->unique_id]);
-  collBarrierLocal(global_comm);
+  barrierLocal(global_comm);
   assert(global_comm->comm->ready_flag == true);
   assert(global_comm->comm->buffers != nullptr);
   assert(global_comm->comm->displs != nullptr);
@@ -138,7 +138,7 @@ int collCommDestroy(CollComm global_comm)
     global_comm->mapping_table.mpi_rank = nullptr;
   }
 #else
-  collBarrierLocal(global_comm);
+  barrierLocal(global_comm);
   if (global_comm->global_rank == 0) {
     pthread_barrier_destroy((pthread_barrier_t*)&(thread_comms[global_comm->unique_id].barrier));
     free(thread_comms[global_comm->unique_id].buffers);
@@ -295,7 +295,7 @@ int collGetUniqueId(int* id)
 }
 
 #ifdef LEGATE_USE_GASNET
-MPI_Datatype collDtypeToMPIDtype(CollDataType dtype)
+MPI_Datatype dtypeToMPIDtype(CollDataType dtype)
 {
   MPI_Datatype mpi_dtype = MPI_BYTE;
   switch (dtype) {
@@ -313,7 +313,7 @@ MPI_Datatype collDtypeToMPIDtype(CollDataType dtype)
   return mpi_dtype;
 }
 
-int collGenerateAlltoallTag(int rank1, int rank2, CollComm global_comm)
+int generateAlltoallTag(int rank1, int rank2, CollComm global_comm)
 {
   // tag: seg idx + rank_idx + tag
   // int send_tag = ((sendto_global_rank * 10000 + global_rank) * 10 + ALLTOALL_TAG) * 10 +
@@ -323,17 +323,15 @@ int collGenerateAlltoallTag(int rank1, int rank2, CollComm global_comm)
 #if 1
   int tag = (rank1 * 10000 + rank2) * CollTag::MAX_TAG + CollTag::ALLTOALL_TAG;
 #else
-  // still under testing
+  // still under testing, will be used once if 1 runs out of tags
   int tag =
-    ((rank1 % global_comm->nb_threads * 10000 + rank2) * CollTag::MAX_TAG + CollTag::ALLTOALL_TAG) *
-      MAX_NB_COMMS +
-    global_comm->unique_id;
+    (rank1 % global_comm->nb_threads * 10000 + rank2) * CollTag::MAX_TAG + CollTag::ALLTOALL_TAG;
 #endif
   assert(tag < INT_MAX && tag > 0);
   return tag;
 }
 
-int collGenerateAlltoallvTag(int rank1, int rank2, CollComm global_comm)
+int generateAlltoallvTag(int rank1, int rank2, CollComm global_comm)
 {
   // tag: seg idx + rank_idx + tag
   // int send_tag = ((sendto_global_rank * 10000 + global_rank) * 10 + ALLTOALLV_TAG) * 10 +
@@ -343,24 +341,22 @@ int collGenerateAlltoallvTag(int rank1, int rank2, CollComm global_comm)
 #if 1
   int tag = (rank1 * 10000 + rank2) * CollTag::MAX_TAG + CollTag::ALLTOALLV_TAG;
 #else
-  // still under testing
-  int tag = ((rank1 % global_comm->nb_threads * 10000 + rank2) * CollTag::MAX_TAG +
-             CollTag::ALLTOALLV_TAG) *
-              MAX_NB_COMMS +
-            global_comm->unique_id;
+  // still under testing, will be used once if 1 runs out of tags
+  int tag =
+    (rank1 % global_comm->nb_threads * 10000 + rank2) * CollTag::MAX_TAG + CollTag::ALLTOALLV_TAG;
 #endif
   assert(tag < INT_MAX && tag > 0);
   return tag;
 }
 
-int collGenerateBcastTag(int rank, CollComm global_comm)
+int generateBcastTag(int rank, CollComm global_comm)
 {
   int tag = rank * CollTag::MAX_TAG + CollTag::BCAST_TAG;
   assert(tag < INT_MAX && tag >= 0);
   return tag;
 }
 
-int collGenerateGatherTag(int rank, CollComm global_comm)
+int generateGatherTag(int rank, CollComm global_comm)
 {
   int tag = rank * CollTag::MAX_TAG + CollTag::GATHER_TAG;
   assert(tag < INT_MAX && tag > 0);
@@ -368,7 +364,7 @@ int collGenerateGatherTag(int rank, CollComm global_comm)
 }
 
 #else  // undef LEGATE_USE_GASNET
-size_t collGetDtypeSize(CollDataType dtype)
+size_t getDtypeSize(CollDataType dtype)
 {
   size_t size = 0;
   switch (dtype) {
@@ -386,21 +382,21 @@ size_t collGetDtypeSize(CollDataType dtype)
   return size;
 }
 
-void collUpdateBuffer(CollComm global_comm)
+void resetLocalBuffer(CollComm global_comm)
 {
   int global_rank                         = global_comm->global_rank;
   global_comm->comm->buffers[global_rank] = nullptr;
   global_comm->comm->displs[global_rank]  = nullptr;
 }
 
-void collBarrierLocal(CollComm global_comm)
+void barrierLocal(CollComm global_comm)
 {
   assert(coll_inited == true);
   pthread_barrier_wait((pthread_barrier_t*)&(global_comm->comm->barrier));
 }
 #endif
 
-void* collAllocateInplaceBuffer(const void* recvbuf, size_t size)
+void* allocateInplaceBuffer(const void* recvbuf, size_t size)
 {
   void* sendbuf_tmp = malloc(size);
   assert(sendbuf_tmp != nullptr);

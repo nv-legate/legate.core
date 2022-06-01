@@ -31,7 +31,7 @@ int allgatherMPI(
   int total_size  = global_comm->global_comm_size;
   int global_rank = global_comm->global_rank;
 
-  MPI_Datatype mpi_type = collDtypeToMPIDtype(type);
+  MPI_Datatype mpi_type = dtypeToMPIDtype(type);
 
   MPI_Aint lb, type_extent;
   MPI_Type_get_extent(mpi_type, &lb, &type_extent);
@@ -39,7 +39,7 @@ int allgatherMPI(
   void* sendbuf_tmp = const_cast<void*>(sendbuf);
 
   // MPI_IN_PLACE
-  if (sendbuf == recvbuf) { sendbuf_tmp = collAllocateInplaceBuffer(recvbuf, type_extent * count); }
+  if (sendbuf == recvbuf) { sendbuf_tmp = allocateInplaceBuffer(recvbuf, type_extent * count); }
 
   gatherMPI(sendbuf_tmp, recvbuf, count, type, 0, global_comm);
 

@@ -142,17 +142,17 @@ int allgatherMPI(
 
 int bcastMPI(void* buf, int count, CollDataType type, int root, CollComm global_comm);
 
-MPI_Datatype collDtypeToMPIDtype(CollDataType dtype);
+MPI_Datatype dtypeToMPIDtype(CollDataType dtype);
 
-int collGenerateAlltoallTag(int rank1, int rank2, CollComm global_comm);
+int generateAlltoallTag(int rank1, int rank2, CollComm global_comm);
 
-int collGenerateAlltoallvTag(int rank1, int rank2, CollComm global_comm);
+int generateAlltoallvTag(int rank1, int rank2, CollComm global_comm);
 
-int collGenerateBcastTag(int rank, CollComm global_comm);
+int generateBcastTag(int rank, CollComm global_comm);
 
-int collGenerateGatherTag(int rank, CollComm global_comm);
+int generateGatherTag(int rank, CollComm global_comm);
 #else
-size_t collGetDtypeSize(CollDataType dtype);
+size_t getDtypeSize(CollDataType dtype);
 
 int alltoallvLocal(const void* sendbuf,
                    const int sendcounts[],
@@ -169,12 +169,12 @@ int alltoallLocal(
 int allgatherLocal(
   const void* sendbuf, void* recvbuf, int count, CollDataType type, CollComm global_comm);
 
-void collUpdateBuffer(CollComm global_comm);
+void resetLocalBuffer(CollComm global_comm);
 
-void collBarrierLocal(CollComm global_comm);
+void barrierLocal(CollComm global_comm);
 #endif
 
-void* collAllocateInplaceBuffer(const void* recvbuf, size_t size);
+void* allocateInplaceBuffer(const void* recvbuf, size_t size);
 
 #ifdef LEGATE_USE_GASNET
 inline void check_mpi(int error, const char* file, int line)
