@@ -31,10 +31,10 @@ extern Logger log_coll;
 
 #define ALLTOALL_USE_SENDRECV
 
-static int collAlltoallMPIInplace(void* recvbuf,
-                                  int recvcount,
-                                  MPI_Datatype recvtype,
-                                  CollComm global_comm)
+static int alltoallMPIInplace(void* recvbuf,
+                              int recvcount,
+                              MPI_Datatype recvtype,
+                              CollComm global_comm)
 {
   int res;
 
@@ -118,13 +118,8 @@ static int collAlltoallMPIInplace(void* recvbuf,
   return CollSuccess;
 }
 
-int collAlltoallMPI(const void* sendbuf,
-                    int sendcount,
-                    CollDataType sendtype,
-                    void* recvbuf,
-                    int recvcount,
-                    CollDataType recvtype,
-                    CollComm global_comm)
+int alltoallMPI(
+  const void* sendbuf, void* recvbuf, int count, CollDataType type, CollComm global_comm)
 {
   int res;
   MPI_Status status;
@@ -132,12 +127,10 @@ int collAlltoallMPI(const void* sendbuf,
   int total_size  = global_comm->global_comm_size;
   int global_rank = global_comm->global_rank;
 
-  MPI_Datatype mpi_sendtype = collDtypeToMPIDtype(sendtype);
-  MPI_Datatype mpi_recvtype = collDtypeToMPIDtype(recvtype);
+  MPI_Datatype mpi_type = collDtypeToMPIDtype(type);
 
-  MPI_Aint lb, sendtype_extent, recvtype_extent;
-  MPI_Type_get_extent(mpi_sendtype, &lb, &sendtype_extent);
-  MPI_Type_get_extent(mpi_recvtype, &lb, &recvtype_extent);
+  MPI_Aint lb, type_extent;
+  MPI_Type_get_extent(mpi_type, &lb, &type_extent);
 
   void* sendbuf_tmp = const_cast<void*>(sendbuf);
 
@@ -145,7 +138,7 @@ int collAlltoallMPI(const void* sendbuf,
   if (sendbuf == recvbuf) {
     // Not sure which way is better
     // return collAlltoallMPIInplace(recvbuf, recvcount, mpi_recvtype, global_comm);
-    sendbuf_tmp = collAllocateInplaceBuffer(recvbuf, total_size * sendtype_extent * sendcount);
+    sendbuf_tmp = collAllocateInplaceBuffer(recvbuf, total_size * type_extent * count);
   }
 
 #ifdef ALLTOALL_USE_SENDRECV
@@ -154,9 +147,9 @@ int collAlltoallMPI(const void* sendbuf,
     sendto_global_rank   = (global_rank + i) % total_size;
     recvfrom_global_rank = (global_rank + total_size - i) % total_size;
     char* src            = static_cast<char*>(sendbuf_tmp) +
-                static_cast<ptrdiff_t>(sendto_global_rank) * sendtype_extent * sendcount;
+                static_cast<ptrdiff_t>(sendto_global_rank) * type_extent * count;
     char* dst = static_cast<char*>(recvbuf) +
-                static_cast<ptrdiff_t>(recvfrom_global_rank) * recvtype_extent * recvcount;
+                static_cast<ptrdiff_t>(recvfrom_global_rank) * type_extent * count;
     sendto_mpi_rank   = global_comm->mapping_table.mpi_rank[sendto_global_rank];
     recvfrom_mpi_rank = global_comm->mapping_table.mpi_rank[recvfrom_global_rank];
     assert(sendto_global_rank == global_comm->mapping_table.global_rank[sendto_global_rank]);
@@ -179,13 +172,13 @@ int collAlltoallMPI(const void* sendbuf,
       recv_tag);
 #endif
     res = MPI_Sendrecv(src,
-                       sendcount,
-                       mpi_sendtype,
+                       count,
+                       mpi_type,
                        sendto_mpi_rank,
                        send_tag,
                        dst,
-                       recvcount,
-                       mpi_recvtype,
+                       count,
+                       mpi_type,
                        recvfrom_mpi_rank,
                        recv_tag,
                        global_comm->comm,

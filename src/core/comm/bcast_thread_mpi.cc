@@ -29,7 +29,7 @@ namespace coll {
 using namespace Legion;
 extern Logger log_coll;
 
-int collBcastMPI(void* buf, int count, CollDataType type, int root, CollComm global_comm)
+int bcastMPI(void* buf, int count, CollDataType type, int root, CollComm global_comm)
 {
   int res, tag;
   MPI_Status status;

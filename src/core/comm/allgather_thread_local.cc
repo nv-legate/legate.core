@@ -29,29 +29,18 @@ namespace coll {
 using namespace Legion;
 extern Logger log_coll;
 
-int collAllgatherLocal(const void* sendbuf,
-                       int sendcount,
-                       CollDataType sendtype,
-                       void* recvbuf,
-                       int recvcount,
-                       CollDataType recvtype,
-                       CollComm global_comm)
+int allgatherLocal(
+  const void* sendbuf, void* recvbuf, int count, CollDataType type, CollComm global_comm)
 {
-  assert(recvcount == sendcount);
-  assert(sendtype == recvtype);
-
   int total_size  = global_comm->global_comm_size;
   int global_rank = global_comm->global_rank;
 
-  int sendtype_extent = collGetDtypeSize(sendtype);
-  int recvtype_extent = collGetDtypeSize(recvtype);
+  int type_extent = collGetDtypeSize(type);
 
   const void* sendbuf_tmp = sendbuf;
 
   // MPI_IN_PLACE
-  if (sendbuf == recvbuf) {
-    sendbuf_tmp = collAllocateInplaceBuffer(recvbuf, sendtype_extent * sendcount);
-  }
+  if (sendbuf == recvbuf) { sendbuf_tmp = collAllocateInplaceBuffer(recvbuf, type_extent * count); }
 
   global_comm->comm->buffers[global_rank] = sendbuf_tmp;
   __sync_synchronize();
@@ -62,7 +51,7 @@ int collAllgatherLocal(const void* sendbuf,
       ;
     const void* src = global_comm->comm->buffers[recvfrom_global_rank];
     char* dst       = static_cast<char*>(recvbuf) +
-                static_cast<ptrdiff_t>(recvfrom_global_rank) * recvtype_extent * recvcount;
+                static_cast<ptrdiff_t>(recvfrom_global_rank) * type_extent * count;
 #ifdef DEBUG_LEGATE
     log_coll.debug("i: %d === global_rank %d, dtype %d, copy rank %d (%p) to rank %d (%p)",
                    i,
@@ -73,7 +62,7 @@ int collAllgatherLocal(const void* sendbuf,
                    global_rank,
                    dst);
 #endif
-    memcpy(dst, src, sendcount * sendtype_extent);
+    memcpy(dst, src, count * type_extent);
   }
 
   collBarrierLocal(global_comm);

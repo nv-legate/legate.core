@@ -25,32 +25,25 @@ namespace legate {
 namespace comm {
 namespace coll {
 
-int collAllgatherMPI(const void* sendbuf,
-                     int sendcount,
-                     CollDataType sendtype,
-                     void* recvbuf,
-                     int recvcount,
-                     CollDataType recvtype,
-                     CollComm global_comm)
+int allgatherMPI(
+  const void* sendbuf, void* recvbuf, int count, CollDataType type, CollComm global_comm)
 {
   int total_size  = global_comm->global_comm_size;
   int global_rank = global_comm->global_rank;
 
-  MPI_Datatype mpi_sendtype = collDtypeToMPIDtype(sendtype);
+  MPI_Datatype mpi_type = collDtypeToMPIDtype(type);
 
-  MPI_Aint lb, sendtype_extent, recvtype_extent;
-  MPI_Type_get_extent(mpi_sendtype, &lb, &sendtype_extent);
+  MPI_Aint lb, type_extent;
+  MPI_Type_get_extent(mpi_type, &lb, &type_extent);
 
   void* sendbuf_tmp = const_cast<void*>(sendbuf);
 
   // MPI_IN_PLACE
-  if (sendbuf == recvbuf) {
-    sendbuf_tmp = collAllocateInplaceBuffer(recvbuf, sendtype_extent * sendcount);
-  }
+  if (sendbuf == recvbuf) { sendbuf_tmp = collAllocateInplaceBuffer(recvbuf, type_extent * count); }
 
-  collGatherMPI(sendbuf_tmp, sendcount, sendtype, recvbuf, recvcount, recvtype, 0, global_comm);
+  gatherMPI(sendbuf_tmp, recvbuf, count, type, 0, global_comm);
 
-  collBcastMPI(recvbuf, recvcount * total_size, recvtype, 0, global_comm);
+  bcastMPI(recvbuf, count * total_size, type, 0, global_comm);
 
   if (sendbuf == recvbuf) { free(sendbuf_tmp); }
 

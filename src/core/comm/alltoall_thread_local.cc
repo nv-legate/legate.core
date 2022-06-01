@@ -29,30 +29,21 @@ namespace coll {
 using namespace Legion;
 extern Logger log_coll;
 
-int collAlltoallLocal(const void* sendbuf,
-                      int sendcount,
-                      CollDataType sendtype,
-                      void* recvbuf,
-                      int recvcount,
-                      CollDataType recvtype,
-                      CollComm global_comm)
+int alltoallLocal(
+  const void* sendbuf, void* recvbuf, int count, CollDataType type, CollComm global_comm)
 {
   int res;
-
-  assert(recvcount == sendcount);
-  assert(sendtype == recvtype);
 
   int total_size  = global_comm->global_comm_size;
   int global_rank = global_comm->global_rank;
 
-  int sendtype_extent = collGetDtypeSize(sendtype);
-  int recvtype_extent = collGetDtypeSize(recvtype);
+  int type_extent = collGetDtypeSize(type);
 
   const void* sendbuf_tmp = sendbuf;
 
   // MPI_IN_PLACE
   if (sendbuf == recvbuf) {
-    sendbuf_tmp = collAllocateInplaceBuffer(recvbuf, total_size * sendtype_extent * sendcount);
+    sendbuf_tmp = collAllocateInplaceBuffer(recvbuf, total_size * type_extent * count);
   }
 
   global_comm->comm->buffers[global_rank] = sendbuf_tmp;
@@ -68,9 +59,9 @@ int collAlltoallLocal(const void* sendbuf,
       ;
     src_base  = global_comm->comm->buffers[recvfrom_global_rank];
     char* src = static_cast<char*>(const_cast<void*>(src_base)) +
-                static_cast<ptrdiff_t>(recvfrom_seg_id) * sendtype_extent * sendcount;
+                static_cast<ptrdiff_t>(recvfrom_seg_id) * type_extent * count;
     char* dst = static_cast<char*>(recvbuf) +
-                static_cast<ptrdiff_t>(recvfrom_global_rank) * recvtype_extent * recvcount;
+                static_cast<ptrdiff_t>(recvfrom_global_rank) * type_extent * count;
 #ifdef DEBUG_LEGATE
     log_coll.debug(
       "i: %d === global_rank %d, dtype %d, copy rank %d (seg %d, %p) to rank %d (seg %d, %p)",
@@ -84,7 +75,7 @@ int collAlltoallLocal(const void* sendbuf,
       recvfrom_global_rank,
       dst);
 #endif
-    memcpy(dst, src, sendcount * sendtype_extent);
+    memcpy(dst, src, count * type_extent);
   }
 
   collBarrierLocal(global_comm);

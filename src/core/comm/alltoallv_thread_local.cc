@@ -29,32 +29,28 @@ namespace coll {
 using namespace Legion;
 extern Logger log_coll;
 
-int collAlltoallvLocal(const void* sendbuf,
-                       const int sendcounts[],
-                       const int sdispls[],
-                       CollDataType sendtype,
-                       void* recvbuf,
-                       const int recvcounts[],
-                       const int rdispls[],
-                       CollDataType recvtype,
-                       CollComm global_comm)
+int alltoallvLocal(const void* sendbuf,
+                   const int sendcounts[],
+                   const int sdispls[],
+                   void* recvbuf,
+                   const int recvcounts[],
+                   const int rdispls[],
+                   CollDataType type,
+                   CollComm global_comm)
 {
   int res;
-
-  assert(sendtype == recvtype);
 
   int total_size  = global_comm->global_comm_size;
   int global_rank = global_comm->global_rank;
 
-  int sendtype_extent = collGetDtypeSize(sendtype);
-  int recvtype_extent = collGetDtypeSize(recvtype);
+  int type_extent = collGetDtypeSize(type);
 
   const void* sendbuf_tmp = sendbuf;
 
   // MPI_IN_PLACE
   if (sendbuf == recvbuf) {
     int total_send_count = sdispls[total_size - 1] + sendcounts[total_size - 1];
-    sendbuf_tmp          = collAllocateInplaceBuffer(recvbuf, sendtype_extent * total_send_count);
+    sendbuf_tmp          = collAllocateInplaceBuffer(recvbuf, type_extent * total_send_count);
   }
 
   global_comm->comm->displs[global_rank]  = sdispls;
@@ -74,9 +70,9 @@ int collAlltoallvLocal(const void* sendbuf,
     src_base  = global_comm->comm->buffers[recvfrom_global_rank];
     displs    = global_comm->comm->displs[recvfrom_global_rank];
     char* src = static_cast<char*>(const_cast<void*>(src_base)) +
-                static_cast<ptrdiff_t>(displs[recvfrom_seg_id]) * sendtype_extent;
+                static_cast<ptrdiff_t>(displs[recvfrom_seg_id]) * type_extent;
     char* dst = static_cast<char*>(recvbuf) +
-                static_cast<ptrdiff_t>(rdispls[recvfrom_global_rank]) * recvtype_extent;
+                static_cast<ptrdiff_t>(rdispls[recvfrom_global_rank]) * type_extent;
 #ifdef DEBUG_LEGATE
     log_coll.debug(
       "i: %d === global_rank %d, dtype %d, copy rank %d (seg %d, sdispls %d, %p) to rank %d (seg "
@@ -93,7 +89,7 @@ int collAlltoallvLocal(const void* sendbuf,
       rdispls[recvfrom_global_rank],
       dst);
 #endif
-    memcpy(dst, src, recvcounts[recvfrom_global_rank] * recvtype_extent);
+    memcpy(dst, src, recvcounts[recvfrom_global_rank] * type_extent);
   }
 
   collBarrierLocal(global_comm);

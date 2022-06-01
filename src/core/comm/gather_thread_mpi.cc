@@ -29,14 +29,8 @@ namespace coll {
 using namespace Legion;
 extern Logger log_coll;
 
-int collGatherMPI(const void* sendbuf,
-                  int sendcount,
-                  CollDataType sendtype,
-                  void* recvbuf,
-                  int recvcount,
-                  CollDataType recvtype,
-                  int root,
-                  CollComm global_comm)
+int gatherMPI(
+  const void* sendbuf, void* recvbuf, int count, CollDataType type, int root, CollComm global_comm)
 {
   int res;
   MPI_Status status;
@@ -44,8 +38,7 @@ int collGatherMPI(const void* sendbuf,
   int total_size  = global_comm->global_comm_size;
   int global_rank = global_comm->global_rank;
 
-  MPI_Datatype mpi_sendtype = collDtypeToMPIDtype(sendtype);
-  MPI_Datatype mpi_recvtype = collDtypeToMPIDtype(recvtype);
+  MPI_Datatype mpi_type = collDtypeToMPIDtype(type);
 
   // Should not see inplace here
   if (sendbuf == recvbuf) { assert(0); }
@@ -66,13 +59,13 @@ int collGatherMPI(const void* sendbuf,
                    root_mpi_rank,
                    tag);
 #endif
-    return MPI_Send(sendbuf, sendcount, mpi_sendtype, root_mpi_rank, tag, global_comm->comm);
+    return MPI_Send(sendbuf, count, mpi_type, root_mpi_rank, tag, global_comm->comm);
   }
 
   // root
-  MPI_Aint incr, lb, recvtype_extent;
-  MPI_Type_get_extent(mpi_recvtype, &lb, &recvtype_extent);
-  incr      = recvtype_extent * static_cast<ptrdiff_t>(recvcount);
+  MPI_Aint incr, lb, type_extent;
+  MPI_Type_get_extent(mpi_type, &lb, &type_extent);
+  incr      = type_extent * static_cast<ptrdiff_t>(count);
   char* dst = static_cast<char*>(recvbuf);
   int recvfrom_mpi_rank;
   for (int i = 0; i < total_size; i++) {
@@ -93,8 +86,7 @@ int collGatherMPI(const void* sendbuf,
     if (global_rank == i) {
       memcpy(dst, sendbuf, incr);
     } else {
-      res =
-        MPI_Recv(dst, recvcount, mpi_recvtype, recvfrom_mpi_rank, tag, global_comm->comm, &status);
+      res = MPI_Recv(dst, count, mpi_type, recvfrom_mpi_rank, tag, global_comm->comm, &status);
       assert(res == MPI_SUCCESS);
     }
     dst += incr;

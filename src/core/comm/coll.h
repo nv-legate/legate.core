@@ -91,37 +91,20 @@ int collCommDestroy(CollComm global_comm);
 int collAlltoallv(const void* sendbuf,
                   const int sendcounts[],
                   const int sdispls[],
-                  CollDataType sendtype,
                   void* recvbuf,
                   const int recvcounts[],
                   const int rdispls[],
-                  CollDataType recvtype,
+                  CollDataType type,
                   CollComm global_comm);
 
-int collAlltoall(const void* sendbuf,
-                 int sendcount,
-                 CollDataType sendtype,
-                 void* recvbuf,
-                 int recvcount,
-                 CollDataType recvtype,
-                 CollComm global_comm);
+int collAlltoall(
+  const void* sendbuf, void* recvbuf, int count, CollDataType type, CollComm global_comm);
 
-int collGather(const void* sendbuf,
-               int sendcount,
-               CollDataType sendtype,
-               void* recvbuf,
-               int recvcount,
-               CollDataType recvtype,
-               int root,
-               CollComm global_comm);
+int collGather(
+  const void* sendbuf, void* recvbuf, int count, CollDataType type, int root, CollComm global_comm);
 
-int collAllgather(const void* sendbuf,
-                  int sendcount,
-                  CollDataType sendtype,
-                  void* recvbuf,
-                  int recvcount,
-                  CollDataType recvtype,
-                  CollComm global_comm);
+int collAllgather(
+  const void* sendbuf, void* recvbuf, int count, CollDataType type, CollComm global_comm);
 
 int collBcast(void* buf, int count, CollDataType type, int root, CollComm global_comm);
 
@@ -133,42 +116,25 @@ int collGetUniqueId(int* id);
 
 // The following functions should not be called by users
 #if defined(LEGATE_USE_GASNET)
-int collAlltoallvMPI(const void* sendbuf,
-                     const int sendcounts[],
-                     const int sdispls[],
-                     CollDataType sendtype,
-                     void* recvbuf,
-                     const int recvcounts[],
-                     const int rdispls[],
-                     CollDataType recvtype,
-                     CollComm global_comm);
+int alltoallvMPI(const void* sendbuf,
+                 const int sendcounts[],
+                 const int sdispls[],
+                 void* recvbuf,
+                 const int recvcounts[],
+                 const int rdispls[],
+                 CollDataType type,
+                 CollComm global_comm);
 
-int collAlltoallMPI(const void* sendbuf,
-                    int sendcount,
-                    CollDataType sendtype,
-                    void* recvbuf,
-                    int recvcount,
-                    CollDataType recvtype,
-                    CollComm global_comm);
+int alltoallMPI(
+  const void* sendbuf, void* recvbuf, int count, CollDataType type, CollComm global_comm);
 
-int collGatherMPI(const void* sendbuf,
-                  int sendcount,
-                  CollDataType sendtype,
-                  void* recvbuf,
-                  int recvcount,
-                  CollDataType recvtype,
-                  int root,
-                  CollComm global_comm);
+int gatherMPI(
+  const void* sendbuf, void* recvbuf, int count, CollDataType type, int root, CollComm global_comm);
 
-int collAllgatherMPI(const void* sendbuf,
-                     int sendcount,
-                     CollDataType sendtype,
-                     void* recvbuf,
-                     int recvcount,
-                     CollDataType recvtype,
-                     CollComm global_comm);
+int allgatherMPI(
+  const void* sendbuf, void* recvbuf, int count, CollDataType type, CollComm global_comm);
 
-int collBcastMPI(void* buf, int count, CollDataType type, int root, CollComm global_comm);
+int bcastMPI(void* buf, int count, CollDataType type, int root, CollComm global_comm);
 
 MPI_Datatype collDtypeToMPIDtype(CollDataType dtype);
 
@@ -182,31 +148,20 @@ int collGenerateGatherTag(int rank, CollComm global_comm);
 #else
 size_t collGetDtypeSize(CollDataType dtype);
 
-int collAlltoallvLocal(const void* sendbuf,
-                       const int sendcounts[],
-                       const int sdispls[],
-                       CollDataType sendtype,
-                       void* recvbuf,
-                       const int recvcounts[],
-                       const int rdispls[],
-                       CollDataType recvtype,
-                       CollComm global_comm);
+int alltoallvLocal(const void* sendbuf,
+                   const int sendcounts[],
+                   const int sdispls[],
+                   void* recvbuf,
+                   const int recvcounts[],
+                   const int rdispls[],
+                   CollDataType type,
+                   CollComm global_comm);
 
-int collAlltoallLocal(const void* sendbuf,
-                      int sendcount,
-                      CollDataType sendtype,
-                      void* recvbuf,
-                      int recvcount,
-                      CollDataType recvtype,
-                      CollComm global_comm);
+int alltoallLocal(
+  const void* sendbuf, void* recvbuf, int count, CollDataType type, CollComm global_comm);
 
-int collAllgatherLocal(const void* sendbuf,
-                       int sendcount,
-                       CollDataType sendtype,
-                       void* recvbuf,
-                       int recvcount,
-                       CollDataType recvtype,
-                       CollComm global_comm);
+int allgatherLocal(
+  const void* sendbuf, void* recvbuf, int count, CollDataType type, CollComm global_comm);
 
 void collUpdateBuffer(CollComm global_comm);
 

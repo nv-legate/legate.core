@@ -159,11 +159,10 @@ int collCommDestroy(CollComm global_comm)
 int collAlltoallv(const void* sendbuf,
                   const int sendcounts[],
                   const int sdispls[],
-                  CollDataType sendtype,
                   void* recvbuf,
                   const int recvcounts[],
                   const int rdispls[],
-                  CollDataType recvtype,
+                  CollDataType type,
                   CollComm global_comm)
 {
   log_coll.print("Alltoallv: global_rank %d, mpi_rank %d, unique_id %d, comm_size %d",
@@ -172,21 +171,16 @@ int collAlltoallv(const void* sendbuf,
                  global_comm->unique_id,
                  global_comm->global_comm_size);
 #if defined(LEGATE_USE_GASNET)
-  return collAlltoallvMPI(
-    sendbuf, sendcounts, sdispls, sendtype, recvbuf, recvcounts, rdispls, recvtype, global_comm);
+  return alltoallvMPI(
+    sendbuf, sendcounts, sdispls, recvbuf, recvcounts, rdispls, type, global_comm);
 #else
-  return collAlltoallvLocal(
-    sendbuf, sendcounts, sdispls, sendtype, recvbuf, recvcounts, rdispls, recvtype, global_comm);
+  return alltoallvLocal(
+    sendbuf, sendcounts, sdispls, recvbuf, recvcounts, rdispls, type, global_comm);
 #endif
 }
 
-int collAlltoall(const void* sendbuf,
-                 int sendcount,
-                 CollDataType sendtype,
-                 void* recvbuf,
-                 int recvcount,
-                 CollDataType recvtype,
-                 CollComm global_comm)
+int collAlltoall(
+  const void* sendbuf, void* recvbuf, int count, CollDataType type, CollComm global_comm)
 {
   log_coll.print("Alltoall: global_rank %d, mpi_rank %d, unique_id %d, comm_size %d",
                  global_comm->global_rank,
@@ -194,20 +188,14 @@ int collAlltoall(const void* sendbuf,
                  global_comm->unique_id,
                  global_comm->global_comm_size);
 #if defined(LEGATE_USE_GASNET)
-  return collAlltoallMPI(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, global_comm);
+  return alltoallMPI(sendbuf, recvbuf, count, type, global_comm);
 #else
-  return collAlltoallLocal(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, global_comm);
+  return alltoallLocal(sendbuf, recvbuf, count, type, global_comm);
 #endif
 }
 
-int collGather(const void* sendbuf,
-               int sendcount,
-               CollDataType sendtype,
-               void* recvbuf,
-               int recvcount,
-               CollDataType recvtype,
-               int root,
-               CollComm global_comm)
+int collGather(
+  const void* sendbuf, void* recvbuf, int count, CollDataType type, int root, CollComm global_comm)
 {
   log_coll.print("Gather: global_rank %d, mpi_rank %d, unique_id %d, comm_size %d",
                  global_comm->global_rank,
@@ -215,21 +203,15 @@ int collGather(const void* sendbuf,
                  global_comm->unique_id,
                  global_comm->global_comm_size);
 #if defined(LEGATE_USE_GASNET)
-  return collGatherMPI(
-    sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, root, global_comm);
+  return gatherMPI(sendbuf, recvbuf, count, type, root, global_comm);
 #else
   printf("Not implemented\n");
   assert(0);
 #endif
 }
 
-int collAllgather(const void* sendbuf,
-                  int sendcount,
-                  CollDataType sendtype,
-                  void* recvbuf,
-                  int recvcount,
-                  CollDataType recvtype,
-                  CollComm global_comm)
+int collAllgather(
+  const void* sendbuf, void* recvbuf, int count, CollDataType type, CollComm global_comm)
 {
   log_coll.print("Allgather: global_rank %d, mpi_rank %d, unique_id %d, comm_size %d",
                  global_comm->global_rank,
@@ -237,10 +219,9 @@ int collAllgather(const void* sendbuf,
                  global_comm->unique_id,
                  global_comm->global_comm_size);
 #if defined(LEGATE_USE_GASNET)
-  return collAllgatherMPI(sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, global_comm);
+  return allgatherMPI(sendbuf, recvbuf, count, type, global_comm);
 #else
-  return collAllgatherLocal(
-    sendbuf, sendcount, sendtype, recvbuf, recvcount, recvtype, global_comm);
+  return allgatherLocal(sendbuf, recvbuf, count, type, global_comm);
 #endif
 }
 
@@ -252,7 +233,7 @@ int collBcast(void* buf, int count, CollDataType type, int root, CollComm global
                  global_comm->unique_id,
                  global_comm->global_comm_size);
 #if defined(LEGATE_USE_GASNET)
-  return collBcast(buf, count, type, root, global_comm);
+  return bcastMPI(buf, count, type, root, global_comm);
 #else
   printf("Not implemented\n");
   assert(0);

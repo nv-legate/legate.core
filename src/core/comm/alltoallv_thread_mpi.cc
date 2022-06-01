@@ -30,11 +30,11 @@ namespace coll {
 using namespace Legion;
 extern Logger log_coll;
 
-static int collAlltoallvMPIInplace(void* recvbuf,
-                                   const int recvcounts[],
-                                   const int rdispls[],
-                                   MPI_Datatype recvtype,
-                                   CollComm global_comm)
+static int alltoallvMPIInplace(void* recvbuf,
+                               const int recvcounts[],
+                               const int rdispls[],
+                               MPI_Datatype recvtype,
+                               CollComm global_comm)
 {
   int res;
 
@@ -130,15 +130,14 @@ static int collAlltoallvMPIInplace(void* recvbuf,
   return CollSuccess;
 }
 
-int collAlltoallvMPI(const void* sendbuf,
-                     const int sendcounts[],
-                     const int sdispls[],
-                     CollDataType sendtype,
-                     void* recvbuf,
-                     const int recvcounts[],
-                     const int rdispls[],
-                     CollDataType recvtype,
-                     CollComm global_comm)
+int alltoallvMPI(const void* sendbuf,
+                 const int sendcounts[],
+                 const int sdispls[],
+                 void* recvbuf,
+                 const int recvcounts[],
+                 const int rdispls[],
+                 CollDataType type,
+                 CollComm global_comm)
 {
   int res;
   MPI_Status status;
@@ -146,12 +145,10 @@ int collAlltoallvMPI(const void* sendbuf,
   int total_size  = global_comm->global_comm_size;
   int global_rank = global_comm->global_rank;
 
-  MPI_Datatype mpi_sendtype = collDtypeToMPIDtype(sendtype);
-  MPI_Datatype mpi_recvtype = collDtypeToMPIDtype(recvtype);
+  MPI_Datatype mpi_type = collDtypeToMPIDtype(type);
 
-  MPI_Aint lb, sendtype_extent, recvtype_extent;
-  MPI_Type_get_extent(mpi_sendtype, &lb, &sendtype_extent);
-  MPI_Type_get_extent(mpi_recvtype, &lb, &recvtype_extent);
+  MPI_Aint lb, type_extent;
+  MPI_Type_get_extent(mpi_type, &lb, &type_extent);
 
   void* sendbuf_tmp = const_cast<void*>(sendbuf);
 
@@ -160,7 +157,7 @@ int collAlltoallvMPI(const void* sendbuf,
     // not sure which way is better
     // return collAlltoallvMPIInplace(recvbuf, recvcounts, rdispls, mpi_recvtype, global_comm);
     int total_send_count = sdispls[total_size - 1] + sendcounts[total_size - 1];
-    sendbuf_tmp          = collAllocateInplaceBuffer(recvbuf, sendtype_extent * total_send_count);
+    sendbuf_tmp          = collAllocateInplaceBuffer(recvbuf, type_extent * total_send_count);
   }
 
   int sendto_global_rank, recvfrom_global_rank, sendto_mpi_rank, recvfrom_mpi_rank;
@@ -168,9 +165,9 @@ int collAlltoallvMPI(const void* sendbuf,
     sendto_global_rank   = (global_rank + i) % total_size;
     recvfrom_global_rank = (global_rank + total_size - i) % total_size;
     char* src            = static_cast<char*>(sendbuf_tmp) +
-                static_cast<ptrdiff_t>(sdispls[sendto_global_rank]) * sendtype_extent;
+                static_cast<ptrdiff_t>(sdispls[sendto_global_rank]) * type_extent;
     char* dst = static_cast<char*>(recvbuf) +
-                static_cast<ptrdiff_t>(rdispls[recvfrom_global_rank]) * recvtype_extent;
+                static_cast<ptrdiff_t>(rdispls[recvfrom_global_rank]) * type_extent;
     int scount        = sendcounts[sendto_global_rank];
     int rcount        = recvcounts[recvfrom_global_rank];
     sendto_mpi_rank   = global_comm->mapping_table.mpi_rank[sendto_global_rank];
@@ -196,12 +193,12 @@ int collAlltoallvMPI(const void* sendbuf,
 #endif
     res = MPI_Sendrecv(src,
                        scount,
-                       mpi_sendtype,
+                       mpi_type,
                        sendto_mpi_rank,
                        send_tag,
                        dst,
                        rcount,
-                       mpi_recvtype,
+                       mpi_type,
                        recvfrom_mpi_rank,
                        recv_tag,
                        global_comm->comm,
