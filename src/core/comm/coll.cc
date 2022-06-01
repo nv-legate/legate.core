@@ -302,28 +302,20 @@ int collGetUniqueId(int* id)
 #ifdef LEGATE_USE_GASNET
 MPI_Datatype collDtypeToMPIDtype(CollDataType dtype)
 {
-  if (dtype == CollDataType::CollInt8) {
-    return MPI_INT8_T;
-  } else if (dtype == CollDataType::CollChar) {
-    return MPI_CHAR;
-  } else if (dtype == CollDataType::CollUint8) {
-    return MPI_UINT8_T;
-  } else if (dtype == CollDataType::CollInt) {
-    return MPI_INT;
-  } else if (dtype == CollDataType::CollUint32) {
-    return MPI_UINT32_T;
-  } else if (dtype == CollDataType::CollInt64) {
-    return MPI_INT64_T;
-  } else if (dtype == CollDataType::CollUint64) {
-    return MPI_UINT64_T;
-  } else if (dtype == CollDataType::CollFloat) {
-    return MPI_FLOAT;
-  } else if (dtype == CollDataType::CollDouble) {
-    return MPI_DOUBLE;
-  } else {
-    assert(0);
-    return MPI_BYTE;
+  MPI_Datatype mpi_dtype = MPI_BYTE;
+  switch (dtype) {
+    case CollDataType::CollInt8: mpi_dtype = MPI_INT8_T; break;
+    case CollDataType::CollChar: mpi_dtype = MPI_CHAR; break;
+    case CollDataType::CollUint8: mpi_dtype = MPI_UINT8_T; break;
+    case CollDataType::CollInt: mpi_dtype = MPI_INT; break;
+    case CollDataType::CollUint32: mpi_dtype = MPI_UINT32_T; break;
+    case CollDataType::CollInt64: mpi_dtype = MPI_INT64_T; break;
+    case CollDataType::CollUint64: mpi_dtype = MPI_UINT64_T; break;
+    case CollDataType::CollFloat: mpi_dtype = MPI_FLOAT; break;
+    case CollDataType::CollDouble: mpi_dtype = MPI_DOUBLE; break;
+    default: log_coll.fatal("Unknown datatype"); assert(0);
   }
+  return mpi_dtype;
 }
 
 int collGenerateAlltoallTag(int rank1, int rank2, CollComm global_comm)
@@ -383,26 +375,20 @@ int collGenerateGatherTag(int rank, CollComm global_comm)
 #else  // undef LEGATE_USE_GASNET
 size_t collGetDtypeSize(CollDataType dtype)
 {
-  if (dtype == CollDataType::CollInt8 || dtype == CollDataType::CollChar) {
-    return sizeof(char);
-  } else if (dtype == CollDataType::CollUint8) {
-    return sizeof(uint8_t);
-  } else if (dtype == CollDataType::CollInt) {
-    return sizeof(int);
-  } else if (dtype == CollDataType::CollUint32) {
-    return sizeof(uint32_t);
-  } else if (dtype == CollDataType::CollInt64) {
-    return sizeof(int64_t);
-  } else if (dtype == CollDataType::CollUint64) {
-    return sizeof(uint64_t);
-  } else if (dtype == CollDataType::CollFloat) {
-    return sizeof(float);
-  } else if (dtype == CollDataType::CollDouble) {
-    return sizeof(double);
-  } else {
-    assert(0);
-    return -1;
+  size_t size = 0;
+  switch (dtype) {
+    case CollDataType::CollInt8:
+    case CollDataType::CollChar: size = sizeof(char); break;
+    case CollDataType::CollUint8: size = sizeof(uint8_t); break;
+    case CollDataType::CollInt: size = sizeof(int); break;
+    case CollDataType::CollUint32: size = sizeof(uint32_t); break;
+    case CollDataType::CollInt64: size = sizeof(int64_t); break;
+    case CollDataType::CollUint64: size = sizeof(uint64_t); break;
+    case CollDataType::CollFloat: size = sizeof(float); break;
+    case CollDataType::CollDouble: size = sizeof(double); break;
+    default: log_coll.fatal("Unknown datatype"); assert(0);
   }
+  return size;
 }
 
 void collUpdateBuffer(CollComm global_comm)
