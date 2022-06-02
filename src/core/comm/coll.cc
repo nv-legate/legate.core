@@ -313,38 +313,48 @@ MPI_Datatype dtypeToMPIDtype(CollDataType dtype)
   return mpi_dtype;
 }
 
-int generateAlltoallTag(int rank1, int rank2, CollComm global_comm)
+static inline int match2ranks(int rank1, int rank2)
 {
   // tag: seg idx + rank_idx + tag
-  // int send_tag = ((sendto_global_rank * 10000 + global_rank) * 10 + ALLTOALL_TAG) * 10 +
-  // global_comm->unique_id; // which dst seg it sends to (in dst rank) int recv_tag = ((global_rank
-  // * 10000 + recvfrom_global_rank) * 10 + ALLTOALL_TAG) * 10 + global_comm->unique_id; // idx of
-  // current seg we are receving (in src/my rank)
-#if 1
-  int tag = (rank1 * 10000 + rank2) * CollTag::MAX_TAG + CollTag::ALLTOALL_TAG;
-#else
-  // still under testing, will be used once if 1 runs out of tags
-  int tag =
-    (rank1 % global_comm->nb_threads * 10000 + rank2) * CollTag::MAX_TAG + CollTag::ALLTOALL_TAG;
-#endif
+  // send_tag = sendto_global_rank * 10000 + global_rank (concat 2 ranks)
+  // which dst seg it sends to (in dst rank)
+  // recv_tag = global_rank * 10000 + recvfrom_global_rank (concat 2 ranks)
+  // idx of current seg we are receving (in src/my rank)
+  // example:
+  // 00 | 01 | 02 | 03
+  // 10 | 11 | 12 | 13
+  // 20 | 21 | 22 | 23
+  // 30 | 31 | 32 | 33
+  // 01's send_tag = 10, 10's recv_tag = 10, match
+  // 12's send_tag = 21, 21's recv_tag = 21, match
+
+  int tag;
+  constexpr int const max_ranks = 10000;
+  tag                           = rank1 * max_ranks + rank2;
+
+  // still under testing, will be used once if runs out of tags
+  // constexpr int const max_threads = 128;
+  // tag = rank1 % max_threads * max_ranks + rank2;
+
+  // if (rank1 >= rank2) {
+  //   tag = rank1*rank1 + rank1 + rank2;
+  // } else {
+  //   tag = rank1 + rank2*rank2;
+  // }
+
+  return tag;
+}
+
+int generateAlltoallTag(int rank1, int rank2, CollComm global_comm)
+{
+  int tag = match2ranks(rank1, rank2) * CollTag::MAX_TAG + CollTag::ALLTOALL_TAG;
   assert(tag < INT_MAX && tag > 0);
   return tag;
 }
 
 int generateAlltoallvTag(int rank1, int rank2, CollComm global_comm)
 {
-  // tag: seg idx + rank_idx + tag
-  // int send_tag = ((sendto_global_rank * 10000 + global_rank) * 10 + ALLTOALLV_TAG) * 10 +
-  // global_comm->unique_id; // which dst seg it sends to (in dst rank) int recv_tag = ((global_rank
-  // * 10000 + recvfrom_global_rank) * 10 + ALLTOALLV_TAG) * 10 + global_comm->unique_id; // idx of
-  // current seg we are receving (in src/my rank)
-#if 1
-  int tag = (rank1 * 10000 + rank2) * CollTag::MAX_TAG + CollTag::ALLTOALLV_TAG;
-#else
-  // still under testing, will be used once if 1 runs out of tags
-  int tag =
-    (rank1 % global_comm->nb_threads * 10000 + rank2) * CollTag::MAX_TAG + CollTag::ALLTOALLV_TAG;
-#endif
+  int tag = match2ranks(rank1, rank2) * CollTag::MAX_TAG + CollTag::ALLTOALLV_TAG;
   assert(tag < INT_MAX && tag > 0);
   return tag;
 }
