@@ -27,20 +27,8 @@ install_args+=("--install-dir" "$PREFIX")
 # Verbose mode
 install_args+=("-v")
 
-# Move the stub library into the lib package to make the install think it's pointing at a live installation
-if [ -z "$CPU_ONLY" ]; then
-  cp $PREFIX/lib/stubs/libcuda.so $PREFIX/lib/libcuda.so
-  ln -s $PREFIX/lib $PREFIX/lib64
-fi
-
 echo "Install command: $PYTHON install.py ${install_args[@]}"
 $PYTHON install.py "${install_args[@]}"
-
-# Remove the stub library and linking
-if [ -z "$CPU_ONLY" ]; then
-  rm $PREFIX/lib/libcuda.so
-  rm $PREFIX/lib64
-fi
 
 # Legion leaves an egg-info file which will confuse conda trying to pick up the information
 # Remove it so the legate-core is the only egg-info file added
