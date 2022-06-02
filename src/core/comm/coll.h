@@ -106,13 +106,8 @@ int collAlltoallv(const void* sendbuf,
 int collAlltoall(
   const void* sendbuf, void* recvbuf, int count, CollDataType type, CollComm global_comm);
 
-int collGather(
-  const void* sendbuf, void* recvbuf, int count, CollDataType type, int root, CollComm global_comm);
-
 int collAllgather(
   const void* sendbuf, void* recvbuf, int count, CollDataType type, CollComm global_comm);
-
-int collBcast(void* buf, int count, CollDataType type, int root, CollComm global_comm);
 
 int collInit(int argc, char* argv[]);
 

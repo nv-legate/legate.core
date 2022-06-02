@@ -194,22 +194,6 @@ int collAlltoall(
 #endif
 }
 
-int collGather(
-  const void* sendbuf, void* recvbuf, int count, CollDataType type, int root, CollComm global_comm)
-{
-  log_coll.print("Gather: global_rank %d, mpi_rank %d, unique_id %d, comm_size %d",
-                 global_comm->global_rank,
-                 global_comm->mpi_rank,
-                 global_comm->unique_id,
-                 global_comm->global_comm_size);
-#ifdef LEGATE_USE_GASNET
-  return gatherMPI(sendbuf, recvbuf, count, type, root, global_comm);
-#else
-  fprintf(stderr, "Not implemented\n");
-  assert(0);
-#endif
-}
-
 int collAllgather(
   const void* sendbuf, void* recvbuf, int count, CollDataType type, CollComm global_comm)
 {
@@ -222,21 +206,6 @@ int collAllgather(
   return allgatherMPI(sendbuf, recvbuf, count, type, global_comm);
 #else
   return allgatherLocal(sendbuf, recvbuf, count, type, global_comm);
-#endif
-}
-
-int collBcast(void* buf, int count, CollDataType type, int root, CollComm global_comm)
-{
-  log_coll.print("Bcast: global_rank %d, mpi_rank %d, unique_id %d, comm_size %d",
-                 global_comm->global_rank,
-                 global_comm->mpi_rank,
-                 global_comm->unique_id,
-                 global_comm->global_comm_size);
-#ifdef LEGATE_USE_GASNET
-  return bcastMPI(buf, count, type, root, global_comm);
-#else
-  fprintf(stderr, "Not implemented\n");
-  assert(0);
 #endif
 }
 
@@ -341,6 +310,7 @@ static inline int match2ranks(int rank1, int rank2)
   // } else {
   //   tag = rank1 + rank2*rank2;
   // }
+  // tag = (rank1 + rank2) * (rank1 + rank2 + 1) / 2 + rank1;
 
   return tag;
 }
