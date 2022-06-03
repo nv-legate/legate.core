@@ -24,9 +24,11 @@ from .launcher import CopyLauncher, TaskLauncher
 from .partition import REPLICATE, Weighted
 from .shape import Shape
 from .store import Store, StorePartition
-from .utils import OrderedSet
+from .utils import OrderedSet, capture_traceback
 
 if TYPE_CHECKING:
+    from types import TracebackType
+
     from .communicator import Communicator
     from .constraints import Constraint
     from .context import Context
@@ -61,6 +63,13 @@ class OperationProtocol(Protocol):
     @property
     def mapper_id(self) -> int:
         return self._mapper_id
+
+    @property
+    def can_raise_exception(self) -> bool:
+        return False
+
+    def capture_traceback(self) -> None:
+        raise TypeError("Generic operation doesn't support capture_tracback")
 
     @property
     def inputs(self) -> list[Store]:
@@ -219,6 +228,7 @@ class Task(TaskProtocol):
         self._scalar_args: list[tuple[Any, DTType]] = []
         self._comm_args: list[Communicator] = []
         self._exn_types: list[type] = []
+        self._tb: Union[None, TracebackType] = None
 
     @property
     def uses_communicator(self) -> bool:
@@ -239,8 +249,11 @@ class Task(TaskProtocol):
         self._exn_types.append(exn_type)
 
     @property
-    def _can_raise_exception(self) -> bool:
+    def can_raise_exception(self) -> bool:
         return len(self._exn_types) > 0
+
+    def capture_traceback(self) -> None:
+        self._tb = capture_traceback(skip=2)
 
     def _add_scalar_args_to_launcher(self, launcher: TaskLauncher) -> None:
         for (arg, dtype) in self._scalar_args:
@@ -256,7 +269,7 @@ class Task(TaskProtocol):
             num_unbound_outs
             + num_scalar_outs
             + num_scalar_reds
-            + int(self._can_raise_exception)
+            + int(self.can_raise_exception)
         )
 
         if num_all_scalars == 0:
@@ -268,8 +281,10 @@ class Task(TaskProtocol):
             elif num_scalar_reds == 1:
                 (output, _) = self.reductions[self.scalar_reductions[0]]
                 output.set_storage(result)
-            elif self._can_raise_exception:
-                runtime.record_pending_exception(self._exn_types, result)
+            elif self.can_raise_exception:
+                runtime.record_pending_exception(
+                    self._exn_types, result, self._tb
+                )
             else:
                 assert num_unbound_outs == 1
         else:
@@ -282,9 +297,11 @@ class Task(TaskProtocol):
                 (output, _) = self.reductions[red_idx]
                 output.set_storage(runtime.extract_scalar(result, idx))
                 idx += 1
-            if self._can_raise_exception:
+            if self.can_raise_exception:
                 runtime.record_pending_exception(
-                    self._exn_types, runtime.extract_scalar(result, idx)
+                    self._exn_types,
+                    runtime.extract_scalar(result, idx),
+                    self._tb,
                 )
 
     def _demux_scalar_stores_future_map(
@@ -301,7 +318,7 @@ class Task(TaskProtocol):
             num_unbound_outs
             + num_scalar_outs
             + num_scalar_reds
-            + int(self._can_raise_exception)
+            + int(self.can_raise_exception)
         )
         launch_shape = Shape(c + 1 for c in launch_domain.hi)
         assert num_scalar_outs == 0
@@ -319,10 +336,11 @@ class Task(TaskProtocol):
                 if output.ndim == 1:
                     partition = Weighted(runtime, launch_shape, result)
                     output.set_key_partition(partition)
-            elif self._can_raise_exception:
+            elif self.can_raise_exception:
                 runtime.record_pending_exception(
                     self._exn_types,
                     runtime.reduce_exception_future_map(result),
+                    self._tb,
                 )
             else:
                 assert False
@@ -349,13 +367,14 @@ class Task(TaskProtocol):
                 )
                 output.set_storage(runtime.reduce_future_map(data, redop_id))
                 idx += 1
-            if self._can_raise_exception:
+            if self.can_raise_exception:
                 exn_fut_map = runtime.extract_scalar_with_domain(
                     result, idx, launch_domain
                 )
                 runtime.record_pending_exception(
                     self._exn_types,
                     runtime.reduce_exception_future_map(exn_fut_map),
+                    self._tb,
                 )
 
     def _demux_scalar_stores(
@@ -497,7 +516,7 @@ class AutoTask(AutoOperation, Task):
 
         self._add_scalar_args_to_launcher(launcher)
 
-        launcher.set_can_raise_exception(self._can_raise_exception)
+        launcher.set_can_raise_exception(self.can_raise_exception)
 
         launch_domain = strategy.launch_domain if strategy.parallel else None
         self._add_communicators(launcher, launch_domain)
@@ -651,7 +670,7 @@ class ManualTask(Operation, Task):
 
         self._add_scalar_args_to_launcher(launcher)
 
-        launcher.set_can_raise_exception(self._can_raise_exception)
+        launcher.set_can_raise_exception(self.can_raise_exception)
 
         self._add_communicators(launcher, self._launch_domain)
 

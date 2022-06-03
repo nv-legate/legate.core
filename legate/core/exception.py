@@ -19,13 +19,22 @@ import struct
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from types import TracebackType
+    from typing import Optional
+
     from ._legion import Future
 
 
 class PendingException:
-    def __init__(self, exn_types: list[type], future: Future):
+    def __init__(
+        self,
+        exn_types: list[type],
+        future: Future,
+        tb: Optional[TracebackType] = None,
+    ):
         self._exn_types = exn_types
         self._future = future
+        self._tb = tb
 
     def raise_exception(self) -> None:
         buf = self._future.get_buffer()
@@ -34,4 +43,5 @@ class PendingException:
             return
         (exn_index, error_size) = struct.unpack("iI", buf[1:9])
         error_message = buf[9 : 9 + error_size].decode()
-        raise self._exn_types[exn_index](error_message)
+        exn = self._exn_types[exn_index](error_message)
+        raise exn.with_traceback(self._tb)

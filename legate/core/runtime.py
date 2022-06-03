@@ -54,6 +54,8 @@ from .transform import IdentityTransform
 from .utils import OrderedSet
 
 if TYPE_CHECKING:
+    from types import TracebackType
+
     from . import ArgumentMap, Detach, IndexDetach, IndexPartition, Library
     from ._legion import FieldListLike, PhysicalRegion
     from .communicator import Communicator
@@ -890,6 +892,16 @@ class Runtime:
                 ty.uint32,
             )
         )
+        self._precise_exception_trace: bool = (
+            self._max_pending_exceptions > 1
+            and bool(
+                self._core_context.get_tunable(
+                    legion.LEGATE_CORE_TUNABLE_PRECISE_EXCEPTION_TRACE,
+                    ty.uint32,
+                )
+            )
+        )
+
         self._pending_exceptions: list[PendingException] = []
 
     @property
@@ -1027,6 +1039,8 @@ class Runtime:
         self._schedule(ops)
 
     def submit(self, op: Operation) -> None:
+        if op.can_raise_exception and self._precise_exception_trace:
+            op.capture_traceback()
         self._outstanding_ops.append(op)
         if len(self._outstanding_ops) >= self._window_size:
             self.flush_scheduling_window()
@@ -1364,9 +1378,13 @@ class Runtime:
         )
 
     def record_pending_exception(
-        self, exn_types: list[type], future: Future
+        self,
+        exn_types: list[type],
+        future: Future,
+        tb: Optional[TracebackType] = None,
     ) -> None:
-        self._pending_exceptions.append(PendingException(exn_types, future))
+        exn = PendingException(exn_types, future, tb)
+        self._pending_exceptions.append(exn)
 
     def raise_exceptions(self) -> None:
         for pending in self._pending_exceptions:

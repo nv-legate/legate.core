@@ -105,6 +105,7 @@ class CoreMapper : public Legion::Mapping::NullMapper {
   const uint32_t min_omp_chunk;
   const uint32_t window_size;
   const uint32_t max_pending_exceptions;
+  const bool precise_exception_trace;
   const uint32_t field_reuse_frac;
   const uint32_t field_reuse_freq;
 
@@ -138,6 +139,7 @@ CoreMapper::CoreMapper(MapperRuntime* rt, Machine m, const LibraryContext& c)
                   64,
 #endif
                   1)),
+    precise_exception_trace(static_cast<bool>(extract_env("LEGATE_PRECISE_EXCEPTION_TRACE", 0, 1))),
     field_reuse_frac(extract_env("LEGATE_FIELD_REUSE_FRAC", 256, 256)),
     field_reuse_freq(extract_env("LEGATE_FIELD_REUSE_FREQ", 32, 32))
 {
@@ -399,6 +401,10 @@ void CoreMapper::select_tunable_value(const MapperContext ctx,
     }
     case LEGATE_CORE_TUNABLE_MAX_PENDING_EXCEPTIONS: {
       pack_tunable<uint32_t>(max_pending_exceptions, output);
+      return;
+    }
+    case LEGATE_CORE_TUNABLE_PRECISE_EXCEPTION_TRACE: {
+      pack_tunable<bool>(precise_exception_trace, output);
       return;
     }
     case LEGATE_CORE_TUNABLE_FIELD_REUSE_SIZE: {

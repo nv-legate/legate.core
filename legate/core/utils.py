@@ -14,6 +14,8 @@
 #
 from __future__ import annotations
 
+import traceback
+from types import TracebackType
 from typing import (
     Any,
     Hashable,
@@ -68,3 +70,17 @@ class OrderedSet(MutableSet[T]):
 
 def cast_tuple(value: Any) -> tuple[Any, ...]:
     return value if isinstance(value, tuple) else tuple(value)
+
+
+def capture_traceback(skip: int = 0) -> Optional[TracebackType]:
+    tb = None
+    for idx, (frame, _) in enumerate(traceback.walk_stack(None)):
+        if idx < skip:
+            continue
+        tb = TracebackType(
+            tb,
+            tb_frame=frame,
+            tb_lasti=frame.f_lasti,
+            tb_lineno=frame.f_lineno,
+        )
+    return tb
