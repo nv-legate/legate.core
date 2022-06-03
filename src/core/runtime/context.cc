@@ -16,6 +16,7 @@
 
 #include "legion.h"
 
+#include "core/data/buffer.h"
 #include "core/data/scalar.h"
 #include "core/data/store.h"
 #include "core/runtime/context.h"
@@ -151,6 +152,8 @@ TaskContext::TaskContext(const Legion::Task* task,
   reductions_ = dez.unpack<std::vector<Store>>();
   scalars_    = dez.unpack<std::vector<Scalar>>();
 
+  can_raise_exception_ = dez.unpack<bool>();
+
   bool insert_barrier = false;
   Legion::PhaseBarrier arrival, wait;
   if (task->is_index_space) {
@@ -188,7 +191,34 @@ Legion::DomainPoint TaskContext::get_task_index() const { return task_->index_po
 
 Legion::Domain TaskContext::get_launch_domain() const { return task_->index_domain; }
 
+void TaskContext::make_all_unbound_stores_empty()
+{
+  for (auto& output : outputs_)
+    if (output.is_output_store()) output.make_empty();
+}
+
 ReturnValues TaskContext::pack_return_values() const
+{
+  auto return_values = get_return_values();
+  if (can_raise_exception_) {
+    ReturnedException exn{};
+    return_values.push_back(exn.pack());
+  }
+  return ReturnValues(std::move(return_values));
+}
+
+ReturnValues TaskContext::pack_return_values_with_exception(int32_t index,
+                                                            const std::string& error_message) const
+{
+  auto return_values = get_return_values();
+  if (can_raise_exception_) {
+    ReturnedException exn(index, error_message);
+    return_values.push_back(exn.pack());
+  }
+  return ReturnValues(std::move(return_values));
+}
+
+std::vector<ReturnValue> TaskContext::get_return_values() const
 {
   size_t num_unbound_outputs = 0;
   std::vector<ReturnValue> return_values;
@@ -216,7 +246,7 @@ ReturnValues TaskContext::pack_return_values() const
     }
   }
 
-  return ReturnValues(std::move(return_values));
+  return std::move(return_values);
 }
 
 }  // namespace legate

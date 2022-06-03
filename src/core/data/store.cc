@@ -88,6 +88,15 @@ OutputRegionField& OutputRegionField::operator=(OutputRegionField&& other) noexc
   return *this;
 }
 
+void OutputRegionField::make_empty(int32_t ndim)
+{
+  num_elements_[0] = 0;
+  DomainPoint extents;
+  extents.dim = ndim;
+  for (int32_t dim = 0; dim < ndim; ++dim) extents[dim] = 0;
+  out_.return_data(extents, fid_, nullptr);
+}
+
 ReturnValue OutputRegionField::pack_weight() const
 {
   return ReturnValue(num_elements_.ptr(0), sizeof(size_t));
@@ -235,6 +244,12 @@ Domain Store::domain() const
   if (nullptr != transform_) result = transform_->transform(result);
   assert(result.dim == dim_);
   return result;
+}
+
+void Store::make_empty()
+{
+  assert(is_output_store_);
+  output_field_.make_empty(dim_);
 }
 
 }  // namespace legate

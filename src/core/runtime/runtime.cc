@@ -19,6 +19,7 @@
 #include "core/runtime/context.h"
 #include "core/runtime/projection.h"
 #include "core/runtime/shard.h"
+#include "core/task/exception.h"
 #include "core/utilities/deserializer.h"
 #include "legate.h"
 
@@ -143,6 +144,8 @@ void register_legate_core_tasks(Machine machine, Runtime* runtime, const Library
   comm::register_tasks(machine, runtime, context);
 }
 
+extern void register_exception_reduction_op(Runtime* runtime, const LibraryContext& context);
+
 /*static*/ void core_registration_callback(Machine machine,
                                            Runtime* runtime,
                                            const std::set<Processor>& local_procs)
@@ -151,12 +154,15 @@ void register_legate_core_tasks(Machine machine, Runtime* runtime, const Library
   config.max_tasks       = LEGATE_CORE_NUM_TASK_IDS;
   config.max_projections = LEGATE_CORE_MAX_FUNCTOR_ID;
   // We register one sharding functor for each new projection functor
-  config.max_shardings = LEGATE_CORE_MAX_FUNCTOR_ID;
+  config.max_shardings     = LEGATE_CORE_MAX_FUNCTOR_ID;
+  config.max_reduction_ops = LEGATE_CORE_MAX_REDUCTION_OP_ID;
   LibraryContext context(runtime, core_library_name, config);
 
   register_legate_core_tasks(machine, runtime, context);
 
   register_legate_core_mapper(machine, runtime, context);
+
+  register_exception_reduction_op(runtime, context);
 
   register_legate_core_projection_functors(runtime, context);
 

@@ -104,6 +104,7 @@ class CoreMapper : public Legion::Mapping::NullMapper {
   const uint32_t min_cpu_chunk;
   const uint32_t min_omp_chunk;
   const uint32_t window_size;
+  const uint32_t max_pending_exceptions;
   const uint32_t field_reuse_frac;
   const uint32_t field_reuse_freq;
 
@@ -128,6 +129,15 @@ CoreMapper::CoreMapper(MapperRuntime* rt, Machine m, const LibraryContext& c)
     min_cpu_chunk(extract_env("LEGATE_MIN_CPU_CHUNK", 1 << 14, 2)),
     min_omp_chunk(extract_env("LEGATE_MIN_OMP_CHUNK", 1 << 17, 2)),
     window_size(extract_env("LEGATE_WINDOW_SIZE", 1, 1)),
+    max_pending_exceptions(
+      extract_env("LEGATE_MAX_PENDING_EXCEPTIONS",
+#ifdef DEBUG_LEGATE
+                  // In debug mode, the default is always block on tasks that can throw exceptions
+                  1,
+#else
+                  64,
+#endif
+                  1)),
     field_reuse_frac(extract_env("LEGATE_FIELD_REUSE_FRAC", 256, 256)),
     field_reuse_freq(extract_env("LEGATE_FIELD_REUSE_FREQ", 32, 32))
 {
@@ -385,6 +395,10 @@ void CoreMapper::select_tunable_value(const MapperContext ctx,
     }
     case LEGATE_CORE_TUNABLE_WINDOW_SIZE: {
       pack_tunable<uint32_t>(window_size, output);
+      return;
+    }
+    case LEGATE_CORE_TUNABLE_MAX_PENDING_EXCEPTIONS: {
+      pack_tunable<uint32_t>(max_pending_exceptions, output);
       return;
     }
     case LEGATE_CORE_TUNABLE_FIELD_REUSE_SIZE: {

@@ -62,6 +62,7 @@ INSTALL_HEADERS = legate.h                        \
 									core/mapping/task.inl           \
 									core/runtime/context.h          \
 									core/runtime/runtime.h          \
+									core/task/exception.h           \
 									core/task/return.h              \
 									core/task/task.h                \
 									core/utilities/debug.h          \

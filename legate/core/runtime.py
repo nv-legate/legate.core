@@ -43,6 +43,7 @@ from ._legion.util import Dispatchable
 from .communicator import NCCLCommunicator
 from .context import Context
 from .corelib import core_library
+from .exception import PendingException
 from .launcher import TaskLauncher
 from .partition import Restriction
 from .projection import is_identity_projection, pack_symbolic_projection_repr
@@ -883,6 +884,14 @@ class Runtime:
             tuple[int, tuple[ProjExpr, ...]], int
         ] = {}
 
+        self._max_pending_exceptions: int = int(
+            self._core_context.get_tunable(
+                legion.LEGATE_CORE_TUNABLE_MAX_PENDING_EXCEPTIONS,
+                ty.uint32,
+            )
+        )
+        self._pending_exceptions: list[PendingException] = []
+
     @property
     def legion_runtime(self) -> legion.legion_runtime_t:
         if self._legion_runtime is None:
@@ -949,6 +958,9 @@ class Runtime:
         # Before we clean up the runtime, we should execute all outstanding
         # operations.
         self.flush_scheduling_window()
+
+        # Then we also need to raise all exceptions if there were any
+        self.raise_exceptions()
 
         self._comm_manager.destroy()
         for barrier in self._barriers:
@@ -1018,6 +1030,8 @@ class Runtime:
         self._outstanding_ops.append(op)
         if len(self._outstanding_ops) >= self._window_size:
             self.flush_scheduling_window()
+        if len(self._pending_exceptions) >= self._max_pending_exceptions:
+            self.raise_exceptions()
 
     def _progress_unordered_operations(self) -> None:
         legion.legion_context_progress_unordered_operations(
@@ -1292,6 +1306,21 @@ class Runtime:
                 mapper=self.core_context.get_mapper_id(0),
             )
 
+    def reduce_exception_future_map(
+        self,
+        future_map: Union[Future, FutureMap],
+    ) -> Future:
+        if isinstance(future_map, Future):
+            return future_map
+        else:
+            redop = self.core_library.LEGATE_CORE_JOIN_EXCEPTION_OP
+            return future_map.reduce(
+                self.legion_context,
+                self.legion_runtime,
+                self.core_context.get_reduction_op_id(redop),
+                mapper=self.core_context.get_mapper_id(0),
+            )
+
     def issue_execution_fence(self, block: bool = False) -> None:
         fence = Fence(mapping=False)
         future = fence.launch(self.legion_runtime, self.legion_context)
@@ -1333,6 +1362,16 @@ class Runtime:
             Future.from_cdata(self.legion_runtime, arrival_barrier),
             Future.from_cdata(self.legion_runtime, wait_barrier),
         )
+
+    def record_pending_exception(
+        self, exn_types: list[type], future: Future
+    ) -> None:
+        self._pending_exceptions.append(PendingException(exn_types, future))
+
+    def raise_exceptions(self) -> None:
+        for pending in self._pending_exceptions:
+            pending.raise_exception()
+        self._pending_exceptions = []
 
 
 _runtime = Runtime(core_library)

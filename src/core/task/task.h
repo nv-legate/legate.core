@@ -20,9 +20,11 @@
 #include <sstream>
 
 #include "legion.h"
+#include "realm/faults.h"
 
 #include "core/runtime/context.h"
 #include "core/runtime/runtime.h"
+#include "core/task/exception.h"
 #include "core/task/return.h"
 #include "core/utilities/deserializer.h"
 #include "core/utilities/nvtx_help.h"
@@ -96,9 +98,26 @@ class LegateTask {
     Core::show_progress(task, legion_context, runtime, task_name());
 
     TaskContext context(task, regions, legion_context, runtime);
-    if (!Core::use_empty_task) (*TASK_PTR)(context);
 
-    return context.pack_return_values();
+    try {
+      if (!Core::use_empty_task) (*TASK_PTR)(context);
+      return context.pack_return_values();
+    }
+    // abstract class cannot be re-thrown, so we have to enumerate all concrete Realm exceptions
+    catch (Realm::CancellationException& e) {
+      throw e;
+    } catch (Realm::PoisonedEventException& e) {
+      throw e;
+    } catch (Realm::ApplicationException& e) {
+      throw e;
+    } catch (legate::TaskException& e) {
+      if (context.can_raise_exception()) {
+        context.make_all_unbound_stores_empty();
+        return context.pack_return_values_with_exception(e.index(), e.error_message());
+      } else
+        // This is an unexpected exception so better be rethrown
+        throw e;
+    }
   }
 
  public:
