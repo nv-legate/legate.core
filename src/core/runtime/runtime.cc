@@ -119,6 +119,17 @@ static ReturnValues extract_scalar_task(const Task* task,
                    exec_proc.id);
 }
 
+/*static*/ void Core::report_unexpected_exception(const char* task_name,
+                                                  const legate::TaskException& e)
+{
+  log_legate.error(
+    "Task %s threw an exception \"%s\", but the task did not declare any exception. "
+    "Please specify a Python exception that you want this exception to be re-thrown with "
+    "using 'throws_exception'.",
+    task_name,
+    e.error_message().c_str());
+}
+
 void register_legate_core_tasks(Machine machine, Runtime* runtime, const LibraryContext& context)
 {
   const TaskID extract_scalar_task_id  = context.get_task_id(LEGATE_CORE_EXTRACT_SCALAR_TASK_ID);

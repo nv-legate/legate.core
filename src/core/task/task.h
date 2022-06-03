@@ -102,21 +102,14 @@ class LegateTask {
     try {
       if (!Core::use_empty_task) (*TASK_PTR)(context);
       return context.pack_return_values();
-    }
-    // abstract class cannot be re-thrown, so we have to enumerate all concrete Realm exceptions
-    catch (Realm::CancellationException& e) {
-      throw e;
-    } catch (Realm::PoisonedEventException& e) {
-      throw e;
-    } catch (Realm::ApplicationException& e) {
-      throw e;
     } catch (legate::TaskException& e) {
       if (context.can_raise_exception()) {
         context.make_all_unbound_stores_empty();
         return context.pack_return_values_with_exception(e.index(), e.error_message());
       } else
-        // This is an unexpected exception so better be rethrown
-        throw e;
+        // If a Legate exception is thrown by a task that does not declare any exception,
+        // this is a bug in the library that needs to be reported to the developer
+        Core::report_unexpected_exception(task_name(), e);
     }
   }
 
