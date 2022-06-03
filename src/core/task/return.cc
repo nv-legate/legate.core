@@ -130,7 +130,8 @@ void ReturnedException::legion_deserialize(const void* buffer)
 ReturnValue ReturnedException::pack() const
 {
   auto buffer_size = legion_buffer_size();
-  auto buffer      = create_buffer<int8_t>(buffer_size, Memory::SYSTEM_MEM);
+  auto mem_kind    = find_memory_kind_for_executing_processor();
+  auto buffer      = create_buffer<int8_t>(buffer_size, mem_kind);
   auto p_buffer    = buffer.ptr(0);
   legion_serialize(p_buffer);
 
