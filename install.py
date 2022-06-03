@@ -421,14 +421,12 @@ calls into NCCL either directly or through some other Legate library.
             + setup_py_flags,
             cwd=legion_python_dir,
         )
-    verbose_check_call(
-        [
-            "cp",
-            "legion_c_util.h",
-            os.path.join(install_dir, "include", "legion", "legion_c_util.h"),
-        ],
-        cwd=os.path.join(legion_src_dir, "runtime", "legion"),
-    )
+    src = os.path.join(legion_src_dir, "runtime", "legion", "legion_c_util.h")
+    dst = os.path.join(install_dir, "include", "legion", "legion_c_util.h")
+    if not os.path.exists(dst) or os.path.getmtime(dst) < os.path.getmtime(
+        src
+    ):
+        verbose_check_call(["cp", src, dst])
     verbose_check_call(
         [
             "cp",
