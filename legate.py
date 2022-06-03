@@ -23,13 +23,6 @@ import shlex
 import subprocess
 import sys
 
-_version = sys.version_info.major
-
-try:
-    _input = raw_input  # Python 2.x:
-except NameError:
-    _input = input  # Python 3.x:
-
 os_name = platform.system()
 
 if os_name == "Linux":
