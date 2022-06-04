@@ -296,14 +296,13 @@ def build_legate_core_python(
 
 
 def install_legion_python(legion_src_dir, install_dir):
-    verbose_check_call(
-        [
-            "cp",
-            "legion_c_util.h",
-            os.path.join(install_dir, "include", "legion", "legion_c_util.h"),
-        ],
-        cwd=os.path.join(legion_src_dir, "runtime", "legion"),
-    )
+    src = os.path.join(legion_src_dir, "runtime", "legion", "legion_c_util.h")
+    dst = os.path.join(install_dir, "include", "legion", "legion_c_util.h")
+    if not os.path.exists(dst) or os.path.getmtime(dst) < os.path.getmtime(
+        src
+    ):
+        verbose_check_call(["cp", src, dst])
+
     verbose_check_call(
         [
             "cp",
