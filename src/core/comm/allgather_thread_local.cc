@@ -55,9 +55,9 @@ int allgatherLocal(
 #ifdef DEBUG_LEGATE
     log_coll.debug(
       "AllgatherLocal i: %d === global_rank %d, dtype %d, copy rank %d (%p) to rank %d (%p)",
-      i,
+      recvfrom_global_rank,
       global_rank,
-      sendtype_extent,
+      type_extent,
       recvfrom_global_rank,
       src,
       global_rank,

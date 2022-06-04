@@ -68,7 +68,7 @@ int alltoallLocal(
       "%d, %p)",
       i,
       global_rank,
-      sendtype_extent,
+      type_extent,
       recvfrom_global_rank,
       recvfrom_seg_id,
       src,
