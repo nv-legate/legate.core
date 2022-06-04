@@ -41,7 +41,7 @@ function(set_package_dir_if_built)
     endif()
   endforeach()
 
-  message(VERBOSE "setting ${PKG_NAME}_DIR to '${build_dir}'")
+  message(STATUS "setting ${PKG_NAME}_DIR to '${build_dir}'")
 
   set(${PKG_NAME}_DIR "${build_dir}" PARENT_SCOPE)
 endfunction()

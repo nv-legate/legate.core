@@ -62,7 +62,7 @@ function(set_cuda_arch_from_names)
 endfunction()
 
 function(add_cuda_architecture_defines defs)
-  message(VERBOSE "legate.core: CMAKE_CUDA_ARCHITECTURES=${CMAKE_CUDA_ARCHITECTURES}")
+  message(STATUS "legate.core: CMAKE_CUDA_ARCHITECTURES=${CMAKE_CUDA_ARCHITECTURES}")
 
   set(_defs ${${defs}})
 
