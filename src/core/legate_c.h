@@ -17,6 +17,12 @@
 #ifndef __LEGATE_C_H__
 #define __LEGATE_C_H__
 
+#ifndef LEGATE_USE_PYTHON_CFFI
+#include "legion/legion_config.h"
+//
+#include <cstdint>
+#endif
+
 typedef enum legate_core_task_id_t {
   LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,
   LEGATE_CORE_INIT_NCCL_ID_TASK_ID,
