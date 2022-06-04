@@ -65,6 +65,25 @@ set_or_default(Legion_USE_HDF5 USE_HDF OFF)
 set_or_default(Legion_USE_GASNet USE_GASNET OFF)
 set_or_default(Legion_USE_OpenMP USE_OPENMP OFF)
 set_or_default(Legion_BOUNDS_CHECKS CHECK_BOUNDS OFF)
+
+option(Legion_SPY "Enable detailed logging for Legion Spy" OFF)
+option(Legion_USE_LLVM "Use LLVM JIT operations" OFF)
+option(Legion_USE_HDF5 "Enable support for HDF5" OFF)
+option(Legion_USE_CUDA "Enable Legion support for the CUDA runtime" OFF)
+option(Legion_USE_GASNet "Enable the distributed GASNet backend" OFF)
+option(Legion_USE_OpenMP "Use OpenMP" OFF)
+option(Legion_USE_Python "Use Python" OFF)
+option(Legion_BOUNDS_CHECKS "Enable bounds checking in Legion accessors" OFF)
+
+if(Legion_USE_GASNet)
+  set_or_default(GASNet_ROOT_DIR GASNET)
+  set_or_default(GASNet_CONDUIT CONDUIT "udp")
+
+  if(Legion_USE_GASNet AND (NOT GASNet_ROOT_DIR))
+    option(Legion_EMBED_GASNet "Embed a custom GASNet build into Legion" ON)
+  endif()
+endif()
+
 set_or_default(Legion_MAX_DIM LEGION_MAX_DIM 4)
 
 # Check the max dimensions
@@ -79,48 +98,34 @@ if(NOT Legion_MAX_FIELDS MATCHES "^(32|64|128|256|512|1024|2048|4096)$")
   message(FATAL_ERROR "The maximum number of Legate fields must be a power of 2 between 32 and 4096 inclusive")
 endif()
 
-set_or_default(GASNet_ROOT_DIR GASNET)
-set_or_default(NCCL_DIR NCCL_PATH)
-set_or_default(Thrust_DIR THRUST_PATH)
-set_or_default(CUDA_TOOLKIT_ROOT_DIR CUDA)
-set_or_default(CMAKE_CUDA_ARCHITECTURES GPU_ARCH ALL)
-set_or_default(Legion_HIJACK_CUDART USE_CUDART_HIJACK OFF)
-
-option(Legion_SPY "Enable detailed logging for Legion Spy" OFF)
-option(Legion_USE_LLVM "Use LLVM JIT operations" OFF)
-option(Legion_USE_CUDA "Enable Legion support for the CUDA runtime" OFF)
-option(Legion_USE_HDF5 "Enable support for HDF5" OFF)
-option(Legion_USE_GASNet "Enable the distributed GASNet backend" OFF)
-option(Legion_USE_OpenMP "Use OpenMP" OFF)
-option(Legion_USE_Python "Use Python" OFF)
-
-if(Legion_USE_GASNet AND (NOT GASNet_ROOT_DIR))
-  option(Legion_EMBED_GASNet "Embed a custom GASNet build into Legion" ON)
-endif()
-
-set_or_default(GASNet_CONDUIT CONDUIT "udp")
-
 option(LEGATE_CORE_STATIC_CUDA_RUNTIME "Statically link the cuda runtime library" OFF)
 option(LEGATE_CORE_EXCLUDE_LEGION_FROM_ALL "Exclude Legion targets from legate.core's 'all' target" OFF)
 
-include(CMakeDependentOption)
-cmake_dependent_option(Legion_HIJACK_CUDART
-  "Allow Legion to hijack and rewrite application calls into the CUDA runtime"
-  ON
-  "Legion_USE_CUDA;Legion_HIJACK_CUDART"
-  OFF)
+if(Legion_USE_CUDA)
+  set_or_default(NCCL_DIR NCCL_PATH)
+  set_or_default(Thrust_DIR THRUST_PATH)
+  set_or_default(CUDA_TOOLKIT_ROOT_DIR CUDA)
 
-if(Legion_HIJACK_CUDART)
-  message(WARNING [=[
+  set_or_default(CMAKE_CUDA_ARCHITECTURES GPU_ARCH ALL)
+  set_or_default(Legion_HIJACK_CUDART USE_CUDART_HIJACK OFF)
+
+  include(CMakeDependentOption)
+  cmake_dependent_option(Legion_HIJACK_CUDART
+    "Allow Legion to hijack and rewrite application calls into the CUDA runtime"
+    ON
+    "Legion_USE_CUDA;Legion_HIJACK_CUDART"
+    OFF)
+
+  if(Legion_HIJACK_CUDART)
+    message(WARNING [=[
 #####################################################################
 Warning: Realm's CUDA runtime hijack is incompatible with NCCL.
 Please note that your code will crash catastrophically as soon as it
 calls into NCCL either directly or through some other Legate library.
 #####################################################################
 ]=])
-endif()
+  endif()
 
-if(Legion_USE_CUDA)
   if(BUILD_SHARED_LIBS)
     if(Legion_HIJACK_CUDART)
       # Must statically link CUDA if HIJACK_CUDART is set
@@ -136,21 +141,25 @@ if(Legion_USE_CUDA)
     set(Legion_CUDA_DYNAMIC_LOAD OFF)
     set(CUDA_USE_STATIC_CUDA_RUNTIME ON)
   endif()
+
+  include(cmake/Modules/cuda_arch_helpers.cmake)
 endif()
 
-if(Legion_USE_CUDA)
-  include(cmake/Modules/cuda_arch_helpers.cmake)
-  # Needs to run before `rapids_cuda_init_architectures`
-  set_cuda_arch_from_names()
-  # Needs to run before `project`
-  rapids_cuda_init_architectures(LEGATE_CORE)
-  project(LEGATE_CORE VERSION 22.07.00 LANGUAGES C CXX CUDA)
-else()
-  project(LEGATE_CORE VERSION 22.07.00 LANGUAGES C CXX)
-endif()
+##############################################################################
+# - Project definition -------------------------------------------------------
+
+project(LEGATE_CORE VERSION 22.07.00 LANGUAGES C CXX)
 
 # Write the version header
 rapids_cmake_write_version_file(include/legate/version_config.hpp)
+
+if(Legion_USE_CUDA)
+  # Needs to run before `rapids_cuda_init_architectures`
+  set_cuda_arch_from_names()
+  # Needs to run before `enable_language(CUDA)`
+  rapids_cuda_init_architectures(LEGATE_CORE)
+  enable_language(CUDA)
+endif()
 
 ##############################################################################
 # - Build Type ---------------------------------------------------------------
@@ -167,19 +176,22 @@ rapids_cmake_support_conda_env(conda_env MODIFY_PREFIX_PATH)
 
 ##############################################################################
 # - Dependencies -------------------------------------------------------------
-rapids_find_package(
-  CUDAToolkit REQUIRED
-  BUILD_EXPORT_SET legate-core-exports
-  INSTALL_EXPORT_SET legate-core-exports
-)
+if(Legion_USE_CUDA)
+  rapids_find_package(
+    CUDAToolkit REQUIRED
+    BUILD_EXPORT_SET legate-core-exports
+    INSTALL_EXPORT_SET legate-core-exports
+  )
+endif()
 
 # add third party dependencies using CPM
 rapids_cpm_init()
 
 if(Legion_USE_CUDA)
   include(cmake/thirdparty/get_nccl.cmake)
-  include(cmake/thirdparty/get_thrust.cmake)
 endif()
+
+include(cmake/thirdparty/get_thrust.cmake)
 
 if(Legion_USE_Python)
   find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
@@ -214,7 +226,14 @@ endif()
 if(Legion_USE_CUDA)
   list(APPEND LEGATE_CORE_CXX_DEFS LEGATE_USE_CUDA)
   list(APPEND LEGATE_CORE_CUDA_DEFS LEGATE_USE_CUDA)
+
+  add_cuda_architecture_defines(LEGATE_CORE_CUDA_DEFS)
+
+  list(APPEND LEGATE_CORE_CUDA_OPTIONS -Xfatbin=-compress-all)
+  list(APPEND LEGATE_CORE_CUDA_OPTIONS --expt-extended-lambda)
+  list(APPEND LEGATE_CORE_CUDA_OPTIONS --expt-relaxed-constexpr)
 endif()
+
 
 if(Legion_USE_OpenMP)
   list(APPEND LEGATE_CORE_CXX_DEFS LEGATE_USE_OPENMP)
@@ -225,6 +244,21 @@ if(Legion_USE_GASNet)
   list(APPEND LEGATE_CORE_CXX_DEFS LEGATE_USE_GASNET)
   list(APPEND LEGATE_CORE_CUDA_DEFS LEGATE_USE_GASNET)
 endif()
+
+# Change THRUST_DEVICE_SYSTEM for `.cpp` files
+# TODO: This is what we do in cuNumeric, should we do it here as well?
+if(Legion_USE_OpenMP)
+  list(APPEND LEGATE_CORE_CXX_OPTIONS -UTHRUST_DEVICE_SYSTEM)
+  list(APPEND LEGATE_CORE_CXX_OPTIONS -DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_OMP)
+elseif(NOT Legion_USE_CUDA)
+  list(APPEND LEGATE_CORE_CXX_OPTIONS -UTHRUST_DEVICE_SYSTEM)
+  list(APPEND LEGATE_CORE_CXX_OPTIONS -DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_CPP)
+endif()
+# Or should we only do it if OpenMP and CUDA are both disabled?
+# if(NOT Legion_USE_OpenMP AND (NOT Legion_USE_CUDA))
+#   list(APPEND LEGATE_CORE_CXX_OPTIONS -UTHRUST_DEVICE_SYSTEM)
+#   list(APPEND LEGATE_CORE_CXX_OPTIONS -DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_CPP)
+# endif()
 
 list(APPEND LEGATE_CORE_SOURCES
   src/core/legate_c.cc
@@ -266,6 +300,8 @@ set_target_properties(legate_core
                       INSTALL_RPATH                       "\$ORIGIN"
                       CXX_STANDARD                        17
                       CXX_STANDARD_REQUIRED               ON
+                      CUDA_STANDARD                       17
+                      CUDA_STANDARD_REQUIRED              ON
                       POSITION_INDEPENDENT_CODE           ON
                       INTERFACE_POSITION_INDEPENDENT_CODE ON)
 
@@ -295,42 +331,24 @@ endif()
 # A better solution would be to add #include directives to the requisite
 # legate.core and cuNumeric headers.
 ###
+include(cmake/Modules/legion_helpers.cmake)
+get_legion_and_realm_includes(extra_include_options)
 
-set(realm_includes "")
-if(TARGET Legion::RealmRuntime)
-  get_target_property(realm_includes Legion::RealmRuntime INTERFACE_INCLUDE_DIRECTORIES)
-elseif(TARGET Legion::Realm)
-  get_target_property(realm_includes Legion::Realm INTERFACE_INCLUDE_DIRECTORIES)
-endif()
+target_link_libraries(legate_core
+   PUBLIC Legion::Legion
+          legate::Thrust
+          $<TARGET_NAME_IF_EXISTS:CUDA::nvToolsExt>
+  PRIVATE $<TARGET_NAME_IF_EXISTS:NCCL::NCCL>)
 
-set(legion_includes "")
-if(TARGET Legion::LegionRuntime)
-  get_target_property(legion_includes Legion::LegionRuntime INTERFACE_INCLUDE_DIRECTORIES)
-elseif(TARGET Legion::Legion)
-  get_target_property(legion_includes Legion::Legion INTERFACE_INCLUDE_DIRECTORIES)
-endif()
+target_compile_options(legate_core
+  PRIVATE ${extra_include_options}
+          "$<$<COMPILE_LANGUAGE:CXX>:${LEGATE_CORE_CXX_OPTIONS}>"
+          "$<$<COMPILE_LANGUAGE:CUDA>:${LEGATE_CORE_CUDA_OPTIONS}>")
 
-set(extra_includes "")
-foreach(_dir IN LISTS realm_includes legion_includes)
-  if(EXISTS "${_dir}/realm_defines.h")
-    list(APPEND extra_includes "${_dir}/realm_defines.h")
-  endif()
-  if(EXISTS "${_dir}/legion_defines.h")
-    list(APPEND extra_includes "${_dir}/legion_defines.h")
-  endif()
-endforeach()
+target_compile_definitions(legate_core
+  PUBLIC "$<$<COMPILE_LANGUAGE:CXX>:${LEGATE_CORE_CXX_DEFS}>"
+         "$<$<COMPILE_LANGUAGE:CUDA>:${LEGATE_CORE_CUDA_DEFS}>")
 
-list(REMOVE_DUPLICATES extra_includes)
-list(LENGTH extra_includes num_extra_includes)
-if(num_extra_includes GREATER 2)
-  list(SORT extra_includes)
-  list(SUBLIST extra_includes 0 2 extra_includes)
-endif()
-list(TRANSFORM extra_includes PREPEND "SHELL:-include ")
-
-target_link_libraries(legate_core PUBLIC Legion::Legion)
-target_compile_options(legate_core PRIVATE ${extra_includes} "$<$<COMPILE_LANGUAGE:CXX>:${LEGATE_CORE_CXX_OPTIONS}>")
-target_compile_definitions(legate_core PUBLIC "$<$<COMPILE_LANGUAGE:CXX>:${LEGATE_CORE_CXX_DEFS}>")
 target_include_directories(legate_core
   PUBLIC
     $<BUILD_INTERFACE:${LEGATE_CORE_SOURCE_DIR}/src>
@@ -339,21 +357,6 @@ target_include_directories(legate_core
 )
 
 if(Legion_USE_CUDA)
-
-  add_cuda_architecture_defines(LEGATE_CORE_CUDA_DEFS)
-
-  set_target_properties(legate_core
-             PROPERTIES CUDA_STANDARD                     17
-                        CUDA_STANDARD_REQUIRED            ON)
-
-  list(APPEND LEGATE_CORE_CUDA_OPTIONS -Xfatbin=-compress-all)
-  list(APPEND LEGATE_CORE_CUDA_OPTIONS --expt-extended-lambda)
-  list(APPEND LEGATE_CORE_CUDA_OPTIONS --expt-relaxed-constexpr)
-
-  target_link_libraries(legate_core PUBLIC legate::Thrust PRIVATE NCCL::NCCL)
-  target_compile_options(legate_core PRIVATE "$<$<COMPILE_LANGUAGE:CUDA>:${LEGATE_CORE_CUDA_OPTIONS}>")
-  target_compile_definitions(legate_core PUBLIC "$<$<COMPILE_LANGUAGE:CUDA>:${LEGATE_CORE_CUDA_DEFS}>")
-
   file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld"
           [=[
 SECTIONS
@@ -449,16 +452,12 @@ Imported Targets:
 
 ]=])
 
-set(code_string "")
-
-if(Legion_USE_CUDA)
-  set(code_string
+set(code_string
 [=[
 if(NOT TARGET legate::Thrust)
   thrust_create_target(legate::Thrust FROM_OPTIONS)
 endif()
 ]=])
-endif()
 
 rapids_export(
   INSTALL legate_core
