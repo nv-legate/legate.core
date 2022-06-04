@@ -32,6 +32,13 @@ function(find_or_configure_legion)
                                            lib/libregent.so
                                            lib/liblegion.so)
 
+  set(CUDA_PATH "$ENV{CUDA_PATH}")
+  if(CUDA_TOOLKIT_ROOT_DIR)
+    set(ENV{CUDA_PATH} "${CUDA_TOOLKIT_ROOT_DIR}")
+  else()
+    set(ENV{CUDA_PATH} "${CUDAToolkit_LIBRARY_ROOT}")
+  endif()
+
   rapids_cpm_find(Legion  ${PKG_VERSION}
       GLOBAL_TARGETS      Legion::Realm
                           Legion::Regent
@@ -56,7 +63,7 @@ function(find_or_configure_legion)
                          "Legion_CUDA_ARCH ${Legion_CUDA_ARCH}"
                          "Legion_PYTHON_EXTRA_INSTALL_ARGS --single-version-externally-managed --root=/"
   )
-
+  set(ENV{CUDA_PATH} "${CUDA_PATH}")
 endfunction()
 
 if(NOT DEFINED LEGATE_CORE_LEGION_BRANCH)
