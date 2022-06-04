@@ -531,7 +531,8 @@ void BaseMapper::map_task(const MapperContext ctx,
 
   auto mappings = store_mappings(legate_task, options);
 
-  std::map<RegionField::Id, uint32_t> client_mapped;
+  std::map<RegionField::Id, uint32_t> client_mapped_regions;
+  std::map<uint32_t, uint32_t> client_mapped_futures;
   for (uint32_t mapping_idx = 0; mapping_idx < mappings.size(); ++mapping_idx) {
     auto& mapping = mappings[mapping_idx];
 
@@ -549,15 +550,19 @@ void BaseMapper::map_task(const MapperContext ctx,
     }
 
     for (auto& store : mapping.stores) {
-      if (store.is_future()) continue;
+      if (store.is_future()) {
+        auto fut_idx                   = store.future().index();
+        client_mapped_futures[fut_idx] = mapping_idx;
+        continue;
+      }
 
       auto& rf = store.region_field();
       auto key = rf.unique_id();
 
-      auto finder = client_mapped.find(key);
+      auto finder = client_mapped_regions.find(key);
       // If this is the first store mapping for this requirement,
       // we record the mapping index for future reference.
-      if (finder == client_mapped.end()) client_mapped[key] = mapping_idx;
+      if (finder == client_mapped_regions.end()) client_mapped_regions[key] = mapping_idx;
       // If we're still in the same store mapping, we know for sure
       // that the mapping is consistent.
       else {
@@ -576,11 +581,17 @@ void BaseMapper::map_task(const MapperContext ctx,
   auto default_option            = options.front();
   auto generate_default_mappings = [&](auto& stores, bool exact) {
     for (auto& store : stores) {
-      if (store.is_future()) continue;
-      auto key = store.region_field().unique_id();
-      if (client_mapped.find(key) != client_mapped.end()) continue;
-      client_mapped[key] = static_cast<int32_t>(mappings.size());
-      mappings.push_back(StoreMapping::default_mapping(store, default_option, exact));
+      if (store.is_future()) {
+        auto fut_idx = store.future().index();
+        if (client_mapped_futures.find(fut_idx) == client_mapped_futures.end())
+          mappings.push_back(StoreMapping::default_mapping(store, default_option, exact));
+        continue;
+      } else {
+        auto key = store.region_field().unique_id();
+        if (client_mapped_regions.find(key) != client_mapped_regions.end()) continue;
+        client_mapped_regions[key] = static_cast<int32_t>(mappings.size());
+        mappings.push_back(StoreMapping::default_mapping(store, default_option, exact));
+      }
     }
   };
 
@@ -599,9 +610,24 @@ void BaseMapper::map_task(const MapperContext ctx,
 
     if (req_indices.empty()) continue;
 
-    if (mapping.for_unbound_stores()) {
-      for (auto req_idx : req_indices)
+    if (req_indices.empty()) {
+      // This is a mapping for futures
+      output.future_locations.push_back(get_target_memory(task.target_proc, mapping.policy.target));
+      continue;
+    } else if (mapping.for_unbound_stores()) {
+      for (auto req_idx : req_indices) {
         output.output_targets[req_idx] = get_target_memory(task.target_proc, mapping.policy.target);
+        auto ndim                      = mapping.stores.front().dim();
+
+        // FIXME: Unbound stores can have more than one dimension later
+        std::vector<DimensionKind> dimension_ordering;
+        for (int32_t dim = ndim - 1; dim >= 0; --dim)
+          dimension_ordering.push_back(
+            static_cast<DimensionKind>(static_cast<int32_t>(DimensionKind::LEGION_DIM_X) + dim));
+        dimension_ordering.push_back(DimensionKind::LEGION_DIM_F);
+        output.output_constraints[req_idx].ordering_constraint =
+          OrderingConstraint(dimension_ordering, false);
+      }
       continue;
     }
 

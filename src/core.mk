@@ -17,6 +17,7 @@
 # General source files
 GEN_CPU_SRC	= core/legate_c.cc                 \
 							core/comm/comm.cc                \
+							core/data/allocator.cc           \
 							core/data/scalar.cc              \
 							core/data/store.cc               \
 							core/data/transform.cc           \
@@ -37,7 +38,8 @@ GEN_CPU_SRC	= core/legate_c.cc                 \
 							core/utilities/linearize.cc
 
 # Source files for GPUs
-GEN_GPU_SRC	= core/comm/comm_nccl.cu
+GEN_GPU_SRC	= core/comm/comm_nccl.cu   \
+							core/cuda/stream_pool.cu
 
 # Header files that we need to have installed for client legate libraries
 INSTALL_HEADERS = legate.h                        \
@@ -45,6 +47,9 @@ INSTALL_HEADERS = legate.h                        \
 									legate_preamble.h               \
 									core/legate_c.h                 \
 									core/comm/communicator.h        \
+									core/cuda/cuda_help.h           \
+									core/cuda/stream_pool.h         \
+									core/data/allocator.h           \
 									core/data/buffer.h              \
 									core/data/scalar.h              \
 									core/data/scalar.inl            \
@@ -64,6 +69,7 @@ INSTALL_HEADERS = legate.h                        \
 									core/utilities/deserializer.inl \
 									core/utilities/dispatch.h       \
 									core/utilities/machine.h        \
+									core/utilities/nvtx_help.h      \
 									core/utilities/span.h           \
 									core/utilities/type_traits.h    \
 									core/utilities/typedefs.h

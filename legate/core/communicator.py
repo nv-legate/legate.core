@@ -14,47 +14,80 @@
 #
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+from abc import ABC, abstractmethod, abstractproperty
+from typing import TYPE_CHECKING
 
+from . import FutureMap, Rect
 from .launcher import TaskLauncher as Task
-from .legion import Rect
+
+if TYPE_CHECKING:
+    from .runtime import Runtime
 
 
 class Communicator(ABC):
-    def __init__(self):
-        self._comms = {}
+    def __init__(self, runtime: Runtime) -> None:
+        self._runtime = runtime
+        self._context = runtime.core_context
 
-    def get_communicator(self, volume):
-        if volume not in self._comms:
-            self._comms[volume] = self._initialize(volume)
-        return self._comms[volume]
+        self._handles: dict[int, FutureMap] = {}
+        # From launch domains to communicator future maps transformed to N-D
+        self._nd_handles: dict[Rect, FutureMap] = {}
 
-    def destroy(self):
-        for volume, handle in self._comms.items():
+    def _get_1d_handle(self, volume: int) -> FutureMap:
+        if volume in self._handles:
+            return self._handles[volume]
+        comm = self._initialize(volume)
+        self._handles[volume] = comm
+        return comm
+
+    def _transform_handle(
+        self, comm: FutureMap, launch_domain: Rect
+    ) -> FutureMap:
+        if launch_domain in self._nd_handles:
+            return self._nd_handles[launch_domain]
+        comm = self._runtime.delinearize_future_map(comm, launch_domain)
+        self._nd_handles[launch_domain] = comm
+        return comm
+
+    def get_handle(self, launch_domain: Rect) -> FutureMap:
+        comm = self._get_1d_handle(launch_domain.get_volume())
+        if launch_domain.dim > 1:
+            comm = self._transform_handle(comm, launch_domain)
+        return comm
+
+    def destroy(self) -> None:
+        for volume, handle in self._handles.items():
             self._finalize(volume, handle)
 
-    @abstractmethod
-    def _initialize(self, volume):
+    @abstractproperty
+    def needs_barrier(self) -> bool:
         ...
 
     @abstractmethod
-    def _finalize(self, volume, handle):
+    def _initialize(self, volume: int) -> FutureMap:
+        ...
+
+    @abstractmethod
+    def _finalize(self, volume: int, handle: FutureMap) -> None:
         ...
 
 
 class NCCLCommunicator(Communicator):
-    def __init__(self, runtime):
-        super(NCCLCommunicator, self).__init__()
+    def __init__(self, runtime: Runtime) -> None:
+        super(NCCLCommunicator, self).__init__(runtime)
         library = runtime.core_library
 
-        self._runtime = runtime
-        self._context = runtime.core_context
         self._init_nccl_id = library.LEGATE_CORE_INIT_NCCL_ID_TASK_ID
         self._init_nccl = library.LEGATE_CORE_INIT_NCCL_TASK_ID
         self._finalize_nccl = library.LEGATE_CORE_FINALIZE_NCCL_TASK_ID
         self._tag = library.LEGATE_GPU_VARIANT
+        self._needs_barrier = runtime.nccl_needs_barrier
 
-    def _initialize(self, volume):
+    @property
+    def needs_barrier(self) -> bool:
+        return self._needs_barrier
+
+    def _initialize(self, volume: int) -> FutureMap:
         # This doesn't need to run on a GPU, but will use it anyway
         task = Task(
             self._context, self._init_nccl_id, tag=self._tag, side_effect=True
@@ -67,7 +100,7 @@ class NCCLCommunicator(Communicator):
         self._runtime.issue_execution_fence()
         return handle
 
-    def _finalize(self, volume, handle):
+    def _finalize(self, volume: int, handle: FutureMap) -> None:
         task = Task(self._context, self._finalize_nccl, tag=self._tag)
         task.add_future_map(handle)
         task.execute(Rect([volume]))

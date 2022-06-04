@@ -25,6 +25,7 @@
 #include "core/runtime/runtime.h"
 #include "core/task/return.h"
 #include "core/utilities/deserializer.h"
+#include "core/utilities/nvtx_help.h"
 #include "core/utilities/typedefs.h"
 
 namespace legate {
@@ -80,25 +81,6 @@ class LegateTask {
 
     return result.c_str();
   }
-  static void show_progress(const Legion::Task* task, Legion::Context ctx, Legion::Runtime* runtime)
-  {
-    if (!Core::show_progress) return;
-    const auto exec_proc     = runtime->get_executing_processor(ctx);
-    const auto proc_kind_str = (exec_proc.kind() == Legion::Processor::LOC_PROC)   ? "CPU"
-                               : (exec_proc.kind() == Legion::Processor::TOC_PROC) ? "GPU"
-                                                                                   : "OpenMP";
-
-    std::stringstream point_str;
-    const auto& point = task->index_point;
-    point_str << point[0];
-    for (int32_t dim = 1; dim < task->index_point.dim; ++dim) point_str << "," << point[dim];
-
-    log_legate.print("%s %s task, pt = (%s), proc = " IDFMT,
-                     task_name(),
-                     proc_kind_str,
-                     point_str.str().c_str(),
-                     exec_proc.id);
-  }
 
   // Task wrappers so we can instrument all Legate tasks if we want
   template <LegateVariantImpl TASK_PTR>
@@ -107,7 +89,11 @@ class LegateTask {
                                           Legion::Context legion_context,
                                           Legion::Runtime* runtime)
   {
-    show_progress(task, legion_context, runtime);
+#ifdef LEGATE_USE_CUDA
+    nvtx::Range auto_range(task_name());
+#endif
+
+    Core::show_progress(task, legion_context, runtime, task_name());
 
     TaskContext context(task, regions, legion_context, runtime);
     if (!Core::use_empty_task) (*TASK_PTR)(context);

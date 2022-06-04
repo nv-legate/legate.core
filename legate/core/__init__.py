@@ -14,48 +14,13 @@
 #
 from __future__ import annotations
 
-import os
+from ..rc import check_legion, parse_command_args
 
-# Perform a check to see if we're running inside of Legion Python
-# If we're not then we should raise an error message
-try:
-    from legion_cffi import lib as _legion
+check_legion()
 
-    # Now confirm that we are actually inside of a task
-    if _legion.legion_runtime_has_context():
-        using_legion_python = True
-    else:
-        using_legion_python = False
-except ModuleNotFoundError:
-    using_legion_python = False
-except AttributeError:
-    using_legion_python = False
-if not using_legion_python:
-    raise RuntimeError(
-        "All Legate programs must be run with a legion_python interperter. We "
-        'recommend that you use the Legate driver script "bin/legate" found '
-        "in the installation directory to launch Legate programs as it "
-        "provides easy-to-use flags for invoking legion_python. You can see "
-        'options for using the driver script with "bin/legate --help". You '
-        "can also invoke legion_python directly. "
-        'Use "bin/legate --verbose ..." to see some examples of how to call '
-        "legion_python directly."
-    )
+from legion_cffi import ffi, lib as legion
 
-# Import select types for Legate library construction
-from legate.core.context import ResourceConfig
-from legate.core.legate import (
-    Array,
-    Library,
-)
-from legate.core.runtime import (
-    get_legate_runtime,
-    get_legion_context,
-    get_legion_runtime,
-    legate_add_library,
-)
-from legate.core.store import DistributedAllocation, Store
-from legate.core.legion import (
+from ._legion import (
     LEGATE_MAX_DIM,
     LEGATE_MAX_FIELDS,
     Point,
@@ -63,8 +28,11 @@ from legate.core.legion import (
     Domain,
     Transform,
     AffineTransform,
+    IndexAttach,
+    IndexDetach,
     IndexSpace,
     PartitionFunctor,
+    PartitionByDomain,
     PartitionByRestriction,
     PartitionByImage,
     PartitionByImageRange,
@@ -97,7 +65,22 @@ from legate.core.legion import (
     legate_task_progress,
     legate_task_postamble,
 )
-from legate.core.types import (
+
+# Import select types for Legate library construction
+from .legate import (
+    Array,
+    Library,
+)
+from .resource import ResourceConfig
+from .runtime import (
+    get_legate_runtime,
+    get_legion_context,
+    get_legion_runtime,
+    legate_add_library,
+)
+from .store import DistributedAllocation, Store
+
+from .types import (
     bool_,
     int8,
     int16,
@@ -114,11 +97,7 @@ from legate.core.types import (
     complex128,
     ReductionOp,
 )
-from legate.core.io import CustomSplit, TiledSplit, ingest
-
-# NOTE: This needs to come after the imports from legate.core.legion, as we
-# are overriding that module's name.
-from legion_cffi import ffi, lib as legion
+from .io import CustomSplit, TiledSplit, ingest
 
 # Import the PyArrow type system
 from pyarrow import (

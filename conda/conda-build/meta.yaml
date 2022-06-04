@@ -1,0 +1,120 @@
+{% set name = "legate-core" %}
+{% if gpu_enabled == "true" %}
+  {% set gpu_enabled_bool = true %}
+{% elif gpu_enabled == "false" %}
+  {% set gpu_enabled_bool = false %}
+{% else %}
+  {# We need to have a default value for the initial pass over the recipe #}
+  {% set gpu_enabled_bool = false %}
+{% endif %}
+{% set default_env_var = '' %}
+{% if build_number is defined %}
+    {# do nothing if defined #}
+{% else %}
+    {% set build_number = environ.get('GIT_DESCRIBE_NUMBER', '0') %}
+{% endif %}
+{% if package_version is defined %}
+    {% set version = package_version %}
+## The tag must be in one of the two formats (where N is a digit):
+## vNN.NN.NN
+## vNN.NN.NN.dev
+{% elif 'dev' in environ.get('GIT_DESCRIBE_TAG', default_env_var) %}
+    {% set version = (environ.get('GIT_DESCRIBE_TAG') ~ environ.get('GIT_DESCRIBE_NUMBER', default_env_var)).lstrip('v') %}
+{% else %}
+    {% set version = environ.get('GIT_DESCRIBE_TAG', default_env_var).lstrip('v') %}
+{% endif %}
+{% set cuda_version='.'.join(environ.get('CUDA', '11.5').split('.')[:2]) %}
+{% set cuda_major=cuda_version.split('.')[0] %}
+{% set py_version=environ.get('CONDA_PY', 36) %}
+
+package:
+  name: {{ name|lower }}
+  version: {{ version }}
+
+source:
+{% if package_tar is defined %}
+  url: {{ package_tar }}
+{% else %}
+  git_url: ../../
+{% endif %}
+
+build:
+  skip: true # [not linux]
+  number: {{ build_number }}
+  missing_dso_whitelist:
+    -  '*libcuda.so*'
+{% if not gpu_enabled_bool %}
+  string: "cuda{{ cuda_major }}_py{{ py_version }}_{{ GIT_DESCRIBE_HASH }}_{{ PKG_BUILDNUM }}_cpu"
+{% else %}
+  string: "cuda{{ cuda_major }}_py{{ py_version }}_{{ GIT_DESCRIBE_HASH }}_{{ PKG_BUILDNUM }}"
+{% endif %}
+{% if not gpu_enabled_bool %}
+  track_features:
+    - cpu_only
+  script_env:
+    - CPU_ONLY=1
+{% endif %}
+  run_exports:
+{% if not gpu_enabled_bool %}
+    - {{ pin_subpackage(name, min_pin="x.x.x", max_pin="x.x.x") }} =*_cpu
+{% else %}
+    - {{ pin_subpackage(name, min_pin="x.x.x", max_pin="x.x.x") }}
+{% endif %}
+{% if gpu_enabled_bool %}
+# prevent nccl from pulling in cudatoolkit
+# once an nccl package compatible with cuda-* packages is introduced, this can be removed
+#  ignore_run_exports:
+#    - cudatoolkit
+{% endif %}
+
+requirements:
+  build:
+    - {{ compiler('c') }}
+    - {{ compiler('cxx') }}
+    - make
+{% if gpu_enabled_bool %}
+    - cuda-nvcc ={{ cuda_version }}
+{% endif %}
+  host:
+    - zlib
+    - python
+{% if gpu_enabled_bool %}
+    - nccl
+    - cuda-nvtx ={{ cuda_version }}
+    - cuda-driver-dev ={{ cuda_version }}
+    - cuda-cudart-dev ={{ cuda_version }}
+{% endif %}
+  run:
+    - cffi
+    - pyarrow >=5.0.0
+{% if gpu_enabled_bool %}
+    - cuda-cudart
+    - nccl
+{% endif %}
+
+  run_constrained:
+{% if gpu_enabled_bool %}
+    - __cuda >= 11.4
+{% endif %}
+    - __glibc >=2.17  # [linux]
+
+test:
+  imports:
+    - legate
+
+about:
+  home: https://github.com/nv-legate/legate.core
+  license: Apache-2.0
+  license_file: LICENSE
+  summary: 'Scalable Computational Code'
+  description: |
+    The Legate project endeavors to democratize computing by
+    making it possible for all programmers to leverage the power
+    of large clusters of CPUs and GPUs by running the same code
+    that runs on a desktop or a laptop at scale.
+  doc_url: https://github.com/nv-legate/legate.core
+  dev_url: https://github.com/nv-legate/legate.core
+
+extra:
+  recipe-maintainers:
+    - m3vaz

@@ -36,7 +36,7 @@ endif
 RM	:= rm
 
 CC_FLAGS ?=
-CC_FLAGS += -std=c++14 -Wfatal-errors
+CC_FLAGS += -std=c++17 -Wfatal-errors
 CC_FLAGS += -I$(LEGATE_DIR)/include
 
 ifneq ($(strip $(BOOTSTRAP)), 1)
@@ -55,7 +55,7 @@ endif
 endif
 
 NVCC_FLAGS ?=
-NVCC_FLAGS += -std=c++14 --expt-relaxed-constexpr --expt-extended-lambda -ccbin=$(CXX)
+NVCC_FLAGS += -std=c++17 --expt-relaxed-constexpr --expt-extended-lambda -ccbin=$(CXX)
 NVCC_FLAGS += -I$(LEGATE_DIR)/include
 
 DEVICE_LD_FLAGS ?=
@@ -84,6 +84,35 @@ else
 CC_FLAGS   += -ggdb #-ggdb -Wall
 endif
 NVCC_FLAGS += -g
+endif
+
+ifeq ($(strip $(DEBUG)),1)
+
+CC_FLAGS += -DDEBUG_LEGATE
+
+NVCC_FLAGS += -DDEBUG_LEGATE
+
+endif
+
+# machine architecture (generally "native" unless cross-compiling)
+MARCH ?= native
+
+ifneq (${MARCH},)
+  # Summit/Summitdev are strange and want to have this specified via -mcpu
+  # instead of -march. Unclear if this is true in general for PPC.
+  ifeq ($(findstring ppc64le,$(shell uname -p)),ppc64le)
+    ifeq ($(strip $(USE_PGI)),0)
+      CC_FLAGS += -mcpu=${MARCH} -maltivec -mabi=altivec -mvsx
+    else
+      $(error PGI compilers do not currently support the PowerPC architecture)
+    endif
+  else
+    ifeq ($(strip $(USE_PGI)),0)
+      CC_FLAGS += -march=${MARCH}
+    else
+      CC_FLAGS += -tp=${MARCH}
+    endif
+  endif
 endif
 
 ifeq ($(strip $(USE_CUDA)),1)

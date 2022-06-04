@@ -15,8 +15,12 @@
  */
 
 #include "core/comm/comm_nccl.h"
+#include "core/cuda/cuda_help.h"
+#include "core/cuda/stream_pool.h"
+#include "core/utilities/nvtx_help.h"
 #include "legate.h"
 
+#include <cuda.h>
 #include <nccl.h>
 
 using namespace Legion;
@@ -30,30 +34,11 @@ struct _Payload {
   uint64_t field1;
 };
 
-#define CHECK_CUDA(expr)                    \
-  do {                                      \
-    cudaError_t result = (expr);            \
-    check_cuda(result, __FILE__, __LINE__); \
-  } while (false)
-
 #define CHECK_NCCL(expr)                    \
   do {                                      \
     ncclResult_t result = (expr);           \
     check_nccl(result, __FILE__, __LINE__); \
   } while (false)
-
-inline void check_cuda(cudaError_t error, const char* file, int line)
-{
-  if (error != cudaSuccess) {
-    fprintf(stderr,
-            "Internal CUDA failure with error %s (%s) in file %s at line %d\n",
-            cudaGetErrorString(error),
-            cudaGetErrorName(error),
-            file,
-            line);
-    exit(error);
-  }
-}
 
 inline void check_nccl(ncclResult_t error, const char* file, int line)
 {
@@ -72,8 +57,13 @@ static ncclUniqueId init_nccl_id(const Legion::Task* task,
                                  Legion::Context context,
                                  Legion::Runtime* runtime)
 {
+  legate::nvtx::Range auto_range("core::comm::nccl::init_id");
+
+  Core::show_progress(task, context, runtime, task->get_task_name());
+
   ncclUniqueId id;
   CHECK_NCCL(ncclGetUniqueId(&id));
+
   return id;
 }
 
@@ -82,6 +72,10 @@ static ncclComm_t* init_nccl(const Legion::Task* task,
                              Legion::Context context,
                              Legion::Runtime* runtime)
 {
+  legate::nvtx::Range auto_range("core::comm::nccl::init");
+
+  Core::show_progress(task, context, runtime, task->get_task_name());
+
   assert(task->futures.size() == 1);
 
   auto id          = task->futures[0].get_result<ncclUniqueId>();
@@ -94,8 +88,7 @@ static ncclComm_t* init_nccl(const Legion::Task* task,
 
   if (num_ranks == 1) return comm;
 
-  cudaStream_t stream;
-  CHECK_CUDA(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
+  auto stream = cuda::StreamPool::get_stream_pool().get_stream();
 
   // Perform a warm-up all-to-all
 
@@ -116,8 +109,6 @@ static ncclComm_t* init_nccl(const Legion::Task* task,
 
   CHECK_NCCL(ncclAllGather(src_buffer.ptr(0), tgt_buffer.ptr(0), 1, ncclUint64, *comm, stream));
 
-  cudaStreamDestroy(stream);
-
   return comm;
 }
 
@@ -126,6 +117,10 @@ static void finalize_nccl(const Legion::Task* task,
                           Legion::Context context,
                           Legion::Runtime* runtime)
 {
+  legate::nvtx::Range auto_range("core::comm::nccl::finalize");
+
+  Core::show_progress(task, context, runtime, task->get_task_name());
+
   assert(task->futures.size() == 1);
   auto comm = task->futures[0].get_result<ncclComm_t*>();
   CHECK_NCCL(ncclCommDestroy(*comm));
@@ -137,17 +132,17 @@ void register_tasks(Legion::Machine machine,
                     const LibraryContext& context)
 {
   const TaskID init_nccl_id_task_id  = context.get_task_id(LEGATE_CORE_INIT_NCCL_ID_TASK_ID);
-  const char* init_nccl_id_task_name = "Initialize NCCL ID";
+  const char* init_nccl_id_task_name = "core::comm::nccl::init_id";
   runtime->attach_name(
     init_nccl_id_task_id, init_nccl_id_task_name, false /*mutable*/, true /*local only*/);
 
   const TaskID init_nccl_task_id  = context.get_task_id(LEGATE_CORE_INIT_NCCL_TASK_ID);
-  const char* init_nccl_task_name = "Initialize NCCL";
+  const char* init_nccl_task_name = "core::comm::nccl::init";
   runtime->attach_name(
     init_nccl_task_id, init_nccl_task_name, false /*mutable*/, true /*local only*/);
 
   const TaskID finalize_nccl_task_id  = context.get_task_id(LEGATE_CORE_FINALIZE_NCCL_TASK_ID);
-  const char* finalize_nccl_task_name = "Finalize NCCL";
+  const char* finalize_nccl_task_name = "core::comm::nccl::finalize";
   runtime->attach_name(
     finalize_nccl_task_id, finalize_nccl_task_name, false /*mutable*/, true /*local only*/);
 
@@ -174,6 +169,27 @@ void register_tasks(Legion::Machine machine,
       make_registrar(finalize_nccl_task_id, finalize_nccl_task_name, Processor::TOC_PROC);
     runtime->register_task_variant<finalize_nccl>(registrar, LEGATE_GPU_VARIANT);
   }
+}
+
+bool needs_barrier()
+{
+  int32_t ver;
+  auto status = cuDriverGetVersion(&ver);
+  if (status != CUDA_SUCCESS) {
+    const char* error_string;
+    cuGetErrorString(status, &error_string);
+    fprintf(stderr,
+            "Internal CUDA failure with error %s in file %s at line %d\n",
+            error_string,
+            __FILE__,
+            __LINE__);
+    exit(status);
+  }
+
+  int32_t major = ver / 1000;
+  int32_t minor = (ver - major * 1000) / 10;
+
+  return major < 11 || major == 11 && minor < 8;
 }
 
 }  // namespace nccl

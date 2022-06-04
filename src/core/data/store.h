@@ -36,7 +36,7 @@ class RegionField {
   RegionField& operator=(RegionField&& other) noexcept;
 
  private:
-  RegionField(const RegionField& other) = delete;
+  RegionField(const RegionField& other)            = delete;
   RegionField& operator=(const RegionField& other) = delete;
 
  public:
@@ -169,12 +169,16 @@ class OutputRegionField {
   OutputRegionField& operator=(OutputRegionField&& other) noexcept;
 
  private:
-  OutputRegionField(const OutputRegionField& other) = delete;
+  OutputRegionField(const OutputRegionField& other)            = delete;
   OutputRegionField& operator=(const OutputRegionField& other) = delete;
 
  public:
-  template <typename VAL>
-  void return_data(Buffer<VAL>& buffer, size_t num_elements);
+  template <typename T, int32_t DIM>
+  Buffer<T, DIM> create_output_buffer(const Legion::Point<DIM>& extents, bool return_buffer);
+
+ public:
+  template <typename T, int32_t DIM>
+  void return_data(Buffer<T, DIM>& buffer, const Legion::Point<DIM>& extents);
 
  public:
   ReturnValue pack_weight() const;
@@ -250,16 +254,16 @@ class Store {
  public:
   Store() {}
   Store(int32_t dim,
-        LegateTypeCode code,
+        int32_t code,
         int32_t redop_id,
         FutureWrapper future,
         std::shared_ptr<StoreTransform> transform = nullptr);
   Store(int32_t dim,
-        LegateTypeCode code,
+        int32_t code,
         int32_t redop_id,
         RegionField&& region_field,
         std::shared_ptr<StoreTransform> transform = nullptr);
-  Store(LegateTypeCode code,
+  Store(int32_t code,
         OutputRegionField&& output,
         std::shared_ptr<StoreTransform> transform = nullptr);
 
@@ -268,15 +272,20 @@ class Store {
   Store& operator=(Store&& other) noexcept;
 
  private:
-  Store(const Store& other) = delete;
+  Store(const Store& other)            = delete;
   Store& operator=(const Store& other) = delete;
 
  public:
   bool valid() const;
+  bool transformed() const { return transform_ != nullptr; }
 
  public:
   int32_t dim() const { return dim_; }
-  LegateTypeCode code() const { return code_; }
+  template <typename TYPE_CODE = LegateTypeCode>
+  TYPE_CODE code() const
+  {
+    return static_cast<TYPE_CODE>(code_);
+  }
 
  public:
   template <typename T, int32_t DIM>
@@ -299,6 +308,11 @@ class Store {
   AccessorRD<OP, EXCLUSIVE, DIM> reduce_accessor(const Legion::Rect<DIM>& bounds) const;
 
  public:
+  template <typename T, int32_t DIM>
+  Buffer<T, DIM> create_output_buffer(const Legion::Point<DIM>& extents,
+                                      bool return_buffer = false);
+
+ public:
   template <int32_t DIM>
   Legion::Rect<DIM> shape() const;
   Legion::Domain domain() const;
@@ -313,8 +327,8 @@ class Store {
   VAL scalar() const;
 
  public:
-  template <typename VAL>
-  void return_data(Buffer<VAL>& buffer, size_t num_elements);
+  template <typename T, int32_t DIM>
+  void return_data(Buffer<T, DIM>& buffer, const Legion::Point<DIM>& extents);
 
  public:
   bool is_future() const { return is_future_; }
@@ -326,7 +340,7 @@ class Store {
   bool is_future_{false};
   bool is_output_store_{false};
   int32_t dim_{-1};
-  LegateTypeCode code_{MAX_TYPE_NUMBER};
+  int32_t code_{-1};
   int32_t redop_id_{-1};
 
  private:

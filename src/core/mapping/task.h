@@ -35,7 +35,7 @@ class RegionField {
   RegionField(const Legion::Task* task, int32_t dim, uint32_t idx, Legion::FieldID fid);
 
  public:
-  RegionField(const RegionField& other) = default;
+  RegionField(const RegionField& other)            = default;
   RegionField& operator=(const RegionField& other) = default;
 
  public:
@@ -76,14 +76,15 @@ class RegionField {
 class FutureWrapper {
  public:
   FutureWrapper() {}
-  FutureWrapper(const Legion::Domain& domain);
+  FutureWrapper(uint32_t idx, const Legion::Domain& domain);
 
  public:
-  FutureWrapper(const FutureWrapper& other) = default;
+  FutureWrapper(const FutureWrapper& other)            = default;
   FutureWrapper& operator=(const FutureWrapper& other) = default;
 
  public:
   int32_t dim() const { return domain_.dim; }
+  uint32_t index() const { return idx_; }
 
  public:
   template <int32_t DIM>
@@ -91,6 +92,7 @@ class FutureWrapper {
   Legion::Domain domain() const;
 
  private:
+  uint32_t idx_{-1U};
   Legion::Domain domain_{};
 };
 
@@ -111,7 +113,7 @@ class Store {
         std::shared_ptr<StoreTransform> transform = nullptr);
 
  public:
-  Store(const Store& other) = default;
+  Store(const Store& other)            = default;
   Store& operator=(const Store& other) = default;
 
  public:
@@ -126,6 +128,7 @@ class Store {
  public:
   bool can_colocate_with(const Store& other) const;
   const RegionField& region_field() const;
+  const FutureWrapper& future() const;
 
  public:
   template <int32_t DIM>

@@ -205,7 +205,7 @@ def install_gasnet(gasnet_dir, conduit, thread_count):
     shutil.rmtree(temp_dir)
 
 
-def install_legion(legion_src_dir, branch, commit="24437c29"):
+def install_legion(legion_src_dir, branch, commit="0e2e31bbd"):
     print("Legate is installing Legion into a local directory...")
     # For now all we have to do is clone legion since we build it with Legate
     git_clone(
@@ -225,7 +225,7 @@ def install_thrust(thrust_dir):
     )
 
 
-def update_legion(legion_src_dir, branch, commit="24437c29"):
+def update_legion(legion_src_dir, branch, commit="0e2e31bbd"):
     # Make sure we are on the right branch for single/multi-node
     git_update(legion_src_dir, branch=branch, commit=commit)
 
@@ -242,6 +242,7 @@ def build_legion(
     cuda,
     arch,
     openmp,
+    march,
     llvm,
     hdf,
     spy,
@@ -295,6 +296,7 @@ calls into NCCL either directly or through some other Legate library.
                 "-DLegion_USE_CUDA=%s" % ("ON" if cuda else "OFF"),
                 "-DLegion_GPU_ARCH=%s" % arch,
                 "-DLegion_USE_OpenMP=%s" % ("ON" if openmp else "OFF"),
+                "-DBUILD_MARCH=%s" % march,
                 "-DLegion_USE_LLVM=%s" % ("ON" if llvm else "OFF"),
                 "-DLegion_USE_GASNet=%s" % ("ON" if gasnet else "OFF"),
                 "-DLegion_USE_HDF5=%s" % ("ON" if hdf else "OFF"),
@@ -374,6 +376,7 @@ calls into NCCL either directly or through some other Legate library.
                 "USE_CUDA=%s" % (1 if cuda else 0),
                 "GPU_ARCH=%s" % arch,
                 "USE_OPENMP=%s" % (1 if openmp else 0),
+                "MARCH=%s" % march,
                 "USE_LLVM=%s" % (1 if llvm else 0),
                 "USE_GASNET=%s" % (1 if gasnet else 0),
                 "USE_HDF=%s" % (1 if hdf else 0),
@@ -399,9 +402,13 @@ calls into NCCL either directly or through some other Legate library.
             verbose_check_call(
                 ["make"] + flags + ["clean"], cwd=legion_python_dir
             )
+        # Explicitly ask for C++17, otherwise the Legion build will use C++11.
+        env = dict(os.environ.items())
+        env["CXXFLAGS"] = "-std=c++17 " + env.get("CXXFLAGS", "")
         verbose_check_call(
             ["make"] + flags + ["-j", str(thread_count), "install"],
             cwd=legion_python_dir,
+            env=env,
         )
         verbose_check_call(
             [
@@ -414,6 +421,14 @@ calls into NCCL either directly or through some other Legate library.
             + setup_py_flags,
             cwd=legion_python_dir,
         )
+    verbose_check_call(
+        [
+            "cp",
+            "legion_c_util.h",
+            os.path.join(install_dir, "include", "legion", "legion_c_util.h"),
+        ],
+        cwd=os.path.join(legion_src_dir, "runtime", "legion"),
+    )
     verbose_check_call(
         [
             "cp",
@@ -476,6 +491,7 @@ def build_legate_core(
     cuda,
     arch,
     openmp,
+    march,
     spy,
     gasnet,
     clean_first,
@@ -494,6 +510,7 @@ def build_legate_core(
         "DEBUG_RELEASE=%s" % (1 if debug_release else 0),
         "USE_CUDA=%s" % (1 if cuda else 0),
         "USE_OPENMP=%s" % (1 if openmp else 0),
+        "MARCH=%s" % march,
         "GPU_ARCH=%s" % arch,
         "PREFIX=%s" % str(install_dir),
         "USE_GASNET=%s" % (1 if gasnet else 0),
@@ -515,6 +532,7 @@ def build_legate_core(
         arch=(arch if arch is not None else ""),
         cuda_dir=(cuda_dir if cuda_dir is not None else ""),
         openmp=repr(1 if openmp else 0),
+        march=march,
         gasnet=repr(1 if gasnet else 0),
     )
     with open(os.path.join(src_dir, "config.mk"), "wb") as f:
@@ -544,6 +562,7 @@ def install(
     cuda,
     arch,
     openmp,
+    march,
     hdf,
     llvm,
     spy,
@@ -658,6 +677,26 @@ def install(
                 )
         dump_json_config(cuda_config, cuda_dir)
 
+        arch_config = os.path.join(legate_core_dir, ".arch.json")
+        if arch is None:
+            arch = load_json_config(arch_config)
+            if arch is None:
+                try:
+                    import pynvml
+
+                    pynvml.nvmlInit()
+                    major, minor = pynvml.nvmlDeviceGetCudaComputeCapability(
+                        pynvml.nvmlDeviceGetHandleByIndex(0)
+                    )
+                    arch = f"{major}{minor}"
+                    pynvml.nvmlShutdown()
+                except Exception as exc:
+                    raise Exception(
+                        "Could not auto-detect CUDA GPU architecture, please "
+                        "specify the target architecture using --arch"
+                    ) from exc
+        dump_json_config(arch_config, arch)
+
         nccl_config = os.path.join(legate_core_dir, ".nccl.json")
         if nccl_dir is None:
             nccl_dir = load_json_config(nccl_config)
@@ -701,6 +740,7 @@ def install(
         cuda,
         arch,
         openmp,
+        march,
         llvm,
         hdf,
         spy,
@@ -729,6 +769,7 @@ def install(
         cuda,
         arch,
         openmp,
+        march,
         spy,
         gasnet,
         clean_first,
@@ -739,6 +780,14 @@ def install(
     # Copy any executables that we need for legate functionality
     verbose_check_call(
         ["cp", "legate.py", os.path.join(install_dir, "bin", "legate")],
+        cwd=legate_core_dir,
+    )
+    verbose_check_call(
+        [
+            "cp",
+            "scripts/lgpatch.py",
+            os.path.join(install_dir, "bin", "lgpatch"),
+        ],
         cwd=legate_core_dir,
     )
     verbose_check_call(
@@ -862,7 +911,7 @@ def driver():
         dest="arch",
         action="store",
         required=False,
-        default="volta",
+        default=None,
         help="Specify the target GPU architecture.",
     )
     parser.add_argument(
@@ -870,6 +919,13 @@ def driver():
         action=BooleanFlag,
         default=os.environ.get("USE_OPENMP", "0") == "1",
         help="Build Legate with OpenMP support.",
+    )
+    parser.add_argument(
+        "--march",
+        dest="march",
+        required=False,
+        default="native",
+        help="Specify the target CPU architecture.",
     )
     parser.add_argument(
         "--llvm",

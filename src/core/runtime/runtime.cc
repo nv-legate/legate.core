@@ -32,15 +32,17 @@ Logger log_legate("legate");
 // from both C++ and Python to generate IDs
 static const char* const core_library_name = "legate.core";
 
-/*static*/ bool Core::show_progress = false;
+/*static*/ bool Core::show_progress_requested = false;
 
 /*static*/ bool Core::use_empty_task = false;
+
+/*static*/ bool Core::synchronize_stream_view = false;
 
 /*static*/ void Core::parse_config(void)
 {
 #ifndef LEGATE_USE_CUDA
   const char* need_cuda = getenv("LEGATE_NEED_CUDA");
-  if (need_cuda != NULL) {
+  if (need_cuda != nullptr) {
     fprintf(stderr,
             "Legate was run with GPUs but was not built with GPU support. "
             "Please install Legate again with the \"--cuda\" flag.\n");
@@ -49,7 +51,7 @@ static const char* const core_library_name = "legate.core";
 #endif
 #ifndef LEGATE_USE_OPENMP
   const char* need_openmp = getenv("LEGATE_NEED_OPENMP");
-  if (need_openmp != NULL) {
+  if (need_openmp != nullptr) {
     fprintf(stderr,
             "Legate was run with OpenMP processors but was not built with "
             "OpenMP support. Please install Legate again with the \"--openmp\" flag.\n");
@@ -58,7 +60,7 @@ static const char* const core_library_name = "legate.core";
 #endif
 #ifndef LEGATE_USE_GASNET
   const char* need_gasnet = getenv("LEGATE_NEED_GASNET");
-  if (need_gasnet != NULL) {
+  if (need_gasnet != nullptr) {
     fprintf(stderr,
             "Legate was run on multiple nodes but was not built with "
             "GASNet support. Please install Legate again with the \"--gasnet\" flag.\n");
@@ -66,10 +68,13 @@ static const char* const core_library_name = "legate.core";
   }
 #endif
   const char* progress = getenv("LEGATE_SHOW_PROGRESS");
-  if (progress != NULL) show_progress = true;
+  if (progress != nullptr) show_progress_requested = true;
 
   const char* empty_task = getenv("LEGATE_EMPTY_TASK");
-  if (empty_task != NULL && atoi(empty_task) > 0) use_empty_task = true;
+  if (empty_task != nullptr && atoi(empty_task) > 0) use_empty_task = true;
+
+  const char* sync_stream_view = getenv("LEGATE_SYNC_STREAM_VIEW");
+  if (sync_stream_view != nullptr && atoi(sync_stream_view) > 0) synchronize_stream_view = true;
 }
 
 static ReturnValues extract_scalar_task(const Task* task,
@@ -77,6 +82,8 @@ static ReturnValues extract_scalar_task(const Task* task,
                                         Context legion_context,
                                         Runtime* runtime)
 {
+  Core::show_progress(task, legion_context, runtime, task->get_task_name());
+
   TaskContext context(task, regions, legion_context, runtime);
   auto values = task->futures[0].get_result<ReturnValues>();
   auto idx    = context.scalars()[0].value<int32_t>();
@@ -88,10 +95,33 @@ static ReturnValues extract_scalar_task(const Task* task,
   // Nothing to do here yet...
 }
 
+/*static*/ void Core::show_progress(const Legion::Task* task,
+                                    Legion::Context ctx,
+                                    Legion::Runtime* runtime,
+                                    const char* task_name)
+{
+  if (!Core::show_progress_requested) return;
+  const auto exec_proc     = runtime->get_executing_processor(ctx);
+  const auto proc_kind_str = (exec_proc.kind() == Legion::Processor::LOC_PROC)   ? "CPU"
+                             : (exec_proc.kind() == Legion::Processor::TOC_PROC) ? "GPU"
+                                                                                 : "OpenMP";
+
+  std::stringstream point_str;
+  const auto& point = task->index_point;
+  point_str << point[0];
+  for (int32_t dim = 1; dim < task->index_point.dim; ++dim) point_str << "," << point[dim];
+
+  log_legate.print("%s %s task, pt = (%s), proc = " IDFMT,
+                   task_name,
+                   proc_kind_str,
+                   point_str.str().c_str(),
+                   exec_proc.id);
+}
+
 void register_legate_core_tasks(Machine machine, Runtime* runtime, const LibraryContext& context)
 {
   const TaskID extract_scalar_task_id  = context.get_task_id(LEGATE_CORE_EXTRACT_SCALAR_TASK_ID);
-  const char* extract_scalar_task_name = "Legate Core Scalar Extraction";
+  const char* extract_scalar_task_name = "core::extract_scalar";
   runtime->attach_name(
     extract_scalar_task_id, extract_scalar_task_name, false /*mutable*/, true /*local only*/);
 

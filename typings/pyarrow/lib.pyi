@@ -13,8 +13,14 @@
 # limitations under the License.
 #
 
+from typing import Any
+
 class DataType:
     id: int
+    num_fields: int
+    num_buffers: int
+    def equals(self, other: object) -> bool: ...
+    def to_pandas_dtype(self) -> Any: ...
 
 def binary(length: int) -> DataType: ...
 def bool_() -> DataType: ...

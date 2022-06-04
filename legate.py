@@ -114,12 +114,15 @@ def run_legate(
     log_dir,
     user_logging_levels,
     log_to_file,
+    keep_logs,
     gdb,
     cuda_gdb,
     memcheck,
     module,
     nvprof,
     nsys,
+    nsys_targets,
+    nsys_extra,
     progress,
     freeze_on_error,
     no_tensor_cores,
@@ -268,7 +271,8 @@ def run_legate(
         ]
         for var in cmd_env:
             if (
-                var == LIB_PATH
+                var.endswith("PATH")
+                or var.startswith("CONDA_")
                 or var.startswith("LEGATE_")
                 or var.startswith("LEGION_")
                 or var.startswith("LG_")
@@ -390,12 +394,12 @@ def run_legate(
             "nsys",
             "profile",
             "-t",
-            "cublas,cuda,cudnn,nvtx",
-            "-s",
-            "none",
+            nsys_targets,
             "-o",
             os.path.join(log_dir, "legate_%s" % rank_id),
-        ]
+        ] + nsys_extra
+        if "-s" not in nsys_extra:
+            cmd += ["-s", "none"]
     # Add memcheck right before the binary
     if memcheck:
         cmd += ["cuda-memcheck"]
@@ -465,8 +469,13 @@ def run_legate(
     if dataflow or event:
         cmd += ["-lg:spy"]
         logging_levels.append("legion_spy=2")
+        # Spy output is dumped to the same place as other logging, so we must
+        # redirect all logging to a file, even if the user didn't ask for it.
         if user_logging_levels is not None and not log_to_file:
-            print("WARNING: Logging output is being redirected to a file")
+            print(
+                "WARNING: Logging output is being redirected to a file in "
+                f"directory {log_dir}"
+            )
         log_to_file = True
     logging_levels = ",".join(logging_levels)
     if user_logging_levels is not None:
@@ -501,6 +510,8 @@ def run_legate(
     if opts:
         cmd += opts
 
+    # Create output directory
+    os.makedirs(log_dir, exist_ok=True)
     # Launch the child process
     if verbose and (launcher != "none" or rank_id == "0"):
         print(
@@ -525,6 +536,7 @@ def run_legate(
                 + " ".join([shlex.quote(t) for t in prof_cmd]),
                 flush=True,
             )
+            keep_logs = True
         else:
             if verbose:
                 print(
@@ -532,6 +544,7 @@ def run_legate(
                     flush=True,
                 )
             subprocess.check_call(prof_cmd, cwd=log_dir)
+        if not keep_logs:
             # Clean up our mess of Legion Prof files
             for n in range(ranks):
                 os.remove(os.path.join(log_dir, "legate_" + str(n) + ".prof"))
@@ -555,6 +568,7 @@ def run_legate(
                 + " ".join([shlex.quote(t) for t in spy_cmd]),
                 flush=True,
             )
+            keep_logs = True
         else:
             if verbose:
                 print(
@@ -562,14 +576,12 @@ def run_legate(
                     flush=True,
                 )
             subprocess.check_call(spy_cmd, cwd=log_dir)
+        if user_logging_levels is None and not keep_logs:
             # Clean up our mess of Legion Spy files, unless the user is doing
             # some extra logging, in which case theirs and Spy's logs will be
             # in the same file.
-            if user_logging_levels is None:
-                for n in range(ranks):
-                    os.remove(
-                        os.path.join(log_dir, "legate_" + str(n) + ".log")
-                    )
+            for n in range(ranks):
+                os.remove(os.path.join(log_dir, "legate_" + str(n) + ".log"))
     return result
 
 
@@ -707,7 +719,8 @@ def driver():
         type=str,
         default=os.getcwd(),
         dest="logdir",
-        help="Directory for Legate log files (defaults to current directory)",
+        help="Directory for Legate log files (automatically created if it "
+        "doesn't exist; defaults to current directory)",
     )
     parser.add_argument(
         "--logging",
@@ -722,6 +735,13 @@ def driver():
         action="store_true",
         required=False,
         help="redirect logging output to a file inside --logdir",
+    )
+    parser.add_argument(
+        "--keep-logs",
+        dest="keep_logs",
+        action="store_true",
+        required=False,
+        help="don't delete profiler & spy dumps after processing",
     )
     parser.add_argument(
         "--gdb",
@@ -763,7 +783,22 @@ def driver():
         dest="nsys",
         action="store_true",
         required=False,
-        help="run Legate with nsys",
+        help="run Legate with Nsight Systems",
+    )
+    parser.add_argument(
+        "--nsys-targets",
+        dest="nsys_targets",
+        default="cublas,cuda,cudnn,nvtx,ucx",
+        required=False,
+        help="Specify profiling targets for Nsight Systems",
+    )
+    parser.add_argument(
+        "--nsys-extra",
+        dest="nsys_extra",
+        action="append",
+        default=[],
+        required=False,
+        help="Specify extra flags for Nsight Systems",
     )
     parser.add_argument(
         "--progress",
@@ -884,12 +919,15 @@ def driver():
         args.logdir,
         args.user_logging_levels,
         args.log_to_file,
+        args.keep_logs,
         args.gdb,
         args.cuda_gdb,
         args.memcheck,
         args.module,
         args.nvprof,
         args.nsys,
+        args.nsys_targets,
+        args.nsys_extra,
         args.progress,
         args.freeze_on_error,
         args.no_tensor_cores,

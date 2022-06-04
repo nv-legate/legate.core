@@ -89,6 +89,7 @@ class TaskDeserializer : public BaseDeserializer<TaskDeserializer> {
   void _unpack(RegionField& value);
   void _unpack(OutputRegionField& value);
   void _unpack(comm::Communicator& value);
+  void _unpack(Legion::PhaseBarrier& barrier);
 
  private:
   Span<const Legion::Future> futures_;
@@ -115,6 +116,7 @@ class MapperDeserializer : public BaseDeserializer<MapperDeserializer> {
  private:
   Legion::Mapping::MapperRuntime* runtime_;
   Legion::Mapping::MapperContext context_;
+  uint32_t future_index_;
 };
 
 }  // namespace mapping

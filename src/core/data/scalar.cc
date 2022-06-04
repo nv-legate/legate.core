@@ -66,9 +66,11 @@ struct elem_size_fn {
 
 size_t Scalar::size() const
 {
+  if (LegateTypeCode::STRING_LT == code_)
+    return sizeof(uint32_t) + *static_cast<const uint32_t*>(data_);
   auto elem_size = type_dispatch(code_, elem_size_fn{});
   if (tuple_) {
-    auto num_elements = *static_cast<const int32_t*>(data_);
+    auto num_elements = *static_cast<const uint32_t*>(data_);
     return sizeof(int32_t) + num_elements * elem_size;
   } else
     return elem_size;

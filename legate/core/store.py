@@ -15,8 +15,17 @@
 from __future__ import annotations
 
 import weakref
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Optional,
+    Sequence,
+    Type,
+    Union,
+)
 
-from .legion import (
+from . import (
     Attach,
     Detach,
     Future,
@@ -40,6 +49,21 @@ from .transform import (
 )
 from .types import _Dtype
 
+if TYPE_CHECKING:
+    from . import (
+        AffineTransform,
+        BufferBuilder,
+        Partition as LegionPartition,
+        PhysicalRegion,
+        Rect,
+        Region,
+    )
+    from .context import Context
+    from .launcher import Proj
+    from .projection import ProjFn
+    from .runtime import Field, Runtime
+    from .transform import TransformStackBase
+
 
 class InlineMappedAllocation:
     """
@@ -47,14 +71,22 @@ class InlineMappedAllocation:
     the inline mapped allocation
     """
 
-    def __init__(self, region_field, shape, address, strides):
+    def __init__(
+        self,
+        region_field: RegionField,
+        shape: tuple[int, ...],
+        address: int,
+        strides: tuple[int, ...],
+    ) -> None:
         self._region_field = region_field
         self._shape = shape
         self._address = address
         self._strides = strides
         self._consumed = False
 
-    def consume(self, ctor):
+    def consume(
+        self, ctor: Callable[[tuple[int, ...], int, tuple[int, ...]], Any]
+    ) -> Any:
         if self._consumed:
             raise RuntimeError("Each inline mapping can be consumed only once")
         self._consumed = True
@@ -64,7 +96,11 @@ class InlineMappedAllocation:
 
 
 class DistributedAllocation:
-    def __init__(self, partition, shard_local_buffers):
+    def __init__(
+        self,
+        partition: LegionPartition,
+        shard_local_buffers: dict[Point, memoryview],
+    ) -> None:
         """
         Represents a distributed collection of buffers, to be
         collectively attached as sub-regions of the same
@@ -87,16 +123,19 @@ class DistributedAllocation:
         self.shard_local_buffers = shard_local_buffers
 
 
+Attachable = Union[memoryview, DistributedAllocation]
+
+
 # A region field holds a reference to a field in a logical region
 class RegionField:
     def __init__(
         self,
-        runtime,
-        region,
-        field,
-        shape,
-        parent=None,
-    ):
+        runtime: Runtime,
+        region: Region,
+        field: Field,
+        shape: Shape,
+        parent: Optional[RegionField] = None,
+    ) -> None:
         self.runtime = runtime
         self.attachment_manager = runtime.attachment_manager
         self.partition_manager = runtime.partition_manager
@@ -106,26 +145,27 @@ class RegionField:
         self.parent = parent
         self.launch_space = None  # Parallel launch space for this region_field
         # External allocation we attached to this field
-        self.attached_alloc = None
-        self.detach_key = None
-        self.physical_region = None  # Physical region for attach
+        self.attached_alloc: Union[None, Attachable] = None
+        self.detach_key: int = -1
+        # Physical region for attach
+        self.physical_region: Union[None, PhysicalRegion] = None
         self.physical_region_refs = 0
         self.physical_region_mapped = False
 
-        self._partitions = {}
+        self._partitions: dict[PartitionBase, LegionPartition] = {}
 
-    def __del__(self):
+    def __del__(self) -> None:
         if self.attached_alloc is not None:
             self.detach_external_allocation(unordered=True, defer=True)
 
-    def same_handle(self, other):
+    def same_handle(self, other: RegionField) -> bool:
         return (
             type(self) == type(other)
             and self.region.same_handle(other.region)
             and self.field.same_handle(other.field)
         )
 
-    def __str__(self):
+    def __str__(self) -> str:
         return (
             f"RegionField("
             f"tid: {self.region.handle.tree_id}, "
@@ -134,31 +174,31 @@ class RegionField:
             f"fid: {self.field.field_id})"
         )
 
-    def compute_parallel_launch_space(self):
-        # See if we computed it already
-        if self.launch_space == ():
-            return None
-        if self.launch_space is not None:
-            return self.launch_space
-        self.launch_space = self.partition_manager.compute_parallel_launch_space_by_shape(  # noqa E501
-            self.shape
-        )
-        if self.launch_space is None:
-            self.launch_space = ()
-        if self.launch_space == ():
-            return None
-        return self.launch_space
-
-    def attach_external_allocation(self, context, alloc, share):
+    def attach_external_allocation(
+        self, context: Context, alloc: Attachable, share: bool
+    ) -> None:
         assert self.parent is None
         # If we already have some memory attached, detach it first
         if self.attached_alloc is not None:
-            return RuntimeError("A RegionField cannot be re-attached")
+            raise RuntimeError("A RegionField cannot be re-attached")
         # All inline mappings should have been unmapped by now
         assert self.physical_region_refs == 0
         # Record the attached memory ranges, and confirm no overlaps with
         # previously encountered ranges.
         self.attachment_manager.attach_external_allocation(alloc, self)
+
+        def record_detach(detach: Union[Detach, IndexDetach]) -> None:
+            # Dangle these fields off the detachment operation, to prevent
+            # premature collection
+            detach.field = self.field  # type: ignore[union-attr]
+            detach.alloc = alloc  # type: ignore[union-attr]
+            # Don't store the detachment operation here, instead register it
+            # on the attachment manager and record its unique key
+            # TODO: This might not be necessary anymore
+            self.detach_key = self.attachment_manager.register_detachment(
+                detach
+            )
+
         if isinstance(alloc, memoryview):
             # Singleton attachment
             attach = Attach(
@@ -187,7 +227,7 @@ class RegionField:
             # when the RegionField object is collected.
             # We don't need to flush the contents back to the attached memory
             # if this is an internal temporary allocation.
-            detach = Detach(self.physical_region, flush=share)
+            record_detach(Detach(self.physical_region, flush=share))
         else:
             # Distributed attachment
             assert alloc.partition.parent is self.region
@@ -212,36 +252,30 @@ class RegionField:
                         "Field type does not match attached buffer"
                     )
                 shard_local_data[subregion] = buf
-            attach = IndexAttach(
+            index_attach = IndexAttach(
                 self.region,
                 self.field.field_id,
                 shard_local_data,
                 mapper=context.mapper_id,
             )
-            attach.set_deduplicate_across_shards(True)
+            index_attach.set_deduplicate_across_shards(True)
             # If we're not sharing there is no need to restrict the attachment
             if not share:
-                attach.set_restricted(False)
-            external_resources = self.runtime.dispatch(attach)
+                index_attach.set_restricted(False)
+            external_resources = self.runtime.dispatch(index_attach)
             # We don't need to flush the contents back to the attached memory
             # if this is an internal temporary allocation.
-            detach = IndexDetach(external_resources, flush=share)
+            record_detach(IndexDetach(external_resources, flush=share))
         # Record the attachment
         self.attached_alloc = alloc
-        # Dangle these fields off the detachment operation, to prevent
-        # premature collection
-        detach.field = self.field
-        detach.alloc = alloc
-        # Don't store the detachment operation here, instead register it on the
-        # attachment manager and record its unique key
-        # TODO: This might not be necessary anymore
-        self.detach_key = self.attachment_manager.register_detachment(detach)
 
-    def detach_external_allocation(self, unordered, defer=False):
+    def detach_external_allocation(
+        self, unordered: bool, defer: bool = False
+    ) -> None:
         assert self.parent is None
         assert self.attached_alloc is not None
         detach = self.attachment_manager.remove_detachment(self.detach_key)
-        detach.unordered = unordered
+        detach.unordered = unordered  # type: ignore[union-attr]
         self.attachment_manager.detach_external_allocation(
             self.attached_alloc, detach, defer
         )
@@ -250,7 +284,7 @@ class RegionField:
         self.physical_region_refs = 0
         self.attached_alloc = None
 
-    def get_inline_mapped_region(self, context):
+    def get_inline_mapped_region(self, context: Context) -> PhysicalRegion:
         if self.parent is None:
             if self.physical_region is None:
                 # We don't have a valid numpy array so we need to do an inline
@@ -277,7 +311,9 @@ class RegionField:
         else:
             return self.parent.get_inline_mapped_region(context)
 
-    def decrement_inline_mapped_ref_count(self, unordered=False):
+    def decrement_inline_mapped_ref_count(
+        self, unordered: bool = False
+    ) -> None:
         if self.parent is None:
             if self.physical_region is None:
                 return
@@ -292,8 +328,13 @@ class RegionField:
         else:
             self.parent.decrement_inline_mapped_ref_count(unordered=unordered)
 
-    def get_inline_allocation(self, shape, context=None, transform=None):
-        context = self.runtime.context if context is None else context
+    def get_inline_allocation(
+        self,
+        shape: Shape,
+        context: Optional[Context] = None,
+        transform: Optional[AffineTransform] = None,
+    ) -> InlineMappedAllocation:
+        context = self.runtime.core_context if context is None else context
 
         physical_region = self.get_inline_mapped_region(context)
         # We need a pointer to the physical allocation for this physical region
@@ -339,15 +380,15 @@ class RegionField:
         strides = tuple(offsets[i].offset for i in range(dim))
         # Numpy doesn't know about CFFI pointers, so we have to cast
         # this to a Python long before we can hand it off to Numpy.
-        base_ptr = int(ffi.cast("size_t", base_ptr))
+        ptr = ffi.cast("size_t", base_ptr)
         return InlineMappedAllocation(
             self,
             tuple(shape),
-            base_ptr,
+            int(ptr),  # type: ignore[call-overload]
             strides,
         )
 
-    def register_consumer(self, consumer):
+    def register_consumer(self, consumer: Any) -> None:
         # We add a callback that will be triggered when the consumer object is
         # collected. This callback carries a (captured) reference to the source
         # RegionField, keeping it alive while any consumers remain. Note that
@@ -356,16 +397,20 @@ class RegionField:
         # avoid storing references from the source RegionField to the consumer,
         # so that we don't create reference cycles.
 
-        def callback():
+        def callback() -> None:
             self.decrement_inline_mapped_ref_count()
 
         weakref.finalize(consumer, callback)
 
-    def get_child(self, functor, color, complete=False):
+    def get_child(
+        self, functor: Tiling, color: Shape, complete: bool = False
+    ) -> RegionField:
         if functor in self._partitions:
             partition = self._partitions[functor]
         else:
-            partition = functor.construct(self.region, complete=complete)
+            part = functor.construct(self.region, complete=complete)
+            assert part is not None
+            partition = part
             self._partitions[functor] = partition
 
         child_region = partition.get_child(Point(color))
@@ -378,46 +423,37 @@ class RegionField:
         )
 
 
-# This is a dummy object that is only used as an initializer for the
-# RegionField object above. It is thrown away as soon as the
-# RegionField is constructed.
-class _LegateNDarray:
-    __slots__ = ["__array_interface__"]
-
-    def __init__(self, shape, field_type, base_ptr, strides, read_only):
-        # See: https://docs.scipy.org/doc/numpy/reference/arrays.interface.html
-        self.__array_interface__ = {
-            "version": 3,
-            "shape": shape,
-            "typestr": field_type.str,
-            "data": (base_ptr, read_only),
-            "strides": strides,
-        }
-
-
 class StoragePartition:
-    def __init__(self, runtime, level, parent, partition, complete=False):
+    def __init__(
+        self,
+        runtime: Runtime,
+        level: int,
+        parent: Storage,
+        partition: PartitionBase,
+        complete: bool = False,
+    ) -> None:
         self._runtime = runtime
         self._level = level
         self._parent = parent
         self._partition = partition
         self._complete = complete
-        self._child_data = {}
-        self._child_sizes = {}
-        self._child_offsets = {}
+        self._child_data: dict[Shape, RegionField] = {}
+        self._child_sizes: dict[Shape, Shape] = {}
+        self._child_offsets: dict[Shape, Shape] = {}
 
     @property
-    def parent(self):
+    def parent(self) -> Storage:
         return self._parent
 
     @property
-    def level(self):
+    def level(self) -> int:
         return self._level
 
-    def get_root(self):
+    def get_root(self) -> Storage:
         return self._parent.get_root()
 
-    def get_child(self, color):
+    def get_child(self, color: Shape) -> Storage:
+        assert isinstance(self._partition, Tiling)
         if not self._partition.has_color(color):
             raise ValueError(
                 f"{color} is not a valid color for {self._partition}"
@@ -434,8 +470,11 @@ class StoragePartition:
             offsets=offsets,
         )
 
-    def get_child_size(self, color):
+    def get_child_size(self, color: Shape) -> Shape:
+        assert isinstance(self._partition, Tiling)
         if color not in self._child_sizes:
+            assert isinstance(self._partition, Tiling)
+            assert self._parent.extents is not None
             size = self._partition.get_subregion_size(
                 self._parent.extents, color
             )
@@ -444,7 +483,8 @@ class StoragePartition:
         else:
             return self._child_sizes[color]
 
-    def get_child_offsets(self, color):
+    def get_child_offsets(self, color: Shape) -> Shape:
+        assert isinstance(self._partition, Tiling)
         if color not in self._child_offsets:
             offsets = self._partition.get_subregion_offsets(color)
             self._child_offsets[color] = offsets
@@ -452,9 +492,13 @@ class StoragePartition:
         else:
             return self._child_offsets[color]
 
-    def get_child_data(self, color):
+    def get_child_data(self, color: Shape) -> RegionField:
+        assert isinstance(self._partition, Tiling)
         if color not in self._child_data:
-            data = self._parent.data.get_child(
+            parent_data = self._parent.data
+            assert isinstance(self._partition, Tiling)
+            assert isinstance(parent_data, RegionField)
+            data = parent_data.get_child(
                 self._partition, color, self._complete
             )
             self._child_data[color] = data
@@ -462,34 +506,33 @@ class StoragePartition:
         else:
             return self._child_data[color]
 
-    def has_key_partition(self, restrictions):
-        return self._parent.has_key_partition(restrictions)
-
-    def find_key_partition(self, restrictions):
+    def find_key_partition(
+        self, restrictions: tuple[Restriction, ...]
+    ) -> Optional[PartitionBase]:
         return self._parent.find_key_partition(restrictions)
 
-    def find_or_create_legion_partition(self):
+    def find_or_create_legion_partition(self) -> Optional[LegionPartition]:
         return self._parent.find_or_create_legion_partition(
             self._partition, self._complete
         )
 
-    def is_disjoint_for(self, launch_domain):
+    def is_disjoint_for(self, launch_domain: Optional[Rect]) -> bool:
         return self._partition.is_disjoint_for(launch_domain)
 
 
 class Storage:
     def __init__(
         self,
-        runtime,
-        extents,
-        level,
-        dtype,
-        data=None,
-        kind=RegionField,
-        parent=None,
-        color=None,
-        offsets=None,
-    ):
+        runtime: Runtime,
+        extents: Optional[Shape],
+        level: int,
+        dtype: Any,
+        data: Optional[Union[RegionField, Future]] = None,
+        kind: type = RegionField,
+        parent: Optional[StoragePartition] = None,
+        color: Optional[Shape] = None,
+        offsets: Optional[Shape] = None,
+    ) -> None:
         assert (
             data is None
             or isinstance(data, RegionField)
@@ -508,44 +551,52 @@ class Storage:
         self._kind = kind
         self._parent = parent
         self._color = color
-        self._partitions = {}
-        self._key_partition = None
+        self._partitions: dict[PartitionBase, Optional[LegionPartition]] = {}
+        self._key_partition: Union[None, PartitionBase] = None
 
         if self._offsets is None and self._extents is not None:
             self._offsets = Shape((0,) * self._extents.ndim)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return (
             f"{self._kind.__name__}(uninitialized)"
             if self._data is None
             else str(self._data)
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return str(self)
 
     @property
-    def extents(self):
+    def extents(self) -> Shape:
+        if self._extents is None:
+            self._runtime.flush_scheduling_window()
+            if self._extents is None:
+                raise ValueError(
+                    "Illegal to access an uninitialized unbound store"
+                )
         return self._extents
 
     @property
-    def offsets(self):
+    def offsets(self) -> Shape:
+        if self._offsets is None:
+            self._offsets = Shape((0,) * self.extents.ndim)
         return self._offsets
 
     @property
-    def kind(self):
+    def kind(self) -> type:
         return self._kind
 
     @property
-    def dtype(self):
+    def dtype(self) -> Any:
         return self._dtype
 
     @property
-    def restrictions(self):
-        return (Restriction.UNRESTRICTED,) * self._extents.ndim
+    def restrictions(self) -> tuple[Restriction, ...]:
+        return (Restriction.UNRESTRICTED,) * self.extents.ndim
 
     @property
-    def data(self):
+    def data(self) -> Union[RegionField, Future]:
         """
         Return the Legion container of this Storage, which is of
         the type `self.kind`.
@@ -556,56 +607,57 @@ class Storage:
         self._runtime.flush_scheduling_window()
         if self._data is None:
             if self._kind is Future:
-                raise ValueError("Illegal to access the uninitialize storage")
+                raise ValueError("Illegal to access an uninitialized storage")
             if self._parent is None:
                 self._data = self._runtime.allocate_field(
-                    self._extents, self._dtype
+                    self.extents, self._dtype
                 )
             else:
+                assert self._color
                 self._data = self._parent.get_child_data(self._color)
 
         return self._data
 
     @property
-    def has_data(self):
+    def has_data(self) -> bool:
         return self._data is not None
 
-    def set_data(self, data):
+    def set_data(self, data: Union[RegionField, Future]) -> None:
         assert (
             self._kind is Future and type(data) is Future
         ) or self._data is None
         self._data = data
 
-    def set_extents(self, extents):
+    def set_extents(self, extents: Shape) -> None:
         self._extents = extents
         self._offsets = Shape((0,) * extents.ndim)
 
     @property
-    def has_parent(self):
+    def has_parent(self) -> bool:
         return self._parent is not None
 
     @property
-    def parent(self):
+    def parent(self) -> Optional[StoragePartition]:
         return self._parent
 
     @property
-    def level(self):
+    def level(self) -> int:
         return self._level
 
     @property
-    def color(self):
+    def color(self) -> Optional[Shape]:
         return self._color
 
-    def get_root(self):
+    def get_root(self) -> Storage:
         if self._parent is None:
             return self
         else:
             return self._parent.get_root()
 
-    def volume(self):
-        return self._extents.volume()
+    def volume(self) -> int:
+        return self.extents.volume()
 
-    def overlaps(self, other):
+    def overlaps(self, other: Storage) -> bool:
         if self is other:
             return True
 
@@ -626,13 +678,16 @@ class Storage:
             lhs_lvl, rhs_lvl = rhs_lvl, lhs_lvl
 
         while lhs_lvl < rhs_lvl:
-            rhs = rhs.parent
-            rhs_lvl -= 1
+            rhs_parent = rhs.parent
+            assert rhs_parent is not None
+            rhs = rhs_parent.parent
+            rhs_lvl -= 2
 
         if lhs is rhs:
             return True
         else:
             assert lhs.has_parent and rhs.has_parent
+            assert self.parent is not None
             # Legion doesn't allow passing aliased partitions to a task
             if lhs.parent is not rhs.parent:
                 return True
@@ -646,7 +701,9 @@ class Storage:
                 assert isinstance(self.parent._partition, Tiling)
                 return lhs.color == rhs.color
 
-    def attach_external_allocation(self, context, alloc, share):
+    def attach_external_allocation(
+        self, context: Context, alloc: Attachable, share: bool
+    ) -> None:
         # If the storage has not been set, and this is a non-temporary
         # singleton attachment, we can reuse an existing RegionField that was
         # previously attached to this buffer.
@@ -659,9 +716,10 @@ class Storage:
             if self._data is not None:
                 return
         # Force the RegionField to be instantiated, do the attachment normally
+        assert isinstance(self.data, RegionField)
         self.data.attach_external_allocation(context, alloc, share)
 
-    def slice(self, tile_shape, offsets):
+    def slice(self, tile_shape: Shape, offsets: Shape) -> Storage:
         if self.kind is Future:
             return self
 
@@ -697,18 +755,26 @@ class Storage:
         )
         return partition.get_child(color)
 
-    def partition(self, partition):
+    def partition(self, partition: PartitionBase) -> StoragePartition:
         complete = partition.is_complete_for(self.extents, self.offsets)
         return StoragePartition(
             self._runtime, self._level + 1, self, partition, complete=complete
         )
 
-    def get_inline_allocation(self, shape, context=None, transform=None):
+    def get_inline_allocation(
+        self,
+        shape: Shape,
+        context: Optional[Context] = None,
+        transform: Optional[AffineTransform] = None,
+    ) -> InlineMappedAllocation:
+        assert isinstance(self.data, RegionField)
         return self.data.get_inline_allocation(
             shape, context=context, transform=transform
         )
 
-    def find_key_partition(self, restrictions):
+    def find_key_partition(
+        self, restrictions: tuple[Restriction, ...]
+    ) -> Optional[PartitionBase]:
         if (
             self._key_partition is not None
             and self._key_partition.satisfies_restriction(restrictions)
@@ -719,15 +785,19 @@ class Storage:
         else:
             return None
 
-    def set_key_partition(self, partition):
+    def set_key_partition(self, partition: PartitionBase) -> None:
         self._key_partition = partition
 
-    def reset_key_partition(self):
+    def reset_key_partition(self) -> None:
         self._key_partition = None
 
-    def find_or_create_legion_partition(self, functor, complete):
+    def find_or_create_legion_partition(
+        self, functor: PartitionBase, complete: bool
+    ) -> Optional[LegionPartition]:
         if self.kind is not RegionField:
             return None
+
+        assert isinstance(self.data, RegionField)
 
         if functor in self._partitions:
             return self._partitions[functor]
@@ -739,25 +809,31 @@ class Storage:
 
 
 class StorePartition:
-    def __init__(self, runtime, store, partition, storage_partition):
+    def __init__(
+        self,
+        runtime: Runtime,
+        store: Store,
+        partition: PartitionBase,
+        storage_partition: StoragePartition,
+    ) -> None:
         self._runtime = runtime
         self._store = store
         self._partition = partition
         self._storage_partition = storage_partition
 
     @property
-    def store(self):
+    def store(self) -> Store:
         return self._store
 
     @property
-    def partition(self):
+    def partition(self) -> PartitionBase:
         return self._partition
 
     @property
-    def transform(self):
+    def transform(self) -> TransformStackBase:
         return self._store.transform
 
-    def get_child_store(self, *indices):
+    def get_child_store(self, *indices: int) -> Store:
         color = self.transform.invert_color(Shape(indices))
         child_storage = self._storage_partition.get_child(color)
         child_transform = self.transform
@@ -773,7 +849,11 @@ class StorePartition:
             shape=child_storage.extents,
         )
 
-    def get_requirement(self, launch_ndim, proj_fn=None):
+    def get_requirement(
+        self,
+        launch_ndim: int,
+        proj_fn: Optional[ProjFn] = None,
+    ) -> Proj:
         part = self._storage_partition.find_or_create_legion_partition()
         if part is not None:
             proj_id = self._store.compute_projection(proj_fn, launch_ndim)
@@ -781,22 +861,23 @@ class StorePartition:
                 assert proj_id == 0
                 proj_id = self._runtime.get_delinearize_functor()
         else:
-            proj_id = None
+            proj_id = 0
         return self._partition.requirement(part, proj_id)
 
-    def is_disjoint_for(self, launch_domain):
+    def is_disjoint_for(self, launch_domain: Optional[Rect]) -> bool:
         return self._storage_partition.is_disjoint_for(launch_domain)
 
 
 class Store:
     def __init__(
         self,
-        runtime,
-        dtype,
-        storage,
-        transform,
-        shape=None,
-    ):
+        runtime: Runtime,
+        dtype: _Dtype,
+        storage: Storage,
+        transform: TransformStackBase,
+        shape: Optional[Shape] = None,
+        ndim: Optional[int] = None,
+    ) -> None:
         """
         Unlike in Arrow where all data is backed by objects that
         implement the Python Buffer protocol, in Legate data is backed
@@ -823,46 +904,63 @@ class Store:
         self._runtime = runtime
         self._partition_manager = runtime.partition_manager
         self._shape = shape
+        self._ndim = ndim
         self._dtype = dtype
         self._storage = storage
         self._transform = transform
-        self._partitions = {}
-        self._key_partition = None
+        self._key_partition: Union[None, PartitionBase] = None
         # This is a cache for the projection functor id
         # when no custom functor is given
-        self._projection = None
+        self._projection: Union[None, int] = None
 
-        if not self.unbound:
+        if self._shape is not None:
             if any(extent < 0 for extent in self._shape.extents):
                 raise ValueError(f"Invalid shape: {self._shape}")
+        if dtype.variable_size:
+            raise NotImplementedError(
+                f"Store does not yet support variable size type {dtype}"
+            )
 
     @property
-    def shape(self):
+    def shape(self) -> Shape:
         if self._shape is None:
             # If someone wants to access the shape of an unbound
             # store before it is set, that means the producer task is
             # sitting in the queue, so we should flush the queue.
             self._runtime.flush_scheduling_window()
-            # At this point, we should have the shape set.
-            assert self._shape is not None
+
+            # If the shape is still None, this store has not been passed to any
+            # task yet. Accessing the shape of an uninitialized store is
+            # illegal.
+            if self._shape is None:
+                raise ValueError(
+                    "Accessing the shape of an uninitialized unbound store "
+                    "is illegal. This error usually happens when you try to "
+                    "transform the uninitialized unbound store before you "
+                    "pass it to any task."
+                )
         return self._shape
 
     @property
-    def ndim(self):
-        return -1 if self._shape is None else self._shape.ndim
+    def ndim(self) -> int:
+        if self._shape is None:
+            assert self._ndim is not None
+            return self._ndim
+        else:
+            return self._shape.ndim
 
     @property
-    def type(self):
+    def type(self) -> _Dtype:
         """
         Return the type of the data in this storage primitive
         """
         return self._dtype
 
-    def get_dtype(self):
+    def get_dtype(self) -> _Dtype:
         return self._dtype
 
     @property
-    def kind(self):
+    def kind(self) -> Union[Type[RegionField], Type[Future]]:
         """
         Return the type of the Legion storage object backing the data in this
         storage object: either Future, or RegionField.
@@ -870,15 +968,15 @@ class Store:
         return self._storage.kind
 
     @property
-    def unbound(self):
+    def unbound(self) -> bool:
         return self._shape is None
 
     @property
-    def scalar(self):
+    def scalar(self) -> bool:
         return self.kind is Future and self.shape.volume() == 1
 
     @property
-    def storage(self):
+    def storage(self) -> Union[RegionField, Future]:
         """
         Return the Legion container backing this Store.
         """
@@ -890,14 +988,20 @@ class Store:
         return self._storage.data
 
     @property
-    def extents(self):
+    def extents(self) -> Shape:
         return self._storage.extents
 
     @property
-    def transform(self):
+    def transform(self) -> TransformStackBase:
         return self._transform
 
-    def attach_external_allocation(self, context, alloc, share):
+    @property
+    def transformed(self) -> bool:
+        return not self._transform.bottom
+
+    def attach_external_allocation(
+        self, context: Context, alloc: Attachable, share: bool
+    ) -> None:
         if not isinstance(alloc, (memoryview, DistributedAllocation)):
             raise ValueError(
                 f"Only a memoryview or DistributedAllocation object can be "
@@ -914,41 +1018,50 @@ class Store:
 
         self._storage.attach_external_allocation(context, alloc, share)
 
-    def has_fake_dims(self):
+    def has_fake_dims(self) -> bool:
         return self._transform.adds_fake_dims()
 
-    def comm_volume(self):
+    def comm_volume(self) -> int:
         return self._storage.volume()
 
-    def set_storage(self, data):
+    def set_storage(self, data: Union[RegionField, Future]) -> None:
         self._storage.set_data(data)
         if self._shape is None:
             assert isinstance(data, RegionField)
             self._shape = data.shape
             self._storage.set_extents(self._shape)
+            self._ndim = None
         else:
             assert isinstance(data, Future)
 
-    def invert_partition(self, partition):
+    def invert_partition(self, partition: PartitionBase) -> PartitionBase:
         return self._transform.invert_partition(partition)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return (
             f"Store("
             f"shape: {self._shape}, "
+            f"ndim: {self._ndim}, "
             f"type: {self._dtype}, "
             f"storage: {self._storage}), "
             f"transform: {self._transform})"
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return str(self)
 
     # Convert a store in N-D space to that in (N+1)-D space.
     # The extra_dim specifies the added dimension
-    def promote(self, extra_dim, dim_size=1):
+    def promote(self, extra_dim: int, dim_size: int = 1) -> Store:
+        extra_dim = extra_dim + self.ndim if extra_dim < 0 else extra_dim
+        if extra_dim < 0 or extra_dim > self.ndim:
+            raise ValueError(
+                f"Invalid promotion on dimension {extra_dim} for a "
+                f"{self.ndim}-D store"
+            )
+
         transform = Promote(self._runtime, extra_dim, dim_size)
-        old_shape = self._shape
+        old_shape = self.shape
         shape = transform.compute_shape(old_shape)
         if old_shape == shape:
             return self
@@ -962,10 +1075,22 @@ class Store:
 
     # Take a hyperplane of an N-D store for a given index
     # to create an (N-1)-D store
-    def project(self, dim, index):
-        assert dim < self.ndim
+    def project(self, dim: int, index: int) -> Store:
+        dim = dim + self.ndim if dim < 0 else dim
+        if dim < 0 or dim >= self.ndim:
+            raise ValueError(
+                f"Invalid projection on dimension {dim} for a {self.ndim}-D "
+                "store"
+            )
+
+        old_shape = self.shape
+        if index < 0 or index >= old_shape[dim]:
+            raise ValueError(
+                f"Out-of-bounds projection on dimension {dim} with index "
+                f"{index} for a store of shape {old_shape}"
+            )
+
         transform = Project(self._runtime, dim, index)
-        old_shape = self._shape
         shape = transform.compute_shape(old_shape)
         if old_shape == shape:
             return self
@@ -985,10 +1110,11 @@ class Store:
             shape=shape,
         )
 
-    def slice(self, dim, sl):
+    def slice(self, dim: int, sl: slice) -> Store:
+        dim = dim + self.ndim if dim < 0 else dim
         if dim < 0 or dim >= self.ndim:
             raise ValueError(
-                f"Invalid dimension {dim} for a {self.ndim}-D store"
+                f"Invalid slicing of dimension {dim} for a {self.ndim}-D store"
             )
 
         size = self.shape[dim]
@@ -999,9 +1125,12 @@ class Store:
         step = 1 if sl.step is None else sl.step
 
         if step != 1:
-            raise ValueError(f"Unsupported slicing: {sl}")
-        if start >= size or stop > size:
-            raise ValueError(f"Out of bounds: {sl} for a shape {self.shape}")
+            raise NotImplementedError(f"Unsupported slicing: {sl}")
+        elif start >= size or stop > size:
+            raise ValueError(
+                f"Out-of-bounds slicing {sl} on dimension {dim} for a store "
+                f"of shape {self.shape}"
+            )
 
         transform = Shift(self._runtime, dim, -start)
         shape = self.shape
@@ -1023,7 +1152,7 @@ class Store:
             shape=tile_shape,
         )
 
-    def transpose(self, axes):
+    def transpose(self, axes: tuple[int, ...]) -> Store:
         if len(axes) != self.ndim:
             raise ValueError(
                 f"dimension mismatch: expected {self.ndim} axes, "
@@ -1032,42 +1161,55 @@ class Store:
         elif len(axes) != len(set(axes)):
             raise ValueError(f"duplicate axes found: {axes}")
 
+        for val in axes:
+            if val < 0 or val >= self.ndim:
+                raise ValueError(
+                    f"invalid axis {val} for a {self.ndim}-D store"
+                )
+
         if all(idx == val for idx, val in enumerate(axes)):
             return self
 
         transform = Transpose(self._runtime, axes)
         shape = transform.compute_shape(self.shape)
-        transform = TransformStack(transform, self._transform)
         return Store(
             self._runtime,
             self._dtype,
             self._storage,
-            transform,
+            TransformStack(transform, self._transform),
             shape=shape,
         )
 
-    def delinearize(self, dim, shape):
+    def delinearize(self, dim: int, shape: tuple[int, ...]) -> Store:
+        dim = dim + self.ndim if dim < 0 else dim
+        if dim < 0 or dim >= self.ndim:
+            raise ValueError(
+                f"Invalid delinearization of dimension {dim} "
+                f"for a {self.ndim}-D store"
+            )
+
         if len(shape) == 1:
             return self
         s = Shape(shape)
         transform = Delinearize(self._runtime, dim, s)
-        shape = self.shape
-        if shape[dim] != s.volume():
+        old_shape = self.shape
+        if old_shape[dim] != s.volume():
             raise ValueError(
-                f"Dimension of size {shape[dim]} "
-                f"cannot be delinearized into {shape}"
+                f"Dimension of size {old_shape[dim]} "
+                f"cannot be delinearized into {old_shape}"
             )
-        shape = transform.compute_shape(shape)
-        transform = TransformStack(transform, self._transform)
+        new_shape = transform.compute_shape(old_shape)
         return Store(
             self._runtime,
             self._dtype,
             self._storage,
-            transform,
-            shape=shape,
+            TransformStack(transform, self._transform),
+            shape=new_shape,
         )
 
-    def get_inline_allocation(self, context=None):
+    def get_inline_allocation(
+        self, context: Optional[Context] = None
+    ) -> InlineMappedAllocation:
         assert self.kind is RegionField
         return self._storage.get_inline_allocation(
             self.shape,
@@ -1075,22 +1217,22 @@ class Store:
             transform=self._transform.get_inverse_transform(self.shape.ndim),
         )
 
-    def overlaps(self, other):
+    def overlaps(self, other: Store) -> bool:
         return self._storage.overlaps(other._storage)
 
-    def serialize(self, buf):
+    def serialize(self, buf: BufferBuilder) -> None:
         buf.pack_bool(self.kind is Future)
+        buf.pack_bool(self.unbound)
         buf.pack_32bit_int(self.ndim)
         buf.pack_32bit_int(self._dtype.code)
         self._transform.serialize(buf)
 
-    def has_key_partition(self, restrictions):
+    def has_key_partition(self, restrictions: tuple[Restriction, ...]) -> bool:
         restrictions = self._transform.invert_restrictions(restrictions)
         part = self._storage.find_key_partition(restrictions)
-        return part is not None and (part.even or self._transform.bottom)
+        return (part is not None) and (part.even or self._transform.bottom)
 
-    def set_key_partition(self, partition):
-        assert isinstance(partition, PartitionBase)
+    def set_key_partition(self, partition: PartitionBase) -> None:
         self._key_partition = partition
         # We also update the storage's key partition for other stores
         # sharing the same storage
@@ -1098,10 +1240,12 @@ class Store:
             self._transform.invert_partition(partition)
         )
 
-    def reset_key_partition(self):
-        self._storage.reset_partition()
+    def reset_key_partition(self) -> None:
+        self._storage.reset_key_partition()
 
-    def compute_key_partition(self, restrictions):
+    def compute_key_partition(
+        self, restrictions: tuple[Restriction, ...]
+    ) -> PartitionBase:
         if (
             self._key_partition is not None
             and self._key_partition.satisfies_restriction(restrictions)
@@ -1138,7 +1282,11 @@ class Store:
                 partition = Tiling(self._runtime, tile_shape, launch_shape)
             return partition
 
-    def compute_projection(self, proj_fn=None, launch_ndim=None):
+    def compute_projection(
+        self,
+        proj_fn: Optional[ProjFn] = None,
+        launch_ndim: Optional[int] = None,
+    ) -> int:
         assert proj_fn is None or launch_ndim is not None
         # Handle the most common case before we do any analysis
         if self._transform.bottom and proj_fn is None:
@@ -1151,22 +1299,25 @@ class Store:
         # For the next common case, we cache the projection functor id
         if proj_fn is None:
             if self._projection is None:
-                dims = execute_functor_symbolically(self.ndim)
-                dims = self._transform.invert_dimensions(dims)
+                point = execute_functor_symbolically(self.ndim)
+                point = self._transform.invert_symbolic_point(point)
                 self._projection = self._runtime.get_projection(
-                    self.ndim, dims
+                    self.ndim, point
                 )
             return self._projection
         # For more general cases, don't bother to cache anything
         else:
-            dims = execute_functor_symbolically(launch_ndim, proj_fn)
-            dims = self._transform.invert_dimensions(dims)
-            return self._runtime.get_projection(launch_ndim, dims)
+            assert launch_ndim is not None
+            point = execute_functor_symbolically(launch_ndim, proj_fn)
+            point = self._transform.invert_symbolic_point(point)
+            return self._runtime.get_projection(launch_ndim, point)
 
-    def find_restrictions(self):
+    def find_restrictions(self) -> tuple[Restriction, ...]:
         return self._transform.convert_restrictions(self._storage.restrictions)
 
-    def find_or_create_legion_partition(self, partition, complete=False):
+    def find_or_create_legion_partition(
+        self, partition: PartitionBase, complete: bool = False
+    ) -> Optional[LegionPartition]:
         # Create a Legion partition for a given functor.
         # Before we do that, we need to map the partition back
         # to the original coordinate space.
@@ -1175,7 +1326,7 @@ class Store:
             complete=complete,
         )
 
-    def partition(self, partition):
+    def partition(self, partition: PartitionBase) -> StorePartition:
         storage_partition = self._storage.partition(
             self.invert_partition(partition),
         )
@@ -1183,7 +1334,9 @@ class Store:
             self._runtime, self, partition, storage_partition
         )
 
-    def partition_by_tiling(self, tile_shape):
+    def partition_by_tiling(
+        self, tile_shape: Union[Shape, Sequence[int]]
+    ) -> StorePartition:
         if self.unbound:
             raise TypeError("Unbound store cannot be manually partitioned")
         if not isinstance(tile_shape, Shape):

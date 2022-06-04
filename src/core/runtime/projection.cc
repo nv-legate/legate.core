@@ -165,6 +165,53 @@ LegateProjectionFunctor* find_legate_projection_functor(ProjectionID proj_id)
   return functor_table[proj_id];
 }
 
+DomainPoint delinearize_future_map_domain(const DomainPoint& point,
+                                          const Domain& domain,
+                                          const Domain& range)
+{
+  int32_t ndim = range.dim;
+
+  DomainPoint result;
+  result.dim = ndim;
+
+  auto lo = range.lo();
+  auto hi = range.hi();
+
+  int64_t idx = point[0];
+  for (int32_t dim = ndim - 1; dim >= 0; --dim) {
+    int64_t extent = hi[dim] - lo[dim] + 1;
+    result[dim]    = idx % extent;
+    idx            = idx / extent;
+  }
+
+  return result;
+}
+
+struct LinearizingPointTransformFunctor : public PointTransformFunctor {
+  // This is actually an invertible functor, but we will not use this for inversion
+  virtual bool is_invertible(void) const { return false; }
+
+  virtual DomainPoint transform_point(const DomainPoint& point,
+                                      const Domain& domain,
+                                      const Domain& range)
+  {
+    assert(range.dim == 1);
+    DomainPoint result;
+    result.dim = 1;
+
+    int32_t ndim = domain.dim;
+    int64_t idx  = point[0];
+    for (int32_t dim = 1; dim < ndim; ++dim) {
+      int64_t extent = domain.rect_data[dim + ndim] - domain.rect_data[dim] + 1;
+      idx            = idx * extent + point[dim];
+    }
+    result[0] = idx;
+    return result;
+  }
+};
+
+static auto* linearizing_point_transform_functor = new LinearizingPointTransformFunctor();
+
 }  // namespace legate
 
 extern "C" {
@@ -185,5 +232,10 @@ void legate_register_affine_projection_functor(int32_t src_ndim,
                           weights,
                           offsets,
                           proj_id);
+}
+
+void* legate_linearizing_point_transform_functor()
+{
+  return legate::linearizing_point_transform_functor;
 }
 }

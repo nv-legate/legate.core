@@ -28,11 +28,11 @@ struct ReturnValues {
   ReturnValues(std::vector<ReturnValue>&& return_values);
 
  public:
-  ReturnValues(const ReturnValues&) = default;
+  ReturnValues(const ReturnValues&)            = default;
   ReturnValues& operator=(const ReturnValues&) = default;
 
  public:
-  ReturnValues(ReturnValues&&) = default;
+  ReturnValues(ReturnValues&&)            = default;
   ReturnValues& operator=(ReturnValues&&) = default;
 
  public:
