@@ -143,23 +143,23 @@ calls into NCCL either directly or through some other Legate library.
   endif()
 
   include(cmake/Modules/cuda_arch_helpers.cmake)
+  # Needs to run before `rapids_cuda_init_architectures`
+  set_cuda_arch_from_names()
+  # Needs to run before `project`
+  rapids_cuda_init_architectures(LEGATE_CORE)
 endif()
 
 ##############################################################################
 # - Project definition -------------------------------------------------------
 
-project(LEGATE_CORE VERSION 22.07.00 LANGUAGES C CXX)
+if(Legion_USE_CUDA)
+  project(LEGATE_CORE VERSION 22.07.00 LANGUAGES C CXX CUDA)
+else()
+  project(LEGATE_CORE VERSION 22.07.00 LANGUAGES C CXX)
+endif()
 
 # Write the version header
 rapids_cmake_write_version_file(include/legate/version_config.hpp)
-
-if(Legion_USE_CUDA)
-  # Needs to run before `rapids_cuda_init_architectures`
-  set_cuda_arch_from_names()
-  # Needs to run before `enable_language(CUDA)`
-  rapids_cuda_init_architectures(LEGATE_CORE)
-  enable_language(CUDA)
-endif()
 
 ##############################################################################
 # - Build Type ---------------------------------------------------------------
