@@ -145,7 +145,7 @@ calls into NCCL either directly or through some other Legate library.
   include(cmake/Modules/cuda_arch_helpers.cmake)
   # Needs to run before `rapids_cuda_init_architectures`
   set_cuda_arch_from_names()
-  # Needs to run before `project`
+  # Needs to run before `project()`
   rapids_cuda_init_architectures(LEGATE_CORE)
 endif()
 
@@ -169,6 +169,10 @@ rapids_cmake_build_type(Release)
 
 # Needed to integrate with LLVM/clang tooling
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+# Must come after `project()`
+# Use `-isystem <path>` instead of `-isystem=<path>`
+# because the former works with clangd intellisense
+set(CMAKE_INCLUDE_SYSTEM_FLAG_CUDA "-isystem ")
 
 # ##################################################################################################
 # * conda environment -----------------------------------------------------------------------------
