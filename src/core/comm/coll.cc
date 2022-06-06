@@ -372,7 +372,7 @@ void resetLocalBuffer(CollComm global_comm)
 void barrierLocal(CollComm global_comm)
 {
   assert(coll_inited == true);
-  pthread_barrier_wait((pthread_barrier_t*)&(global_comm->comm->barrier));
+  pthread_barrier_wait(const_cast<pthread_barrier_t*>(&(global_comm->comm->barrier)));
 }
 #endif
 
