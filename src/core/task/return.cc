@@ -23,7 +23,7 @@
 #include "core/task/return.h"
 #include "core/utilities/machine.h"
 #ifdef LEGATE_USE_CUDA
-#include <cuda.h>
+#include <cuda_runtime_api.h>
 #endif
 
 using namespace Legion;
