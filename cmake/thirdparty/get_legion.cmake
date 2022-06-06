@@ -14,6 +14,8 @@
 # limitations under the License.
 #=============================================================================
 
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/legion_helpers.cmake)
+
 function(find_or_configure_legion)
   set(oneValueArgs VERSION REPOSITORY PINNED_TAG EXCLUDE_FROM_ALL)
   cmake_parse_arguments(PKG "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
@@ -31,31 +33,51 @@ function(find_or_configure_legion)
     list(APPEND _lib_path "$ENV{LIBRARY_PATH}")
   endif()
 
-  rapids_cpm_find(Legion  ${PKG_VERSION}
-      GLOBAL_TARGETS      Legion::Realm
-                          Legion::Regent
-                          Legion::Legion
-                          Legion::RealmRuntime
-                          Legion::LegionRuntime
-      BUILD_EXPORT_SET    legate-core-exports
-      INSTALL_EXPORT_SET  legate-core-exports
-      CPM_ARGS
-        GIT_REPOSITORY   ${PKG_REPOSITORY}
-        GIT_TAG          ${PKG_PINNED_TAG}
-        EXCLUDE_FROM_ALL ${PKG_EXCLUDE_FROM_ALL}
-        OPTIONS          "CMAKE_CXX_STANDARD 17"
-                         "CMAKE_LIBRARY_PATH ${_lib_path}"
-                         "Legion_VERSION ${PKG_VERSION}"
-                         "Legion_BUILD_BINDINGS ON"
-                         "Legion_BUILD_APPS OFF"
-                         "Legion_BUILD_TESTS OFF"
-                         "Legion_BUILD_TUTORIAL OFF"
-                         "Legion_REDOP_HALF ON"
-                         "Legion_REDOP_COMPLEX ON"
-                         "Legion_GPU_REDUCTIONS OFF"
-                         "Legion_CUDA_ARCH ${Legion_CUDA_ARCH}"
-                         "Legion_PYTHON_EXTRA_INSTALL_ARGS --single-version-externally-managed --root=/"
-  )
+  set(FIND_PKG_ARGS      ${PKG_VERSION}
+      GLOBAL_TARGETS     Legion::Realm
+                         Legion::Regent
+                         Legion::Legion
+                         Legion::RealmRuntime
+                         Legion::LegionRuntime
+      BUILD_EXPORT_SET   legate-core-exports
+      INSTALL_EXPORT_SET legate-core-exports)
+
+  # First try to find Legion via find_package()
+  # so the `Legion_USE_*` variables are visible
+  rapids_find_package(Legion ${FIND_PKG_ARGS} QUIET)
+
+  if (NOT Legion_FOUND)
+    rapids_cpm_find(Legion ${FIND_PKG_ARGS}
+        CPM_ARGS
+          GIT_REPOSITORY   ${PKG_REPOSITORY}
+          GIT_TAG          ${PKG_PINNED_TAG}
+          EXCLUDE_FROM_ALL ${PKG_EXCLUDE_FROM_ALL}
+          OPTIONS          "CMAKE_CXX_STANDARD 17"
+                           "CMAKE_LIBRARY_PATH ${_lib_path}"
+                           "Legion_VERSION ${PKG_VERSION}"
+                           "Legion_BUILD_BINDINGS ON"
+                           "Legion_BUILD_APPS OFF"
+                           "Legion_BUILD_TESTS OFF"
+                           "Legion_BUILD_TUTORIAL OFF"
+                           "Legion_REDOP_HALF ON"
+                           "Legion_REDOP_COMPLEX ON"
+                           "Legion_GPU_REDUCTIONS OFF"
+                           "Legion_CUDA_ARCH ${Legion_CUDA_ARCH}"
+                           "Legion_PYTHON_EXTRA_INSTALL_ARGS --single-version-externally-managed --root=/"
+    )
+  endif()
+
+  set(Legion_USE_CUDA ${Legion_USE_CUDA} PARENT_SCOPE)
+  set(Legion_USE_OpenMP ${Legion_USE_OpenMP} PARENT_SCOPE)
+  set(Legion_USE_Python ${Legion_USE_Python} PARENT_SCOPE)
+  if("${Legion_NETWORKS}" MATCHES ".*gasnet(1|ex).*")
+    set(Legion_USE_GASNet ON PARENT_SCOPE)
+  endif()
+
+  message(VERBOSE "Legion_USE_CUDA=${Legion_USE_CUDA}")
+  message(VERBOSE "Legion_USE_OpenMP=${Legion_USE_OpenMP}")
+  message(VERBOSE "Legion_USE_Python=${Legion_USE_Python}")
+  message(VERBOSE "Legion_USE_GASNet=${Legion_USE_GASNet}")
 
 endfunction()
 
