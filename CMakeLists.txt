@@ -16,10 +16,15 @@
 
 cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
 
-cmake_policy(SET CMP0077 NEW)
-set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
-cmake_policy(SET CMP0126 NEW)
-set(CMAKE_POLICY_DEFAULT_CMP0126 NEW)
+if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.13)
+  cmake_policy(SET CMP0077 NEW)
+  set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
+endif()
+
+if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.21)
+  cmake_policy(SET CMP0126 NEW)
+  set(CMAKE_POLICY_DEFAULT_CMP0126 NEW)
+endif()
 
 ##############################################################################
 # - Download and initialize RAPIDS CMake helpers -----------------------------
