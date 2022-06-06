@@ -16,16 +16,6 @@
 
 cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
 
-if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.13)
-  cmake_policy(SET CMP0077 NEW)
-  set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
-endif()
-
-if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.21)
-  cmake_policy(SET CMP0126 NEW)
-  set(CMAKE_POLICY_DEFAULT_CMP0126 NEW)
-endif()
-
 ##############################################################################
 # - Download and initialize RAPIDS CMake helpers -----------------------------
 
@@ -38,133 +28,31 @@ include(rapids-cuda)
 include(rapids-export)
 include(rapids-find)
 
-##############################################################################
-# - User Options  ------------------------------------------------------------
-
-option(BUILD_SHARED_LIBS "Build legate.core shared libraries" ON)
-
-function(set_or_default var_name var_env)
-  list(LENGTH ARGN num_extra_args)
-  if(num_extra_args GREATER 0)
-    list(GET ARGN 0 var_default)
-  endif()
-  if(DEFINED ${var_name})
-    set(${var_name} ${${var_name}} PARENT_SCOPE)
-    message(STATUS "legate.core: ${var_name}=${${var_name}}")
-  elseif(DEFINED ENV{${var_env}})
-    set(${var_name} $ENV{${var_env}} PARENT_SCOPE)
-    message(STATUS "legate.core: ${var_name}=$ENV{${var_env}} (from envvar '${var_env}')")
-  elseif(DEFINED var_default)
-    set(${var_name} ${var_default} PARENT_SCOPE)
-    message(STATUS "legate.core: ${var_name}=${var_default} (from default value)")
-  else()
-    message(STATUS "legate.core: not setting ${var_name}")
-  endif()
-endfunction()
-
-# Initialize these vars from the CLI, then fallback to an envvar or a default value.
-set_or_default(Legion_SPY USE_SPY OFF)
-set_or_default(Legion_USE_LLVM USE_LLVM OFF)
-set_or_default(Legion_USE_CUDA USE_CUDA OFF)
-set_or_default(Legion_USE_HDF5 USE_HDF OFF)
-set_or_default(Legion_USE_GASNet USE_GASNET OFF)
-set_or_default(Legion_USE_OpenMP USE_OPENMP OFF)
-set_or_default(Legion_BOUNDS_CHECKS CHECK_BOUNDS OFF)
-
-option(Legion_SPY "Enable detailed logging for Legion Spy" OFF)
-option(Legion_USE_LLVM "Use LLVM JIT operations" OFF)
-option(Legion_USE_HDF5 "Enable support for HDF5" OFF)
-option(Legion_USE_CUDA "Enable Legion support for the CUDA runtime" OFF)
-option(Legion_USE_GASNet "Enable the distributed GASNet backend" OFF)
-option(Legion_USE_OpenMP "Use OpenMP" OFF)
-option(Legion_USE_Python "Use Python" OFF)
-option(Legion_BOUNDS_CHECKS "Enable bounds checking in Legion accessors" OFF)
-
-if(Legion_USE_GASNet)
-  set_or_default(GASNet_ROOT_DIR GASNET)
-  set_or_default(GASNet_CONDUIT CONDUIT "udp")
-
-  if(Legion_USE_GASNet AND (NOT GASNet_ROOT_DIR))
-    option(Legion_EMBED_GASNet "Embed a custom GASNet build into Legion" ON)
-  endif()
+if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.13)
+  cmake_policy(SET CMP0077 NEW)
+  set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 endif()
 
-set_or_default(Legion_MAX_DIM LEGION_MAX_DIM 4)
-
-# Check the max dimensions
-if((Legion_MAX_DIM LESS 1) OR (Legion_MAX_DIM GREATER 9))
-  message(FATAL_ERROR "The maximum number of Legate dimensions must be between 1 and 9 inclusive")
-endif()
-
-set_or_default(Legion_MAX_FIELDS LEGION_MAX_FIELDS 256)
-
-# Check that max fields is between 32 and 4096 and is a power of 2
-if(NOT Legion_MAX_FIELDS MATCHES "^(32|64|128|256|512|1024|2048|4096)$")
-  message(FATAL_ERROR "The maximum number of Legate fields must be a power of 2 between 32 and 4096 inclusive")
-endif()
-
-option(LEGATE_CORE_STATIC_CUDA_RUNTIME "Statically link the cuda runtime library" OFF)
-option(LEGATE_CORE_EXCLUDE_LEGION_FROM_ALL "Exclude Legion targets from legate.core's 'all' target" OFF)
-
-if(Legion_USE_CUDA)
-  set_or_default(NCCL_DIR NCCL_PATH)
-  set_or_default(Thrust_DIR THRUST_PATH)
-  set_or_default(CUDA_TOOLKIT_ROOT_DIR CUDA)
-
-  set_or_default(CMAKE_CUDA_ARCHITECTURES GPU_ARCH ALL)
-  set_or_default(Legion_HIJACK_CUDART USE_CUDART_HIJACK OFF)
-
-  include(CMakeDependentOption)
-  cmake_dependent_option(Legion_HIJACK_CUDART
-    "Allow Legion to hijack and rewrite application calls into the CUDA runtime"
-    ON
-    "Legion_USE_CUDA;Legion_HIJACK_CUDART"
-    OFF)
-
-  if(Legion_HIJACK_CUDART)
-    message(WARNING [=[
-#####################################################################
-Warning: Realm's CUDA runtime hijack is incompatible with NCCL.
-Please note that your code will crash catastrophically as soon as it
-calls into NCCL either directly or through some other Legate library.
-#####################################################################
-]=])
-  endif()
-
-  if(BUILD_SHARED_LIBS)
-    if(Legion_HIJACK_CUDART)
-      # Must statically link CUDA if HIJACK_CUDART is set
-      set(Legion_CUDA_DYNAMIC_LOAD OFF)
-      set(CUDA_USE_STATIC_CUDA_RUNTIME ON)
-    elseif(NOT DEFINED Legion_CUDA_DYNAMIC_LOAD)
-      # If HIJACK_CUDART isn't set and BUILD_SHARED_LIBS is true, default Legion_CUDA_DYNAMIC_LOAD to true
-      set(Legion_CUDA_DYNAMIC_LOAD ON)
-      set(CUDA_USE_STATIC_CUDA_RUNTIME OFF)
-    endif()
-  elseif(NOT DEFINED Legion_CUDA_DYNAMIC_LOAD)
-    # If BUILD_SHARED_LIBS is false, default Legion_CUDA_DYNAMIC_LOAD to false also
-    set(Legion_CUDA_DYNAMIC_LOAD OFF)
-    set(CUDA_USE_STATIC_CUDA_RUNTIME ON)
-  endif()
-
-  include(cmake/Modules/cuda_arch_helpers.cmake)
-  # Needs to run before `rapids_cuda_init_architectures`
-  set_cuda_arch_from_names()
-  # Needs to run before `project()`
-  rapids_cuda_init_architectures(LEGATE_CORE)
+if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.21)
+  cmake_policy(SET CMP0126 NEW)
+  set(CMAKE_POLICY_DEFAULT_CMP0126 NEW)
 endif()
 
 ##############################################################################
 # - Project definition -------------------------------------------------------
 
-if(Legion_USE_CUDA)
-  project(LEGATE_CORE VERSION 22.07.00 LANGUAGES C CXX CUDA)
-else()
-  project(LEGATE_CORE VERSION 22.07.00 LANGUAGES C CXX)
-endif()
+project(LEGATE_CORE VERSION 22.07.00 LANGUAGES C CXX)
 
 # Write the version header
 rapids_cmake_write_version_file(include/legate/version_config.hpp)
+
+# Needed to integrate with LLVM/clang tooling
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+##############################################################################
+# - User Options  ------------------------------------------------------------
+
+include(cmake/Modules/legate_core_options.cmake)
 
 ##############################################################################
 # - Build Type ---------------------------------------------------------------
@@ -172,19 +60,48 @@ rapids_cmake_write_version_file(include/legate/version_config.hpp)
 # Set a default build type if none was specified
 rapids_cmake_build_type(Release)
 
-# Needed to integrate with LLVM/clang tooling
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-# Must come after `project()`
-# Use `-isystem <path>` instead of `-isystem=<path>`
-# because the former works with clangd intellisense
-set(CMAKE_INCLUDE_SYSTEM_FLAG_CUDA "-isystem ")
-
 # ##################################################################################################
 # * conda environment -----------------------------------------------------------------------------
 rapids_cmake_support_conda_env(conda_env MODIFY_PREFIX_PATH)
 
 ##############################################################################
 # - Dependencies -------------------------------------------------------------
+
+# add third party dependencies using CPM
+rapids_cpm_init()
+
+function(_find_package_Python3)
+  find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
+  message(VERBOSE "legate.core: Has Python3: ${Python3_FOUND}")
+  message(VERBOSE "legate.core: Has Python 3 interpreter: ${Python3_Interpreter_FOUND}")
+  message(VERBOSE "legate.core: Python 3 include directories: ${Python3_INCLUDE_DIRS}")
+  message(VERBOSE "legate.core: Python 3 libraries: ${Python3_LIBRARIES}")
+  message(VERBOSE "legate.core: Python 3 library directories: ${Python3_LIBRARY_DIRS}")
+  message(VERBOSE "legate.core: Python 3 version: ${Python3_VERSION}")
+endfunction()
+
+if(Legion_USE_Python)
+  _find_package_Python3()
+  if(Python3_FOUND AND Python3_VERSION)
+    set(Legion_Python_Version ${Python3_VERSION})
+  endif()
+endif()
+
+###
+# If we find Legion already configured on the system, it will report whether it
+# was compiled with Python (Legion_USE_PYTHON), CUDA (Legion_USE_CUDA), OpenMP
+# (Legion_USE_OpenMP), and GASNet (Legion_USE_GASNet).
+#
+# We use the same variables as Legion because we want to enable/disable each of
+# these features based on how Legion was configured (it doesn't make sense to
+# build legate.core's Python bindings if Legion's bindings weren't compiled).
+###
+include(cmake/thirdparty/get_legion.cmake)
+
+if(Legion_USE_Python AND (NOT Python3_FOUND))
+  _find_package_Python3()
+endif()
+
 if(Legion_USE_CUDA)
   rapids_find_package(
     CUDAToolkit REQUIRED
@@ -193,27 +110,25 @@ if(Legion_USE_CUDA)
   )
 endif()
 
-# add third party dependencies using CPM
-rapids_cpm_init()
-
 if(Legion_USE_CUDA)
   include(cmake/thirdparty/get_nccl.cmake)
 endif()
 
 include(cmake/thirdparty/get_thrust.cmake)
 
-if(Legion_USE_Python)
-  find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
-  message(STATUS "legate.core: Has Python3: ${Python3_FOUND}")
-  message(STATUS "legate.core: Has Python 3 interpreter: ${Python3_Interpreter_FOUND}")
-  message(STATUS "legate.core: Python 3 include directories: ${Python3_INCLUDE_DIRS}")
-  message(STATUS "legate.core: Python 3 libraries: ${Python3_LIBRARIES}")
-  message(STATUS "legate.core: Python 3 library directories: ${Python3_LIBRARY_DIRS}")
-  message(STATUS "legate.core: Python 3 version: ${Python3_VERSION}")
-  set(Legion_Python_Version ${Python3_VERSION})
-endif()
+##############################################################################
+# - Enable the CUDA language -------------------------------------------------
 
-include(cmake/thirdparty/get_legion.cmake)
+if(Legion_USE_CUDA)
+  # Must come before `enable_language(CUDA)`
+  rapids_cuda_init_architectures(LEGATE_CORE)
+  # Enable the CUDA language
+  enable_language(CUDA)
+  # Must come after `enable_language(CUDA)`
+  # Use `-isystem <path>` instead of `-isystem=<path>`
+  # because the former works with clangd intellisense
+  set(CMAKE_INCLUDE_SYSTEM_FLAG_CUDA "-isystem ")
+endif()
 
 ##############################################################################
 # - legate.core --------------------------------------------------------------
@@ -242,7 +157,6 @@ if(Legion_USE_CUDA)
   list(APPEND LEGATE_CORE_CUDA_OPTIONS --expt-extended-lambda)
   list(APPEND LEGATE_CORE_CUDA_OPTIONS --expt-relaxed-constexpr)
 endif()
-
 
 if(Legion_USE_OpenMP)
   list(APPEND LEGATE_CORE_CXX_DEFS LEGATE_USE_OPENMP)
