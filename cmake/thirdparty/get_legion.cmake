@@ -32,11 +32,16 @@ function(find_or_configure_legion)
                                            lib/libregent.so
                                            lib/liblegion.so)
 
-  set(CUDA_PATH "$ENV{CUDA_PATH}")
+  set(_cuda_root "${CUDAToolkit_LIBRARY_ROOT}")
   if(CUDA_TOOLKIT_ROOT_DIR)
-    set(ENV{CUDA_PATH} "${CUDA_TOOLKIT_ROOT_DIR}")
-  else()
-    set(ENV{CUDA_PATH} "${CUDAToolkit_LIBRARY_ROOT}")
+    set(_cuda_root "${CUDA_TOOLKIT_ROOT_DIR}")
+  endif()
+
+  set(_lib_path "${CMAKE_LIBRARY_PATH}")
+  if(EXISTS "${_cuda_root}/lib64/stubs")
+    list(APPEND _lib_path "${_cuda_root}/lib64/stubs")
+  elseif(EXISTS "${_cuda_root}/lib/stubs")
+    list(APPEND _lib_path "${_cuda_root}/lib/stubs")
   endif()
 
   rapids_cpm_find(Legion  ${PKG_VERSION}
@@ -52,6 +57,7 @@ function(find_or_configure_legion)
         GIT_TAG          ${PKG_PINNED_TAG}
         EXCLUDE_FROM_ALL ${PKG_EXCLUDE_FROM_ALL}
         OPTIONS          "CMAKE_CXX_STANDARD 17"
+                         "CMAKE_LIBRARY_PATH ${_lib_path}"
                          "Legion_VERSION ${PKG_VERSION}"
                          "Legion_BUILD_BINDINGS ON"
                          "Legion_BUILD_APPS OFF"
@@ -63,7 +69,7 @@ function(find_or_configure_legion)
                          "Legion_CUDA_ARCH ${Legion_CUDA_ARCH}"
                          "Legion_PYTHON_EXTRA_INSTALL_ARGS --single-version-externally-managed --root=/"
   )
-  set(ENV{CUDA_PATH} "${CUDA_PATH}")
+
 endfunction()
 
 if(NOT DEFINED LEGATE_CORE_LEGION_BRANCH)
