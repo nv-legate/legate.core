@@ -26,22 +26,9 @@ function(find_or_configure_legion)
     list(JOIN Legion_CUDA_ARCH "," Legion_CUDA_ARCH)
   endif()
 
-  include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/find_package_helpers.cmake)
-  set_package_dir_if_built(NAME            Legion
-                           BUILD_ARTIFACTS lib/librealm.so
-                                           lib/libregent.so
-                                           lib/liblegion.so)
-
-  set(_cuda_root "${CUDAToolkit_LIBRARY_ROOT}")
-  if(CUDA_TOOLKIT_ROOT_DIR)
-    set(_cuda_root "${CUDA_TOOLKIT_ROOT_DIR}")
-  endif()
-
   set(_lib_path "${CMAKE_LIBRARY_PATH}")
-  if(EXISTS "${_cuda_root}/lib64/stubs")
-    list(APPEND _lib_path "${_cuda_root}/lib64/stubs")
-  elseif(EXISTS "${_cuda_root}/lib/stubs")
-    list(APPEND _lib_path "${_cuda_root}/lib/stubs")
+  if(DEFINED ENV{LIBRARY_PATH})
+    list(APPEND _lib_path "$ENV{LIBRARY_PATH}")
   endif()
 
   rapids_cpm_find(Legion  ${PKG_VERSION}
