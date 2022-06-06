@@ -216,13 +216,10 @@ def cmake_build(
     verbose,
 ):
     cmake_flags = ["--build", build_dir]
-    build_flags = []
     if verbose:
-        build_flags += ["-v"]
+        cmake_flags += ["-v"]
     if thread_count is not None:
-        build_flags += ["-j", str(thread_count)]
-    if len(build_flags) > 0:
-        cmake_flags += ["--"] + build_flags
+        cmake_flags += ["-j", str(thread_count)]
 
     verbose_check_call([cmake_exe] + cmake_flags)
 
