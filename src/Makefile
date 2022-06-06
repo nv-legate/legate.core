@@ -48,7 +48,7 @@ ifeq ($(strip $(USE_CUDA)),1)
 
 NVCC_FLAGS += -I$(NCCL_DIR)/include
 
-LD_FLAGS += -L$(NCCL_DIR)/lib -lnccl -lcuda
+LD_FLAGS += -L$(NCCL_DIR)/lib -lnccl
 
 endif
 
