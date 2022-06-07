@@ -28,6 +28,8 @@ function(find_or_configure_legion)
     list(JOIN Legion_CUDA_ARCH "," Legion_CUDA_ARCH)
   endif()
 
+  # Detect the presence of LIBRARY_PATH envvar so we can set
+  # `CMAKE_LIBRARY_PATH` for Legion's FindCUDA.cmake calls.
   set(_lib_path "${CMAKE_LIBRARY_PATH}")
   if(DEFINED ENV{LIBRARY_PATH})
     list(APPEND _lib_path "$ENV{LIBRARY_PATH}")
@@ -46,7 +48,7 @@ function(find_or_configure_legion)
   # so the `Legion_USE_*` variables are visible
   rapids_find_package(Legion ${FIND_PKG_ARGS} QUIET)
 
-  if (NOT Legion_FOUND)
+  if(NOT Legion_FOUND)
     rapids_cpm_find(Legion ${FIND_PKG_ARGS}
         CPM_ARGS
           GIT_REPOSITORY   ${PKG_REPOSITORY}

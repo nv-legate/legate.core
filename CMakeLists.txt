@@ -375,12 +375,18 @@ Imported Targets:
 
 ]=])
 
-set(code_string
+string(JOIN "\n" code_string
 [=[
 if(NOT TARGET legate::Thrust)
   thrust_create_target(legate::Thrust FROM_OPTIONS)
 endif()
-]=])
+]=]
+  "set(Legion_USE_CUDA ${Legion_USE_CUDA})"
+  "set(Legion_USE_OpenMP ${Legion_USE_OpenMP})"
+  "set(Legion_USE_Python ${Legion_USE_Python})"
+  "set(Legion_USE_GASNet ${Legion_USE_GASNet})"
+  "set(Legion_BOUNDS_CHECKS ${Legion_BOUNDS_CHECKS})"
+)
 
 rapids_export(
   INSTALL legate_core
