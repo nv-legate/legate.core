@@ -48,7 +48,9 @@ function(find_or_configure_legion)
   # so the `Legion_USE_*` variables are visible
   rapids_find_package(Legion ${FIND_PKG_ARGS} QUIET)
 
-  if(NOT Legion_FOUND)
+  if(Legion_FOUND)
+    message(STATUS "CPM: using local package Legion@${PKG_VERSION}")
+  else()
     rapids_cpm_find(Legion ${FIND_PKG_ARGS}
         CPM_ARGS
           GIT_REPOSITORY   ${PKG_REPOSITORY}
