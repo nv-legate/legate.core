@@ -311,7 +311,7 @@ MPI_Datatype dtypeToMPIDtype(CollDataType dtype)
   }
 }
 
-static inline int match2ranks(int rank1, int rank2)
+static inline int match2ranks(int rank1, int rank2, CollComm global_comm)
 {
   // tag: seg idx + rank_idx + tag
   // send_tag = sendto_global_rank * 10000 + global_rank (concat 2 ranks)
@@ -327,13 +327,13 @@ static inline int match2ranks(int rank1, int rank2)
   // 12's send_tag = 21, 21's recv_tag = 21, match
 
   int tag;
-  constexpr int const max_ranks = 10000;
-  tag                           = rank1 * max_ranks + rank2;
+  // old tagging system for debug
+  // constexpr int const max_ranks = 10000;
+  // tag                           = rank1 * max_ranks + rank2;
 
-  // still under testing, will be used once if runs out of tags
+  // new tagging system, if crash, switch to the old one
 
-  // constexpr int const max_threads = 128;
-  // tag = rank1 % max_threads * max_ranks + rank2;
+  tag = rank1 % global_comm->nb_threads * global_comm->global_comm_size + rank2;
 
   // Szudzik's Function, two numbers < 32768
   // if (rank1 >= rank2) {
@@ -350,14 +350,14 @@ static inline int match2ranks(int rank1, int rank2)
 
 int generateAlltoallTag(int rank1, int rank2, CollComm global_comm)
 {
-  int tag = match2ranks(rank1, rank2) * CollTag::MAX_TAG + CollTag::ALLTOALL_TAG;
+  int tag = match2ranks(rank1, rank2, global_comm) * CollTag::MAX_TAG + CollTag::ALLTOALL_TAG;
   assert(tag < INT_MAX && tag > 0);
   return tag;
 }
 
 int generateAlltoallvTag(int rank1, int rank2, CollComm global_comm)
 {
-  int tag = match2ranks(rank1, rank2) * CollTag::MAX_TAG + CollTag::ALLTOALLV_TAG;
+  int tag = match2ranks(rank1, rank2, global_comm) * CollTag::MAX_TAG + CollTag::ALLTOALLV_TAG;
   assert(tag < INT_MAX && tag > 0);
   return tag;
 }
