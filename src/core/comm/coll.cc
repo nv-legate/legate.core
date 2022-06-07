@@ -75,11 +75,11 @@ int collCommCreate(CollComm global_comm,
   int compare_result;
   MPI_Comm comm = mpi_comms[unique_id];
   CHECK_MPI(MPI_Comm_compare(comm, MPI_COMM_WORLD, &compare_result));
-  assert(compare_result = MPI_CONGRUENT);
+  assert(MPI_CONGRUENT == compare_result);
 
   CHECK_MPI(MPI_Comm_get_attr(comm, MPI_TAG_UB, &tag_ub, &flag));
   assert(flag);
-  assert(*tag_ub == INT_MAX);
+  assert(INT_MAX == *tag_ub);
   CHECK_MPI(MPI_Comm_rank(comm, &mpi_rank));
   CHECK_MPI(MPI_Comm_size(comm, &mpi_comm_size));
   global_comm->mpi_comm_size = mpi_comm_size;
@@ -166,10 +166,7 @@ int collAlltoallv(const void* sendbuf,
                   CollComm global_comm)
 {
   // IN_PLACE
-  if (sendbuf == recvbuf) {
-    log_coll.fatal("Do not support inplace Alltoallv");
-    assert(0);
-  }
+  if (sendbuf == recvbuf) { log_coll.fatal("Do not support inplace Alltoallv"); }
   log_coll.debug("Alltoallv: global_rank %d, mpi_rank %d, unique_id %d, comm_size %d",
                  global_comm->global_rank,
                  global_comm->mpi_rank,
@@ -188,10 +185,7 @@ int collAlltoall(
   const void* sendbuf, void* recvbuf, int count, CollDataType type, CollComm global_comm)
 {
   // IN_PLACE
-  if (sendbuf == recvbuf) {
-    log_coll.fatal("Do not support inplace Alltoall");
-    assert(0);
-  }
+  if (sendbuf == recvbuf) { log_coll.fatal("Do not support inplace Alltoall"); }
   log_coll.debug("Alltoall: global_rank %d, mpi_rank %d, unique_id %d, comm_size %d",
                  global_comm->global_rank,
                  global_comm->mpi_rank,
@@ -274,7 +268,6 @@ int collGetUniqueId(int* id)
       "Please increase the LEGATE_MAX_COMMS by export LEGATE_MAX_COMMS=new number, current value "
       "is %d\n",
       MAX_NB_COMMS);
-    assert(0);
   }
   return CollSuccess;
 }
@@ -312,7 +305,6 @@ MPI_Datatype dtypeToMPIDtype(CollDataType dtype)
     }
     default: {
       log_coll.fatal("Unknown datatype");
-      assert(0);
       return MPI_BYTE;
     }
   }
@@ -410,7 +402,6 @@ size_t getDtypeSize(CollDataType dtype)
     }
     default: {
       log_coll.fatal("Unknown datatype");
-      assert(0);
       return 0;
     }
   }
