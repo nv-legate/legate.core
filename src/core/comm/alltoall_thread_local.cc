@@ -39,14 +39,7 @@ int alltoallLocal(
 
   int type_extent = getDtypeSize(type);
 
-  const void* sendbuf_tmp = sendbuf;
-
-  // MPI_IN_PLACE
-  if (sendbuf == recvbuf) {
-    sendbuf_tmp = allocateInplaceBuffer(recvbuf, total_size * type_extent * count);
-  }
-
-  global_comm->comm->buffers[global_rank] = sendbuf_tmp;
+  global_comm->comm->buffers[global_rank] = sendbuf;
   __sync_synchronize();
 
   int recvfrom_global_rank;
@@ -80,7 +73,6 @@ int alltoallLocal(
   }
 
   barrierLocal(global_comm);
-  if (sendbuf == recvbuf) { free(const_cast<void*>(sendbuf_tmp)); }
 
   __sync_synchronize();
 

@@ -51,7 +51,7 @@ static std::vector<MPI_Comm> mpi_comms;
 static std::vector<ThreadComm> thread_comms;
 #endif
 
-static std::atomic<int> current_unique_id(0);
+static int current_unique_id = 0;
 
 static bool coll_inited = false;
 
@@ -165,7 +165,12 @@ int collAlltoallv(const void* sendbuf,
                   CollDataType type,
                   CollComm global_comm)
 {
-  log_coll.print("Alltoallv: global_rank %d, mpi_rank %d, unique_id %d, comm_size %d",
+  // IN_PLACE
+  if (sendbuf == recvbuf) {
+    log_coll.fatal("Do not support inplace Alltoallv");
+    assert(0);
+  }
+  log_coll.debug("Alltoallv: global_rank %d, mpi_rank %d, unique_id %d, comm_size %d",
                  global_comm->global_rank,
                  global_comm->mpi_rank,
                  global_comm->unique_id,
@@ -182,7 +187,12 @@ int collAlltoallv(const void* sendbuf,
 int collAlltoall(
   const void* sendbuf, void* recvbuf, int count, CollDataType type, CollComm global_comm)
 {
-  log_coll.print("Alltoall: global_rank %d, mpi_rank %d, unique_id %d, comm_size %d",
+  // IN_PLACE
+  if (sendbuf == recvbuf) {
+    log_coll.fatal("Do not support inplace Alltoall");
+    assert(0);
+  }
+  log_coll.debug("Alltoall: global_rank %d, mpi_rank %d, unique_id %d, comm_size %d",
                  global_comm->global_rank,
                  global_comm->mpi_rank,
                  global_comm->unique_id,
@@ -197,7 +207,7 @@ int collAlltoall(
 int collAllgather(
   const void* sendbuf, void* recvbuf, int count, CollDataType type, CollComm global_comm)
 {
-  log_coll.print("Allgather: global_rank %d, mpi_rank %d, unique_id %d, comm_size %d",
+  log_coll.debug("Allgather: global_rank %d, mpi_rank %d, unique_id %d, comm_size %d",
                  global_comm->global_rank,
                  global_comm->mpi_rank,
                  global_comm->unique_id,
@@ -259,27 +269,53 @@ int collGetUniqueId(int* id)
 {
   *id = current_unique_id;
   current_unique_id++;
-  assert(current_unique_id <= MAX_NB_COMMS);
+  if (current_unique_id > MAX_NB_COMMS) {
+    log_coll.fatal(
+      "Please increase the LEGATE_MAX_COMMS by export LEGATE_MAX_COMMS=new number, current value "
+      "is %d\n",
+      MAX_NB_COMMS);
+    assert(0);
+  }
   return CollSuccess;
 }
 
 #ifdef LEGATE_USE_GASNET
 MPI_Datatype dtypeToMPIDtype(CollDataType dtype)
 {
-  MPI_Datatype mpi_dtype = MPI_BYTE;
   switch (dtype) {
-    case CollDataType::CollInt8: mpi_dtype = MPI_INT8_T; break;
-    case CollDataType::CollChar: mpi_dtype = MPI_CHAR; break;
-    case CollDataType::CollUint8: mpi_dtype = MPI_UINT8_T; break;
-    case CollDataType::CollInt: mpi_dtype = MPI_INT; break;
-    case CollDataType::CollUint32: mpi_dtype = MPI_UINT32_T; break;
-    case CollDataType::CollInt64: mpi_dtype = MPI_INT64_T; break;
-    case CollDataType::CollUint64: mpi_dtype = MPI_UINT64_T; break;
-    case CollDataType::CollFloat: mpi_dtype = MPI_FLOAT; break;
-    case CollDataType::CollDouble: mpi_dtype = MPI_DOUBLE; break;
-    default: log_coll.fatal("Unknown datatype"); assert(0);
+    case CollDataType::CollInt8: {
+      return MPI_INT8_T;
+    }
+    case CollDataType::CollChar: {
+      return MPI_CHAR;
+    }
+    case CollDataType::CollUint8: {
+      return MPI_UINT8_T;
+    }
+    case CollDataType::CollInt: {
+      return MPI_INT;
+    }
+    case CollDataType::CollUint32: {
+      return MPI_UINT32_T;
+    }
+    case CollDataType::CollInt64: {
+      return MPI_INT64_T;
+    }
+    case CollDataType::CollUint64: {
+      return MPI_UINT64_T;
+    }
+    case CollDataType::CollFloat: {
+      return MPI_FLOAT;
+    }
+    case CollDataType::CollDouble: {
+      return MPI_DOUBLE;
+    }
+    default: {
+      log_coll.fatal("Unknown datatype");
+      assert(0);
+      return MPI_BYTE;
+    }
   }
-  return mpi_dtype;
 }
 
 static inline int match2ranks(int rank1, int rank2)
@@ -346,20 +382,38 @@ int generateGatherTag(int rank, CollComm global_comm)
 #else  // undef LEGATE_USE_GASNET
 size_t getDtypeSize(CollDataType dtype)
 {
-  size_t size = 0;
   switch (dtype) {
     case CollDataType::CollInt8:
-    case CollDataType::CollChar: size = sizeof(char); break;
-    case CollDataType::CollUint8: size = sizeof(uint8_t); break;
-    case CollDataType::CollInt: size = sizeof(int); break;
-    case CollDataType::CollUint32: size = sizeof(uint32_t); break;
-    case CollDataType::CollInt64: size = sizeof(int64_t); break;
-    case CollDataType::CollUint64: size = sizeof(uint64_t); break;
-    case CollDataType::CollFloat: size = sizeof(float); break;
-    case CollDataType::CollDouble: size = sizeof(double); break;
-    default: log_coll.fatal("Unknown datatype"); assert(0);
+    case CollDataType::CollChar: {
+      return sizeof(char);
+    }
+    case CollDataType::CollUint8: {
+      return sizeof(uint8_t);
+    }
+    case CollDataType::CollInt: {
+      return sizeof(int);
+    }
+    case CollDataType::CollUint32: {
+      return sizeof(uint32_t);
+    }
+    case CollDataType::CollInt64: {
+      return sizeof(int64_t);
+    }
+    case CollDataType::CollUint64: {
+      return sizeof(uint64_t);
+    }
+    case CollDataType::CollFloat: {
+      return sizeof(float);
+    }
+    case CollDataType::CollDouble: {
+      return sizeof(double);
+    }
+    default: {
+      log_coll.fatal("Unknown datatype");
+      assert(0);
+      return 0;
+    }
   }
-  return size;
 }
 
 void resetLocalBuffer(CollComm global_comm)

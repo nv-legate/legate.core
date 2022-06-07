@@ -30,98 +30,6 @@ namespace coll {
 using namespace Legion;
 extern Logger log_coll;
 
-static int alltoallvMPIInplace(void* recvbuf,
-                               const int recvcounts[],
-                               const int rdispls[],
-                               MPI_Datatype recvtype,
-                               CollComm global_comm)
-{
-  int total_size  = global_comm->global_comm_size;
-  int global_rank = global_comm->global_rank;
-  MPI_Status status;
-  MPI_Request request;
-
-  MPI_Aint lb, recvtype_extent;
-  MPI_Type_get_extent(recvtype, &lb, &recvtype_extent);
-
-  size_t max_size    = 0;
-  size_t packed_size = 0;
-  for (int i = 0; i < total_size; ++i) {
-    if (i == global_rank) { continue; }
-    packed_size = recvcounts[i] * recvtype_extent;
-    max_size    = std::max(packed_size, max_size);
-  }
-
-  // Easy way out
-  if ((1 == total_size) || (0 == max_size)) { return CollSuccess; }
-
-  char* tmp_buffer = (char*)malloc(sizeof(char) * max_size);
-  assert(tmp_buffer != nullptr);
-
-  int right, left, right_mpi_rank, left_mpi_rank, send_tag, recv_tag;
-  for (int i = 1; i <= (total_size >> 1); ++i) {
-    right          = (global_rank + i) % total_size;
-    left           = (global_rank + total_size - i) % total_size;
-    right_mpi_rank = global_comm->mapping_table.mpi_rank[right];
-    left_mpi_rank  = global_comm->mapping_table.mpi_rank[left];
-    assert(right == global_comm->mapping_table.global_rank[right]);
-    assert(left == global_comm->mapping_table.global_rank[left]);
-
-    if (0 != recvcounts[right]) { /* nothing to exchange with the peer on the right */
-
-      char* send_tmp_buffer = (char*)recvbuf + rdispls[right] * recvtype_extent;
-      memcpy(tmp_buffer, send_tmp_buffer, recvcounts[right] * recvtype_extent);
-      packed_size = max_size;
-
-      // receive data from the right
-      recv_tag = generateAlltoallTag(global_rank, right, global_comm);
-      CHECK_MPI(MPI_Irecv((char*)recvbuf + rdispls[right] * recvtype_extent,
-                          recvcounts[right],
-                          recvtype,
-                          right_mpi_rank,
-                          recv_tag,
-                          global_comm->comm,
-                          &request));
-    }
-
-    if ((left != right) && (0 != recvcounts[left])) {
-      // send data to the left
-      send_tag = generateAlltoallTag(left, global_rank, global_comm);
-      CHECK_MPI(MPI_Send((char*)recvbuf + rdispls[left] * recvtype_extent,
-                         recvcounts[left],
-                         recvtype,
-                         left_mpi_rank,
-                         send_tag,
-                         global_comm->comm));
-
-      CHECK_MPI(MPI_Wait(&request, MPI_STATUSES_IGNORE));
-
-      // receive data from the left
-      recv_tag = generateAlltoallTag(global_rank, left, global_comm);
-      CHECK_MPI(MPI_Irecv((char*)recvbuf + rdispls[left] * recvtype_extent,
-                          recvcounts[left],
-                          recvtype,
-                          left_mpi_rank,
-                          recv_tag,
-                          global_comm->comm,
-                          &request));
-    }
-
-    if (0 != recvcounts[right]) { /* nothing to exchange with the peer on the right */
-      // send data to the right
-      send_tag = generateAlltoallTag(right, global_rank, global_comm);
-      CHECK_MPI(
-        MPI_Send(tmp_buffer, packed_size, MPI_PACKED, right_mpi_rank, send_tag, global_comm->comm));
-    }
-
-    CHECK_MPI(MPI_Wait(&request, MPI_STATUSES_IGNORE));
-  }
-
-  free(tmp_buffer);
-
-  return CollSuccess;
-}
-
 int alltoallvMPI(const void* sendbuf,
                  const int sendcounts[],
                  const int sdispls[],
@@ -141,21 +49,11 @@ int alltoallvMPI(const void* sendbuf,
   MPI_Aint lb, type_extent;
   MPI_Type_get_extent(mpi_type, &lb, &type_extent);
 
-  void* sendbuf_tmp = const_cast<void*>(sendbuf);
-
-  // MPI_IN_PLACE
-  if (sendbuf == recvbuf) {
-    // not sure which way is better
-    // return alltoallvMPIInplace(recvbuf, recvcounts, rdispls, mpi_type, global_comm);
-    int total_send_count = sdispls[total_size - 1] + sendcounts[total_size - 1];
-    sendbuf_tmp          = allocateInplaceBuffer(recvbuf, type_extent * total_send_count);
-  }
-
   int sendto_global_rank, recvfrom_global_rank, sendto_mpi_rank, recvfrom_mpi_rank;
   for (int i = 1; i < total_size + 1; i++) {
     sendto_global_rank   = (global_rank + i) % total_size;
     recvfrom_global_rank = (global_rank + total_size - i) % total_size;
-    char* src            = static_cast<char*>(sendbuf_tmp) +
+    char* src            = static_cast<char*>(const_cast<void*>(sendbuf)) +
                 static_cast<ptrdiff_t>(sdispls[sendto_global_rank]) * type_extent;
     char* dst = static_cast<char*>(recvbuf) +
                 static_cast<ptrdiff_t>(rdispls[recvfrom_global_rank]) * type_extent;
@@ -196,8 +94,6 @@ int alltoallvMPI(const void* sendbuf,
                            global_comm->comm,
                            &status));
   }
-
-  if (sendbuf == recvbuf) { free(sendbuf_tmp); }
 
   return CollSuccess;
 }
