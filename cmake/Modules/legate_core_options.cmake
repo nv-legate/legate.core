@@ -87,6 +87,8 @@ set_or_default(CMAKE_CUDA_ARCHITECTURES GPU_ARCH ALL)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/cuda_arch_helpers.cmake)
 # Needs to run before `rapids_cuda_init_architectures`
 set_cuda_arch_from_names()
+# Must come before `enable_language(CUDA)`
+rapids_cuda_init_architectures(LEGATE_CORE)
 
 set_or_default(Legion_HIJACK_CUDART USE_CUDART_HIJACK OFF)
 

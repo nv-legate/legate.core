@@ -120,8 +120,6 @@ include(cmake/thirdparty/get_thrust.cmake)
 # - Enable the CUDA language -------------------------------------------------
 
 if(Legion_USE_CUDA)
-  # Must come before `enable_language(CUDA)`
-  rapids_cuda_init_architectures(LEGATE_CORE)
   # Enable the CUDA language
   enable_language(CUDA)
   # Must come after `enable_language(CUDA)`
