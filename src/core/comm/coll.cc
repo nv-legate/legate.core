@@ -330,14 +330,18 @@ static inline int match2ranks(int rank1, int rank2)
   tag                           = rank1 * max_ranks + rank2;
 
   // still under testing, will be used once if runs out of tags
+
   // constexpr int const max_threads = 128;
   // tag = rank1 % max_threads * max_ranks + rank2;
 
+  // Szudzik's Function, two numbers < 32768
   // if (rank1 >= rank2) {
   //   tag = rank1*rank1 + rank1 + rank2;
   // } else {
   //   tag = rank1 + rank2*rank2;
   // }
+
+  // Cantor Pairing Function, two numbers < 32768
   // tag = (rank1 + rank2) * (rank1 + rank2 + 1) / 2 + rank1;
 
   return tag;
