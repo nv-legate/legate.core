@@ -55,7 +55,7 @@ static int current_unique_id = 0;
 
 static bool coll_inited = false;
 
-// can be override by set the env LEGATE_MAX_COMMS
+// can be override by set the env LEGATE_MAX_CPU_COMMS
 static int MAX_NB_COMMS = 100;
 
 // functions start here
@@ -217,7 +217,7 @@ int collAllgather(
 int collInit(int argc, char* argv[])
 {
   current_unique_id    = 0;
-  const char* nb_comms = getenv("LEGATE_MAX_COMMS");
+  const char* nb_comms = getenv("LEGATE_MAX_CPU_COMMS");
   if (nb_comms != nullptr) { MAX_NB_COMMS = atoi(nb_comms); }
   assert(MAX_NB_COMMS > 0);
 #ifdef LEGATE_USE_GASNET
@@ -265,7 +265,8 @@ int collGetUniqueId(int* id)
   current_unique_id++;
   if (current_unique_id > MAX_NB_COMMS) {
     log_coll.fatal(
-      "Please increase the LEGATE_MAX_COMMS by export LEGATE_MAX_COMMS=new number, current value "
+      "Please increase the LEGATE_MAX_CPU_COMMS by export LEGATE_MAX_CPU_COMMS=new number, current "
+      "value "
       "is %d\n",
       MAX_NB_COMMS);
   }
