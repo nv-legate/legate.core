@@ -897,7 +897,7 @@ class Runtime:
             and bool(
                 self._core_context.get_tunable(
                     legion.LEGATE_CORE_TUNABLE_PRECISE_EXCEPTION_TRACE,
-                    ty.uint32,
+                    ty.bool_,
                 )
             )
         )
