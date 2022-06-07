@@ -98,35 +98,33 @@ endif()
 ###
 include(cmake/thirdparty/get_legion.cmake)
 
+# If Legion_USE_Python was toggled ON by find_package(Legion), find Python3
 if(Legion_USE_Python AND (NOT Python3_FOUND))
   _find_package_Python3()
 endif()
 
 if(Legion_USE_CUDA)
+  # Find the CUDAToolkit
   rapids_find_package(
     CUDAToolkit REQUIRED
     BUILD_EXPORT_SET legate-core-exports
     INSTALL_EXPORT_SET legate-core-exports
   )
-endif()
 
-if(Legion_USE_CUDA)
+  # Find NCCL
   include(cmake/thirdparty/get_nccl.cmake)
-endif()
 
-include(cmake/thirdparty/get_thrust.cmake)
-
-##############################################################################
-# - Enable the CUDA language -------------------------------------------------
-
-if(Legion_USE_CUDA)
   # Enable the CUDA language
   enable_language(CUDA)
+
   # Must come after `enable_language(CUDA)`
   # Use `-isystem <path>` instead of `-isystem=<path>`
   # because the former works with clangd intellisense
   set(CMAKE_INCLUDE_SYSTEM_FLAG_CUDA "-isystem ")
 endif()
+
+# Find or install Thrust
+include(cmake/thirdparty/get_thrust.cmake)
 
 ##############################################################################
 # - legate.core --------------------------------------------------------------
