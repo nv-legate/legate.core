@@ -226,9 +226,13 @@ int collInit(int argc, char* argv[])
   if (!init_flag) {
     CHECK_MPI(MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided));
   } else {
-    log_coll.print(
-      "Warning: MPI has been initialized by others, make sure MPI is initialized with "
-      "MPI_THREAD_MULTIPLE");
+    int mpi_thread_model;
+    MPI_Query_thread(&mpi_thread_model);
+    if (mpi_thread_model != MPI_THREAD_MULTIPLE) {
+      log_coll.fatal(
+        "MPI has been initialized by others, but is not sinitialized with "
+        "MPI_THREAD_MULTIPLE");
+    }
   }
   mpi_comms.resize(MAX_NB_COMMS, MPI_COMM_NULL);
   for (int i = 0; i < MAX_NB_COMMS; i++) { CHECK_MPI(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comms[i])); }
