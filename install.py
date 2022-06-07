@@ -128,6 +128,7 @@ def configure_legate_core_cpp(
     cuda_dir,
     nccl_dir,
     gasnet_dir,
+    thrust_dir,
     legion_dir,
     legion_url,
     legion_branch,
@@ -197,6 +198,8 @@ def configure_legate_core_cpp(
         cmake_flags += ["-DGASNet_CONDUIT=%s" % conduit]
     if cuda_dir:
         cmake_flags += ["-DCUDA_TOOLKIT_ROOT_DIR=%s" % cuda_dir]
+    if thrust_dir:
+        cmake_flags += ["-DThrust_ROOT=%s" % thrust_dir]
     if legion_dir:
         cmake_flags += ["-DLegion_ROOT=%s" % legion_dir]
     if legion_url:
@@ -443,6 +446,7 @@ def install(
         cuda_dir,
         nccl_dir,
         gasnet_dir,
+        thrust_dir,
         legion_dir,
         legion_url,
         legion_branch,
