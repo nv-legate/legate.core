@@ -203,7 +203,7 @@ void register_exception_reduction_op(Runtime* runtime, const LibraryContext& con
 {
   auto redop_id = context.get_reduction_op_id(LEGATE_CORE_JOIN_EXCEPTION_OP);
   auto* redop   = Realm::ReductionOpUntyped::create_reduction_op<JoinReturnedException>();
-  runtime->register_reduction_op(redop_id, redop, returned_exception_init, returned_exception_fold);
+  Runtime::register_reduction_op(redop_id, redop, returned_exception_init, returned_exception_fold);
 }
 
 }  // namespace legate
