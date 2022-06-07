@@ -111,6 +111,8 @@ class LegateTask {
         // this is a bug in the library that needs to be reported to the developer
         Core::report_unexpected_exception(task_name(), e);
     }
+    // This is unreachable but added to make compilers happy
+    return ReturnValues{};
   }
 
  public:
