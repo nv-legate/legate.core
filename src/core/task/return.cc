@@ -42,7 +42,9 @@ struct JoinReturnedException {
   template <bool EXCLUSIVE>
   static void apply(LHS& lhs, RHS rhs)
   {
+#ifdef DEBUG_LEGATE
     assert(EXCLUSIVE);
+#endif
     if (lhs.raised() || !rhs.raised()) return;
     lhs = rhs;
   }
@@ -50,7 +52,9 @@ struct JoinReturnedException {
   template <bool EXCLUSIVE>
   static void fold(RHS& rhs1, RHS rhs2)
   {
+#ifdef DEBUG_LEGATE
     assert(EXCLUSIVE);
+#endif
     if (rhs1.raised() || !rhs2.raised()) return;
     rhs1 = rhs2;
   }
