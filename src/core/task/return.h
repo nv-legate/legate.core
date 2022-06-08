@@ -22,6 +22,28 @@ namespace legate {
 
 using ReturnValue = std::pair<const void*, size_t>;
 
+struct ReturnedException {
+ public:
+  ReturnedException() {}
+  ReturnedException(int32_t index, const std::string& error_message);
+
+ public:
+  bool raised() const { return raised_; }
+
+ public:
+  size_t legion_buffer_size() const;
+  void legion_serialize(void* buffer) const;
+  void legion_deserialize(const void* buffer);
+
+ public:
+  ReturnValue pack() const;
+
+ private:
+  bool raised_{false};
+  int32_t index_{-1};
+  std::string error_message_{};
+};
+
 struct ReturnValues {
  public:
   ReturnValues();
