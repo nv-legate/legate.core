@@ -126,6 +126,8 @@ void legate_create_sharding_functor_using_projection(legion_sharding_id_t, legio
 // TODO: the return type should be legion_point_transform_functor_t
 void* legate_linearizing_point_transform_functor();
 
+void legate_cpucoll_finalize(void);
+
 #ifdef __cplusplus
 }
 #endif

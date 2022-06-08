@@ -120,6 +120,11 @@ class CPUCommunicator(Communicator):
         self._tag = library.LEGATE_CPU_VARIANT
         self._needs_barrier = False
 
+    def destroy(self) -> None:
+        Communicator.destroy(self)
+        self._runtime.issue_execution_fence(block=True)
+        self._runtime.core_library.legate_cpucoll_finalize()
+
     @property
     def needs_barrier(self) -> bool:
         return self._needs_barrier

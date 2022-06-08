@@ -496,3 +496,8 @@ void* allocateInplaceBuffer(const void* recvbuf, size_t size)
 }  // namespace coll
 }  // namespace comm
 }  // namespace legate
+
+extern "C" {
+
+void legate_cpucoll_finalize(void) { legate::comm::coll::collFinalize(); }
+}
