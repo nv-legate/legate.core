@@ -289,7 +289,10 @@ int collFinalize(void)
 #ifdef LEGATE_USE_GASNET
   for (int i = 0; i < MAX_NB_COMMS; i++) { CHECK_MPI(MPI_Comm_free(&mpi_comms[i])); }
   mpi_comms.clear();
-  return MPI_Finalize();
+  int fina_flag = 0;
+  CHECK_MPI(MPI_Finalized(&fina_flag));
+  if (fina_flag == 0) { CHECK_MPI(MPI_Finalize()); }
+  return CollSuccess;
 #else
   for (int i = 0; i < MAX_NB_COMMS; i++) { assert(thread_comms[i].ready_flag == false); }
   thread_comms.clear();
