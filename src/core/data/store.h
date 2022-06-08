@@ -179,6 +179,7 @@ class OutputRegionField {
  public:
   template <typename T, int32_t DIM>
   void return_data(Buffer<T, DIM>& buffer, const Legion::Point<DIM>& extents);
+  void make_empty(int32_t dim);
 
  public:
   ReturnValue pack_weight() const;
@@ -329,6 +330,7 @@ class Store {
  public:
   template <typename T, int32_t DIM>
   void return_data(Buffer<T, DIM>& buffer, const Legion::Point<DIM>& extents);
+  void make_empty();
 
  public:
   bool is_future() const { return is_future_; }

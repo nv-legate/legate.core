@@ -719,6 +719,7 @@ class TaskLauncher:
         self._error_on_interference = error_on_interference
         self._has_side_effect = side_effect
         self._insert_barrier = False
+        self._can_raise_exception = False
 
     @property
     def library_task_id(self) -> int:
@@ -858,6 +859,9 @@ class TaskLauncher:
     def insert_barrier(self) -> None:
         self._insert_barrier = True
 
+    def set_can_raise_exception(self, can_raise_exception: bool) -> None:
+        self._can_raise_exception = can_raise_exception
+
     def set_sharding_space(self, space: IndexSpace) -> None:
         self._sharding_space = space
 
@@ -883,6 +887,7 @@ class TaskLauncher:
         self.pack_args(argbuf, self._outputs)
         self.pack_args(argbuf, self._reductions)
         self.pack_args(argbuf, self._scalars)
+        argbuf.pack_bool(self._can_raise_exception)
         argbuf.pack_bool(self._insert_barrier)
         argbuf.pack_32bit_uint(len(self._comms))
 
@@ -923,6 +928,7 @@ class TaskLauncher:
         self.pack_args(argbuf, self._outputs)
         self.pack_args(argbuf, self._reductions)
         self.pack_args(argbuf, self._scalars)
+        argbuf.pack_bool(self._can_raise_exception)
 
         assert len(self._comms) == 0
 
