@@ -106,11 +106,15 @@ ifneq (${MARCH},)
     else
       $(error PGI compilers do not currently support the PowerPC architecture)
     endif
+  else ifeq ($(strip $(USE_PGI)),1)
+    CC_FLAGS += -tp=${MARCH}
   else
-    ifeq ($(strip $(USE_PGI)),0)
+    # Not all compilers, notably Clang on Mac, support -march. Checks if -march is accepted by the
+    # compiler and falls back to -mcpu if not.
+    ifeq ($(shell $(CXX) -x c++ -Werror -march=${MARCH} -c /dev/null -o /dev/null 2> /dev/null; echo $$?),0)
       CC_FLAGS += -march=${MARCH}
     else
-      CC_FLAGS += -tp=${MARCH}
+      CC_FLAGS += -mcpu=${MARCH}
     endif
   endif
 endif
