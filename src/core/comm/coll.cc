@@ -28,6 +28,7 @@
 #endif
 
 #include "coll.h"
+#include "legate.h"
 #include "legion.h"
 
 namespace legate {
@@ -172,7 +173,10 @@ int collAlltoallv(const void* sendbuf,
                   CollComm global_comm)
 {
   // IN_PLACE
-  if (sendbuf == recvbuf) { log_coll.fatal("Do not support inplace Alltoallv"); }
+  if (sendbuf == recvbuf) {
+    log_coll.error("Do not support inplace Alltoallv");
+    LEGATE_ABORT;
+  }
   log_coll.debug(
     "Alltoallv: global_rank %d, mpi_rank %d, unique_id %d, comm_size %d, "
     "mpi_comm_size %d %d, nb_threads %d",
@@ -196,7 +200,10 @@ int collAlltoall(
   const void* sendbuf, void* recvbuf, int count, CollDataType type, CollComm global_comm)
 {
   // IN_PLACE
-  if (sendbuf == recvbuf) { log_coll.fatal("Do not support inplace Alltoall"); }
+  if (sendbuf == recvbuf) {
+    log_coll.error("Do not support inplace Alltoall");
+    LEGATE_ABORT;
+  }
   log_coll.debug(
     "Alltoall: global_rank %d, mpi_rank %d, unique_id %d, comm_size %d, "
     "mpi_comm_size %d %d, nb_threads %d",
@@ -251,8 +258,9 @@ int collInit(int argc, char* argv[])
     MPI_Query_thread(&mpi_thread_model);
     if (mpi_thread_model != MPI_THREAD_MULTIPLE) {
       log_coll.fatal(
-        "MPI has been initialized by others, but is not sinitialized with "
+        "MPI has been initialized by others, but is not initialized with "
         "MPI_THREAD_MULTIPLE");
+      LEGATE_ABORT;
     }
   }
   mpi_comms.resize(MAX_NB_COMMS, MPI_COMM_NULL);
@@ -294,6 +302,7 @@ int collGetUniqueId(int* id)
       "\"export LEGATE_MAX_CPU_COMMS=(new number)\\ "
       "current value is: %d\n",
       MAX_NB_COMMS);
+    LEGATE_ABORT;
   }
   return CollSuccess;
 }
@@ -383,6 +392,7 @@ MPI_Datatype dtypeToMPIDtype(CollDataType dtype)
     }
     default: {
       log_coll.fatal("Unknown datatype");
+      LEGATE_ABORT;
       return MPI_BYTE;
     }
   }
@@ -447,6 +457,7 @@ size_t getDtypeSize(CollDataType dtype)
     }
     default: {
       log_coll.fatal("Unknown datatype");
+      LEGATE_ABORT
       return 0;
     }
   }
