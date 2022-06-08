@@ -457,7 +457,7 @@ size_t getDtypeSize(CollDataType dtype)
     }
     default: {
       log_coll.fatal("Unknown datatype");
-      LEGATE_ABORT
+      LEGATE_ABORT;
       return 0;
     }
   }
