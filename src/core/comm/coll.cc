@@ -21,6 +21,7 @@
 #include <string.h>
 #include <atomic>
 #include <cstdlib>
+#include <unordered_map>
 
 #ifndef LEGATE_USE_GASNET
 #include <stdint.h>
@@ -59,6 +60,11 @@ static bool coll_inited = false;
 static int MAX_NB_COMMS = 100;
 
 // functions start here
+#ifdef LEGATE_USE_GASNET
+static inline std::pair<int, int> mostFrequent(const int* arr, int n);
+static inline int match2ranks(int rank1, int rank2, CollComm global_comm);
+#endif
+
 int collCommCreate(CollComm global_comm,
                    int global_comm_size,
                    int global_rank,
@@ -90,10 +96,14 @@ int collCommCreate(CollComm global_comm,
   global_comm->mapping_table.mpi_rank    = (int*)malloc(sizeof(int) * global_comm_size);
   memcpy(global_comm->mapping_table.mpi_rank, mapping_table, sizeof(int) * global_comm_size);
   for (int i = 0; i < global_comm_size; i++) { global_comm->mapping_table.global_rank[i] = i; }
+  std::pair<int, int> p             = mostFrequent(mapping_table, global_comm_size);
+  global_comm->nb_threads           = p.first;
+  global_comm->mpi_comm_size_actual = p.second;
 #else
   assert(mapping_table == nullptr);
-  global_comm->mpi_comm_size = 1;
-  global_comm->mpi_rank      = 0;
+  global_comm->mpi_comm_size        = 1;
+  global_comm->mpi_comm_size_actual = 1;
+  global_comm->mpi_rank             = 0;
   if (global_comm->global_rank == 0) {
     pthread_barrier_init((pthread_barrier_t*)&(thread_comms[global_comm->unique_id].barrier),
                          nullptr,
@@ -117,12 +127,8 @@ int collCommCreate(CollComm global_comm,
   assert(global_comm->comm->ready_flag == true);
   assert(global_comm->comm->buffers != nullptr);
   assert(global_comm->comm->displs != nullptr);
+  global_comm->nb_threads = global_comm->global_comm_size;
 #endif
-  if (global_comm->global_comm_size % global_comm->mpi_comm_size == 0) {
-    global_comm->nb_threads = global_comm->global_comm_size / global_comm->mpi_comm_size;
-  } else {
-    global_comm->nb_threads = global_comm->global_comm_size / global_comm->mpi_comm_size + 1;
-  }
   return CollSuccess;
 }
 
@@ -167,11 +173,16 @@ int collAlltoallv(const void* sendbuf,
 {
   // IN_PLACE
   if (sendbuf == recvbuf) { log_coll.fatal("Do not support inplace Alltoallv"); }
-  log_coll.debug("Alltoallv: global_rank %d, mpi_rank %d, unique_id %d, comm_size %d",
-                 global_comm->global_rank,
-                 global_comm->mpi_rank,
-                 global_comm->unique_id,
-                 global_comm->global_comm_size);
+  log_coll.debug(
+    "Alltoallv: global_rank %d, mpi_rank %d, unique_id %d, comm_size %d, "
+    "mpi_comm_size %d %d, nb_threads %d",
+    global_comm->global_rank,
+    global_comm->mpi_rank,
+    global_comm->unique_id,
+    global_comm->global_comm_size,
+    global_comm->mpi_comm_size,
+    global_comm->mpi_comm_size_actual,
+    global_comm->nb_threads);
 #ifdef LEGATE_USE_GASNET
   return alltoallvMPI(
     sendbuf, sendcounts, sdispls, recvbuf, recvcounts, rdispls, type, global_comm);
@@ -186,11 +197,16 @@ int collAlltoall(
 {
   // IN_PLACE
   if (sendbuf == recvbuf) { log_coll.fatal("Do not support inplace Alltoall"); }
-  log_coll.debug("Alltoall: global_rank %d, mpi_rank %d, unique_id %d, comm_size %d",
-                 global_comm->global_rank,
-                 global_comm->mpi_rank,
-                 global_comm->unique_id,
-                 global_comm->global_comm_size);
+  log_coll.debug(
+    "Alltoall: global_rank %d, mpi_rank %d, unique_id %d, comm_size %d, "
+    "mpi_comm_size %d %d, nb_threads %d",
+    global_comm->global_rank,
+    global_comm->mpi_rank,
+    global_comm->unique_id,
+    global_comm->global_comm_size,
+    global_comm->mpi_comm_size,
+    global_comm->mpi_comm_size_actual,
+    global_comm->nb_threads);
 #ifdef LEGATE_USE_GASNET
   return alltoallMPI(sendbuf, recvbuf, count, type, global_comm);
 #else
@@ -201,11 +217,16 @@ int collAlltoall(
 int collAllgather(
   const void* sendbuf, void* recvbuf, int count, CollDataType type, CollComm global_comm)
 {
-  log_coll.debug("Allgather: global_rank %d, mpi_rank %d, unique_id %d, comm_size %d",
-                 global_comm->global_rank,
-                 global_comm->mpi_rank,
-                 global_comm->unique_id,
-                 global_comm->global_comm_size);
+  log_coll.debug(
+    "Allgather: global_rank %d, mpi_rank %d, unique_id %d, comm_size %d, "
+    "mpi_comm_size %d %d, nb_threads %d",
+    global_comm->global_rank,
+    global_comm->mpi_rank,
+    global_comm->unique_id,
+    global_comm->global_comm_size,
+    global_comm->mpi_comm_size,
+    global_comm->mpi_comm_size_actual,
+    global_comm->nb_threads);
 #ifdef LEGATE_USE_GASNET
   return allgatherMPI(sendbuf, recvbuf, count, type, global_comm);
 #else
@@ -270,7 +291,7 @@ int collGetUniqueId(int* id)
   if (current_unique_id > MAX_NB_COMMS) {
     log_coll.fatal(
       "Please increase the LEGATE_MAX_CPU_COMMS by "
-      "\"export LEGATE_MAX_CPU_COMMS=(new number)\ "
+      "\"export LEGATE_MAX_CPU_COMMS=(new number)\\ "
       "current value is: %d\n",
       MAX_NB_COMMS);
   }
@@ -278,41 +299,19 @@ int collGetUniqueId(int* id)
 }
 
 #ifdef LEGATE_USE_GASNET
-MPI_Datatype dtypeToMPIDtype(CollDataType dtype)
+static inline std::pair<int, int> mostFrequent(const int* arr, int n)
 {
-  switch (dtype) {
-    case CollDataType::CollInt8: {
-      return MPI_INT8_T;
-    }
-    case CollDataType::CollChar: {
-      return MPI_CHAR;
-    }
-    case CollDataType::CollUint8: {
-      return MPI_UINT8_T;
-    }
-    case CollDataType::CollInt: {
-      return MPI_INT;
-    }
-    case CollDataType::CollUint32: {
-      return MPI_UINT32_T;
-    }
-    case CollDataType::CollInt64: {
-      return MPI_INT64_T;
-    }
-    case CollDataType::CollUint64: {
-      return MPI_UINT64_T;
-    }
-    case CollDataType::CollFloat: {
-      return MPI_FLOAT;
-    }
-    case CollDataType::CollDouble: {
-      return MPI_DOUBLE;
-    }
-    default: {
-      log_coll.fatal("Unknown datatype");
-      return MPI_BYTE;
-    }
+  std::unordered_map<int, int> hash;
+  for (int i = 0; i < n; i++) hash[arr[i]]++;
+
+  // find the max frequency
+  int max_count = 0;
+  std::unordered_map<int, int>::iterator it;
+  for (it = hash.begin(); it != hash.end(); it++) {
+    if (max_count < it->second) { max_count = it->second; }
   }
+
+  return std::make_pair(max_count, hash.size());
 }
 
 static inline int match2ranks(int rank1, int rank2, CollComm global_comm)
@@ -350,6 +349,43 @@ static inline int match2ranks(int rank1, int rank2, CollComm global_comm)
   // tag = (rank1 + rank2) * (rank1 + rank2 + 1) / 2 + rank1;
 
   return tag;
+}
+
+MPI_Datatype dtypeToMPIDtype(CollDataType dtype)
+{
+  switch (dtype) {
+    case CollDataType::CollInt8: {
+      return MPI_INT8_T;
+    }
+    case CollDataType::CollChar: {
+      return MPI_CHAR;
+    }
+    case CollDataType::CollUint8: {
+      return MPI_UINT8_T;
+    }
+    case CollDataType::CollInt: {
+      return MPI_INT;
+    }
+    case CollDataType::CollUint32: {
+      return MPI_UINT32_T;
+    }
+    case CollDataType::CollInt64: {
+      return MPI_INT64_T;
+    }
+    case CollDataType::CollUint64: {
+      return MPI_UINT64_T;
+    }
+    case CollDataType::CollFloat: {
+      return MPI_FLOAT;
+    }
+    case CollDataType::CollDouble: {
+      return MPI_DOUBLE;
+    }
+    default: {
+      log_coll.fatal("Unknown datatype");
+      return MPI_BYTE;
+    }
+  }
 }
 
 int generateAlltoallTag(int rank1, int rank2, CollComm global_comm)

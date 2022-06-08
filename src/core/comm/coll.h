@@ -77,6 +77,7 @@ struct Coll_Comm {
 #endif
   int mpi_rank;
   int mpi_comm_size;
+  int mpi_comm_size_actual;
   int global_rank;
   int global_comm_size;
   int nb_threads;
