@@ -48,6 +48,8 @@ enum CollTag : int {
   MAX_TAG       = 10,
 };
 
+static int mpi_tag_ub = 0;
+
 static std::vector<MPI_Comm> mpi_comms;
 #else  // undef LEGATE_USE_GASNET
 static std::vector<ThreadComm> thread_comms;
@@ -84,9 +86,6 @@ int collCommCreate(CollComm global_comm,
   CHECK_MPI(MPI_Comm_compare(comm, MPI_COMM_WORLD, &compare_result));
   assert(MPI_CONGRUENT == compare_result);
 
-  CHECK_MPI(MPI_Comm_get_attr(comm, MPI_TAG_UB, &tag_ub, &flag));
-  assert(flag);
-  assert(INT_MAX == *tag_ub);
   CHECK_MPI(MPI_Comm_rank(comm, &mpi_rank));
   CHECK_MPI(MPI_Comm_size(comm, &mpi_comm_size));
   global_comm->mpi_comm_size = mpi_comm_size;
@@ -263,6 +262,12 @@ int collInit(int argc, char* argv[])
       LEGATE_ABORT;
     }
   }
+  // check
+  int *tag_ub, flag;
+  CHECK_MPI(MPI_Comm_get_attr(MPI_COMM_WORLD, MPI_TAG_UB, &tag_ub, &flag));
+  assert(flag);
+  mpi_tag_ub = *tag_ub;
+  // create mpi comms
   mpi_comms.resize(MAX_NB_COMMS, MPI_COMM_NULL);
   for (int i = 0; i < MAX_NB_COMMS; i++) { CHECK_MPI(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comms[i])); }
 #else
@@ -401,28 +406,28 @@ MPI_Datatype dtypeToMPIDtype(CollDataType dtype)
 int generateAlltoallTag(int rank1, int rank2, CollComm global_comm)
 {
   int tag = match2ranks(rank1, rank2, global_comm) * CollTag::MAX_TAG + CollTag::ALLTOALL_TAG;
-  assert(tag < INT_MAX && tag > 0);
+  assert(tag <= mpi_tag_ub && tag > 0);
   return tag;
 }
 
 int generateAlltoallvTag(int rank1, int rank2, CollComm global_comm)
 {
   int tag = match2ranks(rank1, rank2, global_comm) * CollTag::MAX_TAG + CollTag::ALLTOALLV_TAG;
-  assert(tag < INT_MAX && tag > 0);
+  assert(tag <= mpi_tag_ub && tag > 0);
   return tag;
 }
 
 int generateBcastTag(int rank, CollComm global_comm)
 {
   int tag = rank * CollTag::MAX_TAG + CollTag::BCAST_TAG;
-  assert(tag < INT_MAX && tag >= 0);
+  assert(tag <= mpi_tag_ub && tag >= 0);
   return tag;
 }
 
 int generateGatherTag(int rank, CollComm global_comm)
 {
   int tag = rank * CollTag::MAX_TAG + CollTag::GATHER_TAG;
-  assert(tag < INT_MAX && tag > 0);
+  assert(tag <= mpi_tag_ub && tag > 0);
   return tag;
 }
 
