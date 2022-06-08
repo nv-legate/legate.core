@@ -1384,9 +1384,10 @@ class Runtime:
         self._pending_exceptions.append(exn)
 
     def raise_exceptions(self) -> None:
-        for pending in self._pending_exceptions:
-            pending.raise_exception()
+        pending_exceptions = self._pending_exceptions
         self._pending_exceptions = []
+        for pending in pending_exceptions:
+            pending.raise_exception()
 
 
 _runtime = Runtime(core_library)
