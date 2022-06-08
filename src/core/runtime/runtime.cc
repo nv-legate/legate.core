@@ -128,6 +128,7 @@ static ReturnValues extract_scalar_task(const Task* task,
     "using 'throws_exception'.",
     task_name,
     e.error_message().c_str());
+  LEGATE_ABORT;
 }
 
 void register_legate_core_tasks(Machine machine, Runtime* runtime, const LibraryContext& context)
