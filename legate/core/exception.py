@@ -43,5 +43,7 @@ class PendingException:
             return
         (exn_index, error_size) = struct.unpack("iI", buf[1:9])
         error_message = buf[9 : 9 + error_size].decode()
-        exn = self._exn_types[exn_index](error_message)
-        raise exn.with_traceback(self._tb)
+        exn_type = self._exn_types[exn_index]
+        exn_reraised = exn_type(error_message)
+        exn_original = exn_type(error_message).with_traceback(self._tb)
+        raise exn_reraised from exn_original

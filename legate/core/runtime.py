@@ -892,13 +892,10 @@ class Runtime:
                 ty.uint32,
             )
         )
-        self._precise_exception_trace: bool = (
-            self._max_pending_exceptions > 1
-            and bool(
-                self._core_context.get_tunable(
-                    legion.LEGATE_CORE_TUNABLE_PRECISE_EXCEPTION_TRACE,
-                    ty.bool_,
-                )
+        self._precise_exception_trace: bool = bool(
+            self._core_context.get_tunable(
+                legion.LEGATE_CORE_TUNABLE_PRECISE_EXCEPTION_TRACE,
+                ty.bool_,
             )
         )
 
