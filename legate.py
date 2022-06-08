@@ -213,6 +213,9 @@ def run_legate(
     if ranks > 1:
         assert "LEGATE_NEED_GASNET" not in cmd_env
         cmd_env["LEGATE_NEED_GASNET"] = str(1)
+        # Make sure GASNet initializes MPI with the right level of
+        # threading support
+        cmd_env["GASNET_MPI_THREAD"] = "MPI_THREAD_MULTIPLE"
     if progress:
         assert "LEGATE_SHOW_PROGREES" not in cmd_env
         cmd_env["LEGATE_SHOW_PROGRESS"] = str(1)
