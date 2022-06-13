@@ -186,6 +186,9 @@ def run_legate(
     # If using NCCL prefer parallel launch mode over cooperative groups, as the
     # former plays better with Realm.
     cmd_env["NCCL_LAUNCH_MODE"] = "PARALLEL"
+    # Make sure GASNet initializes MPI with the right level of
+    # threading support
+    cmd_env["GASNET_MPI_THREAD"] = "MPI_THREAD_MULTIPLE"
     # Set some environment variables depending on our configuration that we
     # will check in the Legate binary to ensure that it is properly configured
     # Always make sure we include the Legion library
@@ -213,9 +216,6 @@ def run_legate(
     if ranks > 1:
         assert "LEGATE_NEED_GASNET" not in cmd_env
         cmd_env["LEGATE_NEED_GASNET"] = str(1)
-        # Make sure GASNet initializes MPI with the right level of
-        # threading support
-        cmd_env["GASNET_MPI_THREAD"] = "MPI_THREAD_MULTIPLE"
     if progress:
         assert "LEGATE_SHOW_PROGREES" not in cmd_env
         cmd_env["LEGATE_SHOW_PROGRESS"] = str(1)
