@@ -14,7 +14,7 @@
 #
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union, cast
 
 import numpy as np
 
@@ -198,6 +198,38 @@ class Context:
                 mapper_id,
                 unique_op_id,
             )
+
+    def create_manual_task(
+        self,
+        task_id: int,
+        mapper_id: int = 0,
+        launch_domain: Optional[Rect] = None,
+    ) -> ManualTask:
+        return cast(
+            ManualTask,
+            self.create_task(
+                task_id=task_id,
+                mapper_id=mapper_id,
+                manual=True,
+                launch_domain=launch_domain,
+            ),
+        )
+
+    def create_auto_task(
+        self,
+        task_id: int,
+        mapper_id: int = 0,
+        launch_domain: Optional[Rect] = None,
+    ) -> AutoTask:
+        return cast(
+            AutoTask,
+            self.create_task(
+                task_id=task_id,
+                mapper_id=mapper_id,
+                manual=False,
+                launch_domain=launch_domain,
+            ),
+        )
 
     def create_copy(self, mapper_id: int = 0) -> Copy:
         return Copy(self, mapper_id)
