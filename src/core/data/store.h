@@ -264,7 +264,8 @@ class Store {
         int32_t redop_id,
         RegionField&& region_field,
         std::shared_ptr<StoreTransform> transform = nullptr);
-  Store(int32_t code,
+  Store(int32_t dim,
+        int32_t code,
         OutputRegionField&& output,
         std::shared_ptr<StoreTransform> transform = nullptr);
 

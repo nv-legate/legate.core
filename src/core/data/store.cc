@@ -188,10 +188,13 @@ Store::Store(int32_t dim,
   reducible_ = region_field_.is_reducible();
 }
 
-Store::Store(int32_t code, OutputRegionField&& output, std::shared_ptr<StoreTransform> transform)
+Store::Store(int32_t dim,
+             int32_t code,
+             OutputRegionField&& output,
+             std::shared_ptr<StoreTransform> transform)
   : is_future_(false),
     is_output_store_(true),
-    dim_(-1),
+    dim_(dim),
     code_(code),
     redop_id_(-1),
     output_field_(std::forward<OutputRegionField>(output)),
