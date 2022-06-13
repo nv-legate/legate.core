@@ -66,7 +66,7 @@ void TaskDeserializer::_unpack(Store& value)
     auto redop_id = unpack<int32_t>();
     assert(redop_id == -1);
     auto out = unpack<OutputRegionField>();
-    value    = Store(code, std::move(out), std::move(transform));
+    value    = Store(dim, code, std::move(out), std::move(transform));
   }
 }
 
