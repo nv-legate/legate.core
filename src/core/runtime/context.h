@@ -122,11 +122,18 @@ class TaskContext {
 
  public:
   bool is_single_task() const;
+  bool can_raise_exception() const { return can_raise_exception_; }
   Legion::DomainPoint get_task_index() const;
   Legion::Domain get_launch_domain() const;
 
  public:
+  void make_all_unbound_stores_empty();
   ReturnValues pack_return_values() const;
+  ReturnValues pack_return_values_with_exception(int32_t index,
+                                                 const std::string& error_message) const;
+
+ private:
+  std::vector<ReturnValue> get_return_values() const;
 
  private:
   const Legion::Task* task_;
@@ -138,6 +145,7 @@ class TaskContext {
   std::vector<Store> inputs_, outputs_, reductions_;
   std::vector<Scalar> scalars_;
   std::vector<comm::Communicator> comms_;
+  bool can_raise_exception_;
 };
 
 }  // namespace legate
