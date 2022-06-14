@@ -228,6 +228,9 @@ class Context:
     def get_nccl_communicator(self) -> Communicator:
         return self._runtime.get_nccl_communicator()
 
+    def get_cpu_communicator(self) -> Communicator:
+        return self._runtime.get_cpu_communicator()
+
     def issue_execution_fence(self, block: bool = False) -> None:
         self._runtime.issue_execution_fence(block=block)
 
