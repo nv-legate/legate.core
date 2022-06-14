@@ -17,7 +17,7 @@
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/legion_helpers.cmake)
 
 function(find_or_configure_legion)
-  set(oneValueArgs VERSION REPOSITORY PINNED_TAG EXCLUDE_FROM_ALL)
+  set(oneValueArgs VERSION REPOSITORY BRANCH EXCLUDE_FROM_ALL)
   cmake_parse_arguments(PKG "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
   set(Legion_CUDA_ARCH "")
@@ -51,10 +51,11 @@ function(find_or_configure_legion)
   if(Legion_FOUND)
     message(STATUS "CPM: using local package Legion@${PKG_VERSION}")
   else()
+    include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/cpm_helpers.cmake)
+    get_cpm_git_args(legion_cpm_git_args REPOSITORY ${PKG_REPOSITORY} BRANCH ${PKG_BRANCH})
     rapids_cpm_find(Legion ${FIND_PKG_ARGS}
         CPM_ARGS
-          GIT_REPOSITORY   ${PKG_REPOSITORY}
-          GIT_TAG          ${PKG_PINNED_TAG}
+          ${legion_cpm_git_args}
           EXCLUDE_FROM_ALL ${PKG_EXCLUDE_FROM_ALL}
           OPTIONS          "CMAKE_CXX_STANDARD 17"
                            "CMAKE_LIBRARY_PATH ${_lib_path}"
@@ -99,6 +100,6 @@ endif()
 
 find_or_configure_legion(VERSION          ${LEGATE_CORE_LEGION_VERSION}
                          REPOSITORY       ${LEGATE_CORE_LEGION_REPOSITORY}
-                         PINNED_TAG       ${LEGATE_CORE_LEGION_BRANCH}
+                         BRANCH           ${LEGATE_CORE_LEGION_BRANCH}
                          EXCLUDE_FROM_ALL ${LEGATE_CORE_EXCLUDE_LEGION_FROM_ALL}
 )
