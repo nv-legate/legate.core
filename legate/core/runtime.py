@@ -758,9 +758,55 @@ class FusionChecker(object):
         windows = [(0, len(self.ops))]
         for constraint in self.constraints:
             windows = constraint.apply(self.contexts, self.runtime, self.ops, windows, self.partitioners, self.strategies)
-  
+
+        #for i,strategy in enumerate(self.strategies):
+        #    print(i,"i", strategy)
+        old_strategies = self.strategies[:]
+        old_strategies.reverse()
+        self.strategies = []
+        #for i,strategy in enumerate(old_strategies):
+        #    print(i,strategy)
+        ist=0
+        keyps = []
+        for window in reversed(windows):
+            fusable,final_set = self.supress_small_fusions(windows, self.runtime._fusion_threshold)
+            local_partitions =  []
+            if window[0] == window[1]:
+                continue
+            for op in reversed(self.ops[ window[0]:window[1] ]):
+                strategy = old_strategies[ist]
+                #print("looking in", strategy)
+           
+                for output, part, in zip(op._outputs, op._output_parts):
+                    #print("need", part)
+                    partition = strategy.get_partition(part)
+                    local_partitions.append(partition)
+                ist+=1
+            midpoint = int(len(local_partitions)/2)
+            partition = local_partitions[midpoint]
+            keyps.append(partition)
+            #print("selected", midpoint, len(local_partitions), partition)
+            for op in reversed(self.ops[ window[0]:window[1] ]):
+                #print("selected", partition)
+                for output, part, in zip(op._outputs, op._output_parts):
+                    output.reset_key_partition()
+                    output.set_key_partition(partition)
+                    strategy._strategy[part] = partition
+                    key_part = partition
+                    #check if input and output should be aligned
+                    for input, ipart in zip(op._inputs, op._input_parts):
+                        if input.shape== output.shape:
+                            input.reset_key_partition()
+                            input.set_key_partition(partition)
+                            strategy._strategy[ipart] = partition
+                self.strategies.append(strategy)
+            #return fusable, final_set, self.strategies
+        self.strategies.reverse()
+        keyps.reverse()
+
+      
         fusable,final_set = self.supress_small_fusions(windows, self.runtime._fusion_threshold)
-        return fusable, final_set, self.strategies
+        return fusable, final_set, self.strategies, keyps
 
 
 class FusionConstraint(object):
@@ -1174,7 +1220,7 @@ class Runtime(object):
         fusion_checker.register_constraint(IdenticalLaunchShapes())
         fusion_checker.register_constraint(IdenticalProjection())
         fusion_checker.register_constraint(ValidProducerConsumer())
-        can_fuse,fusable_sets, partitions = fusion_checker.can_fuse()
+        can_fuse,fusable_sets, partitions, keyps = fusion_checker.can_fuse()
                 
         #once fusion in the core is playing nicely with the mapepr
         #the following two lines will be removed, and be replaced 
@@ -1221,10 +1267,15 @@ class Runtime(object):
    
         for i,fused_task in enumerate(new_op_list):
             must_be_single = any(len(gop.scalar_outputs) > 0 for gop in [fused_task])
+            for output, part, in zip(fused_task._outputs, fused_task._output_parts):
+                output.set_key_partition(keyps[i])
+            for input, part, in zip(fused_task._inputs, fused_task._input_parts):
+                input.set_key_partition(keyps[i])
             partitioner = Partitioner(self, [fused_task], must_be_single=must_be_single)
             strategy = partitioner.partition_stores()
             fused_task.strategy = strategy
             strats.append(strategy)
+            #print(i, strategy)
         return new_op_list, strats       
 
     def _launch_outstanding(self, force_eval=True):        
