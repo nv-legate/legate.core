@@ -121,8 +121,18 @@ class CPUCommunicator(Communicator):
         self._needs_barrier = False
 
     def destroy(self) -> None:
-        Communicator.destroy(self)
-        self._runtime.issue_execution_fence(block=True)
+        if len(self._handles) > 0:
+            # Call the default destroy to finalize all cpu communicators that
+            #   have been created
+            Communicator.destroy(self)
+            # We need to make sure all communicators are destroyed before
+            #   finalize the cpu collective library.
+            # However, this call is only required when there are cpu
+            #   communicators created before
+            self._runtime.issue_execution_fence(block=True)
+        # Finalize the cpu collective library.
+        # This call is always required because we always init the cpu
+        #   collective library during legate library initialization
         self._runtime.core_library.legate_cpucoll_finalize()
 
     @property
