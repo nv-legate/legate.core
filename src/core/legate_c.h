@@ -52,6 +52,8 @@ typedef enum legate_core_tunable_t {
   LEGATE_CORE_TUNABLE_NUM_PIECES,
   LEGATE_CORE_TUNABLE_MIN_SHARD_VOLUME,
   LEGATE_CORE_TUNABLE_WINDOW_SIZE,
+  LEGATE_CORE_TUNABLE_MAX_PENDING_EXCEPTIONS,
+  LEGATE_CORE_TUNABLE_PRECISE_EXCEPTION_TRACE,
   LEGATE_CORE_TUNABLE_FIELD_REUSE_SIZE,
   LEGATE_CORE_TUNABLE_FIELD_REUSE_FREQUENCY,
   LEGATE_CORE_TUNABLE_NCCL_NEEDS_BARRIER,
@@ -97,6 +99,11 @@ typedef enum legate_core_mapping_tag_t {
   LEGATE_CORE_MANUAL_PARALLEL_LAUNCH_TAG = 2,
   LEGATE_CORE_TREE_REDUCE_TAG            = 3,
 } legate_core_mapping_tag_t;
+
+typedef enum legate_core_reduction_op_id_t {
+  LEGATE_CORE_JOIN_EXCEPTION_OP   = 0,
+  LEGATE_CORE_MAX_REDUCTION_OP_ID = 1,
+} legate_core_reduction_op_id_t;
 
 #ifdef __cplusplus
 extern "C" {
