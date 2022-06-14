@@ -17,13 +17,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Generic, List, Optional, TypeVar
 
 from . import FieldSpace, Future, Rect
-from .constraints import Alignment, Broadcast, Containment
+from .constraints import Alignment, Broadcast, Containment, PartSym
 from .partition import REPLICATE
 from .shape import Shape
 from .utils import OrderedSet
 
 if TYPE_CHECKING:
-    from .constraints import Expr, Lit, PartSym
+    from .constraints import Expr, Lit
     from .operation import Operation
     from .partition import PartitionBase
     from .runtime import Runtime
@@ -406,7 +406,20 @@ class Partitioner:
                     constraints.record(c._lhs, c._rhs)
                 elif isinstance(c, Broadcast):
                     broadcasts[c._expr] = c._restrictions
-                elif isinstance(c, Containment):
+                elif isinstance(c, Containment) and isinstance(
+                    c._lhs, PartSym
+                ):
+                    if c._lhs in dependent:
+                        raise NotImplementedError(
+                            "Partitions constrained by multiple constraints "
+                            "are not supported yet"
+                        )
+                    for unknown in c._rhs.unknowns():
+                        must_be_even.add(unknown)
+                    dependent[c._lhs] = c._rhs
+                elif isinstance(c, Containment) and isinstance(
+                    c._rhs, PartSym
+                ):
                     if c._rhs in dependent:
                         raise NotImplementedError(
                             "Partitions constrained by multiple constraints "
@@ -414,8 +427,6 @@ class Partitioner:
                         )
                     for unknown in c._lhs.unknowns():
                         must_be_even.add(unknown)
-                    if TYPE_CHECKING:
-                        assert isinstance(c._rhs, PartSym)
                     dependent[c._rhs] = c._lhs
         for op in self._ops:
             all_outputs.update(

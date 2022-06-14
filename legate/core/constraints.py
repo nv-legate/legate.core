@@ -52,6 +52,13 @@ class Expr(Protocol):
             raise ValueError("Dimensions don't match")
         return Translate(self, offset)
 
+    def __mul__(self, scale: tuple[int]) -> Scale:
+        if not isinstance(scale, tuple):
+            raise ValueError("Offset must be a tuple")
+        elif self.ndim != len(scale):
+            raise ValueError("Dimensions don't match")
+        return Scale(self, scale)
+
 
 class Lit(Expr):
     def __init__(self, part: Any) -> None:
@@ -176,6 +183,40 @@ class Translate(Expr):
             yield unknown
 
 
+class Scale(Expr):
+    def __init__(self, expr: Expr, scale: tuple[int]) -> None:
+        if not isinstance(expr, (PartSym, Lit)):
+            raise NotImplementedError(
+                "Compound expression is not supported yet"
+            )
+        self._expr = expr
+        self._scale = scale
+
+    @property
+    def ndim(self) -> int:
+        return len(self._scale)
+
+    @property
+    def closed(self) -> bool:
+        return self._expr.closed
+
+    def __repr__(self) -> str:
+        return f"{self._expr} * {self._scale}"
+
+    def subst(self, mapping: dict[PartSym, PartitionBase]) -> Expr:
+        return Scale(self._expr.subst(mapping), self._scale)
+
+    def reduce(self) -> Lit:
+        expr = self._expr.reduce()
+        assert isinstance(expr, Lit)
+        part = expr._part
+        return Lit(part.scale(self._scale))
+
+    def unknowns(self) -> Iterator[PartSym]:
+        for unknown in self._expr.unknowns():
+            yield unknown
+
+
 class Constraint:
     pass
 
@@ -195,9 +236,9 @@ class Alignment(Constraint):
 
 class Containment(Constraint):
     def __init__(self, lhs: Expr, rhs: Expr):
-        if not isinstance(rhs, PartSym):
+        if not (isinstance(lhs, PartSym) or isinstance(rhs, PartSym)):
             raise NotImplementedError(
-                "Containment on a complex expression is not supported yet"
+                "At least one of the terms must be a partition variable"
             )
         self._lhs = lhs
         self._rhs = rhs
