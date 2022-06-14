@@ -661,7 +661,7 @@ void BaseMapper::map_task(const MapperContext ctx,
 
     for (auto failed_acquire : failed_acquires) {
       auto affected_mappings = instances_to_mappings[failed_acquire];
-      instances_to_mappings.erase(failed_acquire);
+      if (!failed_acquire.is_collective_instance()) instances_to_mappings.erase(failed_acquire);
 
       for (auto& mapping_idx : affected_mappings) {
         auto& mapping    = mappings[mapping_idx];
@@ -675,7 +675,8 @@ void BaseMapper::map_task(const MapperContext ctx,
           uint32_t inst_idx = 0;
           for (; inst_idx < instances.size(); ++inst_idx)
             if (instances[inst_idx] == failed_acquire) break;
-          instances.erase(instances.begin() + inst_idx);
+          if (!instances[inst_idx].is_collective_instance())
+            instances.erase(instances.begin() + inst_idx);
         }
 
         PhysicalInstance result;
@@ -766,10 +767,13 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
   LayoutConstraintSet layout_constraints;
   mapping.populate_layout_constraints(layout_constraints);
 
+  bool is_collective =
+    (reqs[0].get().privilege == LEGION_REDUCE) && (reqs[0].get().projection != 0);
   // If we're making a reduction instance, we should just make it now
   if (redop != 0) {
     layout_constraints.add_constraint(SpecializedConstraint(REDUCTION_FOLD_SPECIALIZE, redop));
 
+    if (is_collective) layout_constraints.specialized_constraint.collective = true;
     if (!runtime->create_physical_instance(
           ctx, target_memory, layout_constraints, regions, result, true /*acquire*/))
       report_failed_mapping(mappable, mapping.requirement_index(), target_memory, redop);
@@ -850,7 +854,7 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
                   footprint,
                   target_memory.id);
     // Only save the result for future use if it is not an external instance
-    if (!result.is_external_instance() && group != nullptr) {
+    if (!result.is_external_instance() && !result.is_collective_instance() && group != nullptr) {
       assert(fields.size() == 1);
       auto fid = fields.front();
       local_instances->record_instance(group, fid, result, policy);
@@ -878,7 +882,8 @@ bool BaseMapper::map_raw_array(const MapperContext ctx,
                                const std::vector<PhysicalInstance>& valid,
                                PhysicalInstance& result,
                                bool memoize_result,
-                               ReductionOpID redop /*=0*/)
+                               ReductionOpID redop /*=0*/,
+                               bool require_collective_inst /*false*/)
 {
   // If we're making a reduction instance, we should just make it now
   if (redop != 0) {
@@ -900,6 +905,7 @@ bool BaseMapper::map_raw_array(const MapperContext ctx,
     // Make sure we have our field
     const std::vector<FieldID> fields(1, fid);
     layout_constraints.add_constraint(FieldConstraint(fields, true /*contiguous*/));
+    if (require_collective_inst) layout_constraints.specialized_constraint.collective = true;
     if (!runtime->create_physical_instance(
           ctx, target_memory, layout_constraints, regions, result, true /*acquire*/))
       report_failed_mapping(mappable, index, target_memory, redop);
@@ -957,6 +963,7 @@ bool BaseMapper::map_raw_array(const MapperContext ctx,
   // Make sure we have our field
   const std::vector<FieldID> fields(1, fid);
   layout_constraints.add_constraint(FieldConstraint(fields, true /*contiguous*/));
+  if (require_collective_inst) layout_constraints.specialized_constraint.collective = true;
 
   bool created;
   size_t footprint;
@@ -979,7 +986,7 @@ bool BaseMapper::map_raw_array(const MapperContext ctx,
                   footprint,
                   target_memory.id);
     // Only save the result for future use if it is not an external instance
-    if (memoize_result && !result.is_external_instance()) {
+    if (memoize_result && !result.is_external_instance() && !result.is_collective_instance()) {
       auto replaced = local_instances->record_instance(group, fid, result);
       for (auto& instance : replaced) {
         if (!instance.is_external_instance())
@@ -1001,7 +1008,15 @@ bool BaseMapper::map_raw_array(const MapperContext ctx,
     for (auto& instance : valid) {
       // If it doesn't have the field then we don't care
       if (instance.has_field(fid)) continue;
-      if (!target_proc.exists() || machine.has_affinity(target_proc, instance.get_location())) {
+      bool affinity;
+      if (require_collective_inst) {
+        const DomainPoint shard_point = mappable.get_parent_task()->index_point;
+        std::cout << "IRINA DEBUG domain = " << instance.get_instance_domain()
+                  << "shard_point = " << shard_point << std::endl;
+        affinity = machine.has_affinity(target_proc, instance.get_location(&shard_point));
+      } else
+        affinity = machine.has_affinity(target_proc, instance.get_location());
+      if (!target_proc.exists() || affinity) {
         result = instance;
         return true;
       }
@@ -1030,7 +1045,7 @@ void BaseMapper::filter_failed_acquires(std::vector<PhysicalInstance>& needed_ac
   for (auto& instance : needed_acquires) {
     if (failed_acquires.find(instance) != failed_acquires.end()) continue;
     failed_acquires.insert(instance);
-    local_instances->erase(instance);
+    if (!instance.is_collective_instance()) local_instances->erase(instance);
   }
   needed_acquires.clear();
 }
@@ -1154,13 +1169,15 @@ void BaseMapper::select_task_sources(const MapperContext ctx,
                                      const SelectTaskSrcInput& input,
                                      SelectTaskSrcOutput& output)
 {
-  legate_select_sources(ctx, input.target, input.source_instances, output.chosen_ranking);
+  legate_select_sources(
+    ctx, input.target, input.source_instances, output.chosen_ranking, task.index_point);
 }
 
 void BaseMapper::legate_select_sources(const MapperContext ctx,
                                        const PhysicalInstance& target,
                                        const std::vector<PhysicalInstance>& sources,
-                                       std::deque<PhysicalInstance>& ranking)
+                                       std::deque<PhysicalInstance>& ranking,
+                                       const DomainPoint& index_point)
 {
   std::map<Memory, uint32_t /*bandwidth*/> source_memories;
   // For right now we'll rank instances by the bandwidth of the memory
@@ -1168,13 +1185,27 @@ void BaseMapper::legate_select_sources(const MapperContext ctx,
   // local node if there are any
   bool all_local = false;
   // TODO: consider layouts when ranking source to help out the DMA system
-  Memory destination_memory = target.get_location();
+
+  Memory destination_memory;
+  if (target.is_collective_instance())
+    destination_memory = target.get_location(&index_point);
+  else
+    destination_memory = target.get_location();
   std::vector<MemoryMemoryAffinity> affinity(1);
   // fill in a vector of the sources with their bandwidths and sort them
   std::vector<std::pair<PhysicalInstance, uint32_t /*bandwidth*/>> band_ranking;
   for (uint32_t idx = 0; idx < sources.size(); idx++) {
     const PhysicalInstance& instance = sources[idx];
-    Memory location                  = instance.get_location();
+    std::cout << "IRINA DEBUG legate_select_sources point = " << index_point
+              << " , domain = " << instance.get_instance_domain()
+              << ", is_collective = " << instance.is_collective_instance()
+              << ", reduction = " << instance.is_reduction_instance() << std::endl;
+
+    Memory location;
+    if (instance.is_collective_instance())
+      location = instance.get_location(&index_point);
+    else
+      location = instance.get_location();
     if (location.address_space() == local_node) {
       if (!all_local) {
         source_memories.clear();
@@ -1269,7 +1300,8 @@ void BaseMapper::map_inline(const MapperContext ctx,
                       valid,
                       output.chosen_instances[index],
                       false /*memoize*/,
-                      req.redop))
+                      req.redop,
+                      input.require_collective_instances))
       needed_acquires.push_back(output.chosen_instances[index]);
     ++index;
   }
@@ -1292,7 +1324,8 @@ void BaseMapper::map_inline(const MapperContext ctx,
                         inline_op.parent_task->current_proc,
                         valid,
                         output.chosen_instances[idx],
-                        false /*memoize*/))
+                        false /*memoize*/,
+                        input.require_collective_instances))
         needed_acquires.push_back(output.chosen_instances[idx]);
     }
   }
@@ -1303,7 +1336,8 @@ void BaseMapper::select_inline_sources(const MapperContext ctx,
                                        const SelectInlineSrcInput& input,
                                        SelectInlineSrcOutput& output)
 {
-  legate_select_sources(ctx, input.target, input.source_instances, output.chosen_ranking);
+  legate_select_sources(
+    ctx, input.target, input.source_instances, output.chosen_ranking, inline_op.get_parent_shard());
 }
 
 void BaseMapper::report_profiling(const MapperContext ctx,
@@ -1480,7 +1514,11 @@ void BaseMapper::select_copy_sources(const MapperContext ctx,
                                      const SelectCopySrcInput& input,
                                      SelectCopySrcOutput& output)
 {
-  legate_select_sources(ctx, input.target, input.source_instances, output.chosen_ranking);
+  legate_select_sources(ctx,
+                        input.target,
+                        input.source_instances,
+                        output.chosen_ranking,
+                        copy.get_parent_task()->index_point);
 }
 
 void BaseMapper::speculate(const MapperContext ctx, const Copy& copy, SpeculativeOutput& output)
@@ -1509,7 +1547,11 @@ void BaseMapper::select_close_sources(const MapperContext ctx,
                                       const SelectCloseSrcInput& input,
                                       SelectCloseSrcOutput& output)
 {
-  legate_select_sources(ctx, input.target, input.source_instances, output.chosen_ranking);
+  legate_select_sources(ctx,
+                        input.target,
+                        input.source_instances,
+                        output.chosen_ranking,
+                        close.get_parent_task()->index_point);
 }
 
 void BaseMapper::report_profiling(const MapperContext ctx,
@@ -1572,7 +1614,11 @@ void BaseMapper::select_release_sources(const MapperContext ctx,
                                         const SelectReleaseSrcInput& input,
                                         SelectReleaseSrcOutput& output)
 {
-  legate_select_sources(ctx, input.target, input.source_instances, output.chosen_ranking);
+  legate_select_sources(ctx,
+                        input.target,
+                        input.source_instances,
+                        output.chosen_ranking,
+                        release.get_parent_task()->index_point);
 }
 
 void BaseMapper::speculate(const MapperContext ctx,
@@ -1671,7 +1717,8 @@ void BaseMapper::select_partition_sources(const MapperContext ctx,
                                           const SelectPartitionSrcInput& input,
                                           SelectPartitionSrcOutput& output)
 {
-  legate_select_sources(ctx, input.target, input.source_instances, output.chosen_ranking);
+  legate_select_sources(
+    ctx, input.target, input.source_instances, output.chosen_ranking, partition.index_point);
 }
 
 void BaseMapper::report_profiling(const MapperContext ctx,

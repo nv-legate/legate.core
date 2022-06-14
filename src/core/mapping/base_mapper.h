@@ -277,7 +277,8 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
                      const std::vector<Legion::Mapping::PhysicalInstance>& valid,
                      Legion::Mapping::PhysicalInstance& result,
                      bool memoize,
-                     Legion::ReductionOpID redop = 0);
+                     Legion::ReductionOpID redop  = 0,
+                     bool require_collective_inst = false);
   void filter_failed_acquires(std::vector<Legion::Mapping::PhysicalInstance>& needed_acquires,
                               std::set<Legion::Mapping::PhysicalInstance>& failed_acquires);
   void report_failed_mapping(const Legion::Mappable& mappable,
@@ -287,7 +288,8 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
   void legate_select_sources(const Legion::Mapping::MapperContext ctx,
                              const Legion::Mapping::PhysicalInstance& target,
                              const std::vector<Legion::Mapping::PhysicalInstance>& sources,
-                             std::deque<Legion::Mapping::PhysicalInstance>& ranking);
+                             std::deque<Legion::Mapping::PhysicalInstance>& ranking,
+                             const Legion::DomainPoint& index_point);
 
  protected:
   bool has_variant(const Legion::Mapping::MapperContext ctx,
