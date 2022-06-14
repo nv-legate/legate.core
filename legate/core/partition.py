@@ -293,7 +293,7 @@ class Tiling(PartitionBase):
             )
 
     def scale(self, scale: tuple[int]) -> Tiling:
-        if self._offset.volume > 0:
+        if self._offset.volume() > 0:
             raise ValueError(
                 "scaling of a tile partition with non-zero offsets is "
                 "not well-defined"
