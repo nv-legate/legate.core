@@ -222,7 +222,8 @@ set_target_properties(legate_core
                       CUDA_STANDARD                       17
                       CUDA_STANDARD_REQUIRED              ON
                       POSITION_INDEPENDENT_CODE           ON
-                      INTERFACE_POSITION_INDEPENDENT_CODE ON)
+                      INTERFACE_POSITION_INDEPENDENT_CODE ON
+                      LIBRARY_OUTPUT_DIRECTORY            lib)
 
 # Add Conda library, and include paths if specified
 if(TARGET conda_env)
