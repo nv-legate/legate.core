@@ -14,24 +14,19 @@
  *
  */
 
-#include "core/comm/comm.h"
-#ifdef LEGATE_USE_CUDA
-#include "core/comm/comm_nccl.h"
-#endif
-#include "core/comm/comm_cpu.h"
+#pragma once
+
+#include "core/runtime/context.h"
+#include "legate.h"
 
 namespace legate {
 namespace comm {
+namespace cpu {
 
 void register_tasks(Legion::Machine machine,
                     Legion::Runtime* runtime,
-                    const LibraryContext& context)
-{
-#ifdef LEGATE_USE_CUDA
-  nccl::register_tasks(machine, runtime, context);
-#endif
-  cpu::register_tasks(machine, runtime, context);
-}
+                    const LibraryContext& context);
 
+}  // namespace cpu
 }  // namespace comm
 }  // namespace legate

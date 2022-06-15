@@ -14,7 +14,7 @@
 #
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union, cast
 
 import numpy as np
 
@@ -199,6 +199,38 @@ class Context:
                 unique_op_id,
             )
 
+    def create_manual_task(
+        self,
+        task_id: int,
+        mapper_id: int = 0,
+        launch_domain: Optional[Rect] = None,
+    ) -> ManualTask:
+        return cast(
+            ManualTask,
+            self.create_task(
+                task_id=task_id,
+                mapper_id=mapper_id,
+                manual=True,
+                launch_domain=launch_domain,
+            ),
+        )
+
+    def create_auto_task(
+        self,
+        task_id: int,
+        mapper_id: int = 0,
+        launch_domain: Optional[Rect] = None,
+    ) -> AutoTask:
+        return cast(
+            AutoTask,
+            self.create_task(
+                task_id=task_id,
+                mapper_id=mapper_id,
+                manual=False,
+                launch_domain=launch_domain,
+            ),
+        )
+
     def create_copy(self, mapper_id: int = 0) -> Copy:
         return Copy(self, mapper_id)
 
@@ -227,6 +259,9 @@ class Context:
 
     def get_nccl_communicator(self) -> Communicator:
         return self._runtime.get_nccl_communicator()
+
+    def get_cpu_communicator(self) -> Communicator:
+        return self._runtime.get_cpu_communicator()
 
     def issue_execution_fence(self, block: bool = False) -> None:
         self._runtime.issue_execution_fence(block=block)

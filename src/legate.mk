@@ -35,6 +35,12 @@ endif
 
 RM	:= rm
 
+ifeq ($(strip $(USE_GASNET)),1)
+MPI_HOME ?= $(patsubst %/bin/mpicc,%,$(shell which mpicc | head -1))
+INC_FLAGS += -I$(MPI_HOME)/include
+LD_FLAGS += -L$(MPI_HOME)/lib -lmpi
+endif
+
 CC_FLAGS ?=
 CC_FLAGS += -std=c++17 -Wfatal-errors
 CC_FLAGS += -I$(LEGATE_DIR)/include

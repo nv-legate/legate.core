@@ -40,7 +40,7 @@ from . import (
     types as ty,
 )
 from ._legion.util import Dispatchable
-from .communicator import NCCLCommunicator
+from .communicator import CPUCommunicator, NCCLCommunicator
 from .context import Context
 from .corelib import core_library
 from .exception import PendingException
@@ -781,12 +781,17 @@ class CommunicatorManager:
     def __init__(self, runtime: Runtime) -> None:
         self._runtime = runtime
         self._nccl = NCCLCommunicator(runtime)
+        self._cpu = CPUCommunicator(runtime)
 
     def destroy(self) -> None:
         self._nccl.destroy()
+        self._cpu.destroy()
 
     def get_nccl_communicator(self) -> Communicator:
         return self._nccl
+
+    def get_cpu_communicator(self) -> Communicator:
+        return self._cpu
 
 
 class Runtime:
@@ -1340,6 +1345,9 @@ class Runtime:
 
     def get_nccl_communicator(self) -> Communicator:
         return self._comm_manager.get_nccl_communicator()
+
+    def get_cpu_communicator(self) -> Communicator:
+        return self._comm_manager.get_cpu_communicator()
 
     def delinearize_future_map(
         self, future_map: FutureMap, new_domain: Rect
