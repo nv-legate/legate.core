@@ -251,7 +251,10 @@ int collInit(int argc, char* argv[])
   int provided, init_flag = 0;
   CHECK_MPI(MPI_Initialized(&init_flag));
   if (!init_flag) {
-    CHECK_MPI(MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided));
+    log_coll.fatal(
+      "MPI has not been initialized, it should be initialized by "
+      "GASNet");
+    LEGATE_ABORT;
   } else {
     int mpi_thread_model;
     MPI_Query_thread(&mpi_thread_model);
@@ -291,7 +294,10 @@ int collFinalize(void)
   mpi_comms.clear();
   int fina_flag = 0;
   CHECK_MPI(MPI_Finalized(&fina_flag));
-  if (fina_flag == 0) { CHECK_MPI(MPI_Finalize()); }
+  if (fina_flag == 1) {
+    log_coll.fatal("MPI should not been finalized");
+    LEGATE_ABORT;
+  }
   return CollSuccess;
 #else
   for (int i = 0; i < MAX_NB_COMMS; i++) { assert(thread_comms[i].ready_flag == false); }
