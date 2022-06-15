@@ -44,7 +44,7 @@ ifeq ($(strip $(USE_GASNET)),1)
       ifneq ($(strip $(shell __INTEL_POST_CFLAGS+=' -we10006' $(CC) -show 2>&1 > /dev/null; echo $$?)),0)
         export OMPI_CC  	:= $(CC)
         export MPICH_CC  	:= $(CC)
-        CC					:= mpicc
+        CC			:= mpicc
       endif
     endif
     # OpenMPI check
@@ -53,7 +53,7 @@ ifeq ($(strip $(USE_GASNET)),1)
       ifneq ($(strip $(shell __INTEL_POST_CFLAGS+=' -we10006' $(CXX) -show 2>&1 > /dev/null; echo $$?)),0)
         export OMPI_CXX 	:= $(CXX)
         export MPICH_CXX 	:= $(CXX)
-        CXX					:= mpicxx
+        CXX			:= mpicxx
       endif
     endif
     # OpenMPI check
@@ -62,7 +62,7 @@ ifeq ($(strip $(USE_GASNET)),1)
       ifneq ($(strip $(shell __INTEL_POST_CFLAGS+=' -we10006' $(FC) -show 2>&1 > /dev/null; echo $$?)),0)
         export OMPI_FC  	:= $(FC)
         export MPICH_FC  	:= $(FC)
-        FC					:= mpif90
+        FC			:= mpif90
       endif
     endif
   endif
