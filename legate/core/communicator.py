@@ -74,7 +74,7 @@ class Communicator(ABC):
 
 class NCCLCommunicator(Communicator):
     def __init__(self, runtime: Runtime) -> None:
-        super(NCCLCommunicator, self).__init__(runtime)
+        super().__init__(runtime)
         library = runtime.core_library
 
         self._init_nccl_id = library.LEGATE_CORE_INIT_NCCL_ID_TASK_ID
@@ -107,8 +107,8 @@ class NCCLCommunicator(Communicator):
 
 
 class CPUCommunicator(Communicator):
-    def __init__(self, runtime):
-        super(CPUCommunicator, self).__init__(runtime)
+    def __init__(self, runtime: Runtime) -> None:
+        super().__init__(runtime)
         library = runtime.core_library
 
         self._init_cpucoll_id = library.LEGATE_CORE_INIT_CPUCOLL_ID_TASK_ID
@@ -139,7 +139,7 @@ class CPUCommunicator(Communicator):
     def needs_barrier(self) -> bool:
         return self._needs_barrier
 
-    def _initialize(self, volume):
+    def _initialize(self, volume: int) -> FutureMap:
         task = Task(
             self._context,
             self._init_cpucoll_id,
@@ -158,7 +158,7 @@ class CPUCommunicator(Communicator):
         self._runtime.issue_execution_fence()
         return handle
 
-    def _finalize(self, volume, handle):
+    def _finalize(self, volume: int, handle: FutureMap) -> None:
         task = Task(self._context, self._finalize_cpucoll, tag=self._tag)
         task.add_future_map(handle)
         task.execute(Rect([volume]))
