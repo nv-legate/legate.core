@@ -15,65 +15,53 @@
 # limitations under the License.
 #
 
-import argparse
-import os
-import sys
-from distutils.command.build_py import build_py
-from distutils.core import setup
-
 from setuptools import find_packages
+from skbuild import setup
 
-# We need to know the prefix for the installation
-# so we can know where to get the library
-parser = argparse.ArgumentParser()
-parser.add_argument("--prefix", required=False)
-parser.add_argument(
-    "--recurse", required=False, default=False, action="store_true"
+import versioneer
+
+setup(
+    name="legate.core",
+    version=versioneer.get_version(),
+    description="legate.core - The Foundation for All Legate Libraries",
+    url="https://github.com/nv-legate/legate.core",
+    author="NVIDIA Corporation",
+    license="Apache 2.0",
+    classifiers=[
+        "Intended Audience :: Developers",
+        "Topic :: Database",
+        "Topic :: Scientific/Engineering",
+        "License :: OSI Approved :: Apache Software License",
+        "Programming Language :: Python",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+    ],
+    extras_require={
+        "test": [
+            "colorama",
+            "coverage",
+            "mock",
+            "mypy>=0.961"
+            "pynvml",
+            "pytest-cov",
+            "pytest",
+        ]
+    },
+    packages=find_packages(
+        where=".",
+        include=["legate*"]
+    ),
+    entry_points={
+        "console_scripts": [
+            "legate = legate.__main__:driver",
+            "lgpatch = legate.lgpatch:main",
+        ]
+    },
+    scripts=[
+        "bind.sh",
+    ],
+    cmdclass=versioneer.get_cmdclass(),
+    install_requires=["cutensor>=1.3.3", "numpy>=1.22"],
+    zip_safe=False,
 )
-args, _ = parser.parse_known_args()
-
-
-class my_build_py(build_py):
-    def run(self):
-        if not self.dry_run:
-            self.mkpath(self.build_lib)
-
-            # Read our preprocessed C header and insert it as a string into
-            # install_info.py so it's installed as part of the python library
-
-            root_dir = os.path.dirname(os.path.realpath(__file__))
-            output_dir = os.path.join(root_dir, "legate", "core")
-            libpath = repr(os.path.join(args.prefix, "lib"))
-            include_dir = os.path.join(args.prefix, "include", "legate")
-
-            with open(os.path.join(include_dir, "legate_c.h.i")) as f:
-                header = f.read()
-
-            with open(os.path.join(output_dir, "install_info.py.in")) as f:
-                content = f.read()
-
-            content = content.format(header=repr(header), libpath=libpath)
-
-            with open(os.path.join(output_dir, "install_info.py"), "wb") as f:
-                f.write(content.encode("utf-8"))
-
-        build_py.run(self)
-
-
-# If we haven't been called from install.py then do that first
-if args.recurse:
-    # Remove the recurse argument from the list
-    sys.argv.remove("--recurse")
-    setup(
-        name="legate.core",
-        version="22.03",
-        packages=find_packages(
-            where=".",
-            include=["legate*"],
-        ),
-        cmdclass={"build_py": my_build_py},
-    )
-else:
-    with open("install.py") as f:
-        code = compile(f.read(), "install.py", "exec")
-        exec(code)

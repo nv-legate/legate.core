@@ -21,9 +21,11 @@
 *.json
 *.dylib
 legate/core/install_info.py
+/dist
 /build
 /legion
 /install*
+/_skbuild
 config.mk
 /docs/legate/core/build
 *.egg-info

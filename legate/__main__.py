@@ -132,11 +132,13 @@ def run_legate(
     launcher_extra,
 ):
     # Build the environment for the subprocess invocation
-    legate_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+    # legate_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+    legate_dir = os.path.dirname(os.path.dirname(sys.executable))
     cmd_env = dict(os.environ.items())
-    env_json = load_json_config(
-        os.path.join(legate_dir, "share", ".legate-env.json")
-    )
+    env_json = None
+    # env_json = load_json_config(
+    #     os.path.join(legate_dir, "share", ".legate-env.json")
+    # )
     if env_json is not None:
         append_vars = env_json.get("APPEND_VARS", [])
         append_vars_tuplified = [tuple(var) for var in append_vars]
@@ -149,9 +151,10 @@ def run_legate(
         vars_tuplified = [tuple(var) for var in vars]
         for (k, v) in vars_tuplified:
             cmd_env[k] = v
-    libs_json = load_json_config(
-        os.path.join(legate_dir, "share", ".legate-libs.json")
-    )
+    libs_json = None
+    # libs_json = load_json_config(
+    #     os.path.join(legate_dir, "share", ".legate-libs.json")
+    # )
     if libs_json is not None:
         for lib_dir in libs_json.values():
             if LIB_PATH not in cmd_env:
@@ -198,13 +201,16 @@ def run_legate(
         cmd_env[LIB_PATH] = (
             os.path.join(legate_dir, "lib") + os.pathsep + cmd_env[LIB_PATH]
         )
-    cuda_config = os.path.join(legate_dir, "share", "legate", ".cuda.json")
-    cuda_dir = load_json_config(cuda_config)
+    # cuda_config = os.path.join(legate_dir, "share", "legate", ".cuda.json")
+    # cuda_dir = load_json_config(cuda_config)
+    # cuda_dir = os.path.join("/", "usr", "local", "cuda")
+    cuda_dir = None
     if gpus > 0 and cuda_dir is None:
-        raise ValueError(
-            "Requested execution with GPUs but "
-            + "Legate was not built with GPU support"
-        )
+        pass
+        # raise ValueError(
+        #     "Requested execution with GPUs but "
+        #     + "Legate was not built with GPU support"
+        # )
     if gpus > 0:
         assert "LEGATE_NEED_CUDA" not in cmd_env
         cmd_env["LEGATE_NEED_CUDA"] = str(1)
