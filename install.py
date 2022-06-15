@@ -120,7 +120,6 @@ def find_active_python_version_and_path():
 
 def configure_legate_core_cpp(
     build_dir,
-    install_dir,
     legate_core_dir,
     cmake_exe,
     cmake_generator,
@@ -173,7 +172,6 @@ def configure_legate_core_cpp(
         "-DBUILD_SHARED_LIBS=ON",
         "-DBUILD_MARCH=%s" % march,
         "-DCMAKE_CUDA_ARCHITECTURES=%s" % arch,
-        "-DCMAKE_INSTALL_PREFIX=%s" % (os.path.realpath(install_dir)),
         "-DLegion_MAX_DIM=%s" % str(maxdim),
         "-DLegion_MAX_FIELDS=%s" % str(maxfields),
         "-DLegion_SPY=%s" % ("ON" if spy else "OFF"),
@@ -230,8 +228,12 @@ def cmake_build(
 def cmake_install(
     cmake_exe,
     build_dir,
+    install_dir=None,
 ):
     cmake_flags = ["--install", build_dir]
+
+    if install_dir is not None:
+        cmake_flags += ["--prefix", install_dir]
 
     verbose_check_call([cmake_exe] + cmake_flags)
 
@@ -438,7 +440,6 @@ def install(
     # Configure legate.core
     configure_legate_core_cpp(
         build_dir,
-        install_dir,
         legate_core_dir,
         cmake_exe,
         cmake_generator,
@@ -480,6 +481,7 @@ def install(
     cmake_install(
         cmake_exe,
         build_dir,
+        install_dir,
     )
 
     build_legate_core_python(
@@ -497,7 +499,7 @@ def install(
     )
 
     if legion_dir is not None:
-        cmake_install(cmake_exe, legion_dir)
+        cmake_install(cmake_exe, legion_dir, install_dir)
 
     def get_legion_src_dir():
         if not legion_dir:
@@ -517,7 +519,7 @@ def install(
         )
         # `src_dir` will be something like:
         # `Legion_SOURCE_DIR:STATIC=/path/to/legion`
-        src_dir = src_dir.split("=")[1:2]
+        src_dir = src_dir.split("=")[1]
         return src_dir
 
     install_legion_python(get_legion_src_dir(), install_dir)
