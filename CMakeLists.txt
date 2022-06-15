@@ -290,6 +290,19 @@ SECTIONS
   target_link_options(legate_core PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
 endif()
 
+add_custom_target(legate_c_h_c ALL
+  COMMENT "Preprocess src/core/legate_c.h for Python CFFI bindings"
+  COMMAND ${CMAKE_C_COMPILER} -E -DLEGATE_USE_PYTHON_CFFI
+          "-I$<JOIN:$<TARGET_PROPERTY:Legion::Legion,INTERFACE_INCLUDE_DIRECTORIES>,;-I>"
+          -P "${CMAKE_CURRENT_SOURCE_DIR}/src/core/legate_c.h"
+          -o "${CMAKE_CURRENT_BINARY_DIR}/include/legate/legate_c.h.i"
+  BYPRODUCTS "${CMAKE_CURRENT_BINARY_DIR}/include/legate/legate_c.h.i"
+  COMMAND_EXPAND_LISTS
+)
+# Generate a target that depends on legate_c_h_c
+add_library(legate_c_h_i INTERFACE)
+add_dependencies(legate_c_h_i legate_c_h_c)
+
 ##############################################################################
 # - install targets-----------------------------------------------------------
 
@@ -305,6 +318,7 @@ install(
   FILES src/legate.h
         src/legate_defines.h
         src/legate_preamble.h
+        ${CMAKE_CURRENT_BINARY_DIR}/include/legate/legate_c.h.i
         ${CMAKE_CURRENT_BINARY_DIR}/include/legate/version_config.hpp
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/legate)
 
@@ -344,7 +358,8 @@ install(
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/legate/core/runtime)
 
 install(
-  FILES src/core/task/return.h
+  FILES src/core/task/exception.h
+        src/core/task/return.h
         src/core/task/task.h
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/legate/core/task)
 
