@@ -57,18 +57,6 @@ class my_build_py(build_py):
             with open(os.path.join(output_dir, "install_info.py"), "wb") as f:
                 f.write(content.encode("utf-8"))
 
-            # header_src = os.path.join(root_dir, "src", "core", "legate_c.h")
-            # header = subprocess.check_output(
-            #     [
-            #         os.getenv("CC", "gcc"),
-            #         "-E",
-            #         "-DLEGATE_USE_PYTHON_CFFI",
-            #         "-I" + str(include_dir),
-            #         "-P",
-            #         header_src,
-            #     ]
-            # ).decode("utf-8")
-
         build_py.run(self)
 
 
