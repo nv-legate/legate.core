@@ -127,6 +127,9 @@ class Replicate(PartitionBase):
     def translate_range(self, offset: float) -> Replicate:
         return self
 
+    def scale(self, scale: tuple[int]) -> Replicate:
+        return self
+
     def construct(
         self, region: Region, complete: bool = False
     ) -> Optional[LegionPartition]:
@@ -288,6 +291,19 @@ class Tiling(PartitionBase):
                 self._color_shape,
                 self._offset + offset,
             )
+
+    def scale(self, scale: tuple[int]) -> Tiling:
+        if self._offset.volume() > 0:
+            raise ValueError(
+                "scaling of a tile partition with non-zero offsets is "
+                "not well-defined"
+            )
+        return Tiling(
+            self._runtime,
+            self._tile_shape * scale,
+            self._color_shape,
+            self._offset * scale,
+        )
 
     def construct(
         self, region: Region, complete: bool = False

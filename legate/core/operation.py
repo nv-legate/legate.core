@@ -393,6 +393,10 @@ class Task(TaskProtocol):
         comm = self._context.get_nccl_communicator()
         self._comm_args.append(comm)
 
+    def add_cpu_communicator(self) -> None:
+        comm = self._context.get_cpu_communicator()
+        self._comm_args.append(comm)
+
     def _add_communicators(
         self, launcher: TaskLauncher, launch_domain: Union[Rect, None]
     ) -> None:
