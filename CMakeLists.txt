@@ -103,6 +103,10 @@ if(Legion_USE_Python AND (NOT Python3_FOUND))
   _find_package_Python3()
 endif()
 
+if(Legion_USE_GASNet)
+  find_package(MPI REQUIRED)
+endif()
+
 if(Legion_USE_CUDA)
   # Find the CUDAToolkit
   rapids_find_package(
@@ -182,6 +186,8 @@ endif()
 list(APPEND LEGATE_CORE_SOURCES
   src/core/legate_c.cc
   src/core/comm/comm.cc
+  src/core/comm/comm_cpu.cc
+  src/core/comm/coll.cc
   src/core/data/allocator.cc
   src/core/data/scalar.cc
   src/core/data/store.cc
@@ -203,10 +209,24 @@ list(APPEND LEGATE_CORE_SOURCES
   src/core/utilities/linearize.cc
 )
 
+if(Legion_USE_GASNet)
+  list(APPEND LEGATE_CORE_SOURCES
+    src/core/comm/alltoall_thread_mpi.cc
+    src/core/comm/alltoallv_thread_mpi.cc
+    src/core/comm/gather_thread_mpi.cc
+    src/core/comm/allgather_thread_mpi.cc
+    src/core/comm/bcast_thread_mpi.cc)
+else()
+  list(APPEND LEGATE_CORE_SOURCES
+    src/core/comm/alltoall_thread_local.cc
+    src/core/comm/alltoallv_thread_local.cc
+    src/core/comm/allgather_thread_local.cc)
+endif()
+
 if(Legion_USE_CUDA)
   list(APPEND LEGATE_CORE_SOURCES
-  src/core/comm/comm_nccl.cu
-  src/core/cuda/stream_pool.cu)
+    src/core/comm/comm_nccl.cu
+    src/core/cuda/stream_pool.cu)
 endif()
 
 add_library(legate_core ${LEGATE_CORE_SOURCES})
@@ -258,7 +278,8 @@ target_link_libraries(legate_core
    PUBLIC Legion::Legion
           legate::Thrust
           $<TARGET_NAME_IF_EXISTS:CUDA::nvToolsExt>
-  PRIVATE $<TARGET_NAME_IF_EXISTS:NCCL::NCCL>)
+  PRIVATE $<TARGET_NAME_IF_EXISTS:MPI::MPI_CXX>
+          $<TARGET_NAME_IF_EXISTS:NCCL::NCCL>)
 
 target_compile_options(legate_core
   PRIVATE ${extra_include_options}
@@ -327,7 +348,8 @@ install(
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/legate/core)
 
 install(
-  FILES src/core/comm/communicator.h
+  FILES src/core/comm/coll.h
+        src/core/comm/communicator.h
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/legate/core/comm)
 
 install(
