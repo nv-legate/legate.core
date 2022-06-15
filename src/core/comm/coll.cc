@@ -295,7 +295,7 @@ int collFinalize(void)
   int fina_flag = 0;
   CHECK_MPI(MPI_Finalized(&fina_flag));
   if (fina_flag == 1) {
-    log_coll.fatal("MPI should not been finalized");
+    log_coll.fatal("MPI should not have been finalized");
     LEGATE_ABORT;
   }
   return CollSuccess;
