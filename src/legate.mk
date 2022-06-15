@@ -35,7 +35,7 @@ endif
 
 RM	:= rm
 
-# use mpi{cc,cxx,f90} compiler wrappers if USE_MPI=1 and we're not on a Cray system
+# use mpi{cc,cxx,f90} compiler wrappers if USE_GASNET=1 and we're not on a Cray system
 ifeq ($(strip $(USE_GASNET)),1)
   ifeq (${CRAYPE_VERSION},)
     # OpenMPI check
