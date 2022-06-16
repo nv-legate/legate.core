@@ -72,6 +72,7 @@ requirements:
     - {{ compiler('c') }} =11.2
     - {{ compiler('cxx') }} =11.2
     - make
+    - scikit-build
 {% if gpu_enabled_bool %}
     - cuda-nvcc ={{ cuda_version }}
 {% endif %}

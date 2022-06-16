@@ -32,6 +32,8 @@ sys.stdout.reconfigure(line_buffering=True)
 
 os_name = platform.system()
 
+required_thrust_version = "cuda-11.2"
+
 # Work around breaking change in setuptools 60
 setup_py_flags = []
 if int(setuptools.__version__.split(".")[0]) >= 60:
@@ -78,22 +80,16 @@ class BooleanFlag(argparse.Action):
         setattr(namespace, self.dest, not option_string.startswith("--no"))
 
 
-required_thrust_version = "cuda-11.2"
-
-# Global variable for verbose installation
-verbose_global = False
-
-
-def verbose_check_call(*args, **kwargs):
-    if verbose_global:
-        print('Executing: "', " ".join(*args), '" with ', kwargs)
-    subprocess.check_call(*args, **kwargs)
+def execute_command(args, verbose, **kwargs):
+    if verbose:
+        print('Executing: "', " ".join(args), '" with ', kwargs)
+    subprocess.check_call(args, **kwargs)
 
 
-def verbose_check_output(*args, **kwargs):
-    if verbose_global:
-        print('Executing: "', " ".join(*args), '" with ', kwargs)
-    return subprocess.check_output(*args, **kwargs)
+def execute_command_check_output(args, verbose, **kwargs):
+    if verbose:
+        print('Executing: "', " ".join(args), '" with ', kwargs)
+    return subprocess.check_output(args, **kwargs)
 
 
 def find_active_python_version_and_path():
@@ -118,210 +114,36 @@ def find_active_python_version_and_path():
     return version, paths[0]
 
 
-def configure_legate_core_cpp(
-    build_dir,
-    legate_core_dir,
-    cmake_exe,
-    cmake_generator,
-    pyversion,
-    cuda_dir,
-    nccl_dir,
-    gasnet_dir,
-    thrust_dir,
-    legion_dir,
-    legion_url,
-    legion_branch,
-    debug,
-    debug_release,
-    hdf,
-    cuda,
-    conduit,
-    llvm,
-    maxdim,
-    maxfields,
-    check_bounds,
-    arch,
-    openmp,
-    march,
-    spy,
-    gasnet,
-    verbose,
-    extra_flags,
-):
-    cmake_flags = [
-        "-G",
-        cmake_generator,
-        "-S",
-        legate_core_dir,
-        "-B",
-        build_dir,
-    ]
-
-    if debug or verbose:
-        cmake_flags += ["--log-level=%s" % ("DEBUG" if debug else "VERBOSE")]
-
-    cmake_flags += [
-        "-DCMAKE_BUILD_TYPE=%s"
-        % (
-            "Debug"
-            if debug
-            else "RelWithDebInfo"
-            if debug_release
-            else "Release"
-        ),
-        "-DBUILD_SHARED_LIBS=ON",
-        "-DBUILD_MARCH=%s" % march,
-        "-DCMAKE_CUDA_ARCHITECTURES=%s" % arch,
-        "-DLegion_MAX_DIM=%s" % str(maxdim),
-        "-DLegion_MAX_FIELDS=%s" % str(maxfields),
-        "-DLegion_SPY=%s" % ("ON" if spy else "OFF"),
-        "-DLegion_BOUNDS_CHECKS=%s" % ("ON" if check_bounds else "OFF"),
-        "-DLegion_USE_CUDA=%s" % ("ON" if cuda else "OFF"),
-        "-DLegion_USE_OpenMP=%s" % ("ON" if openmp else "OFF"),
-        "-DLegion_USE_LLVM=%s" % ("ON" if llvm else "OFF"),
-        "-DLegion_USE_GASNet=%s" % ("ON" if gasnet else "OFF"),
-        "-DLegion_USE_HDF5=%s" % ("ON" if hdf else "OFF"),
-        "-DLegion_USE_Python=ON",
-        "-DLegion_Python_Version=%s" % pyversion,
-        "-DLegion_REDOP_COMPLEX=ON",
-        "-DLegion_REDOP_HALF=ON",
-        "-DLegion_BUILD_BINDINGS=ON",
-    ]
-
-    if nccl_dir:
-        cmake_flags += ["-DNCCL_DIR=%s" % nccl_dir]
-    if gasnet_dir:
-        cmake_flags += ["-DGASNet_ROOT_DIR=%s" % gasnet_dir]
-    if conduit:
-        cmake_flags += ["-DGASNet_CONDUIT=%s" % conduit]
-    if cuda_dir:
-        cmake_flags += ["-DCUDA_TOOLKIT_ROOT_DIR=%s" % cuda_dir]
-    if thrust_dir:
-        cmake_flags += ["-DThrust_ROOT=%s" % thrust_dir]
-    if legion_dir:
-        cmake_flags += ["-DLegion_ROOT=%s" % legion_dir]
-    if legion_url:
-        cmake_flags += ["-DLEGATE_CORE_LEGION_REPOSITORY=%s" % legion_url]
-    if legion_branch:
-        cmake_flags += ["-DLEGATE_CORE_LEGION_BRANCH=%s" % legion_branch]
-
-    verbose_check_call(
-        [cmake_exe] + cmake_flags + extra_flags, cwd=legate_core_dir
-    )
-
-
-def cmake_build(
-    cmake_exe,
-    build_dir,
-    thread_count,
-    verbose,
-):
-    cmake_flags = ["--build", build_dir]
-    if verbose:
-        cmake_flags += ["-v"]
-    if thread_count is not None:
-        cmake_flags += ["-j", str(thread_count)]
-
-    verbose_check_call([cmake_exe] + cmake_flags)
-
-
-def cmake_install(
-    cmake_exe,
-    build_dir,
-    install_dir=None,
-):
-    cmake_flags = ["--install", build_dir]
-
-    if install_dir is not None:
-        cmake_flags += ["--prefix", install_dir]
-
-    verbose_check_call([cmake_exe] + cmake_flags)
-
-
-def build_legate_core_python(
-    install_dir,
-    legate_core_dir,
-    cuda_dir,
-    debug,
-    debug_release,
-    cuda,
-    arch,
-    openmp,
-    march,
-    gasnet,
-    unknown,
-):
-    src_dir = os.path.join(legate_core_dir, "src")
-
-    # Fill in config.mk.in and copy it to the target destination
-    with open(os.path.join(src_dir, "config.mk.in")) as f:
-        content = f.read()
-
-    content = content.format(
-        debug=repr(1 if debug else 0),
-        debug_release=repr(1 if debug_release else 0),
-        cuda=repr(1 if cuda else 0),
-        arch=(arch if arch is not None else ""),
-        cuda_dir=(cuda_dir if cuda_dir is not None else ""),
-        openmp=repr(1 if openmp else 0),
-        march=march,
-        gasnet=repr(1 if gasnet else 0),
-    )
-
-    with open(os.path.join(src_dir, "config.mk"), "wb") as f:
-        f.write(content.encode("utf-8"))
+def install_legion_python(legion_src_dir, install_dir, verbose=False):
 
     os.makedirs(os.path.join(install_dir, "share", "legate"), exist_ok=True)
 
-    cmd = ["cp", "config.mk", os.path.join(install_dir, "share", "legate")]
-
-    verbose_check_call(cmd, cwd=src_dir)
-
-    # Then run setup.py
-    cmd = [
-        sys.executable,
-        "setup.py",
-        "install",
-        "--recurse",
-    ] + setup_py_flags
-
-    if unknown is not None:
-        try:
-            prefix_loc = unknown.index("--prefix")
-            cmd.extend(unknown[prefix_loc : prefix_loc + 2])
-        except ValueError:
-            cmd += ["--prefix", str(install_dir)]
-    else:
-        cmd += ["--prefix", str(install_dir)]
-
-    verbose_check_call(cmd, cwd=legate_core_dir)
-
-
-def install_legion_python(legion_src_dir, install_dir):
     src = os.path.join(legion_src_dir, "runtime", "legion", "legion_c_util.h")
     dst = os.path.join(install_dir, "include", "legion", "legion_c_util.h")
     if not os.path.exists(dst) or os.path.getmtime(dst) < os.path.getmtime(
         src
     ):
-        verbose_check_call(["cp", src, dst])
+        execute_command(["cp", src, dst], verbose)
 
-    verbose_check_call(
+    execute_command(
         [
             "cp",
             "legion_spy.py",
             os.path.join(install_dir, "share", "legate", "legion_spy.py"),
         ],
+        verbose,
         cwd=os.path.join(legion_src_dir, "tools"),
     )
-    verbose_check_call(
+    execute_command(
         [
             "cp",
             "legion_prof.py",
             os.path.join(install_dir, "share", "legate", "legion_prof.py"),
         ],
+        verbose,
         cwd=os.path.join(legion_src_dir, "tools"),
     )
-    verbose_check_call(
+    execute_command(
         [
             "cp",
             "legion_serializer.py",
@@ -329,9 +151,10 @@ def install_legion_python(legion_src_dir, install_dir):
                 install_dir, "share", "legate", "legion_serializer.py"
             ),
         ],
+        verbose,
         cwd=os.path.join(legion_src_dir, "tools"),
     )
-    verbose_check_call(
+    execute_command(
         [
             "cp",
             "legion_prof_copy.html.template",
@@ -342,37 +165,45 @@ def install_legion_python(legion_src_dir, install_dir):
                 "legion_prof_copy.html.template",
             ),
         ],
+        verbose,
         cwd=os.path.join(legion_src_dir, "tools"),
     )
-    verbose_check_call(
+    execute_command(
         [
             "cp",
             "-r",
             "legion_prof_files",
             os.path.join(install_dir, "share", "legate", "legion_prof_files"),
         ],
+        verbose,
         cwd=os.path.join(legion_src_dir, "tools"),
     )
 
 
-def install_legate_core_python(legate_core_dir, install_dir):
-    # Copy any executables that we need for legate functionality
-    verbose_check_call(
-        ["cp", "legate.py", os.path.join(install_dir, "bin", "legate")],
-        cwd=legate_core_dir,
-    )
-    verbose_check_call(
-        [
-            "cp",
-            "scripts/lgpatch.py",
-            os.path.join(install_dir, "bin", "lgpatch"),
-        ],
-        cwd=legate_core_dir,
-    )
-    verbose_check_call(
-        ["cp", "bind.sh", os.path.join(install_dir, "bin", "bind.sh")],
-        cwd=legate_core_dir,
-    )
+def get_legion_src_dir(legion_dir, build_dir, verbose=False):
+    if not legion_dir:
+        return os.path.join(build_dir, "_deps", "legion-src")
+    elif os.path.exists(os.path.join(legion_dir, "CMakeCache.txt")):
+        # Otherwise, assume `legion_dir` is the path to a CMake build dir
+        src_dir = (
+            execute_command_check_output(
+                [
+                    "grep",
+                    "--color=never",
+                    "Legion_SOURCE_DIR",
+                    os.path.join(legion_dir, "CMakeCache.txt"),
+                ],
+                verbose
+            )
+            .decode("UTF-8")
+            .strip()
+        )
+        # `src_dir` will be something like:
+        # `Legion_SOURCE_DIR:STATIC=/path/to/legion`
+        src_dir = src_dir.split("=")[1]
+        return src_dir
+    else:
+        raise Exception("Could not determine path to Legion source directory")
 
 
 def install(
@@ -407,9 +238,6 @@ def install(
     legion_branch,
     unknown,
 ):
-    global verbose_global
-    verbose_global = verbose
-
     legate_core_dir = os.path.dirname(os.path.realpath(__file__))
 
     if pylib_name is None:
@@ -432,98 +260,101 @@ def install(
     if thrust_dir is not None:
         thrust_dir = os.path.realpath(thrust_dir)
 
-    build_dir = os.path.join(legate_core_dir, "build")
+    build_dir = os.path.join(legate_core_dir, "_skbuild")
 
     if clean_first:
         shutil.rmtree(build_dir, ignore_errors=True)
-
-    # Configure legate.core
-    configure_legate_core_cpp(
-        build_dir,
-        legate_core_dir,
-        cmake_exe,
-        cmake_generator,
-        pyversion,
-        cuda_dir,
-        nccl_dir,
-        gasnet_dir,
-        thrust_dir,
-        legion_dir,
-        legion_url,
-        legion_branch,
-        debug,
-        debug_release,
-        hdf,
-        cuda,
-        conduit,
-        llvm,
-        maxdim,
-        maxfields,
-        check_bounds,
-        arch,
-        openmp,
-        march,
-        spy,
-        gasnet,
-        verbose,
-        extra_flags,
-    )
-
-    # Build legate.core
-    cmake_build(
-        cmake_exe,
-        build_dir,
-        thread_count,
-        verbose,
-    )
-
-    # Install legate.core
-    cmake_install(
-        cmake_exe,
-        build_dir,
-        install_dir,
-    )
-
-    build_legate_core_python(
-        install_dir,
-        legate_core_dir,
-        cuda_dir,
-        debug,
-        debug_release,
-        cuda,
-        arch,
-        openmp,
-        march,
-        gasnet,
-        unknown,
-    )
+        shutil.rmtree(os.path.join(legate_core_dir, "dist"), ignore_errors=True)
+        shutil.rmtree(os.path.join(legate_core_dir, "legate.core.egg-info"), ignore_errors=True)
 
     if legion_dir is not None:
-        cmake_install(cmake_exe, legion_dir, install_dir)
-
-    def get_legion_src_dir():
-        if not legion_dir:
-            return os.path.join(build_dir, "_deps", "legion-src")
-        # Otherwise, assume `legion_dir` is the path to a CMake build dir
-        src_dir = (
-            verbose_check_output(
+        if os.path.exists(os.path.join(legion_dir, "CMakeCache.txt")):
+            # Install Legion if legion_dir is a path to its build dir
+            execute_command(
                 [
-                    "grep",
-                    "--color=never",
-                    "Legion_SOURCE_DIR",
-                    os.path.join(legion_dir, "CMakeCache.txt"),
-                ]
+                    cmake_exe,
+                    "--install", legion_dir,
+                    "--prefix", install_dir
+                ],
+                verbose
             )
-            .decode("UTF-8")
-            .strip()
-        )
-        # `src_dir` will be something like:
-        # `Legion_SOURCE_DIR:STATIC=/path/to/legion`
-        src_dir = src_dir.split("=")[1]
-        return src_dir
 
-    install_legion_python(get_legion_src_dir(), install_dir)
-    install_legate_core_python(legate_core_dir, install_dir)
+    # Configure and build legate.core via setup.py
+    setup_py_cmd = [
+        sys.executable,
+        "setup.py",
+        "-j",
+        str(thread_count),
+    ]
+    if cmake_generator:
+        setup_py_cmd += ["-G", cmake_generator, "--skip-generator-test"]
+
+    setup_py_cmd += ["install", "--force"] + setup_py_flags
+
+    if unknown is not None:
+        try:
+            prefix_loc = unknown.index("--prefix")
+            setup_py_cmd.extend(unknown[prefix_loc : prefix_loc + 2])
+        except ValueError:
+            setup_py_cmd += ["--prefix", str(install_dir)]
+    else:
+        setup_py_cmd += ["--prefix", str(install_dir)]
+
+    cmake_flags = ["--"]
+
+    if debug or verbose:
+        cmake_flags += ["--log-level=%s" % ("DEBUG" if debug else "VERBOSE")]
+
+    cmake_flags += f"""\
+-DCMAKE_BUILD_TYPE={(
+    "Debug" if debug else "RelWithDebInfo" if debug_release else "Release"
+)}
+-DBUILD_SHARED_LIBS=ON
+-DBUILD_MARCH={march}
+-DCMAKE_CUDA_ARCHITECTURES={arch}
+-DLegion_MAX_DIM={str(maxdim)}
+-DLegion_MAX_FIELDS={str(maxfields)}
+-DLegion_SPY={("ON" if spy else "OFF")}
+-DLegion_BOUNDS_CHECKS={("ON" if check_bounds else "OFF")}
+-DLegion_USE_CUDA={("ON" if cuda else "OFF")}
+-DLegion_USE_OpenMP={("ON" if openmp else "OFF")}
+-DLegion_USE_LLVM={("ON" if llvm else "OFF")}
+-DLegion_USE_GASNet={("ON" if gasnet else "OFF")}
+-DLegion_USE_HDF5={("ON" if hdf else "OFF")}
+-DLegion_USE_Python=ON
+-DLegion_Python_Version={pyversion}
+-DLegion_REDOP_COMPLEX=ON
+-DLegion_REDOP_HALF=ON
+-DLegion_BUILD_BINDINGS=ON
+""".splitlines()
+
+    if nccl_dir:
+        cmake_flags += ["-DNCCL_DIR=%s" % nccl_dir]
+    if gasnet_dir:
+        cmake_flags += ["-DGASNet_ROOT_DIR=%s" % gasnet_dir]
+    if conduit:
+        cmake_flags += ["-DGASNet_CONDUIT=%s" % conduit]
+    if cuda_dir:
+        cmake_flags += ["-DCUDA_TOOLKIT_ROOT_DIR=%s" % cuda_dir]
+    if thrust_dir:
+        cmake_flags += ["-DThrust_ROOT=%s" % thrust_dir]
+    if legion_dir:
+        cmake_flags += ["-DLegion_ROOT=%s" % legion_dir]
+    if legion_url:
+        cmake_flags += ["-DLEGATE_CORE_LEGION_REPOSITORY=%s" % legion_url]
+    if legion_branch:
+        cmake_flags += ["-DLEGATE_CORE_LEGION_BRANCH=%s" % legion_branch]
+
+    setup_py_cmd += cmake_flags
+
+    setup_py_cmd += ["--"]
+    setup_py_cmd += ["-j", str(thread_count)]
+
+    # run python setup.py <args>
+    execute_command(setup_py_cmd, verbose, cwd=legate_core_dir)
+
+    legion_src_dir = get_legion_src_dir(legion_dir, build_dir, verbose)
+    install_legion_python(legion_src_dir, install_dir, verbose)
 
 
 def driver():

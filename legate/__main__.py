@@ -35,14 +35,6 @@ else:
     raise Exception("Legate does not work on %s" % platform.system())
 
 
-def load_json_config(filename):
-    try:
-        with open(filename, "r") as f:
-            return json.load(f)
-    except IOError:
-        return None
-
-
 def read_c_define(header_path, def_name):
     try:
         with open(header_path, "r") as f:
@@ -132,36 +124,8 @@ def run_legate(
     launcher_extra,
 ):
     # Build the environment for the subprocess invocation
-    legate_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+    legate_dir = os.path.dirname(os.path.dirname(sys.executable))
     cmd_env = dict(os.environ.items())
-    env_json = load_json_config(
-        os.path.join(legate_dir, "share", ".legate-env.json")
-    )
-    if env_json is not None:
-        append_vars = env_json.get("APPEND_VARS", [])
-        append_vars_tuplified = [tuple(var) for var in append_vars]
-        for (k, v) in append_vars_tuplified:
-            if k not in cmd_env:
-                cmd_env[k] = v
-            else:
-                cmd_env[k] = cmd_env[k] + os.pathsep + v
-        vars = env_json.get("VARS", [])
-        vars_tuplified = [tuple(var) for var in vars]
-        for (k, v) in vars_tuplified:
-            cmd_env[k] = v
-    libs_json = load_json_config(
-        os.path.join(legate_dir, "share", ".legate-libs.json")
-    )
-    if libs_json is not None:
-        for lib_dir in libs_json.values():
-            if LIB_PATH not in cmd_env:
-                cmd_env[LIB_PATH] = os.path.join(lib_dir, "lib")
-            else:
-                cmd_env[LIB_PATH] = (
-                    os.path.join(lib_dir, "lib")
-                    + os.pathsep
-                    + cmd_env[LIB_PATH]
-                )
     # We never want to save python byte code for legate
     cmd_env["PYTHONDONTWRITEBYTECODE"] = "1"
     # Set the path to the Legate module as an environment variable
@@ -198,18 +162,9 @@ def run_legate(
         cmd_env[LIB_PATH] = (
             os.path.join(legate_dir, "lib") + os.pathsep + cmd_env[LIB_PATH]
         )
-    cuda_config = os.path.join(legate_dir, "share", "legate", ".cuda.json")
-    cuda_dir = load_json_config(cuda_config)
-    if gpus > 0 and cuda_dir is None:
-        raise ValueError(
-            "Requested execution with GPUs but "
-            + "Legate was not built with GPU support"
-        )
     if gpus > 0:
         assert "LEGATE_NEED_CUDA" not in cmd_env
         cmd_env["LEGATE_NEED_CUDA"] = str(1)
-        cmd_env[LIB_PATH] += os.pathsep + os.path.join(cuda_dir, "lib")
-        cmd_env[LIB_PATH] += os.pathsep + os.path.join(cuda_dir, "lib64")
     if openmp > 0:
         assert "LEGATE_NEED_OPENMP" not in cmd_env
         cmd_env["LEGATE_NEED_OPENMP"] = str(1)
