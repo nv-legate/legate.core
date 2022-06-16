@@ -193,7 +193,7 @@ def get_legion_src_dir(legion_dir, build_dir, verbose=False):
                     "Legion_SOURCE_DIR",
                     os.path.join(legion_dir, "CMakeCache.txt"),
                 ],
-                verbose
+                verbose,
             )
             .decode("UTF-8")
             .strip()
@@ -264,19 +264,20 @@ def install(
 
     if clean_first:
         shutil.rmtree(build_dir, ignore_errors=True)
-        shutil.rmtree(os.path.join(legate_core_dir, "dist"), ignore_errors=True)
-        shutil.rmtree(os.path.join(legate_core_dir, "legate.core.egg-info"), ignore_errors=True)
+        shutil.rmtree(
+            os.path.join(legate_core_dir, "dist"), ignore_errors=True
+        )
+        shutil.rmtree(
+            os.path.join(legate_core_dir, "legate.core.egg-info"),
+            ignore_errors=True,
+        )
 
     if legion_dir is not None:
         if os.path.exists(os.path.join(legion_dir, "CMakeCache.txt")):
             # Install Legion if legion_dir is a path to its build dir
             execute_command(
-                [
-                    cmake_exe,
-                    "--install", legion_dir,
-                    "--prefix", install_dir
-                ],
-                verbose
+                [cmake_exe, "--install", legion_dir, "--prefix", install_dir],
+                verbose,
             )
 
     # Configure and build legate.core via setup.py

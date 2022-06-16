@@ -42,16 +42,12 @@ setup(
             "colorama",
             "coverage",
             "mock",
-            "mypy>=0.961"
-            "pynvml",
+            "mypy>=0.961" "pynvml",
             "pytest-cov",
             "pytest",
         ]
     },
-    packages=find_packages(
-        where=".",
-        include=["legate*"]
-    ),
+    packages=find_packages(where=".", include=["legate*"]),
     entry_points={
         "console_scripts": [
             "legate = legate.__main__:driver",
