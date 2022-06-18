@@ -262,7 +262,7 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
                               Legion::Mapping::PhysicalInstance& result,
                               Strictness strictness = Strictness::hint);
   bool map_legate_store(const Legion::Mapping::MapperContext ctx,
-                        const Legion::Mappable& mappable,
+                        const Legion::Task& task,
                         const StoreMapping& mapping,
                         std::vector<std::reference_wrapper<const Legion::RegionRequirement>> reqs,
                         Legion::Processor target_proc,

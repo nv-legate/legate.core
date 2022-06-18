@@ -737,7 +737,7 @@ Memory BaseMapper::get_target_memory(Processor proc, StoreTarget target)
 }
 
 bool BaseMapper::map_legate_store(const MapperContext ctx,
-                                  const Mappable& mappable,
+                                  const LegionTask& task,
                                   const StoreMapping& mapping,
                                   std::vector<std::reference_wrapper<const RegionRequirement>> reqs,
                                   Processor target_proc,
@@ -767,19 +767,57 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
   LayoutConstraintSet layout_constraints;
   mapping.populate_layout_constraints(layout_constraints);
 
-  bool is_collective =
-    (reqs[0].get().privilege == LEGION_REDUCE) && (reqs[0].get().projection != 0);
+  // QUESTION: is it safe to assume that colocated stores should have the same
+  // privileges / projection/ reduction???
+
+  // read-only broadcasted instances should be collective instances without tags
+  bool ro_broadcasted =
+    (reqs[0].get().projection == 0 && reqs[0].get().privilege == LEGION_READ_ONLY);
+  // reduction instance
+  bool is_reduction = (reqs[0].get().privilege != LEGION_REDUCE) && (reqs[0].get().projection != 0);
+  bool is_collective = (is_reduction || ro_broadcasted);
   // If we're making a reduction instance, we should just make it now
   if (redop != 0) {
     layout_constraints.add_constraint(SpecializedConstraint(REDUCTION_FOLD_SPECIALIZE, redop));
 
-    if (is_collective) layout_constraints.specialized_constraint.collective = true;
-    if (!runtime->create_physical_instance(
-          ctx, target_memory, layout_constraints, regions, result, true /*acquire*/))
-      report_failed_mapping(mappable, mapping.requirement_index(), target_memory, redop);
+    size_t collective_tag = 0;
+    if (is_collective) {
+      // we need to set collective=true for all collective instances
+      layout_constraints.specialized_constraint.collective = true;
+      // TODO improve logic for calculating tags. It should potentially be operation-
+      // specific
+      //  for read-only broadcasted reagions we don't need to set tag
+      if (!ro_broadcasted) {
+        auto key_functor       = find_legate_projection_functor(reqs[0].get().projection);
+        Domain sharding_domain = task.index_domain;
+        if (task.sharding_space.exists())
+          sharding_domain = runtime->get_index_space_domain(ctx, task.sharding_space);
+        auto lo             = key_functor->project_point(sharding_domain.lo(), sharding_domain);
+        auto hi             = key_functor->project_point(sharding_domain.hi(), sharding_domain);
+        auto p              = key_functor->project_point(task.index_point, sharding_domain);
+        auto collective_tag = linearize(lo, hi, p);
+      }
+    }  // if is_collective
+    if (!runtime->create_physical_instance(ctx,
+                                           target_memory,
+                                           layout_constraints,
+                                           regions,
+                                           result,
+                                           true /*acquire*/,
+                                           0 /*priority*/,
+                                           false /*tight_region_bounds*/,
+                                           NULL /*footprint*/,
+                                           NULL /*unsat*/,
+                                           collective_tag))
+      report_failed_mapping(task, mapping.requirement_index(), target_memory, redop);
     // We already did the acquire
     return false;
   }
+
+  // FIXME add logic for read-only broadcasted instances (don't store them first, only create a new
+  // instance)
+  //  if (ro_broadcasted)
+  //    layout_constraints.specialized_constraint.collective = true;
 
   auto& fields = layout_constraints.field_constraint.field_set;
 
@@ -868,7 +906,7 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
 
   // If we make it here then we failed entirely
   auto req_indices = mapping.requirement_indices();
-  for (auto req_idx : req_indices) report_failed_mapping(mappable, req_idx, target_memory, redop);
+  for (auto req_idx : req_indices) report_failed_mapping(task, req_idx, target_memory, redop);
   return true;
 }
 
@@ -1011,8 +1049,7 @@ bool BaseMapper::map_raw_array(const MapperContext ctx,
       bool affinity;
       if (require_collective_inst) {
         const DomainPoint shard_point = mappable.get_parent_task()->index_point;
-        std::cout << "IRINA DEBUG domain = " << instance.get_instance_domain()
-                  << "shard_point = " << shard_point << std::endl;
+        if (!instance.has_collective_point(shard_point)) continue;
         affinity = machine.has_affinity(target_proc, instance.get_location(&shard_point));
       } else
         affinity = machine.has_affinity(target_proc, instance.get_location());
@@ -1186,6 +1223,7 @@ void BaseMapper::legate_select_sources(const MapperContext ctx,
   bool all_local = false;
   // TODO: consider layouts when ranking source to help out the DMA system
 
+  if (target.is_collective_instance() && !target.has_collective_point(index_point)) return;
   Memory destination_memory;
   if (target.is_collective_instance())
     destination_memory = target.get_location(&index_point);
@@ -1196,10 +1234,9 @@ void BaseMapper::legate_select_sources(const MapperContext ctx,
   std::vector<std::pair<PhysicalInstance, uint32_t /*bandwidth*/>> band_ranking;
   for (uint32_t idx = 0; idx < sources.size(); idx++) {
     const PhysicalInstance& instance = sources[idx];
-    std::cout << "IRINA DEBUG legate_select_sources point = " << index_point
-              << " , domain = " << instance.get_instance_domain()
-              << ", is_collective = " << instance.is_collective_instance()
-              << ", reduction = " << instance.is_reduction_instance() << std::endl;
+
+    // skip any collective instance that doesn't contain index_point
+    if (instance.is_collective_instance() && !instance.has_collective_point(index_point)) continue;
 
     Memory location;
     if (instance.is_collective_instance())
@@ -1237,7 +1274,8 @@ void BaseMapper::legate_select_sources(const MapperContext ctx,
     } else
       band_ranking.push_back(std::pair<PhysicalInstance, uint32_t>(instance, finder->second));
   }
-  assert(!band_ranking.empty());
+  // ranking can be empty in the case of collective instances
+  if (band_ranking.empty()) return;
   // Easy case of only one instance
   if (band_ranking.size() == 1) {
     ranking.push_back(band_ranking.begin()->first);
