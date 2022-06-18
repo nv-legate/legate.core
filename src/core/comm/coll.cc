@@ -50,17 +50,14 @@ enum CollTag : int {
 
 static int mpi_tag_ub = 0;
 
-static std::vector<MPI_Comm> mpi_comms;
+static std::vector<MPI_Comm> mpi_comms(0);
 #else  // undef LEGATE_USE_GASNET
-static std::vector<ThreadComm> thread_comms;
+static std::vector<ThreadComm> thread_comms(0);
 #endif
 
 static int current_unique_id = 0;
 
 static bool coll_inited = false;
-
-// can be override by set the env LEGATE_MAX_CPU_COMMS
-static int MAX_NB_COMMS = 100;
 
 // functions start here
 #ifdef LEGATE_USE_GASNET
@@ -243,10 +240,7 @@ int collAllgather(
 // called from main thread
 int collInit(int argc, char* argv[])
 {
-  current_unique_id    = 0;
-  const char* nb_comms = getenv("LEGATE_MAX_CPU_COMMS");
-  if (nb_comms != nullptr) { MAX_NB_COMMS = atoi(nb_comms); }
-  assert(MAX_NB_COMMS > 0);
+  current_unique_id = 0;
 #ifdef LEGATE_USE_GASNET
   int provided, init_flag = 0;
   CHECK_MPI(MPI_Initialized(&init_flag));
@@ -270,16 +264,9 @@ int collInit(int argc, char* argv[])
   CHECK_MPI(MPI_Comm_get_attr(MPI_COMM_WORLD, MPI_TAG_UB, &tag_ub, &flag));
   assert(flag);
   mpi_tag_ub = *tag_ub;
-  // create mpi comms
-  mpi_comms.resize(MAX_NB_COMMS, MPI_COMM_NULL);
-  for (int i = 0; i < MAX_NB_COMMS; i++) { CHECK_MPI(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comms[i])); }
+  mpi_comms.clear();
 #else
-  thread_comms.resize(MAX_NB_COMMS);
-  for (int i = 0; i < MAX_NB_COMMS; i++) {
-    thread_comms[i].ready_flag = false;
-    thread_comms[i].buffers    = nullptr;
-    thread_comms[i].displs     = nullptr;
-  }
+  thread_comms.clear();
 #endif
   coll_inited = true;
   return CollSuccess;
@@ -290,7 +277,7 @@ int collFinalize(void)
   assert(coll_inited == true);
   coll_inited = false;
 #ifdef LEGATE_USE_GASNET
-  for (int i = 0; i < MAX_NB_COMMS; i++) { CHECK_MPI(MPI_Comm_free(&mpi_comms[i])); }
+  for (int i = 0; i < mpi_comms.size(); i++) { CHECK_MPI(MPI_Comm_free(&mpi_comms[i])); }
   mpi_comms.clear();
   int fina_flag = 0;
   CHECK_MPI(MPI_Finalized(&fina_flag));
@@ -300,7 +287,7 @@ int collFinalize(void)
   }
   return CollSuccess;
 #else
-  for (int i = 0; i < MAX_NB_COMMS; i++) { assert(thread_comms[i].ready_flag == false); }
+  for (int i = 0; i < thread_comms.size(); i++) { assert(thread_comms[i].ready_flag == false); }
   thread_comms.clear();
   return CollSuccess;
 #endif
@@ -310,14 +297,27 @@ int collGetUniqueId(int* id)
 {
   *id = current_unique_id;
   current_unique_id++;
-  if (current_unique_id > MAX_NB_COMMS) {
-    log_coll.fatal(
-      "Please increase the LEGATE_MAX_CPU_COMMS by "
-      "\"export LEGATE_MAX_CPU_COMMS=(new number)\\ "
-      "current value is: %d\n",
-      MAX_NB_COMMS);
-    LEGATE_ABORT;
-  }
+  return CollSuccess;
+}
+
+int collInitComm(int id)
+{
+  log_coll.print("init comm id %d", id);
+#ifdef LEGATE_USE_GASNET
+  assert(mpi_comms.size() == id);
+  // create mpi comm
+  MPI_Comm mpi_comm;
+  CHECK_MPI(MPI_Comm_dup(MPI_COMM_WORLD, &mpi_comm));
+  mpi_comms.push_back(mpi_comm);
+#else
+  assert(thread_comms.size() == id);
+  // create thread comm
+  ThreadComm thread_comm;
+  thread_comm.ready_flag = false;
+  thread_comm.buffers    = nullptr;
+  thread_comm.displs     = nullptr;
+  thread_comms.push_back(thread_comm);
+#endif
   return CollSuccess;
 }
 
@@ -506,4 +506,6 @@ void* allocateInplaceBuffer(const void* recvbuf, size_t size)
 extern "C" {
 
 void legate_cpucoll_finalize(void) { legate::comm::coll::collFinalize(); }
+
+void legate_cpucoll_initcomm(int id) { legate::comm::coll::collInitComm(id); }
 }

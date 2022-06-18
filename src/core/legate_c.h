@@ -128,6 +128,8 @@ void* legate_linearizing_point_transform_functor();
 
 void legate_cpucoll_finalize(void);
 
+void legate_cpucoll_initcomm(int id);
+
 #ifdef __cplusplus
 }
 #endif
