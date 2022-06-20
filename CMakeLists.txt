@@ -27,16 +27,16 @@ set(legate_core_version 22.07.00)
 
 if(SKBUILD)
   project(
-    legate_core-python
+    legate_core_python
     VERSION ${legate_core_version}
     LANGUAGES # TODO: Building Python extension modules via the python_extension_module requires the C
               # language to be enabled here. The test project that is built in scikit-build to verify
               # various linking options for the python library is hardcoded to build with C, so until
               # that is fixed we need to keep C.
               C CXX)
-  include(skbuild.cmake)
+  include(legate_core_python.cmake)
 else()
   project(LEGATE_CORE VERSION ${legate_core_version} LANGUAGES C CXX)
 
-  include(legate_core.cmake)
+  include(legate_core_cpp.cmake)
 endif()
