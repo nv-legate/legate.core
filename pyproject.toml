@@ -20,7 +20,6 @@ requires = [
     "cython>=0.29,<0.30",
     "scikit-build>=0.13.1",
     "cmake>=3.22.1,!=3.23.0",
-    "cutensor>=1.3.3",
     # TODO: Add rest of build dependencies
 ]
 
