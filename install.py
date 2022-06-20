@@ -182,9 +182,11 @@ def install_legion_python(legion_src_dir, install_dir, verbose=False):
 
 def get_legion_src_dir(legion_dir, build_dir, verbose=False):
     if not legion_dir:
-        return os.path.join(build_dir, "_deps", "legion-src")
+        # If legion_dir wasn't specified, try CPM's `_deps/legion-src` path:
+        if os.path.exists(os.path.join(build_dir, "_deps", "legion-src")):
+            return os.path.join(build_dir, "_deps", "legion-src")
+    # If legion_dir was specified, test whether it is a CMake build dir
     elif os.path.exists(os.path.join(legion_dir, "CMakeCache.txt")):
-        # Otherwise, assume `legion_dir` is the path to a CMake build dir
         src_dir = (
             execute_command_check_output(
                 [
@@ -202,8 +204,7 @@ def get_legion_src_dir(legion_dir, build_dir, verbose=False):
         # `Legion_SOURCE_DIR:STATIC=/path/to/legion`
         src_dir = src_dir.split("=")[1]
         return src_dir
-    else:
-        raise Exception("Could not determine path to Legion source directory")
+    raise Exception("Could not determine path to Legion source directory")
 
 
 def install(
