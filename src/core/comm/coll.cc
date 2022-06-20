@@ -285,12 +285,11 @@ int collFinalize(void)
     log_coll.fatal("MPI should not have been finalized");
     LEGATE_ABORT;
   }
-  return CollSuccess;
 #else
   for (int i = 0; i < thread_comms.size(); i++) { assert(thread_comms[i].ready_flag == false); }
   thread_comms.clear();
-  return CollSuccess;
 #endif
+  return CollSuccess;
 }
 
 int collGetUniqueId(int* id)
