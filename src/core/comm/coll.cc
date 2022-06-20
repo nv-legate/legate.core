@@ -302,7 +302,7 @@ int collGetUniqueId(int* id)
 
 int collInitComm(int id)
 {
-  log_coll.print("init comm id %d", id);
+  log_coll.debug("Init comm id %d", id);
 #ifdef LEGATE_USE_GASNET
   assert(mpi_comms.size() == id);
   // create mpi comm
