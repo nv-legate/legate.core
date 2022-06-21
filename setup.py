@@ -58,6 +58,6 @@ setup(
         "bind.sh",
     ],
     cmdclass=versioneer.get_cmdclass(),
-    install_requires=["cutensor>=1.3.3", "numpy>=1.22"],
+    install_requires=["numpy>=1.22"],
     zip_safe=False,
 )
