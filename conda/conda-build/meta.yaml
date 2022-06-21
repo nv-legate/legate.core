@@ -90,7 +90,7 @@ requirements:
 {% if gpu_enabled_bool %}
     - cuda-cudart >={{ cuda_version }}
     - nccl
-    - __cuda >= 11.4
+    - __cuda >=11.4
 {% endif %}
 
   run_constrained:
