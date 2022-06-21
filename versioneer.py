@@ -1,3 +1,5 @@
+# flake8: noqa: E501
+
 # Version: 0.22
 
 """The Versioneer - like a rocketeer, but for versions.
