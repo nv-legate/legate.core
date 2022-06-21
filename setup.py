@@ -47,7 +47,18 @@ setup(
             "pytest",
         ]
     },
-    packages=find_packages(where=".", include=["legate*"]),
+    packages=find_packages(
+        where=".",
+        include=[
+            "legate",
+            "legate.*",
+            "legate.core",
+            "legate.core.*",
+            "legate.timing",
+            "legate.timing.*",
+        ],
+        exclude=["legate.core.install_info"],
+    ),
     entry_points={
         "console_scripts": [
             "legate = legate.__main__:driver",
