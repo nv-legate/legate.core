@@ -153,7 +153,6 @@ class CPUCommunicator(Communicator):
         coll_uid = native_np.frombuffer(
             cpucoll_id.get_buffer(), dtype=native_np.int32
         )[0]
-        self._runtime.issue_execution_fence(block=True)
         self._runtime.core_library.legate_cpucoll_initcomm(coll_uid)
         task = Task(self._context, self._init_cpucoll_mapping, tag=self._tag)
         mapping_table_fm = task.execute(Rect([volume]))
