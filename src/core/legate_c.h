@@ -28,7 +28,6 @@ typedef enum legate_core_task_id_t {
   LEGATE_CORE_INIT_NCCL_ID_TASK_ID,
   LEGATE_CORE_INIT_NCCL_TASK_ID,
   LEGATE_CORE_FINALIZE_NCCL_TASK_ID,
-  LEGATE_CORE_INIT_CPUCOLL_ID_TASK_ID,
   LEGATE_CORE_INIT_CPUCOLL_MAPPING_TASK_ID,
   LEGATE_CORE_INIT_CPUCOLL_TASK_ID,
   LEGATE_CORE_FINALIZE_CPUCOLL_TASK_ID,
@@ -128,7 +127,7 @@ void* legate_linearizing_point_transform_functor();
 
 void legate_cpucoll_finalize(void);
 
-void legate_cpucoll_initcomm(int id);
+int legate_cpucoll_initcomm(void);
 
 #ifdef __cplusplus
 }

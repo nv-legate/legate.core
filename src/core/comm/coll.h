@@ -116,7 +116,7 @@ int collFinalize(void);
 
 int collGetUniqueId(int* id);
 
-int collInitComm(int id);
+int collInitComm(void);
 
 // The following functions should not be called by users
 #ifdef LEGATE_USE_GASNET

@@ -299,10 +299,18 @@ int collGetUniqueId(int* id)
   return CollSuccess;
 }
 
-int collInitComm(int id)
+int collInitComm(void)
 {
-  log_coll.debug("Init comm id %d", id);
+  int id = 0;
+  collGetUniqueId(&id);
 #ifdef LEGATE_USE_GASNET
+#ifdef DEBUG_LEGATE
+  int mpi_rank;
+  int send_id = id;
+  // check if all ranks get the same unique id
+  CHECK_MPI(MPI_Bcast(&send_id, 1, MPI_INT, 0, MPI_COMM_WORLD));
+  assert(send_id == id);
+#endif
   assert(mpi_comms.size() == id);
   // create mpi comm
   MPI_Comm mpi_comm;
@@ -317,7 +325,8 @@ int collInitComm(int id)
   thread_comm.displs     = nullptr;
   thread_comms.push_back(thread_comm);
 #endif
-  return CollSuccess;
+  log_coll.debug("Init comm id %d", id);
+  return id;
 }
 
 #ifdef LEGATE_USE_GASNET
@@ -506,5 +515,5 @@ extern "C" {
 
 void legate_cpucoll_finalize(void) { legate::comm::coll::collFinalize(); }
 
-void legate_cpucoll_initcomm(int id) { legate::comm::coll::collInitComm(id); }
+int legate_cpucoll_initcomm(void) { return legate::comm::coll::collInitComm(); }
 }
