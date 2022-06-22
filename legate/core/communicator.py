@@ -141,7 +141,6 @@ class CPUCommunicator(Communicator):
 
     def _initialize(self, volume: int) -> FutureMap:
         cpucoll_uid = self._runtime.core_library.legate_cpucoll_initcomm()
-        print(type(cpucoll_uid))
         buf = struct.pack("i", cpucoll_uid)
         cpucoll_uid_f = self._runtime.create_future(buf, len(buf))
         task = Task(self._context, self._init_cpucoll_mapping, tag=self._tag)
