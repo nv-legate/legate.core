@@ -42,7 +42,8 @@ setup(
             "colorama",
             "coverage",
             "mock",
-            "mypy>=0.961" "pynvml",
+            "mypy>=0.961",
+            "pynvml",
             "pytest-cov",
             "pytest",
         ]
