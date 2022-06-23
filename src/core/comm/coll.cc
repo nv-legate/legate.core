@@ -272,7 +272,7 @@ int collInit(int argc, char* argv[])
   return CollSuccess;
 }
 
-int collFinalize(void)
+int collFinalize()
 {
   assert(coll_inited == true);
   coll_inited = false;
@@ -299,7 +299,7 @@ int collGetUniqueId(int* id)
   return CollSuccess;
 }
 
-int collInitComm(void)
+int collInitComm()
 {
   int id = 0;
   collGetUniqueId(&id);

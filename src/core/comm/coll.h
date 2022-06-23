@@ -112,11 +112,11 @@ int collAllgather(
 
 int collInit(int argc, char* argv[]);
 
-int collFinalize(void);
+int collFinalize();
 
 int collGetUniqueId(int* id);
 
-int collInitComm(void);
+int collInitComm();
 
 // The following functions should not be called by users
 #ifdef LEGATE_USE_GASNET
