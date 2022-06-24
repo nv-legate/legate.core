@@ -213,11 +213,11 @@ class Partitioner:
                 continue
 
             if store.kind is Future:
-                partitions[unknown] = REPLICATE
+                partitions[unknown] = Replicate(self._runtime)
             else:
                 cls = constraints.find(unknown)
                 for to_align in cls:
-                    partitions[to_align] = REPLICATE
+                    partitions[to_align] = Replicate(self._runtime)
 
         return unknowns.remove_all(to_remove)
 
@@ -244,7 +244,7 @@ class Partitioner:
 
             fspace = runtime.create_field_space()
             for to_align in cls:
-                partitions[unknown] = REPLICATE
+                partitions[unknown] = Replicate(self._runtime)
                 fspaces[unknown] = fspace
 
         unbound_ndims = set(unknown.store.ndim for unknown in to_remove)
@@ -342,12 +342,12 @@ class Partitioner:
         # to replication, in which case the operation must be performed
         # sequentially
         for unknown, part in partitions.items():
-            if unknown.store in all_outputs and part is REPLICATE:
+            if unknown.store in all_outputs and isinstance(part, Replicate):
                 return None
 
         # If we're here, this means that replicated stores are safe to access
         # in parallel, so we filter those out to determine the launch domain
-        parts = [part for part in partitions.values() if part is not REPLICATE]
+        parts = [part for part in partitions.values() if not isinstance(part, Replicate)]
 
         # If all stores are replicated, we can't parallelize the operation
         if len(parts) == 0:
@@ -426,10 +426,15 @@ class Partitioner:
                     for unknown in c._lhs.unknowns():
                         must_be_even.add(unknown)
                     dependent[c._rhs] = c._lhs
+                else:
+                    raise NotImplementedError
         for op in self._ops:
             all_outputs.update(
                 store for store in op.outputs if not store.unbound
             )
+
+        print(op.constraints)
+        print(constraints, dependent)
 
         if self._must_be_single or len(unknowns) == 0:
             for unknown in unknowns:

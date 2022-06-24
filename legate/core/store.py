@@ -1241,7 +1241,7 @@ class Store:
 
         # If this is effectively a scalar store, we don't need to partition it
         if self.kind is Future or self.ndim == 0:
-            return REPLICATE
+            return Replicate(self._runtime)
 
         # We need the transformations to be convertible so that we can map
         # the storage partition to this store's coordinate space
@@ -1261,7 +1261,7 @@ class Store:
                 restrictions,
             )
             if launch_shape is None:
-                partition = REPLICATE
+                partition = Replicate(self._runtime)
             else:
                 tile_shape = partition_manager.compute_tile_shape(
                     self.shape, launch_shape
