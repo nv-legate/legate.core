@@ -14,6 +14,7 @@
 #
 from __future__ import annotations
 
+import struct
 from abc import ABC, abstractmethod, abstractproperty
 from typing import TYPE_CHECKING
 
@@ -111,7 +112,6 @@ class CPUCommunicator(Communicator):
         super().__init__(runtime)
         library = runtime.core_library
 
-        self._init_cpucoll_id = library.LEGATE_CORE_INIT_CPUCOLL_ID_TASK_ID
         self._init_cpucoll_mapping = (
             library.LEGATE_CORE_INIT_CPUCOLL_MAPPING_TASK_ID
         )
@@ -140,17 +140,13 @@ class CPUCommunicator(Communicator):
         return self._needs_barrier
 
     def _initialize(self, volume: int) -> FutureMap:
-        task = Task(
-            self._context,
-            self._init_cpucoll_id,
-            tag=self._tag,
-            side_effect=True,
-        )
-        cpucoll_id = task.execute_single()
+        cpucoll_uid = self._runtime.core_library.legate_cpucoll_initcomm()
+        buf = struct.pack("i", cpucoll_uid)
+        cpucoll_uid_f = self._runtime.create_future(buf, len(buf))
         task = Task(self._context, self._init_cpucoll_mapping, tag=self._tag)
         mapping_table_fm = task.execute(Rect([volume]))
         task = Task(self._context, self._init_cpucoll, tag=self._tag)
-        task.add_future(cpucoll_id)
+        task.add_future(cpucoll_uid_f)
         for i in range(volume):
             f = mapping_table_fm.get_future(Point([i]))
             task.add_future(f)
