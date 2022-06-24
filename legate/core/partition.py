@@ -16,10 +16,12 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod, abstractproperty
 from enum import IntEnum, unique
-from typing import TYPE_CHECKING, Optional, Sequence, Type, Union
+from typing import Any, TYPE_CHECKING, Optional, Sequence, Type, Union
 
 from . import (
     IndexPartition,
+    PartitionByImage,
+    PartitionByImageRange,
     PartitionByRestriction,
     PartitionByWeights,
     Rect,
@@ -81,8 +83,19 @@ class PartitionBase(ABC):
     def requirement(self) -> RequirementType:
         ...
 
+    @abstractproperty
+    def runtime(self) -> Runtime:
+        ...
+
 
 class Replicate(PartitionBase):
+    def __init__(self, runtime: Runtime):
+        self._runtime = runtime
+
+    @property
+    def runtime(self):
+        return self._runtime
+
     @property
     def color_shape(self) -> Optional[Shape]:
         return None
@@ -134,9 +147,6 @@ class Replicate(PartitionBase):
         self, region: Region, complete: bool = False
     ) -> Optional[LegionPartition]:
         return None
-
-
-REPLICATE = Replicate()
 
 
 class Interval:
@@ -268,7 +278,7 @@ class Tiling(PartitionBase):
             self._offset + offset,
         )
 
-    # This function promotes the translated partition to REPLICATE if it
+    # This function promotes the translated partition to Replicate if it
     # doesn't overlap with the original partition.
     def translate_range(self, offset: Shape) -> Union[Replicate, Tiling]:
         promote = False
@@ -283,7 +293,7 @@ class Tiling(PartitionBase):
             # TODO: We can actually bloat the tile so that all stencils within
             #       the range are contained, but here we simply replicate
             #       the region, as this usually happens for small inputs.
-            return REPLICATE
+            return Replicate(self.runtime)
         else:
             return Tiling(
                 self._runtime,
@@ -447,3 +457,95 @@ class Weighted(PartitionBase):
             )
             self._runtime.record_partition(index_space, self, index_partition)
         return region.get_child(index_partition)
+
+
+# TODO (rohany): Do we need to have a difference between image and preimage?
+class ImagePartition(PartitionBase):
+    # TODO (rohany): What's the right type to pass through for the partitions and regions here?
+    # store is of type legate.Store. However, we can't import it directly due to an import cycle.
+    def __init__(self, runtime: Runtime, store: Any, part: PartitionBase, range : bool = False) -> None:
+        self._runtime = runtime
+        self._store = store
+        self._part = part
+        # Whether this is an image or image_range operation.
+        self._range = range
+
+    @property
+    def color_shape(self) -> Optional[Shape]:
+        return self._part.color_shape
+
+    @property
+    def even(self) -> bool:
+        ...
+
+    def construct(
+            self, region: Region, complete: bool = False
+    ) -> Optional[LegionPartition]:
+        # TODO (rohany): We can't import RegionField due to an import cycle.
+        # assert(isinstance(self._store.storage, RegionField))
+        source_region = self._store.storage.region
+        source_field = self._store.storage.field
+
+        # TODO (rohany): What should the value of complete be?
+        source_part = self._part.construct(source_region)
+        if self._range:
+            functor = PartitionByImageRange(source_region, source_part, source_field.field_id)
+        else:
+            functor = PartitionByImage(source_region, source_part, source_field.field_id)
+        # TODO (rohany): Use some information about the partition to figure out whats going on...
+        #  Maybe there should be hints that the user can pass in through the constraints.
+        kind = legion.LEGION_DISJOINT_INCOMPLETE_KIND
+        # TODO (rohany): Let's just create a new partition each time.
+        index_partition = IndexPartition(
+            self._runtime.legion_context,
+            self._runtime.legion_runtime,
+            region.index_space,
+            source_part.color_space,
+            functor=functor,
+            kind=kind,
+            keep=True,
+        )
+        self._runtime.record_partition(region.index_space, self, index_partition)
+        return region.get_child(index_partition)
+
+    # TODO (rohany): IDK how we're supposed to know this about an image / image range.
+    def is_complete_for(self, extents: Shape, offsets: Shape) -> bool:
+        return False
+
+    # TODO (rohany): IDK how we're supposed to know this about an image / image range.
+    def is_disjoint_for(self, launch_domain: Optional[Rect]) -> bool:
+        return False
+
+    # TODO (rohany): IDK how we're supposed to know this about an image / image range.
+    def satisfies_restriction(
+            self, restrictions: Sequence[Restriction]
+    ) -> bool:
+        raise NotImplementedError
+
+    # TODO (rohany): IDK what this means...
+    def needs_delinearization(self, launch_ndim: int) -> bool:
+        return False
+
+    @property
+    def requirement(self) -> RequirementType:
+        return Partition
+
+    @property
+    def runtime(self) -> Runtime:
+        return self._runtime
+
+    # TODO (rohany): Implement...
+    def __hash__(self) -> int:
+        # TODO (rohany): A problem with this (and then using this as a key in the future) is that
+        #  the result of the image partition depends on the values in the region. Once the region
+        #  has been updated, the partition is different.
+        return hash(self.__class__)
+
+    def __eq__(self, other: object) -> bool:
+        raise NotImplementedError
+
+    def __str__(self) -> str:
+        return f"image({self._store}, {self._part}, range={self._range})"
+
+    def __repr__(self) -> str:
+        return str(self)

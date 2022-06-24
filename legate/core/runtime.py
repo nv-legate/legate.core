@@ -524,10 +524,11 @@ class AttachmentManager:
 class PartitionManager:
     def __init__(self, runtime: Runtime) -> None:
         self._runtime = runtime
-        self._num_pieces = runtime.core_context.get_tunable(
-            runtime.core_library.LEGATE_CORE_TUNABLE_NUM_PIECES,
-            ty.int32,
-        )
+        # self._num_pieces = runtime.core_context.get_tunable(
+        #     runtime.core_library.LEGATE_CORE_TUNABLE_NUM_PIECES,
+        #     ty.int32,
+        # )
+        self._num_pieces = 4
         self._min_shard_volume = runtime.core_context.get_tunable(
             runtime.core_library.LEGATE_CORE_TUNABLE_MIN_SHARD_VOLUME,
             ty.int64,
@@ -1064,7 +1065,7 @@ class Runtime:
                 self, [op], must_be_single=must_be_single
             )
             strategies.append(partitioner.partition_stores())
-
+            print(strategies[-1])
         for op, strategy in zip(ops, strategies):
             op.launch(strategy)
 

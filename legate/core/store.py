@@ -36,7 +36,7 @@ from . import (
     ffi,
     legion,
 )
-from .partition import REPLICATE, PartitionBase, Restriction, Tiling
+from .partition import Replicate, PartitionBase, Restriction, Tiling
 from .projection import execute_functor_symbolically
 from .shape import Shape
 from .transform import (
@@ -1296,7 +1296,7 @@ class Store:
 
         # If this is effectively a scalar store, we don't need to partition it
         if self.kind is Future or self.ndim == 0:
-            return REPLICATE
+            return Replicate(self._runtime)
 
         # We need the transformations to be convertible so that we can map
         # the storage partition to this store's coordinate space
@@ -1316,7 +1316,7 @@ class Store:
                 restrictions,
             )
             if launch_shape is None:
-                partition = REPLICATE
+                partition = Replicate(self._runtime)
             else:
                 tile_shape = self._partition_manager.compute_tile_shape(
                     self.shape, launch_shape

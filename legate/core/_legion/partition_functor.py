@@ -20,8 +20,10 @@ from .. import ffi, legion
 from .future import FutureMap
 from .geometry import Point
 
+from . import FieldID
+
 if TYPE_CHECKING:
-    from . import FieldID, IndexPartition, IndexSpace, Rect, Region, Transform
+    from . import FieldID, IndexPartition, IndexSpace, Partition, Rect, Region, Transform
 
 
 class PartitionFunctor:
@@ -103,7 +105,7 @@ class PartitionByImage(PartitionFunctor):
     def __init__(
         self,
         region: Region,
-        part: IndexPartition,
+        part: Partition,
         field: Union[int, FieldID],
         mapper: int = 0,
         tag: int = 0,
@@ -147,7 +149,7 @@ class PartitionByImageRange(PartitionFunctor):
     def __init__(
         self,
         region: Region,
-        part: IndexPartition,
+        part: Partition,
         field: Union[int, FieldID],
         mapper: int = 0,
         tag: int = 0,

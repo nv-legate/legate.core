@@ -19,9 +19,9 @@ from typing import TYPE_CHECKING, Any, Iterable, Optional, Protocol, Union
 import legate.core.types as ty
 
 from . import Future, FutureMap, Rect
-from .constraints import PartSym
+from .constraints import Image, PartSym
 from .launcher import CopyLauncher, TaskLauncher
-from .partition import REPLICATE, Weighted
+from .partition import Replicate, Weighted
 from .shape import Shape
 from .store import Store, StorePartition
 from .utils import OrderedSet, capture_traceback
@@ -159,6 +159,19 @@ class Operation(OperationProtocol):
         self._check_store(store)
         part = self._get_unique_partition(store)
         self.add_constraint(part.broadcast(axes=axes))
+
+    # add_image_constraint adds a constraint that the image of store1 is
+    # contained within the partition of store2.
+    def add_image_constraint(self, store1: Store, store2: Store, range : bool = False):
+        self._check_store(store1)
+        self._check_store(store2)
+        # TODO (rohany): We only support point (and rect types if range) here. It seems
+        #  like rects should be added to legate.core's type system rather than an external
+        #  type system to understand this then.
+        part1 = self._get_unique_partition(store1)
+        part2 = self._get_unique_partition(store2)
+        image = Image(store1, store2, part1, range=range)
+        self.add_constraint(image <= part2)
 
     def add_constraint(self, constraint: Constraint) -> None:
         self._constraints.append(constraint)
@@ -591,7 +604,7 @@ class ManualTask(Operation, Task):
     ) -> None:
         self._check_arg(arg)
         if isinstance(arg, Store):
-            self._input_parts.append(arg.partition(REPLICATE))
+            self._input_parts.append(arg.partition(Replicate(self.context.runtime)))
         else:
             self._input_parts.append(arg)
         self._input_projs.append(proj)
@@ -610,7 +623,7 @@ class ManualTask(Operation, Task):
                 )
             if arg.kind is Future:
                 self._scalar_outputs.append(len(self._outputs))
-            self._output_parts.append(arg.partition(REPLICATE))
+            self._output_parts.append(arg.partition(Replicate(self.context.runtime)))
         else:
             self._output_parts.append(arg)
         self._output_projs.append(proj)
@@ -625,7 +638,7 @@ class ManualTask(Operation, Task):
         if isinstance(arg, Store):
             if arg.kind is Future:
                 self._scalar_reductions.append(len(self._reductions))
-            self._reduction_parts.append((arg.partition(REPLICATE), redop))
+            self._reduction_parts.append((arg.partition(Replicate(self.context.runtime)), redop))
         else:
             self._reduction_parts.append((arg, redop))
         self._reduction_projs.append(proj)
