@@ -243,7 +243,7 @@ class Context:
     def create_store(
         self,
         ty: Any,
-        shape: Optional[Shape] = None,
+        shape: Optional[Union[Shape, tuple[int, ...]]] = None,
         storage: Optional[Union[RegionField, Future]] = None,
         optimize_scalar: bool = False,
         ndim: Optional[int] = None,
