@@ -59,7 +59,7 @@ int sendLocal(
   global_comm->comm->buffer_ready[key] = P2PTag::SEND_BUFFER_RELEASE;
   __sync_synchronize();
 
-  // wait for dest to reset buffer as well
+  // wait for dest to reset flag to init
   while (global_comm->comm->buffer_ready[key] != P2PTag::INIT)
     ;
 
@@ -86,7 +86,7 @@ int recvLocal(
   __sync_synchronize();
   global_comm->comm->buffer_ready[key] = P2PTag::SEND_CP_DONE;
 
-  // while for source to reset the buffer
+  // wait for source to reset the buffer
   while (global_comm->comm->buffer_ready[key] != P2PTag::SEND_BUFFER_RELEASE ||
          global_comm->comm->buffers[source] != nullptr)
     ;
