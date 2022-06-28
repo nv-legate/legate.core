@@ -249,6 +249,10 @@ int collAllgather(
 int collSend(
   const void* sendbuf, int count, CollDataType type, int dest, int tag, CollComm global_comm)
 {
+  if (dest == global_comm->global_rank) {
+    log_coll.error("Do not support sending to self");
+    LEGATE_ABORT;
+  }
   log_coll.debug(
     "Send: global_rank %d, mpi_rank %d, unique_id %d, comm_size %d, "
     "mpi_comm_size %d %d, nb_threads %d, dst %d, tag %d",
@@ -270,6 +274,10 @@ int collSend(
 
 int collRecv(void* recvbuf, int count, CollDataType type, int source, int tag, CollComm global_comm)
 {
+  if (source == global_comm->global_rank) {
+    log_coll.error("Do not support receiving to self");
+    LEGATE_ABORT;
+  }
   log_coll.debug(
     "Recv: global_rank %d, mpi_rank %d, unique_id %d, comm_size %d, "
     "mpi_comm_size %d %d, nb_threads %d, src %d, tag %d",
