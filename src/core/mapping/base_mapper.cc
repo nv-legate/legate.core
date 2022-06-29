@@ -774,9 +774,11 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
   bool ro_broadcasted =
     (reqs[0].get().projection == 0 && reqs[0].get().privilege == LEGION_READ_ONLY);
   // reduction instance
-  bool is_reduction = (reqs[0].get().privilege != LEGION_REDUCE) && (reqs[0].get().projection != 0);
+  bool is_reduction = (reqs[0].get().privilege == LEGION_REDUCE) && (reqs[0].get().projection != 0);
   bool is_collective = (is_reduction || ro_broadcasted);
   // If we're making a reduction instance, we should just make it now
+  std::cout << "IRINA DEBUG size of regions = " << regions.size() << " redop = " << redop
+            << std::endl;
   if (redop != 0) {
     layout_constraints.add_constraint(SpecializedConstraint(REDUCTION_FOLD_SPECIALIZE, redop));
 
@@ -792,10 +794,15 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
         Domain sharding_domain = task.index_domain;
         if (task.sharding_space.exists())
           sharding_domain = runtime->get_index_space_domain(ctx, task.sharding_space);
-        auto lo             = key_functor->project_point(sharding_domain.lo(), sharding_domain);
-        auto hi             = key_functor->project_point(sharding_domain.hi(), sharding_domain);
-        auto p              = key_functor->project_point(task.index_point, sharding_domain);
-        auto collective_tag = linearize(lo, hi, p);
+        auto lo = key_functor->project_point(sharding_domain.lo(), sharding_domain);
+        auto hi = key_functor->project_point(sharding_domain.hi(), sharding_domain);
+        auto p  = key_functor->project_point(task.index_point, sharding_domain);
+        // collective_tag = linearize(lo, hi, p);
+        // collective_tag = task.get_shard_id();
+        collective_tag = task.index_point[0] * 10 + task.index_point[1];
+        std::cout << "IRINA DEBUG collective tag = " << collective_tag << " lo = " << lo << " hi "
+                  << hi << " p = " << p << " shard_point = " << task.get_shard_point()
+                  << ", index point = " << task.index_point << std::endl;
       }
     }  // if is_collective
     if (!runtime->create_physical_instance(ctx,
