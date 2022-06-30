@@ -1028,7 +1028,6 @@ class Runtime:
             must_be_single = len(op.scalar_outputs) > 0
             partitioner = Partitioner([op], must_be_single=must_be_single)
             strategies.append(partitioner.partition_stores())
-            print(strategies[-1])
         for op, strategy in zip(ops, strategies):
             op.launch(strategy)
 
