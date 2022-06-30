@@ -17,7 +17,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any, Iterator, Optional, Protocol, Union
 
-from .partition import ImagePartition, Restriction, Replicate
+from .partition import ImagePartition, Replicate, Restriction
 
 if TYPE_CHECKING:
     from .partition import PartitionBase
@@ -218,14 +218,25 @@ class Scale(Expr):
 
 
 class Image(Expr):
-    def __init__(self, source_store : Store, dst_store : Store, src_part_sym : Expr, range: bool = False):
+    def __init__(
+        self,
+        source_store: Store,
+        dst_store: Store,
+        src_part_sym: Expr,
+        range: bool = False,
+    ):
         self._source_store = source_store
         self._dst_store = dst_store
         self._src_part_sym = src_part_sym
         self._range = range
 
     def subst(self, mapping: dict[PartSym, PartitionBase]) -> Expr:
-        return Image(self._source_store, self._dst_store, self._src_part_sym.subst(mapping), range=self._range)
+        return Image(
+            self._source_store,
+            self._dst_store,
+            self._src_part_sym.subst(mapping),
+            range=self._range,
+        )
 
     def reduce(self) -> Lit:
         expr = self._src_part_sym.reduce()
@@ -233,11 +244,26 @@ class Image(Expr):
         part = expr._part
         if isinstance(part, Replicate):
             return Lit(part)
-        return Lit(ImagePartition(part.runtime, self._source_store, part, range=self._range))
+        return Lit(
+            ImagePartition(
+                part.runtime, self._source_store, part, range=self._range
+            )
+        )
 
     def unknowns(self) -> Iterator[PartSym]:
         for unknown in self._src_part_sym.unknowns():
             yield unknown
+
+    def equals(self, other: object):
+        # TODO (rohany): Careful... overloaded equals operator...
+        return (
+            isinstance(other, Image)
+            and self._source_store == other._source_store
+            and self._dst_store == other._dst_store
+            and self._src_part_sym is other._src_part_sym
+            and self._range == other._range
+        )
+
 
 class Constraint:
     pass

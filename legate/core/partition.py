@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod, abstractproperty
 from enum import IntEnum, unique
-from typing import Any, TYPE_CHECKING, Optional, Sequence, Type, Union
+from typing import TYPE_CHECKING, Any, Optional, Sequence, Type, Union
 
 from . import (
     IndexPartition,
@@ -463,7 +463,13 @@ class Weighted(PartitionBase):
 class ImagePartition(PartitionBase):
     # TODO (rohany): What's the right type to pass through for the partitions and regions here?
     # store is of type legate.Store. However, we can't import it directly due to an import cycle.
-    def __init__(self, runtime: Runtime, store: Any, part: PartitionBase, range : bool = False) -> None:
+    def __init__(
+        self,
+        runtime: Runtime,
+        store: Any,
+        part: PartitionBase,
+        range: bool = False,
+    ) -> None:
         self._runtime = runtime
         self._store = store
         self._part = part
@@ -476,10 +482,10 @@ class ImagePartition(PartitionBase):
 
     @property
     def even(self) -> bool:
-        ...
+        return False
 
     def construct(
-            self, region: Region, complete: bool = False
+        self, region: Region, complete: bool = False
     ) -> Optional[LegionPartition]:
         # TODO (rohany): We can't import RegionField due to an import cycle.
         # assert(isinstance(self._store.storage, RegionField))
@@ -489,9 +495,13 @@ class ImagePartition(PartitionBase):
         # TODO (rohany): What should the value of complete be?
         source_part = self._part.construct(source_region)
         if self._range:
-            functor = PartitionByImageRange(source_region, source_part, source_field.field_id)
+            functor = PartitionByImageRange(
+                source_region, source_part, source_field.field_id
+            )
         else:
-            functor = PartitionByImage(source_region, source_part, source_field.field_id)
+            functor = PartitionByImage(
+                source_region, source_part, source_field.field_id
+            )
         # TODO (rohany): Use some information about the partition to figure out whats going on...
         #  Maybe there should be hints that the user can pass in through the constraints.
         kind = legion.LEGION_DISJOINT_INCOMPLETE_KIND
@@ -505,7 +515,7 @@ class ImagePartition(PartitionBase):
             kind=kind,
             keep=True,
         )
-        self._runtime.record_partition(region.index_space, self, index_partition)
+        # self._runtime.record_partition(region.index_space, self, index_partition)
         return region.get_child(index_partition)
 
     # TODO (rohany): IDK how we're supposed to know this about an image / image range.
@@ -518,7 +528,7 @@ class ImagePartition(PartitionBase):
 
     # TODO (rohany): IDK how we're supposed to know this about an image / image range.
     def satisfies_restriction(
-            self, restrictions: Sequence[Restriction]
+        self, restrictions: Sequence[Restriction]
     ) -> bool:
         raise NotImplementedError
 
@@ -536,13 +546,27 @@ class ImagePartition(PartitionBase):
 
     # TODO (rohany): Implement...
     def __hash__(self) -> int:
+        return hash(
+            (
+                self.__class__,
+                self._store,
+                self._part,
+                self._range,
+            )
+        )
         # TODO (rohany): A problem with this (and then using this as a key in the future) is that
         #  the result of the image partition depends on the values in the region. Once the region
         #  has been updated, the partition is different.
         return hash(self.__class__)
 
     def __eq__(self, other: object) -> bool:
-        raise NotImplementedError
+        return False
+        return (
+            isinstance(other, PartitionByImage)
+            and self._store == other._store
+            and self._part == other._part
+            and self._range == other._range
+        )
 
     def __str__(self) -> str:
         return f"image({self._store}, {self._part}, range={self._range})"

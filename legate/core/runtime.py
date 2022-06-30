@@ -1065,7 +1065,6 @@ class Runtime:
                 self, [op], must_be_single=must_be_single
             )
             strategies.append(partitioner.partition_stores())
-            print(strategies[-1])
         for op, strategy in zip(ops, strategies):
             op.launch(strategy)
 
