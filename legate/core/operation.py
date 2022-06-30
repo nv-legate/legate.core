@@ -617,10 +617,9 @@ class ManualTask(Operation, Task):
         self._check_arg(arg)
         if isinstance(arg, Store):
             if arg.unbound:
-                raise ValueError(
-                    "Unbound store cannot be used with "
-                    "manually parallelized task"
-                )
+                self._unbound_outputs.append(len(self._outputs))
+                self._outputs.append(arg)
+                return
             if arg.kind is Future:
                 self._scalar_outputs.append(len(self._outputs))
             self._output_parts.append(arg.partition(Replicate(self.context.runtime)))
@@ -690,6 +689,13 @@ class ManualTask(Operation, Task):
             launcher.add_reduction(
                 part.store, req, tag=0, read_write=can_read_write
             )
+
+        # Add all unbound stores.
+        for store_idx in self._unbound_outputs:
+            store = self._outputs[store_idx]
+            fspace = self.context.runtime.create_field_space()
+            field_id = fspace.allocate_field(store.type)
+            launcher.add_unbound_output(store, fspace, field_id)
 
         self._add_scalar_args_to_launcher(launcher)
 
