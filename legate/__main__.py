@@ -179,6 +179,8 @@ def get_legion_paths(legate_dir):
                     legion_dir, get_python_site_packages_path(legion_dir)
                 )
             legate_build_dir = None
+    else:
+        legate_build_dir = None
 
     # If no local build dir found, assume legate installed into the python env
     if legate_build_dir is None:
