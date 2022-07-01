@@ -195,11 +195,7 @@ def install(
     ]
 
     if editable:
-        pip_install_cmd += [
-            "--no-deps",
-            "--no-build-isolation",
-            "--editable"
-        ]
+        pip_install_cmd += ["--no-deps", "--no-build-isolation", "--editable"]
     else:
         pip_install_cmd += [
             "--install-option='--force'",
