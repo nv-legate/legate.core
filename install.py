@@ -178,9 +178,7 @@ def install(
 
     if clean_first:
         shutil.rmtree(build_dir, ignore_errors=True)
-        shutil.rmtree(
-            join(legate_core_dir, "dist"), ignore_errors=True
-        )
+        shutil.rmtree(join(legate_core_dir, "dist"), ignore_errors=True)
         shutil.rmtree(
             join(legate_core_dir, "legate.core.egg-info"),
             ignore_errors=True,
@@ -271,22 +269,28 @@ def install(
 
     cmake_flags += extra_flags
     cmd_env = dict(os.environ.items())
-    cmd_env.update({
-        "SKBUILD_BUILD_OPTIONS": f"-j{str(thread_count)}",
-        "SKBUILD_CONFIGURE_OPTIONS": "\n".join(cmake_flags),
-    })
+    cmd_env.update(
+        {
+            "SKBUILD_BUILD_OPTIONS": f"-j{str(thread_count)}",
+            "SKBUILD_CONFIGURE_OPTIONS": "\n".join(cmake_flags),
+        }
+    )
 
     # execute python -m pip install <args> .
     execute_command(pip_install_cmd, verbose, cwd=legate_core_dir, env=cmd_env)
 
     # Install Legion if `legion_dir` a Legion build dir
-    if legion_dir is not None and os.path.exists(join(legion_dir, "CMakeCache.txt")):
+    if legion_dir is not None and os.path.exists(
+        join(legion_dir, "CMakeCache.txt")
+    ):
         pass
     # Install Legion if it was built as a byproduct of legate_core
     elif os.path.exists(_skbuild_dir := join(build_dir)):
         for f in os.listdir(_skbuild_dir):
             if os.path.exists(
-                legion_dir := join(_skbuild_dir, f, "cmake-build", "_deps", "legion-build")
+                legion_dir := join(
+                    _skbuild_dir, f, "cmake-build", "_deps", "legion-build"
+                )
             ):
                 break
     # Otherwise legion_dir must be an existing system installation
@@ -299,7 +303,6 @@ def install(
             install_args += ["--prefix", install_dir]
         # Install Legion if legion_dir is a path to its build dir
         execute_command(install_args, verbose)
-
 
 
 def driver():
