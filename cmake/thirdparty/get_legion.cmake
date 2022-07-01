@@ -53,6 +53,9 @@ function(find_or_configure_legion)
   else()
     include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/cpm_helpers.cmake)
     get_cpm_git_args(legion_cpm_git_args REPOSITORY ${PKG_REPOSITORY} BRANCH ${PKG_BRANCH})
+    if(NOT DEFINED Legion_PYTHON_EXTRA_INSTALL_ARGS)
+      set(Legion_PYTHON_EXTRA_INSTALL_ARGS "--single-version-externally-managed --root=/")
+    endif()
     rapids_cpm_find(Legion ${FIND_PKG_ARGS}
         CPM_ARGS
           ${legion_cpm_git_args}
@@ -67,8 +70,6 @@ function(find_or_configure_legion)
                            "Legion_REDOP_HALF ON"
                            "Legion_REDOP_COMPLEX ON"
                            "Legion_GPU_REDUCTIONS OFF"
-                           "Legion_CUDA_ARCH ${Legion_CUDA_ARCH}"
-                           "Legion_PYTHON_EXTRA_INSTALL_ARGS --single-version-externally-managed --root=/"
     )
   endif()
 
