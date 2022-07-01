@@ -52,7 +52,7 @@ static int mpi_tag_ub = 0;
 
 static std::vector<MPI_Comm> mpi_comms;
 #else  // undef LEGATE_USE_GASNET
-static std::vector<ThreadComm *> thread_comms;
+static std::vector<ThreadComm*> thread_comms;
 #endif
 
 static int current_unique_id = 0;
@@ -286,7 +286,7 @@ int collFinalize()
     LEGATE_ABORT;
   }
 #else
-  for (ThreadComm* thread_comm : thread_comms) { 
+  for (ThreadComm* thread_comm : thread_comms) {
     assert(!thread_comm->ready_flag);
     free(thread_comm);
   }
@@ -322,7 +322,7 @@ int collInitComm()
 #else
   assert(thread_comms.size() == id);
   // create thread comm
-  ThreadComm *thread_comm = (ThreadComm *)malloc(sizeof(ThreadComm));
+  ThreadComm* thread_comm = (ThreadComm*)malloc(sizeof(ThreadComm));
   thread_comm->ready_flag = false;
   thread_comm->buffers    = nullptr;
   thread_comm->displs     = nullptr;
@@ -498,7 +498,7 @@ void resetLocalBuffer(CollComm global_comm)
 void barrierLocal(CollComm global_comm)
 {
   assert(coll_inited == true);
-  //pthread_barrier_wait(const_cast<pthread_barrier_t*>(&(global_comm->comm->barrier)));
+  // pthread_barrier_wait(const_cast<pthread_barrier_t*>(&(global_comm->comm->barrier)));
   pthread_barrier_wait(const_cast<pthread_barrier_t*>(&(global_comm->comm->barrier)));
 }
 #endif
