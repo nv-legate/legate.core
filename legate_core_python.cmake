@@ -26,6 +26,7 @@ endif()
 
 if(NOT legate_core_FOUND)
   set(SKBUILD OFF)
+  set(Legion_USE_Python ON)
   add_subdirectory(. legate_core-cpp)
   set(SKBUILD ON)
 endif()
@@ -35,7 +36,6 @@ execute_process(
     -E -DLEGATE_USE_PYTHON_CFFI
     -I "${CMAKE_CURRENT_SOURCE_DIR}/core/src"
     -P "${CMAKE_CURRENT_SOURCE_DIR}/src/core/legate_c.h"
-  COMMAND_ECHO STDOUT
   ECHO_ERROR_VARIABLE
   OUTPUT_VARIABLE header
   COMMAND_ERROR_IS_FATAL ANY
