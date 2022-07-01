@@ -114,99 +114,6 @@ def find_active_python_version_and_path():
     return version, paths[0]
 
 
-def install_legion_python(legion_src_dir, install_dir, verbose=False):
-
-    os.makedirs(os.path.join(install_dir, "share", "legate"), exist_ok=True)
-
-    src = os.path.join(legion_src_dir, "runtime", "legion", "legion_c_util.h")
-    dst = os.path.join(install_dir, "include", "legion", "legion_c_util.h")
-    if not os.path.exists(dst) or os.path.getmtime(dst) < os.path.getmtime(
-        src
-    ):
-        execute_command(["cp", src, dst], verbose)
-
-    execute_command(
-        [
-            "cp",
-            "legion_spy.py",
-            os.path.join(install_dir, "share", "legate", "legion_spy.py"),
-        ],
-        verbose,
-        cwd=os.path.join(legion_src_dir, "tools"),
-    )
-    execute_command(
-        [
-            "cp",
-            "legion_prof.py",
-            os.path.join(install_dir, "share", "legate", "legion_prof.py"),
-        ],
-        verbose,
-        cwd=os.path.join(legion_src_dir, "tools"),
-    )
-    execute_command(
-        [
-            "cp",
-            "legion_serializer.py",
-            os.path.join(
-                install_dir, "share", "legate", "legion_serializer.py"
-            ),
-        ],
-        verbose,
-        cwd=os.path.join(legion_src_dir, "tools"),
-    )
-    execute_command(
-        [
-            "cp",
-            "legion_prof_copy.html.template",
-            os.path.join(
-                install_dir,
-                "share",
-                "legate",
-                "legion_prof_copy.html.template",
-            ),
-        ],
-        verbose,
-        cwd=os.path.join(legion_src_dir, "tools"),
-    )
-    execute_command(
-        [
-            "cp",
-            "-r",
-            "legion_prof_files",
-            os.path.join(install_dir, "share", "legate", "legion_prof_files"),
-        ],
-        verbose,
-        cwd=os.path.join(legion_src_dir, "tools"),
-    )
-
-
-def get_legion_src_dir(legion_dir, build_dir, verbose=False):
-    if not legion_dir:
-        # If legion_dir wasn't specified, try CPM's `_deps/legion-src` path:
-        if os.path.exists(os.path.join(build_dir, "_deps", "legion-src")):
-            return os.path.join(build_dir, "_deps", "legion-src")
-    # If legion_dir was specified, test whether it is a CMake build dir
-    elif os.path.exists(os.path.join(legion_dir, "CMakeCache.txt")):
-        src_dir = (
-            execute_command_check_output(
-                [
-                    "grep",
-                    "--color=never",
-                    "Legion_SOURCE_DIR",
-                    os.path.join(legion_dir, "CMakeCache.txt"),
-                ],
-                verbose,
-            )
-            .decode("UTF-8")
-            .strip()
-        )
-        # `src_dir` will be something like:
-        # `Legion_SOURCE_DIR:STATIC=/path/to/legion`
-        src_dir = src_dir.split("=")[1]
-        return src_dir
-    raise Exception("Could not determine path to Legion source directory")
-
-
 def install(
     gasnet,
     cuda,
@@ -231,6 +138,7 @@ def install(
     check_bounds,
     clean_first,
     extra_flags,
+    editable,
     thread_count,
     verbose,
     thrust_dir,
@@ -239,6 +147,9 @@ def install(
     legion_branch,
     unknown,
 ):
+
+    join = os.path.join
+
     legate_core_dir = os.path.dirname(os.path.realpath(__file__))
 
     if pylib_name is None:
@@ -251,9 +162,11 @@ def install(
         pyversion = match.group(1)
     print("Using python lib and version: {}, {}".format(pylib_name, pyversion))
 
-    if install_dir is None:
-        install_dir = os.path.join(legate_core_dir, "install")
-    install_dir = os.path.realpath(install_dir)
+    # if install_dir is None:
+    #     install_dir = join(legate_core_dir, "install")
+    # install_dir = os.path.realpath(install_dir)
+    if install_dir is not None:
+        install_dir = os.path.realpath(install_dir)
 
     if thread_count is None:
         thread_count = multiprocessing.cpu_count()
@@ -261,48 +174,57 @@ def install(
     if thrust_dir is not None:
         thrust_dir = os.path.realpath(thrust_dir)
 
-    build_dir = os.path.join(legate_core_dir, "_skbuild")
+    build_dir = join(legate_core_dir, "_skbuild")
 
     if clean_first:
         shutil.rmtree(build_dir, ignore_errors=True)
         shutil.rmtree(
-            os.path.join(legate_core_dir, "dist"), ignore_errors=True
+            join(legate_core_dir, "dist"), ignore_errors=True
         )
         shutil.rmtree(
-            os.path.join(legate_core_dir, "legate.core.egg-info"),
+            join(legate_core_dir, "legate.core.egg-info"),
             ignore_errors=True,
         )
 
-    if legion_dir is not None:
-        if os.path.exists(os.path.join(legion_dir, "CMakeCache.txt")):
-            # Install Legion if legion_dir is a path to its build dir
-            execute_command(
-                [cmake_exe, "--install", legion_dir, "--prefix", install_dir],
-                verbose,
-            )
-
     # Configure and build legate.core via setup.py
-    setup_py_cmd = [
+    pip_install_cmd = [
         sys.executable,
-        "setup.py",
-        "-j",
-        str(thread_count),
+        "-m",
+        "pip",
+        "install",
+        "--root",
+        "/",
+        "--no-deps",
+        "--no-build-isolation",
     ]
-    if cmake_generator:
-        setup_py_cmd += ["-G", cmake_generator, "--skip-generator-test"]
 
-    setup_py_cmd += ["install", "--force"] + setup_py_flags
+    if editable:
+        pip_install_cmd += ["--editable"]
+    else:
+        pip_install_cmd += [
+            "--install-option='--force'",
+            "--install-option='--single-version-externally-managed'",
+        ]
 
     if unknown is not None:
         try:
             prefix_loc = unknown.index("--prefix")
-            setup_py_cmd.extend(unknown[prefix_loc : prefix_loc + 2])
+            pip_install_cmd.extend(unknown[prefix_loc : prefix_loc + 2])
         except ValueError:
-            setup_py_cmd += ["--prefix", str(install_dir)]
+            if install_dir is not None:
+                pip_install_cmd += ["--prefix", str(install_dir)]
     else:
-        setup_py_cmd += ["--prefix", str(install_dir)]
+        if install_dir is not None:
+            pip_install_cmd += ["--prefix", str(install_dir)]
 
-    cmake_flags = ["--"]
+    pip_install_cmd += ["."]
+    if verbose:
+        pip_install_cmd += ["-v"]
+
+    cmake_flags = []
+
+    if cmake_generator:
+        cmake_flags += [f"-G{cmake_generator}"]
 
     if debug or verbose:
         cmake_flags += ["--log-level=%s" % ("DEBUG" if debug else "VERBOSE")]
@@ -347,16 +269,37 @@ def install(
     if legion_branch:
         cmake_flags += ["-DLEGATE_CORE_LEGION_BRANCH=%s" % legion_branch]
 
-    setup_py_cmd += cmake_flags
+    cmake_flags += extra_flags
+    cmd_env = dict(os.environ.items())
+    cmd_env.update({
+        "SKBUILD_BUILD_OPTIONS": f"-j{str(thread_count)}",
+        "SKBUILD_CONFIGURE_OPTIONS": "\n".join(cmake_flags),
+    })
 
-    setup_py_cmd += ["--"]
-    setup_py_cmd += ["-j", str(thread_count)]
+    # execute python -m pip install <args> .
+    execute_command(pip_install_cmd, verbose, cwd=legate_core_dir, env=cmd_env)
 
-    # run python setup.py <args>
-    execute_command(setup_py_cmd, verbose, cwd=legate_core_dir)
+    # Install Legion if `legion_dir` a Legion build dir
+    if legion_dir is not None and os.path.exists(join(legion_dir, "CMakeCache.txt")):
+        pass
+    # Install Legion if it was built as a byproduct of legate_core
+    elif os.path.exists(_skbuild_dir := join(build_dir)):
+        for f in os.listdir(_skbuild_dir):
+            if os.path.exists(
+                legion_dir := join(_skbuild_dir, f, "cmake-build", "_deps", "legion-build")
+            ):
+                break
+    # Otherwise legion_dir must be an existing system installation
+    else:
+        legion_dir = None
 
-    legion_src_dir = get_legion_src_dir(legion_dir, build_dir, verbose)
-    install_legion_python(legion_src_dir, install_dir, verbose)
+    if legion_dir is not None:
+        install_args = [cmake_exe, "--install", legion_dir]
+        if install_dir is not None:
+            install_args += ["--prefix", install_dir]
+        # Install Legion if legion_dir is a path to its build dir
+        execute_command(install_args, verbose)
+
 
 
 def driver():
@@ -551,6 +494,14 @@ def driver():
         nargs="?",
         type=int,
         help="Number of threads used to compile.",
+    )
+    parser.add_argument(
+        "--editable",
+        dest="editable",
+        action="store_true",
+        required=False,
+        default=False,
+        help="Perform an editable install.",
     )
     parser.add_argument(
         "-v",
