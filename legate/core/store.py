@@ -809,14 +809,17 @@ class StorePartition:
     def get_requirement(
         self,
         launch_ndim: int,
-        proj_fn: Optional[ProjFn] = None,
+        proj_fn: Optional[ProjFn, int] = None,
     ) -> Proj:
         part = self._storage_partition.find_or_create_legion_partition()
         if part is not None:
-            proj_id = self._store.compute_projection(proj_fn, launch_ndim)
-            if self._partition.needs_delinearization(launch_ndim):
-                assert proj_id == 0
-                proj_id = runtime.get_delinearize_functor()
+            if isinstance(proj_fn, int):
+                proj_id = proj_fn
+            else:
+                proj_id = self._store.compute_projection(proj_fn, launch_ndim)
+                if self._partition.needs_delinearization(launch_ndim):
+                    assert proj_id == 0
+                    proj_id = runtime.get_delinearize_functor()
         else:
             proj_id = 0
         return self._partition.requirement(part, proj_id)
@@ -1320,6 +1323,15 @@ class Store:
             self.invert_partition(partition),
         )
         return StorePartition(self, partition, storage_partition)
+
+    # TODO (rohany): Hacking...
+    def direct_partition(self, partition : PartitionBase) -> StorePartition:
+        return StorePartition(
+            self._runtime,
+            self,
+            partition,
+            self._storage.partition(partition),
+        )
 
     def partition_by_tiling(
         self, tile_shape: Union[Shape, Sequence[int]]

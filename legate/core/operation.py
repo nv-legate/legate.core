@@ -575,13 +575,16 @@ class ManualTask(Operation, Task):
             context=context, task_id=task_id, mapper_id=mapper_id, op_id=op_id
         )
         self._launch_domain: Rect = launch_domain
-        self._input_projs: list[Union[ProjFn, None]] = []
+        # TODO (rohany): The int here is an explicit ID.
+        self._input_projs: list[Union[ProjFn, None, int]] = []
         self._output_projs: list[Union[ProjFn, None]] = []
         self._reduction_projs: list[Union[ProjFn, None]] = []
 
         self._input_parts: list[StorePartition] = []
         self._output_parts: list[StorePartition] = []
         self._reduction_parts: list[tuple[StorePartition, int]] = []
+
+        self._scalar_future_maps: list[FutureMap] = []
 
     @property
     def launch_ndim(self) -> int:
@@ -600,7 +603,7 @@ class ManualTask(Operation, Task):
     def add_input(
         self,
         arg: Union[Store, StorePartition],
-        proj: Optional[ProjFn] = None,
+        proj: Optional[ProjFn, int] = None,
     ) -> None:
         self._check_arg(arg)
         if isinstance(arg, Store):
@@ -689,6 +692,9 @@ class ManualTask(Operation, Task):
             launcher.add_reduction(
                 part.store, req, tag=0, read_write=can_read_write
             )
+
+        for fm in self._scalar_future_maps:
+            launcher.add_future_map(fm)
 
         # Add all unbound stores.
         for store_idx in self._unbound_outputs:
