@@ -24,6 +24,8 @@ from . import (
     PartitionByImageRange,
     PartitionByRestriction,
     PartitionByWeights,
+    PartitionByDomain,
+    Point,
     Rect,
     Transform,
     legion,
@@ -554,22 +556,94 @@ class ImagePartition(PartitionBase):
                 self._range,
             )
         )
-        # TODO (rohany): A problem with this (and then using this as a key in the future) is that
-        #  the result of the image partition depends on the values in the region. Once the region
-        #  has been updated, the partition is different.
-        return hash(self.__class__)
 
     def __eq__(self, other: object) -> bool:
         return False
-        return (
-            isinstance(other, PartitionByImage)
-            and self._store == other._store
-            and self._part == other._part
-            and self._range == other._range
-        )
+        # return (
+        #     isinstance(other, PartitionByImage)
+        #     and self._store == other._store
+        #     and self._part == other._part
+        #     and self._range == other._range
+        # )
 
     def __str__(self) -> str:
         return f"image({self._store}, {self._part}, range={self._range})"
+
+    def __repr__(self) -> str:
+        return str(self)
+
+
+class DomainPartition(PartitionBase):
+    def __init__(self, runtime: Runtime, color_shape: Shape, domains: Union[FutureMap, dict[Point, Rect]]):
+        self._runtime = runtime
+        self._color_shape = color_shape
+        self._domains = domains
+
+    @property
+    def color_shape(self) -> Optional[Shape]:
+        return self._color_shape
+
+    @property
+    def even(self) -> bool:
+        return False
+
+    def construct(self, region: Region, complete: bool = False):
+        # TODO (rohany): Think about caching these things.
+        functor = PartitionByDomain(self._domains)
+        index_space = region.index_space
+        index_partition = IndexPartition(
+            self._runtime.legion_context,
+            self._runtime.legion_runtime,
+            index_space,
+            self._runtime.find_or_create_index_space(self._color_shape),
+            functor=functor,
+            keep=True,
+        )
+        # TODO (rohany): Record the partition.
+        return region.get_child(index_partition)
+
+    # TODO (rohany): We can probably figure this out by staring at the domain map.
+    def is_complete_for(self, extents: Shape, offsets: Shape) -> bool:
+        return False
+
+    # TODO (rohany): We can probably figure this out by staring at the domain map.
+    def is_disjoint_for(self, launch_domain: Optional[Rect]) -> bool:
+        return False
+
+    # TODO (rohany): IDK how we're supposed to know this about.
+    def satisfies_restriction(
+            self, restrictions: Sequence[Restriction]
+    ) -> bool:
+        raise NotImplementedError
+
+    @property
+    def requirement(self) -> RequirementType:
+        return Partition
+
+    @property
+    def runtime(self) -> Runtime:
+        return self._runtime
+
+    # TODO (rohany): IDK what this means...
+    def needs_delinearization(self, launch_ndim: int) -> bool:
+        return False
+
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.__class__,
+                self._color_shape,
+                # TODO (rohany): No better ideas...
+                id(self._domains),
+            )
+        )
+
+    # TODO (rohany): Implement this.
+    def __eq__(self, other : object) -> bool:
+        return False
+
+    def __str__(self) -> str:
+        return f"by_domain({self._color_shape}, {self._domains})"
 
     def __repr__(self) -> str:
         return str(self)
