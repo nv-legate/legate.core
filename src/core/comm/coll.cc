@@ -52,7 +52,7 @@ static int mpi_tag_ub = 0;
 
 static std::vector<MPI_Comm> mpi_comms;
 #else  // undef LEGATE_USE_GASNET
-static std::vector<ThreadComm> thread_comms;
+static std::vector<ThreadComm*> thread_comms;
 #endif
 
 static int current_unique_id = 0;
@@ -102,24 +102,24 @@ int collCommCreate(CollComm global_comm,
   global_comm->mpi_comm_size_actual = 1;
   global_comm->mpi_rank             = 0;
   if (global_comm->global_rank == 0) {
-    pthread_barrier_init((pthread_barrier_t*)&(thread_comms[global_comm->unique_id].barrier),
+    pthread_barrier_init((pthread_barrier_t*)&(thread_comms[global_comm->unique_id]->barrier),
                          nullptr,
                          global_comm->global_comm_size);
-    thread_comms[global_comm->unique_id].buffers =
+    thread_comms[global_comm->unique_id]->buffers =
       (const void**)malloc(sizeof(void*) * global_comm_size);
-    thread_comms[global_comm->unique_id].displs =
+    thread_comms[global_comm->unique_id]->displs =
       (const int**)malloc(sizeof(int*) * global_comm_size);
     for (int i = 0; i < global_comm_size; i++) {
-      thread_comms[global_comm->unique_id].buffers[i] = nullptr;
-      thread_comms[global_comm->unique_id].displs[i]  = nullptr;
+      thread_comms[global_comm->unique_id]->buffers[i] = nullptr;
+      thread_comms[global_comm->unique_id]->displs[i]  = nullptr;
     }
     __sync_synchronize();
-    thread_comms[global_comm->unique_id].ready_flag = true;
+    thread_comms[global_comm->unique_id]->ready_flag = true;
   }
   __sync_synchronize();
-  volatile ThreadComm* data = &(thread_comms[global_comm->unique_id]);
-  while (data->ready_flag != true) { data = &(thread_comms[global_comm->unique_id]); }
-  global_comm->comm = &(thread_comms[global_comm->unique_id]);
+  volatile ThreadComm* data = thread_comms[global_comm->unique_id];
+  while (data->ready_flag != true) { data = thread_comms[global_comm->unique_id]; }
+  global_comm->comm = thread_comms[global_comm->unique_id];
   barrierLocal(global_comm);
   assert(global_comm->comm->ready_flag == true);
   assert(global_comm->comm->buffers != nullptr);
@@ -143,17 +143,17 @@ int collCommDestroy(CollComm global_comm)
 #else
   barrierLocal(global_comm);
   if (global_comm->global_rank == 0) {
-    pthread_barrier_destroy((pthread_barrier_t*)&(thread_comms[global_comm->unique_id].barrier));
-    free(thread_comms[global_comm->unique_id].buffers);
-    thread_comms[global_comm->unique_id].buffers = nullptr;
-    free(thread_comms[global_comm->unique_id].displs);
-    thread_comms[global_comm->unique_id].displs = nullptr;
+    pthread_barrier_destroy((pthread_barrier_t*)&(thread_comms[global_comm->unique_id]->barrier));
+    free(thread_comms[global_comm->unique_id]->buffers);
+    thread_comms[global_comm->unique_id]->buffers = nullptr;
+    free(thread_comms[global_comm->unique_id]->displs);
+    thread_comms[global_comm->unique_id]->displs = nullptr;
     __sync_synchronize();
-    thread_comms[global_comm->unique_id].ready_flag = false;
+    thread_comms[global_comm->unique_id]->ready_flag = false;
   }
   __sync_synchronize();
-  volatile ThreadComm* data = &(thread_comms[global_comm->unique_id]);
-  while (data->ready_flag != false) { data = &(thread_comms[global_comm->unique_id]); }
+  volatile ThreadComm* data = thread_comms[global_comm->unique_id];
+  while (data->ready_flag != false) { data = thread_comms[global_comm->unique_id]; }
 #endif
   global_comm->status = false;
   return CollSuccess;
@@ -286,7 +286,10 @@ int collFinalize()
     LEGATE_ABORT;
   }
 #else
-  for (ThreadComm& thread_comm : thread_comms) { assert(!thread_comm.ready_flag); }
+  for (ThreadComm* thread_comm : thread_comms) {
+    assert(!thread_comm->ready_flag);
+    free(thread_comm);
+  }
   thread_comms.clear();
 #endif
   return CollSuccess;
@@ -319,10 +322,10 @@ int collInitComm()
 #else
   assert(thread_comms.size() == id);
   // create thread comm
-  ThreadComm thread_comm;
-  thread_comm.ready_flag = false;
-  thread_comm.buffers    = nullptr;
-  thread_comm.displs     = nullptr;
+  ThreadComm* thread_comm = (ThreadComm*)malloc(sizeof(ThreadComm));
+  thread_comm->ready_flag = false;
+  thread_comm->buffers    = nullptr;
+  thread_comm->displs     = nullptr;
   thread_comms.push_back(thread_comm);
 #endif
   log_coll.debug("Init comm id %d", id);
