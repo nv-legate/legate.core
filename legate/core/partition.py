@@ -468,12 +468,16 @@ class ImagePartition(PartitionBase):
         store: Any,
         part: PartitionBase,
         range: bool = False,
+        disjoint: bool = True,
+        complete: bool = True,
     ) -> None:
         self._runtime = runtime
         self._store = store
         self._part = part
         # Whether this is an image or image_range operation.
         self._range = range
+        self._disjoint = disjoint
+        self._complete = complete
 
     @property
     def color_shape(self) -> Optional[Shape]:
@@ -505,10 +509,14 @@ class ImagePartition(PartitionBase):
             region.index_space, self
         )
         if index_partition is None:
-            # TODO (rohany): Use some information about the partition to
-            #  figure out whats going on... Maybe there should be hints that
-            #  the user can pass in through the constraints.
-            kind = legion.LEGION_DISJOINT_INCOMPLETE_KIND
+            if self._disjoint and self._complete:
+                kind = legion.LEGION_DISJOINT_COMPLETE_KIND
+            elif self._disjoint and not self._complete:
+                kind = legion.LEGION_DISJOINT_INCOMPLETE_KIND
+            elif not self._disjoint and self._complete:
+                kind = legion.LEGION_ALIASED_COMPLETE_KIND
+            else:
+                kind = legion.LEGION_ALIASED_INCOMPLETE_KIND
             index_partition = IndexPartition(
                 self._runtime.legion_context,
                 self._runtime.legion_runtime,
@@ -523,13 +531,11 @@ class ImagePartition(PartitionBase):
             )
         return region.get_child(index_partition)
 
-    # TODO (rohany): Use user hints about this.
     def is_complete_for(self, extents: Shape, offsets: Shape) -> bool:
-        return False
+        return self._complete
 
-    # TODO (rohany): Use user hints about this.
     def is_disjoint_for(self, launch_domain: Optional[Rect]) -> bool:
-        return False
+        return self._disjoint
 
     # TODO (rohany): I'm not sure about this. It seems like it should just
     #  be whether the source partition satisfies the restrictions.
