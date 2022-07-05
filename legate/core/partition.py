@@ -20,11 +20,11 @@ from typing import TYPE_CHECKING, Any, Optional, Sequence, Type, Union
 
 from . import (
     IndexPartition,
+    PartitionByDomain,
     PartitionByImage,
     PartitionByImageRange,
     PartitionByRestriction,
     PartitionByWeights,
-    PartitionByDomain,
     Point,
     Rect,
     Transform,
@@ -461,10 +461,7 @@ class Weighted(PartitionBase):
         return region.get_child(index_partition)
 
 
-# TODO (rohany): Do we need to have a difference between image and preimage?
 class ImagePartition(PartitionBase):
-    # TODO (rohany): What's the right type to pass through for the partitions and regions here?
-    # store is of type legate.Store. However, we can't import it directly due to an import cycle.
     def __init__(
         self,
         runtime: Runtime,
@@ -504,37 +501,45 @@ class ImagePartition(PartitionBase):
             functor = PartitionByImage(
                 source_region, source_part, source_field.field_id
             )
-        # TODO (rohany): Use some information about the partition to figure out whats going on...
-        #  Maybe there should be hints that the user can pass in through the constraints.
-        kind = legion.LEGION_DISJOINT_INCOMPLETE_KIND
-        # TODO (rohany): Let's just create a new partition each time.
-        index_partition = IndexPartition(
-            self._runtime.legion_context,
-            self._runtime.legion_runtime,
-            region.index_space,
-            source_part.color_space,
-            functor=functor,
-            kind=kind,
-            keep=True,
+        index_partition = self._runtime.find_partition(
+            region.index_space, self
         )
-        # self._runtime.record_partition(region.index_space, self, index_partition)
+        if index_partition is None:
+            # TODO (rohany): Use some information about the partition to
+            #  figure out whats going on... Maybe there should be hints that
+            #  the user can pass in through the constraints.
+            kind = legion.LEGION_DISJOINT_INCOMPLETE_KIND
+            index_partition = IndexPartition(
+                self._runtime.legion_context,
+                self._runtime.legion_runtime,
+                region.index_space,
+                source_part.color_space,
+                functor=functor,
+                kind=kind,
+                keep=True,
+            )
+            self._runtime.record_partition(
+                region.index_space, self, index_partition
+            )
         return region.get_child(index_partition)
 
-    # TODO (rohany): IDK how we're supposed to know this about an image / image range.
+    # TODO (rohany): Use user hints about this.
     def is_complete_for(self, extents: Shape, offsets: Shape) -> bool:
         return False
 
-    # TODO (rohany): IDK how we're supposed to know this about an image / image range.
+    # TODO (rohany): Use user hints about this.
     def is_disjoint_for(self, launch_domain: Optional[Rect]) -> bool:
         return False
 
-    # TODO (rohany): IDK how we're supposed to know this about an image / image range.
+    # TODO (rohany): I'm not sure about this. It seems like it should just
+    #  be whether the source partition satisfies the restrictions.
     def satisfies_restriction(
         self, restrictions: Sequence[Restriction]
     ) -> bool:
         raise NotImplementedError
 
-    # TODO (rohany): IDK what this means...
+    # TODO (rohany): I'm not sure about this. It seems like it should just
+    #  be whether the source partition also needs delinearization.
     def needs_delinearization(self, launch_ndim: int) -> bool:
         return False
 
@@ -546,25 +551,26 @@ class ImagePartition(PartitionBase):
     def runtime(self) -> Runtime:
         return self._runtime
 
-    # TODO (rohany): Implement...
     def __hash__(self) -> int:
         return hash(
             (
                 self.__class__,
                 self._store,
+                self._store._version,
                 self._part,
                 self._range,
             )
         )
 
     def __eq__(self, other: object) -> bool:
-        return False
-        # return (
-        #     isinstance(other, PartitionByImage)
-        #     and self._store == other._store
-        #     and self._part == other._part
-        #     and self._range == other._range
-        # )
+        return (
+            isinstance(other, ImagePartition)
+            # TODO (rohany): I think we can perform equality on the store.
+            and self._store == other._store
+            and self._store.version == other._store.version
+            and self._part == other._part
+            and self._range == other._range
+        )
 
     def __str__(self) -> str:
         return f"image({self._store}, {self._part}, range={self._range})"
@@ -574,7 +580,12 @@ class ImagePartition(PartitionBase):
 
 
 class DomainPartition(PartitionBase):
-    def __init__(self, runtime: Runtime, color_shape: Shape, domains: Union[FutureMap, dict[Point, Rect]]):
+    def __init__(
+        self,
+        runtime: Runtime,
+        color_shape: Shape,
+        domains: Union[FutureMap, dict[Point, Rect]],
+    ):
         self._runtime = runtime
         self._color_shape = color_shape
         self._domains = domains
@@ -602,17 +613,17 @@ class DomainPartition(PartitionBase):
         # TODO (rohany): Record the partition.
         return region.get_child(index_partition)
 
-    # TODO (rohany): We can probably figure this out by staring at the domain map.
+    # TODO (rohany): We could figure this out by staring at the domain map.
     def is_complete_for(self, extents: Shape, offsets: Shape) -> bool:
         return False
 
-    # TODO (rohany): We can probably figure this out by staring at the domain map.
+    # TODO (rohany): We could figure this out by staring at the domain map.
     def is_disjoint_for(self, launch_domain: Optional[Rect]) -> bool:
         return False
 
     # TODO (rohany): IDK how we're supposed to know this about.
     def satisfies_restriction(
-            self, restrictions: Sequence[Restriction]
+        self, restrictions: Sequence[Restriction]
     ) -> bool:
         raise NotImplementedError
 
@@ -639,7 +650,7 @@ class DomainPartition(PartitionBase):
         )
 
     # TODO (rohany): Implement this.
-    def __eq__(self, other : object) -> bool:
+    def __eq__(self, other: object) -> bool:
         return False
 
     def __str__(self) -> str:
