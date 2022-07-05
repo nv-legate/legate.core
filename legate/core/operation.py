@@ -178,7 +178,9 @@ class Operation(OperationProtocol):
         #  rather than an external type system to understand this then.
         part1 = self._get_unique_partition(store1)
         part2 = self._get_unique_partition(store2)
-        image = Image(store1, store2, part1, range=range)
+        image = Image(
+            store1, store2, part1, self._context.mapper_id, range=range
+        )
         self.add_constraint(image <= part2)
 
     def add_constraint(self, constraint: Constraint) -> None:
