@@ -141,6 +141,12 @@ class Operation(OperationProtocol):
         result.update(store for (store, _) in self._reductions)
         return result
 
+    def get_all_modified_stores(self) -> OrderedSet[Store]:
+        result = OrderedSet()
+        result.update(self._outputs)
+        result.update(store for (store, _) in self._reductions)
+        return result
+
     def add_alignment(self, store1: Store, store2: Store) -> None:
         self._check_store(store1)
         self._check_store(store2)
@@ -162,12 +168,14 @@ class Operation(OperationProtocol):
 
     # add_image_constraint adds a constraint that the image of store1 is
     # contained within the partition of store2.
-    def add_image_constraint(self, store1: Store, store2: Store, range : bool = False):
+    def add_image_constraint(
+        self, store1: Store, store2: Store, range: bool = False
+    ):
         self._check_store(store1)
         self._check_store(store2)
-        # TODO (rohany): We only support point (and rect types if range) here. It seems
-        #  like rects should be added to legate.core's type system rather than an external
-        #  type system to understand this then.
+        # TODO (rohany): We only support point (and rect types if range) here.
+        #  It seems like rects should be added to legate.core's type system
+        #  rather than an external type system to understand this then.
         part1 = self._get_unique_partition(store1)
         part2 = self._get_unique_partition(store2)
         image = Image(store1, store2, part1, range=range)
@@ -607,7 +615,9 @@ class ManualTask(Operation, Task):
     ) -> None:
         self._check_arg(arg)
         if isinstance(arg, Store):
-            self._input_parts.append(arg.partition(Replicate(self.context.runtime)))
+            self._input_parts.append(
+                arg.partition(Replicate(self.context.runtime))
+            )
         else:
             self._input_parts.append(arg)
         self._input_projs.append(proj)
@@ -625,7 +635,9 @@ class ManualTask(Operation, Task):
                 return
             if arg.kind is Future:
                 self._scalar_outputs.append(len(self._outputs))
-            self._output_parts.append(arg.partition(Replicate(self.context.runtime)))
+            self._output_parts.append(
+                arg.partition(Replicate(self.context.runtime))
+            )
         else:
             self._output_parts.append(arg)
         self._output_projs.append(proj)
@@ -640,7 +652,9 @@ class ManualTask(Operation, Task):
         if isinstance(arg, Store):
             if arg.kind is Future:
                 self._scalar_reductions.append(len(self._reductions))
-            self._reduction_parts.append((arg.partition(Replicate(self.context.runtime)), redop))
+            self._reduction_parts.append(
+                (arg.partition(Replicate(self.context.runtime)), redop)
+            )
         else:
             self._reduction_parts.append((arg, redop))
         self._reduction_projs.append(proj)

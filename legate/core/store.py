@@ -874,6 +874,11 @@ class Store:
         # when no custom functor is given
         self._projection: Union[None, int] = None
         self._restrictions: Union[None, tuple[Restriction, ...]] = None
+        # We maintain a version on store objects to cache dependent
+        # partitions created from the store. Operations that write
+        # to stores will bump their version and invalidate dependent
+        # partitions that were created with this store as the source.
+        self._version = 0
 
         if self._shape is not None:
             if any(extent < 0 for extent in self._shape.extents):
@@ -967,6 +972,13 @@ class Store:
     @property
     def transformed(self) -> bool:
         return not self._transform.bottom
+
+    @property
+    def version(self) -> int:
+        return self._version
+
+    def bump_version(self):
+        self._version += 1
 
     def attach_external_allocation(
         self, context: Context, alloc: Attachable, share: bool
@@ -1325,7 +1337,7 @@ class Store:
         return StorePartition(self, partition, storage_partition)
 
     # TODO (rohany): Hacking...
-    def direct_partition(self, partition : PartitionBase) -> StorePartition:
+    def direct_partition(self, partition: PartitionBase) -> StorePartition:
         return StorePartition(
             self._runtime,
             self,
