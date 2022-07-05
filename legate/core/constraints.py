@@ -223,11 +223,13 @@ class Image(Expr):
         source_store: Store,
         dst_store: Store,
         src_part_sym: Expr,
+        mapper: int,
         range: bool = False,
     ):
         self._source_store = source_store
         self._dst_store = dst_store
         self._src_part_sym = src_part_sym
+        self._mapper = mapper
         self._range = range
 
     def subst(self, mapping: dict[PartSym, PartitionBase]) -> Expr:
@@ -235,6 +237,7 @@ class Image(Expr):
             self._source_store,
             self._dst_store,
             self._src_part_sym.subst(mapping),
+            self._mapper,
             range=self._range,
         )
 
@@ -246,7 +249,11 @@ class Image(Expr):
             return Lit(part)
         return Lit(
             ImagePartition(
-                part.runtime, self._source_store, part, range=self._range
+                part.runtime,
+                self._source_store,
+                part,
+                self._mapper,
+                range=self._range,
             )
         )
 
@@ -255,13 +262,14 @@ class Image(Expr):
             yield unknown
 
     def equals(self, other: object):
-        # TODO (rohany): Careful... overloaded equals operator...
         return (
             isinstance(other, Image)
             and self._source_store == other._source_store
             and self._dst_store == other._dst_store
+            # Careful! Overloaded equals operator.
             and self._src_part_sym is other._src_part_sym
             and self._range == other._range
+            and self._mapper == other._mapper,
         )
 
 

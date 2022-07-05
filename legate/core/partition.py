@@ -467,11 +467,13 @@ class ImagePartition(PartitionBase):
         runtime: Runtime,
         store: Any,
         part: PartitionBase,
+        mapper: int,
         range: bool = False,
         disjoint: bool = True,
         complete: bool = True,
     ) -> None:
         self._runtime = runtime
+        self._mapper = mapper
         self._store = store
         self._part = part
         # Whether this is an image or image_range operation.
@@ -499,11 +501,17 @@ class ImagePartition(PartitionBase):
         source_part = self._part.construct(source_region)
         if self._range:
             functor = PartitionByImageRange(
-                source_region, source_part, source_field.field_id
+                source_region,
+                source_part,
+                source_field.field_id,
+                mapper=self._mapper,
             )
         else:
             functor = PartitionByImage(
-                source_region, source_part, source_field.field_id
+                source_region,
+                source_part,
+                source_field.field_id,
+                mapper=self._mapper,
             )
         index_partition = self._runtime.find_partition(
             region.index_space, self
@@ -565,6 +573,7 @@ class ImagePartition(PartitionBase):
                 self._store._version,
                 self._part,
                 self._range,
+                self._mapper,
             )
         )
 
@@ -576,6 +585,7 @@ class ImagePartition(PartitionBase):
             and self._store.version == other._store.version
             and self._part == other._part
             and self._range == other._range
+            and self._mapper == other._mapper
         )
 
     def __str__(self) -> str:
