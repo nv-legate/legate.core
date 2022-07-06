@@ -128,57 +128,57 @@ include(cmake/thirdparty/get_thrust.cmake)
 ##############################################################################
 # - legate.core --------------------------------------------------------------
 
-set(LEGATE_CORE_SOURCES "")
-set(LEGATE_CORE_CXX_DEFS "")
-set(LEGATE_CORE_CUDA_DEFS "")
-set(LEGATE_CORE_CXX_OPTIONS "")
-set(LEGATE_CORE_CUDA_OPTIONS "")
+set(legate_core_SOURCES "")
+set(legate_core_CXX_DEFS "")
+set(legate_core_CUDA_DEFS "")
+set(legate_core_CXX_OPTIONS "")
+set(legate_core_CUDA_OPTIONS "")
 
 include(cmake/Modules/set_cpu_arch_flags.cmake)
-set_cpu_arch_flags(LEGATE_CORE_CXX_OPTIONS)
+set_cpu_arch_flags(legate_core_CXX_OPTIONS)
 
 if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
-  list(APPEND LEGATE_CORE_CXX_DEFS DEBUG_LEGATE)
-  list(APPEND LEGATE_CORE_CUDA_DEFS DEBUG_LEGATE)
+  list(APPEND legate_core_CXX_DEFS DEBUG_LEGATE)
+  list(APPEND legate_core_CUDA_DEFS DEBUG_LEGATE)
 endif()
 
 if(Legion_USE_CUDA)
-  list(APPEND LEGATE_CORE_CXX_DEFS LEGATE_USE_CUDA)
-  list(APPEND LEGATE_CORE_CUDA_DEFS LEGATE_USE_CUDA)
+  list(APPEND legate_core_CXX_DEFS LEGATE_USE_CUDA)
+  list(APPEND legate_core_CUDA_DEFS LEGATE_USE_CUDA)
 
-  add_cuda_architecture_defines(LEGATE_CORE_CUDA_DEFS)
+  add_cuda_architecture_defines(legate_core_CUDA_DEFS)
 
-  list(APPEND LEGATE_CORE_CUDA_OPTIONS -Xfatbin=-compress-all)
-  list(APPEND LEGATE_CORE_CUDA_OPTIONS --expt-extended-lambda)
-  list(APPEND LEGATE_CORE_CUDA_OPTIONS --expt-relaxed-constexpr)
+  list(APPEND legate_core_CUDA_OPTIONS -Xfatbin=-compress-all)
+  list(APPEND legate_core_CUDA_OPTIONS --expt-extended-lambda)
+  list(APPEND legate_core_CUDA_OPTIONS --expt-relaxed-constexpr)
 endif()
 
 if(Legion_USE_OpenMP)
-  list(APPEND LEGATE_CORE_CXX_DEFS LEGATE_USE_OPENMP)
-  list(APPEND LEGATE_CORE_CUDA_DEFS LEGATE_USE_OPENMP)
+  list(APPEND legate_core_CXX_DEFS LEGATE_USE_OPENMP)
+  list(APPEND legate_core_CUDA_DEFS LEGATE_USE_OPENMP)
 endif()
 
 if(Legion_USE_GASNet)
-  list(APPEND LEGATE_CORE_CXX_DEFS LEGATE_USE_GASNET)
-  list(APPEND LEGATE_CORE_CUDA_DEFS LEGATE_USE_GASNET)
+  list(APPEND legate_core_CXX_DEFS LEGATE_USE_GASNET)
+  list(APPEND legate_core_CUDA_DEFS LEGATE_USE_GASNET)
 endif()
 
 # Change THRUST_DEVICE_SYSTEM for `.cpp` files
 # TODO: This is what we do in cuNumeric, should we do it here as well?
 if(Legion_USE_OpenMP)
-  list(APPEND LEGATE_CORE_CXX_OPTIONS -UTHRUST_DEVICE_SYSTEM)
-  list(APPEND LEGATE_CORE_CXX_OPTIONS -DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_OMP)
+  list(APPEND legate_core_CXX_OPTIONS -UTHRUST_DEVICE_SYSTEM)
+  list(APPEND legate_core_CXX_OPTIONS -DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_OMP)
 elseif(NOT Legion_USE_CUDA)
-  list(APPEND LEGATE_CORE_CXX_OPTIONS -UTHRUST_DEVICE_SYSTEM)
-  list(APPEND LEGATE_CORE_CXX_OPTIONS -DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_CPP)
+  list(APPEND legate_core_CXX_OPTIONS -UTHRUST_DEVICE_SYSTEM)
+  list(APPEND legate_core_CXX_OPTIONS -DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_CPP)
 endif()
 # Or should we only do it if OpenMP and CUDA are both disabled?
 # if(NOT Legion_USE_OpenMP AND (NOT Legion_USE_CUDA))
-#   list(APPEND LEGATE_CORE_CXX_OPTIONS -UTHRUST_DEVICE_SYSTEM)
-#   list(APPEND LEGATE_CORE_CXX_OPTIONS -DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_CPP)
+#   list(APPEND legate_core_CXX_OPTIONS -UTHRUST_DEVICE_SYSTEM)
+#   list(APPEND legate_core_CXX_OPTIONS -DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_CPP)
 # endif()
 
-list(APPEND LEGATE_CORE_SOURCES
+list(APPEND legate_core_SOURCES
   src/core/legate_c.cc
   src/core/comm/comm.cc
   src/core/comm/comm_cpu.cc
@@ -205,26 +205,26 @@ list(APPEND LEGATE_CORE_SOURCES
 )
 
 if(Legion_USE_GASNet)
-  list(APPEND LEGATE_CORE_SOURCES
+  list(APPEND legate_core_SOURCES
     src/core/comm/alltoall_thread_mpi.cc
     src/core/comm/alltoallv_thread_mpi.cc
     src/core/comm/gather_thread_mpi.cc
     src/core/comm/allgather_thread_mpi.cc
     src/core/comm/bcast_thread_mpi.cc)
 else()
-  list(APPEND LEGATE_CORE_SOURCES
+  list(APPEND legate_core_SOURCES
     src/core/comm/alltoall_thread_local.cc
     src/core/comm/alltoallv_thread_local.cc
     src/core/comm/allgather_thread_local.cc)
 endif()
 
 if(Legion_USE_CUDA)
-  list(APPEND LEGATE_CORE_SOURCES
+  list(APPEND legate_core_SOURCES
     src/core/comm/comm_nccl.cu
     src/core/cuda/stream_pool.cu)
 endif()
 
-add_library(legate_core ${LEGATE_CORE_SOURCES})
+add_library(legate_core ${legate_core_SOURCES})
 add_library(legate::core ALIAS legate_core)
 
 set_target_properties(legate_core
@@ -246,7 +246,7 @@ if(TARGET conda_env)
 endif()
 
 if(Legion_USE_CUDA)
-  if(LEGATE_CORE_STATIC_CUDA_RUNTIME)
+  if(legate_core_STATIC_CUDA_RUNTIME)
     set_target_properties(legate_core PROPERTIES CUDA_RUNTIME_LIBRARY Static)
     # Make sure to export to consumers what runtime we used
     target_link_libraries(legate_core PUBLIC CUDA::cudart_static)
@@ -278,16 +278,16 @@ target_link_libraries(legate_core
 
 target_compile_options(legate_core
   PRIVATE ${extra_include_options}
-          "$<$<COMPILE_LANGUAGE:CXX>:${LEGATE_CORE_CXX_OPTIONS}>"
-          "$<$<COMPILE_LANGUAGE:CUDA>:${LEGATE_CORE_CUDA_OPTIONS}>")
+          "$<$<COMPILE_LANGUAGE:CXX>:${legate_core_CXX_OPTIONS}>"
+          "$<$<COMPILE_LANGUAGE:CUDA>:${legate_core_CUDA_OPTIONS}>")
 
 target_compile_definitions(legate_core
-  PUBLIC "$<$<COMPILE_LANGUAGE:CXX>:${LEGATE_CORE_CXX_DEFS}>"
-         "$<$<COMPILE_LANGUAGE:CUDA>:${LEGATE_CORE_CUDA_DEFS}>")
+  PUBLIC "$<$<COMPILE_LANGUAGE:CXX>:${legate_core_CXX_DEFS}>"
+         "$<$<COMPILE_LANGUAGE:CUDA>:${legate_core_CUDA_DEFS}>")
 
 target_include_directories(legate_core
   PUBLIC
-    $<BUILD_INTERFACE:${LEGATE_CORE_SOURCE_DIR}/src>
+    $<BUILD_INTERFACE:${legate_core_SOURCE_DIR}/src>
   INTERFACE
     $<INSTALL_INTERFACE:include/legate>
 )

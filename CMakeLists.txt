@@ -19,9 +19,16 @@ cmake_minimum_required(VERSION 3.22.1 FATAL_ERROR)
 ##############################################################################
 # - Download and initialize RAPIDS CMake helpers -----------------------------
 
-file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-22.08/RAPIDS.cmake
-     ${CMAKE_BINARY_DIR}/RAPIDS.cmake)
+if(NOT EXISTS ${CMAKE_BINARY_DIR}/RAPIDS.cmake)
+  file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-22.08/RAPIDS.cmake
+       ${CMAKE_BINARY_DIR}/RAPIDS.cmake)
+endif()
 include(${CMAKE_BINARY_DIR}/RAPIDS.cmake)
+include(rapids-cmake)
+include(rapids-cpm)
+include(rapids-cuda)
+include(rapids-export)
+include(rapids-find)
 
 set(legate_core_version 22.07.00)
 
@@ -36,7 +43,7 @@ if(SKBUILD)
               C CXX)
   include(legate_core_python.cmake)
 else()
-  project(LEGATE_CORE VERSION ${legate_core_version} LANGUAGES C CXX)
+  project(legate_core VERSION ${legate_core_version} LANGUAGES C CXX)
 
   include(legate_core_cpp.cmake)
 endif()

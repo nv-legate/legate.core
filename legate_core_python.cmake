@@ -42,18 +42,54 @@ execute_process(
   COMMAND_ERROR_IS_FATAL ANY
 )
 
-set(libpath "${CMAKE_CURRENT_BINARY_DIR}/legate_core-cpp/lib")
+set(libpath "")
 configure_file(
-  "${CMAKE_CURRENT_SOURCE_DIR}/legate/core/install_info/__init__.py.in"
-  "${CMAKE_CURRENT_SOURCE_DIR}/legate/core/install_info/__init__.py"
+  "${CMAKE_CURRENT_SOURCE_DIR}/legate/core/install_info.py.in"
+  "${CMAKE_CURRENT_SOURCE_DIR}/legate/core/install_info.py"
 @ONLY)
 
-set(install_code_string "")
-string(APPEND install_code_string "set(libpath \"\")\n")
-string(APPEND install_code_string "set(header [=[${header}]=])\n")
-string(APPEND install_code_string "configure_file(\n")
-string(APPEND install_code_string "\"${CMAKE_CURRENT_SOURCE_DIR}/legate/core/install_info/__init__.py.in\"\n")
-string(APPEND install_code_string "\"\${CMAKE_INSTALL_PREFIX}/legate/core/install_info/__init__.py\"\n")
-string(APPEND install_code_string "@ONLY)\n")
+add_library(legate_core_python INTERFACE)
+add_library(legate::core_python ALIAS legate_core_python)
+target_link_libraries(legate_core_python INTERFACE legate::core)
 
-install(CODE "${install_code_string}")
+##############################################################################
+# - install targets-----------------------------------------------------------
+
+include(CPack)
+include(GNUInstallDirs)
+rapids_cmake_install_lib_dir(lib_dir)
+
+install(TARGETS legate_core_python
+        DESTINATION ${lib_dir}
+        EXPORT legate-core-python-exports)
+
+##############################################################################
+# - install export -----------------------------------------------------------
+
+set(doc_string
+        [=[
+Provide targets for Legate Python, the Foundation for All Legate Libraries.
+
+Imported Targets:
+  - legate::core_python
+
+]=])
+
+set(code_string "")
+
+rapids_export(
+  INSTALL legate_core_python
+  EXPORT_SET legate-core-python-exports
+  GLOBAL_TARGETS core_python
+  NAMESPACE legate::
+  DOCUMENTATION doc_string
+  FINAL_CODE_BLOCK code_string)
+
+# build export targets
+rapids_export(
+  BUILD legate_core_python
+  EXPORT_SET legate-core-python-exports
+  GLOBAL_TARGETS core_python
+  NAMESPACE legate::
+  DOCUMENTATION doc_string
+  FINAL_CODE_BLOCK code_string)
