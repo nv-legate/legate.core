@@ -56,6 +56,15 @@ def read_conduit(realm_defines_h):
     raise Exception("Could not detect a supported GASNet conduit")
 
 
+def read_cmake_var(pattern, filepath):
+    return (
+        subprocess.check_output(["grep", "--color=never", pattern, filepath])
+        .decode("UTF-8")
+        .strip()
+        .split("=")[1]
+    )
+
+
 def get_python_site_packages_path(legion_dir):
     lib_dir = os.path.join(legion_dir, "lib")
     python_lib = None
@@ -77,32 +86,91 @@ def get_python_site_packages_path(legion_dir):
     return python_lib
 
 
-def get_legate_bind_sh_path(legate_dir):
-    # if an editable install
-    if os.path.exists(bin_path := os.path.join(legate_dir, "bind.sh")):
-        return bin_path
-    # if installed in non-standard location?
-    if os.path.exists(bin_path := os.path.join(legate_dir, "bin", "bind.sh")):
-        return bin_path
-    # if installed into a python env (via pip or conda)
-    if os.path.exists(
-        bin_path := os.path.join(os.path.dirname(sys.executable), "bind.sh")
+def get_legate_build_dir(legate_dir):
+    join = os.path.join
+    exists = os.path.exists
+    # If using a local non-scikit-build CMake build dir, read
+    # Legion_BINARY_DIR and Legion_SOURCE_DIR from CMakeCache.txt
+    if exists(legate_build_dir := join(legate_dir, "build")) and exists(
+        join(legate_build_dir, "CMakeCache.txt")
     ):
-        return bin_path
-    raise Exception("Cannot find Legate's bind.sh script")
+        pass
+    elif exists(_skbuild_dir := join(legate_dir, "_skbuild")):
+        for f in os.listdir(_skbuild_dir):
+            # If using a local scikit-build dir at _skbuild/<arch>/cmake-build,
+            # read Legion_BINARY_DIR and Legion_SOURCE_DIR from CMakeCache.txt
+            if exists(
+                legate_build_dir := join(_skbuild_dir, f, "cmake-build")
+            ) and exists(join(legate_build_dir, "CMakeCache.txt")):
+                cmake_cache_txt = join(legate_build_dir, "CMakeCache.txt")
+                try:
+                    # Test whether FIND_LEGATE_CORE_CPP is set to ON. If it
+                    # isn't, then we built legate_core C++ as a side-effect of
+                    # building legate_core_python.
+                    read_cmake_var(
+                        "FIND_LEGATE_CORE_CPP:BOOL=OFF", cmake_cache_txt
+                    )
+                except Exception:
+                    # If FIND_LEGATE_CORE_CPP is set to ON, check to see if
+                    # legate_core_DIR is a valid path. If it is, check whether
+                    # legate_core_DIR is a path to a legate_core build dir i.e.
+                    # `-D legate_core_ROOT=/legate.core/build`
+                    legate_core_dir = read_cmake_var(
+                        "legate_core_DIR:PATH=", cmake_cache_txt
+                    )
+                    # If legate_core_dir doesn't have a CMakeCache.txt, CMake's
+                    # find_package found a system legate_core installation.
+                    # Return the installation paths.
+                    if os.path.exists(
+                        cmake_cache_txt := join(
+                            legate_core_dir, "CMakeCache.txt"
+                        )
+                    ):
+                        return read_cmake_var(
+                            "legate_core_BINARY_DIR:STATIC=", cmake_cache_txt
+                        )
+                    return None
+                return legate_build_dir
+            legate_build_dir = None
+    else:
+        legate_build_dir = None
+    return legate_build_dir
 
 
 def get_legate_paths():
     import legate
 
-    legate_dir = os.path.dirname(legate.__path__[0])
+    join = os.path.join
+    dirname = os.path.dirname
+
+    legate_dir = dirname(legate.__path__[0])
+    legate_build_dir = get_legate_build_dir(legate_dir)
+
+    if legate_build_dir is None:
+        return {
+            "legate_dir": legate_dir,
+            "legate_build_dir": legate_build_dir,
+            "bind_sh_path": join(dirname(sys.argv[0]), "bind.sh"),
+            "legate_lib_path": join(dirname(sys.argv[0]), "lib"),
+        }
+
+    cmake_cache_txt = join(legate_build_dir, "CMakeCache.txt")
+    legate_source_dir = read_cmake_var(
+        "legate_core_SOURCE_DIR:STATIC=", cmake_cache_txt
+    )
+    legate_binary_dir = read_cmake_var(
+        "legate_core_BINARY_DIR:STATIC=", cmake_cache_txt
+    )
+
     return {
         "legate_dir": legate_dir,
-        "bind_sh_path": get_legate_bind_sh_path(legate_dir),
+        "legate_build_dir": legate_build_dir,
+        "bind_sh_path": join(legate_source_dir, "bind.sh"),
+        "legate_lib_path": join(legate_binary_dir, "lib"),
     }
 
 
-def get_legion_paths(legate_dir):
+def get_legion_paths(legate_dir, legate_build_dir=None):
 
     #
     # Construct and return paths needed to launch `legion_python`,accounting
@@ -134,17 +202,7 @@ def get_legion_paths(legate_dir):
     join = os.path.join
     dirname = os.path.dirname
 
-    def read_cmake_var(pattern, filepath):
-        return (
-            subprocess.check_output(
-                ["grep", "--color=never", pattern, filepath]
-            )
-            .decode("UTF-8")
-            .strip()
-            .split("=")[1]
-        )
-
-    def installed_legion_paths(legion_dir, legion_python_module=None):
+    def installed_legion_paths(legion_dir, legion_module=None):
         return {
             "legion_bin_path": join(legion_dir, "bin"),
             "legion_lib_path": join(legion_dir, "lib"),
@@ -154,37 +212,16 @@ def get_legion_paths(legate_dir):
             ),
             "legion_spy_py": join(legion_dir, "bin", "legion_spy.py"),
             "legion_prof_py": join(legion_dir, "bin", "legion_prof.py"),
-            "legion_python_binary": join(legion_dir, "bin", "legion_python"),
-            "legion_python_module": legion_python_module,
+            "legion_python": join(legion_dir, "bin", "legion_python"),
+            "legion_module": legion_module,
         }
 
-    # If using a local non-scikit-build CMake build dir, read
-    # Legion_BINARY_DIR and Legion_SOURCE_DIR from CMakeCache.txt
-    if os.path.exists(legate_build_dir := join(legate_dir, "build")):
-        pass
-    elif os.path.exists(_skbuild_dir := join(legate_dir, "_skbuild")):
-        for f in os.listdir(_skbuild_dir):
-            # If using a local scikit-build dir at _skbuild/<arch>/cmake-build,
-            # read Legion_BINARY_DIR and Legion_SOURCE_DIR from CMakeCache.txt
-            if os.path.exists(
-                legate_build_dir := join(_skbuild_dir, f, "cmake-build")
-            ):
-                break
-            # If using a locall install dir _skbuild/<arch>/cmake-install, use
-            # the structure of Legion's CMake install rules.
-            if os.path.exists(
-                legion_dir := join(_skbuild_dir, f, "cmake-install")
-            ):
-                return installed_legion_paths(
-                    legion_dir, get_python_site_packages_path(legion_dir)
-                )
-            legate_build_dir = None
-    else:
-        legate_build_dir = None
+    if legate_build_dir is None:
+        legate_build_dir = get_legate_build_dir(legate_dir)
 
     # If no local build dir found, assume legate installed into the python env
     if legate_build_dir is None:
-        return installed_legion_paths(dirname(dirname(sys.executable)))
+        return installed_legion_paths(dirname(dirname(sys.argv[0])))
 
     # If a legate build dir was found, read `Legion_SOURCE_DIR` and
     # `Legion_BINARY_DIR` from CMakeCache.txt and return paths into the source
@@ -207,7 +244,7 @@ def get_legion_paths(legate_dir):
         if not os.path.exists(
             cmake_cache_txt := join(legion_dir, "CMakeCache.txt")
         ):
-            return installed_legion_paths(dirname(dirname(sys.executable)))
+            return installed_legion_paths(dirname(dirname(sys.argv[0])))
 
     legion_source_dir = read_cmake_var(
         "Legion_SOURCE_DIR:STATIC=", cmake_cache_txt
@@ -227,10 +264,8 @@ def get_legion_paths(legate_dir):
         ),
         "legion_spy_py": join(legion_source_dir, "tools", "legion_spy.py"),
         "legion_prof_py": join(legion_source_dir, "tools", "legion_prof.py"),
-        "legion_python_binary": join(
-            legion_binary_dir, "bin", "legion_python"
-        ),
-        "legion_python_module": join(
+        "legion_python": join(legion_binary_dir, "bin", "legion_python"),
+        "legion_module": join(
             legion_source_dir, "bindings", "python", "build", "lib"
         ),
     }
@@ -280,29 +315,46 @@ def run_legate(
     nic_bind,
     launcher_extra,
 ):
+    if verbose:
+        print("legate:          ", str(sys.argv[0]))
     # Build the environment for the subprocess invocation
     legate_paths = get_legate_paths()
     legate_dir = legate_paths["legate_dir"]
     bind_sh_path = legate_paths["bind_sh_path"]
+    legate_lib_path = legate_paths["legate_lib_path"]
+    legate_build_dir = legate_paths["legate_build_dir"]
+    if verbose:
+        print("legate_dir:      ", legate_dir)
+        print("bind_sh_path:    ", bind_sh_path)
+        print("legate_lib_path: ", legate_lib_path)
+        print("legate_build_dir:", legate_build_dir)
 
-    legion_paths = get_legion_paths(legate_dir)
+    legion_paths = get_legion_paths(legate_dir, legate_build_dir)
     legion_lib_path = legion_paths["legion_lib_path"]
     realm_defines_h = legion_paths["realm_defines_h"]
     legion_defines_h = legion_paths["legion_defines_h"]
     legion_spy_py = legion_paths["legion_spy_py"]
     legion_prof_py = legion_paths["legion_prof_py"]
-    legion_python_binary = legion_paths["legion_python_binary"]
-    legion_python_module = legion_paths["legion_python_module"]
+    legion_python = legion_paths["legion_python"]
+    legion_module = legion_paths["legion_module"]
+    if verbose:
+        print("legion_lib_path: ", legion_lib_path)
+        print("realm_defines_h: ", realm_defines_h)
+        print("legion_defines_h:", legion_defines_h)
+        print("legion_spy_py:   ", legion_spy_py)
+        print("legion_prof_py:  ", legion_prof_py)
+        print("legion_python:   ", legion_python)
+        print("legion_module:   ", legion_module)
 
     cmd_env = dict(os.environ.items())
     # We never want to save python byte code for legate
     cmd_env["PYTHONDONTWRITEBYTECODE"] = "1"
     # Set the path to the Legate module as an environment variable
     # The current directory should be added to PYTHONPATH as well
-    if legion_python_module is not None:
+    if legion_module is not None:
         cmd_env["PYTHONPATH"] = os.pathsep.join(
             ([cmd_env["PYTHONPATH"]] if ("PYTHONPATH" in cmd_env) else [])
-            + [legion_python_module]
+            + [legion_module]
         )
 
     # Make sure the version of Python used by Realm is the same as what the
@@ -326,7 +378,7 @@ def run_legate(
     # will check in the Legate binary to ensure that it is properly configured
     # Always make sure we include the Legion library
     cmd_env[LIB_PATH] = os.pathsep.join(
-        [legion_lib_path]
+        [legion_lib_path, legate_lib_path]
         + ([cmd_env[LIB_PATH]] if (LIB_PATH in cmd_env) else [])
     )
 
@@ -526,7 +578,7 @@ def run_legate(
     if memcheck:
         cmd += ["cuda-memcheck"]
     # Now we're ready to build the actual command to run
-    cmd += [legion_python_binary]
+    cmd += [legion_python]
     # This has to go before script name
     if not_control_replicable:
         cmd += ["--nocr"]
