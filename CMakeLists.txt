@@ -32,7 +32,10 @@ include(rapids-find)
 
 set(legate_core_version 22.07.00)
 
-if(SKBUILD)
+if(NOT SKBUILD)
+  project(legate_core VERSION ${legate_core_version} LANGUAGES C CXX)
+  include(legate_core_cpp.cmake)
+else()
   project(
     legate_core_python
     VERSION ${legate_core_version}
@@ -42,7 +45,4 @@ if(SKBUILD)
               # that is fixed we need to keep C.
               C CXX)
   include(legate_core_python.cmake)
-else()
-  project(legate_core VERSION ${legate_core_version} LANGUAGES C CXX)
-  include(legate_core_cpp.cmake)
 endif()

@@ -14,10 +14,16 @@
 # limitations under the License.
 #=============================================================================
 
+##############################################################################
+# - User Options  ------------------------------------------------------------
+
 option(FIND_LEGATE_CORE_CPP "Search for existing legate_core C++ installations before defaulting to local files"
        OFF)
 
-# If the user requested it we attempt to find RMM.
+##############################################################################
+# - Dependencies -------------------------------------------------------------
+
+# If the user requested it we attempt to find legate_core.
 if(FIND_LEGATE_CORE_CPP)
   find_package(legate_core ${legate_core_version})
 else()
