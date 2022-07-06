@@ -16,15 +16,6 @@
 
 cmake_minimum_required(VERSION 3.22.1 FATAL_ERROR)
 
-##############################################################################
-# - Download and initialize RAPIDS CMake helpers -----------------------------
-
-include(rapids-cmake)
-include(rapids-cpm)
-include(rapids-cuda)
-include(rapids-export)
-include(rapids-find)
-
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.13)
   cmake_policy(SET CMP0077 NEW)
   set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
