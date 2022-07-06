@@ -25,19 +25,8 @@ import subprocess
 import sys
 from distutils import sysconfig
 
-import setuptools
-
 # Flush output on newlines
 sys.stdout.reconfigure(line_buffering=True)
-
-os_name = platform.system()
-
-required_thrust_version = "cuda-11.2"
-
-# Work around breaking change in setuptools 60
-setup_py_flags = []
-if int(setuptools.__version__.split(".")[0]) >= 60:
-    setup_py_flags = ["--single-version-externally-managed", "--root=/"]
 
 
 class BooleanFlag(argparse.Action):
@@ -105,7 +94,8 @@ def find_active_python_version_and_path():
     paths = [os.path.join(cv[p], cv["LDLIBRARY"]) for p in ("LIBDIR", "LIBPL")]
     # ensure that static libraries are replaced with the dynamic version
     paths = [
-        os.path.splitext(p)[0] + (".dylib" if os_name == "Darwin" else ".so")
+        os.path.splitext(p)[0]
+        + (".dylib" if platform.system() == "Darwin" else ".so")
         for p in paths
     ]
     paths = [p for p in paths if os.path.isfile(p)]
@@ -139,6 +129,7 @@ def install(
     clean_first,
     extra_flags,
     editable,
+    build_isolation,
     thread_count,
     verbose,
     thrust_dir,
@@ -194,14 +185,6 @@ def install(
         "/",
     ]
 
-    if editable:
-        pip_install_cmd += ["--no-deps", "--no-build-isolation", "--editable"]
-    else:
-        pip_install_cmd += [
-            "--install-option='--force'",
-            "--install-option='--single-version-externally-managed'",
-        ]
-
     if unknown is not None:
         try:
             prefix_loc = unknown.index("--prefix")
@@ -213,9 +196,16 @@ def install(
         if install_dir is not None:
             pip_install_cmd += ["--prefix", str(install_dir)]
 
+    if editable:
+        pip_install_cmd += ["--no-deps", "--no-build-isolation", "--editable"]
+    elif not build_isolation:
+        pip_install_cmd += ["--no-build-isolation"]
+    # else:
+    #     pip_install_cmd += ["--upgrade"]
+
     pip_install_cmd += ["."]
     if verbose:
-        pip_install_cmd += ["-v"]
+        pip_install_cmd += ["-vv"]
 
     cmake_flags = []
 
@@ -261,9 +251,13 @@ def install(
     if legion_dir:
         cmake_flags += ["-DLegion_ROOT=%s" % legion_dir]
     if legion_url:
-        cmake_flags += ["-DLEGATE_CORE_LEGION_REPOSITORY=%s" % legion_url]
+        cmake_flags += ["-Dlegate_core_LEGION_REPOSITORY=%s" % legion_url]
     if legion_branch:
-        cmake_flags += ["-DLEGATE_CORE_LEGION_BRANCH=%s" % legion_branch]
+        cmake_flags += ["-Dlegate_core_LEGION_BRANCH=%s" % legion_branch]
+    # Workaround until this PR is merged:
+    # https://gitlab.com/StanfordLegion/legion/-/merge_requests/523
+    if install_dir is not None:
+        cmake_flags += ["-DLegion_CMAKE_INSTALL_PREFIX=%s" % install_dir]
 
     cmake_flags += extra_flags
     cmd_env = dict(os.environ.items())
@@ -281,21 +275,7 @@ def install(
     if legion_dir is not None and os.path.exists(
         join(legion_dir, "CMakeCache.txt")
     ):
-        pass
-    # Install Legion if it was built as a byproduct of legate_core
-    elif os.path.exists(_skbuild_dir := join(build_dir)):
-        for f in os.listdir(_skbuild_dir):
-            if os.path.exists(
-                legion_dir := join(
-                    _skbuild_dir, f, "cmake-build", "_deps", "legion-build"
-                )
-            ):
-                break
-    # Otherwise legion_dir must be an existing system installation
-    else:
-        legion_dir = None
-
-    if legion_dir is not None:
+        print(f"installing legion from '{legion_dir}'")
         install_args = [cmake_exe, "--install", legion_dir]
         if install_dir is not None:
             install_args += ["--prefix", install_dir]
@@ -470,8 +450,8 @@ def driver():
         "--cmake-generator",
         dest="cmake_generator",
         required=False,
-        default="Unix Makefiles",
-        choices=["Unix Makefiles", "Ninja"],
+        default="Ninja",
+        choices=["Ninja", "Unix Makefiles"],
         help="The CMake makefiles generator",
     )
     parser.add_argument(
@@ -502,7 +482,18 @@ def driver():
         action="store_true",
         required=False,
         default=False,
-        help="Perform an editable install.",
+        help="Perform an editable install. Disables --build-isolation if set "
+        "(passing --no-deps --no-build-isolation to pip).",
+    )
+    parser.add_argument(
+        "--build-isolation",
+        dest="build_isolation",
+        action=BooleanFlag,
+        required=False,
+        default=True,
+        help="Enable isolation when building a modern source distribution. "
+        "Build dependencies specified by PEP 518 must be already "
+        "installed if this option is used.",
     )
     parser.add_argument(
         "-v",
@@ -519,7 +510,7 @@ def driver():
         required=False,
         default=os.environ.get("THRUST_PATH"),
         help="Path to Thrust installation directory. The required version of "
-        "Thrust is " + required_thrust_version + " or compatible.  If not "
+        "Thrust is cuda-11.2 or compatible.  If not "
         "provided, Thrust will be installed automatically.",
     )
     parser.add_argument(

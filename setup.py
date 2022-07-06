@@ -58,7 +58,6 @@ setup(
             "legate.timing",
             "legate.timing.*",
         ],
-        exclude=["legate.core.install_info"],
     ),
     entry_points={
         "console_scripts": [
