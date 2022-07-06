@@ -8,7 +8,7 @@ Please enter the path to a Legion build (or install) directory:
 " Legion_ROOT </dev/tty
     done
     echo "To skip this prompt next time, run:"
-    echo "Legion_ROOT=\"$Legion_ROOT\" $0"
+    echo "Legion_ROOT=\"$Legion_ROOT\" $1"
 else
     echo "Using Legion at: \`$Legion_ROOT\`"
 fi

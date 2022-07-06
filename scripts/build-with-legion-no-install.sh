@@ -7,7 +7,7 @@ source ./scripts/util/build-caching.sh
 # Use consistent C[XX]FLAGS
 source ./scripts/util/compiler-flags.sh
 # Read Legion_ROOT from the environment or prompt the user to enter it
-source ./scripts/util/read-legion-root.sh
+source ./scripts/util/read-legion-root.sh "$0"
 
 # Remove existing build artifacts
 rm -rf ./{build,_skbuild,dist,legate.core.egg-info}
