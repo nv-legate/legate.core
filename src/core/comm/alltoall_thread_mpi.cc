@@ -59,8 +59,8 @@ int alltoallMPI(
     int recv_tag = generateAlltoallTag(global_rank, recvfrom_global_rank, global_comm);
 #ifdef DEBUG_LEGATE
     log_coll.debug(
-      "AlltoallMPI i: %d === global_rank %d, mpi rank %d, send %d to %d, send_tag %d, recv %d from "
-      "%d, "
+      "AlltoallMPI i: %d === global_rank %d, mpi rank %d, send to %d (%d), send_tag %d, "
+      "recv from %d (%d), "
       "recv_tag %d",
       i,
       global_rank,

@@ -25,19 +25,6 @@ namespace legate {
 namespace comm {
 namespace cpu {
 
-static int init_cpucoll_id(const Legion::Task* task,
-                           const std::vector<Legion::PhysicalRegion>& regions,
-                           Legion::Context context,
-                           Legion::Runtime* runtime)
-{
-  Core::show_progress(task, context, runtime, task->get_task_name());
-
-  int id;
-  coll::collGetUniqueId(&id);
-
-  return id;
-}
-
 static int init_cpucoll_mapping(const Legion::Task* task,
                                 const std::vector<Legion::PhysicalRegion>& regions,
                                 Legion::Context context,
@@ -108,11 +95,6 @@ void register_tasks(Legion::Machine machine,
   char** argv                   = command_args.argv;
   coll::collInit(argc, argv);
 
-  const TaskID init_cpucoll_id_task_id  = context.get_task_id(LEGATE_CORE_INIT_CPUCOLL_ID_TASK_ID);
-  const char* init_cpucoll_id_task_name = "core::comm::cpu::init_id";
-  runtime->attach_name(
-    init_cpucoll_id_task_id, init_cpucoll_id_task_name, false /*mutable*/, true /*local only*/);
-
   const TaskID init_cpucoll_mapping_task_id =
     context.get_task_id(LEGATE_CORE_INIT_CPUCOLL_MAPPING_TASK_ID);
   const char* init_cpucoll_mapping_task_name = "core::comm::cpu::init_mapping";
@@ -140,11 +122,6 @@ void register_tasks(Legion::Machine machine,
   };
 
   // Register the task variants
-  {
-    auto registrar =
-      make_registrar(init_cpucoll_id_task_id, init_cpucoll_id_task_name, Processor::LOC_PROC);
-    runtime->register_task_variant<int, init_cpucoll_id>(registrar, LEGATE_CPU_VARIANT);
-  }
   {
     auto registrar = make_registrar(
       init_cpucoll_mapping_task_id, init_cpucoll_mapping_task_name, Processor::LOC_PROC);

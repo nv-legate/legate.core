@@ -14,6 +14,7 @@
 #
 from __future__ import annotations
 
+import struct
 from abc import ABC, abstractmethod, abstractproperty
 from typing import TYPE_CHECKING
 
@@ -74,7 +75,7 @@ class Communicator(ABC):
 
 class NCCLCommunicator(Communicator):
     def __init__(self, runtime: Runtime) -> None:
-        super(NCCLCommunicator, self).__init__(runtime)
+        super().__init__(runtime)
         library = runtime.core_library
 
         self._init_nccl_id = library.LEGATE_CORE_INIT_NCCL_ID_TASK_ID
@@ -107,11 +108,10 @@ class NCCLCommunicator(Communicator):
 
 
 class CPUCommunicator(Communicator):
-    def __init__(self, runtime):
-        super(CPUCommunicator, self).__init__(runtime)
+    def __init__(self, runtime: Runtime) -> None:
+        super().__init__(runtime)
         library = runtime.core_library
 
-        self._init_cpucoll_id = library.LEGATE_CORE_INIT_CPUCOLL_ID_TASK_ID
         self._init_cpucoll_mapping = (
             library.LEGATE_CORE_INIT_CPUCOLL_MAPPING_TASK_ID
         )
@@ -139,18 +139,14 @@ class CPUCommunicator(Communicator):
     def needs_barrier(self) -> bool:
         return self._needs_barrier
 
-    def _initialize(self, volume):
-        task = Task(
-            self._context,
-            self._init_cpucoll_id,
-            tag=self._tag,
-            side_effect=True,
-        )
-        cpucoll_id = task.execute_single()
+    def _initialize(self, volume: int) -> FutureMap:
+        cpucoll_uid = self._runtime.core_library.legate_cpucoll_initcomm()
+        buf = struct.pack("i", cpucoll_uid)
+        cpucoll_uid_f = self._runtime.create_future(buf, len(buf))
         task = Task(self._context, self._init_cpucoll_mapping, tag=self._tag)
         mapping_table_fm = task.execute(Rect([volume]))
         task = Task(self._context, self._init_cpucoll, tag=self._tag)
-        task.add_future(cpucoll_id)
+        task.add_future(cpucoll_uid_f)
         for i in range(volume):
             f = mapping_table_fm.get_future(Point([i]))
             task.add_future(f)
@@ -158,7 +154,7 @@ class CPUCommunicator(Communicator):
         self._runtime.issue_execution_fence()
         return handle
 
-    def _finalize(self, volume, handle):
+    def _finalize(self, volume: int, handle: FutureMap) -> None:
         task = Task(self._context, self._finalize_cpucoll, tag=self._tag)
         task.add_future_map(handle)
         task.execute(Rect([volume]))

@@ -22,6 +22,16 @@
 
 #ifdef LEGATE_USE_GASNET
 #include <mpi.h>
+#else
+// If we aren't using GASNet, we'll use pthread_barrier to
+// construct a communicator for thread-local communication. Mac OS
+// does not implement pthread barriers, so we need to include an
+// implementation in case they are not defined. We also need to
+// include unistd.h since that defines _POSIX_BARRIERS.
+#include <unistd.h>
+#if !defined(_POSIX_BARRIERS) || (_POSIX_BARRIERS < 0)
+#include "pthread_barrier.h"
+#endif
 #endif
 
 namespace legate {
@@ -112,9 +122,11 @@ int collAllgather(
 
 int collInit(int argc, char* argv[]);
 
-int collFinalize(void);
+int collFinalize();
 
 int collGetUniqueId(int* id);
+
+int collInitComm();
 
 // The following functions should not be called by users
 #ifdef LEGATE_USE_GASNET
