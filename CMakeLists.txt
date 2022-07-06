@@ -44,6 +44,5 @@ if(SKBUILD)
   include(legate_core_python.cmake)
 else()
   project(legate_core VERSION ${legate_core_version} LANGUAGES C CXX)
-
   include(legate_core_cpp.cmake)
 endif()
