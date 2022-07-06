@@ -21,12 +21,15 @@
 *.json
 *.dylib
 legate/core/install_info.py
+/dist
 /build
 /legion
 /install*
+/_skbuild
 config.mk
 /docs/legate/core/build
 *.egg-info
 .cache
 .vscode
+_cmake_test_compile_
 !cmake/versions.json

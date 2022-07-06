@@ -79,7 +79,7 @@ def do_patch(name: str) -> None:
         raise RuntimeError(f"Could not import patch module {cuname}")
 
 
-if __name__ == "__main__":
+def main():
     args, extra = parse_args()
 
     for name in args.patch:
@@ -89,3 +89,7 @@ if __name__ == "__main__":
 
     with open(args.prog) as f:
         exec(f.read(), {"__name__": "__main__"})
+
+
+if __name__ == "__main__":
+    main()

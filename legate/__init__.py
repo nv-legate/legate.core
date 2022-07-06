@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from __future__ import annotations
+from . import _version
 
-from pkgutil import extend_path
-
-__path__ = extend_path(__path__, __name__)
+__version__ = _version.get_versions()["version"]

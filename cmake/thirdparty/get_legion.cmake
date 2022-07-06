@@ -53,12 +53,20 @@ function(find_or_configure_legion)
   else()
     include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/cpm_helpers.cmake)
     get_cpm_git_args(legion_cpm_git_args REPOSITORY ${PKG_REPOSITORY} BRANCH ${PKG_BRANCH})
+    if(NOT DEFINED Legion_PYTHON_EXTRA_INSTALL_ARGS)
+      set(Legion_PYTHON_EXTRA_INSTALL_ARGS "--single-version-externally-managed --root=/")
+    endif()
+    # Workaround until https://gitlab.com/StanfordLegion/legion/-/merge_requests/523 is merged
+    if(NOT DEFINED Legion_CMAKE_INSTALL_PREFIX)
+      set(Legion_CMAKE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
+    endif()
     rapids_cpm_find(Legion ${FIND_PKG_ARGS}
         CPM_ARGS
           ${legion_cpm_git_args}
           EXCLUDE_FROM_ALL ${PKG_EXCLUDE_FROM_ALL}
           OPTIONS          "CMAKE_CXX_STANDARD 17"
                            "CMAKE_LIBRARY_PATH ${_lib_path}"
+                           "CMAKE_INSTALL_PREFIX ${Legion_CMAKE_INSTALL_PREFIX}"
                            "Legion_VERSION ${PKG_VERSION}"
                            "Legion_BUILD_BINDINGS ON"
                            "Legion_BUILD_APPS OFF"
@@ -67,8 +75,6 @@ function(find_or_configure_legion)
                            "Legion_REDOP_HALF ON"
                            "Legion_REDOP_COMPLEX ON"
                            "Legion_GPU_REDUCTIONS OFF"
-                           "Legion_CUDA_ARCH ${Legion_CUDA_ARCH}"
-                           "Legion_PYTHON_EXTRA_INSTALL_ARGS --single-version-externally-managed --root=/"
     )
   endif()
 
@@ -86,20 +92,20 @@ function(find_or_configure_legion)
 
 endfunction()
 
-if(NOT DEFINED LEGATE_CORE_LEGION_BRANCH)
-  set(LEGATE_CORE_LEGION_BRANCH control_replication)
+if(NOT DEFINED legate_core_LEGION_BRANCH)
+  set(legate_core_LEGION_BRANCH control_replication)
 endif()
 
-if(NOT DEFINED LEGATE_CORE_LEGION_REPOSITORY)
-  set(LEGATE_CORE_LEGION_REPOSITORY https://gitlab.com/StanfordLegion/legion.git)
+if(NOT DEFINED legate_core_LEGION_REPOSITORY)
+  set(legate_core_LEGION_REPOSITORY https://gitlab.com/StanfordLegion/legion.git)
 endif()
 
-if(NOT DEFINED LEGATE_CORE_LEGION_VERSION)
-  set(LEGATE_CORE_LEGION_VERSION "${LEGATE_CORE_VERSION_MAJOR}.${LEGATE_CORE_VERSION_MINOR}.0")
+if(NOT DEFINED legate_core_LEGION_VERSION)
+  set(legate_core_LEGION_VERSION "${legate_core_VERSION_MAJOR}.${legate_core_VERSION_MINOR}.0")
 endif()
 
-find_or_configure_legion(VERSION          ${LEGATE_CORE_LEGION_VERSION}
-                         REPOSITORY       ${LEGATE_CORE_LEGION_REPOSITORY}
-                         BRANCH           ${LEGATE_CORE_LEGION_BRANCH}
-                         EXCLUDE_FROM_ALL ${LEGATE_CORE_EXCLUDE_LEGION_FROM_ALL}
+find_or_configure_legion(VERSION          ${legate_core_LEGION_VERSION}
+                         REPOSITORY       ${legate_core_LEGION_REPOSITORY}
+                         BRANCH           ${legate_core_LEGION_BRANCH}
+                         EXCLUDE_FROM_ALL ${legate_core_EXCLUDE_LEGION_FROM_ALL}
 )
