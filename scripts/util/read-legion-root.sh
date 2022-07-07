@@ -3,7 +3,7 @@
 # Read Legion_ROOT from the environment or prompt the user to enter it
 if [[ -z "$Legion_ROOT" ]]; then
     while [[ -z "$Legion_ROOT" || ! -d "$Legion_ROOT" ]]; do
-        read -p "\`\$Legion_ROOT\` not found.
+        read -ep "\`\$Legion_ROOT\` not found.
 Please enter the path to a Legion build (or install) directory:
 " Legion_ROOT </dev/tty
     done
