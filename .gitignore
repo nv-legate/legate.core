@@ -31,5 +31,5 @@ config.mk
 *.egg-info
 .cache
 .vscode
-_cmake_test_compile_
+_cmake_test_compile
 !cmake/versions.json

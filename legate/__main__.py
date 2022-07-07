@@ -150,8 +150,8 @@ def get_legate_paths():
         return {
             "legate_dir": legate_dir,
             "legate_build_dir": legate_build_dir,
-            "bind_sh_path": join(dirname(sys.argv[0]), "bind.sh"),
-            "legate_lib_path": join(dirname(sys.argv[0]), "lib"),
+            "bind_sh_path": join(dirname(dirname(sys.argv[0])), "bind.sh"),
+            "legate_lib_path": join(dirname(dirname(sys.argv[0])), "lib"),
         }
 
     cmake_cache_txt = join(legate_build_dir, "CMakeCache.txt")

@@ -34,7 +34,7 @@ if(NOT legate_core_FOUND)
   set(SKBUILD OFF)
   set(Legion_USE_Python ON)
   set(Legion_BUILD_BINDINGS ON)
-  add_subdirectory(. legate_core-cpp)
+  add_subdirectory(. "${CMAKE_CURRENT_SOURCE_DIR}/build")
   set(SKBUILD ON)
 endif()
 
