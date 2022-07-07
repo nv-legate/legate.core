@@ -75,12 +75,6 @@ def execute_command(args, verbose, **kwargs):
     subprocess.check_call(args, **kwargs)
 
 
-def execute_command_check_output(args, verbose, **kwargs):
-    if verbose:
-        print('Executing: "', " ".join(args), '" with ', kwargs)
-    return subprocess.check_output(args, **kwargs)
-
-
 def find_active_python_version_and_path():
     # Launching a sub-process to do this in a general way seems hard
     version = (
@@ -179,6 +173,7 @@ def install(
     if clean_first:
         shutil.rmtree(build_dir, ignore_errors=True)
         shutil.rmtree(join(legate_core_dir, "dist"), ignore_errors=True)
+        shutil.rmtree(join(legate_core_dir, "build"), ignore_errors=True)
         shutil.rmtree(
             join(legate_core_dir, "legate.core.egg-info"),
             ignore_errors=True,
