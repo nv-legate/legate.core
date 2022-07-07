@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from __future__ import annotations
 from . import _version
 
 __version__ = _version.get_versions()["version"]
