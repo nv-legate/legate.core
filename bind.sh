@@ -103,4 +103,4 @@ if [[ -n "${NICS+x}" ]]; then
             ;;
     esac
 fi
-numactl "$@"
+exec numactl "$@"
