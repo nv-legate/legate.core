@@ -71,6 +71,18 @@ if(Legion_USE_Python)
   endif()
 endif()
 
+if(Legion_USE_CUDA)
+  # Enable the CUDA language
+  enable_language(CUDA)
+  # Since legate_core only enables CUDA optionally we need to manually include
+  # the file that rapids_cuda_init_architectures relies on `project` calling
+  include("${CMAKE_PROJECT_legate_core_INCLUDE}")
+  # Must come after `enable_language(CUDA)`
+  # Use `-isystem <path>` instead of `-isystem=<path>`
+  # because the former works with clangd intellisense
+  set(CMAKE_INCLUDE_SYSTEM_FLAG_CUDA "-isystem ")
+endif()
+
 ###
 # If we find Legion already configured on the system, it will report whether it
 # was compiled with Python (Legion_USE_PYTHON), CUDA (Legion_USE_CUDA), OpenMP
@@ -98,20 +110,8 @@ if(Legion_USE_CUDA)
     BUILD_EXPORT_SET legate-core-exports
     INSTALL_EXPORT_SET legate-core-exports
   )
-
-  # Enable the CUDA language
-  enable_language(CUDA)
-  # Since legate_core only enables CUDA optionally we need to manually include
-  # the file that rapids_cuda_init_architectures relies on `project` calling
-  include("${CMAKE_PROJECT_legate_core_INCLUDE}")
-
   # Find NCCL
   include(cmake/thirdparty/get_nccl.cmake)
-
-  # Must come after `enable_language(CUDA)`
-  # Use `-isystem <path>` instead of `-isystem=<path>`
-  # because the former works with clangd intellisense
-  set(CMAKE_INCLUDE_SYSTEM_FLAG_CUDA "-isystem ")
 endif()
 
 # Find or install Thrust
