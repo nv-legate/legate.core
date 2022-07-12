@@ -42,7 +42,7 @@ set(CMAKE_CUDA_FLAGS_RELWITHDEBINFO "-O2 -g")
 
 if(NOT SKBUILD)
   project(legate_core VERSION ${legate_core_version} LANGUAGES C CXX)
-  include(legate_core_cpp.cmake)
+  include(${CMAKE_CURRENT_SOURCE_DIR}/legate_core_cpp.cmake)
 else()
   project(
     legate_core_python
@@ -52,5 +52,5 @@ else()
               # various linking options for the python library is hardcoded to build with C, so until
               # that is fixed we need to keep C.
               C CXX)
-  include(legate_core_python.cmake)
+  include(${CMAKE_CURRENT_SOURCE_DIR}/legate_core_python.cmake)
 endif()

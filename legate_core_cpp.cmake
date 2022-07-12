@@ -99,11 +99,14 @@ if(Legion_USE_CUDA)
     INSTALL_EXPORT_SET legate-core-exports
   )
 
-  # Find NCCL
-  include(cmake/thirdparty/get_nccl.cmake)
-
   # Enable the CUDA language
   enable_language(CUDA)
+  # Since legate_core only enables CUDA optionally we need to manually include
+  # the file that rapids_cuda_init_architectures relies on `project` calling
+  include("${CMAKE_PROJECT_legate_core_INCLUDE}")
+
+  # Find NCCL
+  include(cmake/thirdparty/get_nccl.cmake)
 
   # Must come after `enable_language(CUDA)`
   # Use `-isystem <path>` instead of `-isystem=<path>`
