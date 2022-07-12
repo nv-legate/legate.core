@@ -335,8 +335,14 @@ def run_legate(
     # Add any wrappers before the executable
     binary_dir = os.path.join(legate_dir, "bin")
     if any(f is not None for f in [cpu_bind, mem_bind, gpu_bind, nic_bind]):
-        conduit = read_conduit(legate_dir)
-        cmd += [os.path.join(binary_dir, "bind.sh"), launcher, conduit]
+        cmd.append(os.path.join(binary_dir, "bind.sh"))
+
+        try:
+            conduit = read_conduit(legate_dir)
+            cmd += [launcher, conduit]
+        except Exception:
+            cmd += ["local", "local"]
+
         if cpu_bind is not None:
             if len(cpu_bind.split("/")) != ranks_per_node:
                 raise Exception(
