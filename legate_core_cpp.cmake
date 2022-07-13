@@ -54,7 +54,7 @@ rapids_cmake_support_conda_env(conda_env MODIFY_PREFIX_PATH)
 # add third party dependencies using CPM
 rapids_cpm_init(OVERRIDE ${CMAKE_CURRENT_SOURCE_DIR}/cmake/versions.json)
 
-function(_find_package_Python3)
+macro(_find_package_Python3)
   find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
   message(VERBOSE "legate.core: Has Python3: ${Python3_FOUND}")
   message(VERBOSE "legate.core: Has Python 3 interpreter: ${Python3_Interpreter_FOUND}")
@@ -62,7 +62,7 @@ function(_find_package_Python3)
   message(VERBOSE "legate.core: Python 3 libraries: ${Python3_LIBRARIES}")
   message(VERBOSE "legate.core: Python 3 library directories: ${Python3_LIBRARY_DIRS}")
   message(VERBOSE "legate.core: Python 3 version: ${Python3_VERSION}")
-endfunction()
+endmacro()
 
 if(Legion_USE_Python)
   _find_package_Python3()
