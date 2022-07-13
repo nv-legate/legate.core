@@ -592,8 +592,8 @@ class Storage:
         return self._dtype
 
     @property
-    def restrictions(self) -> tuple[Restriction, ...]:
-        return (Restriction.UNRESTRICTED,) * self.extents.ndim
+    def ndim(self) -> int:
+        return self.extents.ndim
 
     @property
     def data(self) -> Union[RegionField, Future]:
@@ -912,6 +912,7 @@ class Store:
         # This is a cache for the projection functor id
         # when no custom functor is given
         self._projection: Union[None, int] = None
+        self._restrictions: Union[None, tuple[Restriction, ...]] = None
 
         if self._shape is not None:
             if any(extent < 0 for extent in self._shape.extents):
@@ -1227,6 +1228,21 @@ class Store:
         buf.pack_32bit_int(self._dtype.code)
         self._transform.serialize(buf)
 
+    def get_key_partition(self) -> Optional[PartitionBase]:
+        # Flush outstanding operations to have the key partition of this store
+        # registered correctly
+        self._runtime.flush_scheduling_window()
+
+        restrictions = self.find_restrictions()
+
+        if (
+            self._key_partition is not None
+            and self._key_partition.satisfies_restriction(restrictions)
+        ):
+            return self._key_partition
+
+        return None
+
     def has_key_partition(self, restrictions: tuple[Restriction, ...]) -> bool:
         restrictions = self._transform.invert_restrictions(restrictions)
         part = self._storage.find_key_partition(restrictions)
@@ -1313,7 +1329,11 @@ class Store:
             return self._runtime.get_projection(launch_ndim, point)
 
     def find_restrictions(self) -> tuple[Restriction, ...]:
-        return self._transform.convert_restrictions(self._storage.restrictions)
+        if self._restrictions is not None:
+            return self._restrictions
+        base = (Restriction.UNRESTRICTED,) * self._storage.ndim
+        self._restrictions = self._transform.convert_restrictions(base)
+        return self._restrictions
 
     def find_or_create_legion_partition(
         self, partition: PartitionBase, complete: bool = False
