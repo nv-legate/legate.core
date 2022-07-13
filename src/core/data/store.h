@@ -339,6 +339,13 @@ class Store {
   ReturnValue pack() const { return future_.pack(); }
   ReturnValue pack_weight() const { return output_field_.pack_weight(); }
 
+ public:
+  bool is_transformed() const { return transform_ != nullptr; }
+  // TODO: It'd be btter to return a parent store from this method than permanently
+  // losing the transform. This requires the backing storages to be referenced by multiple
+  // stores, which isn't possible as they use move-only types.
+  void remove_transform();
+
  private:
   bool is_future_{false};
   bool is_output_store_{false};
