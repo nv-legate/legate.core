@@ -156,9 +156,6 @@ def install(
         pyversion = match.group(1)
     print("Using python lib and version: {}, {}".format(pylib_name, pyversion))
 
-    # if install_dir is None:
-    #     install_dir = join(legate_core_dir, "install")
-    # install_dir = os.path.realpath(install_dir)
     if install_dir is not None:
         install_dir = os.path.realpath(install_dir)
 
@@ -202,10 +199,10 @@ def install(
 
     if editable:
         pip_install_cmd += ["--no-deps", "--no-build-isolation", "--editable"]
-    elif not build_isolation:
-        pip_install_cmd += ["--no-build-isolation"]
-    # else:
-    #     pip_install_cmd += ["--upgrade"]
+    else:
+        if not build_isolation:
+            pip_install_cmd += ["--no-deps", "--no-build-isolation"]
+        pip_install_cmd += ["--upgrade"]
 
     pip_install_cmd += ["."]
     if verbose:
