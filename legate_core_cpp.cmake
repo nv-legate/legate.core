@@ -14,15 +14,10 @@
 # limitations under the License.
 #=============================================================================
 
-if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.13)
-  cmake_policy(SET CMP0077 NEW)
-  set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
-endif()
+##############################################################################
+# - User Options  ------------------------------------------------------------
 
-if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.21)
-  cmake_policy(SET CMP0126 NEW)
-  set(CMAKE_POLICY_DEFAULT_CMP0126 NEW)
-endif()
+include(cmake/Modules/legate_core_options.cmake)
 
 ##############################################################################
 # - Project definition -------------------------------------------------------
@@ -32,11 +27,6 @@ rapids_cmake_write_version_file(include/legate/version_config.hpp)
 
 # Needed to integrate with LLVM/clang tooling
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
-##############################################################################
-# - User Options  ------------------------------------------------------------
-
-include(cmake/Modules/legate_core_options.cmake)
 
 ##############################################################################
 # - Build Type ---------------------------------------------------------------

@@ -25,7 +25,12 @@ option(FIND_LEGATE_CORE_CPP "Search for existing legate_core C++ installations b
 
 # If the user requested it we attempt to find legate_core.
 if(FIND_LEGATE_CORE_CPP)
-  find_package(legate_core ${legate_core_version})
+  include("${rapids-cmake-dir}/export/detail/parse_version.cmake")
+  rapids_export_parse_version(${legate_core_version} legate_core parsed_ver)
+  rapids_find_package(legate_core ${parsed_ver} EXACT CONFIG
+                      GLOBAL_TARGETS     legate::core
+                      BUILD_EXPORT_SET   legate-core-python-exports
+                      INSTALL_EXPORT_SET legate-core-python-exports)
 else()
   set(legate_core_FOUND OFF)
 endif()

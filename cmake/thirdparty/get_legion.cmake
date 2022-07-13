@@ -20,6 +20,9 @@ function(find_or_configure_legion)
   set(oneValueArgs VERSION REPOSITORY BRANCH EXCLUDE_FROM_ALL)
   cmake_parse_arguments(PKG "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
+  include("${rapids-cmake-dir}/export/detail/parse_version.cmake")
+  rapids_export_parse_version(${PKG_VERSION} Legion PKG_VERSION)
+
   set(Legion_CUDA_ARCH "")
   if(Legion_USE_CUDA)
     set(Legion_CUDA_ARCH ${CMAKE_CUDA_ARCHITECTURES})
@@ -35,7 +38,7 @@ function(find_or_configure_legion)
     list(APPEND _lib_path "$ENV{LIBRARY_PATH}")
   endif()
 
-  set(FIND_PKG_ARGS      ${PKG_VERSION}
+  set(FIND_PKG_ARGS
       GLOBAL_TARGETS     Legion::Realm
                          Legion::Regent
                          Legion::Legion
@@ -46,7 +49,7 @@ function(find_or_configure_legion)
 
   # First try to find Legion via find_package()
   # so the `Legion_USE_*` variables are visible
-  rapids_find_package(Legion ${FIND_PKG_ARGS} QUIET)
+  rapids_find_package(Legion ${PKG_VERSION} EXACT CONFIG ${FIND_PKG_ARGS})
 
   if(Legion_FOUND)
     message(STATUS "CPM: using local package Legion@${PKG_VERSION}")
@@ -60,21 +63,22 @@ function(find_or_configure_legion)
     if(NOT DEFINED Legion_CMAKE_INSTALL_PREFIX)
       set(Legion_CMAKE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
     endif()
-    rapids_cpm_find(Legion ${FIND_PKG_ARGS}
+    rapids_cpm_find(Legion ${PKG_VERSION} ${FIND_PKG_ARGS}
         CPM_ARGS
           ${legion_cpm_git_args}
-          EXCLUDE_FROM_ALL ${PKG_EXCLUDE_FROM_ALL}
-          OPTIONS          "CMAKE_CXX_STANDARD 17"
-                           "CMAKE_LIBRARY_PATH ${_lib_path}"
-                           "CMAKE_INSTALL_PREFIX ${Legion_CMAKE_INSTALL_PREFIX}"
-                           "Legion_VERSION ${PKG_VERSION}"
-                           "Legion_BUILD_BINDINGS ON"
-                           "Legion_BUILD_APPS OFF"
-                           "Legion_BUILD_TESTS OFF"
-                           "Legion_BUILD_TUTORIAL OFF"
-                           "Legion_REDOP_HALF ON"
-                           "Legion_REDOP_COMPLEX ON"
-                           "Legion_GPU_REDUCTIONS OFF"
+          FIND_PACKAGE_ARGUMENTS EXACT
+          EXCLUDE_FROM_ALL       ${PKG_EXCLUDE_FROM_ALL}
+          OPTIONS                "CMAKE_CXX_STANDARD 17"
+                                 "CMAKE_LIBRARY_PATH ${_lib_path}"
+                                 "CMAKE_INSTALL_PREFIX ${Legion_CMAKE_INSTALL_PREFIX}"
+                                 "Legion_VERSION ${PKG_VERSION}"
+                                 "Legion_BUILD_BINDINGS ON"
+                                 "Legion_BUILD_APPS OFF"
+                                 "Legion_BUILD_TESTS OFF"
+                                 "Legion_BUILD_TUTORIAL OFF"
+                                 "Legion_REDOP_HALF ON"
+                                 "Legion_REDOP_COMPLEX ON"
+                                 "Legion_GPU_REDUCTIONS OFF"
     )
   endif()
 
