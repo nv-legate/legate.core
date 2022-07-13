@@ -255,4 +255,10 @@ void Store::make_empty()
   output_field_.make_empty(dim_);
 }
 
+void Store::remove_transform()
+{
+  assert(is_transformed());
+  transform_ = transform_->parent();
+}
+
 }  // namespace legate

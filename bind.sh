@@ -25,6 +25,7 @@ case "$1" in
     mpirun) IDX="$OMPI_COMM_WORLD_LOCAL_RANK" ;;
     jsrun) IDX="$OMPI_COMM_WORLD_LOCAL_RANK" ;;
     srun) IDX="$SLURM_LOCALID" ;;
+    local) IDX=0 ;;
     none) IDX="${SLURM_LOCALID:-${OMPI_COMM_WORLD_LOCAL_RANK:-${MV2_COMM_WORLD_LOCAL_RANK:-none}}}" ;;
 esac
 shift

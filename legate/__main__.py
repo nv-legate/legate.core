@@ -513,8 +513,14 @@ def run_legate(
     cmd += launcher_extra
     # Add any wrappers before the executable
     if any(f is not None for f in [cpu_bind, mem_bind, gpu_bind, nic_bind]):
-        conduit = read_conduit(realm_defines_h)
-        cmd += [bind_sh_path, launcher, conduit]
+        cmd.append(bind_sh_path)
+
+        try:
+            conduit = read_conduit(realm_defines_h)
+            cmd += [launcher, conduit]
+        except Exception:
+            cmd += ["local", "local"]
+
         if cpu_bind is not None:
             if len(cpu_bind.split("/")) != ranks_per_node:
                 raise Exception(

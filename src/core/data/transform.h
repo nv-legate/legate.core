@@ -33,6 +33,9 @@ class StoreTransform {
   virtual Legion::DomainAffineTransform inverse_transform(int32_t in_dim) const = 0;
   virtual void print(std::ostream& out) const                                   = 0;
 
+ public:
+  std::shared_ptr<StoreTransform> parent() const { return parent_; }
+
  protected:
   std::shared_ptr<StoreTransform> parent_{nullptr};
 };
