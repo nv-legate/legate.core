@@ -49,7 +49,11 @@ function(find_or_configure_legion)
 
   # First try to find Legion via find_package()
   # so the `Legion_USE_*` variables are visible
-  rapids_find_package(Legion ${PKG_VERSION} EXACT CONFIG ${FIND_PKG_ARGS})
+  if(NOT ((DEFINED Legion_DIR) OR (DEFINED Legion_ROOT)))
+    rapids_find_package(Legion ${PKG_VERSION} EXACT CONFIG QUIET ${FIND_PKG_ARGS})
+  else()
+    rapids_find_package(Legion ${PKG_VERSION} EXACT CONFIG REQUIRED ${FIND_PKG_ARGS})
+  endif()
 
   if(Legion_FOUND)
     message(STATUS "CPM: using local package Legion@${PKG_VERSION}")
