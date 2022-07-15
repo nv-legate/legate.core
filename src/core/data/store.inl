@@ -362,7 +362,7 @@ Legion::Rect<DIM> Store::shape() const
 {
   auto dom = domain();
   if (dom.dim > 0)
-    return Legion::Rect<DIM>(dom);
+    return dom.bounds<DIM, Legion::coord_t>();
   else {
     auto p = Legion::Point<DIM>::ZEROES();
     return Legion::Rect<DIM>(p, p);
