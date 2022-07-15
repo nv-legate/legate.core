@@ -38,7 +38,7 @@ void BaseDeserializer<Deserializer>::_unpack(Scalar& value)
 }
 
 template <typename Deserializer>
-std::shared_ptr<StoreTransform> BaseDeserializer<Deserializer>::unpack_transform()
+std::shared_ptr<TransformStack> BaseDeserializer<Deserializer>::unpack_transform()
 {
   auto code = unpack<int32_t>();
   switch (code) {
@@ -49,30 +49,35 @@ std::shared_ptr<StoreTransform> BaseDeserializer<Deserializer>::unpack_transform
       auto dim    = unpack<int32_t>();
       auto offset = unpack<int64_t>();
       auto parent = unpack_transform();
-      return std::make_shared<Shift>(dim, offset, std::move(parent));
+      return std::make_shared<TransformStack>(std::make_unique<Shift>(dim, offset),
+                                              std::move(parent));
     }
     case LEGATE_CORE_TRANSFORM_PROMOTE: {
       auto extra_dim = unpack<int32_t>();
       auto dim_size  = unpack<int64_t>();
       auto parent    = unpack_transform();
-      return std::make_shared<Promote>(extra_dim, dim_size, std::move(parent));
+      return std::make_shared<TransformStack>(std::make_unique<Promote>(extra_dim, dim_size),
+                                              std::move(parent));
     }
     case LEGATE_CORE_TRANSFORM_PROJECT: {
       auto dim    = unpack<int32_t>();
       auto coord  = unpack<int64_t>();
       auto parent = unpack_transform();
-      return std::make_shared<Project>(dim, coord, std::move(parent));
+      return std::make_shared<TransformStack>(std::make_unique<Project>(dim, coord),
+                                              std::move(parent));
     }
     case LEGATE_CORE_TRANSFORM_TRANSPOSE: {
       auto axes   = unpack<std::vector<int32_t>>();
       auto parent = unpack_transform();
-      return std::make_shared<Transpose>(std::move(axes), std::move(parent));
+      return std::make_shared<TransformStack>(std::make_unique<Transpose>(std::move(axes)),
+                                              std::move(parent));
     }
     case LEGATE_CORE_TRANSFORM_DELINEARIZE: {
       auto dim    = unpack<int32_t>();
       auto sizes  = unpack<std::vector<int64_t>>();
       auto parent = unpack_transform();
-      return std::make_shared<Delinearize>(dim, std::move(sizes), std::move(parent));
+      return std::make_shared<TransformStack>(std::make_unique<Delinearize>(dim, std::move(sizes)),
+                                              std::move(parent));
     }
   }
   assert(false);
