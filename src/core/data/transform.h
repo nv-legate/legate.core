@@ -29,6 +29,7 @@ struct Transform {
 };
 
 struct StoreTransform : public Transform {
+  virtual ~StoreTransform() {}
   virtual int32_t target_ndim(int32_t source_ndim) const = 0;
 };
 
