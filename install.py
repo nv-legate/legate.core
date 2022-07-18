@@ -959,7 +959,10 @@ def driver():
         dest="conduit",
         action="store",
         required=False,
-        choices=["ibv", "ucx", "aries", "mpi", "udp"],
+        # TODO: To support UDP conduit, we would need to add a special case on
+        # the legate launcher.
+        # See https://github.com/nv-legate/legate.core/issues/294.
+        choices=["ibv", "ucx", "aries", "mpi"],
         default=os.environ.get("CONDUIT"),
         help="Build Legate with specified GASNet conduit.",
     )
