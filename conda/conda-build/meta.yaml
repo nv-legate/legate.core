@@ -78,7 +78,7 @@ requirements:
     - make
     - ninja
     - python
-    - openmp
+    - llvm-openmp
     - scikit-build
     - cmake {{ cmake_version }}
     - numpy {{ numpy_version }}
@@ -94,7 +94,7 @@ requirements:
 {% endif %}
   run:
     - cffi
-    - openmp
+    - llvm-openmp
     - numpy {{ numpy_version }}
     - pyarrow {{ pyarrow_version }}
 {% if gpu_enabled_bool %}
