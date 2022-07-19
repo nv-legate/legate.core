@@ -100,11 +100,13 @@ requirements:
 {% if gpu_enabled_bool %}
     - cuda-cudart >={{ cuda_version }}
     - nccl
-    - __cuda >={{ cuda_version }}
 {% endif %}
 
   run_constrained:
     - __glibc >=2.17  # [linux]
+{% if gpu_enabled_bool %}
+    - __cuda >={{ cuda_version }}
+{% endif %}
 
 test:
   imports:
