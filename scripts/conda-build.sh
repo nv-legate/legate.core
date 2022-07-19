@@ -16,7 +16,6 @@ conda mambabuild \
     --override-channels \
     -c conda-forge -c nvidia \
     --croot /tmp/conda-build/legate_core \
-    --prefix-length 3 \
     --no-test \
     --no-verify \
     --build-id-pat='' \
