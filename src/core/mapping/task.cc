@@ -59,14 +59,14 @@ Domain FutureWrapper::domain() const { return domain_; }
 Store::Store(int32_t dim,
              LegateTypeCode code,
              FutureWrapper future,
-             std::shared_ptr<StoreTransform> transform)
+             std::shared_ptr<TransformStack>&& transform)
   : is_future_(true),
     is_output_store_(false),
     dim_(dim),
     code_(code),
     redop_id_(-1),
     future_(future),
-    transform_(std::move(transform))
+    transform_(std::forward<decltype(transform)>(transform))
 {
 }
 
@@ -77,14 +77,14 @@ Store::Store(Legion::Mapping::MapperRuntime* runtime,
              int32_t redop_id,
              const RegionField& region_field,
              bool is_output_store,
-             std::shared_ptr<StoreTransform> transform)
+             std::shared_ptr<TransformStack>&& transform)
   : is_future_(false),
     is_output_store_(is_output_store),
     dim_(dim),
     code_(code),
     redop_id_(redop_id),
     region_field_(region_field),
-    transform_(std::move(transform)),
+    transform_(std::forward<decltype(transform)>(transform)),
     runtime_(runtime),
     context_(context)
 {

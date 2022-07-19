@@ -1133,7 +1133,6 @@ class Store:
                 f"of shape {self.shape}"
             )
 
-        transform = Shift(self._runtime, dim, -start)
         shape = self.shape
         tile_shape = shape.update(dim, stop - start)
         if shape == tile_shape:
@@ -1145,11 +1144,18 @@ class Store:
             self._transform.invert_extent(tile_shape),
             self._transform.invert_point(offsets),
         )
+        transform = (
+            self._transform
+            if start == 0
+            else TransformStack(
+                Shift(self._runtime, dim, -start), self._transform
+            )
+        )
         return Store(
             self._runtime,
             self._dtype,
             storage,
-            TransformStack(transform, self._transform),
+            transform,
             shape=tile_shape,
         )
 

@@ -22,35 +22,50 @@
 
 namespace legate {
 
-class StoreTransform {
- public:
-  StoreTransform() {}
-  StoreTransform(std::shared_ptr<StoreTransform> parent);
-  virtual ~StoreTransform() {}
-
- public:
+struct Transform {
   virtual Legion::Domain transform(const Legion::Domain& input) const           = 0;
   virtual Legion::DomainAffineTransform inverse_transform(int32_t in_dim) const = 0;
   virtual void print(std::ostream& out) const                                   = 0;
-
- public:
-  std::shared_ptr<StoreTransform> parent() const { return parent_; }
-
- protected:
-  std::shared_ptr<StoreTransform> parent_{nullptr};
 };
 
-std::ostream& operator<<(std::ostream& out, const StoreTransform& transform);
+struct StoreTransform : public Transform {
+  virtual ~StoreTransform() {}
+  virtual int32_t target_ndim(int32_t source_ndim) const = 0;
+};
 
-class Shift : public StoreTransform {
+struct TransformStack : public Transform {
  public:
-  Shift(int32_t dim, int64_t offset, std::shared_ptr<StoreTransform> parent = nullptr);
-  virtual ~Shift() {}
+  TransformStack(std::unique_ptr<StoreTransform>&& transform,
+                 std::shared_ptr<TransformStack>&& parent);
 
  public:
   virtual Legion::Domain transform(const Legion::Domain& input) const override;
   virtual Legion::DomainAffineTransform inverse_transform(int32_t in_dim) const override;
   virtual void print(std::ostream& out) const override;
+
+ public:
+  std::unique_ptr<StoreTransform> pop();
+  bool empty() const { return nullptr == transform_; }
+
+ public:
+  void dump() const;
+
+ private:
+  std::unique_ptr<StoreTransform> transform_;
+  std::shared_ptr<TransformStack> parent_;
+};
+
+class Shift : public StoreTransform {
+ public:
+  Shift(int32_t dim, int64_t offset);
+
+ public:
+  virtual Legion::Domain transform(const Legion::Domain& input) const override;
+  virtual Legion::DomainAffineTransform inverse_transform(int32_t in_dim) const override;
+  virtual void print(std::ostream& out) const override;
+
+ public:
+  virtual int32_t target_ndim(int32_t source_ndim) const override;
 
  private:
   int32_t dim_;
@@ -59,13 +74,15 @@ class Shift : public StoreTransform {
 
 class Promote : public StoreTransform {
  public:
-  Promote(int32_t extra_dim, int64_t dim_size, std::shared_ptr<StoreTransform> parent = nullptr);
-  virtual ~Promote() {}
+  Promote(int32_t extra_dim, int64_t dim_size);
 
  public:
   virtual Legion::Domain transform(const Legion::Domain& input) const override;
   virtual Legion::DomainAffineTransform inverse_transform(int32_t in_dim) const override;
   virtual void print(std::ostream& out) const override;
+
+ public:
+  virtual int32_t target_ndim(int32_t source_ndim) const override;
 
  private:
   int32_t extra_dim_;
@@ -74,13 +91,16 @@ class Promote : public StoreTransform {
 
 class Project : public StoreTransform {
  public:
-  Project(int32_t dim, int64_t coord, std::shared_ptr<StoreTransform> parent = nullptr);
+  Project(int32_t dim, int64_t coord);
   virtual ~Project() {}
 
  public:
   virtual Legion::Domain transform(const Legion::Domain& domain) const override;
   virtual Legion::DomainAffineTransform inverse_transform(int32_t in_dim) const override;
   virtual void print(std::ostream& out) const override;
+
+ public:
+  virtual int32_t target_ndim(int32_t source_ndim) const override;
 
  private:
   int32_t dim_;
@@ -89,13 +109,15 @@ class Project : public StoreTransform {
 
 class Transpose : public StoreTransform {
  public:
-  Transpose(std::vector<int32_t>&& axes, std::shared_ptr<StoreTransform> parent = nullptr);
-  virtual ~Transpose() {}
+  Transpose(std::vector<int32_t>&& axes);
 
  public:
   virtual Legion::Domain transform(const Legion::Domain& domain) const override;
   virtual Legion::DomainAffineTransform inverse_transform(int32_t in_dim) const override;
   virtual void print(std::ostream& out) const override;
+
+ public:
+  virtual int32_t target_ndim(int32_t source_ndim) const override;
 
  private:
   std::vector<int32_t> axes_;
@@ -103,15 +125,15 @@ class Transpose : public StoreTransform {
 
 class Delinearize : public StoreTransform {
  public:
-  Delinearize(int32_t dim,
-              std::vector<int64_t>&& sizes,
-              std::shared_ptr<StoreTransform> parent = nullptr);
-  virtual ~Delinearize() {}
+  Delinearize(int32_t dim, std::vector<int64_t>&& sizes);
 
  public:
   virtual Legion::Domain transform(const Legion::Domain& domain) const override;
   virtual Legion::DomainAffineTransform inverse_transform(int32_t in_dim) const override;
   virtual void print(std::ostream& out) const override;
+
+ public:
+  virtual int32_t target_ndim(int32_t source_ndim) const override;
 
  private:
   int32_t dim_;
@@ -119,5 +141,9 @@ class Delinearize : public StoreTransform {
   std::vector<int64_t> strides_;
   int64_t volume_;
 };
+
+std::ostream& operator<<(std::ostream& out, const Transform& transform);
+
+void dump_transform_stack(const TransformStack& stack);
 
 }  // namespace legate

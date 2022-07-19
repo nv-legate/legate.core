@@ -66,7 +66,7 @@ class BaseDeserializer {
   void _unpack(Scalar& value);
 
  protected:
-  std::shared_ptr<StoreTransform> unpack_transform();
+  std::shared_ptr<TransformStack> unpack_transform();
 
  protected:
   const Legion::Task* task_;

@@ -258,16 +258,16 @@ class Store {
         int32_t code,
         int32_t redop_id,
         FutureWrapper future,
-        std::shared_ptr<StoreTransform> transform = nullptr);
+        std::shared_ptr<TransformStack>&& transform = nullptr);
   Store(int32_t dim,
         int32_t code,
         int32_t redop_id,
         RegionField&& region_field,
-        std::shared_ptr<StoreTransform> transform = nullptr);
+        std::shared_ptr<TransformStack>&& transform = nullptr);
   Store(int32_t dim,
         int32_t code,
         OutputRegionField&& output,
-        std::shared_ptr<StoreTransform> transform = nullptr);
+        std::shared_ptr<TransformStack>&& transform = nullptr);
 
  public:
   Store(Store&& other) noexcept;
@@ -359,7 +359,7 @@ class Store {
   OutputRegionField output_field_;
 
  private:
-  std::shared_ptr<StoreTransform> transform_{nullptr};
+  std::shared_ptr<TransformStack> transform_{nullptr};
 
  private:
   bool readable_{false};
