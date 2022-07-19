@@ -1,10 +1,11 @@
 #! /usr/bin/env bash
 
+# mamba create -n legate_core_build python=$PYTHON_VERSION boa git
+
 cd $(dirname "$(realpath "$0")")/..
 
-mkdir -p /tmp/conda-build
-rm -rf /tmp/conda-build/*
-mkdir -p /tmp/conda-build/out
+mkdir -p /tmp/conda-build/legate_core
+rm -rf /tmp/conda-build/legate_core/*
 
 PYTHON_VERSION="${PYTHON_VERSION:-3.9}"
 
@@ -14,7 +15,7 @@ conda mambabuild \
     --python $PYTHON_VERSION \
     --override-channels \
     -c conda-forge -c nvidia \
-    --croot /tmp/conda-build \
+    --croot /tmp/conda-build/legate_core \
     --prefix-length 3 \
     --no-test \
     --no-verify \
@@ -22,6 +23,5 @@ conda mambabuild \
     --merge-build-host \
     --no-include-recipe \
     --no-anaconda-upload \
-    --output-folder /tmp/conda-build/out \
     --variants "{gpu_enabled: 'true', python: $PYTHON_VERSION}" \
     ./conda/conda-build
