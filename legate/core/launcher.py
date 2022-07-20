@@ -747,7 +747,7 @@ class TaskLauncher:
     def add_scalar_arg(
         self,
         value: Any,
-        dtype: DTType,
+        dtype: Union[DTType, tuple[DTType]],
         untyped: bool = True,
     ) -> None:
         self._scalars.append(
