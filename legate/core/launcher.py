@@ -120,7 +120,7 @@ class ScalarArg:
         self,
         core_types: ty.TypeSystem,
         value: Any,
-        dtype: Union[DTType, tuple[DTType, ...]],
+        dtype: Union[DTType, tuple[DTType]],
         untyped: bool = True,
     ) -> None:
         self._core_types = core_types
@@ -747,7 +747,7 @@ class TaskLauncher:
     def add_scalar_arg(
         self,
         value: Any,
-        dtype: Union[DTType, tuple[DTType, ...]],
+        dtype: Union[DTType, tuple[DTType]],
         untyped: bool = True,
     ) -> None:
         self._scalars.append(
