@@ -68,18 +68,20 @@ int alltoallvMPI(const void* sendbuf,
     int recv_tag = generateAlltoallvTag(global_rank, recvfrom_global_rank, global_comm);
 #ifdef DEBUG_LEGATE
     log_coll.debug(
-      "AlltoallvMPI i: %d === global_rank %d, mpi rank %d, send to %d (%d), send_tag %d, "
-      "recv from %d (%d), "
-      "recv_tag %d",
+      "AlltoallvMPI i: %d === global_rank %d, mpi rank %d, "
+      "send to %d (%d), send_tag %d, count %d, "
+      "recv from %d (%d), recv_tag %d, count %d",
       i,
       global_rank,
       global_comm->mpi_rank,
       sendto_global_rank,
       sendto_mpi_rank,
       send_tag,
+      scount,
       recvfrom_global_rank,
       recvfrom_mpi_rank,
-      recv_tag);
+      recv_tag,
+      rcount);
 #endif
     CHECK_MPI(MPI_Sendrecv(src,
                            scount,
