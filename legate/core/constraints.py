@@ -225,12 +225,14 @@ class Image(Expr):
         src_part_sym: Expr,
         mapper: int,
         range: bool = False,
+        functor: Any = ImagePartition,
     ):
         self._source_store = source_store
         self._dst_store = dst_store
         self._src_part_sym = src_part_sym
         self._mapper = mapper
         self._range = range
+        self._functor = functor
 
     def subst(self, mapping: dict[PartSym, PartitionBase]) -> Expr:
         return Image(
@@ -239,6 +241,7 @@ class Image(Expr):
             self._src_part_sym.subst(mapping),
             self._mapper,
             range=self._range,
+            functor=self._functor,
         )
 
     def reduce(self) -> Lit:
@@ -248,7 +251,7 @@ class Image(Expr):
         if isinstance(part, Replicate):
             return Lit(part)
         return Lit(
-            ImagePartition(
+            self._functor(
                 part.runtime,
                 self._source_store,
                 part,
@@ -269,7 +272,8 @@ class Image(Expr):
             # Careful! Overloaded equals operator.
             and self._src_part_sym is other._src_part_sym
             and self._range == other._range
-            and self._mapper == other._mapper,
+            and self._mapper == other._mapper
+            and self._functor == other._functor
         )
 
 
