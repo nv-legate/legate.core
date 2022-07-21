@@ -21,7 +21,7 @@ import legate.core.types as ty
 from . import Future, FutureMap, Rect
 from .constraints import Image, PartSym
 from .launcher import CopyLauncher, TaskLauncher
-from .partition import Replicate, Weighted
+from .partition import ImagePartition, Replicate, Weighted
 from .shape import Shape
 from .store import Store, StorePartition
 from .utils import OrderedSet, capture_traceback
@@ -169,7 +169,11 @@ class Operation(OperationProtocol):
     # add_image_constraint adds a constraint that the image of store1 is
     # contained within the partition of store2.
     def add_image_constraint(
-        self, store1: Store, store2: Store, range: bool = False
+        self,
+        store1: Store,
+        store2: Store,
+        range: bool = False,
+        functor: Any = ImagePartition,
     ):
         self._check_store(store1)
         self._check_store(store2)
@@ -179,7 +183,12 @@ class Operation(OperationProtocol):
         part1 = self._get_unique_partition(store1)
         part2 = self._get_unique_partition(store2)
         image = Image(
-            store1, store2, part1, self._context.mapper_id, range=range
+            store1,
+            store2,
+            part1,
+            self._context.mapper_id,
+            range=range,
+            functor=functor,
         )
         self.add_constraint(image <= part2)
 
