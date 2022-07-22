@@ -82,7 +82,7 @@ option(legate_core_EXCLUDE_LEGION_FROM_ALL "Exclude Legion targets from legate.c
 set_or_default(NCCL_DIR NCCL_PATH)
 set_or_default(Thrust_DIR THRUST_PATH)
 set_or_default(CUDA_TOOLKIT_ROOT_DIR CUDA)
-set_or_default(CMAKE_CUDA_ARCHITECTURES GPU_ARCH ALL)
+set_or_default(CMAKE_CUDA_ARCHITECTURES GPU_ARCH NATIVE)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/cuda_arch_helpers.cmake)
 # Needs to run before `rapids_cuda_init_architectures`
