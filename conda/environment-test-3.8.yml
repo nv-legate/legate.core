@@ -1,13 +1,20 @@
-name: cunumeric-test
+name: legate-core-test
 channels:
   - conda-forge
 dependencies:
   - python=3.8
 
   # build
+  - git
   - nccl
+  - make
+  - zlib
+  - cmake
+  - ninja
+  - c-compiler
+  - cxx-compiler
   - setuptools>=60
-  - scikit-build
+  - scikit-build>=0.13.1
 
   # runtime
   - cffi
@@ -16,6 +23,7 @@ dependencies:
   - pyarrow>=5
   - scipy
   - typing_extensions
+  - llvm-openmp
 
   # tests
   - clang>=8
@@ -28,6 +36,7 @@ dependencies:
   - pynvml
   - pytest
   - pytest-cov
+  - pytest-mock
   - types-docutils
 
   # pip dependencies
