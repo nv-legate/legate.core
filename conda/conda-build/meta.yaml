@@ -71,16 +71,16 @@ build:
 
 requirements:
   build:
+    - make
+    - ninja
+    - cmake {{ cmake_version }}
     - {{ compiler('c') }} =11.2
     - {{ compiler('cxx') }} =11.2
   host:
     - zlib
-    - make
-    - ninja
     - python
     - llvm-openmp
     - scikit-build
-    - cmake {{ cmake_version }}
     - numpy {{ numpy_version }}
 {% if gpu_enabled_bool %}
     - nccl
