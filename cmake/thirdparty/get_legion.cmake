@@ -49,11 +49,14 @@ function(find_or_configure_legion)
 
   # First try to find Legion via find_package()
   # so the `Legion_USE_*` variables are visible
-  if(NOT ((DEFINED Legion_DIR) OR (DEFINED Legion_ROOT)))
-    rapids_find_package(Legion ${PKG_VERSION} EXACT CONFIG QUIET ${FIND_PKG_ARGS})
-  else()
-    rapids_find_package(Legion ${PKG_VERSION} EXACT CONFIG REQUIRED ${FIND_PKG_ARGS})
+  # Use QUIET find by default.
+  set(_find_mode QUIET)
+  # If Legion_DIR/Legion_ROOT are defined as something other than empty or NOTFOUND
+  # use a REQUIRED find so that the build does not silently download Legion.
+  if(Legion_DIR OR Legion_ROOT)
+    set(_find_mode REQUIRED)
   endif()
+  rapids_find_package(Legion ${PKG_VERSION} EXACT CONFIG ${_find_mode} ${FIND_PKG_ARGS})
 
   if(Legion_FOUND)
     message(STATUS "CPM: using local package Legion@${PKG_VERSION}")
@@ -67,6 +70,14 @@ function(find_or_configure_legion)
     if(NOT DEFINED Legion_CMAKE_INSTALL_PREFIX)
       set(Legion_CMAKE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
     endif()
+    # Because legion sets these as cache variables, we need to force set this as a cache variable here
+    # to ensure that Legion doesn't override this in the CMakeCache.txt and create an unexpected state.
+    # This only applies to set() but does not apply to option() variables.
+    # See discussion of FetchContent subtleties:
+    # Only use these FORCE calls if using a Legion subbuild.
+    # https://discourse.cmake.org/t/fetchcontent-cache-variables/1538/8
+    set(Legion_MAX_DIM ${Legion_MAX_DIM} CACHE STRING "The max number of dimensions for Legion" FORCE)
+    set(Legion_MAX_FIELDS ${Legion_MAX_FIELDS} CACHE STRING "The max number of fields for Legion" FORCE)
     rapids_cpm_find(Legion ${PKG_VERSION} ${FIND_PKG_ARGS}
         CPM_ARGS
           ${legion_cpm_git_args}
