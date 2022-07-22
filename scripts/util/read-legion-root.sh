@@ -13,4 +13,4 @@ else
     echo "Using Legion at: \`$Legion_ROOT\`"
 fi
 
-export Legion_ROOT="(realpath -m "$Legion_ROOT")"
+export Legion_ROOT="$(realpath -m "$Legion_ROOT")"
