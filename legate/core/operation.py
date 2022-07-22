@@ -106,7 +106,7 @@ class OperationProtocol(Protocol):
 
 class TaskProtocol(OperationProtocol, Protocol):
     _task_id: int
-    _scalar_args: list[tuple[Any, DTType]]
+    _scalar_args: list[tuple[Any, Union[DTType, tuple[DTType]]]]
     _comm_args: list[Communicator]
 
 
@@ -225,7 +225,7 @@ class Task(TaskProtocol):
     ) -> None:
         super().__init__(**kwargs)
         self._task_id = task_id
-        self._scalar_args: list[tuple[Any, DTType]] = []
+        self._scalar_args: list[tuple[Any, Union[DTType, tuple[DTType]]]] = []
         self._comm_args: list[Communicator] = []
         self._exn_types: list[type] = []
         self._tb: Union[None, TracebackType] = None
@@ -238,7 +238,9 @@ class Task(TaskProtocol):
         libname = self.context.library.get_name()
         return f"{libname}.Task(tid:{self._task_id}, uid:{self._op_id})"
 
-    def add_scalar_arg(self, value: Any, dtype: DTType) -> None:
+    def add_scalar_arg(
+        self, value: Any, dtype: Union[DTType, tuple[DTType]]
+    ) -> None:
         self._scalar_args.append((value, dtype))
 
     def add_dtype_arg(self, dtype: DTType) -> None:
