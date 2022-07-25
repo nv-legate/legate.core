@@ -241,18 +241,6 @@ if(Legion_USE_CUDA)
   endif()
 endif()
 
-###
-# Preinclude `realm_defines.h` and `legion_defines.h` in all compilations.
-# TODO: It isn't possible to expose this as part of the public legate_core
-# target's interface in a portable way, so this code needs to be duplicated
-# in both legate.core and cuNumeric.
-#
-# A better solution would be to add #include directives to the requisite
-# legate.core and cuNumeric headers.
-###
-include(cmake/Modules/legion_helpers.cmake)
-get_legion_and_realm_includes(extra_include_options)
-
 target_link_libraries(legate_core
    PUBLIC Legion::Legion
           legate::Thrust
@@ -261,8 +249,7 @@ target_link_libraries(legate_core
           $<TARGET_NAME_IF_EXISTS:NCCL::NCCL>)
 
 target_compile_options(legate_core
-  PRIVATE ${extra_include_options}
-          "$<$<COMPILE_LANGUAGE:CXX>:${legate_core_CXX_OPTIONS}>"
+  PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${legate_core_CXX_OPTIONS}>"
           "$<$<COMPILE_LANGUAGE:CUDA>:${legate_core_CUDA_OPTIONS}>")
 
 target_compile_definitions(legate_core

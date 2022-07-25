@@ -14,8 +14,6 @@
 # limitations under the License.
 #=============================================================================
 
-include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/legion_helpers.cmake)
-
 function(find_or_configure_legion)
   set(oneValueArgs VERSION REPOSITORY BRANCH EXCLUDE_FROM_ALL)
   cmake_parse_arguments(PKG "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
