@@ -406,7 +406,6 @@ class Partitioner:
         for op in self._ops:
             unknowns.update(op.all_unknowns)
             for c in op.constraints:
-                # print(c)
                 if isinstance(c, Alignment):
                     constraints.record(c._lhs, c._rhs)
                 elif isinstance(c, Broadcast):
@@ -416,12 +415,13 @@ class Partitioner:
                 ):
                     if c._lhs in dependent:
                         rhs = dependent[c._lhs]
-                        # While we can't have multiple constraints, we are ok with seeing a duplicate
-                        # image constraint, as that doesn't affect the solving.
+                        # While we can't have multiple constraints, we are ok
+                        # with seeing a duplicate image constraint, as that
+                        # doesn't affect the solving.
                         if not (isinstance(rhs, Image) and rhs.equals(c._rhs)):
                             raise NotImplementedError(
-                                "Partitions constrained by multiple constraints "
-                                "are not supported yet"
+                                "Partitions constrained by multiple "
+                                "constraints are not supported yet"
                             )
                     for unknown in c._rhs.unknowns():
                         must_be_even.add(unknown)
@@ -431,12 +431,13 @@ class Partitioner:
                 ):
                     if c._rhs in dependent:
                         lhs = dependent[c._rhs]
-                        # While we can't have multiple constraints, we are ok with seeing a duplicate
-                        # image constraint, as that doesn't affect the solving.
+                        # While we can't have multiple constraints, we are ok
+                        # with seeing a duplicate image constraint, as that
+                        # doesn't affect the solving.
                         if not (isinstance(lhs, Image) and lhs.equals(c._lhs)):
                             raise NotImplementedError(
-                                "Partitions constrained by multiple constraints "
-                                "are not supported yet"
+                                "Partitions constrained by multiple "
+                                "constraints are not supported yet"
                             )
                     for unknown in c._lhs.unknowns():
                         must_be_even.add(unknown)
@@ -447,13 +448,6 @@ class Partitioner:
             all_outputs.update(
                 store for store in op.outputs if not store.unbound
             )
-
-        # assert(len(self._ops) == 1)
-        # print("Op constraints", self._ops[0].constraints)
-        # # print("Constraints: ",  constraints)
-        # print("Depends", dependent)
-
-        # print("Unknowns: ", list(unknowns))
 
         if self._must_be_single or len(unknowns) == 0:
             for unknown in unknowns:
@@ -480,8 +474,6 @@ class Partitioner:
             unknowns, broadcasts, constraints
         )
 
-        # print("Next set unknowns: ", list(unknowns))
-
         def cost(unknown: PartSym) -> tuple[int, bool]:
             store = unknown.store
             return (
@@ -501,28 +493,27 @@ class Partitioner:
             store = unknown.store
             restrictions = all_restrictions[unknown]
             cls = constraints.find(unknown)
-            # print("Constraints for: ", unknown, list(cls))
-            # print("Current partitions: ", partitions)
 
-            # If we are supposed to be aligned with a partition in dependents, then
-            # don't make a decision right now.
+            # If we are supposed to be aligned with a partition in dependents,
+            # then don't make a decision right now.
             depends = False
             for to_align in cls:
                 if to_align in dependent:
                     depends = True
-            # print(unknown, "depends on other parts")
             if depends:
                 continue
 
-            # TODO (rohany): If we already have a partition for this equality class
-            #  we need to use it.
+            # If we already have a partition for this equality class we
+            # need to use it.
             for to_align in cls:
+                # Don't align to Futures, as those are trivially replicated.
+                if to_align.store.kind is Future:
+                    continue
                 if to_align in partitions:
                     partition = partitions[to_align]
                     break
             else:
                 partition = store.compute_key_partition(restrictions)
-                # print("Key partition for store: ", store, partition)
                 if not partition.even and len(cls) > 1:
                     (
                         partition,
@@ -536,21 +527,17 @@ class Partitioner:
                     )
                 key_parts.add(unknown)
 
-            # print("computed partition", partition)
-
             for to_align in cls:
                 if to_align in partitions:
                     continue
                 partitions[to_align] = partition
 
         for rhs, lhs in dependent.items():
-            # print(rhs, lhs)
             expr = lhs.subst(partitions).reduce()
             if TYPE_CHECKING:
                 assert isinstance(expr, Lit)
             partitions[rhs] = expr._part
 
-        # Comment...
         for unknown in sorted_unknowns:
             if unknown in partitions:
                 continue
