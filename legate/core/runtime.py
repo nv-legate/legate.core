@@ -1033,7 +1033,6 @@ class Runtime:
             # TODO (rohany): We also need a callback here to evict cached
             #  partitions with old store values so that we don't leak these.
             for store in op.get_all_modified_stores():
-                # TODO (rohany): Make this a method on the store.
                 store.bump_version()
 
     def flush_scheduling_window(self) -> None:
