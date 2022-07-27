@@ -78,7 +78,7 @@ from .runtime import (
     get_legion_runtime,
     legate_add_library,
 )
-from .store import DistributedAllocation, Store
+from .store import DistributedAllocation, Storage, Store
 
 from .types import (
     bool_,

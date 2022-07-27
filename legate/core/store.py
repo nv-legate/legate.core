@@ -988,6 +988,9 @@ class Store:
             )
         return self._storage.data
 
+    def get_root(self) -> Storage:
+        return self._storage.get_root()
+
     @property
     def extents(self) -> Shape:
         return self._storage.extents
