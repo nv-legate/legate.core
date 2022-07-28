@@ -109,6 +109,14 @@ class Partition:
         """
         return self.parent.get_root()
 
+    @property
+    def disjoint(self) -> bool:
+        return self.index_partition.disjoint
+
+    @property
+    def complete(self) -> bool:
+        return self.index_partition.complete
+
 
 class IndexPartition:
     _logical_handle: Any
@@ -260,3 +268,15 @@ class IndexPartition:
         Return the root IndexSpace in this tree.
         """
         return self.parent.get_root()
+
+    @property
+    def disjoint(self) -> bool:
+        return legion.legion_index_partition_is_disjoint(
+            self.runtime, self.handle
+        )
+
+    @property
+    def complete(self) -> bool:
+        return legion.legion_index_partition_is_complete(
+            self.runtime, self.handle
+        )

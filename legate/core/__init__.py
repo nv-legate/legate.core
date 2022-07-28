@@ -36,6 +36,8 @@ from ._legion import (
     PartitionByRestriction,
     PartitionByImage,
     PartitionByImageRange,
+    PartitionByPreimage,
+    PartitionByPreimageRange,
     EqualPartition,
     PartitionByWeights,
     IndexPartition,
