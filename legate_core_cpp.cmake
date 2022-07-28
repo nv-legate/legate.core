@@ -54,14 +54,12 @@ macro(_find_package_Python3)
   message(VERBOSE "legate.core: Python 3 version: ${Python3_VERSION}")
 endmacro()
 
-if(Legion_USE_Python)
-  _find_package_Python3()
-  if(Python3_FOUND AND Python3_VERSION)
-    set(Legion_Python_Version ${Python3_VERSION})
-  endif()
-endif()
-
-if(Legion_USE_CUDA)
+macro(_enable_cuda_language)
+  include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/cuda_arch_helpers.cmake)
+  # Needs to run before `rapids_cuda_init_architectures`
+  set_cuda_arch_from_names()
+  # Must come before `enable_language(CUDA)`
+  rapids_cuda_init_architectures(legate_core)
   # Enable the CUDA language
   enable_language(CUDA)
   # Since legate_core only enables CUDA optionally we need to manually include
@@ -73,6 +71,20 @@ if(Legion_USE_CUDA)
   # Use `-isystem <path>` instead of `-isystem=<path>`
   # because the former works with clangd intellisense
   set(CMAKE_INCLUDE_SYSTEM_FLAG_CUDA "-isystem ")
+endmacro()
+
+if(Legion_USE_Python)
+  _find_package_Python3()
+  if(Python3_FOUND AND Python3_VERSION)
+    set(Legion_Python_Version ${Python3_VERSION})
+  endif()
+endif()
+
+set(Legion_USE_CUDA_WAS_SET ${Legion_USE_CUDA})
+if(Legion_USE_CUDA)
+  _enable_cuda_language()
+else()
+  set(Legion_USE_CUDA_WAS_SET OFF)
 endif()
 
 ###
@@ -96,6 +108,9 @@ if(Legion_USE_GASNet)
 endif()
 
 if(Legion_USE_CUDA)
+  if(NOT Legion_USE_CUDA_WAS_SET)
+    _enable_cuda_language()
+  endif()
   # Find the CUDAToolkit
   rapids_find_package(
     CUDAToolkit REQUIRED
