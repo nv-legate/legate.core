@@ -18,6 +18,10 @@
 
 #include "core/data/store.h"
 
+#ifdef LEGATE_USE_CUDA
+#include <cuda_runtime_api.h>
+#endif
+
 #include <sstream>
 
 namespace legate {

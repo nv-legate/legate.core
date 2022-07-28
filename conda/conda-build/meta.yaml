@@ -65,36 +65,48 @@ build:
 # once an nccl package compatible with cuda-* packages is introduced, this can be removed
 #  ignore_run_exports:
 #    - cudatoolkit
+  ignore_run_exports_from:
+    - cuda-nvcc
 {% endif %}
 
 requirements:
   build:
+    - make
+    - ninja
+    - cmake {{ cmake_version }}
     - {{ compiler('c') }} =11.2
     - {{ compiler('cxx') }} =11.2
-    - make
-{% if gpu_enabled_bool %}
-    - cuda-nvcc ={{ cuda_version }}
-{% endif %}
   host:
     - zlib
     - python
+    - llvm-openmp
+    - scikit-build
+    - numpy {{ numpy_version }}
 {% if gpu_enabled_bool %}
     - nccl
+    - cudatoolkit ={{ cuda_version }}
+    - cuda-nvcc ={{ cuda_version }}
     - cuda-nvtx ={{ cuda_version }}
+    - cuda-cccl ={{ cuda_version }}
+    - cuda-cudart ={{ cuda_version }}
     - cuda-driver-dev ={{ cuda_version }}
     - cuda-cudart-dev ={{ cuda_version }}
 {% endif %}
   run:
     - cffi
-    - pyarrow >=5.0.0
+    - llvm-openmp
+    - numpy {{ numpy_version }}
+    - pyarrow {{ pyarrow_version }}
 {% if gpu_enabled_bool %}
     - cuda-cudart >={{ cuda_version }}
     - nccl
-    - __cuda >=11.4
 {% endif %}
 
   run_constrained:
     - __glibc >=2.17  # [linux]
+{% if gpu_enabled_bool %}
+    - __cuda >={{ cuda_version }}
+{% endif %}
 
 test:
   imports:
