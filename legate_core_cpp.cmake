@@ -54,23 +54,33 @@ macro(_find_package_Python3)
   message(VERBOSE "legate.core: Python 3 version: ${Python3_VERSION}")
 endmacro()
 
+# CUDA initialization might need to happen at different times depending on
+# how Legion is built. If building Legion inline, CUDA must be enabled
+# BEFORE get_legion.cmake because of how Legion handles CMAKE_CUDA_ARCHITECURES.
+# If using an external Legion, CUDA must be enabled AFTER get_legion.cmake.
+# This function executes all the enable CUDA functions with a boolean guard
+# to make sure it is only executed once.
 macro(_enable_cuda_language)
-  include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/cuda_arch_helpers.cmake)
-  # Needs to run before `rapids_cuda_init_architectures`
-  set_cuda_arch_from_names()
-  # Must come before `enable_language(CUDA)`
-  rapids_cuda_init_architectures(legate_core)
-  # Enable the CUDA language
-  enable_language(CUDA)
-  # Since legate_core only enables CUDA optionally we need to manually include
-  # the file that rapids_cuda_init_architectures relies on `project` calling
-  if(CMAKE_PROJECT_legate_core_INCLUDE)
-    include("${CMAKE_PROJECT_legate_core_INCLUDE}")
+  if (NOT legate_core_CUDA_ENABLED)
+    include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/cuda_arch_helpers.cmake)
+    # Needs to run before `rapids_cuda_init_architectures`
+    set_cuda_arch_from_names()
+    # Must come before `enable_language(CUDA)`
+    rapids_cuda_init_architectures(legate_core)
+    # Enable the CUDA language
+    enable_language(CUDA)
+    # Since legate_core only enables CUDA optionally we need to manually include
+    # the file that rapids_cuda_init_architectures relies on `project` calling
+    if(CMAKE_PROJECT_legate_core_INCLUDE)
+      include("${CMAKE_PROJECT_legate_core_INCLUDE}")
+    endif()
+    # Must come after `enable_language(CUDA)`
+    # Use `-isystem <path>` instead of `-isystem=<path>`
+    # because the former works with clangd intellisense
+    set(CMAKE_INCLUDE_SYSTEM_FLAG_CUDA "-isystem ")
+    # set to TRUE so the macro does not repeat if called again.
+    set(legate_core_CUDA_ENABLED TRUE)
   endif()
-  # Must come after `enable_language(CUDA)`
-  # Use `-isystem <path>` instead of `-isystem=<path>`
-  # because the former works with clangd intellisense
-  set(CMAKE_INCLUDE_SYSTEM_FLAG_CUDA "-isystem ")
 endmacro()
 
 if(Legion_USE_Python)
@@ -80,11 +90,8 @@ if(Legion_USE_Python)
   endif()
 endif()
 
-set(Legion_USE_CUDA_WAS_SET ${Legion_USE_CUDA})
 if(Legion_USE_CUDA)
   _enable_cuda_language()
-else()
-  set(Legion_USE_CUDA_WAS_SET OFF)
 endif()
 
 ###
@@ -108,9 +115,8 @@ if(Legion_USE_GASNet)
 endif()
 
 if(Legion_USE_CUDA)
-  if(NOT Legion_USE_CUDA_WAS_SET)
-    _enable_cuda_language()
-  endif()
+  # If CUDA has not yet been enabled, make sure it is now.
+  _enable_cuda_language()
   # Find the CUDAToolkit
   rapids_find_package(
     CUDAToolkit REQUIRED
