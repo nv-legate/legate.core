@@ -1,6 +1,6 @@
 import sys
 import os
-legion_dir = "/scratch2/wwu/legion_python"
+legion_dir = os.getcwd() + "/legion"
 sys.path.append(legion_dir)
 from jupyter_notebook.install import parse_args, driver
 
