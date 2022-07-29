@@ -370,7 +370,7 @@ class Partitioner:
             # If this operation has a multi-dimensional unbound store,
             # we can't use a 1-D launch domain, hence falling back to
             # a sequential launch
-            if unbound_ndim != 1:
+            if unbound_ndim is not None and unbound_ndim != 1:
                 return None
 
             # If all color spaces don't have the same number of colors,
