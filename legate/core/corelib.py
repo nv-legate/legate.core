@@ -1,4 +1,3 @@
-# Copyright 2021-2022 NVIDIA Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +16,14 @@ from __future__ import annotations
 import os
 from typing import Any, Union
 
-from .install_info import header, libpath
+from .install_info import header, libpath  # type: ignore
 from .legate import Library
 from .resource import ResourceConfig
+
+# This is annoying but install_info is not present on unbuilt source, but is
+# present in built source. So we either get an unfollowed-import error, or an
+# unused-ignore error. Allow unused-ignores just in this file to work around
+# mypy: warn-unused-ignores=False
 
 
 class CoreLib(Library):
