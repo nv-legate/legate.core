@@ -551,8 +551,10 @@ class ImagePartition(PartitionBase):
         self, restrictions: Sequence[Restriction]
     ) -> bool:
         for restriction in restrictions:
-            if restriction != Restriction.UNRESTRICTED:
-                raise NotImplementedError
+            # If there are some restricted dimensions to this store,
+            # then this key partition is likely not a good choice.
+            if restriction == Restriction.RESTRICTED:
+                return False
         return True
 
     def needs_delinearization(self, launch_ndim: int) -> bool:
