@@ -17,6 +17,7 @@ from __future__ import annotations
 from functools import reduce
 from typing import TYPE_CHECKING, Iterable, Iterator, Optional, Union, overload
 
+import numpy as np
 from typing_extensions import TypeAlias
 
 if TYPE_CHECKING:
@@ -31,7 +32,7 @@ def _cast_tuple(value: ExtentLike, ndim: int) -> tuple[int, ...]:
         return value.extents
     elif isinstance(value, Iterable):
         return tuple(value)
-    elif isinstance(value, int):
+    elif isinstance(value, int) or np.issubdtype(type(value), np.integer):
         return (value,) * ndim
     else:
         raise ValueError(f"Cannot cast {type(value).__name__} to tuple")
