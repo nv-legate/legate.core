@@ -231,8 +231,12 @@ template <typename T, int32_t DIM>
 Buffer<T, DIM> OutputRegionField::create_output_buffer(const Legion::Point<DIM>& extents,
                                                        bool return_buffer)
 {
-  // We will use this value only when the unbound store is 1D
-  num_elements_[0] = extents[0];
+  if (return_buffer) {
+    assert(!bound_);
+    // We will use this value only when the unbound store is 1D
+    num_elements_[0] = extents[0];
+    bound_           = true;
+  }
   return out_.create_buffer<T, DIM>(extents, fid_, nullptr, return_buffer);
 }
 
@@ -243,6 +247,7 @@ void OutputRegionField::return_data(Buffer<T, DIM>& buffer, const Legion::Point<
   out_.return_data(extents, fid_, buffer);
   // We will use this value only when the unbound store is 1D
   num_elements_[0] = extents[0];
+  bound_           = true;
 }
 
 template <typename T, int DIM>
