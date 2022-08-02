@@ -255,7 +255,7 @@ Domain Store::domain() const
   assert(!is_output_store_);
   auto result = is_future_ ? future_.domain() : region_field_.domain();
   if (nullptr != transform_) result = transform_->transform(result);
-  assert(result.dim == dim_);
+  assert(result.dim == dim_ || dim_ == 0);
   return result;
 }
 

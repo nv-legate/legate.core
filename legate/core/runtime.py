@@ -271,7 +271,7 @@ class FieldManager:
         self.matches: Deque[FieldMatch] = deque()
         self.match_counter = 0
         # Figure out how big our match frequency is based on our size
-        volume = reduce(lambda x, y: x * y, self.shape)
+        volume = reduce(lambda x, y: x * y, self.shape, 1)
         size = volume * self.dtype.size
         if size > runtime.max_field_reuse_size:
             # Figure out the ratio our size to the max reuse size (round up)
