@@ -26,4 +26,5 @@ legate/core/install_info.py
 /install*
 config.mk
 /docs/legate/core/build
+/docs/legate/core/source/api/generated
 *.egg-info
