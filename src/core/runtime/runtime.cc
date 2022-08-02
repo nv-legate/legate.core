@@ -39,6 +39,11 @@ static const char* const core_library_name = "legate.core";
 
 /*static*/ bool Core::synchronize_stream_view = false;
 
+#ifdef LEGATE_USE_CUDA
+/*static*/ const char* const nvtx::Range::domainName = "Legate";
+/*static*/ nvtxDomainHandle_t nvtx::Range::domain;
+#endif
+
 /*static*/ void Core::parse_config(void)
 {
 #ifndef LEGATE_USE_CUDA
@@ -76,6 +81,10 @@ static const char* const core_library_name = "legate.core";
 
   const char* sync_stream_view = getenv("LEGATE_SYNC_STREAM_VIEW");
   if (sync_stream_view != nullptr && atoi(sync_stream_view) > 0) synchronize_stream_view = true;
+
+#ifdef LEGATE_USE_CUDA
+  nvtx::Range::initialize();
+#endif
 }
 
 static ReturnValues extract_scalar_task(const Task* task,
@@ -93,7 +102,9 @@ static ReturnValues extract_scalar_task(const Task* task,
 
 /*static*/ void Core::shutdown(void)
 {
-  // Nothing to do here yet...
+#ifdef LEGATE_USE_CUDA
+  nvtx::Range::shutdown();
+#endif
 }
 
 /*static*/ void Core::show_progress(const Legion::Task* task,
