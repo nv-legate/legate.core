@@ -132,11 +132,14 @@ class TaskContext {
   ReturnValues pack_return_values_with_exception(int32_t index,
                                                  const std::string& error_message) const;
 
+  // The API doesn't handle passing through future maps well right now, so we need
+  // to access this directly.
+  const Legion::Task* task_;
+
  private:
   std::vector<ReturnValue> get_return_values() const;
 
  private:
-  const Legion::Task* task_;
   const std::vector<Legion::PhysicalRegion>& regions_;
   Legion::Context context_;
   Legion::Runtime* runtime_;

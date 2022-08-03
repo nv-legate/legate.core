@@ -16,12 +16,18 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod, abstractproperty
 from enum import IntEnum, unique
-from typing import TYPE_CHECKING, Optional, Sequence, Type, Union
+from typing import TYPE_CHECKING, Any, Optional, Sequence, Type, Union
 
 from . import (
     IndexPartition,
+    PartitionByDomain,
+    PartitionByImage,
+    PartitionByImageRange,
+    PartitionByPreimage,
+    PartitionByPreimageRange,
     PartitionByRestriction,
     PartitionByWeights,
+    Point,
     Rect,
     Transform,
     legion,
@@ -81,8 +87,19 @@ class PartitionBase(ABC):
     def requirement(self) -> RequirementType:
         ...
 
+    @abstractproperty
+    def runtime(self) -> Runtime:
+        ...
+
 
 class Replicate(PartitionBase):
+    def __init__(self, runtime: Runtime):
+        self._runtime = runtime
+
+    @property
+    def runtime(self):
+        return self._runtime
+
     @property
     def color_shape(self) -> Optional[Shape]:
         return None
@@ -134,9 +151,6 @@ class Replicate(PartitionBase):
         self, region: Region, complete: bool = False
     ) -> Optional[LegionPartition]:
         return None
-
-
-REPLICATE = Replicate()
 
 
 class Interval:
@@ -268,7 +282,7 @@ class Tiling(PartitionBase):
             self._offset + offset,
         )
 
-    # This function promotes the translated partition to REPLICATE if it
+    # This function promotes the translated partition to Replicate if it
     # doesn't overlap with the original partition.
     def translate_range(self, offset: Shape) -> Union[Replicate, Tiling]:
         promote = False
@@ -283,7 +297,7 @@ class Tiling(PartitionBase):
             # TODO: We can actually bloat the tile so that all stencils within
             #       the range are contained, but here we simply replicate
             #       the region, as this usually happens for small inputs.
-            return REPLICATE
+            return Replicate(self.runtime)
         else:
             return Tiling(
                 self._runtime,
@@ -447,3 +461,356 @@ class Weighted(PartitionBase):
             )
             self._runtime.record_partition(index_space, self, index_partition)
         return region.get_child(index_partition)
+
+
+class ImagePartition(PartitionBase):
+    def __init__(
+        self,
+        runtime: Runtime,
+        store: Any,
+        part: PartitionBase,
+        mapper: int,
+        range: bool = False,
+        disjoint: bool = True,
+        complete: bool = True,
+    ) -> None:
+        self._runtime = runtime
+        self._mapper = mapper
+        self._store = store
+        self._part = part
+        # Whether this is an image or image_range operation.
+        self._range = range
+        self._disjoint = disjoint
+        self._complete = complete
+
+    @property
+    def color_shape(self) -> Optional[Shape]:
+        return self._part.color_shape
+
+    @property
+    def even(self) -> bool:
+        return False
+
+    def construct(
+        self, region: Region, complete: bool = False
+    ) -> Optional[LegionPartition]:
+        # TODO (rohany): We can't import RegionField due to an import cycle.
+        # assert(isinstance(self._store.storage, RegionField))
+        source_region = self._store.storage.region
+        source_field = self._store.storage.field
+
+        # TODO (rohany): What should the value of complete be?
+        source_part = self._store.find_or_create_legion_partition(self._part)
+        if self._range:
+            functor = PartitionByImageRange(
+                source_region,
+                source_part,
+                source_field.field_id,
+                mapper=self._mapper,
+            )
+        else:
+            functor = PartitionByImage(
+                source_region,
+                source_part,
+                source_field.field_id,
+                mapper=self._mapper,
+            )
+        index_partition = self._runtime.find_partition(
+            region.index_space, self
+        )
+        if index_partition is None:
+            if self._disjoint and self._complete:
+                kind = legion.LEGION_DISJOINT_COMPLETE_KIND
+            elif self._disjoint and not self._complete:
+                kind = legion.LEGION_DISJOINT_INCOMPLETE_KIND
+            elif not self._disjoint and self._complete:
+                kind = legion.LEGION_ALIASED_COMPLETE_KIND
+            else:
+                kind = legion.LEGION_ALIASED_INCOMPLETE_KIND
+            index_partition = IndexPartition(
+                self._runtime.legion_context,
+                self._runtime.legion_runtime,
+                region.index_space,
+                source_part.color_space,
+                functor=functor,
+                kind=kind,
+                keep=True,
+            )
+            self._runtime.record_partition(
+                region.index_space, self, index_partition
+            )
+        return region.get_child(index_partition)
+
+    def is_complete_for(self, extents: Shape, offsets: Shape) -> bool:
+        return self._complete
+
+    def is_disjoint_for(self, launch_domain: Optional[Rect]) -> bool:
+        return self._disjoint
+
+    def satisfies_restriction(
+        self, restrictions: Sequence[Restriction]
+    ) -> bool:
+        for restriction in restrictions:
+            # If there are some restricted dimensions to this store,
+            # then this key partition is likely not a good choice.
+            if restriction == Restriction.RESTRICTED:
+                return False
+        return True
+
+    def needs_delinearization(self, launch_ndim: int) -> bool:
+        return launch_ndim != self.color_shape.ndim
+
+    @property
+    def requirement(self) -> RequirementType:
+        return Partition
+
+    @property
+    def runtime(self) -> Runtime:
+        return self._runtime
+
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.__class__,
+                self._store,
+                self._store._version,
+                self._part,
+                self._range,
+                self._mapper,
+            )
+        )
+
+    def __eq__(self, other: object) -> bool:
+        return (
+            isinstance(other, ImagePartition)
+            # TODO (rohany): I think we can perform equality on the store.
+            and self._store == other._store
+            and self._store.version == other._store.version
+            and self._part == other._part
+            and self._range == other._range
+            and self._mapper == other._mapper
+        )
+
+    def __str__(self) -> str:
+        return f"image({self._store}, {self._part}, range={self._range})"
+
+    def __repr__(self) -> str:
+        return str(self)
+
+
+class PreimagePartition(PartitionBase):
+    # TODO (rohany): I don't even know if I need a store here. I really just
+    #  need the index space that is being partitioned (or the IndexPartition).
+    #  For simplicities sake it seems like taking the store is fine.
+    def __init__(
+        self,
+        runtime: Runtime,
+        source: Any,
+        dest: Any,
+        part: PartitionBase,
+        mapper: int,
+        range: bool = False,
+        disjoint: bool = False,
+        complete: bool = True,
+    ) -> None:
+        self._runtime = runtime
+        self._mapper = mapper
+        self._source = source
+        self._dest = dest
+        self._part = part
+        # Whether this is an image or image_range operation.
+        self._range = range
+        self._disjoint = disjoint
+        self._complete = complete
+
+    @property
+    def color_shape(self) -> Optional[Shape]:
+        return self._part.color_shape
+
+    @property
+    def even(self) -> bool:
+        return False
+
+    def construct(
+        self, region: Region, complete: bool = False
+    ) -> Optional[LegionPartition]:
+        # TODO (rohany): What should the value of complete be?
+        dest_part = self._dest.find_or_create_legion_partition(self._part)
+        source_region = self._source.storage.region
+        source_field = self._source.storage.field.field_id
+        functorFn = (
+            PartitionByPreimageRange if self._range else PartitionByPreimage
+        )
+        functor = functorFn(
+            dest_part.index_partition,
+            source_region,
+            source_region,
+            source_field,
+            mapper=self._mapper,
+        )
+        index_partition = self._runtime.find_partition(
+            region.index_space, self
+        )
+        if index_partition is None:
+            if self._disjoint and self._complete:
+                kind = legion.LEGION_DISJOINT_COMPLETE_KIND
+            elif self._disjoint and not self._complete:
+                kind = legion.LEGION_DISJOINT_INCOMPLETE_KIND
+            elif not self._disjoint and self._complete:
+                kind = legion.LEGION_ALIASED_COMPLETE_KIND
+            else:
+                kind = legion.LEGION_ALIASED_INCOMPLETE_KIND
+            index_partition = IndexPartition(
+                self._runtime.legion_context,
+                self._runtime.legion_runtime,
+                region.index_space,
+                dest_part.color_space,
+                functor=functor,
+                kind=kind,
+                keep=True,
+            )
+            self._runtime.record_partition(
+                region.index_space, self, index_partition
+            )
+        return region.get_child(index_partition)
+
+    def is_complete_for(self, extents: Shape, offsets: Shape) -> bool:
+        return self._complete
+
+    def is_disjoint_for(self, launch_domain: Optional[Rect]) -> bool:
+        return self._disjoint
+
+    def satisfies_restriction(
+        self, restrictions: Sequence[Restriction]
+    ) -> bool:
+        for restriction in restrictions:
+            if restriction != Restriction.UNRESTRICTED:
+                raise NotImplementedError
+        return True
+
+    def needs_delinearization(self, launch_ndim: int) -> bool:
+        return launch_ndim != self.color_shape.ndim
+
+    @property
+    def requirement(self) -> RequirementType:
+        return Partition
+
+    @property
+    def runtime(self) -> Runtime:
+        return self._runtime
+
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.__class__,
+                self._source,
+                self._source._version,
+                self._dest.storage.region.index_space,
+                self._part,
+                self._range,
+                self._mapper,
+            )
+        )
+
+    def __eq__(self, other: object) -> bool:
+        return (
+            isinstance(other, PreimagePartition)
+            # TODO (rohany): I think we can perform equality on the store.
+            and self._source == other._source
+            and self._source._version == other._source._version
+            and self._dest == other._dest
+            and self._part == other._part
+            and self._range == other._range
+            and self._mapper == other._mapper
+        )
+
+    def __str__(self) -> str:
+        return f"preimage({self._store}, {self._part}, range={self._range})"
+
+    def __repr__(self) -> str:
+        return str(self)
+
+
+class DomainPartition(PartitionBase):
+    def __init__(
+        self,
+        runtime: Runtime,
+        color_shape: Shape,
+        domains: Union[FutureMap, dict[Point, Rect]],
+    ):
+        self._runtime = runtime
+        self._color_shape = color_shape
+        self._domains = domains
+
+    @property
+    def color_shape(self) -> Optional[Shape]:
+        return self._color_shape
+
+    @property
+    def even(self) -> bool:
+        return False
+
+    def construct(self, region: Region, complete: bool = False):
+        index_space = region.index_space
+        index_partition = self._runtime.find_partition(index_space, self)
+        if index_partition is None:
+            functor = PartitionByDomain(self._domains)
+            index_partition = IndexPartition(
+                self._runtime.legion_context,
+                self._runtime.legion_runtime,
+                index_space,
+                self._runtime.find_or_create_index_space(self._color_shape),
+                functor=functor,
+                keep=True,
+            )
+            self._runtime.record_partition(index_space, self, index_partition)
+        return region.get_child(index_partition)
+
+    # TODO (rohany): We could figure this out by staring at the domain map.
+    def is_complete_for(self, extents: Shape, offsets: Shape) -> bool:
+        return False
+
+    # TODO (rohany): We could figure this out by staring at the domain map.
+    def is_disjoint_for(self, launch_domain: Optional[Rect]) -> bool:
+        return False
+
+    def satisfies_restriction(
+        self, restrictions: Sequence[Restriction]
+    ) -> bool:
+        for restriction in restrictions:
+            # If there are some restricted dimensions to this store,
+            # then this key partition is likely not a good choice.
+            if restriction == Restriction.RESTRICTED:
+                return False
+        return True
+
+    @property
+    def requirement(self) -> RequirementType:
+        return Partition
+
+    @property
+    def runtime(self) -> Runtime:
+        return self._runtime
+
+    def needs_delinearization(self, launch_ndim: int) -> bool:
+        return launch_ndim != self._color_shape.ndim
+
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.__class__,
+                self._color_shape,
+                # TODO (rohany): No better ideas...
+                id(self._domains),
+            )
+        )
+
+    # TODO (rohany): Implement this.
+    def __eq__(self, other: object) -> bool:
+        return False
+
+    def __str__(self) -> str:
+        return f"by_domain({self._color_shape}, {self._domains})"
+
+    def __repr__(self) -> str:
+        return str(self)

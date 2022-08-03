@@ -1029,9 +1029,13 @@ class Runtime:
                 self, [op], must_be_single=must_be_single
             )
             strategies.append(partitioner.partition_stores())
-
         for op, strategy in zip(ops, strategies):
             op.launch(strategy)
+            # We also need to bump the versions for each modified store.
+            # TODO (rohany): We also need a callback here to evict cached
+            #  partitions with old store values so that we don't leak these.
+            for store in op.get_all_modified_stores():
+                store.bump_version()
 
     def flush_scheduling_window(self) -> None:
         if len(self._outstanding_ops) == 0:

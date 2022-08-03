@@ -276,8 +276,9 @@ void CoreMapper::slice_task(const MapperContext ctx,
           const Point<1> point = itr.p;
           assert(point[0] >= start);
           assert(point[0] < (start + chunk));
-          const unsigned local_index = point[0] - start;
-          assert(local_index < local_cpus.size());
+          // Does the mapper assume that we make examples num_procs pieces?
+          // assert(local_index < local_cpus.size());
+          const unsigned local_index = (point[0] - start) % local_cpus.size();
           output.slices.push_back(TaskSlice(
             Domain(itr.p, itr.p), local_cpus[local_index], false /*recurse*/, false /*stealable*/));
         }

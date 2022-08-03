@@ -36,7 +36,7 @@ from . import (
     ffi,
     legion,
 )
-from .partition import REPLICATE, PartitionBase, Restriction, Tiling
+from .partition import PartitionBase, Replicate, Restriction, Tiling
 from .projection import execute_functor_symbolically
 from .shape import Shape
 from .transform import (
@@ -852,14 +852,17 @@ class StorePartition:
     def get_requirement(
         self,
         launch_ndim: int,
-        proj_fn: Optional[ProjFn] = None,
+        proj_fn: Optional[ProjFn, int] = None,
     ) -> Proj:
         part = self._storage_partition.find_or_create_legion_partition()
         if part is not None:
-            proj_id = self._store.compute_projection(proj_fn, launch_ndim)
-            if self._partition.needs_delinearization(launch_ndim):
-                assert proj_id == 0
-                proj_id = self._runtime.get_delinearize_functor()
+            if isinstance(proj_fn, int):
+                proj_id = proj_fn
+            else:
+                proj_id = self._store.compute_projection(proj_fn, launch_ndim)
+                if self._partition.needs_delinearization(launch_ndim):
+                    assert proj_id == 0
+                    proj_id = self._runtime.get_delinearize_functor()
         else:
             proj_id = 0
         return self._partition.requirement(part, proj_id)
@@ -913,6 +916,11 @@ class Store:
         # when no custom functor is given
         self._projection: Union[None, int] = None
         self._restrictions: Union[None, tuple[Restriction, ...]] = None
+        # We maintain a version on store objects to cache dependent
+        # partitions created from the store. Operations that write
+        # to stores will bump their version and invalidate dependent
+        # partitions that were created with this store as the source.
+        self._version = 0
 
         if self._shape is not None:
             if any(extent < 0 for extent in self._shape.extents):
@@ -999,6 +1007,13 @@ class Store:
     @property
     def transformed(self) -> bool:
         return not self._transform.bottom
+
+    @property
+    def version(self) -> int:
+        return self._version
+
+    def bump_version(self):
+        self._version += 1
 
     def attach_external_allocation(
         self, context: Context, alloc: Attachable, share: bool
@@ -1276,7 +1291,7 @@ class Store:
 
         # If this is effectively a scalar store, we don't need to partition it
         if self.kind is Future or self.ndim == 0:
-            return REPLICATE
+            return Replicate(self._runtime)
 
         # We need the transformations to be convertible so that we can map
         # the storage partition to this store's coordinate space
@@ -1296,7 +1311,7 @@ class Store:
                 restrictions,
             )
             if launch_shape is None:
-                partition = REPLICATE
+                partition = Replicate(self._runtime)
             else:
                 tile_shape = self._partition_manager.compute_tile_shape(
                     self.shape, launch_shape
@@ -1358,6 +1373,15 @@ class Store:
         )
         return StorePartition(
             self._runtime, self, partition, storage_partition
+        )
+
+    # TODO (rohany): Hacking...
+    def direct_partition(self, partition: PartitionBase) -> StorePartition:
+        return StorePartition(
+            self._runtime,
+            self,
+            partition,
+            self._storage.partition(partition),
         )
 
     def partition_by_tiling(

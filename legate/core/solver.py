@@ -17,8 +17,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Generic, List, Optional, TypeVar
 
 from . import FieldSpace, Future, Rect
-from .constraints import Alignment, Broadcast, Containment, PartSym
-from .partition import REPLICATE
+from .constraints import Alignment, Broadcast, Containment, Image, PartSym
+from .partition import Replicate
 from .shape import Shape
 from .utils import OrderedSet
 
@@ -215,11 +215,11 @@ class Partitioner:
                 continue
 
             if store.kind is Future:
-                partitions[unknown] = REPLICATE
+                partitions[unknown] = Replicate(self._runtime)
             else:
                 cls = constraints.find(unknown)
                 for to_align in cls:
-                    partitions[to_align] = REPLICATE
+                    partitions[to_align] = Replicate(self._runtime)
 
         return unknowns.remove_all(to_remove)
 
@@ -246,7 +246,7 @@ class Partitioner:
 
             fspace = self._runtime.create_field_space()
             for to_align in cls:
-                partitions[unknown] = REPLICATE
+                partitions[unknown] = Replicate(self._runtime)
                 fspaces[unknown] = fspace
 
         unbound_ndims = set(unknown.store.ndim for unknown in to_remove)
@@ -344,12 +344,16 @@ class Partitioner:
         # to replication, in which case the operation must be performed
         # sequentially
         for unknown, part in partitions.items():
-            if unknown.store in all_outputs and part is REPLICATE:
+            if unknown.store in all_outputs and isinstance(part, Replicate):
                 return None
 
         # If we're here, this means that replicated stores are safe to access
         # in parallel, so we filter those out to determine the launch domain
-        parts = [part for part in partitions.values() if part is not REPLICATE]
+        parts = [
+            part
+            for part in partitions.values()
+            if not isinstance(part, Replicate)
+        ]
 
         # If all stores are replicated, we can't parallelize the operation
         if len(parts) == 0:
@@ -410,10 +414,15 @@ class Partitioner:
                     c._lhs, PartSym
                 ):
                     if c._lhs in dependent:
-                        raise NotImplementedError(
-                            "Partitions constrained by multiple constraints "
-                            "are not supported yet"
-                        )
+                        rhs = dependent[c._lhs]
+                        # While we can't have multiple constraints, we are ok
+                        # with seeing a duplicate image constraint, as that
+                        # doesn't affect the solving.
+                        if not (isinstance(rhs, Image) and rhs.equals(c._rhs)):
+                            raise NotImplementedError(
+                                "Partitions constrained by multiple "
+                                "constraints are not supported yet"
+                            )
                     for unknown in c._rhs.unknowns():
                         must_be_even.add(unknown)
                     dependent[c._lhs] = c._rhs
@@ -421,13 +430,20 @@ class Partitioner:
                     c._rhs, PartSym
                 ):
                     if c._rhs in dependent:
-                        raise NotImplementedError(
-                            "Partitions constrained by multiple constraints "
-                            "are not supported yet"
-                        )
+                        lhs = dependent[c._rhs]
+                        # While we can't have multiple constraints, we are ok
+                        # with seeing a duplicate image constraint, as that
+                        # doesn't affect the solving.
+                        if not (isinstance(lhs, Image) and lhs.equals(c._lhs)):
+                            raise NotImplementedError(
+                                "Partitions constrained by multiple "
+                                "constraints are not supported yet"
+                            )
                     for unknown in c._lhs.unknowns():
                         must_be_even.add(unknown)
                     dependent[c._rhs] = c._lhs
+                else:
+                    raise NotImplementedError
         for op in self._ops:
             all_outputs.update(
                 store for store in op.outputs if not store.unbound
@@ -478,16 +494,38 @@ class Partitioner:
             restrictions = all_restrictions[unknown]
             cls = constraints.find(unknown)
 
-            partition = store.compute_key_partition(restrictions)
-            if not partition.even and len(cls) > 1:
-                partition, unknown = self.maybe_find_alternative_key_partition(
-                    partition,
-                    unknown,
-                    cls,
-                    restrictions,
-                    must_be_even,
-                )
-            key_parts.add(unknown)
+            # If we are supposed to be aligned with a partition in dependents,
+            # then don't make a decision right now.
+            depends = False
+            for to_align in cls:
+                if to_align in dependent:
+                    depends = True
+            if depends:
+                continue
+
+            # If we already have a partition for this equality class we
+            # need to use it.
+            for to_align in cls:
+                # Don't align to Futures, as those are trivially replicated.
+                if to_align.store.kind is Future:
+                    continue
+                if to_align in partitions:
+                    partition = partitions[to_align]
+                    break
+            else:
+                partition = store.compute_key_partition(restrictions)
+                if not partition.even and len(cls) > 1:
+                    (
+                        partition,
+                        unknown,
+                    ) = self.maybe_find_alternative_key_partition(
+                        partition,
+                        unknown,
+                        cls,
+                        restrictions,
+                        must_be_even,
+                    )
+                key_parts.add(unknown)
 
             for to_align in cls:
                 if to_align in partitions:
@@ -499,6 +537,14 @@ class Partitioner:
             if TYPE_CHECKING:
                 assert isinstance(expr, Lit)
             partitions[rhs] = expr._part
+
+        for unknown in sorted_unknowns:
+            if unknown in partitions:
+                continue
+            cls = constraints.find(unknown)
+            for to_align in cls:
+                if to_align in partitions:
+                    partitions[unknown] = partitions[to_align]
 
         launch_shape = self.compute_launch_shape(
             partitions, all_outputs, unbound_ndim

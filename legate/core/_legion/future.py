@@ -343,7 +343,7 @@ class FutureMap:
             context,
             domain,
             points,
-            futures,
+            futures_,
             num_futures,
             False,
             0,
