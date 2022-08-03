@@ -1044,7 +1044,7 @@ class Store:
             f"shape: {self._shape}, "
             f"ndim: {self._ndim}, "
             f"type: {self._dtype}, "
-            f"storage: {self._storage}), "
+            f"storage: {self._storage}, "
             f"transform: {self._transform})"
         )
 

@@ -17,6 +17,7 @@
 #include "core/data/store.h"
 #include "core/utilities/dispatch.h"
 #include "core/utilities/machine.h"
+#include "legate_defines.h"
 
 namespace legate {
 
@@ -95,10 +96,19 @@ void OutputRegionField::make_empty(int32_t ndim)
   extents.dim = ndim;
   for (int32_t dim = 0; dim < ndim; ++dim) extents[dim] = 0;
   out_.return_data(extents, fid_, nullptr);
+  bound_ = true;
 }
 
 ReturnValue OutputRegionField::pack_weight() const
 {
+#ifdef DEBUG_LEGATE
+  if (!bound_) {
+    legate::log_legate.error(
+      "Found an uninitialized unbound store. Please make sure you return buffers to all unbound "
+      "stores in the task");
+    LEGATE_ABORT;
+  }
+#endif
   return ReturnValue(num_elements_.ptr(0), sizeof(size_t));
 }
 
@@ -245,7 +255,7 @@ Domain Store::domain() const
   assert(!is_output_store_);
   auto result = is_future_ ? future_.domain() : region_field_.domain();
   if (nullptr != transform_) result = transform_->transform(result);
-  assert(result.dim == dim_);
+  assert(result.dim == dim_ || dim_ == 0);
   return result;
 }
 

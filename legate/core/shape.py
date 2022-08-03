@@ -113,6 +113,10 @@ class Shape:
         if self._ispace is None:
             bounds = self._extents
             assert bounds is not None
+            # 0-D index spaces are invalid in Legion, so we have to promote
+            # the bounds to 1-D
+            if bounds == ():
+                bounds = (1,)
             return runtime.find_or_create_index_space(bounds)
         else:
             return self._ispace
