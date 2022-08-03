@@ -1,14 +1,13 @@
 Welcome to Legate Core's documentation!
-=========================================
+=======================================
 
 .. toctree::
+  :maxdepth: 1
 
   Overview <README.md>
-  versions.rst
-  git.rst
-  changelog.rst
-  API Reference <api.rst>
-
+  API Reference <api/index.rst>
+  Contributing <CONTRIBUTING.md>
+  Versions <versions.rst>
 
 
 Indices and tables
