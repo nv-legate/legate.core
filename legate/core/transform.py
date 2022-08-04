@@ -18,8 +18,7 @@ from typing import TYPE_CHECKING, Protocol, Tuple
 
 import numpy as np
 
-from . import AffineTransform
-from . import Transform as LegionTransform
+from . import AffineTransform, Transform as LegionTransform
 from .partition import Replicate, Restriction, Tiling
 from .projection import ProjExpr
 from .shape import Shape

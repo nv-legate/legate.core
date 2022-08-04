@@ -1403,7 +1403,7 @@ class Store:
                 color_shape=partition.color_shape,
                 color_transform=self._transform.get_inverse_color_transform(
                     partition.color_shape.ndim,
-                )
+                ),
             )
         else:
             return self._storage.find_or_create_legion_partition(

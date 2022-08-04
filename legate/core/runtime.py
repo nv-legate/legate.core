@@ -1333,7 +1333,10 @@ class Runtime:
         color_shape: Optional[Shape] = None,
     ) -> None:
         self._partition_manager.record_partition(
-            index_space, functor, index_partition, color_shape=color_shape,
+            index_space,
+            functor,
+            index_partition,
+            color_shape=color_shape,
         )
 
     def extract_scalar(self, future: Future, idx: int) -> Future:

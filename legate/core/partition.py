@@ -336,7 +336,9 @@ class Tiling(PartitionBase):
     ) -> Optional[LegionPartition]:
         assert color_shape is None or color_transform is not None
         index_space = region.index_space
-        index_partition = self._runtime.find_partition(index_space, self, color_shape=color_shape)
+        index_partition = self._runtime.find_partition(
+            index_space, self, color_shape=color_shape
+        )
         if index_partition is None:
             tile_shape = self._tile_shape
             transform = Transform(tile_shape.ndim, tile_shape.ndim)
@@ -377,7 +379,9 @@ class Tiling(PartitionBase):
                 kind=kind,
                 keep=True,  # export this partition functor to other libraries
             )
-            self._runtime.record_partition(index_space, self, index_partition, color_shape=color_shape)
+            self._runtime.record_partition(
+                index_space, self, index_partition, color_shape=color_shape
+            )
         return region.get_child(index_partition)
 
 
