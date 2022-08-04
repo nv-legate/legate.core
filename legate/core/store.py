@@ -798,18 +798,29 @@ class Storage:
         self._key_partition = None
 
     def find_or_create_legion_partition(
-        self, functor: PartitionBase, complete: bool
+        self,
+        functor: PartitionBase,
+        complete: bool,
+        color_shape: Optional[Shape] = None,
+        color_transform: Optional[Transform] = None,
     ) -> Optional[LegionPartition]:
         if self.kind is not RegionField:
             return None
 
         assert isinstance(self.data, RegionField)
+        assert color_shape is None or color_transform is not None
 
-        if functor in self._partitions:
+        if functor in self._partitions and color_shape is None:
             return self._partitions[functor]
 
-        part = functor.construct(self.data.region, complete=complete)
-        self._partitions[functor] = part
+        part = functor.construct(
+            self.data.region,
+            complete=complete,
+            color_shape=color_shape,
+            color_transform=color_transform,
+        )
+        if color_shape is None:
+            self._partitions[functor] = part
 
         return part
 
@@ -1377,15 +1388,28 @@ class Store:
         return self._restrictions
 
     def find_or_create_legion_partition(
-        self, partition: PartitionBase, complete: bool = False
+        self,
+        partition: PartitionBase,
+        complete: bool = False,
+        preserve_colors: bool = False,
     ) -> Optional[LegionPartition]:
         # Create a Legion partition for a given functor.
         # Before we do that, we need to map the partition back
         # to the original coordinate space.
-        return self._storage.find_or_create_legion_partition(
-            self._transform.invert_partition(partition),
-            complete=complete,
-        )
+        if preserve_colors:
+            return self._storage.find_or_create_legion_partition(
+                self._transform.invert_partition(partition),
+                complete=complete,
+                color_shape=partition.color_shape,
+                color_transform=self._transform.get_inverse_color_transform(
+                    partition.color_shape.ndim,
+                )
+            )
+        else:
+            return self._storage.find_or_create_legion_partition(
+                self._transform.invert_partition(partition),
+                complete=complete,
+            )
 
     def partition(self, partition: PartitionBase) -> StorePartition:
         storage_partition = self._storage.partition(

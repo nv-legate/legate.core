@@ -61,7 +61,11 @@ class PartitionBase(ABC):
 
     @abstractmethod
     def construct(
-        self, region: Region, complete: bool = False
+        self,
+        region: Region,
+        complete: bool = False,
+        color_shape: Optional[Shape] = None,
+        color_transform: Optional[Transform] = None,
     ) -> Optional[LegionPartition]:
         ...
 
@@ -148,7 +152,11 @@ class Replicate(PartitionBase):
         return self
 
     def construct(
-        self, region: Region, complete: bool = False
+        self,
+        region: Region,
+        complete: bool = False,
+        color_shape: Optional[Shape] = None,
+        color_transform: Optional[Transform] = None,
     ) -> Optional[LegionPartition]:
         return None
 
@@ -320,10 +328,15 @@ class Tiling(PartitionBase):
         )
 
     def construct(
-        self, region: Region, complete: bool = False
+        self,
+        region: Region,
+        complete: bool = False,
+        color_shape: Optional[Shape] = None,
+        color_transform: Optional[Transform] = None,
     ) -> Optional[LegionPartition]:
+        assert color_shape is None or color_transform is not None
         index_space = region.index_space
-        index_partition = self._runtime.find_partition(index_space, self)
+        index_partition = self._runtime.find_partition(index_space, self, color_shape=color_shape)
         if index_partition is None:
             tile_shape = self._tile_shape
             transform = Transform(tile_shape.ndim, tile_shape.ndim)
@@ -336,13 +349,25 @@ class Tiling(PartitionBase):
             extent = Rect(hi, lo, exclusive=False)
 
             color_space = self._runtime.find_or_create_index_space(
-                self._color_shape
+                self._color_shape if color_shape is None else color_shape
             )
+
+            if color_transform is not None:
+                transform = color_transform.compose(transform)
+
             functor = PartitionByRestriction(transform, extent)
             if complete:
-                kind = legion.LEGION_DISJOINT_COMPLETE_KIND
+                kind = (
+                    legion.LEGION_DISJOINT_COMPLETE_KIND
+                    if color_shape is None
+                    else legion.LEGION_ALIASED_COMPLETE_KIND
+                )
             else:
-                kind = legion.LEGION_DISJOINT_INCOMPLETE_KIND
+                kind = (
+                    legion.LEGION_DISJOINT_INCOMPLETE_KIND
+                    if color_shape is None
+                    else legion.LEGION_ALIASED_INCOMPLETE_KIND
+                )
             index_partition = IndexPartition(
                 self._runtime.legion_context,
                 self._runtime.legion_runtime,
@@ -352,7 +377,7 @@ class Tiling(PartitionBase):
                 kind=kind,
                 keep=True,  # export this partition functor to other libraries
             )
-            self._runtime.record_partition(index_space, self, index_partition)
+            self._runtime.record_partition(index_space, self, index_partition, color_shape=color_shape)
         return region.get_child(index_partition)
 
 
@@ -438,7 +463,11 @@ class Weighted(PartitionBase):
         raise NotImplementedError("This method shouldn't be invoked")
 
     def construct(
-        self, region: Region, complete: bool = False
+        self,
+        region: Region,
+        complete: bool = False,
+        color_shape: Optional[Shape] = None,
+        color_transform: Optional[Transform] = None,
     ) -> Optional[LegionPartition]:
         assert complete
 
@@ -492,7 +521,11 @@ class ImagePartition(PartitionBase):
         return False
 
     def construct(
-        self, region: Region, complete: bool = False
+        self,
+        region: Region,
+        complete: bool = False,
+        color_shape: Optional[Shape] = None,
+        color_transform: Optional[Transform] = None,
     ) -> Optional[LegionPartition]:
         # TODO (rohany): We can't import RegionField due to an import cycle.
         # assert(isinstance(self._store.storage, RegionField))
@@ -500,7 +533,10 @@ class ImagePartition(PartitionBase):
         source_field = self._store.storage.field
 
         # TODO (rohany): What should the value of complete be?
-        source_part = self._part.construct(source_region)
+        source_part = self._store.find_or_create_legion_partition(
+            self._part,
+            preserve_colors=True,
+        )
         if self._range:
             functor = PartitionByImageRange(
                 source_region,
@@ -632,7 +668,11 @@ class PreimagePartition(PartitionBase):
         return False
 
     def construct(
-        self, region: Region, complete: bool = False
+        self,
+        region: Region,
+        complete: bool = False,
+        color_shape: Optional[Shape] = None,
+        color_transform: Optional[Transform] = None,
     ) -> Optional[LegionPartition]:
         # TODO (rohany): What should the value of complete be?
         dest_part = self._part.construct(self._dest.storage.region)
@@ -750,7 +790,13 @@ class DomainPartition(PartitionBase):
     def even(self) -> bool:
         return False
 
-    def construct(self, region: Region, complete: bool = False):
+    def construct(
+        self,
+        region: Region,
+        complete: bool = False,
+        color_shape: Optional[Shape] = None,
+        color_transform: Optional[Transform] = None,
+    ) -> Optional[LegionPartition]:
         index_space = region.index_space
         index_partition = self._runtime.find_partition(index_space, self)
         if index_partition is None:
