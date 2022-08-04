@@ -82,9 +82,10 @@ strict_equality = true
 
 warn_unused_configs = true
 
-# For now enable each typed module individually.
 [[tool.mypy.overrides]]
+# ignore certain auto-generated and utility files
 module = [
-    "legate.*",
+    "legate._version",
+    "legate.__main__",
 ]
-ignore_errors = false
+ignore_errors = true
