@@ -43,7 +43,7 @@ std::shared_ptr<TransformStack> BaseDeserializer<Deserializer>::unpack_transform
   auto code = unpack<int32_t>();
   switch (code) {
     case -1: {
-      return nullptr;
+      return std::make_shared<TransformStack>();
     }
     case LEGATE_CORE_TRANSFORM_SHIFT: {
       auto dim    = unpack<int32_t>();

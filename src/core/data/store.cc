@@ -254,7 +254,7 @@ Domain Store::domain() const
 {
   assert(!is_output_store_);
   auto result = is_future_ ? future_.domain() : region_field_.domain();
-  if (nullptr != transform_) result = transform_->transform(result);
+  if (!transform_->identity()) result = transform_->transform(result);
   assert(result.dim == dim_ || dim_ == 0);
   return result;
 }
@@ -267,10 +267,8 @@ void Store::make_empty()
 
 void Store::remove_transform()
 {
-  assert(is_transformed());
-  auto result = transform_->pop();
-  if (transform_->empty()) transform_ = nullptr;
-  dim_ = result->target_ndim(dim_);
+  assert(transformed());
+  dim_ = transform_->pop()->target_ndim(dim_);
 }
 
 }  // namespace legate
