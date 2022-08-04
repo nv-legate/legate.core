@@ -726,9 +726,12 @@ class PartitionManager:
         return not (num_tiles > 256 and num_tiles > 16 * self._num_pieces)
 
     def find_partition(
-        self, index_space: IndexSpace, functor: PartitionBase
+        self,
+        index_space: IndexSpace,
+        functor: PartitionBase,
+        color_shape: Optional[Shape] = None,
     ) -> Union[IndexPartition, None]:
-        key = (index_space, functor)
+        key = (index_space, functor, color_shape)
         return self._index_partitions.get(key)
 
     def record_partition(
@@ -736,8 +739,9 @@ class PartitionManager:
         index_space: IndexSpace,
         functor: PartitionBase,
         index_partition: IndexPartition,
+        color_shape: Optional[Shape] = None,
     ) -> None:
-        key = (index_space, functor)
+        key = (index_space, functor, color_shape)
         assert key not in self._index_partitions
         self._index_partitions[key] = index_partition
 
@@ -1269,18 +1273,24 @@ class Runtime:
         )
 
     def find_partition(
-        self, index_space: IndexSpace, functor: PartitionBase
+        self,
+        index_space: IndexSpace,
+        functor: PartitionBase,
+        color_shape: Optional[Shape] = None,
     ) -> Union[IndexPartition, None]:
-        return self._partition_manager.find_partition(index_space, functor)
+        return self._partition_manager.find_partition(
+            index_space, functor, color_shape=color_shape
+        )
 
     def record_partition(
         self,
         index_space: IndexSpace,
         functor: PartitionBase,
         index_partition: IndexPartition,
+        color_shape: Optional[Shape] = None,
     ) -> None:
         self._partition_manager.record_partition(
-            index_space, functor, index_partition
+            index_space, functor, index_partition, color_shape=color_shape,
         )
 
     def extract_scalar(self, future: Future, idx: int) -> Future:
