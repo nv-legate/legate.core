@@ -500,7 +500,7 @@ class ImagePartition(PartitionBase):
         source_field = self._store.storage.field
 
         # TODO (rohany): What should the value of complete be?
-        source_part = self._store.find_or_create_legion_partition(self._part)
+        source_part = self._part.construct(source_region)
         if self._range:
             functor = PartitionByImageRange(
                 source_region,
@@ -635,7 +635,7 @@ class PreimagePartition(PartitionBase):
         self, region: Region, complete: bool = False
     ) -> Optional[LegionPartition]:
         # TODO (rohany): What should the value of complete be?
-        dest_part = self._dest.find_or_create_legion_partition(self._part)
+        dest_part = self._part.construct(self._dest.storage.region)
         source_region = self._source.storage.region
         source_field = self._source.storage.field.field_id
         functorFn = (
