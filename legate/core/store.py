@@ -729,7 +729,8 @@ class Storage:
         shape = self.get_root().extents
 
         can_tile_completely = (offsets % tile_shape).sum() == 0 and (
-            shape % tile_shape).sum() == 0
+            shape % tile_shape
+        ).sum() == 0
         if (
             can_tile_completely
             and self._partition_manager.use_complete_tiling(shape, tile_shape)
@@ -949,14 +950,14 @@ class Store:
         else:
             return self._shape.ndim
 
-    @property                                      
-    def size(self)-> int:
+    @property
+    def size(self) -> int:
         s = 1
         if self._ndim == 0:
             return s
         for p in self._shape:
             s *= p
-        return s  
+        return s
 
     @property
     def type(self) -> _Dtype:
@@ -1107,7 +1108,7 @@ class Store:
         tile_shape = old_shape.update(dim, 1)
         offsets = Shape((0,) * self.ndim).update(dim, index)
 
-        if self.size==0:
+        if self.size == 0:
             storage = self._storage
         else:
             storage = self._storage.slice(
@@ -1131,7 +1132,7 @@ class Store:
 
         size = self.shape[dim]
 
-        if size ==0 and sl == slice(None):
+        if size == 0 and sl == slice(None):
             return self
 
         start = 0 if sl.start is None else sl.start
