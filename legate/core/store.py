@@ -955,7 +955,7 @@ class Store:
         s = 1
         if self._ndim == 0:
             return s
-        for p in self._shape:
+        for p in self.shape:
             s *= p
         return s
 
