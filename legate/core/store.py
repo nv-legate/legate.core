@@ -727,14 +727,9 @@ class Storage:
         # region in all dimensions of the parent region, then we'll make
         # a disjoint tiled partition with as many children as possible
         shape = self.get_root().extents
-        has_zero = False
-        can_tile_completely = False
-        for i in tile_shape:
-            if i==0:
-                has_zero=True
-        if not has_zero:
-            can_tile_completely = (offsets % tile_shape).sum() == 0 and (
-                shape % tile_shape).sum() == 0
+
+        can_tile_completely = (offsets % tile_shape).sum() == 0 and (
+            shape % tile_shape).sum() == 0
         if (
             can_tile_completely
             and self._partition_manager.use_complete_tiling(shape, tile_shape)
@@ -954,6 +949,15 @@ class Store:
         else:
             return self._shape.ndim
 
+    @property                                                                        
+    def size(self)-> int:
+        s = 1                                                                        
+        if self._ndim == 0:                                                           
+            return s                                                                 
+        for p in self._shape:                                                         
+            s *= p                                                                   
+        return s  
+
     @property
     def type(self) -> _Dtype:
         """
@@ -1103,10 +1107,13 @@ class Store:
         tile_shape = old_shape.update(dim, 1)
         offsets = Shape((0,) * self.ndim).update(dim, index)
 
-        storage = self._storage.slice(
-            self._transform.invert_extent(tile_shape),
-            self._transform.invert_point(offsets),
-        )
+        if self.size==0:
+            storage = self._storage
+        else:
+            storage = self._storage.slice(
+                self._transform.invert_extent(tile_shape),
+                self._transform.invert_point(offsets),
+            )
         return Store(
             self._runtime,
             self._dtype,
