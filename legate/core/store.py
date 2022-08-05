@@ -949,13 +949,13 @@ class Store:
         else:
             return self._shape.ndim
 
-    @property                                                                        
+    @property                                      
     def size(self)-> int:
-        s = 1                                                                        
-        if self._ndim == 0:                                                           
-            return s                                                                 
-        for p in self._shape:                                                         
-            s *= p                                                                   
+        s = 1
+        if self._ndim == 0:
+            return s
+        for p in self._shape:
+            s *= p
         return s  
 
     @property
