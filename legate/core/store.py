@@ -1130,6 +1130,10 @@ class Store:
             )
 
         size = self.shape[dim]
+
+        if size ==0 and sl == slice(None):
+            return self
+
         start = 0 if sl.start is None else sl.start
         stop = size if sl.stop is None else sl.stop
         start = start + size if start < 0 else start
