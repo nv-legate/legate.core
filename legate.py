@@ -58,14 +58,6 @@ def read_c_define(header_path, def_name):
         return None
 
 
-def read_conduit(legate_dir):
-    realm_defines = os.path.join(legate_dir, "include", "realm_defines.h")
-    for conduit in ["ibv", "ucx", "aries", "mpi", "udp"]:
-        if read_c_define(realm_defines, f"GASNET_CONDUIT_{conduit.upper()}"):
-            return conduit
-    raise Exception("Could not detect a supported GASNet conduit")
-
-
 def find_python_module(legate_dir):
     lib_dir = os.path.join(legate_dir, "lib")
     python_lib = None
@@ -214,8 +206,8 @@ def run_legate(
         assert "LEGATE_NEED_OPENMP" not in cmd_env
         cmd_env["LEGATE_NEED_OPENMP"] = str(1)
     if ranks > 1:
-        assert "LEGATE_NEED_GASNET" not in cmd_env
-        cmd_env["LEGATE_NEED_GASNET"] = str(1)
+        assert "LEGATE_NEED_NETWORK" not in cmd_env
+        cmd_env["LEGATE_NEED_NETWORK"] = str(1)
     if progress:
         assert "LEGATE_SHOW_PROGREES" not in cmd_env
         cmd_env["LEGATE_SHOW_PROGRESS"] = str(1)
@@ -335,14 +327,10 @@ def run_legate(
     # Add any wrappers before the executable
     binary_dir = os.path.join(legate_dir, "bin")
     if any(f is not None for f in [cpu_bind, mem_bind, gpu_bind, nic_bind]):
-        cmd.append(os.path.join(binary_dir, "bind.sh"))
-
-        try:
-            conduit = read_conduit(legate_dir)
-            cmd += [launcher, conduit]
-        except Exception:
-            cmd += ["local", "local"]
-
+        cmd += [
+            os.path.join(binary_dir, "bind.sh"),
+            "local" if launcher == "none" and ranks == 1 else launcher,
+        ]
         if cpu_bind is not None:
             if len(cpu_bind.split("/")) != ranks_per_node:
                 raise Exception(
@@ -877,8 +865,8 @@ def driver():
     )
     parser.add_argument(
         "--nic-bind",
-        help="NICs to bind each rank to. Use comma-separated device names as "
-        "appropriate for the GASNet conduit in use. Binding instructions for "
+        help="NICs to bind each rank to. Use comma-separated device names "
+        "appropriate for the network in use. Binding instructions for "
         "all ranks should be listed in one string, separated by `/`.",
     )
     parser.add_argument(

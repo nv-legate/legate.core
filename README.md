@@ -283,20 +283,21 @@ tries to auto-detect the architecture of the first CUDA-capable GPU that is avai
 ./install.py --cuda --with-cuda /usr/local/cuda/ --with-nccl "$CONDA_PREFIX" --arch ampere
 ```
 For multi-node support Legate uses [GASNet](https://gasnet.lbl.gov/) which can be
-requested using the the `--gasnet` flag. If you have an existing GASNet installation
-then you can inform the install script with the `--with-gasnet` flag. The
-`install.py` script also requires you to specify the interconnect network of
-the target machine using the `--conduit` flag (current choices are one of `ibv`
-for [Infiniband](http://www.infinibandta.org/), or `gemini` or `aries` for Cray
-interconnects). For example this would be an installation for a
+requested using the `--network gasnet1` or `--network gasnetex` flag. By default
+GASNet will be automatically downloaded and built, but if you have an existing
+installation then you can inform the install script using the `--with-gasnet` flag.
+You also need to specify the interconnect network of the target machine using the
+`--conduit` flag.
+
+For example this would be an installation for a
 [DGX SuperPOD](https://www.nvidia.com/en-us/data-center/dgx-superpod/):
 ```
-./install.py --gasnet --conduit ibv --cuda --arch ampere
+./install.py --network gasnet1 --conduit ibv --cuda --arch ampere
 ```
 Alternatively here is an install line for the
 [Piz-Daint](https://www.cscs.ch/computers/dismissed/piz-daint-piz-dora/) supercomputer:
 ```
-./install.py --gasnet --conduit aries --cuda --arch pascal
+./install.py --network gasnet1 --conduit aries --cuda --arch pascal
 ```
 To see all the options available for installing Legate, just run with the `--help` flag:
 ```
@@ -414,7 +415,7 @@ line options, and their default values are as follows.
 
 ### Distributed Launch
 
-If legate is compiled with GASNet support ([see the installation section](#Installation)),
+If Legate is compiled with networking support ([see the installation section](#Installation)),
 it can be run in parallel by using the `--nodes` option followed by the number of nodes
 to be used.  Whenever the `--nodes` option is used, Legate will be launched
 using `mpirun`, even with `--nodes 1`.  Without the `--nodes` option, no launcher will
@@ -452,10 +453,9 @@ that can adversely effect the performance of the application.
 ## Other FAQs
 
 * *Does Legate only work on NVIDIA hardware?*
-  No, Legate will run on most kinds of hardware, anywhere that Legion and
-  GASNet will run. This includes x86, ARM, and PowerPC CPUs. GASNet (and therefore
-  Legate) also includes support for Infiniband, Cray, Omnipath, and
-  (ROC-)Ethernet based interconnects.
+  No, Legate will run on any processor supported by Legion (e.g. x86, ARM, and
+  PowerPC CPUs), and any network supported by GASNet (e.g. Infiniband,
+  Cray, Omnipath, and (ROC-)Ethernet based interconnects)
 
 * *What languages does the Legate Core API have bindings for?*
   Currently the Legate Core bindings are only available in Python. Watch
@@ -510,4 +510,3 @@ investigate our [Legate Hello World application
 library](https://github.com/nv-legate/legate.hello) that provides a small
 example of how to get started developing your own drop-in replacement library
 on top of Legion using the Legate Core library.
-

@@ -39,7 +39,7 @@ GEN_CPU_SRC	= core/legate_c.cc                 \
 							core/utilities/machine.cc        \
 							core/utilities/linearize.cc
 
-ifeq ($(strip $(USE_GASNET)),1)
+ifeq ($(strip $(USE_NETWORK)),1)
 GEN_CPU_SRC	+= core/comm/alltoall_thread_mpi.cc  \
 							core/comm/alltoallv_thread_mpi.cc  \
 							core/comm/gather_thread_mpi.cc	   \

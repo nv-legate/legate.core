@@ -35,8 +35,8 @@ endif
 
 RM	:= rm
 
-# use mpi{cc,cxx,f90} compiler wrappers if USE_GASNET=1 and we're not on a Cray system
-ifeq ($(strip $(USE_GASNET)),1)
+# use mpi{cc,cxx,f90} compiler wrappers if USE_NETWORK=1 and we're not on a Cray system
+ifeq ($(strip $(USE_NETWORK)),1)
   ifeq (${CRAYPE_VERSION},)
     # OpenMPI check
     ifneq ($(strip $(shell __INTEL_POST_CFLAGS+=' -we10006' $(CC) -showme:compile 2>&1 > /dev/null; echo $$?)),0)
@@ -57,7 +57,7 @@ ifeq ($(strip $(USE_GASNET)),1)
       endif
     endif
     # OpenMPI check
-    ifneq ($(strip $(shell __INTEL_POST_CFLAGS+=' -we10006' $(FC) -showme:compile 2>&1 > /dev/null; echo $$?)),0) 
+    ifneq ($(strip $(shell __INTEL_POST_CFLAGS+=' -we10006' $(FC) -showme:compile 2>&1 > /dev/null; echo $$?)),0)
       # MPICH check
       ifneq ($(strip $(shell __INTEL_POST_CFLAGS+=' -we10006' $(FC) -show 2>&1 > /dev/null; echo $$?)),0)
         export OMPI_FC  	:= $(FC)
@@ -237,8 +237,8 @@ OMP_FLAGS 	+= -fopenmp
 CC_FLAGS 	+= -DLEGATE_USE_OPENMP
 endif
 
-ifeq ($(strip $(USE_GASNET)),1)
-CC_FLAGS	+= -DLEGATE_USE_GASNET
+ifeq ($(strip $(USE_NETWORK)),1)
+CC_FLAGS	+= -DLEGATE_USE_NETWORK
 endif
 
 .PHONY: all

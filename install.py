@@ -255,7 +255,7 @@ def build_legion(
     llvm,
     hdf,
     spy,
-    gasnet,
+    networks,
     gasnet_dir,
     conduit,
     pyversion,
@@ -307,7 +307,7 @@ calls into NCCL either directly or through some other Legate library.
                 "-DLegion_USE_OpenMP=%s" % ("ON" if openmp else "OFF"),
                 "-DBUILD_MARCH=%s" % march,
                 "-DLegion_USE_LLVM=%s" % ("ON" if llvm else "OFF"),
-                "-DLegion_USE_GASNet=%s" % ("ON" if gasnet else "OFF"),
+                "-DLegion_NETWORKS=%s" % ";".join(networks),
                 "-DLegion_USE_HDF5=%s" % ("ON" if hdf else "OFF"),
                 "-DCMAKE_INSTALL_PREFIX=%s" % (os.path.realpath(install_dir)),
                 "-DLegion_USE_Python=On",
@@ -387,7 +387,7 @@ calls into NCCL either directly or through some other Legate library.
                 "USE_OPENMP=%s" % (1 if openmp else 0),
                 "MARCH=%s" % march,
                 "USE_LLVM=%s" % (1 if llvm else 0),
-                "USE_GASNET=%s" % (1 if gasnet else 0),
+                "REALM_NETWORKS=%s" % ",".join(networks),
                 "USE_HDF=%s" % (1 if hdf else 0),
                 "PREFIX=%s" % (os.path.realpath(install_dir)),
                 "PYTHON_VERSION_MAJOR=%s" % version[0],
@@ -500,7 +500,7 @@ def build_legate_core(
     openmp,
     march,
     spy,
-    gasnet,
+    networks,
     clean_first,
     thread_count,
     verbose,
@@ -520,8 +520,8 @@ def build_legate_core(
         "MARCH=%s" % march,
         "GPU_ARCH=%s" % arch,
         "PREFIX=%s" % str(install_dir),
-        "USE_GASNET=%s" % (1 if gasnet else 0),
         "NCCL_DIR=%s" % nccl_dir,
+        "USE_NETWORK=%s" % (1 if len(networks) > 0 else 0),
     ] + (["CUDA=%s" % cuda_dir] if cuda_dir is not None else [])
     if clean_first:
         verbose_check_call(["make"] + make_flags + ["clean"], cwd=src_dir)
@@ -540,7 +540,7 @@ def build_legate_core(
         cuda_dir=(cuda_dir if cuda_dir is not None else ""),
         openmp=repr(1 if openmp else 0),
         march=march,
-        gasnet=repr(1 if gasnet else 0),
+        network=repr(1 if len(networks) > 0 else 0),
     )
     with open(os.path.join(src_dir, "config.mk"), "wb") as f:
         f.write(content.encode("utf-8"))
@@ -565,7 +565,7 @@ def build_legate_core(
 
 
 def install(
-    gasnet,
+    networks,
     cuda,
     arch,
     openmp,
@@ -644,8 +644,8 @@ def install(
         )
     dump_json_config(maxfields_config, str(maxfields))
 
-    # If the user asked for a conduit and we don't have gasnet then install it
-    if gasnet:
+    # If the user asked for GASNet and we don't have it then install it
+    if "gasnet1" in networks or "gasnetex" in networks:
         conduit_config = os.path.join(legate_core_dir, ".conduit.json")
         if conduit is None:
             conduit = load_json_config(conduit_config)
@@ -655,9 +655,7 @@ def install(
                     'which conduit to use with the "--conduit" flag'
                 )
         dump_json_config(conduit_config, conduit)
-        gasnet_config = os.path.join(
-            legate_core_dir, ".gasnet" + str(conduit) + ".json"
-        )
+        gasnet_config = os.path.join(legate_core_dir, ".gasnet.json")
         if gasnet_dir is None:
             gasnet_dir = load_json_config(gasnet_config)
             if gasnet_dir is None:
@@ -746,7 +744,7 @@ def install(
         llvm,
         hdf,
         spy,
-        gasnet,
+        networks,
         gasnet_dir,
         conduit,
         pyversion,
@@ -773,7 +771,7 @@ def install(
         openmp,
         march,
         spy,
-        gasnet,
+        networks,
         clean_first,
         thread_count,
         verbose,
@@ -879,12 +877,13 @@ def driver():
         help="Maximum number of fields that Legate will support",
     )
     parser.add_argument(
-        "--gasnet",
-        dest="gasnet",
-        action="store_true",
+        "--network",
+        dest="networks",
+        action="append",
         required=False,
-        default=os.environ.get("USE_GASNET", "0") == "1",
-        help="Build Legate with GASNet.",
+        choices=["gasnet1", "gasnetex", "mpi"],
+        default=[],
+        help="Realm networking backend to use for multi-node execution.",
     )
     parser.add_argument(
         "--with-gasnet",

@@ -20,4 +20,4 @@ CUDA := {cuda_dir}
 USE_CUDA := {cuda}
 GPU_ARCH := {arch}
 USE_OPENMP := {openmp}
-USE_GASNET := {gasnet}
+USE_NETWORK := {network}
