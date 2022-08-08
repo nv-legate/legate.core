@@ -179,6 +179,7 @@ class OutputRegionField {
  public:
   template <typename T, int32_t DIM>
   void return_data(Buffer<T, DIM>& buffer, const Legion::Point<DIM>& extents);
+  void make_empty(int32_t dim);
 
  public:
   ReturnValue pack_weight() const;
@@ -257,15 +258,16 @@ class Store {
         int32_t code,
         int32_t redop_id,
         FutureWrapper future,
-        std::shared_ptr<StoreTransform> transform = nullptr);
+        std::shared_ptr<TransformStack>&& transform = nullptr);
   Store(int32_t dim,
         int32_t code,
         int32_t redop_id,
         RegionField&& region_field,
-        std::shared_ptr<StoreTransform> transform = nullptr);
-  Store(int32_t code,
+        std::shared_ptr<TransformStack>&& transform = nullptr);
+  Store(int32_t dim,
+        int32_t code,
         OutputRegionField&& output,
-        std::shared_ptr<StoreTransform> transform = nullptr);
+        std::shared_ptr<TransformStack>&& transform = nullptr);
 
  public:
   Store(Store&& other) noexcept;
@@ -329,12 +331,20 @@ class Store {
  public:
   template <typename T, int32_t DIM>
   void return_data(Buffer<T, DIM>& buffer, const Legion::Point<DIM>& extents);
+  void make_empty();
 
  public:
   bool is_future() const { return is_future_; }
   bool is_output_store() const { return is_output_store_; }
   ReturnValue pack() const { return future_.pack(); }
   ReturnValue pack_weight() const { return output_field_.pack_weight(); }
+
+ public:
+  bool is_transformed() const { return transform_ != nullptr; }
+  // TODO: It'd be btter to return a parent store from this method than permanently
+  // losing the transform. This requires the backing storages to be referenced by multiple
+  // stores, which isn't possible as they use move-only types.
+  void remove_transform();
 
  private:
   bool is_future_{false};
@@ -349,7 +359,7 @@ class Store {
   OutputRegionField output_field_;
 
  private:
-  std::shared_ptr<StoreTransform> transform_{nullptr};
+  std::shared_ptr<TransformStack> transform_{nullptr};
 
  private:
   bool readable_{false};

@@ -20,14 +20,6 @@ namespace legate {
 
 using namespace Legion;
 
-using StoreTransformP = std::shared_ptr<StoreTransform>;
-
-std::ostream& operator<<(std::ostream& out, const StoreTransform& transform)
-{
-  transform.print(out);
-  return out;
-}
-
 DomainAffineTransform combine(const DomainAffineTransform& lhs, const DomainAffineTransform& rhs)
 {
   DomainAffineTransform result;
@@ -38,16 +30,68 @@ DomainAffineTransform combine(const DomainAffineTransform& lhs, const DomainAffi
   return result;
 }
 
-StoreTransform::StoreTransform(StoreTransformP parent) : parent_(std::move(parent)) {}
-
-Shift::Shift(int32_t dim, int64_t offset, StoreTransformP parent)
-  : StoreTransform(std::forward<StoreTransformP>(parent)), dim_(dim), offset_(offset)
+TransformStack::TransformStack(std::unique_ptr<StoreTransform>&& transform,
+                               std::shared_ptr<TransformStack>&& parent)
+  : transform_(std::forward<decltype(transform)>(transform)),
+    parent_(std::forward<decltype(parent)>(parent))
 {
 }
 
+Legion::Domain TransformStack::transform(const Legion::Domain& input) const
+{
+#ifdef DEBUG_LEGATE
+  assert(transform_ != nullptr);
+#endif
+  return transform_->transform(parent_ != nullptr ? parent_->transform(input) : input);
+}
+
+Legion::DomainAffineTransform TransformStack::inverse_transform(int32_t in_dim) const
+{
+#ifdef DEBUG_LEGATE
+  assert(transform_ != nullptr);
+#endif
+  auto result  = transform_->inverse_transform(in_dim);
+  auto out_dim = transform_->target_ndim(in_dim);
+
+  if (parent_ != nullptr) {
+    auto parent = parent_->inverse_transform(out_dim);
+    return combine(parent, result);
+  } else
+    return result;
+}
+
+void TransformStack::print(std::ostream& out) const
+{
+#ifdef DEBUG_LEGATE
+  assert(transform_ != nullptr);
+#endif
+  transform_->print(out);
+  if (parent_ != nullptr) {
+    out << " >> ";
+    parent_->print(out);
+  }
+}
+
+std::unique_ptr<StoreTransform> TransformStack::pop()
+{
+#ifdef DEBUG_LEGATE
+  assert(transform_ != nullptr);
+#endif
+  auto result = std::move(transform_);
+  if (parent_ != nullptr) {
+    transform_ = std::move(parent_->transform_);
+    parent_    = std::move(parent_->parent_);
+  }
+  return std::move(result);
+}
+
+void TransformStack::dump() const { std::cerr << *this << std::endl; }
+
+Shift::Shift(int32_t dim, int64_t offset) : dim_(dim), offset_(offset) {}
+
 Domain Shift::transform(const Domain& input) const
 {
-  auto result = nullptr != parent_ ? parent_->transform(input) : input;
+  auto result = input;
   result.rect_data[dim_] += offset_;
   result.rect_data[dim_ + result.dim] += offset_;
   return result;
@@ -72,12 +116,7 @@ DomainAffineTransform Shift::inverse_transform(int32_t in_dim) const
   DomainAffineTransform result;
   result.transform = transform;
   result.offset    = offset;
-
-  if (nullptr != parent_) {
-    auto parent = parent_->inverse_transform(out_dim);
-    return combine(parent, result);
-  } else
-    return result;
+  return result;
 }
 
 void Shift::print(std::ostream& out) const
@@ -85,38 +124,29 @@ void Shift::print(std::ostream& out) const
   out << "Shift(";
   out << "dim: " << dim_ << ", ";
   out << "offset: " << offset_ << ")";
-  if (parent_ != nullptr) {
-    out << " . ";
-    parent_->print(out);
-  }
 }
 
-Promote::Promote(int32_t extra_dim, int64_t dim_size, StoreTransformP parent)
-  : StoreTransform(std::forward<StoreTransformP>(parent)),
-    extra_dim_(extra_dim),
-    dim_size_(dim_size)
+int32_t Shift::target_ndim(int32_t source_ndim) const { return source_ndim; }
+
+Promote::Promote(int32_t extra_dim, int64_t dim_size) : extra_dim_(extra_dim), dim_size_(dim_size)
 {
 }
 
 Domain Promote::transform(const Domain& input) const
 {
-  auto promote = [](int32_t extra_dim, int64_t dim_size, const Domain& input) {
-    Domain output;
-    output.dim = input.dim + 1;
+  Domain output;
+  output.dim = input.dim + 1;
 
-    for (int32_t out_dim = 0, in_dim = 0; out_dim < output.dim; ++out_dim)
-      if (out_dim == extra_dim) {
-        output.rect_data[out_dim]              = 0;
-        output.rect_data[out_dim + output.dim] = dim_size - 1;
-      } else {
-        output.rect_data[out_dim]              = input.rect_data[in_dim];
-        output.rect_data[out_dim + output.dim] = input.rect_data[in_dim + input.dim];
-        ++in_dim;
-      }
-    return output;
-  };
-
-  return promote(extra_dim_, dim_size_, nullptr != parent_ ? parent_->transform(input) : input);
+  for (int32_t out_dim = 0, in_dim = 0; out_dim < output.dim; ++out_dim)
+    if (out_dim == extra_dim_) {
+      output.rect_data[out_dim]              = 0;
+      output.rect_data[out_dim + output.dim] = dim_size_ - 1;
+    } else {
+      output.rect_data[out_dim]              = input.rect_data[in_dim];
+      output.rect_data[out_dim + output.dim] = input.rect_data[in_dim + input.dim];
+      ++in_dim;
+    }
+  return output;
 }
 
 DomainAffineTransform Promote::inverse_transform(int32_t in_dim) const
@@ -141,12 +171,7 @@ DomainAffineTransform Promote::inverse_transform(int32_t in_dim) const
   DomainAffineTransform result;
   result.transform = transform;
   result.offset    = offset;
-
-  if (nullptr != parent_) {
-    auto parent = parent_->inverse_transform(out_dim);
-    return combine(parent, result);
-  } else
-    return result;
+  return result;
 }
 
 void Promote::print(std::ostream& out) const
@@ -154,33 +179,24 @@ void Promote::print(std::ostream& out) const
   out << "Promote(";
   out << "extra_dim: " << extra_dim_ << ", ";
   out << "dim_size: " << dim_size_ << ")";
-  if (parent_ != nullptr) {
-    out << " . ";
-    parent_->print(out);
-  }
 }
 
-Project::Project(int32_t dim, int64_t coord, StoreTransformP parent)
-  : StoreTransform(std::forward<StoreTransformP>(parent)), dim_(dim), coord_(coord)
-{
-}
+int32_t Promote::target_ndim(int32_t source_ndim) const { return source_ndim - 1; }
+
+Project::Project(int32_t dim, int64_t coord) : dim_(dim), coord_(coord) {}
 
 Domain Project::transform(const Domain& input) const
 {
-  auto project = [](int32_t collapsed_dim, const Domain& input) {
-    Domain output;
-    output.dim = input.dim - 1;
+  Domain output;
+  output.dim = input.dim - 1;
 
-    for (int32_t in_dim = 0, out_dim = 0; in_dim < input.dim; ++in_dim)
-      if (in_dim != collapsed_dim) {
-        output.rect_data[out_dim]              = input.rect_data[in_dim];
-        output.rect_data[out_dim + output.dim] = input.rect_data[in_dim + input.dim];
-        ++out_dim;
-      }
-    return output;
-  };
-
-  return project(dim_, nullptr != parent_ ? parent_->transform(input) : input);
+  for (int32_t in_dim = 0, out_dim = 0; in_dim < input.dim; ++in_dim)
+    if (in_dim != dim_) {
+      output.rect_data[out_dim]              = input.rect_data[in_dim];
+      output.rect_data[out_dim + output.dim] = input.rect_data[in_dim + input.dim];
+      ++out_dim;
+    }
+  return output;
 }
 
 DomainAffineTransform Project::inverse_transform(int32_t in_dim) const
@@ -209,12 +225,7 @@ DomainAffineTransform Project::inverse_transform(int32_t in_dim) const
   DomainAffineTransform result;
   result.transform = transform;
   result.offset    = offset;
-
-  if (nullptr != parent_) {
-    auto parent = parent_->inverse_transform(out_dim);
-    return combine(parent, result);
-  } else
-    return result;
+  return result;
 }
 
 void Project::print(std::ostream& out) const
@@ -222,31 +233,22 @@ void Project::print(std::ostream& out) const
   out << "Project(";
   out << "dim: " << dim_ << ", ";
   out << "coord: " << coord_ << ")";
-  if (parent_ != nullptr) {
-    out << " . ";
-    parent_->print(out);
-  }
 }
 
-Transpose::Transpose(std::vector<int32_t>&& axes, StoreTransformP parent)
-  : StoreTransform(std::forward<StoreTransformP>(parent)), axes_(std::move(axes))
-{
-}
+int32_t Project::target_ndim(int32_t source_ndim) const { return source_ndim + 1; }
+
+Transpose::Transpose(std::vector<int32_t>&& axes) : axes_(std::move(axes)) {}
 
 Domain Transpose::transform(const Domain& input) const
 {
-  auto transpose = [](const auto& axes, const Domain& input) {
-    Domain output;
-    output.dim = input.dim;
-    for (int32_t out_dim = 0; out_dim < output.dim; ++out_dim) {
-      auto in_dim                            = axes[out_dim];
-      output.rect_data[out_dim]              = input.rect_data[in_dim];
-      output.rect_data[out_dim + output.dim] = input.rect_data[in_dim + input.dim];
-    }
-    return output;
-  };
-
-  return transpose(axes_, nullptr != parent_ ? parent_->transform(input) : input);
+  Domain output;
+  output.dim = input.dim;
+  for (int32_t out_dim = 0; out_dim < output.dim; ++out_dim) {
+    auto in_dim                            = axes_[out_dim];
+    output.rect_data[out_dim]              = input.rect_data[in_dim];
+    output.rect_data[out_dim + output.dim] = input.rect_data[in_dim + input.dim];
+  }
+  return output;
 }
 
 DomainAffineTransform Transpose::inverse_transform(int32_t in_dim) const
@@ -266,12 +268,7 @@ DomainAffineTransform Transpose::inverse_transform(int32_t in_dim) const
   DomainAffineTransform result;
   result.transform = transform;
   result.offset    = offset;
-
-  if (nullptr != parent_) {
-    auto parent = parent_->inverse_transform(in_dim);
-    return combine(parent, result);
-  } else
-    return result;
+  return result;
 }
 
 namespace {  // anonymous
@@ -298,18 +295,12 @@ void Transpose::print(std::ostream& out) const
   out << "axes: ";
   print_vector(out, axes_);
   out << ")";
-  if (parent_ != nullptr) {
-    out << " . ";
-    parent_->print(out);
-  }
 }
 
-Delinearize::Delinearize(int32_t dim, std::vector<int64_t>&& sizes, StoreTransformP parent)
-  : StoreTransform(std::forward<StoreTransformP>(parent)),
-    dim_(dim),
-    sizes_(std::move(sizes)),
-    strides_(sizes_.size(), 1),
-    volume_(1)
+int32_t Transpose::target_ndim(int32_t source_ndim) const { return source_ndim; }
+
+Delinearize::Delinearize(int32_t dim, std::vector<int64_t>&& sizes)
+  : dim_(dim), sizes_(std::move(sizes)), strides_(sizes_.size(), 1), volume_(1)
 {
   for (int32_t dim = sizes_.size() - 2; dim >= 0; --dim)
     strides_[dim] = strides_[dim + 1] * sizes_[dim + 1];
@@ -341,8 +332,7 @@ Domain Delinearize::transform(const Domain& input) const
     }
     return output;
   };
-  return delinearize(
-    dim_, sizes_.size(), strides_, nullptr != parent_ ? parent_->transform(input) : input);
+  return delinearize(dim_, sizes_.size(), strides_, input);
 }
 
 DomainAffineTransform Delinearize::inverse_transform(int32_t in_dim) const
@@ -367,12 +357,7 @@ DomainAffineTransform Delinearize::inverse_transform(int32_t in_dim) const
   DomainAffineTransform result;
   result.transform = transform;
   result.offset    = offset;
-
-  if (nullptr != parent_) {
-    auto parent = parent_->inverse_transform(out_dim);
-    return combine(parent, result);
-  } else
-    return result;
+  return result;
 }
 
 void Delinearize::print(std::ostream& out) const
@@ -382,10 +367,17 @@ void Delinearize::print(std::ostream& out) const
   out << "sizes: ";
   print_vector(out, sizes_);
   out << ")";
-  if (parent_ != nullptr) {
-    out << " . ";
-    parent_->print(out);
-  }
+}
+
+int32_t Delinearize::target_ndim(int32_t source_ndim) const
+{
+  return source_ndim - strides_.size() + 1;
+}
+
+std::ostream& operator<<(std::ostream& out, const Transform& transform)
+{
+  transform.print(out);
+  return out;
 }
 
 }  // namespace legate

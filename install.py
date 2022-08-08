@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # Copyright 2021-2022 NVIDIA Corporation
 #
@@ -109,7 +109,16 @@ def find_active_python_version_and_path():
         + str(sys.version_info.micro)
     )
     cv = sysconfig.get_config_vars()
-    paths = [os.path.join(cv[p], cv["LDLIBRARY"]) for p in ("LIBDIR", "LIBPL")]
+    # Homebrew or pkg mgr installations may give bad values for LDLIBRARY.
+    # Uses a fallback default path in case LDLIBRARY fails.
+    default_libname = "libpython" + cv["LDVERSION"] + ".a"
+    libdirs = [cv["LIBDIR"], cv["LIBPL"]]
+    libnames = [cv["LDLIBRARY"], default_libname]
+    paths = [
+        os.path.join(libdir, libname)
+        for libdir in libdirs
+        for libname in libnames
+    ]
     # ensure that static libraries are replaced with the dynamic version
     paths = [
         os.path.splitext(p)[0] + (".dylib" if os_name == "Darwin" else ".so")
@@ -205,7 +214,7 @@ def install_gasnet(gasnet_dir, conduit, thread_count):
     shutil.rmtree(temp_dir)
 
 
-def install_legion(legion_src_dir, branch, commit="36851ec7"):
+def install_legion(legion_src_dir, branch, commit="96777114"):
     print("Legate is installing Legion into a local directory...")
     # For now all we have to do is clone legion since we build it with Legate
     git_clone(
@@ -225,7 +234,7 @@ def install_thrust(thrust_dir):
     )
 
 
-def update_legion(legion_src_dir, branch, commit="36851ec7"):
+def update_legion(legion_src_dir, branch, commit="96777114"):
     # Make sure we are on the right branch for single/multi-node
     git_update(legion_src_dir, branch=branch, commit=commit)
 
@@ -421,6 +430,12 @@ calls into NCCL either directly or through some other Legate library.
             + setup_py_flags,
             cwd=legion_python_dir,
         )
+    src = os.path.join(legion_src_dir, "runtime", "legion", "legion_c_util.h")
+    dst = os.path.join(install_dir, "include", "legion", "legion_c_util.h")
+    if not os.path.exists(dst) or os.path.getmtime(dst) < os.path.getmtime(
+        src
+    ):
+        verbose_check_call(["cp", src, dst])
     verbose_check_call(
         [
             "cp",
@@ -957,7 +972,10 @@ def driver():
         dest="conduit",
         action="store",
         required=False,
-        choices=["ibv", "ucx", "aries", "mpi", "udp"],
+        # TODO: To support UDP conduit, we would need to add a special case on
+        # the legate launcher.
+        # See https://github.com/nv-legate/legate.core/issues/294.
+        choices=["ibv", "ucx", "aries", "mpi"],
         default=os.environ.get("CONDUIT"),
         help="Build Legate with specified GASNet conduit.",
     )

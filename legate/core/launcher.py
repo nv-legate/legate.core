@@ -27,8 +27,6 @@ from typing import (
     overload,
 )
 
-import pyarrow as pa
-
 from . import (
     ArgumentMap,
     BufferBuilder,
@@ -231,16 +229,14 @@ class RegionFieldArg:
 LegionTaskMethod = Any
 
 
-def _index_copy_add_rw_dst_requirement(*args, **kwargs):
-    IndexCopy.add_dst_requirement(
-        *args, privilege=legion.LEGION_READ_WRITE, **kwargs
-    )
+def _index_copy_add_rw_dst_requirement(*args: Any, **kwargs: Any) -> None:
+    kwargs["privilege"] = legion.LEGION_READ_WRITE
+    IndexCopy.add_dst_requirement(*args, **kwargs)
 
 
-def _single_copy_add_rw_dst_requirement(*args, **kwargs):
-    SingleCopy.add_dst_requirement(
-        *args, privilege=legion.LEGION_READ_WRITE, **kwargs
-    )
+def _single_copy_add_rw_dst_requirement(*args: Any, **kwargs: Any) -> None:
+    kwargs["privilege"] = legion.LEGION_READ_WRITE
+    SingleCopy.add_dst_requirement(*args, **kwargs)
 
 
 _single_task_calls: dict[Permission, LegionTaskMethod] = {
@@ -723,6 +719,7 @@ class TaskLauncher:
         self._error_on_interference = error_on_interference
         self._has_side_effect = side_effect
         self._insert_barrier = False
+        self._can_raise_exception = False
 
     @property
     def library_task_id(self) -> int:
@@ -750,7 +747,7 @@ class TaskLauncher:
     def add_scalar_arg(
         self,
         value: Any,
-        dtype: Union[bool, pa.lib.DataType],
+        dtype: Union[DTType, tuple[DTType]],
         untyped: bool = True,
     ) -> None:
         self._scalars.append(
@@ -862,6 +859,9 @@ class TaskLauncher:
     def insert_barrier(self) -> None:
         self._insert_barrier = True
 
+    def set_can_raise_exception(self, can_raise_exception: bool) -> None:
+        self._can_raise_exception = can_raise_exception
+
     def set_sharding_space(self, space: IndexSpace) -> None:
         self._sharding_space = space
 
@@ -887,6 +887,7 @@ class TaskLauncher:
         self.pack_args(argbuf, self._outputs)
         self.pack_args(argbuf, self._reductions)
         self.pack_args(argbuf, self._scalars)
+        argbuf.pack_bool(self._can_raise_exception)
         argbuf.pack_bool(self._insert_barrier)
         argbuf.pack_32bit_uint(len(self._comms))
 
@@ -927,6 +928,7 @@ class TaskLauncher:
         self.pack_args(argbuf, self._outputs)
         self.pack_args(argbuf, self._reductions)
         self.pack_args(argbuf, self._scalars)
+        argbuf.pack_bool(self._can_raise_exception)
 
         assert len(self._comms) == 0
 

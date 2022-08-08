@@ -17,6 +17,7 @@
 #include "core/data/store.h"
 #include "core/utilities/dispatch.h"
 #include "core/utilities/machine.h"
+#include "legate_defines.h"
 
 namespace legate {
 
@@ -88,8 +89,26 @@ OutputRegionField& OutputRegionField::operator=(OutputRegionField&& other) noexc
   return *this;
 }
 
+void OutputRegionField::make_empty(int32_t ndim)
+{
+  num_elements_[0] = 0;
+  DomainPoint extents;
+  extents.dim = ndim;
+  for (int32_t dim = 0; dim < ndim; ++dim) extents[dim] = 0;
+  out_.return_data(extents, fid_, nullptr);
+  bound_ = true;
+}
+
 ReturnValue OutputRegionField::pack_weight() const
 {
+#ifdef DEBUG_LEGATE
+  if (!bound_) {
+    legate::log_legate.error(
+      "Found an uninitialized unbound store. Please make sure you return buffers to all unbound "
+      "stores in the task");
+    LEGATE_ABORT;
+  }
+#endif
   return ReturnValue(num_elements_.ptr(0), sizeof(size_t));
 }
 
@@ -149,14 +168,14 @@ Store::Store(int32_t dim,
              int32_t code,
              int32_t redop_id,
              FutureWrapper future,
-             std::shared_ptr<StoreTransform> transform)
+             std::shared_ptr<TransformStack>&& transform)
   : is_future_(true),
     is_output_store_(false),
     dim_(dim),
     code_(code),
     redop_id_(redop_id),
     future_(future),
-    transform_(std::move(transform)),
+    transform_(std::forward<decltype(transform)>(transform)),
     readable_(true)
 {
 }
@@ -165,28 +184,31 @@ Store::Store(int32_t dim,
              int32_t code,
              int32_t redop_id,
              RegionField&& region_field,
-             std::shared_ptr<StoreTransform> transform)
+             std::shared_ptr<TransformStack>&& transform)
   : is_future_(false),
     is_output_store_(false),
     dim_(dim),
     code_(code),
     redop_id_(redop_id),
     region_field_(std::forward<RegionField>(region_field)),
-    transform_(std::move(transform))
+    transform_(std::forward<decltype(transform)>(transform))
 {
   readable_  = region_field_.is_readable();
   writable_  = region_field_.is_writable();
   reducible_ = region_field_.is_reducible();
 }
 
-Store::Store(int32_t code, OutputRegionField&& output, std::shared_ptr<StoreTransform> transform)
+Store::Store(int32_t dim,
+             int32_t code,
+             OutputRegionField&& output,
+             std::shared_ptr<TransformStack>&& transform)
   : is_future_(false),
     is_output_store_(true),
-    dim_(-1),
+    dim_(dim),
     code_(code),
     redop_id_(-1),
     output_field_(std::forward<OutputRegionField>(output)),
-    transform_(std::move(transform))
+    transform_(std::forward<decltype(transform)>(transform))
 {
 }
 
@@ -233,8 +255,22 @@ Domain Store::domain() const
   assert(!is_output_store_);
   auto result = is_future_ ? future_.domain() : region_field_.domain();
   if (nullptr != transform_) result = transform_->transform(result);
-  assert(result.dim == dim_);
+  assert(result.dim == dim_ || dim_ == 0);
   return result;
+}
+
+void Store::make_empty()
+{
+  assert(is_output_store_);
+  output_field_.make_empty(dim_);
+}
+
+void Store::remove_transform()
+{
+  assert(is_transformed());
+  auto result = transform_->pop();
+  if (transform_->empty()) transform_ = nullptr;
+  dim_ = result->target_ndim(dim_);
 }
 
 }  // namespace legate

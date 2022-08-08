@@ -14,24 +14,31 @@
  *
  */
 
-#include "core/comm/comm.h"
-#ifdef LEGATE_USE_CUDA
-#include "core/comm/comm_nccl.h"
-#endif
-#include "core/comm/comm_cpu.h"
+#pragma once
+
+#include <exception>
 
 namespace legate {
-namespace comm {
 
-void register_tasks(Legion::Machine machine,
-                    Legion::Runtime* runtime,
-                    const LibraryContext& context)
-{
-#ifdef LEGATE_USE_CUDA
-  nccl::register_tasks(machine, runtime, context);
-#endif
-  cpu::register_tasks(machine, runtime, context);
-}
+class TaskException : public std::exception {
+ public:
+  TaskException(const std::string& error_message) : index_(0), error_message_(error_message) {}
 
-}  // namespace comm
+  TaskException(int32_t index, const std::string& error_message)
+    : index_(index), error_message_(error_message)
+  {
+  }
+
+ public:
+  virtual const char* what() const throw() { return error_message_.c_str(); }
+
+ public:
+  int32_t index() const { return index_; }
+  const std::string& error_message() const { return error_message_; }
+
+ private:
+  int32_t index_{-1};
+  std::string error_message_;
+};
+
 }  // namespace legate

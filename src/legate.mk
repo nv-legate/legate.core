@@ -35,6 +35,39 @@ endif
 
 RM	:= rm
 
+# use mpi{cc,cxx,f90} compiler wrappers if USE_GASNET=1 and we're not on a Cray system
+ifeq ($(strip $(USE_GASNET)),1)
+  ifeq (${CRAYPE_VERSION},)
+    # OpenMPI check
+    ifneq ($(strip $(shell __INTEL_POST_CFLAGS+=' -we10006' $(CC) -showme:compile 2>&1 > /dev/null; echo $$?)),0)
+      # MPICH check
+      ifneq ($(strip $(shell __INTEL_POST_CFLAGS+=' -we10006' $(CC) -show 2>&1 > /dev/null; echo $$?)),0)
+        export OMPI_CC  	:= $(CC)
+        export MPICH_CC  	:= $(CC)
+        CC			:= mpicc
+      endif
+    endif
+    # OpenMPI check
+    ifneq ($(strip $(shell __INTEL_POST_CFLAGS+=' -we10006' $(CXX) -showme:compile 2>&1 > /dev/null; echo $$?)),0)
+      # MPICH check
+      ifneq ($(strip $(shell __INTEL_POST_CFLAGS+=' -we10006' $(CXX) -show 2>&1 > /dev/null; echo $$?)),0)
+        export OMPI_CXX 	:= $(CXX)
+        export MPICH_CXX 	:= $(CXX)
+        CXX			:= mpicxx
+      endif
+    endif
+    # OpenMPI check
+    ifneq ($(strip $(shell __INTEL_POST_CFLAGS+=' -we10006' $(FC) -showme:compile 2>&1 > /dev/null; echo $$?)),0) 
+      # MPICH check
+      ifneq ($(strip $(shell __INTEL_POST_CFLAGS+=' -we10006' $(FC) -show 2>&1 > /dev/null; echo $$?)),0)
+        export OMPI_FC  	:= $(FC)
+        export MPICH_FC  	:= $(FC)
+        FC			:= mpif90
+      endif
+    endif
+  endif
+endif
+
 CC_FLAGS ?=
 CC_FLAGS += -std=c++17 -Wfatal-errors
 CC_FLAGS += -I$(LEGATE_DIR)/include
@@ -106,11 +139,15 @@ ifneq (${MARCH},)
     else
       $(error PGI compilers do not currently support the PowerPC architecture)
     endif
+  else ifeq ($(strip $(USE_PGI)),1)
+    CC_FLAGS += -tp=${MARCH}
   else
-    ifeq ($(strip $(USE_PGI)),0)
+    # Not all compilers, notably Clang on Mac, support -march. Checks if -march is accepted by the
+    # compiler and falls back to -mcpu if not.
+    ifeq ($(shell $(CXX) -x c++ -Werror -march=${MARCH} -c /dev/null -o /dev/null 2> /dev/null; echo $$?),0)
       CC_FLAGS += -march=${MARCH}
     else
-      CC_FLAGS += -tp=${MARCH}
+      CC_FLAGS += -mcpu=${MARCH}
     endif
   endif
 endif

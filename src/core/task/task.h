@@ -20,9 +20,11 @@
 #include <sstream>
 
 #include "legion.h"
+#include "realm/faults.h"
 
 #include "core/runtime/context.h"
 #include "core/runtime/runtime.h"
+#include "core/task/exception.h"
 #include "core/task/return.h"
 #include "core/utilities/deserializer.h"
 #include "core/utilities/nvtx_help.h"
@@ -96,9 +98,21 @@ class LegateTask {
     Core::show_progress(task, legion_context, runtime, task_name());
 
     TaskContext context(task, regions, legion_context, runtime);
-    if (!Core::use_empty_task) (*TASK_PTR)(context);
 
-    return context.pack_return_values();
+    try {
+      if (!Core::use_empty_task) (*TASK_PTR)(context);
+      return context.pack_return_values();
+    } catch (legate::TaskException& e) {
+      if (context.can_raise_exception()) {
+        context.make_all_unbound_stores_empty();
+        return context.pack_return_values_with_exception(e.index(), e.error_message());
+      } else
+        // If a Legate exception is thrown by a task that does not declare any exception,
+        // this is a bug in the library that needs to be reported to the developer
+        Core::report_unexpected_exception(task_name(), e);
+    }
+    // This is unreachable but added to make compilers happy
+    return ReturnValues{};
   }
 
  public:

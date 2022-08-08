@@ -24,9 +24,11 @@ from .launcher import CopyLauncher, TaskLauncher
 from .partition import REPLICATE, Weighted
 from .shape import Shape
 from .store import Store, StorePartition
-from .utils import OrderedSet
+from .utils import OrderedSet, capture_traceback
 
 if TYPE_CHECKING:
+    from types import TracebackType
+
     from .communicator import Communicator
     from .constraints import Constraint
     from .context import Context
@@ -63,6 +65,13 @@ class OperationProtocol(Protocol):
         return self._mapper_id
 
     @property
+    def can_raise_exception(self) -> bool:
+        return False
+
+    def capture_traceback(self) -> None:
+        raise TypeError("Generic operation doesn't support capture_tracback")
+
+    @property
     def inputs(self) -> list[Store]:
         return self._inputs
 
@@ -97,7 +106,7 @@ class OperationProtocol(Protocol):
 
 class TaskProtocol(OperationProtocol, Protocol):
     _task_id: int
-    _scalar_args: list[tuple[Any, DTType]]
+    _scalar_args: list[tuple[Any, Union[DTType, tuple[DTType]]]]
     _comm_args: list[Communicator]
 
 
@@ -216,8 +225,10 @@ class Task(TaskProtocol):
     ) -> None:
         super().__init__(**kwargs)
         self._task_id = task_id
-        self._scalar_args: list[tuple[Any, DTType]] = []
+        self._scalar_args: list[tuple[Any, Union[DTType, tuple[DTType]]]] = []
         self._comm_args: list[Communicator] = []
+        self._exn_types: list[type] = []
+        self._tb: Union[None, TracebackType] = None
 
     @property
     def uses_communicator(self) -> bool:
@@ -227,12 +238,24 @@ class Task(TaskProtocol):
         libname = self.context.library.get_name()
         return f"{libname}.Task(tid:{self._task_id}, uid:{self._op_id})"
 
-    def add_scalar_arg(self, value: Any, dtype: DTType) -> None:
+    def add_scalar_arg(
+        self, value: Any, dtype: Union[DTType, tuple[DTType]]
+    ) -> None:
         self._scalar_args.append((value, dtype))
 
     def add_dtype_arg(self, dtype: DTType) -> None:
         code = self._context.type_system[dtype].code
         self._scalar_args.append((code, ty.int32))
+
+    def throws_exception(self, exn_type: type) -> None:
+        self._exn_types.append(exn_type)
+
+    @property
+    def can_raise_exception(self) -> bool:
+        return len(self._exn_types) > 0
+
+    def capture_traceback(self) -> None:
+        self._tb = capture_traceback()
 
     def _add_scalar_args_to_launcher(self, launcher: TaskLauncher) -> None:
         for (arg, dtype) in self._scalar_args:
@@ -244,7 +267,12 @@ class Task(TaskProtocol):
         num_scalar_reds = len(self.scalar_reductions)
         runtime = self.context.runtime
 
-        num_all_scalars = num_unbound_outs + num_scalar_outs + num_scalar_reds
+        num_all_scalars = (
+            num_unbound_outs
+            + num_scalar_outs
+            + num_scalar_reds
+            + int(self.can_raise_exception)
+        )
 
         if num_all_scalars == 0:
             return
@@ -255,6 +283,12 @@ class Task(TaskProtocol):
             elif num_scalar_reds == 1:
                 (output, _) = self.reductions[self.scalar_reductions[0]]
                 output.set_storage(result)
+            elif self.can_raise_exception:
+                runtime.record_pending_exception(
+                    self._exn_types, result, self._tb
+                )
+            else:
+                assert num_unbound_outs == 1
         else:
             idx = len(self.unbound_outputs)
             for out_idx in self.scalar_outputs:
@@ -265,6 +299,12 @@ class Task(TaskProtocol):
                 (output, _) = self.reductions[red_idx]
                 output.set_storage(runtime.extract_scalar(result, idx))
                 idx += 1
+            if self.can_raise_exception:
+                runtime.record_pending_exception(
+                    self._exn_types,
+                    runtime.extract_scalar(result, idx),
+                    self._tb,
+                )
 
     def _demux_scalar_stores_future_map(
         self,
@@ -276,7 +316,12 @@ class Task(TaskProtocol):
         num_scalar_reds = len(self.scalar_reductions)
         runtime = self.context.runtime
 
-        num_all_scalars = num_unbound_outs + num_scalar_outs + num_scalar_reds
+        num_all_scalars = (
+            num_unbound_outs
+            + num_scalar_outs
+            + num_scalar_reds
+            + int(self.can_raise_exception)
+        )
         launch_shape = Shape(c + 1 for c in launch_domain.hi)
         assert num_scalar_outs == 0
 
@@ -287,13 +332,20 @@ class Task(TaskProtocol):
                 (output, redop) = self.reductions[self.scalar_reductions[0]]
                 redop_id = output.type.reduction_op_id(redop)
                 output.set_storage(runtime.reduce_future_map(result, redop_id))
-            else:
-                assert num_unbound_outs == 1
+            elif num_unbound_outs == 1:
                 output = self.outputs[self.unbound_outputs[0]]
                 # TODO: need to track partitions for N-D unbound stores
                 if output.ndim == 1:
                     partition = Weighted(runtime, launch_shape, result)
                     output.set_key_partition(partition)
+            elif self.can_raise_exception:
+                runtime.record_pending_exception(
+                    self._exn_types,
+                    runtime.reduce_exception_future_map(result),
+                    self._tb,
+                )
+            else:
+                assert False
         else:
             idx = 0
             # TODO: We can potentially deduplicate these extraction tasks
@@ -317,6 +369,15 @@ class Task(TaskProtocol):
                 )
                 output.set_storage(runtime.reduce_future_map(data, redop_id))
                 idx += 1
+            if self.can_raise_exception:
+                exn_fut_map = runtime.extract_scalar_with_domain(
+                    result, idx, launch_domain
+                )
+                runtime.record_pending_exception(
+                    self._exn_types,
+                    runtime.reduce_exception_future_map(exn_fut_map),
+                    self._tb,
+                )
 
     def _demux_scalar_stores(
         self,
@@ -332,6 +393,10 @@ class Task(TaskProtocol):
 
     def add_nccl_communicator(self) -> None:
         comm = self._context.get_nccl_communicator()
+        self._comm_args.append(comm)
+
+    def add_cpu_communicator(self) -> None:
+        comm = self._context.get_cpu_communicator()
         self._comm_args.append(comm)
 
     def _add_communicators(
@@ -456,6 +521,8 @@ class AutoTask(AutoOperation, Task):
             launcher.add_unbound_output(store, fspace, field_id)
 
         self._add_scalar_args_to_launcher(launcher)
+
+        launcher.set_can_raise_exception(self.can_raise_exception)
 
         launch_domain = strategy.launch_domain if strategy.parallel else None
         self._add_communicators(launcher, launch_domain)
@@ -608,6 +675,8 @@ class ManualTask(Operation, Task):
             )
 
         self._add_scalar_args_to_launcher(launcher)
+
+        launcher.set_can_raise_exception(self.can_raise_exception)
 
         self._add_communicators(launcher, self._launch_domain)
 

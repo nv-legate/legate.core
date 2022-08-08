@@ -102,19 +102,23 @@ class Store {
   Store(int32_t dim,
         LegateTypeCode code,
         FutureWrapper future,
-        std::shared_ptr<StoreTransform> transform = nullptr);
+        std::shared_ptr<TransformStack>&& transform = nullptr);
   Store(Legion::Mapping::MapperRuntime* runtime,
         const Legion::Mapping::MapperContext context,
         int32_t dim,
         LegateTypeCode code,
         int32_t redop_id,
         const RegionField& region_field,
-        bool is_output_store                      = false,
-        std::shared_ptr<StoreTransform> transform = nullptr);
+        bool is_output_store                        = false,
+        std::shared_ptr<TransformStack>&& transform = nullptr);
 
  public:
   Store(const Store& other)            = default;
   Store& operator=(const Store& other) = default;
+
+ public:
+  Store(Store&& other)            = default;
+  Store& operator=(Store&& other) = default;
 
  public:
   bool is_future() const { return is_future_; }
@@ -149,7 +153,7 @@ class Store {
   RegionField region_field_;
 
  private:
-  std::shared_ptr<StoreTransform> transform_{nullptr};
+  std::shared_ptr<TransformStack> transform_{nullptr};
 
  private:
   Legion::Mapping::MapperRuntime* runtime_{nullptr};

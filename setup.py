@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # Copyright 2021-2022 NVIDIA Corporation
 #
@@ -72,7 +72,7 @@ if args.recurse:
     sys.argv.remove("--recurse")
     setup(
         name="legate.core",
-        version="22.05.00",
+        version="22.08.00",
         packages=find_packages(
             where=".",
             include=["legate*"],

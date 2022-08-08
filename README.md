@@ -45,8 +45,8 @@ The Legate project is built upon two foundational principles:
 
 The Legate project is still in its nascent stages of development, but much of
 the fundamental architecture is in place. We encourage development and contributions
-to existing Legate libraries, such as Legate NumPy and Legate Pandas, as well as
-the development of new Legate libraries. Pull requests are welcomed.
+to existing Legate libraries, as well as the development of new Legate libraries.
+Pull requests are welcomed.
 
 If you have questions, please contact us at legate(at)nvidia.com.
 
@@ -165,7 +165,7 @@ Legion without needing to learn all of the lowest-level interfaces.
 
 The [Legion programming model](https://legion.stanford.edu/pdfs/sc2012.pdf)
 greatly aids in implementing the Legate Core API. Data types from libraries,
-such as arrays in Legate NumPy are mapped down onto `LegateStore` objects
+such as arrays in cuNumeric are mapped down onto `LegateStore` objects
 that wrap Legion data types such as logical regions or futures.
 In the case of regions, Legate application libraries rely heavily on
 Legion's [support for partitioning of logical regions into arbitrary
@@ -335,7 +335,7 @@ any C++ and CUDA code in Legate.
 ## How Do I Use Legate?
 
 After installing the Legate Core library, the next step is to install a Legate
-application library such as Legate NumPy. The installation process for a
+application library such as cuNumeric. The installation process for a
 Legate application library will require you to provide a pointer to the location
 of your Legate Core library installation as this will be used to configure the
 installation of the Legate application library. After you finish installing any
@@ -350,8 +350,12 @@ to this:
 import cunumeric as np
 ```
 After this, you can use the `legate` driver script in the `bin` directory of
-your installation to run any Python program. For example, to run your script
-in the default configuration (4 CPUs cores and 4 GB of memory) just run:
+your installation to run any Python program. **Note that the default python
+interpreter (`python`) will not work with programs that use Legate libraries, you
+need to use this custom driver script.**
+
+For example, to run your script in the default configuration (4 CPUs cores and
+4 GB of memory) just run:
 ```
 installdir/bin/legate my_python_program.py [other args]
 ```

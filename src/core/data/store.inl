@@ -231,8 +231,12 @@ template <typename T, int32_t DIM>
 Buffer<T, DIM> OutputRegionField::create_output_buffer(const Legion::Point<DIM>& extents,
                                                        bool return_buffer)
 {
-  // We will use this value only when the unbound store is 1D
-  num_elements_[0] = extents[0];
+  if (return_buffer) {
+    assert(!bound_);
+    // We will use this value only when the unbound store is 1D
+    num_elements_[0] = extents[0];
+    bound_           = true;
+  }
   return out_.create_buffer<T, DIM>(extents, fid_, nullptr, return_buffer);
 }
 
@@ -243,58 +247,59 @@ void OutputRegionField::return_data(Buffer<T, DIM>& buffer, const Legion::Point<
   out_.return_data(extents, fid_, buffer);
   // We will use this value only when the unbound store is 1D
   num_elements_[0] = extents[0];
+  bound_           = true;
 }
 
 template <typename T, int DIM>
 AccessorRO<T, DIM> Store::read_accessor() const
 {
-  if (is_future_) return future_.read_accessor<T, DIM>();
+  if (is_future_) return future_.read_accessor<T, DIM>(shape<DIM>());
 
   assert(DIM == dim_ || dim_ == 0);
   if (nullptr != transform_) {
     auto transform = transform_->inverse_transform(dim_);
-    return region_field_.read_accessor<T, DIM>(transform);
+    return region_field_.read_accessor<T, DIM>(shape<DIM>(), transform);
   }
-  return region_field_.read_accessor<T, DIM>();
+  return region_field_.read_accessor<T, DIM>(shape<DIM>());
 }
 
 template <typename T, int DIM>
 AccessorWO<T, DIM> Store::write_accessor() const
 {
-  if (is_future_) return future_.write_accessor<T, DIM>();
+  if (is_future_) return future_.write_accessor<T, DIM>(shape<DIM>());
 
   assert(DIM == dim_ || dim_ == 0);
   if (nullptr != transform_) {
     auto transform = transform_->inverse_transform(dim_);
-    return region_field_.write_accessor<T, DIM>(transform);
+    return region_field_.write_accessor<T, DIM>(shape<DIM>(), transform);
   }
-  return region_field_.write_accessor<T, DIM>();
+  return region_field_.write_accessor<T, DIM>(shape<DIM>());
 }
 
 template <typename T, int DIM>
 AccessorRW<T, DIM> Store::read_write_accessor() const
 {
-  if (is_future_) return future_.read_write_accessor<T, DIM>();
+  if (is_future_) return future_.read_write_accessor<T, DIM>(shape<DIM>());
 
   assert(DIM == dim_ || dim_ == 0);
   if (nullptr != transform_) {
     auto transform = transform_->inverse_transform(dim_);
-    return region_field_.read_write_accessor<T, DIM>(transform);
+    return region_field_.read_write_accessor<T, DIM>(shape<DIM>(), transform);
   }
-  return region_field_.read_write_accessor<T, DIM>();
+  return region_field_.read_write_accessor<T, DIM>(shape<DIM>());
 }
 
 template <typename OP, bool EXCLUSIVE, int DIM>
 AccessorRD<OP, EXCLUSIVE, DIM> Store::reduce_accessor() const
 {
-  if (is_future_) return future_.reduce_accessor<OP, EXCLUSIVE, DIM>(redop_id_);
+  if (is_future_) return future_.reduce_accessor<OP, EXCLUSIVE, DIM>(redop_id_, shape<DIM>());
 
   assert(DIM == dim_ || dim_ == 0);
   if (nullptr != transform_) {
     auto transform = transform_->inverse_transform(DIM);
-    return region_field_.reduce_accessor<OP, EXCLUSIVE, DIM>(redop_id_, transform);
+    return region_field_.reduce_accessor<OP, EXCLUSIVE, DIM>(redop_id_, shape<DIM>(), transform);
   }
-  return region_field_.reduce_accessor<OP, EXCLUSIVE, DIM>(redop_id_);
+  return region_field_.reduce_accessor<OP, EXCLUSIVE, DIM>(redop_id_, shape<DIM>());
 }
 
 template <typename T, int DIM>
@@ -362,7 +367,7 @@ Legion::Rect<DIM> Store::shape() const
 {
   auto dom = domain();
   if (dom.dim > 0)
-    return Legion::Rect<DIM>(dom);
+    return dom.bounds<DIM, Legion::coord_t>();
   else {
     auto p = Legion::Point<DIM>::ZEROES();
     return Legion::Rect<DIM>(p, p);

@@ -17,9 +17,14 @@ from __future__ import annotations
 import os
 from typing import Any, Union
 
-from .install_info import header, libpath
+from .install_info import header, libpath  # type: ignore
 from .legate import Library
 from .resource import ResourceConfig
+
+# This is annoying but install_info is not present on unbuilt source, but is
+# present in built source. So we either get an unfollowed-import error, or an
+# unused-ignore error. Allow unused-ignores just in this file to work around
+# mypy: warn-unused-ignores=False
 
 
 class CoreLib(Library):
@@ -49,6 +54,7 @@ class CoreLib(Library):
         config.max_tasks = self._lib.LEGATE_CORE_NUM_TASK_IDS
         config.max_projections = self._lib.LEGATE_CORE_MAX_FUNCTOR_ID
         config.max_shardings = self._lib.LEGATE_CORE_MAX_FUNCTOR_ID
+        config.max_reduction_ops = self._lib.LEGATE_CORE_MAX_REDUCTION_OP_ID
         return config
 
     def destroy(self) -> None:
