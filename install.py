@@ -439,6 +439,14 @@ calls into NCCL either directly or through some other Legate library.
     verbose_check_call(
         [
             "cp",
+            "legion_c_util.h",
+            os.path.join(install_dir, "include", "legion", "legion_c_util.h"),
+        ],
+        cwd=os.path.join(legion_src_dir, "runtime", "legion"),
+    )
+    verbose_check_call(
+        [
+            "cp",
             "legion_spy.py",
             os.path.join(install_dir, "share", "legate", "legion_spy.py"),
         ],
@@ -598,6 +606,11 @@ def install(
     verbose_global = verbose
 
     legate_core_dir = os.path.dirname(os.path.realpath(__file__))
+
+    # For the release, we will use a hardcoded commit unless user asks for
+    # a branch
+    #    if legion_branch is None:
+    #        legion_branch = find_default_legion_branch(legate_core_dir)
 
     cmake_config = os.path.join(legate_core_dir, ".cmake.json")
     dump_json_config(cmake_config, cmake)
@@ -1042,7 +1055,7 @@ def driver():
     )
     parser.add_argument(
         "--legion-branch",
-        dest="legion_branch",
+        dest=None,
         required=False,
         default=None,
         help="Legion branch to build Legate with.",
