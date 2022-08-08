@@ -64,6 +64,8 @@ if TYPE_CHECKING:
     from .runtime import Field, Runtime
     from .transform import TransformStackBase
 
+from math import prod
+
 
 class InlineMappedAllocation:
     """
@@ -727,10 +729,10 @@ class Storage:
         # region in all dimensions of the parent region, then we'll make
         # a disjoint tiled partition with as many children as possible
         shape = self.get_root().extents
-
         can_tile_completely = (offsets % tile_shape).sum() == 0 and (
             shape % tile_shape
         ).sum() == 0
+
         if (
             can_tile_completely
             and self._partition_manager.use_complete_tiling(shape, tile_shape)
@@ -952,12 +954,7 @@ class Store:
 
     @property
     def size(self) -> int:
-        s = 1
-        if self._ndim == 0:
-            return s
-        for p in self.shape:
-            s *= p
-        return s
+        return prod(self.shape) if self.ndim > 0 else 1
 
     @property
     def type(self) -> _Dtype:
@@ -1132,7 +1129,7 @@ class Store:
 
         size = self.shape[dim]
 
-        if size == 0 and sl == slice(None):
+        if size == 0 or sl == slice(None):
             return self
 
         start = 0 if sl.start is None else sl.start
