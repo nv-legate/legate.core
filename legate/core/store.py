@@ -988,6 +988,9 @@ class Store:
             )
         return self._storage.data
 
+    def same_root(self, rhs: Store) -> bool:
+        return self._storage.get_root() is rhs._storage.get_root()
+
     @property
     def extents(self) -> Shape:
         return self._storage.extents
