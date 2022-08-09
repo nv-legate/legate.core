@@ -1359,11 +1359,6 @@ void BaseMapper::map_copy(const MapperContext ctx,
     }
   } else {
   */
-  {
-    // If we have just one local GPU then let's use it, otherwise punt to CPU
-    // since it's not clear which one we should use
-    if (local_frame_buffers.size() == 1) target_memory = local_frame_buffers.begin()->second;
-  }
 
   auto map_stores = [&](auto idx, auto& req, auto& inputs, auto& outputs) {
     auto& region = req.region;
