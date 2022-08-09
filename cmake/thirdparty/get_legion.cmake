@@ -82,7 +82,6 @@ function(find_or_configure_legion)
           FIND_PACKAGE_ARGUMENTS EXACT
           EXCLUDE_FROM_ALL       ${PKG_EXCLUDE_FROM_ALL}
           OPTIONS                "CMAKE_CXX_STANDARD 17"
-                                 "CMAKE_BUILD_TYPE Release"
                                  "CMAKE_LIBRARY_PATH ${_lib_path}"
                                  "CMAKE_INSTALL_PREFIX ${Legion_CMAKE_INSTALL_PREFIX}"
                                  "Legion_VERSION ${PKG_VERSION}"
