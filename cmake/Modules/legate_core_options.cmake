@@ -91,6 +91,8 @@ cmake_dependent_option(Legion_HIJACK_CUDART
   ON
   "Legion_USE_CUDA;Legion_HIJACK_CUDART"
   OFF)
+# This needs to be added as an option to force values to be visible in Legion build
+option(Legion_HIJACK_CUDART "Replace default CUDA runtime with the Realm version" OFF)
 
 if(Legion_HIJACK_CUDART)
   message(WARNING [=[

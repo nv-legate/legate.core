@@ -16,6 +16,7 @@
 import sys
 import textwrap
 from argparse import ArgumentParser, RawDescriptionHelpFormatter
+from typing import Any
 
 KNOWN_PATCHES = {"numpy": "cunumeric"}
 
@@ -37,7 +38,7 @@ Any additional command line arguments are passed on to PROG as-is
 """
 
 
-def parse_args():
+def parse_args() -> Any:
     parser = ArgumentParser(
         prog="lgpatch",
         description=DESCRIPTION,
@@ -79,7 +80,7 @@ def do_patch(name: str) -> None:
         raise RuntimeError(f"Could not import patch module {cuname}")
 
 
-def main():
+def main() -> None:
     args, extra = parse_args()
 
     for name in args.patch:
