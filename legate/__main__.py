@@ -150,7 +150,7 @@ def get_legate_paths():
         return {
             "legate_dir": legate_dir,
             "legate_build_dir": legate_build_dir,
-            "bind_sh_path": join(dirname(dirname(sys.argv[0])), "bind.sh"),
+            "bind_sh_path": join(dirname(sys.argv[0]), "bind.sh"),
             "legate_lib_path": join(dirname(dirname(sys.argv[0])), "lib"),
         }
 
@@ -351,11 +351,12 @@ def run_legate(
     cmd_env["PYTHONDONTWRITEBYTECODE"] = "1"
     # Set the path to the Legate module as an environment variable
     # The current directory should be added to PYTHONPATH as well
+    extra_python_paths = cmd_env["PYTHONPATH"] if "PYTHONPATH" in cmd_env else []
     if legion_module is not None:
-        cmd_env["PYTHONPATH"] = os.pathsep.join(
-            ([cmd_env["PYTHONPATH"]] if ("PYTHONPATH" in cmd_env) else [])
-            + [legion_module]
-        )
+        extra_python_paths.append(legion_module)
+    # Make sure the base directory for this file is in the python path
+    extra_python_paths.append(os.path.dirname(os.path.dirname(__file__)))
+    cmd_env["PYTHONPATH"] = os.pathsep.join(extra_python_paths)
 
     # Make sure the version of Python used by Realm is the same as what the
     # user is using currently.

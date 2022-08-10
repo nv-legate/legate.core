@@ -19,11 +19,15 @@ def get_libpath():
     exists = os.path.exists
     dirname = os.path.dirname
     lg_path = dirname(dirname(dirname(__file__)))
+    # see if this is from a build directory
     if exists(libdir := join(lg_path, "build", "lib")):
         return libdir
-    if exists(libdir := join(dirname(dirname(sys.executable)), "lib")):
-        return libdir
-    return ""
+    # otherwise point to the installed location
+    # this __file__ should be in .../lib/python3.x/site-packages
+    # return the .../lib portion of the path
+    return dirname(dirname(lg_path))
+
+
 
 
 libpath: str = get_libpath()

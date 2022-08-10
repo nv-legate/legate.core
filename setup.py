@@ -61,12 +61,12 @@ setup(
     ),
     entry_points={
         "console_scripts": [
-            "legate = legate.__main__:driver",
             "lgpatch = legate.lgpatch:main",
-        ]
+        ],
     },
     scripts=[
         "bind.sh",
+        "bin/legate",
     ],
     cmdclass=versioneer.get_cmdclass(),
     install_requires=["numpy>=1.22"],
