@@ -351,7 +351,9 @@ def run_legate(
     cmd_env["PYTHONDONTWRITEBYTECODE"] = "1"
     # Set the path to the Legate module as an environment variable
     # The current directory should be added to PYTHONPATH as well
-    extra_python_paths = cmd_env["PYTHONPATH"] if "PYTHONPATH" in cmd_env else []
+    extra_python_paths = (
+        cmd_env["PYTHONPATH"] if "PYTHONPATH" in cmd_env else []
+    )
     if legion_module is not None:
         extra_python_paths.append(legion_module)
     # Make sure the base directory for this file is in the python path
