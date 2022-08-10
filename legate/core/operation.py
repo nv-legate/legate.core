@@ -174,6 +174,8 @@ class Operation(OperationProtocol):
         store2: Store,
         range: bool = False,
         functor: Any = ImagePartition,
+        disjoint: bool = True,
+        complete: bool = True,
     ):
         self._check_store(store1)
         self._check_store(store2)
@@ -189,6 +191,8 @@ class Operation(OperationProtocol):
             self._context.mapper_id,
             range=range,
             functor=functor,
+            disjoint=disjoint,
+            complete=complete,
         )
         self.add_constraint(image <= part2)
 

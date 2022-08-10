@@ -226,6 +226,8 @@ class Image(Expr):
         mapper: int,
         range: bool = False,
         functor: Any = ImagePartition,
+        disjoint: bool = True,
+        complete: bool = True,
     ):
         self._source_store = source_store
         self._dst_store = dst_store
@@ -233,6 +235,8 @@ class Image(Expr):
         self._mapper = mapper
         self._range = range
         self._functor = functor
+        self._disjoint = disjoint
+        self._complete = complete
 
     def subst(self, mapping: dict[PartSym, PartitionBase]) -> Expr:
         return Image(
@@ -242,6 +246,8 @@ class Image(Expr):
             self._mapper,
             range=self._range,
             functor=self._functor,
+            disjoint=self._disjoint,
+            complete=self._complete,
         )
 
     def reduce(self) -> Lit:
@@ -257,6 +263,8 @@ class Image(Expr):
                 part,
                 self._mapper,
                 range=self._range,
+                disjoint=self._disjoint,
+                complete=self._complete,
             )
         )
 
@@ -274,6 +282,8 @@ class Image(Expr):
             and self._range == other._range
             and self._mapper == other._mapper
             and self._functor == other._functor
+            and self._disjoint == other._disjoint
+            and self._complete == other._complete
         )
 
 
