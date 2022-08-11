@@ -56,6 +56,9 @@ class Communicator(ABC):
             comm = self._transform_handle(comm, launch_domain)
         return comm
 
+    def initialize(self, volume: int) -> None:
+        self._get_1d_handle(volume)
+
     def destroy(self) -> None:
         for volume, handle in self._handles.items():
             self._finalize(volume, handle)
