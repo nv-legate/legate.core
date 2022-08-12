@@ -28,6 +28,7 @@ from . import ffi  # Make sure we only have one ffi instance
 from . import (
     Fence,
     FieldSpace,
+    Fill,
     Future,
     FutureMap,
     IndexSpace,
@@ -335,6 +336,23 @@ class FieldManager:
         self, region: Region, field_id: int, ordered: bool = False
     ) -> None:
         if ordered:
+            # When freeing this field, also issue a fill to invalidate any valid
+            # instances attached to this region. This allows us to reuse that space
+            # without having to make an instance allocation of the same size and shape.
+            buf = ffi.new("char[]", self.dtype.size)
+            fut = Future.from_buffer(
+                self.runtime.legion_runtime, ffi.buffer(buf)
+            )
+            fill = Fill(
+                region,
+                region,
+                field_id,
+                fut,
+                mapper=self.runtime.core_context.mapper_id,
+            )
+            fill.launch(
+                self.runtime.legion_runtime, self.runtime.legion_context
+            )
             if self.free_fields is not None:
                 self.free_fields.append((region, field_id))
         else:  # Put this on the unordered list
