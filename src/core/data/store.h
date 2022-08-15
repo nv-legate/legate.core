@@ -279,7 +279,7 @@ class Store {
 
  public:
   bool valid() const;
-  bool transformed() const { return transform_ != nullptr; }
+  bool transformed() const { return !transform_->identity(); }
 
  public:
   int32_t dim() const { return dim_; }
@@ -340,7 +340,6 @@ class Store {
   ReturnValue pack_weight() const { return output_field_.pack_weight(); }
 
  public:
-  bool is_transformed() const { return transform_ != nullptr; }
   // TODO: It'd be btter to return a parent store from this method than permanently
   // losing the transform. This requires the backing storages to be referenced by multiple
   // stores, which isn't possible as they use move-only types.

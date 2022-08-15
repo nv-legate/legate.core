@@ -35,6 +35,7 @@ struct StoreTransform : public Transform {
 
 struct TransformStack : public Transform {
  public:
+  TransformStack() {}
   TransformStack(std::unique_ptr<StoreTransform>&& transform,
                  std::shared_ptr<TransformStack>&& parent);
 
@@ -45,14 +46,14 @@ struct TransformStack : public Transform {
 
  public:
   std::unique_ptr<StoreTransform> pop();
-  bool empty() const { return nullptr == transform_; }
+  bool identity() const { return nullptr == transform_; }
 
  public:
   void dump() const;
 
  private:
-  std::unique_ptr<StoreTransform> transform_;
-  std::shared_ptr<TransformStack> parent_;
+  std::unique_ptr<StoreTransform> transform_{nullptr};
+  std::shared_ptr<TransformStack> parent_{nullptr};
 };
 
 class Shift : public StoreTransform {
@@ -143,7 +144,5 @@ class Delinearize : public StoreTransform {
 };
 
 std::ostream& operator<<(std::ostream& out, const Transform& transform);
-
-void dump_transform_stack(const TransformStack& stack);
 
 }  // namespace legate

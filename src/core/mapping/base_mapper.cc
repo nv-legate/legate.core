@@ -608,8 +608,6 @@ void BaseMapper::map_task(const MapperContext ctx,
     auto& mapping    = mappings[mapping_idx];
     auto req_indices = mapping.requirement_indices();
 
-    if (req_indices.empty()) continue;
-
     if (req_indices.empty()) {
       // This is a mapping for futures
       output.future_locations.push_back(get_target_memory(task.target_proc, mapping.policy.target));

@@ -64,6 +64,8 @@ if TYPE_CHECKING:
     from .runtime import Field, Runtime
     from .transform import TransformStackBase
 
+from math import prod
+
 
 class InlineMappedAllocation:
     """
@@ -951,6 +953,10 @@ class Store:
             return self._shape.ndim
 
     @property
+    def size(self) -> int:
+        return prod(self.shape) if self.ndim > 0 else 1
+
+    @property
     def type(self) -> _Dtype:
         """
         Return the type of the data in this storage primitive
@@ -987,6 +993,9 @@ class Store:
                 "until it is passed to an operation"
             )
         return self._storage.data
+
+    def same_root(self, rhs: Store) -> bool:
+        return self._storage.get_root() is rhs._storage.get_root()
 
     @property
     def extents(self) -> Shape:
@@ -1099,10 +1108,13 @@ class Store:
         tile_shape = old_shape.update(dim, 1)
         offsets = Shape((0,) * self.ndim).update(dim, index)
 
-        storage = self._storage.slice(
-            self._transform.invert_extent(tile_shape),
-            self._transform.invert_point(offsets),
-        )
+        if self.size == 0:
+            storage = self._storage
+        else:
+            storage = self._storage.slice(
+                self._transform.invert_extent(tile_shape),
+                self._transform.invert_point(offsets),
+            )
         return Store(
             self._runtime,
             self._dtype,
@@ -1119,6 +1131,10 @@ class Store:
             )
 
         size = self.shape[dim]
+
+        if size == 0 or sl == slice(None):
+            return self
+
         start = 0 if sl.start is None else sl.start
         stop = size if sl.stop is None else sl.stop
         start = start + size if start < 0 else start

@@ -256,7 +256,7 @@ AccessorRO<T, DIM> Store::read_accessor() const
   if (is_future_) return future_.read_accessor<T, DIM>(shape<DIM>());
 
   assert(DIM == dim_ || dim_ == 0);
-  if (nullptr != transform_) {
+  if (!transform_->identity()) {
     auto transform = transform_->inverse_transform(dim_);
     return region_field_.read_accessor<T, DIM>(shape<DIM>(), transform);
   }
@@ -269,7 +269,7 @@ AccessorWO<T, DIM> Store::write_accessor() const
   if (is_future_) return future_.write_accessor<T, DIM>(shape<DIM>());
 
   assert(DIM == dim_ || dim_ == 0);
-  if (nullptr != transform_) {
+  if (!transform_->identity()) {
     auto transform = transform_->inverse_transform(dim_);
     return region_field_.write_accessor<T, DIM>(shape<DIM>(), transform);
   }
@@ -282,7 +282,7 @@ AccessorRW<T, DIM> Store::read_write_accessor() const
   if (is_future_) return future_.read_write_accessor<T, DIM>(shape<DIM>());
 
   assert(DIM == dim_ || dim_ == 0);
-  if (nullptr != transform_) {
+  if (!transform_->identity()) {
     auto transform = transform_->inverse_transform(dim_);
     return region_field_.read_write_accessor<T, DIM>(shape<DIM>(), transform);
   }
@@ -295,7 +295,7 @@ AccessorRD<OP, EXCLUSIVE, DIM> Store::reduce_accessor() const
   if (is_future_) return future_.reduce_accessor<OP, EXCLUSIVE, DIM>(redop_id_, shape<DIM>());
 
   assert(DIM == dim_ || dim_ == 0);
-  if (nullptr != transform_) {
+  if (!transform_->identity()) {
     auto transform = transform_->inverse_transform(DIM);
     return region_field_.reduce_accessor<OP, EXCLUSIVE, DIM>(redop_id_, shape<DIM>(), transform);
   }
@@ -308,7 +308,7 @@ AccessorRO<T, DIM> Store::read_accessor(const Legion::Rect<DIM>& bounds) const
   if (is_future_) return future_.read_accessor<T, DIM>(bounds);
 
   assert(DIM == dim_ || dim_ == 0);
-  if (nullptr != transform_) {
+  if (!transform_->identity()) {
     auto transform = transform_->inverse_transform(DIM);
     return region_field_.read_accessor<T, DIM>(bounds, transform);
   }
@@ -321,7 +321,7 @@ AccessorWO<T, DIM> Store::write_accessor(const Legion::Rect<DIM>& bounds) const
   if (is_future_) return future_.write_accessor<T, DIM>(bounds);
 
   assert(DIM == dim_ || dim_ == 0);
-  if (nullptr != transform_) {
+  if (!transform_->identity()) {
     auto transform = transform_->inverse_transform(DIM);
     return region_field_.write_accessor<T, DIM>(bounds, transform);
   }
@@ -334,7 +334,7 @@ AccessorRW<T, DIM> Store::read_write_accessor(const Legion::Rect<DIM>& bounds) c
   if (is_future_) return future_.read_write_accessor<T, DIM>(bounds);
 
   assert(DIM == dim_ || dim_ == 0);
-  if (nullptr != transform_) {
+  if (!transform_->identity()) {
     auto transform = transform_->inverse_transform(DIM);
     return region_field_.read_write_accessor<T, DIM>(bounds, transform);
   }
@@ -347,7 +347,7 @@ AccessorRD<OP, EXCLUSIVE, DIM> Store::reduce_accessor(const Legion::Rect<DIM>& b
   if (is_future_) return future_.reduce_accessor<OP, EXCLUSIVE, DIM>(redop_id_, bounds);
 
   assert(DIM == dim_ || dim_ == 0);
-  if (nullptr != transform_) {
+  if (!transform_->identity()) {
     auto transform = transform_->inverse_transform(DIM);
     return region_field_.reduce_accessor<OP, EXCLUSIVE, DIM>(redop_id_, bounds, transform);
   }
