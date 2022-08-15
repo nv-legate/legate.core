@@ -15,6 +15,8 @@
  */
 
 #include "core/data/store.h"
+
+#include "core/data/buffer.h"
 #include "core/utilities/dispatch.h"
 #include "core/utilities/machine.h"
 #include "legate_defines.h"
@@ -95,7 +97,8 @@ void OutputRegionField::make_empty(int32_t ndim)
   DomainPoint extents;
   extents.dim = ndim;
   for (int32_t dim = 0; dim < ndim; ++dim) extents[dim] = 0;
-  out_.return_data(extents, fid_, nullptr);
+  auto empty_buffer = create_buffer<int8_t>(0);
+  out_.return_data(extents, fid_, empty_buffer.get_instance(), false);
   bound_ = true;
 }
 
