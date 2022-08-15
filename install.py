@@ -177,12 +177,7 @@ def install(
         )
 
     # Configure and build legate.core via setup.py
-    pip_install_cmd = [
-        sys.executable,
-        "-m",
-        "pip",
-        "install"
-    ]
+    pip_install_cmd = [sys.executable, "-m", "pip", "install"]
 
     if unknown is not None:
         try:
@@ -191,7 +186,12 @@ def install(
             pip_install_cmd.extend(unknown[prefix_loc : prefix_loc + 2])
         except ValueError:
             if install_dir is not None:
-                pip_install_cmd += ["--root", "/", "--prefix", str(install_dir)]
+                pip_install_cmd += [
+                    "--root",
+                    "/",
+                    "--prefix",
+                    str(install_dir),
+                ]
     else:
         if install_dir is not None:
             pip_install_cmd += ["--root", "/", "--prefix", str(install_dir)]
