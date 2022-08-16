@@ -729,9 +729,12 @@ class Storage:
         # region in all dimensions of the parent region, then we'll make
         # a disjoint tiled partition with as many children as possible
         shape = self.get_root().extents
-        can_tile_completely = (offsets % tile_shape).sum() == 0 and (
-            shape % tile_shape
-        ).sum() == 0
+        if prod(tile_shape) == 0:
+            can_tile_completely = False
+        else:
+            can_tile_completely = (offsets % tile_shape).sum() == 0 and (
+                shape % tile_shape
+            ).sum() == 0
 
         if (
             can_tile_completely
