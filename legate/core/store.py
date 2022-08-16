@@ -1143,14 +1143,15 @@ class Store:
 
         if step != 1:
             raise NotImplementedError(f"Unsupported slicing: {sl}")
-        elif start >= size or stop > size:
-            raise ValueError(
-                f"Out-of-bounds slicing {sl} on dimension {dim} for a store "
-                f"of shape {self.shape}"
-            )
 
         shape = self.shape
-        tile_shape = shape.update(dim, stop - start)
+        if start < size and stop < size:
+            tile_shape = shape.update(dim, stop - start)
+        elif start < size and stop >= size:
+            tile_shape = shape.update(dim, size - start)
+        else:
+            tile_shape = shape.update(dim, 0)
+
         if shape == tile_shape:
             return self
 
