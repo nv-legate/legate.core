@@ -72,7 +72,7 @@ if args.recurse:
     sys.argv.remove("--recurse")
     setup(
         name="legate.core",
-        version="22.03",
+        version="22.10.00",
         packages=find_packages(
             where=".",
             include=["legate*"],

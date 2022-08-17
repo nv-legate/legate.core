@@ -30,7 +30,7 @@
 // include unistd.h since that defines _POSIX_BARRIERS.
 #include <unistd.h>
 #if !defined(_POSIX_BARRIERS) || (_POSIX_BARRIERS < 0)
-#include "pthread_barrier.h"
+#include "core/comm/pthread_barrier.h"
 #endif
 #endif
 

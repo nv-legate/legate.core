@@ -42,7 +42,7 @@ Legion::Domain TransformStack::transform(const Legion::Domain& input) const
 #ifdef DEBUG_LEGATE
   assert(transform_ != nullptr);
 #endif
-  return transform_->transform(parent_ != nullptr ? parent_->transform(input) : input);
+  return transform_->transform(parent_->identity() ? input : parent_->transform(input));
 }
 
 Legion::DomainAffineTransform TransformStack::inverse_transform(int32_t in_dim) const
@@ -53,11 +53,12 @@ Legion::DomainAffineTransform TransformStack::inverse_transform(int32_t in_dim) 
   auto result  = transform_->inverse_transform(in_dim);
   auto out_dim = transform_->target_ndim(in_dim);
 
-  if (parent_ != nullptr) {
+  if (parent_->identity())
+    return result;
+  else {
     auto parent = parent_->inverse_transform(out_dim);
     return combine(parent, result);
-  } else
-    return result;
+  }
 }
 
 void TransformStack::print(std::ostream& out) const
@@ -66,7 +67,7 @@ void TransformStack::print(std::ostream& out) const
   assert(transform_ != nullptr);
 #endif
   transform_->print(out);
-  if (parent_ != nullptr) {
+  if (!parent_->identity()) {
     out << " >> ";
     parent_->print(out);
   }
