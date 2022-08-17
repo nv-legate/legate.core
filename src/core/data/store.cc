@@ -119,10 +119,14 @@ FutureWrapper::FutureWrapper(
   bool read_only, int32_t field_size, Domain domain, Future future, bool initialize /*= false*/)
   : read_only_(read_only), field_size_(field_size), domain_(domain), future_(future)
 {
+#ifdef DEBUG_LEGATE
   assert(field_size > 0);
+#endif
   if (!read_only) {
     auto mem_kind = find_memory_kind_for_executing_processor();
+#ifdef DEBUG_LEGATE
     assert(!initialize || future_.get_untyped_size() == field_size);
+#endif
     auto p_init_value = initialize ? future_.get_buffer(mem_kind) : nullptr;
     buffer_           = UntypedDeferredValue(field_size, mem_kind, p_init_value);
   }
@@ -155,7 +159,9 @@ void FutureWrapper::initialize_with_identity(int32_t redop_id)
   auto ptr         = untyped_acc.ptr(0);
 
   auto redop = Runtime::get_reduction_op(redop_id);
+#ifdef DEBUG_LEGATE
   assert(redop->sizeof_lhs == field_size_);
+#endif
   auto identity = redop->identity;
   memcpy(ptr, identity, field_size_);
 }
@@ -255,23 +261,61 @@ bool Store::valid() const { return is_future_ || is_output_store_ || region_fiel
 
 Domain Store::domain() const
 {
+#ifdef DEBUG_LEGATE
   assert(!is_output_store_);
+#endif
   auto result = is_future_ ? future_.domain() : region_field_.domain();
   if (!transform_->identity()) result = transform_->transform(result);
+#ifdef DEBUG_LEGATE
   assert(result.dim == dim_ || dim_ == 0);
+#endif
   return result;
 }
 
 void Store::make_empty()
 {
-  assert(is_output_store_);
+#ifdef DEBUG_LEGATE
+  check_valid_return();
+#endif
   output_field_.make_empty(dim_);
 }
 
 void Store::remove_transform()
 {
+#ifdef DEBUG_LEGATE
   assert(transformed());
+#endif
   dim_ = transform_->pop()->target_ndim(dim_);
+}
+
+void Store::check_valid_return() const
+{
+  if (!is_output_store_) {
+    log_legate.error("Invalid to return a buffer to a bound store");
+    LEGATE_ABORT;
+  }
+  if (output_field_.bound()) {
+    log_legate.error("Invalid to return more than one buffer to an unbound store");
+    LEGATE_ABORT;
+  }
+}
+
+void Store::check_buffer_dimension(const int32_t dim) const
+{
+  if (dim != dim_) {
+    log_legate.error(
+      "Dimension mismatch: invalid to bind a %d-D buffer to a %d-D store", dim, dim_);
+    LEGATE_ABORT;
+  }
+}
+
+void Store::check_accessor_dimension(const int32_t dim) const
+{
+  if (!(dim == dim_ || (dim_ == 0 && dim == 1))) {
+    log_legate.error(
+      "Dimension mismatch: invalid to create a %d-D accessor to a %d-D store", dim, dim_);
+    LEGATE_ABORT;
+  }
 }
 
 }  // namespace legate

@@ -16,13 +16,13 @@
 
 #pragma once
 
-#include "legion.h"
-
 #include "core/data/buffer.h"
 #include "core/data/transform.h"
 #include "core/task/return.h"
 #include "core/utilities/machine.h"
 #include "core/utilities/typedefs.h"
+#include "legate_defines.h"
+#include "legion.h"
 
 namespace legate {
 
@@ -171,6 +171,9 @@ class OutputRegionField {
  private:
   OutputRegionField(const OutputRegionField& other)            = delete;
   OutputRegionField& operator=(const OutputRegionField& other) = delete;
+
+ public:
+  bool bound() const { return bound_; }
 
  public:
   template <typename T, int32_t DIM>
@@ -344,6 +347,11 @@ class Store {
   // losing the transform. This requires the backing storages to be referenced by multiple
   // stores, which isn't possible as they use move-only types.
   void remove_transform();
+
+ private:
+  void check_valid_return() const;
+  void check_buffer_dimension(const int32_t dim) const;
+  void check_accessor_dimension(const int32_t dim) const;
 
  private:
   bool is_future_{false};
