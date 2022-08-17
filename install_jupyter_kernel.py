@@ -13,6 +13,6 @@ if __name__ == "__main__":
         sys.exit()
     args, opts = parse_args()
     args.json = "legate_jupyter.json"
-    args.legion_prefix = legate_dir
+    args.legion_prefix = legate_dir + "/bin
     kernel_file_dir = legion_dir + "/" + "jupyter_notebook"
     driver(args, opts, kernel_file_dir)
