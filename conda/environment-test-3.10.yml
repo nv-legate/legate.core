@@ -36,7 +36,6 @@ dependencies:
   - pynvml
   - pytest
   - pytest-cov
-  - pytest-mock
   - pytest-lazy-fixture
   - types-docutils
 
