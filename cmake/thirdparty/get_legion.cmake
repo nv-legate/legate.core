@@ -29,13 +29,6 @@ function(find_or_configure_legion)
     list(JOIN Legion_CUDA_ARCH "," Legion_CUDA_ARCH)
   endif()
 
-  # Detect the presence of LIBRARY_PATH envvar so we can set
-  # `CMAKE_LIBRARY_PATH` for Legion's FindCUDA.cmake calls.
-  set(_lib_path "${CMAKE_LIBRARY_PATH}")
-  if(DEFINED ENV{LIBRARY_PATH})
-    list(APPEND _lib_path "$ENV{LIBRARY_PATH}")
-  endif()
-
   set(FIND_PKG_ARGS
       GLOBAL_TARGETS     Legion::Realm
                          Legion::Regent
@@ -64,7 +57,36 @@ function(find_or_configure_legion)
     if(NOT DEFINED Legion_PYTHON_EXTRA_INSTALL_ARGS)
       set(Legion_PYTHON_EXTRA_INSTALL_ARGS "--single-version-externally-managed --root=/")
     endif()
+
+    # Set CMAKE_CXX_STANDARD and CMAKE_CUDA_STANDARD for Legion builds. Legion's FindCUDA.cmake
+    # use causes CUDA object compilation to fail if `-std=` flag is present in `CXXFLAGS` but
+    # missing in `CUDA_NVCC_FLAGS`.
+    set(_cxx_std "${CMAKE_CXX_STANDARD}")
+    if(NOT _cxx_std)
+      set(_cxx_std 17)
     endif()
+
+    set(_cuda_std "${CMAKE_CUDA_STANDARD}")
+    if(NOT _cuda_std)
+      set(_cuda_std ${_cxx_std})
+    endif()
+
+    if(NOT CUDA_NVCC_FLAGS)
+      list(APPEND CUDA_NVCC_FLAGS "${CUDAFLAGS}")
+    endif()
+
+    set(_nvcc_flags ${CUDA_NVCC_FLAGS})
+    if(NOT "${_nvcc_flags}" MATCHES "-std=")
+      list(APPEND _nvcc_flags "-std=c++${_cuda_std}")
+    endif()
+
+    # Detect the presence of LIBRARY_PATH envvar so we can set
+    # `CMAKE_LIBRARY_PATH` for Legion's FindCUDA.cmake calls.
+    set(_lib_path "${CMAKE_LIBRARY_PATH}")
+    if(DEFINED ENV{LIBRARY_PATH})
+      list(APPEND _lib_path "$ENV{LIBRARY_PATH}")
+    endif()
+
     # Because legion sets these as cache variables, we need to force set this as a cache variable here
     # to ensure that Legion doesn't override this in the CMakeCache.txt and create an unexpected state.
     # This only applies to set() but does not apply to option() variables.
@@ -73,12 +95,15 @@ function(find_or_configure_legion)
     # https://discourse.cmake.org/t/fetchcontent-cache-variables/1538/8
     set(Legion_MAX_DIM ${Legion_MAX_DIM} CACHE STRING "The max number of dimensions for Legion" FORCE)
     set(Legion_MAX_FIELDS ${Legion_MAX_FIELDS} CACHE STRING "The max number of fields for Legion" FORCE)
+
     rapids_cpm_find(Legion ${PKG_VERSION} ${FIND_PKG_ARGS}
         CPM_ARGS
           ${legion_cpm_git_args}
           FIND_PACKAGE_ARGUMENTS EXACT
           EXCLUDE_FROM_ALL       ${PKG_EXCLUDE_FROM_ALL}
-          OPTIONS                "CMAKE_CXX_STANDARD 17"
+          OPTIONS                "CMAKE_CXX_STANDARD ${_cxx_std}"
+                                 "CMAKE_CUDA_STANDARD ${_cuda_std}"
+                                 "CUDA_NVCC_FLAGS ${_nvcc_flags}"
                                  "CMAKE_LIBRARY_PATH ${_lib_path}"
                                  "Legion_VERSION ${PKG_VERSION}"
                                  "Legion_BUILD_BINDINGS ON"
