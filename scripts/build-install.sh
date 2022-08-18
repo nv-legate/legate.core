@@ -25,12 +25,6 @@ cmake_args+="
 -D CMAKE_CUDA_ARCHITECTURES=NATIVE
 ";
 
-# This won't be necessary once this PR is merged:
-# https://gitlab.com/StanfordLegion/legion/-/merge_requests/523
-cmake_args+="
--D Legion_CMAKE_INSTALL_PREFIX=$CONDA_PREFIX
-"
-
 # Use all but 2 threads to compile
 ninja_args="-j$(nproc --ignore=2)"
 

@@ -254,10 +254,6 @@ def install(
         cmake_flags += ["-Dlegate_core_LEGION_REPOSITORY=%s" % legion_url]
     if legion_branch:
         cmake_flags += ["-Dlegate_core_LEGION_BRANCH=%s" % legion_branch]
-    # Workaround until this PR is merged:
-    # https://gitlab.com/StanfordLegion/legion/-/merge_requests/523
-    if install_dir is not None:
-        cmake_flags += ["-DLegion_CMAKE_INSTALL_PREFIX=%s" % install_dir]
 
     cmake_flags += extra_flags
     cmd_env = dict(os.environ.items())

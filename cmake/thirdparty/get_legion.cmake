@@ -64,9 +64,6 @@ function(find_or_configure_legion)
     if(NOT DEFINED Legion_PYTHON_EXTRA_INSTALL_ARGS)
       set(Legion_PYTHON_EXTRA_INSTALL_ARGS "--single-version-externally-managed --root=/")
     endif()
-    # Workaround until https://gitlab.com/StanfordLegion/legion/-/merge_requests/523 is merged
-    if(NOT DEFINED Legion_CMAKE_INSTALL_PREFIX)
-      set(Legion_CMAKE_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
     endif()
     # Because legion sets these as cache variables, we need to force set this as a cache variable here
     # to ensure that Legion doesn't override this in the CMakeCache.txt and create an unexpected state.
@@ -83,7 +80,6 @@ function(find_or_configure_legion)
           EXCLUDE_FROM_ALL       ${PKG_EXCLUDE_FROM_ALL}
           OPTIONS                "CMAKE_CXX_STANDARD 17"
                                  "CMAKE_LIBRARY_PATH ${_lib_path}"
-                                 "CMAKE_INSTALL_PREFIX ${Legion_CMAKE_INSTALL_PREFIX}"
                                  "Legion_VERSION ${PKG_VERSION}"
                                  "Legion_BUILD_BINDINGS ON"
                                  "Legion_BUILD_APPS OFF"
