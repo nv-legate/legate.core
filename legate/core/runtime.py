@@ -64,6 +64,7 @@ if TYPE_CHECKING:
     from .partition import PartitionBase
     from .projection import ProjExpr
 
+from math import prod
 
 Attachable = Union[memoryview, DistributedAllocation]
 
@@ -579,6 +580,9 @@ class PartitionManager:
             for dim, restriction in enumerate(restrictions)
             if restriction != Restriction.RESTRICTED
         )
+
+        if prod(to_partition) == 0:
+            return None
 
         launch_shape = self._compute_launch_shape(to_partition)
         if launch_shape is None:
