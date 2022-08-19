@@ -34,6 +34,8 @@ package:
 source:
 {% if package_tar is defined %}
   url: {{ package_tar }}
+{% elif use_local_path is defined %}
+  path: ../../
 {% else %}
   git_url: ../../
 {% endif %}
