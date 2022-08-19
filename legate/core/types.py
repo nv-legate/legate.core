@@ -207,11 +207,11 @@ class TypeSystem:
         if ty in self._types:
             raise KeyError(f"{ty} is already in this type system")
         dtype = _Dtype(ty, size_in_bytes, code)
-        self._types[dtype] = dtype
+        self._types[ty] = dtype
         return dtype
 
     def make_alias(
-        self, alias: Any, src_type: _Dtype, copy_reduction_ops: bool = True
+        self, alias: Any, src_type: Any, copy_reduction_ops: bool = True
     ) -> _Dtype:
         dtype = self[src_type]
         copy = _Dtype(alias, dtype.size, dtype.code)

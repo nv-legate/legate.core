@@ -166,7 +166,7 @@ void ReturnValues::legion_serialize(void* buffer) const
   if (kind == Processor::TOC_PROC) cudaDeviceSynchronize();
 #endif
   if (return_values_.size() > 1) {
-    *reinterpret_cast<size_t*>(ptr) = return_values_.size();
+    *reinterpret_cast<uint32_t*>(ptr) = return_values_.size();
     ptr += sizeof(uint32_t);
     for (auto& ret : return_values_) {
       *reinterpret_cast<uint32_t*>(ptr) = ret.second;

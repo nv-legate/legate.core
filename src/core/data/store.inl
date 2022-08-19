@@ -143,7 +143,9 @@ Legion::Rect<DIM> RegionField::shape() const
 template <typename T, int DIM>
 AccessorRO<T, DIM> FutureWrapper::read_accessor() const
 {
+#ifdef DEBUG_LEGATE
   assert(sizeof(T) == field_size_);
+#endif
   if (read_only_) {
     auto memkind = Legion::Memory::Kind::NO_MEMKIND;
     return AccessorRO<T, DIM>(future_, memkind);
@@ -154,31 +156,39 @@ AccessorRO<T, DIM> FutureWrapper::read_accessor() const
 template <typename T, int DIM>
 AccessorWO<T, DIM> FutureWrapper::write_accessor() const
 {
+#ifdef DEBUG_LEGATE
   assert(sizeof(T) == field_size_);
   assert(!read_only_);
+#endif
   return AccessorWO<T, DIM>(buffer_);
 }
 
 template <typename T, int DIM>
 AccessorRW<T, DIM> FutureWrapper::read_write_accessor() const
 {
+#ifdef DEBUG_LEGATE
   assert(sizeof(T) == field_size_);
   assert(!read_only_);
+#endif
   return AccessorRW<T, DIM>(buffer_);
 }
 
 template <typename OP, bool EXCLUSIVE, int DIM>
 AccessorRD<OP, EXCLUSIVE, DIM> FutureWrapper::reduce_accessor(int32_t redop_id) const
 {
+#ifdef DEBUG_LEGATE
   assert(sizeof(typename OP::LHS) == field_size_);
   assert(!read_only_);
+#endif
   return AccessorRD<OP, EXCLUSIVE, DIM>(buffer_);
 }
 
 template <typename T, int DIM>
 AccessorRO<T, DIM> FutureWrapper::read_accessor(const Legion::Rect<DIM>& bounds) const
 {
+#ifdef DEBUG_LEGATE
   assert(sizeof(T) == field_size_);
+#endif
   if (read_only_) {
     auto memkind = Legion::Memory::Kind::NO_MEMKIND;
     return AccessorRO<T, DIM>(future_, bounds, memkind);
@@ -189,16 +199,20 @@ AccessorRO<T, DIM> FutureWrapper::read_accessor(const Legion::Rect<DIM>& bounds)
 template <typename T, int DIM>
 AccessorWO<T, DIM> FutureWrapper::write_accessor(const Legion::Rect<DIM>& bounds) const
 {
+#ifdef DEBUG_LEGATE
   assert(sizeof(T) == field_size_);
   assert(!read_only_);
+#endif
   return AccessorWO<T, DIM>(buffer_, bounds);
 }
 
 template <typename T, int DIM>
 AccessorRW<T, DIM> FutureWrapper::read_write_accessor(const Legion::Rect<DIM>& bounds) const
 {
+#ifdef DEBUG_LEGATE
   assert(sizeof(T) == field_size_);
   assert(!read_only_);
+#endif
   return AccessorRW<T, DIM>(buffer_, bounds);
 }
 
@@ -206,8 +220,10 @@ template <typename OP, bool EXCLUSIVE, int DIM>
 AccessorRD<OP, EXCLUSIVE, DIM> FutureWrapper::reduce_accessor(int32_t redop_id,
                                                               const Legion::Rect<DIM>& bounds) const
 {
+#ifdef DEBUG_LEGATE
   assert(sizeof(typename OP::LHS) == field_size_);
   assert(!read_only_);
+#endif
   return AccessorRD<OP, EXCLUSIVE, DIM>(buffer_, bounds);
 }
 
@@ -220,7 +236,9 @@ Legion::Rect<DIM> FutureWrapper::shape() const
 template <typename VAL>
 VAL FutureWrapper::scalar() const
 {
+#ifdef DEBUG_LEGATE
   assert(sizeof(VAL) == field_size_);
+#endif
   if (!read_only_)
     return buffer_.operator Legion::DeferredValue<VAL>().read();
   else
@@ -232,7 +250,9 @@ Buffer<T, DIM> OutputRegionField::create_output_buffer(const Legion::Point<DIM>&
                                                        bool return_buffer)
 {
   if (return_buffer) {
+#ifdef DEBUG_LEGATE
     assert(!bound_);
+#endif
     // We will use this value only when the unbound store is 1D
     num_elements_[0] = extents[0];
     bound_           = true;
@@ -243,7 +263,9 @@ Buffer<T, DIM> OutputRegionField::create_output_buffer(const Legion::Point<DIM>&
 template <typename T, int32_t DIM>
 void OutputRegionField::return_data(Buffer<T, DIM>& buffer, const Legion::Point<DIM>& extents)
 {
+#ifdef DEBUG_LEGATE
   assert(!bound_);
+#endif
   out_.return_data(extents, fid_, buffer);
   // We will use this value only when the unbound store is 1D
   num_elements_[0] = extents[0];
@@ -253,9 +275,12 @@ void OutputRegionField::return_data(Buffer<T, DIM>& buffer, const Legion::Point<
 template <typename T, int DIM>
 AccessorRO<T, DIM> Store::read_accessor() const
 {
+#ifdef DEBUG_LEGATE
+  check_accessor_dimension(DIM);
+#endif
+
   if (is_future_) return future_.read_accessor<T, DIM>(shape<DIM>());
 
-  assert(DIM == dim_ || dim_ == 0);
   if (!transform_->identity()) {
     auto transform = transform_->inverse_transform(dim_);
     return region_field_.read_accessor<T, DIM>(shape<DIM>(), transform);
@@ -266,9 +291,12 @@ AccessorRO<T, DIM> Store::read_accessor() const
 template <typename T, int DIM>
 AccessorWO<T, DIM> Store::write_accessor() const
 {
+#ifdef DEBUG_LEGATE
+  check_accessor_dimension(DIM);
+#endif
+
   if (is_future_) return future_.write_accessor<T, DIM>(shape<DIM>());
 
-  assert(DIM == dim_ || dim_ == 0);
   if (!transform_->identity()) {
     auto transform = transform_->inverse_transform(dim_);
     return region_field_.write_accessor<T, DIM>(shape<DIM>(), transform);
@@ -279,9 +307,12 @@ AccessorWO<T, DIM> Store::write_accessor() const
 template <typename T, int DIM>
 AccessorRW<T, DIM> Store::read_write_accessor() const
 {
+#ifdef DEBUG_LEGATE
+  check_accessor_dimension(DIM);
+#endif
+
   if (is_future_) return future_.read_write_accessor<T, DIM>(shape<DIM>());
 
-  assert(DIM == dim_ || dim_ == 0);
   if (!transform_->identity()) {
     auto transform = transform_->inverse_transform(dim_);
     return region_field_.read_write_accessor<T, DIM>(shape<DIM>(), transform);
@@ -292,9 +323,12 @@ AccessorRW<T, DIM> Store::read_write_accessor() const
 template <typename OP, bool EXCLUSIVE, int DIM>
 AccessorRD<OP, EXCLUSIVE, DIM> Store::reduce_accessor() const
 {
+#ifdef DEBUG_LEGATE
+  check_accessor_dimension(DIM);
+#endif
+
   if (is_future_) return future_.reduce_accessor<OP, EXCLUSIVE, DIM>(redop_id_, shape<DIM>());
 
-  assert(DIM == dim_ || dim_ == 0);
   if (!transform_->identity()) {
     auto transform = transform_->inverse_transform(DIM);
     return region_field_.reduce_accessor<OP, EXCLUSIVE, DIM>(redop_id_, shape<DIM>(), transform);
@@ -305,9 +339,12 @@ AccessorRD<OP, EXCLUSIVE, DIM> Store::reduce_accessor() const
 template <typename T, int DIM>
 AccessorRO<T, DIM> Store::read_accessor(const Legion::Rect<DIM>& bounds) const
 {
+#ifdef DEBUG_LEGATE
+  check_accessor_dimension(DIM);
+#endif
+
   if (is_future_) return future_.read_accessor<T, DIM>(bounds);
 
-  assert(DIM == dim_ || dim_ == 0);
   if (!transform_->identity()) {
     auto transform = transform_->inverse_transform(DIM);
     return region_field_.read_accessor<T, DIM>(bounds, transform);
@@ -318,9 +355,12 @@ AccessorRO<T, DIM> Store::read_accessor(const Legion::Rect<DIM>& bounds) const
 template <typename T, int DIM>
 AccessorWO<T, DIM> Store::write_accessor(const Legion::Rect<DIM>& bounds) const
 {
+#ifdef DEBUG_LEGATE
+  check_accessor_dimension(DIM);
+#endif
+
   if (is_future_) return future_.write_accessor<T, DIM>(bounds);
 
-  assert(DIM == dim_ || dim_ == 0);
   if (!transform_->identity()) {
     auto transform = transform_->inverse_transform(DIM);
     return region_field_.write_accessor<T, DIM>(bounds, transform);
@@ -331,9 +371,12 @@ AccessorWO<T, DIM> Store::write_accessor(const Legion::Rect<DIM>& bounds) const
 template <typename T, int DIM>
 AccessorRW<T, DIM> Store::read_write_accessor(const Legion::Rect<DIM>& bounds) const
 {
+#ifdef DEBUG_LEGATE
+  check_accessor_dimension(DIM);
+#endif
+
   if (is_future_) return future_.read_write_accessor<T, DIM>(bounds);
 
-  assert(DIM == dim_ || dim_ == 0);
   if (!transform_->identity()) {
     auto transform = transform_->inverse_transform(DIM);
     return region_field_.read_write_accessor<T, DIM>(bounds, transform);
@@ -344,9 +387,12 @@ AccessorRW<T, DIM> Store::read_write_accessor(const Legion::Rect<DIM>& bounds) c
 template <typename OP, bool EXCLUSIVE, int DIM>
 AccessorRD<OP, EXCLUSIVE, DIM> Store::reduce_accessor(const Legion::Rect<DIM>& bounds) const
 {
+#ifdef DEBUG_LEGATE
+  check_accessor_dimension(DIM);
+#endif
+
   if (is_future_) return future_.reduce_accessor<OP, EXCLUSIVE, DIM>(redop_id_, bounds);
 
-  assert(DIM == dim_ || dim_ == 0);
   if (!transform_->identity()) {
     auto transform = transform_->inverse_transform(DIM);
     return region_field_.reduce_accessor<OP, EXCLUSIVE, DIM>(redop_id_, bounds, transform);
@@ -358,13 +404,24 @@ template <typename T, int32_t DIM>
 Buffer<T, DIM> Store::create_output_buffer(const Legion::Point<DIM>& extents,
                                            bool return_buffer /*= false*/)
 {
-  assert(is_output_store_);
+#ifdef DEBUG_LEGATE
+  check_valid_return();
+  check_buffer_dimension(DIM);
+#endif
   return output_field_.create_output_buffer<T, DIM>(extents, return_buffer);
 }
 
 template <int32_t DIM>
 Legion::Rect<DIM> Store::shape() const
 {
+#ifdef DEBUG_LEGATE
+  if (!(DIM == dim_ || (dim_ == 0 && DIM == 1))) {
+    log_legate.error(
+      "Dimension mismatch: invalid to retrieve a %d-D shape from a %d-D store", DIM, dim_);
+    LEGATE_ABORT;
+  }
+#endif
+
   auto dom = domain();
   if (dom.dim > 0)
     return dom.bounds<DIM, Legion::coord_t>();
@@ -377,14 +434,19 @@ Legion::Rect<DIM> Store::shape() const
 template <typename VAL>
 VAL Store::scalar() const
 {
+#ifdef DEBUG_LEGATE
   assert(is_future_);
+#endif
   return future_.scalar<VAL>();
 }
 
 template <typename T, int32_t DIM>
 void Store::return_data(Buffer<T, DIM>& buffer, const Legion::Point<DIM>& extents)
 {
-  assert(is_output_store_);
+#ifdef DEBUG_LEGATE
+  check_valid_return();
+  check_buffer_dimension(DIM);
+#endif
   output_field_.return_data(buffer, extents);
 }
 
