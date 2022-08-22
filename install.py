@@ -178,6 +178,7 @@ def install(
 
     # Configure and build legate.core via setup.py
     pip_install_cmd = [sys.executable, "-m", "pip", "install"]
+    cmd_env = dict(os.environ.items())
 
     if unknown is not None:
         try:
@@ -192,12 +193,12 @@ def install(
                     "--prefix",
                     str(install_dir),
                 ]
-    else:
-        if install_dir is not None:
-            pip_install_cmd += ["--root", "/", "--prefix", str(install_dir)]
+    elif install_dir is not None:
+        pip_install_cmd += ["--root", "/", "--prefix", str(install_dir)]
 
     if editable:
         pip_install_cmd += ["--no-deps", "--no-build-isolation", "--editable"]
+        cmd_env.update({ "SETUPTOOLS_ENABLE_FEATURES": "legacy-editable" })
     else:
         if not build_isolation:
             pip_install_cmd += ["--no-deps", "--no-build-isolation"]
@@ -256,7 +257,6 @@ def install(
         cmake_flags += ["-Dlegate_core_LEGION_BRANCH=%s" % legion_branch]
 
     cmake_flags += extra_flags
-    cmd_env = dict(os.environ.items())
     cmd_env.update(
         {
             "SKBUILD_BUILD_OPTIONS": f"-j{str(thread_count)}",
