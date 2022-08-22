@@ -80,6 +80,12 @@ macro(_enable_cuda_language)
     set(CMAKE_INCLUDE_SYSTEM_FLAG_CUDA "-isystem ")
     # set to TRUE so the macro does not repeat if called again.
     set(legate_core_CUDA_ENABLED TRUE)
+    # Find the CUDAToolkit
+    rapids_find_package(
+      CUDAToolkit REQUIRED
+      BUILD_EXPORT_SET legate-core-exports
+      INSTALL_EXPORT_SET legate-core-exports
+    )
   endif()
 endmacro()
 
@@ -117,12 +123,6 @@ endif()
 if(Legion_USE_CUDA)
   # If CUDA has not yet been enabled, make sure it is now.
   _enable_cuda_language()
-  # Find the CUDAToolkit
-  rapids_find_package(
-    CUDAToolkit REQUIRED
-    BUILD_EXPORT_SET legate-core-exports
-    INSTALL_EXPORT_SET legate-core-exports
-  )
   # Find NCCL
   include(cmake/thirdparty/get_nccl.cmake)
 endif()
