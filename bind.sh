@@ -82,7 +82,7 @@ if [[ -n "${NICS+x}" ]]; then
     # Set all potentially relevant variables, hopefully they are ignored if we
     # are not using the corresponding network.
     NIC="${NICS[$IDX]}"
-    export UCX_NET_DEVICES="$NIC"
+    export UCX_NET_DEVICES="${NIC//,/:1,}":1
     export NCCL_IB_HCA="$NIC"
     NIC_ARR=(${NIC//,/ })
     export GASNET_NUM_QPS="${#NIC_ARR[@]}"
