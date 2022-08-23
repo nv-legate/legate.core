@@ -594,6 +594,12 @@ def install(
     legion_branch,
     unknown,
 ):
+    if len(networks) > 1:
+        print(
+            "Warning: Building Realm with multiple networking backends is not "
+            "fully supported currently."
+        )
+
     global verbose_global
     verbose_global = verbose
 
