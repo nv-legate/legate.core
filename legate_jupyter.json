@@ -37,7 +37,7 @@
     },
     "regmem": {
         "cmd": "--regmem", 
-        "value": null
+        "value": 0
     },
     "not_control_replicable": {
         "action": "store_true",
