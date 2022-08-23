@@ -64,6 +64,8 @@ if TYPE_CHECKING:
     from .runtime import Field, Runtime
     from .transform import TransformStackBase
 
+from math import prod
+
 
 class InlineMappedAllocation:
     """
@@ -338,7 +340,7 @@ class RegionField:
 
         physical_region = self.get_inline_mapped_region(context)
         # We need a pointer to the physical allocation for this physical region
-        dim = len(shape)
+        dim = max(shape.ndim, 1)
         # Build the accessor for this physical region
         if transform is not None:
             # We have a transform so build the accessor special with a
@@ -365,9 +367,13 @@ class RegionField:
             )
         # Now that we've got our accessor we can get a pointer to the memory
         rect = ffi.new(f"legion_rect_{dim}d_t *")
-        for d in range(dim):
-            rect[0].lo.x[d] = 0
-            rect[0].hi.x[d] = shape[d] - 1  # inclusive
+        if shape.ndim == 0:
+            rect[0].lo.x[0] = 0
+            rect[0].hi.x[0] = 0  # inclusive
+        else:
+            for d in range(dim):
+                rect[0].lo.x[d] = 0
+                rect[0].hi.x[d] = shape[d] - 1  # inclusive
         subrect = ffi.new(f"legion_rect_{dim}d_t *")
         offsets = ffi.new("legion_byte_offset_t[]", dim)
         func = getattr(legion, f"legion_accessor_array_{dim}d_raw_rect_ptr")
@@ -383,7 +389,7 @@ class RegionField:
         ptr = ffi.cast("size_t", base_ptr)
         return InlineMappedAllocation(
             self,
-            tuple(shape),
+            tuple(shape) if shape.ndim > 0 else (1,),
             int(ptr),  # type: ignore[call-overload]
             strides,
         )
@@ -951,6 +957,10 @@ class Store:
             return self._shape.ndim
 
     @property
+    def size(self) -> int:
+        return prod(self.shape) if self.ndim > 0 else 1
+
+    @property
     def type(self) -> _Dtype:
         """
         Return the type of the data in this storage primitive
@@ -1102,10 +1112,13 @@ class Store:
         tile_shape = old_shape.update(dim, 1)
         offsets = Shape((0,) * self.ndim).update(dim, index)
 
-        storage = self._storage.slice(
-            self._transform.invert_extent(tile_shape),
-            self._transform.invert_point(offsets),
-        )
+        if self.size == 0:
+            storage = self._storage
+        else:
+            storage = self._storage.slice(
+                self._transform.invert_extent(tile_shape),
+                self._transform.invert_point(offsets),
+            )
         return Store(
             self._runtime,
             self._dtype,
@@ -1122,6 +1135,10 @@ class Store:
             )
 
         size = self.shape[dim]
+
+        if size == 0 or sl == slice(None):
+            return self
+
         start = 0 if sl.start is None else sl.start
         stop = size if sl.stop is None else sl.stop
         start = start + size if start < 0 else start

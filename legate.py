@@ -303,6 +303,7 @@ def run_legate(
             # Execute in pseudo-terminal mode when we need to be interactive
             cmd += ["--pty"]
     elif launcher == "none":
+        rank_id = None
         if ranks == 1:
             rank_id = "0"
         else:
@@ -318,7 +319,11 @@ def run_legate(
         if rank_id is None:
             raise Exception(
                 "Could not detect rank ID on multi-rank run with "
-                "externally-managed launching"
+                "externally-managed launching (no --launcher provided). "
+                "If you want Legate to use a launcher (e.g. mpirun) "
+                "internally (recommended), then you need to tell us which one "
+                "to use through --launcher. Otherwise you need to invoke the "
+                "legate script itself through a launcher."
             )
         cmd = []
     else:
