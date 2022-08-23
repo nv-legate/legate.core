@@ -17,7 +17,7 @@
 
 set -euo pipefail
 
-# Usage: bind.sh <launcher> <conduit> [--cpus <spec>] [--gpus <spec>] [--mems <spec>] [--nics <spec>] <app> ...
+# Usage: bind.sh <launcher> [--cpus <spec>] [--gpus <spec>] [--mems <spec>] [--nics <spec>] <app> ...
 
 # Detect node-local rank based on launcher
 IDX=none
@@ -33,10 +33,6 @@ if [[ "$IDX" == "none" ]]; then
     echo "Error: Cannot detect node-local rank" 1>&2
     exit 1
 fi
-
-# Read conduit
-CONDUIT="$1"
-shift
 
 # Read binding specifications
 while [[ $# -gt 0 ]]; do
@@ -88,20 +84,13 @@ if [[ -n "${MEMS+x}" ]]; then
     set -- --membind "${MEMS[$IDX]}" "$@"
 fi
 if [[ -n "${NICS+x}" ]]; then
+    # Set all potentially relevant variables, hopefully they are ignored if we
+    # are not using the corresponding network.
     NIC="${NICS[$IDX]}"
-    case "$CONDUIT" in
-        ibv)
-            NIC_ARR=(${NIC//,/ })
-            export GASNET_NUM_QPS="${#NIC_ARR[@]}"
-            export GASNET_IBV_PORTS="${NIC//,/+}"
-            ;;
-        ucx)
-            export UCX_NET_DEVICES="$NIC"
-            ;;
-        *)
-            echo "Error: NIC binding not supported for conduit $CONDUIT" 1>&2
-            exit 1
-            ;;
-    esac
+    export UCX_NET_DEVICES="$NIC"
+    export NCCL_IB_HCA="$NIC"
+    NIC_ARR=(${NIC//,/ })
+    export GASNET_NUM_QPS="${#NIC_ARR[@]}"
+    export GASNET_IBV_PORTS="${NIC//,/+}"
 fi
 numactl "$@"
