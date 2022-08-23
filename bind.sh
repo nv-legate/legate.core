@@ -18,6 +18,8 @@
 set -euo pipefail
 
 # Usage: bind.sh <launcher> [--cpus <spec>] [--gpus <spec>] [--mems <spec>] [--nics <spec>] <app> ...
+# <spec> specifies the resources to bind each node-local rank to, with ranks
+# separated by /, e.g. 0,1/2,3/4,5/6,7 for 4 ranks per node.
 
 # Detect node-local rank based on launcher
 IDX=none
@@ -72,16 +74,9 @@ while [[ $# -gt 0 ]]; do
     shift 2
 done
 
-# Prepare command
-set -- -- "$@"
-if [[ -n "${CPUS+x}" ]]; then
-    set -- --physcpubind "${CPUS[$IDX]}" "$@"
-fi
+# Prepare environment
 if [[ -n "${GPUS+x}" ]]; then
     export CUDA_VISIBLE_DEVICES="${GPUS[$IDX]}"
-fi
-if [[ -n "${MEMS+x}" ]]; then
-    set -- --membind "${MEMS[$IDX]}" "$@"
 fi
 if [[ -n "${NICS+x}" ]]; then
     # Set all potentially relevant variables, hopefully they are ignored if we
@@ -93,4 +88,17 @@ if [[ -n "${NICS+x}" ]]; then
     export GASNET_NUM_QPS="${#NIC_ARR[@]}"
     export GASNET_IBV_PORTS="${NIC//,/+}"
 fi
-numactl "$@"
+
+# Prepare command
+if command -v numactl &> /dev/null; then
+    if [[ -n "${CPUS+x}" ]]; then
+        set -- --physcpubind "${CPUS[$IDX]}" "$@"
+    fi
+    if [[ -n "${MEMS+x}" ]]; then
+        set -- --membind "${MEMS[$IDX]}" "$@"
+    fi
+    set -- numactl "$@"
+elif [[ -n "${CPUS+x}" || -n "${MEMS+x}" ]]; then
+    echo "Warning: numactl is not available, cannot bind to cores or memories" 1>&2
+fi
+"$@"
