@@ -24,7 +24,7 @@ class LegateInfo(object):
             json_dict = json.load(json_file)
             for key in cmd_dict.keys():
                 if key not in json_dict:
-                    assert 0, "Key: " + key + " is not existed."
+                    assert 0, "Key: " + key + " does not exist."
                 else:
                     self.config_dict[key] = json_dict[key]["value"]
 
