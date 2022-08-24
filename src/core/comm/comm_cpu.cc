@@ -64,7 +64,7 @@ static coll::CollComm init_cpucoll(const Legion::Task* task,
   assert(mapping_table[point] == comm->mpi_rank);
   free(mapping_table);
 #else
-  coll::collCommCreate(comm, num_ranks, point, unique_id, NULL);
+  coll::collCommCreate(comm, num_ranks, point, unique_id, nullptr);
 #endif
 
   return comm;
@@ -83,7 +83,7 @@ static void finalize_cpucoll(const Legion::Task* task,
   assert(comm->global_rank == point);
   coll::collCommDestroy(comm);
   free(comm);
-  comm = NULL;
+  comm = nullptr;
 }
 
 void register_tasks(Legion::Machine machine,

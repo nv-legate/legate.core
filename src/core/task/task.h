@@ -248,7 +248,7 @@ class LegateTaskRegistrar {
   struct PendingTaskVariant : public Legion::TaskVariantRegistrar {
    public:
     PendingTaskVariant(void)
-      : Legion::TaskVariantRegistrar(), task_name(NULL), var(LEGATE_NO_VARIANT)
+      : Legion::TaskVariantRegistrar(), task_name(nullptr), var(LEGATE_NO_VARIANT)
     {
     }
     PendingTaskVariant(Legion::TaskID tid,
