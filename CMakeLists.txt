@@ -16,17 +16,30 @@
 
 cmake_minimum_required(VERSION 3.22.1 FATAL_ERROR)
 
+if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.3)
+  # Link libraries by full path even in implicit directories
+  # https://cmake.org/cmake/help/latest/policy/CMP0060.html#policy:CMP0060
+  cmake_policy(SET CMP0060 NEW)
+  set(CMAKE_POLICY_DEFAULT_CMP0060 NEW)
+endif()
+
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.13)
+  # option() honors normal variables
+  # https://cmake.org/cmake/help/latest/policy/CMP0077.html
   cmake_policy(SET CMP0077 NEW)
   set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 endif()
 
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.16)
+  # The project() command preserves leading zeros in version components
+  # https://cmake.org/cmake/help/latest/policy/CMP0096.html
   cmake_policy(SET CMP0096 NEW)
   set(CMAKE_POLICY_DEFAULT_CMP0096 NEW)
 endif()
 
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.21)
+  # make set(CACHE) command not remove normal variable of the same name from the current scope
+  # https://cmake.org/cmake/help/latest/policy/CMP0126.html
   cmake_policy(SET CMP0126 NEW)
   set(CMAKE_POLICY_DEFAULT_CMP0126 NEW)
 endif()

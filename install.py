@@ -267,7 +267,7 @@ def install(
     # execute python -m pip install <args> .
     execute_command(pip_install_cmd, verbose, cwd=legate_core_dir, env=cmd_env)
 
-    # Install Legion if `legion_dir` a Legion build dir
+    # Install Legion if `legion_dir` is a path to a Legion build dir
     if legion_dir is not None and os.path.exists(
         join(legion_dir, "CMakeCache.txt")
     ):
