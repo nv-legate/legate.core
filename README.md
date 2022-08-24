@@ -501,6 +501,24 @@ CLI, in this case using `--cpus` to set the number of CPUs.
 
 Other configuration options can be added by using the `other_options` field of the json file. 
 
+### Magic Command
+We provide a Jupyter magic command to display the IPython kernel configuration.
+```
+%load_ext legate.info
+%legate_info
+Number of CPUs to use per rank: 4
+Number of GPUs to use per rank: 1
+Number of OpenMP groups to use per rank: 0
+Number of threads per OpenMP group: 4
+Number of Utility processors per rank: 2
+Amount of DRAM memory per rank (in MBs): 4000
+Amount of DRAM memory per NUMA domain per rank (in MBs): 0
+Amount of framebuffer memory per GPU (in MBs): 4000
+Amount of zero-copy memory per rank (in MBs): 32
+Amount of registered CPU-side pinned memory per rank (in MBs): 0
+Number of nodes to use: 1
+```
+
 ## Other FAQs
 
 * *Does Legate only work on NVIDIA hardware?*
