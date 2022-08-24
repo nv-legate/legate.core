@@ -9,6 +9,7 @@ cmd_dict = {
     "ompthreads": "Number of threads per OpenMP group",
     "utility": "Number of Utility processors per rank",
     "sysmem": "Amount of DRAM memory per rank (in MBs)",
+    "numamem": "Amount of DRAM memory per NUMA domain per rank (in MBs)",
     "fbmem": "Amount of framebuffer memory per GPU (in MBs)",
     "zcmem": "Amount of zero-copy memory per rank (in MBs)",
     "regmem": "Amount of registered CPU-side pinned memory per rank (in MBs)",

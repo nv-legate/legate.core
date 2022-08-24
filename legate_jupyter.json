@@ -27,6 +27,10 @@
         "cmd": "--sysmem", 
         "value": 4000
     },
+    "numamem": {
+        "cmd": "--numamem", 
+        "value": 0
+    },
     "fbmem": {
         "cmd": "--fbmem", 
         "value": 4000
