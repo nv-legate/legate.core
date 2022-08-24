@@ -84,47 +84,52 @@ function(find_or_configure_legion)
         list(APPEND _nvcc_flags "-std=c++${_cuda_std}")
       endif()
 
-      # Detect the presence of LIBRARY_PATH envvar so we can set
-      # `CUDA_LIB_PATH` for Legion's FindCUDA.cmake calls.
-      set(_cuda_lib_path "$ENV{CUDA_LIB_PATH}")
-      if(NOT _cuda_lib_path)
-        if(DEFINED ENV{LIBRARY_PATH})
-          list(APPEND _cuda_lib_path "$ENV{LIBRARY_PATH}")
-          message(VERBOSE "(0) ENV{CUDA_LIB_PATH}: ${_cuda_lib_path}")
+      # Get the `stubs/libcuda.so` path so we can set CMAKE_LIBRARY_PATH for FindCUDA.cmake
+
+      # Prefer users' CUDA_PATH envvar (if set)
+      set(_cuda_stubs "$ENV{CUDA_PATH}")
+      if(NOT _cuda_stubs)
+        if(DEFINED ENV{CUDA_LIB_PATH})
+          # Prefer users' CUDA_LIB_PATH envvar (if set)
+          list(APPEND _cuda_stubs "$ENV{CUDA_LIB_PATH}")
+          message(VERBOSE "legate.core: (0) Path(s) to CUDA stubs: ${_cuda_stubs}")
         elseif(EXISTS "${CUDAToolkit_LIBRARY_DIR}/stubs/libcuda.so")
           # This might be the path to the `$CONDA_PREFIX/lib`
           # If it is (and it has the libcuda.so driver stub),
           # then we know we're using the cuda-toolkit package
           # and should link to that driver stub instead of the
           # one potentially in `/usr/local/cuda/lib[64]/stubs`
-          list(APPEND _cuda_lib_path "${CUDAToolkit_LIBRARY_DIR}/stubs")
-          message(VERBOSE "(1) ENV{CUDA_LIB_PATH}: ${_cuda_lib_path}")
+          list(APPEND _cuda_stubs "${CUDAToolkit_LIBRARY_DIR}/stubs")
+          message(VERBOSE "legate.core: (1) Path(s) to CUDA stubs: ${_cuda_stubs}")
+        elseif(DEFINED ENV{LIBRARY_PATH})
+          # LIBRARY_PATH is set automatically in the `nvidia/cuda` containers.
+          # Only use it if the conda env doesn't have the `stubs/libcuda.so` lib.
+          list(APPEND _cuda_stubs "$ENV{LIBRARY_PATH}")
+          message(VERBOSE "legate.core: (2) Path(s) to CUDA stubs: ${_cuda_stubs}")
         elseif(CMAKE_SIZEOF_VOID_P LESS 8)
-          list(APPEND _cuda_lib_path "${CUDAToolkit_LIBRARY_ROOT}/lib/stubs")
-          message(VERBOSE "(2) ENV{CUDA_LIB_PATH}: ${_cuda_lib_path}")
+          # Otherwise assume stubs are relative to the CUDA toolkit root dir
+          list(APPEND _cuda_stubs "${CUDAToolkit_LIBRARY_ROOT}/lib/stubs")
+          message(VERBOSE "legate.core: (3) Path(s) to CUDA stubs: ${_cuda_stubs}")
         else()
-          list(APPEND _cuda_lib_path "${CUDAToolkit_LIBRARY_ROOT}/lib64/stubs")
-          message(VERBOSE "(3) ENV{CUDA_LIB_PATH}: ${_cuda_lib_path}")
+          # Otherwise assume stubs are relative to the CUDA toolkit root dir
+          list(APPEND _cuda_stubs "${CUDAToolkit_LIBRARY_ROOT}/lib64/stubs")
+          message(VERBOSE "legate.core: (4) Path(s) to CUDA stubs: ${_cuda_stubs}")
         endif()
       endif()
 
+      list(APPEND _legion_cuda_options "CUDA_NVCC_FLAGS ${_nvcc_flags}")
+      list(APPEND _legion_cuda_options "CMAKE_CUDA_STANDARD ${_cuda_std}")
       # Set this so Legion correctly finds the CUDA toolkit.
-      # This _must_ be an env var.
-      set(ENV{CUDA_LIB_PATH} "${_cuda_lib_path}")
+      list(APPEND _legion_cuda_options "CMAKE_LIBRARY_PATH ${_cuda_stubs}")
+
       # Set these as cache variables for the legacy FindCUDA.cmake
       set(CUDA_VERBOSE_BUILD ON CACHE BOOL "" FORCE)
       set(CUDA_USE_STATIC_CUDA_RUNTIME ${legate_core_STATIC_CUDA_RUNTIME} CACHE BOOL "" FORCE)
 
-      # Ensure `${_cuda_lib_path}/libcuda.so` doesn't end up in the RPATH of the legion_python binary
-      list(APPEND CMAKE_C_IMPLICIT_LINK_DIRECTORIES "${_cuda_lib_path}")
-      list(APPEND CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES "${_cuda_lib_path}")
-      list(APPEND CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES "${_cuda_lib_path}")
-
-      list(APPEND _legion_cuda_options "CUDA_NVCC_FLAGS ${_nvcc_flags}")
-      list(APPEND _legion_cuda_options "CMAKE_CUDA_STANDARD ${_cuda_std}")
-      list(APPEND _legion_cuda_options "CMAKE_LIBRARY_PATH ${_cuda_lib_path}")
-
-      message(VERBOSE "_legion_cuda_options: ${_legion_cuda_options}")
+      # Ensure `${_cuda_stubs}/libcuda.so` doesn't end up in the RPATH of the legion_python binary
+      list(APPEND CMAKE_C_IMPLICIT_LINK_DIRECTORIES "${_cuda_stubs}")
+      list(APPEND CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES "${_cuda_stubs}")
+      list(APPEND CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES "${_cuda_stubs}")
     endif()
 
     # Because legion sets these as cache variables, we need to force set this as a cache variable here
