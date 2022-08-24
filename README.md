@@ -233,6 +233,7 @@ Legate Core requires the following:
   - [CUDA](https://developer.nvidia.com/cuda-downloads) >= 10.2
   - GNU Make
   - C++17 compatible compiler (g++, clang, or nvc++)
+  - numactl (optional, to support CPU and memory binding)
   - the Python packages listed in any one of the conda environment files:
     - `conda/environment-test-3.8.yml`
     - `conda/environment-test-3.9.yml`
@@ -507,4 +508,3 @@ investigate our [Legate Hello World application
 library](https://github.com/nv-legate/legate.hello) that provides a small
 example of how to get started developing your own drop-in replacement library
 on top of Legion using the Legate Core library.
-

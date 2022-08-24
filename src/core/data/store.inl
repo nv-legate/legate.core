@@ -330,7 +330,7 @@ AccessorRD<OP, EXCLUSIVE, DIM> Store::reduce_accessor() const
   if (is_future_) return future_.reduce_accessor<OP, EXCLUSIVE, DIM>(redop_id_, shape<DIM>());
 
   if (!transform_->identity()) {
-    auto transform = transform_->inverse_transform(DIM);
+    auto transform = transform_->inverse_transform(dim_);
     return region_field_.reduce_accessor<OP, EXCLUSIVE, DIM>(redop_id_, shape<DIM>(), transform);
   }
   return region_field_.reduce_accessor<OP, EXCLUSIVE, DIM>(redop_id_, shape<DIM>());
@@ -346,7 +346,7 @@ AccessorRO<T, DIM> Store::read_accessor(const Legion::Rect<DIM>& bounds) const
   if (is_future_) return future_.read_accessor<T, DIM>(bounds);
 
   if (!transform_->identity()) {
-    auto transform = transform_->inverse_transform(DIM);
+    auto transform = transform_->inverse_transform(dim_);
     return region_field_.read_accessor<T, DIM>(bounds, transform);
   }
   return region_field_.read_accessor<T, DIM>(bounds);
@@ -362,7 +362,7 @@ AccessorWO<T, DIM> Store::write_accessor(const Legion::Rect<DIM>& bounds) const
   if (is_future_) return future_.write_accessor<T, DIM>(bounds);
 
   if (!transform_->identity()) {
-    auto transform = transform_->inverse_transform(DIM);
+    auto transform = transform_->inverse_transform(dim_);
     return region_field_.write_accessor<T, DIM>(bounds, transform);
   }
   return region_field_.write_accessor<T, DIM>(bounds);
@@ -378,7 +378,7 @@ AccessorRW<T, DIM> Store::read_write_accessor(const Legion::Rect<DIM>& bounds) c
   if (is_future_) return future_.read_write_accessor<T, DIM>(bounds);
 
   if (!transform_->identity()) {
-    auto transform = transform_->inverse_transform(DIM);
+    auto transform = transform_->inverse_transform(dim_);
     return region_field_.read_write_accessor<T, DIM>(bounds, transform);
   }
   return region_field_.read_write_accessor<T, DIM>(bounds);
@@ -394,7 +394,7 @@ AccessorRD<OP, EXCLUSIVE, DIM> Store::reduce_accessor(const Legion::Rect<DIM>& b
   if (is_future_) return future_.reduce_accessor<OP, EXCLUSIVE, DIM>(redop_id_, bounds);
 
   if (!transform_->identity()) {
-    auto transform = transform_->inverse_transform(DIM);
+    auto transform = transform_->inverse_transform(dim_);
     return region_field_.reduce_accessor<OP, EXCLUSIVE, DIM>(redop_id_, bounds, transform);
   }
   return region_field_.reduce_accessor<OP, EXCLUSIVE, DIM>(redop_id_, bounds);

@@ -63,7 +63,7 @@ void LegateTaskRegistrar::register_all_tasks(Runtime* runtime, LibraryContext& c
       context.get_task_id(task.task_id);  // Convert a task local task id to a global id
     // Attach the task name too for debugging
     runtime->attach_name(task.task_id, task.task_name, false /*mutable*/, true /*local only*/);
-    runtime->register_task_variant(task, task.descriptor, NULL, 0, task.ret_size, task.var);
+    runtime->register_task_variant(task, task.descriptor, nullptr, 0, task.ret_size, task.var);
   }
   pending_task_variants_.clear();
 }

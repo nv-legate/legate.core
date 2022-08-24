@@ -63,9 +63,11 @@ Legion::DomainAffineTransform TransformStack::inverse_transform(int32_t in_dim) 
 
 void TransformStack::print(std::ostream& out) const
 {
-#ifdef DEBUG_LEGATE
-  assert(transform_ != nullptr);
-#endif
+  if (identity()) {
+    out << "(identity)";
+    return;
+  }
+
   transform_->print(out);
   if (!parent_->identity()) {
     out << " >> ";
