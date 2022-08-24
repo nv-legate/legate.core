@@ -510,7 +510,7 @@ def run_legate(
     if any(f is not None for f in [cpu_bind, mem_bind, gpu_bind, nic_bind]):
         cmd += [
             bind_sh_path,
-            "local" if launcher == "none" and ranks == 1 else launcher
+            "local" if launcher == "none" and ranks == 1 else launcher,
         ]
         if cpu_bind is not None:
             if len(cpu_bind.split("/")) != ranks_per_node:
