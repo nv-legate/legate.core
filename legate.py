@@ -110,7 +110,6 @@ def run_legate(
     nsys_extra,
     progress,
     freeze_on_error,
-    no_tensor_cores,
     mem_usage,
     not_control_replicable,
     launcher,
@@ -209,11 +208,8 @@ def run_legate(
         assert "LEGATE_NEED_GASNET" not in cmd_env
         cmd_env["LEGATE_NEED_GASNET"] = str(1)
     if progress:
-        assert "LEGATE_SHOW_PROGREES" not in cmd_env
+        assert "LEGATE_SHOW_PROGRESS" not in cmd_env
         cmd_env["LEGATE_SHOW_PROGRESS"] = str(1)
-    if no_tensor_cores:
-        assert "LEGATE_DISABLE_TENSOR_CORES" not in cmd_env
-        cmd_env["LEGATE_DISABLE_TENSOR_CORES"] = str(1)
     if mem_usage:
         assert "LEGATE_SHOW_USAGE" not in cmd_env
         cmd_env["LEGATE_SHOW_USAGE"] = str(1)
@@ -803,13 +799,6 @@ def driver():
         help="show progress of operations when running the program",
     )
     parser.add_argument(
-        "--no-tensor",
-        dest="no_tensor_cores",
-        action="store_true",
-        required=False,
-        help="disable the use of GPU tensor cores for better determinism",
-    )
-    parser.add_argument(
         "--mem-usage",
         dest="mem_usage",
         action="store_true",
@@ -925,7 +914,6 @@ def driver():
         args.nsys_extra,
         args.progress,
         args.freeze_on_error,
-        args.no_tensor_cores,
         args.mem_usage,
         args.not_control_replicable,
         args.launcher,
