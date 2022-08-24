@@ -161,3 +161,4 @@ class CPUCommunicator(Communicator):
         task = Task(self._context, self._finalize_cpucoll, tag=self._tag)
         task.add_future_map(handle)
         task.execute(Rect([volume]))
+        self._runtime.issue_execution_fence()
