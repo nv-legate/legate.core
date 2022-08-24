@@ -449,38 +449,43 @@ We recommend that you do not mix debugging and profiling in the same run as
 some of the logging for the debugging features requires significant file I/O
 that can adversely effect the performance of the application.
 
-## Running Legate Libraries with Jupyter Notebook
-The same as normal Python programs, Legate application libraries can be run
-with Jupyter Notebook. Currently, we support single node execution with
-multiple CPUs and GPUs, and we will also multi-node execution in the future.
-We leverage the Jupyter support from Legion, so you may refer to Legion's 
-[README](https://github.com/StanfordLegion/legion/blob/master/jupyter_notebook/README.md)
-To ease the installation, we provide a script specifically for Legate libraries. 
+## Running Legate programs with Jupyter Notebook
+
+Same as normal Python programs, Legate programs can be run
+using Jupyter Notebook. Currently we support single node execution with
+multiple CPUs and GPUs, and plan to support multi-node execution in the future.
+We leverage Legion's Jupyter support, so you may want to refer to the  
+[relevant section in Legion's README](https://github.com/StanfordLegion/legion/blob/master/jupyter_notebook/README.md).
+To simplify the installation, we provide a script specifically for Legate libraries. 
 
 ### Installation of the Legate IPython Kernel
-Please install the Legate before installing the IPython Kernel,
-then run the following command from the source folder:
+
+Please install Legate, then run the following command from the source folder
+to install the IPython Kernel:
 ```
-LEGATE_DIR=/install_dir python install_jupyter_kernel.py
+LEGATE_DIR=<install_dir> python install_jupyter_kernel.py
 ```
-If installation is successed, you will see the following output sample.
+If installation is successful, you will see some output like the following:
 ```
 IPython kernel: legate_kernel_nocr(Legate_SM_GPU) has been installed
 ```
-`Legate_SM_GPU` is the kernel name, and you will need to pick this one
+`Legate_SM_GPU` is the kernel name, and you will need to provide it
 when starting the Jupyter Notebook. `SM` means the kernel is only for
 shared memory execution; `GPU` means GPU support is enabled. 
 
 ### Running with Jupyter Notebook
-You will need to start a Jupyter server and then you can use Jupyter notebook
-from any browsers. Please refer to the following two sections from the README of
-the Legion Jupyter Notebook support. 
-[Start the Jupyter Notebook server](https://github.com/StanfordLegion/legion/tree/master/jupyter_notebook#start-the-jupyter-notebook-server)
-[Use the Jupyter Notebook in the browser](https://github.com/StanfordLegion/legion/tree/master/jupyter_notebook#use-the-jupyter-notebook-in-the-browser)
 
-### Configure the Jupyter Notebook
-The Legate IPython kernel can be configured by using the `legate_jupyter.json`
-located in the source directory. Here is an example of the entry of the json file:
+You will need to start a Jupyter server, then you can use a Jupyter notebook
+from any browser. Please refer to the following two sections from the README of
+the Legion Jupyter Notebook extension:
+
+* [Start the Jupyter Notebook server](https://github.com/StanfordLegion/legion/tree/master/jupyter_notebook#start-the-jupyter-notebook-server)
+* [Use the Jupyter Notebook in the browser](https://github.com/StanfordLegion/legion/tree/master/jupyter_notebook#use-the-jupyter-notebook-in-the-browser)
+
+### Configuring the Jupyter Notebook
+
+The Legate IPython kernel can be configured using the `legate_jupyter.json` file,
+located in the source directory. Here is an example of an entry in the json file:
 ```
 "cpus": {
     "cmd": "--cpus",
@@ -489,8 +494,8 @@ located in the source directory. Here is an example of the entry of the json fil
 ```
 * `cpus` is the name of the field. 
 
-* `cmd` is used to tell how to pass the value for the field, e.g. the CLI for setting the
-number of CPUs is `--cpus`.
+* `cmd` is used to tell Jupyter how to pass the value for that field to Legate through the
+CLI, in this case using `--cpus` to set the number of CPUs.
 
 * `value` is the value of the field. 
 
