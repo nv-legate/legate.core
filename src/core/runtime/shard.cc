@@ -83,10 +83,12 @@ class LinearizingShardingFunctor : public ShardingFunctor {
 void register_legate_core_sharding_functors(Legion::Runtime* runtime, const LibraryContext& context)
 {
   runtime->register_sharding_functor(context.get_sharding_id(LEGATE_CORE_TOPLEVEL_TASK_SHARD_ID),
-                                     new ToplevelTaskShardingFunctor());
+                                     new ToplevelTaskShardingFunctor(),
+                                     true /*silence warnings*/);
 
   auto sharding_id = context.get_sharding_id(LEGATE_CORE_LINEARIZE_SHARD_ID);
-  runtime->register_sharding_functor(sharding_id, new LinearizingShardingFunctor());
+  runtime->register_sharding_functor(
+    sharding_id, new LinearizingShardingFunctor(), true /*silence warnings*/);
   // Use linearizing functor for identity projections
   functor_id_table[0] = sharding_id;
   // and for the delinearizing projection
@@ -136,7 +138,7 @@ static void sharding_functor_registration_callback(const Legion::RegistrationCal
   auto runtime = Runtime::get_runtime();
   auto sharding_functor =
     new legate::LegateShardingFunctor(legate::find_legate_projection_functor(proj_id));
-  runtime->register_sharding_functor(shard_id, sharding_functor, false /*silence warnings*/);
+  runtime->register_sharding_functor(shard_id, sharding_functor, true /*silence warnings*/);
 }
 
 }  // namespace legate
