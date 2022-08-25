@@ -18,7 +18,7 @@ def get_libpath():
     join = os.path.join
     exists = os.path.exists
     dirname = os.path.dirname
-    lg_path = dirname(dirname(dirname(__file__)))
+    lg_path = dirname(dirname(__file__))
 
     def find_liblgcore(libdir):
         if exists(join(libdir, "liblgcore.so")):

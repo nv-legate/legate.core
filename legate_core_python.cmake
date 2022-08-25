@@ -55,8 +55,8 @@ execute_process(
 
 set(libpath "")
 configure_file(
-  "${CMAKE_CURRENT_SOURCE_DIR}/legate/core/install_info.py.in"
-  "${CMAKE_CURRENT_SOURCE_DIR}/legate/core/install_info.py"
+  "${CMAKE_CURRENT_SOURCE_DIR}/legate/install_info.py.in"
+  "${CMAKE_CURRENT_SOURCE_DIR}/legate/install_info.py"
 @ONLY)
 
 add_library(legate_core_python INTERFACE)

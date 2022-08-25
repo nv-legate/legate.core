@@ -20,7 +20,7 @@
 *.aux
 *.json
 *.dylib
-legate/core/install_info.py
+legate/install_info.py
 /dist
 /build
 /legion
