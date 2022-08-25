@@ -143,6 +143,7 @@ def install(
 ):
 
     join = os.path.join
+    exists = os.path.exists
 
     legate_core_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -267,17 +268,27 @@ def install(
     # execute python -m pip install <args> .
     execute_command(pip_install_cmd, verbose, cwd=legate_core_dir, env=cmd_env)
 
-    # Install Legion if `legion_dir` is a path to a Legion build dir
-    if legion_dir is not None and os.path.exists(
-        join(legion_dir, "CMakeCache.txt")
-    ):
-        print(f"installing legion from '{legion_dir}'")
-        install_args = [cmake_exe, "--install", legion_dir]
-        if install_dir is not None:
-            install_args += ["--prefix", install_dir]
-        # Install Legion if legion_dir is a path to its build dir
-        execute_command(install_args, verbose)
+    if not editable:
+        # Install Legion Python bindings if `legion_dir` is a Legion build dir
+        # or if we built Legion as a side-effect of building `legate_core`
+        if legion_dir is None or not exists(join(legion_dir, "CMakeCache.txt")):
+            legion_dir = None
+            legion_build_dir = None
+            for f in os.listdir(build_dir):
+                if exists(legion_build_dir := join(
+                    build_dir, f, "cmake-build", "_deps", "legion-build"
+                )):
+                    legion_dir = legion_build_dir
+                    break
 
+        if legion_dir is not None:
+            legion_dir = join(legion_dir, "bindings", "python")
+            if verbose:
+                print(f"installing legion python bindings from '{legion_dir}'")
+            install_args = [cmake_exe, "--install", legion_dir]
+            if install_dir is not None:
+                install_args += ["--prefix", install_dir]
+            execute_command(install_args, verbose)
 
 def driver():
     parser = argparse.ArgumentParser(description="Install Legate front end.")
