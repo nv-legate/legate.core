@@ -155,6 +155,7 @@ def get_install_dir_or_default(install_dir):
             install_dir = os.environ["CONDA_PREFIX"]
         else:
             import site
+
             # Try to install into user site packages first?
             if site.ENABLE_USER_SITE and os.path.exists(
                 site_pkgs := site.getusersitepackages()
