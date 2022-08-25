@@ -19,6 +19,7 @@ from enum import IntEnum, unique
 from typing import TYPE_CHECKING, Any, Optional, Sequence, Type, Union
 
 from . import (
+    FutureMap,
     IndexPartition,
     PartitionByDomain,
     PartitionByImage,
@@ -36,7 +37,7 @@ from .launcher import Broadcast, Partition
 from .shape import Shape
 
 if TYPE_CHECKING:
-    from . import FutureMap, Partition as LegionPartition, Region
+    from . import Partition as LegionPartition, Region
     from .runtime import Runtime
 
 
@@ -779,12 +780,16 @@ class DomainPartition(PartitionBase):
     def __init__(
         self,
         runtime: Runtime,
+        shape: Shape,
         color_shape: Shape,
         domains: Union[FutureMap, dict[Point, Rect]],
     ):
         self._runtime = runtime
         self._color_shape = color_shape
         self._domains = domains
+        self._shape = shape
+        if len(shape) == 0:
+            raise AssertionError
 
     @property
     def color_shape(self) -> Optional[Shape]:
@@ -849,6 +854,7 @@ class DomainPartition(PartitionBase):
         return hash(
             (
                 self.__class__,
+                self._shape,
                 self._color_shape,
                 # TODO (rohany): No better ideas...
                 id(self._domains),
@@ -864,3 +870,54 @@ class DomainPartition(PartitionBase):
 
     def __repr__(self) -> str:
         return str(self)
+
+
+# AffineProjection is translated from C++ to Python from the DISTAL
+# AffineProjection functor. In particular, it encapsulates applying affine
+# projections on `DomainPartition` objects.
+class AffineProjection:
+    # Project each point to the following dimensions of the output point.
+    # Passing `None` as an entry in `projs` discards the chosen dimension
+    # from the projection.
+    def __init__(self, projs):
+        self.projs = projs
+
+    @property
+    def dim(self):
+        return len(self.projs)
+
+    def project_point(self, point: Point, output_bound: Point) -> Point:
+        output_dim = output_bound.dim
+        set_mask = [False] * output_dim
+        result = Point(dim=output_dim)
+        for i in range(0, self.dim):
+            mapTo = self.projs[i]
+            if mapTo is None:
+                continue
+            result[mapTo] = point[i]
+            set_mask[mapTo] = True
+        # Replace unset indices with their boundaries.
+        for i in range(0, output_dim):
+            if not set_mask[i]:
+                result[i] = output_bound[i]
+        return result
+
+    def project_partition(
+        self, part: DomainPartition, bounds: Rect, tx_point: Any = None
+    ) -> DomainPartition:
+        # Don't handle FutureMaps right now.
+        assert not isinstance(part._domains, FutureMap)
+        projected = {}
+        for p, r in part._domains.items():
+            lo = self.project_point(r.lo, bounds.lo)
+            hi = self.project_point(r.hi, bounds.hi)
+            if tx_point is not None:
+                p = tx_point(p)
+            projected[p] = Rect(lo=lo, hi=hi, exclusive=False)
+        new_shape = Shape(
+            tuple(bounds.hi[idx] + 1 for idx in range(bounds.dim))
+        )
+        color_shape = part.color_shape
+        if tx_point is not None:
+            color_shape = Shape(tx_point(color_shape, exclusive=True))
+        return DomainPartition(part.runtime, new_shape, color_shape, projected)

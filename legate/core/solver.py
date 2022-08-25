@@ -423,8 +423,9 @@ class Partitioner:
                                 "Partitions constrained by multiple "
                                 "constraints are not supported yet"
                             )
-                    for unknown in c._rhs.unknowns():
-                        must_be_even.add(unknown)
+                    if not isinstance(c._rhs, Image):
+                        for unknown in c._rhs.unknowns():
+                            must_be_even.add(unknown)
                     dependent[c._lhs] = c._rhs
                 elif isinstance(c, Containment) and isinstance(
                     c._rhs, PartSym
@@ -439,8 +440,9 @@ class Partitioner:
                                 "Partitions constrained by multiple "
                                 "constraints are not supported yet"
                             )
-                    for unknown in c._lhs.unknowns():
-                        must_be_even.add(unknown)
+                    if not isinstance(c._lhs, Image):
+                        for unknown in c._lhs.unknowns():
+                            must_be_even.add(unknown)
                     dependent[c._rhs] = c._lhs
                 else:
                     raise NotImplementedError

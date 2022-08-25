@@ -18,8 +18,14 @@ from typing import TYPE_CHECKING, Protocol, Tuple
 
 import numpy as np
 
-from . import AffineTransform, Transform as LegionTransform
-from .partition import Replicate, Restriction, Tiling
+from . import AffineTransform, Point, Rect, Transform as LegionTransform
+from .partition import (
+    AffineProjection,
+    DomainPartition,
+    Replicate,
+    Restriction,
+    Tiling,
+)
 from .projection import ProjExpr
 from .shape import Shape
 
@@ -228,6 +234,23 @@ class Promote(Transform):
                 partition.color_shape.drop(self._extra_dim),
                 partition.offset.drop(self._extra_dim),
             )
+        if isinstance(partition, DomainPartition):
+            # Project away the desired dimension.
+            all_axes = list(range(0, len(partition._shape)))
+            shape = partition._shape.drop(self._extra_dim)
+            axes = (
+                all_axes[: self._extra_dim]
+                + [None]
+                + [x - 1 for x in all_axes[self._extra_dim + 1 :]]
+            )
+
+            def tx_point(p: Point, exclusive=False) -> Point:
+                return Point(Shape(p).drop(self._extra_dim))
+
+            result = AffineProjection(axes).project_partition(
+                partition, Rect(hi=shape), tx_point=tx_point
+            )
+            return result
         else:
             raise ValueError(
                 f"Unsupported partition: {type(partition).__name__}"
@@ -261,6 +284,31 @@ class Promote(Transform):
             )
         elif isinstance(partition, Replicate):
             return partition
+        elif isinstance(partition, DomainPartition):
+            # The idea here is to project all of the dimensions except
+            # the promoted one into a new affine projection. In the
+            # future, we could imagine caching these to avoid redundantly
+            # computing them.
+            all_axes = list(range(0, len(partition._shape)))
+            axes = all_axes[: self._extra_dim] + [
+                x + 1 for x in all_axes[self._extra_dim :]
+            ]
+            shape = list(partition._shape.extents)
+            new_shape = Shape(
+                shape[: self._extra_dim]
+                + [self._dim_size]
+                + shape[self._extra_dim :]
+            )
+
+            def tx_point(p: Point, exclusive=False) -> Point:
+                return Point(
+                    Shape(p).insert(self._extra_dim, 1 if exclusive else 0)
+                )
+
+            result = AffineProjection(axes).project_partition(
+                partition, Rect(hi=new_shape), tx_point=tx_point
+            )
+            return result
         else:
             raise ValueError(
                 f"Unsupported partition: {type(partition).__name__}"
