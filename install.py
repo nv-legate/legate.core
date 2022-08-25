@@ -141,11 +141,49 @@ def install(
     legion_branch,
     unknown,
 ):
+    if clean_first is None:
+        clean_first = not editable
+
+    print("Verbose build is ", "on" if verbose else "off")
+    if verbose:
+        print("gasnet:", gasnet)
+        print("cuda:", cuda)
+        print("arch:", arch)
+        print("openmp:", openmp)
+        print("march:", march)
+        print("hdf:", hdf)
+        print("llvm:", llvm)
+        print("spy:", spy)
+        print("conduit:", conduit)
+        print("nccl_dir:", nccl_dir)
+        print("cmake_exe:", cmake_exe)
+        print("cmake_generator:", cmake_generator)
+        print("install_dir:", install_dir)
+        print("gasnet_dir:", gasnet_dir)
+        print("pylib_name:", pylib_name)
+        print("cuda_dir:", cuda_dir)
+        print("maxdim:", maxdim)
+        print("maxfields:", maxfields)
+        print("debug:", debug)
+        print("debug_release:", debug_release)
+        print("check_bounds:", check_bounds)
+        print("clean_first:", clean_first)
+        print("extra_flags:", extra_flags)
+        print("editable:", editable)
+        print("build_isolation:", build_isolation)
+        print("thread_count:", thread_count)
+        print("verbose:", verbose)
+        print("thrust_dir:", thrust_dir)
+        print("legion_dir:", legion_dir)
+        print("legion_url:", legion_url)
+        print("legion_branch:", legion_branch)
 
     join = os.path.join
     exists = os.path.exists
+    dirname = os.path.dirname
+    realpath = os.path.realpath
 
-    legate_core_dir = os.path.dirname(os.path.realpath(__file__))
+    legate_core_dir = dirname(realpath(__file__))
 
     if pylib_name is None:
         pyversion, pylib_name = find_active_python_version_and_path()
@@ -157,14 +195,30 @@ def install(
         pyversion = match.group(1)
     print("Using python lib and version: {}, {}".format(pylib_name, pyversion))
 
-    if install_dir is not None:
-        install_dir = os.path.realpath(install_dir)
+    def validate_path(path):
+        if path is not None and (path := str(path)) != "":
+            if not os.path.isabs(path):
+                path = join(legate_core_dir, path)
+            if exists(path := realpath(path)):
+                return path
+        return None
+
+    cuda_dir = validate_path(cuda_dir)
+    nccl_dir = validate_path(nccl_dir)
+    legion_dir = validate_path(legion_dir)
+    gasnet_dir = validate_path(gasnet_dir)
+    thrust_dir = validate_path(thrust_dir)
+
+    if verbose:
+        print("legate_core_dir: ", legate_core_dir)
+        print("cuda_dir: ", cuda_dir)
+        print("nccl_dir: ", nccl_dir)
+        print("legion_dir: ", legion_dir)
+        print("gasnet_dir: ", gasnet_dir)
+        print("thrust_dir: ", thrust_dir)
 
     if thread_count is None:
         thread_count = multiprocessing.cpu_count()
-
-    if thrust_dir is not None:
-        thrust_dir = os.path.realpath(thrust_dir)
 
     build_dir = join(legate_core_dir, "_skbuild")
 
@@ -184,17 +238,19 @@ def install(
     if unknown is not None:
         try:
             prefix_loc = unknown.index("--prefix")
-            pip_install_cmd += ["--root", "/"]
-            pip_install_cmd.extend(unknown[prefix_loc : prefix_loc + 2])
-        except ValueError:
-            if install_dir is not None:
-                pip_install_cmd += [
-                    "--root",
-                    "/",
-                    "--prefix",
-                    str(install_dir),
-                ]
-    elif install_dir is not None:
+            prefix_dir = validate_path(unknown[prefix_loc + 1])
+            if prefix_dir is not None:
+                install_dir = prefix_dir
+                unknown = unknown[:prefix_loc] + unknown[prefix_loc + 2:]
+        except Exception:
+            pass
+
+    install_dir = validate_path(install_dir)
+
+    if verbose:
+        print("install_dir: ", install_dir)
+
+    if install_dir is not None:
         pip_install_cmd += ["--root", "/", "--prefix", str(install_dir)]
 
     if editable:
@@ -287,12 +343,29 @@ def install(
 
         if legion_dir is not None:
             legion_dir = join(legion_dir, "bindings", "python")
+            # If no install dir was passed, infer the location of where to install
+            # the Legion Python bindings, otherwise they'll only be installed into
+            # the local scikit-build cmake-install dir
+            if install_dir is None:
+                # Install into conda prefix if defined
+                if "CONDA_PREFIX" in cmd_env:
+                    install_dir = cmd_env["CONDA_PREFIX"]
+                else:
+                    import site
+                    # Try to install into user site packages first?
+                    if (site.ENABLE_USER_SITE and
+                        exists(site_pkgs := site.getusersitepackages())):
+                        install_dir = site_pkgs
+                    # Otherwise fallback to regular site-packages?
+                    elif exists(site_pkgs := site.getsitepackages()):
+                        install_dir = site_pkgs
             if verbose:
-                print(f"installing legion python bindings from '{legion_dir}'")
-            install_args = [cmake_exe, "--install", legion_dir]
-            if install_dir is not None:
-                install_args += ["--prefix", install_dir]
-            execute_command(install_args, verbose)
+                print(f"installing legion python bindings to {install_dir}")
+            execute_command([
+                cmake_exe,
+                "--install", legion_dir,
+                "--prefix", install_dir,
+            ], verbose)
 
 
 def driver():
@@ -473,7 +546,7 @@ def driver():
         "--clean",
         dest="clean_first",
         action=BooleanFlag,
-        default=True,
+        default=None,
         help="Clean before build, and pull latest Legion.",
     )
     parser.add_argument(
