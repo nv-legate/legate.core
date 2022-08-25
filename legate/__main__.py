@@ -193,9 +193,15 @@ def get_legion_paths(legate_dir, legate_build_dir=None):
     #
 
     join = os.path.join
+    exists = os.path.exists
     dirname = os.path.dirname
 
     def installed_legion_paths(legion_dir, legion_module=None):
+        if legion_module is None:
+            for f in os.listdir(join(legion_dir, "lib")):
+                if exists(join(legion_dir, "lib", f, "site-packages")):
+                    legion_module = join(legion_dir, "lib", f, "site-packages")
+                    break
         return {
             "legion_bin_path": join(legion_dir, "bin"),
             "legion_lib_path": join(legion_dir, "lib"),
