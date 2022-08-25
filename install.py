@@ -107,6 +107,98 @@ def find_active_python_version_and_path():
     return version, paths[0]
 
 
+def scikit_build_cmake_build_dir(skbuild_dir):
+    if os.path.exists(skbuild_dir):
+        for f in os.listdir(skbuild_dir):
+            if os.path.exists(
+                cmake_build := os.path.join(skbuild_dir, f, "cmake-build")
+            ):
+                return cmake_build
+    return None
+
+
+def find_cmake_val(pattern, filepath):
+    return (
+        subprocess.check_output(["grep", "--color=never", pattern, filepath])
+        .decode("UTF-8")
+        .strip()
+    )
+
+
+def was_previously_built_with_different_build_isolation(
+    isolated, legate_build_dir
+):
+    if (
+        legate_build_dir is not None
+        and os.path.exists(legate_build_dir)
+        and os.path.exists(
+            cmake_cache := os.path.join(legate_build_dir, "CMakeCache.txt")
+        )
+    ):
+        try:
+            if isolated:
+                return True
+            if find_cmake_val("pip-build-env", cmake_cache):
+                return True
+        except Exception:
+            pass
+    return False
+
+
+def get_install_dir_or_default(install_dir):
+    # If no install dir was passed on the command line, infer the location
+    # of where to install the Legion Python bindings, otherwise they'll only
+    # be installed into the local scikit-build cmake-install dir
+    if install_dir is None:
+        # Install into conda prefix if defined
+        if "CONDA_PREFIX" in os.environ:
+            install_dir = os.environ["CONDA_PREFIX"]
+        else:
+            import site
+            # Try to install into user site packages first?
+            if site.ENABLE_USER_SITE and os.path.exists(
+                site_pkgs := site.getusersitepackages()
+            ):
+                install_dir = site_pkgs
+            # Otherwise fallback to regular site-packages?
+            elif os.path.exists(site_pkgs := site.getsitepackages()):
+                install_dir = site_pkgs
+    return install_dir
+
+
+def install_legion_python_bindings(
+    verbose, cmake_exe, legate_build_dir, legion_dir, install_dir
+):
+    join = os.path.join
+    exists = os.path.exists
+
+    # Install Legion Python bindings if `legion_dir` is a Legion build dir
+    # or if we built Legion as a side-effect of building `legate_core`
+    if legion_dir is None or not exists(join(legion_dir, "CMakeCache.txt")):
+        legion_dir = None
+        if legate_build_dir and exists(legate_build_dir):
+            if exists(
+                legion_build_dir := join(
+                    legate_build_dir, "_deps", "legion-build"
+                )
+            ):
+                legion_dir = legion_build_dir
+
+    if legion_dir is not None:
+        if verbose:
+            print(f"installing legion python bindings to {install_dir}")
+        execute_command(
+            [
+                cmake_exe,
+                "--install",
+                join(legion_dir, "bindings", "python"),
+                "--prefix",
+                install_dir,
+            ],
+            verbose,
+        )
+
+
 def install(
     gasnet,
     cuda,
@@ -220,10 +312,17 @@ def install(
     if thread_count is None:
         thread_count = multiprocessing.cpu_count()
 
-    build_dir = join(legate_core_dir, "_skbuild")
+    skbuild_dir = join(legate_core_dir, "_skbuild")
+    legate_build_dir = scikit_build_cmake_build_dir(skbuild_dir)
+
+    if was_previously_built_with_different_build_isolation(
+        build_isolation and not editable, legate_build_dir
+    ):
+        print("Performing a clean build to accommodate build isolation.")
+        clean_first = True
 
     if clean_first:
-        shutil.rmtree(build_dir, ignore_errors=True)
+        shutil.rmtree(skbuild_dir, ignore_errors=True)
         shutil.rmtree(join(legate_core_dir, "dist"), ignore_errors=True)
         shutil.rmtree(join(legate_core_dir, "build"), ignore_errors=True)
         shutil.rmtree(
@@ -241,11 +340,11 @@ def install(
             prefix_dir = validate_path(unknown[prefix_loc + 1])
             if prefix_dir is not None:
                 install_dir = prefix_dir
-                unknown = unknown[:prefix_loc] + unknown[prefix_loc + 2:]
+                unknown = unknown[:prefix_loc] + unknown[prefix_loc + 2 :]
         except Exception:
             pass
 
-    install_dir = validate_path(install_dir)
+    install_dir = get_install_dir_or_default(validate_path(install_dir))
 
     if verbose:
         print("install_dir: ", install_dir)
@@ -254,6 +353,7 @@ def install(
         pip_install_cmd += ["--root", "/", "--prefix", str(install_dir)]
 
     if editable:
+        # editable implies build_isolation = False
         pip_install_cmd += ["--no-deps", "--no-build-isolation", "--editable"]
         cmd_env.update({"SETUPTOOLS_ENABLE_FEATURES": "legacy-editable"})
     else:
@@ -262,6 +362,7 @@ def install(
         pip_install_cmd += ["--upgrade"]
 
     pip_install_cmd += ["."]
+
     if verbose:
         pip_install_cmd += ["-vv"]
 
@@ -325,47 +426,9 @@ def install(
     execute_command(pip_install_cmd, verbose, cwd=legate_core_dir, env=cmd_env)
 
     if not editable:
-        # Install Legion Python bindings if `legion_dir` is a Legion build dir
-        # or if we built Legion as a side-effect of building `legate_core`
-        if legion_dir is None or not exists(
-            join(legion_dir, "CMakeCache.txt")
-        ):
-            legion_dir = None
-            legion_build_dir = None
-            for f in os.listdir(build_dir):
-                if exists(
-                    legion_build_dir := join(
-                        build_dir, f, "cmake-build", "_deps", "legion-build"
-                    )
-                ):
-                    legion_dir = legion_build_dir
-                    break
-
-        if legion_dir is not None:
-            legion_dir = join(legion_dir, "bindings", "python")
-            # If no install dir was passed, infer the location of where to install
-            # the Legion Python bindings, otherwise they'll only be installed into
-            # the local scikit-build cmake-install dir
-            if install_dir is None:
-                # Install into conda prefix if defined
-                if "CONDA_PREFIX" in cmd_env:
-                    install_dir = cmd_env["CONDA_PREFIX"]
-                else:
-                    import site
-                    # Try to install into user site packages first?
-                    if (site.ENABLE_USER_SITE and
-                        exists(site_pkgs := site.getusersitepackages())):
-                        install_dir = site_pkgs
-                    # Otherwise fallback to regular site-packages?
-                    elif exists(site_pkgs := site.getsitepackages()):
-                        install_dir = site_pkgs
-            if verbose:
-                print(f"installing legion python bindings to {install_dir}")
-            execute_command([
-                cmake_exe,
-                "--install", legion_dir,
-                "--prefix", install_dir,
-            ], verbose)
+        install_legion_python_bindings(
+            verbose, cmake_exe, legate_build_dir, legion_dir, install_dir
+        )
 
 
 def driver():
@@ -571,7 +634,8 @@ def driver():
         required=False,
         default=False,
         help="Perform an editable install. Disables --build-isolation if set "
-        "(passing --no-deps --no-build-isolation to pip).",
+        "(passing --no-deps --no-build-isolation to pip), and defaults to "
+        "--no-clean unless --clean is passed explicitly.",
     )
     parser.add_argument(
         "--build-isolation",
