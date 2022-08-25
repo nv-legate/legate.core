@@ -217,9 +217,9 @@ def get_legion_paths(legate_dir, legate_build_dir=None):
         return installed_legion_paths(dirname(dirname(sys.argv[0])))
 
     # If a legate build dir was found, read `Legion_SOURCE_DIR` and
-    # `Legion_BINARY_DIR` from CMakeCache.txt and return paths into the source
-    # and/or build dirs. This allows devs to quickly rebuild inplace and use
-    # the most up-to-date versions without needing to install Legion and/or
+    # `Legion_BINARY_DIR` from in CMakeCache.txt, return paths into the source
+    # and build dirs. This allows devs to quickly rebuild inplace and use the
+    # most up-to-date versions without needing to install Legion and
     # legate_core globally.
 
     cmake_cache_txt = join(legate_build_dir, "CMakeCache.txt")
@@ -229,39 +229,46 @@ def get_legion_paths(legate_dir, legate_build_dir=None):
         # a side-effect of building legate_core
         read_cmake_var("Legion_DIR:PATH=Legion_DIR-NOTFOUND", cmake_cache_txt)
     except Exception:
-        # If Legion_DIR is a valid path, check whether it's a system install
-        # or a path to a Legion build dir, i.e. `-D Legion_ROOT=/legion/build`
+        # If Legion_DIR is a valid path, check whether it's a
+        # Legion build dir, i.e. `-D Legion_ROOT=/legion/build`
         legion_dir = read_cmake_var("Legion_DIR:PATH=", cmake_cache_txt)
-        # If legion_dir doesn't have a CMakeCache.txt, CMake's find_package
-        # found a system Legion installation. Return the installation paths.
-        if not os.path.exists(
-            cmake_cache_txt := join(legion_dir, "CMakeCache.txt")
-        ):
-            return installed_legion_paths(dirname(dirname(sys.argv[0])))
+        if os.path.exists(join(legion_dir, "CMakeCache.txt")):
+            cmake_cache_txt = join(legion_dir, "CMakeCache.txt")
+        # else:
+        #     # If legion_dir doesn't have a CMakeCache.txt, CMake's find_package
+        #     # found a system Legion installation. Return the installation paths.
+        #     return installed_legion_paths(dirname(dirname(sys.argv[0])))
 
-    legion_source_dir = read_cmake_var(
-        "Legion_SOURCE_DIR:STATIC=", cmake_cache_txt
-    )
-    legion_binary_dir = read_cmake_var(
-        "Legion_BINARY_DIR:STATIC=", cmake_cache_txt
-    )
+    try:
+        # If Legion_SOURCE_DIR and Legion_BINARY_DIR are in CMakeCache.txt,
+        # return the paths to Legion in the legate_core build dir.
+        legion_source_dir = read_cmake_var(
+            "Legion_SOURCE_DIR:STATIC=", cmake_cache_txt
+        )
+        legion_binary_dir = read_cmake_var(
+            "Legion_BINARY_DIR:STATIC=", cmake_cache_txt
+        )
+        return {
+            "legion_bin_path": join(legion_binary_dir, "bin"),
+            "legion_lib_path": join(legion_binary_dir, "lib"),
+            "realm_defines_h": join(
+                legion_binary_dir, "runtime", "realm_defines.h"
+            ),
+            "legion_defines_h": join(
+                legion_binary_dir, "runtime", "legion_defines.h"
+            ),
+            "legion_spy_py": join(legion_source_dir, "tools", "legion_spy.py"),
+            "legion_prof_py": join(legion_source_dir, "tools", "legion_prof.py"),
+            "legion_python": join(legion_binary_dir, "bin", "legion_python"),
+            "legion_module": join(
+                legion_source_dir, "bindings", "python", "build", "lib"
+            ),
+        }
+    except Exception:
+        pass
 
-    return {
-        "legion_bin_path": join(legion_binary_dir, "bin"),
-        "legion_lib_path": join(legion_binary_dir, "lib"),
-        "realm_defines_h": join(
-            legion_binary_dir, "runtime", "realm_defines.h"
-        ),
-        "legion_defines_h": join(
-            legion_binary_dir, "runtime", "legion_defines.h"
-        ),
-        "legion_spy_py": join(legion_source_dir, "tools", "legion_spy.py"),
-        "legion_prof_py": join(legion_source_dir, "tools", "legion_prof.py"),
-        "legion_python": join(legion_binary_dir, "bin", "legion_python"),
-        "legion_module": join(
-            legion_source_dir, "bindings", "python", "build", "lib"
-        ),
-    }
+    # Otherwise return the installation paths.
+    return installed_legion_paths(dirname(dirname(sys.argv[0])))
 
 
 def run_legate(
