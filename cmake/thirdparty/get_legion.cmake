@@ -92,7 +92,7 @@ function(find_or_configure_legion)
         if(DEFINED ENV{CUDA_LIB_PATH})
           # Prefer users' CUDA_LIB_PATH envvar (if set)
           list(APPEND _cuda_stubs "$ENV{CUDA_LIB_PATH}")
-          message(VERBOSE "legate.core: (0) Path(s) to CUDA stubs: ${_cuda_stubs}")
+          message(VERBOSE "legate.core: Path(s) to CUDA stubs: ${_cuda_stubs}")
         elseif(EXISTS "${CUDAToolkit_LIBRARY_DIR}/stubs/libcuda.so")
           # This might be the path to the `$CONDA_PREFIX/lib`
           # If it is (and it has the libcuda.so driver stub),
@@ -100,20 +100,20 @@ function(find_or_configure_legion)
           # and should link to that driver stub instead of the
           # one potentially in `/usr/local/cuda/lib[64]/stubs`
           list(APPEND _cuda_stubs "${CUDAToolkit_LIBRARY_DIR}/stubs")
-          message(VERBOSE "legate.core: (1) Path(s) to CUDA stubs: ${_cuda_stubs}")
+          message(VERBOSE "legate.core: Path(s) to CUDA stubs: ${_cuda_stubs}")
         elseif(DEFINED ENV{LIBRARY_PATH})
           # LIBRARY_PATH is set automatically in the `nvidia/cuda` containers.
           # Only use it if the conda env doesn't have the `stubs/libcuda.so` lib.
           list(APPEND _cuda_stubs "$ENV{LIBRARY_PATH}")
-          message(VERBOSE "legate.core: (2) Path(s) to CUDA stubs: ${_cuda_stubs}")
+          message(VERBOSE "legate.core: Path(s) to CUDA stubs: ${_cuda_stubs}")
         elseif(CMAKE_SIZEOF_VOID_P LESS 8)
           # Otherwise assume stubs are relative to the CUDA toolkit root dir
           list(APPEND _cuda_stubs "${CUDAToolkit_LIBRARY_ROOT}/lib/stubs")
-          message(VERBOSE "legate.core: (3) Path(s) to CUDA stubs: ${_cuda_stubs}")
+          message(VERBOSE "legate.core: Path(s) to CUDA stubs: ${_cuda_stubs}")
         else()
           # Otherwise assume stubs are relative to the CUDA toolkit root dir
           list(APPEND _cuda_stubs "${CUDAToolkit_LIBRARY_ROOT}/lib64/stubs")
-          message(VERBOSE "legate.core: (4) Path(s) to CUDA stubs: ${_cuda_stubs}")
+          message(VERBOSE "legate.core: Path(s) to CUDA stubs: ${_cuda_stubs}")
         endif()
       endif()
 

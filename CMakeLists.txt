@@ -106,7 +106,7 @@ if(CMAKE_GENERATOR STREQUAL "Ninja")
       endif()
     endforeach()
     add_custom_target("touch_legion_core${_suf}_ninja_build" ALL
-      COMMAND ${CMAKE_COMMAND} -E touch "${CMAKE_CURRENT_BINARY_DIR}/build.ninja"
+      COMMAND ${CMAKE_COMMAND} -E touch_nocreate "${CMAKE_CURRENT_BINARY_DIR}/build.ninja"
       COMMENT "touch build.ninja so ninja doesn't re-run CMake on rebuild"
       VERBATIM DEPENDS ${_depends}
     )
