@@ -258,7 +258,9 @@ def get_legion_paths(legate_dir, legate_build_dir=None):
                 legion_binary_dir, "runtime", "legion_defines.h"
             ),
             "legion_spy_py": join(legion_source_dir, "tools", "legion_spy.py"),
-            "legion_prof_py": join(legion_source_dir, "tools", "legion_prof.py"),
+            "legion_prof_py": join(
+                legion_source_dir, "tools", "legion_prof.py"
+            ),
             "legion_python": join(legion_binary_dir, "bin", "legion_python"),
             "legion_module": join(
                 legion_source_dir, "bindings", "python", "build", "lib"

@@ -271,13 +271,17 @@ def install(
     if not editable:
         # Install Legion Python bindings if `legion_dir` is a Legion build dir
         # or if we built Legion as a side-effect of building `legate_core`
-        if legion_dir is None or not exists(join(legion_dir, "CMakeCache.txt")):
+        if legion_dir is None or not exists(
+            join(legion_dir, "CMakeCache.txt")
+        ):
             legion_dir = None
             legion_build_dir = None
             for f in os.listdir(build_dir):
-                if exists(legion_build_dir := join(
-                    build_dir, f, "cmake-build", "_deps", "legion-build"
-                )):
+                if exists(
+                    legion_build_dir := join(
+                        build_dir, f, "cmake-build", "_deps", "legion-build"
+                    )
+                ):
                     legion_dir = legion_build_dir
                     break
 
@@ -289,6 +293,7 @@ def install(
             if install_dir is not None:
                 install_args += ["--prefix", install_dir]
             execute_command(install_args, verbose)
+
 
 def driver():
     parser = argparse.ArgumentParser(description="Install Legate front end.")
