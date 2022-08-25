@@ -22,6 +22,7 @@
 #ifdef LEGATE_USE_CUDA
 #include "core/comm/comm_nccl.h"
 #endif
+#include "core/task/task.h"
 
 namespace legate {
 
@@ -357,6 +358,7 @@ void CoreMapper::map_future_map_reduction(const MapperContext ctx,
                                           const FutureMapReductionInput& input,
                                           FutureMapReductionOutput& output)
 {
+  output.serdez_upper_bound = LEGATE_MAX_SIZE_SCALAR_RETURN;
 }
 
 void CoreMapper::select_tunable_value(const MapperContext ctx,
