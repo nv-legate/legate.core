@@ -13,6 +13,7 @@ rm -rf $(find "$CONDA_PREFIX" -type d -name '*realm*') \
        $(find "$CONDA_PREFIX/lib" -type f -name 'libregent*') \
        $(find "$CONDA_PREFIX/lib" -type f -name 'liblegion*') \
        $(find "$CONDA_PREFIX/lib" -type f -name 'liblgcore*') \
+       $(find "$CONDA_PREFIX/lib" -type f -name 'easy-install.pth') \
        $(find "$CONDA_PREFIX/lib" -type f -name 'legate.core.egg-link') \
        $(find "$CONDA_PREFIX/bin" -type f -name '*legion*') \
        $(find "$CONDA_PREFIX/bin" -type f -name 'legate') \
