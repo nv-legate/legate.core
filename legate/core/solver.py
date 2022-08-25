@@ -80,14 +80,14 @@ class EqClass(Generic[T]):
         found1 = var1 in self._class_ids
         found2 = var2 in self._class_ids
 
-        if not found1 and not found2:
-            self._add(var1, var2)
-        elif found1:
-            self._update(var1, var2)
-        elif found2:
-            self._update(var2, var1)
-        else:
+        if found1 and found2:  # both
             self._merge(var1, var2)
+        elif found1:  # first only
+            self._update(var1, var2)
+        elif found2:  # second only
+            self._update(var2, var1)
+        else:  # neither
+            self._add(var1, var2)
 
     def copy(self) -> EqClass[T]:
         new: EqClass[T] = EqClass()
