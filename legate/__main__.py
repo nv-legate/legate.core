@@ -234,10 +234,6 @@ def get_legion_paths(legate_dir, legate_build_dir=None):
         legion_dir = read_cmake_var("Legion_DIR:PATH=", cmake_cache_txt)
         if os.path.exists(join(legion_dir, "CMakeCache.txt")):
             cmake_cache_txt = join(legion_dir, "CMakeCache.txt")
-        # else:
-        #     # If legion_dir doesn't have a CMakeCache.txt, CMake's find_package
-        #     # found a system Legion installation. Return the installation paths.
-        #     return installed_legion_paths(dirname(dirname(sys.argv[0])))
 
     try:
         # If Legion_SOURCE_DIR and Legion_BINARY_DIR are in CMakeCache.txt,
@@ -258,7 +254,9 @@ def get_legion_paths(legate_dir, legate_build_dir=None):
                 legion_binary_dir, "runtime", "legion_defines.h"
             ),
             "legion_spy_py": join(legion_source_dir, "tools", "legion_spy.py"),
-            "legion_prof_py": join(legion_source_dir, "tools", "legion_prof.py"),
+            "legion_prof_py": join(
+                legion_source_dir, "tools", "legion_prof.py"
+            ),
             "legion_python": join(legion_binary_dir, "bin", "legion_python"),
             "legion_module": join(
                 legion_source_dir, "bindings", "python", "build", "lib"
