@@ -33,15 +33,18 @@ struct RegionGroup {
   using Domain = Legion::Domain;
 
  public:
-  RegionGroup(const std::vector<Region>& regions, const Domain bounding_box);
-  RegionGroup(std::vector<Region>&& regions, const Domain bounding_box);
+  RegionGroup(const std::set<Region>& regions, const Domain bounding_box);
+  RegionGroup(std::set<Region>&& regions, const Domain bounding_box);
 
  public:
   RegionGroup(const RegionGroup&) = default;
   RegionGroup(RegionGroup&&)      = default;
 
  public:
-  std::vector<Region> regions;
+  std::vector<Region> get_regions() const;
+
+ public:
+  std::set<Region> regions;
   Domain bounding_box;
 };
 

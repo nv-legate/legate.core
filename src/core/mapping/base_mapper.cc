@@ -808,7 +808,7 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
     const Domain domain = runtime->get_index_space_domain(ctx, is);
     group =
       local_instances->find_region_group(regions.front(), domain, fid, target_memory, policy.exact);
-    regions = group->regions;
+    regions = group->get_regions();
   }
 
   bool created     = false;
@@ -969,7 +969,7 @@ bool BaseMapper::map_raw_array(const MapperContext ctx,
   if (runtime->find_or_create_physical_instance(ctx,
                                                 target_memory,
                                                 layout_constraints,
-                                                group->regions,
+                                                group->get_regions(),
                                                 result,
                                                 created,
                                                 true /*acquire*/,
