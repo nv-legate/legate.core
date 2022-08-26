@@ -39,24 +39,18 @@ cmd_dict = {
 class LegateInfo(object):
     def __init__(self, filename: str) -> None:
         self.config_dict = dict()
-        # first check if the json file is in the ipython kernel directory
+        # check if the json file is in the ipython kernel directory
         ksm = KernelSpecManager()
         spec = ksm.get_kernel_spec("legate_kernel_nocr")
         filepath = os.path.join(spec.resource_dir, filename)
         if os.path.exists(filepath):
             final_filename = filepath
         else:
-            # second check if it is in the current directory
-            filepath = os.path.join(os.getcwd(), filename)
-            if os.path.exists(filepath):
-                final_filename = filepath
-            else:
-                print(
-                    "Can not file the json file in either "
-                    "IPython kernel directory or current "
-                    "working directory."
-                )
-                sys.exit(1)
+            print(
+                "Can not file the json file in the "
+                "IPython kernel directory."
+            )
+            sys.exit(1)
         with open(final_filename) as json_file:
             json_dict = json.load(json_file)
             for key in cmd_dict.keys():

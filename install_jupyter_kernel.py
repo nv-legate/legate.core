@@ -45,21 +45,9 @@ def find_python_module(legate_dir):
 
 if __name__ == "__main__":
     (script_name, extension) = os.path.splitext(__file__)
-    if extension == ".py":
-        # running (source_dir)/install_jupyter_kernel.py
-        try:
-            legate_dir = os.environ["LEGATE_DIR"]
-            legate_dir = os.path.abspath(legate_dir)
-        except KeyError:
-            print(
-                "Please specify the legate installation dir "
-                "by setting LEGATE_DIR"
-            )
-            sys.exit(1)
-    else:
-        # running /LEGATE_DIR/bin/install_jupyter_kernel
-        legate_bin_dir = os.path.dirname(os.path.realpath(__file__))
-        legate_dir = os.path.abspath(os.path.join(legate_bin_dir, os.pardir))
+
+    legate_bin_dir = os.path.dirname(os.path.realpath(__file__))
+    legate_dir = os.path.abspath(os.path.join(legate_bin_dir, os.pardir))
     python_lib_dir = find_python_module(legate_dir)
     sys.path.append(python_lib_dir)
     from install_jupyter import driver, parse_args
