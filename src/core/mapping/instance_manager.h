@@ -45,6 +45,8 @@ struct RegionGroup {
   Domain bounding_box;
 };
 
+std::ostream& operator<<(std::ostream& os, const RegionGroup& region_group);
+
 struct InstanceSet {
  public:
   using Region       = Legion::LogicalRegion;

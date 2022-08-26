@@ -25,6 +25,8 @@ using namespace Legion::Mapping;
 
 using RegionGroupP = std::shared_ptr<RegionGroup>;
 
+static Legion::Logger log_instmgr("instmgr");
+
 RegionGroup::RegionGroup(const std::vector<Region>& rs, const Domain bound)
   : regions(rs), bounding_box(bound)
 {
@@ -33,6 +35,14 @@ RegionGroup::RegionGroup(const std::vector<Region>& rs, const Domain bound)
 RegionGroup::RegionGroup(std::vector<Region>&& rs, const Domain bound)
   : regions(std::move(rs)), bounding_box(bound)
 {
+}
+
+std::ostream& operator<<(std::ostream& os, const RegionGroup& region_group)
+{
+  os << "RegionGroup(" << region_group.bounding_box << ": {";
+  for (const auto& region : region_group.regions) os << region << ",";
+  os << "})";
+  return os;
 }
 
 bool InstanceSet::find_instance(Region region,
@@ -75,12 +85,24 @@ struct construct_overlapping_region_group_fn {
     auto bound = domain.bounds<DIM, coord_t>();
     std::vector<InstanceSet::Region> regions(1, region);
 
+#ifdef DEBUG_LEGATE
+    log_instmgr.debug() << "construct_overlapping_region_group( " << region << "," << domain << ")";
+#endif
+
     for (const auto& pair : instances) {
       auto& group = pair.first;
 
       Rect<DIM> group_bbox = group->bounding_box.bounds<DIM, coord_t>();
-      auto intersect       = bound.intersection(group_bbox);
-      if (intersect.empty()) continue;
+#ifdef DEBUG_LEGATE
+      log_instmgr.debug() << "  check intersection with " << group_bbox;
+#endif
+      auto intersect = bound.intersection(group_bbox);
+      if (intersect.empty()) {
+#ifdef DEBUG_LEGATE
+        log_instmgr.debug() << "    no intersection";
+#endif
+        continue;
+      }
 
       // Don't merge if the unused space would be more than the space saved
       auto union_bbox  = bound.union_bbox(group_bbox);
@@ -88,12 +110,28 @@ struct construct_overlapping_region_group_fn {
       size_t union_vol = union_bbox.volume();
 
       // If it didn't get any bigger then we can keep going
-      if (bound_vol == union_vol) continue;
+      if (bound_vol == union_vol) {
+#ifdef DEBUG_LEGATE
+        log_instmgr.debug() << "    no change in volume";
+#endif
+        continue;
+      }
 
       // Only allow merging if it isn't "too big"
-      if (too_big(union_vol, bound_vol, group_bbox.volume(), intersect.volume())) continue;
+      if (too_big(union_vol, bound_vol, group_bbox.volume(), intersect.volume())) {
+#ifdef DEBUG_LEGATE
+        log_instmgr.debug() << "    too big to merge (union:" << union_bbox
+                            << ",bound:" << bound_vol << ",group:" << group_bbox.volume()
+                            << ",intersect:" << intersect.volume() << ")";
+#endif
+        continue;
+      }
 
       regions.insert(regions.end(), group->regions.begin(), group->regions.end());
+#ifdef DEBUG_LEGATE
+      log_instmgr.debug() << "    bounds updated: " << bound << " ~> " << union_bbox;
+#endif
+
       bound = union_bbox;
     }
 
@@ -185,11 +223,20 @@ RegionGroupP InstanceManager::find_region_group(const Region& region,
 {
   FieldMemInfo key(region.get_tree_id(), field_id, memory);
 
+  RegionGroupP result{nullptr};
+
   auto finder = instance_sets_.find(key);
   if (finder == instance_sets_.end() || exact)
-    return std::make_shared<RegionGroup>(std::vector<Region>({region}), domain);
+    result = std::make_shared<RegionGroup>(std::vector<Region>({region}), domain);
+  else
+    result = finder->second.construct_overlapping_region_group(region, domain, exact);
 
-  return finder->second.construct_overlapping_region_group(region, domain, exact);
+#ifdef DEBUG_LEGATE
+  log_instmgr.debug() << "find_region_group(" << region << "," << domain << "," << field_id << ","
+                      << memory << "," << exact << ") ~> " << *result;
+#endif
+
+  return std::move(result);
 }
 
 std::set<InstanceManager::Instance> InstanceManager::record_instance(

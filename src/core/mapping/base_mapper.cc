@@ -780,9 +780,14 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
   // See if we already have it in our local instances
   if (fields.size() == 1 && regions.size() == 1 &&
       local_instances->find_instance(
-        regions.front(), fields.front(), target_memory, result, policy))
+        regions.front(), fields.front(), target_memory, result, policy)) {
+#ifdef DEBUG_LEGATE
+    logger.debug() << get_mapper_name() << " found instance " << result << " for "
+                   << regions.front();
+#endif
     // Needs acquire to keep the runtime happy
     return true;
+  }
 
   // This whole process has to appear atomic
   runtime->disable_reentrant(ctx);
@@ -842,12 +847,12 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
   if (success) {
     // We succeeded in making the instance where we want it
     assert(result.exists());
-    if (created)
-      logger.info("%s created instance %lx containing %zd bytes in memory " IDFMT,
-                  get_mapper_name(),
-                  result.get_instance_id(),
-                  footprint,
-                  target_memory.id);
+#ifdef DEBUG_LEGATE
+    if (created) {
+      logger.debug() << get_mapper_name() << " created instance " << result << " for " << *group
+                     << " (size: " << footprint << " bytes, memory: " << target_memory << ")";
+    }
+#endif
     // Only save the result for future use if it is not an external instance
     if (!result.is_external_instance() && group != nullptr) {
       assert(fields.size() == 1);
