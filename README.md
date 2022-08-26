@@ -467,7 +467,8 @@ kernel:
 <legate_install_dir>/bin/install_jupyter_kernel --json=legate_jupyter.json
 ```
 If `--json=` is not provided, the installation script will look for a file
-named `legate_jupyter.json` in the current directory. 
+named `legate_jupyter.json` in the current directory. A sample
+`legate_jupyter.json` file is provided in the legate.core source directory.
 
 If installation is successful, you will see some output like the following:
 ```
@@ -488,8 +489,8 @@ the Legion Jupyter Notebook extension:
 
 ### Configuring the Jupyter Notebook
 
-The Legate IPython kernel can be configured using the `legate_jupyter.json` file,
-located in the source directory. Here is an example of an entry in the json file:
+The Legate IPython kernel is configured according to the json file provided at
+install time. Here is an example of an entry in the json file:
 ```
 "cpus": {
     "cmd": "--cpus",
@@ -506,6 +507,7 @@ CLI, in this case using `--cpus` to set the number of CPUs.
 Other configuration options can be added by using the `other_options` field of the json file. 
 
 ### Magic Command
+
 We provide a Jupyter magic command to display the IPython kernel configuration.
 ```
 %load_ext legate.info
