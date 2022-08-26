@@ -70,7 +70,7 @@ bool InstanceSet::find_instance(Region region,
   auto& group = finder->second;
   if (policy.exact && group->regions.size() > 1) return false;
 
-  auto ifinder = instances_.find(group);
+  auto ifinder = instances_.find(group.get());
   assert(ifinder != instances_.end());
 
   auto& spec = ifinder->second;
@@ -94,10 +94,9 @@ static inline bool too_big(size_t union_volume,
 
 struct construct_overlapping_region_group_fn {
   template <int32_t DIM>
-  RegionGroupP operator()(
-    const InstanceSet::Region& region,
-    const InstanceSet::Domain& domain,
-    const std::map<InstanceSet::RegionGroupP, InstanceSet::InstanceSpec>& instances)
+  RegionGroupP operator()(const InstanceSet::Region& region,
+                          const InstanceSet::Domain& domain,
+                          const std::map<RegionGroup*, InstanceSet::InstanceSpec>& instances)
   {
     auto bound       = domain.bounds<DIM, coord_t>();
     size_t bound_vol = bound.volume();
@@ -177,12 +176,12 @@ std::set<InstanceSet::Instance> InstanceSet::record_instance(RegionGroupP group,
   std::set<Instance> replaced;
   std::set<RegionGroupP> removed_groups;
 
-  auto finder = instances_.find(group);
+  auto finder = instances_.find(group.get());
   if (finder != instances_.end()) {
     replaced.insert(finder->second.instance);
     finder->second = InstanceSpec(instance, policy);
   } else
-    instances_[group] = InstanceSpec(instance, policy);
+    instances_[group.get()] = InstanceSpec(instance, policy);
 
   for (auto& region : group->regions) {
     auto finder = groups_.find(region);
@@ -201,8 +200,9 @@ std::set<InstanceSet::Instance> InstanceSet::record_instance(RegionGroupP group,
     // group.) So, before we prune out each of those potentially obsoletegroups, we need to
     // make sure that it is subsumed by the new group.
     if (group->subsumes(removed_group.get())) {
-      replaced.insert(instances_[removed_group].instance);
-      instances_.erase(removed_group);
+      auto finder = instances_.find(removed_group.get());
+      replaced.insert(finder->second.instance);
+      instances_.erase(finder);
     }
 
   replaced.erase(instance);
@@ -219,7 +219,7 @@ std::set<InstanceSet::Instance> InstanceSet::record_instance(RegionGroupP group,
 
 bool InstanceSet::erase(PhysicalInstance inst)
 {
-  std::set<RegionGroupP> filtered_groups;
+  std::set<RegionGroup*> filtered_groups;
   for (auto it = instances_.begin(); it != instances_.end(); /*nothing*/) {
     if (it->second.instance == inst) {
       auto to_erase = it++;
@@ -249,7 +249,7 @@ void InstanceSet::dump_and_sanity_check() const
   for (auto& entry : instances_)
     log_instmgr.debug() << "  " << *entry.first << " ~> " << entry.second.instance;
 #endif
-  for (auto& entry : groups_) assert(instances_.find(entry.second) != instances_.end());
+  for (auto& entry : groups_) assert(instances_.find(entry.second.get()) != instances_.end());
 }
 
 bool InstanceManager::find_instance(Region region,

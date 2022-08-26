@@ -90,7 +90,7 @@ struct InstanceSet {
   void dump_and_sanity_check() const;
 
  private:
-  std::map<RegionGroupP, InstanceSpec> instances_;
+  std::map<RegionGroup*, InstanceSpec> instances_;
   std::map<Legion::LogicalRegion, RegionGroupP> groups_;
 };
 
