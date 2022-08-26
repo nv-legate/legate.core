@@ -45,7 +45,7 @@ BaseMapper::BaseMapper(Runtime* rt, Machine m, const LibraryContext& ctx)
     total_nodes(get_total_nodes(m)),
     mapper_name(std::move(create_name(local_node))),
     logger(create_logger_name().c_str()),
-    local_instances(std::make_unique<InstanceManager>())
+    local_instances(InstanceManager::get_instance_manager())
 {
   // Query to find all our local processors
   Machine::ProcessorQuery local_procs(machine);

@@ -231,5 +231,13 @@ std::map<Legion::Memory, size_t> InstanceManager::aggregate_instance_sizes() con
   return result;
 }
 
+/*static*/ InstanceManager* InstanceManager::get_instance_manager()
+{
+  static InstanceManager* manager{nullptr};
+
+  if (nullptr == manager) manager = new InstanceManager();
+  return manager;
+}
+
 }  // namespace mapping
 }  // namespace legate

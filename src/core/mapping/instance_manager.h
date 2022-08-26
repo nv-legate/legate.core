@@ -141,6 +141,9 @@ class InstanceManager {
   void erase(Instance inst);
 
  public:
+  static InstanceManager* get_instance_manager();
+
+ public:
   std::map<Legion::Memory, size_t> aggregate_instance_sizes() const;
 
  private:
