@@ -157,6 +157,7 @@ std::set<InstanceSet::Instance> InstanceSet::record_instance(RegionGroupP group,
                                                              const InstanceMappingPolicy& policy)
 {
   std::set<Instance> replaced;
+  std::set<RegionGroupP> removed_groups;
 
   auto finder = instances_.find(group);
   if (finder != instances_.end()) {
@@ -169,11 +170,20 @@ std::set<InstanceSet::Instance> InstanceSet::record_instance(RegionGroupP group,
     auto finder = groups_.find(region);
     if (finder == groups_.end())
       groups_[region] = group;
-    else {
-      replaced.insert(instances_[finder->second].instance);
+    else if (finder->second != group) {
+      // NOTE: This assumes that when a region changes groups, all other regions originally in the
+      // same group also move to a new group. This is guaranteed in the BaseMapper because the new
+      // group is synthesized within the same atomic block as the record_instance call we are in.
+      removed_groups.insert(finder->second);
       finder->second = group;
     }
   }
+
+  for (RegionGroupP removed_group : removed_groups) {
+    replaced.insert(instances_[removed_group].instance);
+    instances_.erase(removed_group);
+  }
+
   replaced.erase(instance);
   return std::move(replaced);
 }
