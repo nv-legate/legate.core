@@ -87,9 +87,6 @@ struct construct_overlapping_region_group_fn {
       size_t bound_vol = bound.volume();
       size_t union_vol = union_bbox.volume();
 
-      // If it didn't get any bigger then we can keep going
-      if (bound_vol == union_vol) continue;
-
       // Only allow merging if it isn't "too big"
       if (too_big(union_vol, bound_vol, group_bbox.volume(), intersect.volume())) continue;
 
@@ -128,15 +125,21 @@ std::set<InstanceSet::Instance> InstanceSet::record_instance(RegionGroupP group,
   } else
     instances_[group] = InstanceSpec(instance, policy);
 
+  std::set<RegionGroupP> removed_groups;
   for (auto& region : group->regions) {
     auto finder = groups_.find(region);
     if (finder == groups_.end())
       groups_[region] = group;
-    else {
-      replaced.insert(instances_[finder->second].instance);
+    else if (finder->second != group) {
+      removed_groups.insert(finder->second);
       finder->second = group;
     }
   }
+  for (RegionGroupP removed_group : removed_groups) {
+    replaced.insert(instances_[removed_group].instance);
+    instances_.erase(removed_group);
+  }
+
   replaced.erase(instance);
   return std::move(replaced);
 }
