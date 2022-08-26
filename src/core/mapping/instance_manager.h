@@ -42,6 +42,7 @@ struct RegionGroup {
 
  public:
   std::vector<Region> get_regions() const;
+  bool subsumes(const RegionGroup* other) const;
 
  public:
   std::set<Region> regions;
@@ -84,6 +85,9 @@ struct InstanceSet {
 
  public:
   size_t get_instance_size() const;
+
+ private:
+  void dump_and_sanity_check() const;
 
  private:
   std::map<RegionGroupP, InstanceSpec> instances_;

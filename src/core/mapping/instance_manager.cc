@@ -44,6 +44,14 @@ std::vector<LogicalRegion> RegionGroup::get_regions() const
   return std::move(result);
 }
 
+bool RegionGroup::subsumes(const RegionGroup* other) const
+{
+  if (regions.size() < other->regions.size()) return false;
+  for (auto& region : other->regions)
+    if (regions.find(region) == regions.end()) return false;
+  return true;
+}
+
 std::ostream& operator<<(std::ostream& os, const RegionGroup& region_group)
 {
   os << "RegionGroup(" << region_group.bounding_box << ": {";
@@ -66,6 +74,8 @@ bool InstanceSet::find_instance(Region region,
   assert(ifinder != instances_.end());
 
   auto& spec = ifinder->second;
+  // TODO: policies don't need to be exactly the same but the policy of the existing instance
+  // only needs to subsume the requested policy
   if (spec.policy == policy) {
     result = spec.instance;
     return true;
@@ -156,6 +166,14 @@ std::set<InstanceSet::Instance> InstanceSet::record_instance(RegionGroupP group,
                                                              Instance instance,
                                                              const InstanceMappingPolicy& policy)
 {
+#ifdef DEBUG_LEGATE
+#ifdef DEBUG_INSTANCE_MANAGER
+  log_instmgr.debug() << "===== before adding an entry " << *group << " ~> " << instance
+                      << " =====";
+#endif
+  dump_and_sanity_check();
+#endif
+
   std::set<Instance> replaced;
   std::set<RegionGroupP> removed_groups;
 
@@ -171,20 +189,31 @@ std::set<InstanceSet::Instance> InstanceSet::record_instance(RegionGroupP group,
     if (finder == groups_.end())
       groups_[region] = group;
     else if (finder->second != group) {
-      // NOTE: This assumes that when a region changes groups, all other regions originally in the
-      // same group also move to a new group. This is guaranteed in the BaseMapper because the new
-      // group is synthesized within the same atomic block as the record_instance call we are in.
       removed_groups.insert(finder->second);
       finder->second = group;
     }
   }
 
-  for (RegionGroupP removed_group : removed_groups) {
-    replaced.insert(instances_[removed_group].instance);
-    instances_.erase(removed_group);
-  }
+  for (auto& removed_group : removed_groups)
+    // Because of exact policies, we can't simple remove the groups where regions in the `group`
+    // originally belong, because one region can be included in multiple region groups. (Note that
+    // the exact mapping bypasses the coalescing heuristic and always creates a fresh singleton
+    // group.) So, before we prune out each of those potentially obsoletegroups, we need to
+    // make sure that it is subsumed by the new group.
+    if (group->subsumes(removed_group.get())) {
+      replaced.insert(instances_[removed_group].instance);
+      instances_.erase(removed_group);
+    }
 
   replaced.erase(instance);
+
+#ifdef DEBUG_LEGATE
+#ifdef DEBUG_INSTANCE_MANAGER
+  log_instmgr.debug() << "===== after adding an entry " << *group << " ~> " << instance << " =====";
+#endif
+  dump_and_sanity_check();
+#endif
+
   return std::move(replaced);
 }
 
@@ -211,6 +240,16 @@ size_t InstanceSet::get_instance_size() const
   size_t sum = 0;
   for (auto& pair : instances_) sum += pair.second.instance.get_instance_size();
   return sum;
+}
+
+void InstanceSet::dump_and_sanity_check() const
+{
+#ifdef DEBUG_INSTANCE_MANAGER
+  for (auto& entry : groups_) log_instmgr.debug() << "  " << entry.first << " ~> " << *entry.second;
+  for (auto& entry : instances_)
+    log_instmgr.debug() << "  " << *entry.first << " ~> " << entry.second.instance;
+#endif
+  for (auto& entry : groups_) assert(instances_.find(entry.second) != instances_.end());
 }
 
 bool InstanceManager::find_instance(Region region,
