@@ -777,6 +777,9 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
 
   auto& fields = layout_constraints.field_constraint.field_set;
 
+  // We need to hold the instance manager lock as we're about to try to find an instance
+  local_instances->lock();
+
   // See if we already have it in our local instances
   if (fields.size() == 1 && regions.size() == 1 &&
       local_instances->find_instance(
@@ -785,13 +788,13 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
     logger.debug() << get_mapper_name() << " found instance " << result << " for "
                    << regions.front();
 #endif
+    local_instances->unlock();
     // Needs acquire to keep the runtime happy
     return true;
   }
 
   // This whole process has to appear atomic
   runtime->disable_reentrant(ctx);
-  local_instances->lock();
 
   std::shared_ptr<RegionGroup> group{nullptr};
 
@@ -860,13 +863,13 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
       local_instances->record_instance(group, fid, result, policy);
     }
     // We made it so no need for an acquire
-    local_instances->unlock();
     runtime->enable_reentrant(ctx);
+    local_instances->unlock();
     return false;
   }
   // Done with the atomic part
-  local_instances->unlock();
   runtime->enable_reentrant(ctx);
+  local_instances->unlock();
 
   // If we make it here then we failed entirely
   auto req_indices = mapping.requirement_indices();
