@@ -75,5 +75,3 @@ if __name__ == "__main__":
     ksm = KernelSpecManager()
     spec = ksm.get_kernel_spec(kernel_name)
     shutil.copy(args.json, spec.resource_dir)
-
-    # TODO: copy legate_info.py and json file into legate dir
