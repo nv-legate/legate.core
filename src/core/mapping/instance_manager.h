@@ -17,6 +17,7 @@
 #pragma once
 
 #include <memory>
+#include <mutex>
 
 #include "legion.h"
 
@@ -141,13 +142,18 @@ class InstanceManager {
   void erase(Instance inst);
 
  public:
+  void lock();
+  void unlock();
+
+ public:
   static InstanceManager* get_instance_manager();
 
  public:
   std::map<Legion::Memory, size_t> aggregate_instance_sizes() const;
 
  private:
-  std::map<FieldMemInfo, InstanceSet> instance_sets_;
+  std::map<FieldMemInfo, InstanceSet> instance_sets_{};
+  std::mutex manager_lock_{};
 };
 
 }  // namespace mapping

@@ -786,6 +786,7 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
 
   // This whole process has to appear atomic
   runtime->disable_reentrant(ctx);
+  local_instances->lock();
 
   std::shared_ptr<RegionGroup> group{nullptr};
 
@@ -854,10 +855,12 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
       local_instances->record_instance(group, fid, result, policy);
     }
     // We made it so no need for an acquire
+    local_instances->unlock();
     runtime->enable_reentrant(ctx);
     return false;
   }
   // Done with the atomic part
+  local_instances->unlock();
   runtime->enable_reentrant(ctx);
 
   // If we make it here then we failed entirely
