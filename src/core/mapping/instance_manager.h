@@ -42,11 +42,12 @@ struct RegionGroup {
 
  public:
   std::vector<Region> get_regions() const;
-  bool subsumes(const RegionGroup* other) const;
+  bool subsumes(const RegionGroup* other);
 
  public:
   std::set<Region> regions;
   Domain bounding_box;
+  std::map<const RegionGroup*, bool> subsumption_cache;
 };
 
 std::ostream& operator<<(std::ostream& os, const RegionGroup& region_group);

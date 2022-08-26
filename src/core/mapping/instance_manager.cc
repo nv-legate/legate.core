@@ -44,12 +44,23 @@ std::vector<LogicalRegion> RegionGroup::get_regions() const
   return std::move(result);
 }
 
-bool RegionGroup::subsumes(const RegionGroup* other) const
+bool RegionGroup::subsumes(const RegionGroup* other)
 {
   if (regions.size() < other->regions.size()) return false;
-  for (auto& region : other->regions)
-    if (regions.find(region) == regions.end()) return false;
-  return true;
+  if (other->regions.size() == 1) {
+    return regions.find(*other->regions.begin()) != regions.end();
+  } else {
+    auto finder = subsumption_cache.find(other);
+    if (finder != subsumption_cache.end()) return finder->second;
+    for (auto& region : other->regions)
+      if (regions.find(region) == regions.end()) {
+        subsumption_cache[other] = false;
+        return false;
+      }
+
+    subsumption_cache[other] = true;
+    return true;
+  }
 }
 
 std::ostream& operator<<(std::ostream& os, const RegionGroup& region_group)
