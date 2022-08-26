@@ -76,7 +76,3 @@ class LegateInfoMagics(Magics):
     def legate_info(self, line: str) -> None:
         print(_legate_info)
         # return line
-
-
-def load_ipython_extension(ipython) -> None:
-    ipython.register_magics(LegateInfoMagics)
