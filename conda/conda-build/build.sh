@@ -48,6 +48,11 @@ $PYTHON -m pip install             \
   --disable-pip-version-check      \
   . -vv
 
+# Install Legion's Python CFFI bindings
+cmake \
+    --install build/_deps/legion-build/bindings/python \
+    --prefix "$PREFIX"
+
 # Legion leaves an egg-info file which will confuse conda trying to pick up the information
 # Remove it so the legate-core is the only egg-info file added
 rm -rf $SP_DIR/legion*egg-info
