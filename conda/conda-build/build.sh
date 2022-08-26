@@ -31,7 +31,7 @@ export CMAKE_GENERATOR=Ninja
 
 cmake -S . -B build ${CMAKE_ARGS}
 cmake --build build -j$CPU_COUNT
-cmake --install build
+cmake --install build --prefix "$PREFIX"
 
 CMAKE_ARGS="
 -DFIND_LEGATE_CORE_CPP=ON
@@ -47,11 +47,6 @@ $PYTHON -m pip install             \
   --cache-dir "$PIP_CACHE_DIR"     \
   --disable-pip-version-check      \
   . -vv
-
-# Install Legion's Python CFFI bindings
-cmake \
-    --install build/_deps/legion-build/bindings/python \
-    --prefix "$PREFIX"
 
 # Legion leaves an egg-info file which will confuse conda trying to pick up the information
 # Remove it so the legate-core is the only egg-info file added
