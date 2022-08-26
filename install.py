@@ -430,6 +430,19 @@ calls into NCCL either directly or through some other Legate library.
             + setup_py_flags,
             cwd=legion_python_dir,
         )
+        # install the jupyter python files
+        legion_jupyter_dir = os.path.join(legion_src_dir, "jupyter_notebook")
+        verbose_check_call(
+            [
+                sys.executable,
+                "setup.py",
+                "install",
+                "--prefix",
+                str(os.path.realpath(install_dir)),
+            ]
+            + setup_py_flags,
+            cwd=legion_jupyter_dir,
+        )
     src = os.path.join(legion_src_dir, "runtime", "legion", "legion_c_util.h")
     dst = os.path.join(install_dir, "include", "legion", "legion_c_util.h")
     if not os.path.exists(dst) or os.path.getmtime(dst) < os.path.getmtime(
@@ -782,6 +795,14 @@ def install(
     # Copy any executables that we need for legate functionality
     verbose_check_call(
         ["cp", "legate.py", os.path.join(install_dir, "bin", "legate")],
+        cwd=legate_core_dir,
+    )
+    verbose_check_call(
+        [
+            "cp",
+            "install_jupyter_kernel.py",
+            os.path.join(install_dir, "bin", "install_jupyter_kernel"),
+        ],
         cwd=legate_core_dir,
     )
     verbose_check_call(

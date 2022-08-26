@@ -15,8 +15,11 @@
 
 # mypy: ignore-errors
 import json
+import os
+import sys
 
 from IPython.core.magic import Magics, line_magic, magics_class
+from jupyter_client.kernelspec import KernelSpecManager
 
 cmd_dict = {
     "cpus": "Number of CPUs to use per rank",
@@ -36,7 +39,25 @@ cmd_dict = {
 class LegateInfo(object):
     def __init__(self, filename: str) -> None:
         self.config_dict = dict()
-        with open(filename) as json_file:
+        # first check if the json file is in the ipython kernel directory
+        ksm = KernelSpecManager()
+        spec = ksm.get_kernel_spec("legate_kernel_nocr")
+        filepath = os.path.join(spec.resource_dir, filename)
+        if os.path.exists(filepath):
+            final_filename = filepath
+        else:
+            # second check if it is in the current directory
+            filepath = os.path.join(os.getcwd(), filename)
+            if os.path.exists(filepath):
+                final_filename = filepath
+            else:
+                print(
+                    "Can not file the json file in either "
+                    "IPython kernel directory or current "
+                    "working directory."
+                )
+                sys.exit(1)
+        with open(final_filename) as json_file:
             json_dict = json.load(json_file)
             for key in cmd_dict.keys():
                 if key not in json_dict:
