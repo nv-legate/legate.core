@@ -113,7 +113,7 @@ BaseMapper::~BaseMapper(void)
 {
   // Compute the size of all our remaining instances in each memory
   const char* show_usage = getenv("LEGATE_SHOW_USAGE");
-  if (show_usage != NULL) {
+  if (show_usage != nullptr) {
     auto mem_sizes             = local_instances->aggregate_instance_sizes();
     const char* memory_kinds[] = {
 #define MEM_NAMES(name, desc) desc,

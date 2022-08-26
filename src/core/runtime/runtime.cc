@@ -20,6 +20,7 @@
 #include "core/runtime/projection.h"
 #include "core/runtime/shard.h"
 #include "core/task/exception.h"
+#include "core/task/task.h"
 #include "core/utilities/deserializer.h"
 #include "legate.h"
 
@@ -150,8 +151,10 @@ void register_legate_core_tasks(Machine machine, Runtime* runtime, const Library
   {
     auto registrar =
       make_registrar(extract_scalar_task_id, extract_scalar_task_name, Processor::LOC_PROC);
-    runtime->register_task_variant<ReturnValues, extract_scalar_task>(registrar,
-                                                                      LEGATE_CPU_VARIANT);
+    Legion::CodeDescriptor desc(
+      Legion::LegionTaskWrapper::legion_task_wrapper<ReturnValues, extract_scalar_task>);
+    runtime->register_task_variant(
+      registrar, desc, nullptr, 0, LEGATE_MAX_SIZE_SCALAR_RETURN, LEGATE_CPU_VARIANT);
   }
   comm::register_tasks(machine, runtime, context);
 }

@@ -363,6 +363,8 @@ class Project(Transform):
 
     def get_inverse_transform(self, ndim: int) -> AffineTransform:
         parent_ndim = ndim + 1
+        if ndim == 0:
+            return AffineTransform(parent_ndim, parent_ndim, False)
         result = AffineTransform(parent_ndim, ndim, False)
         result.offset[self._dim] = self._index
         child_dim = 0

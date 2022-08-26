@@ -58,14 +58,6 @@ def read_c_define(header_path, def_name):
         return None
 
 
-def read_conduit(legate_dir):
-    realm_defines = os.path.join(legate_dir, "include", "realm_defines.h")
-    for conduit in ["ibv", "ucx", "aries", "mpi", "udp"]:
-        if read_c_define(realm_defines, f"GASNET_CONDUIT_{conduit.upper()}"):
-            return conduit
-    raise Exception("Could not detect a supported GASNet conduit")
-
-
 def find_python_module(legate_dir):
     lib_dir = os.path.join(legate_dir, "lib")
     python_lib = None
@@ -118,7 +110,6 @@ def run_legate(
     nsys_extra,
     progress,
     freeze_on_error,
-    no_tensor_cores,
     mem_usage,
     not_control_replicable,
     launcher,
@@ -217,11 +208,8 @@ def run_legate(
         assert "LEGATE_NEED_GASNET" not in cmd_env
         cmd_env["LEGATE_NEED_GASNET"] = str(1)
     if progress:
-        assert "LEGATE_SHOW_PROGREES" not in cmd_env
+        assert "LEGATE_SHOW_PROGRESS" not in cmd_env
         cmd_env["LEGATE_SHOW_PROGRESS"] = str(1)
-    if no_tensor_cores:
-        assert "LEGATE_DISABLE_TENSOR_CORES" not in cmd_env
-        cmd_env["LEGATE_DISABLE_TENSOR_CORES"] = str(1)
     if mem_usage:
         assert "LEGATE_SHOW_USAGE" not in cmd_env
         cmd_env["LEGATE_SHOW_USAGE"] = str(1)
@@ -311,6 +299,7 @@ def run_legate(
             # Execute in pseudo-terminal mode when we need to be interactive
             cmd += ["--pty"]
     elif launcher == "none":
+        rank_id = None
         if ranks == 1:
             rank_id = "0"
         else:
@@ -326,7 +315,11 @@ def run_legate(
         if rank_id is None:
             raise Exception(
                 "Could not detect rank ID on multi-rank run with "
-                "externally-managed launching"
+                "externally-managed launching (no --launcher provided). "
+                "If you want Legate to use a launcher (e.g. mpirun) "
+                "internally (recommended), then you need to tell us which one "
+                "to use through --launcher. Otherwise you need to invoke the "
+                "legate script itself through a launcher."
             )
         cmd = []
     else:
@@ -335,14 +328,10 @@ def run_legate(
     # Add any wrappers before the executable
     binary_dir = os.path.join(legate_dir, "bin")
     if any(f is not None for f in [cpu_bind, mem_bind, gpu_bind, nic_bind]):
-        cmd.append(os.path.join(binary_dir, "bind.sh"))
-
-        try:
-            conduit = read_conduit(legate_dir)
-            cmd += [launcher, conduit]
-        except Exception:
-            cmd += ["local", "local"]
-
+        cmd += [
+            os.path.join(binary_dir, "bind.sh"),
+            "local" if launcher == "none" and ranks == 1 else launcher,
+        ]
         if cpu_bind is not None:
             if len(cpu_bind.split("/")) != ranks_per_node:
                 raise Exception(
@@ -810,13 +799,6 @@ def driver():
         help="show progress of operations when running the program",
     )
     parser.add_argument(
-        "--no-tensor",
-        dest="no_tensor_cores",
-        action="store_true",
-        required=False,
-        help="disable the use of GPU tensor cores for better determinism",
-    )
-    parser.add_argument(
         "--mem-usage",
         dest="mem_usage",
         action="store_true",
@@ -932,7 +914,6 @@ def driver():
         args.nsys_extra,
         args.progress,
         args.freeze_on_error,
-        args.no_tensor_cores,
         args.mem_usage,
         args.not_control_replicable,
         args.launcher,

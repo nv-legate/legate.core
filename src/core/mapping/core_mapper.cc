@@ -22,6 +22,7 @@
 #ifdef LEGATE_USE_CUDA
 #include "core/comm/comm_nccl.h"
 #endif
+#include "core/task/task.h"
 
 namespace legate {
 
@@ -31,9 +32,9 @@ using namespace Legion::Mapping;
 uint32_t extract_env(const char* env_name, const uint32_t default_value, const uint32_t test_value)
 {
   const char* env_value = getenv(env_name);
-  if (env_value == NULL) {
+  if (nullptr == env_value) {
     const char* legate_test = getenv("LEGATE_TEST");
-    if (legate_test != NULL)
+    if (legate_test != nullptr)
       return test_value;
     else
       return default_value;
@@ -357,6 +358,7 @@ void CoreMapper::map_future_map_reduction(const MapperContext ctx,
                                           const FutureMapReductionInput& input,
                                           FutureMapReductionOutput& output)
 {
+  output.serdez_upper_bound = LEGATE_MAX_SIZE_SCALAR_RETURN;
 }
 
 void CoreMapper::select_tunable_value(const MapperContext ctx,
