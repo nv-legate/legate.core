@@ -461,13 +461,14 @@ To simplify the installation, we provide a script specifically for Legate librar
 
 ### Installation of the Legate IPython Kernel
 
-Please install Legate, then run the following command from the source folder
-to install the IPython Kernel:
+Please install Legate, then run the following command to install the IPython
+kernel:
 ```
 <legate_install_dir>/bin/install_jupyter_kernel --json=legate_jupyter.json
 ```
-`--json=legate_jupyter.json` is optional, if not provided, the installation
-script will look for it in the current directory. 
+If `--json=` is not provided, the installation script will look for a file
+named `legate_jupyter.json` in the current directory. 
+
 If installation is successful, you will see some output like the following:
 ```
 IPython kernel: legate_kernel_nocr(Legate_SM_GPU) has been installed
