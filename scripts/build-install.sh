@@ -36,3 +36,8 @@ SKBUILD_CONFIGURE_OPTIONS="$cmake_args"   \
         --no-deps --no-build-isolation    \
         --upgrade                         \
         . -vv
+
+# Install Legion's Python CFFI bindings
+cmake \
+    --install _skbuild/*/cmake-build/_deps/legion-build/bindings/python \
+    --prefix "$CONDA_PREFIX"
