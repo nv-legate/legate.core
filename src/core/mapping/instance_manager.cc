@@ -131,6 +131,9 @@ std::set<InstanceSet::Instance> InstanceSet::record_instance(RegionGroupP group,
     if (finder == groups_.end())
       groups_[region] = group;
     else if (finder->second != group) {
+      // NOTE: This assumes that when a Region changes groups, all other Regions originally in the
+      // same group also move to a new group. This is guaranteed in the BaseMapper because the new
+      // group is synthesized within the same atomic block as the record_instance call we are in.
       removed_groups.insert(finder->second);
       finder->second = group;
     }
