@@ -15,6 +15,7 @@
 # limitations under the License.
 #
 
+# mypy: ignore-errors
 import os
 import shutil
 import sys
@@ -22,7 +23,7 @@ import sys
 from jupyter_client.kernelspec import KernelSpecManager
 
 
-def find_python_module(legate_dir):
+def find_python_module(legate_dir: str) -> str:
     lib_dir = os.path.join(legate_dir, "lib")
     python_lib = None
     for f in os.listdir(lib_dir):
@@ -44,10 +45,16 @@ def find_python_module(legate_dir):
 
 
 if __name__ == "__main__":
-    (script_name, extension) = os.path.splitext(__file__)
+    try:
+        legate_dir = os.environ["LEGATE_DIR"]
+        legate_dir = os.path.abspath(legate_dir)
+    except KeyError:
+        print(
+            "Please specify the legate installation dir "
+            "by setting LEGATE_DIR"
+        )
+        sys.exit(1)
 
-    legate_bin_dir = os.path.dirname(os.path.realpath(__file__))
-    legate_dir = os.path.abspath(os.path.join(legate_bin_dir, os.pardir))
     python_lib_dir = find_python_module(legate_dir)
     sys.path.append(python_lib_dir)
     from install_jupyter import driver, parse_args
@@ -63,3 +70,5 @@ if __name__ == "__main__":
     ksm = KernelSpecManager()
     spec = ksm.get_kernel_spec(kernel_name)
     shutil.copy(args.json, spec.resource_dir)
+
+    # TODO: copy legate_info.py and json file into legate dir

@@ -800,14 +800,6 @@ def install(
     verbose_check_call(
         [
             "cp",
-            "install_jupyter_kernel.py",
-            os.path.join(install_dir, "bin", "install_jupyter_kernel"),
-        ],
-        cwd=legate_core_dir,
-    )
-    verbose_check_call(
-        [
-            "cp",
             "scripts/lgpatch.py",
             os.path.join(install_dir, "bin", "lgpatch"),
         ],
