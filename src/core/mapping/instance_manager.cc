@@ -133,14 +133,15 @@ struct construct_overlapping_region_group_fn {
       }
 
       // Only allow merging if the bloating isn't "too big"
-      auto union_bbox  = bound.union_bbox(group_bbox);
-      size_t bound_vol = bound.volume();
-      size_t union_vol = union_bbox.volume();
-      if (too_big(union_vol, bound_vol, group_bbox.volume(), intersect.volume())) {
+      auto union_bbox      = bound.union_bbox(group_bbox);
+      size_t union_vol     = union_bbox.volume();
+      size_t group_vol     = group_bbox.volume();
+      size_t intersect_vol = intersect.volume();
+      if (too_big(union_vol, bound_vol, group_vol, intersect_vol)) {
 #ifdef DEBUG_LEGATE
         log_instmgr.debug() << "    too big to merge (union:" << union_bbox
-                            << ",bound:" << bound_vol << ",group:" << group_bbox.volume()
-                            << ",intersect:" << intersect.volume() << ")";
+                            << ",bound:" << bound_vol << ",group:" << group_vol
+                            << ",intersect:" << intersect_vol << ")";
 #endif
         continue;
       }
