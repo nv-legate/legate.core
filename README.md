@@ -278,7 +278,7 @@ or
 python3 -m pip install .
 ```
 
-This will install Legate into the standard packages of the environment Python.
+This will install Legate into the standard packages of the Python environment.
 
 To add GPU support or do more complicated customization, Legate provides a
 helper `install.py` script. For GPU support, simply use the `--cuda` flag:
@@ -287,10 +287,9 @@ helper `install.py` script. For GPU support, simply use the `--cuda` flag:
 ./install.py --cuda
 ```
 
-for Legate simply use the `--cuda` flag. The first time you request
-GPU support you may need to use the `--with-cuda` flag to specify the location
-of your CUDA installation and the `--with-nccl` flag to specify the path to your NCCL
-installation if these can not be automatically located by the build system.
+The first time you request GPU support you may need to use the `--with-cuda` flag to
+specify the location of your CUDA installation and the `--with-nccl` flag to specify
+the path to your NCCL installation, if these cannot be automatically located by the build system.
 You can also specify the name of the CUDA architecture you want to target with the `--arch`
 flag. By default the script relies on CMake's auto-detection.
 ```
