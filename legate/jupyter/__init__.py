@@ -18,4 +18,5 @@ from ._magic_cmd import LegateInfoMagics
 
 
 def load_ipython_extension(ipython) -> None:
-    ipython.register_magics(LegateInfoMagics)
+    legate_info_magic = LegateInfoMagics(ipython)
+    ipython.register_magics(legate_info_magic)

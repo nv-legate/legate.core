@@ -19,7 +19,7 @@ import os
 import sys
 
 from IPython.core.magic import Magics, line_magic, magics_class
-from jupyter_client.kernelspec import KernelSpecManager
+from jupyter_client.kernelspec import KernelSpecManager, NoSuchKernel
 
 cmd_dict = {
     "cpus": "Number of CPUs to use per rank",
@@ -40,18 +40,18 @@ class LegateInfo(object):
     def __init__(self, filename: str) -> None:
         self.config_dict = dict()
         # check if the json file is in the ipython kernel directory
-        ksm = KernelSpecManager()
-        spec = ksm.get_kernel_spec("legate_kernel_nocr")
-        filepath = os.path.join(spec.resource_dir, filename)
-        if os.path.exists(filepath):
-            final_filename = filepath
-        else:
+        try:
+            ksm = KernelSpecManager()
+            spec = ksm.get_kernel_spec("legate_kernel_nocr")
+        except NoSuchKernel:
             print(
-                "Can not file the json file in the "
-                "IPython kernel directory."
+                "Can not find the json file in the "
+                "IPython kernel directory, please "
+                "make sure the kernel has been installed."
             )
             sys.exit(1)
-        with open(final_filename) as json_file:
+        filename_with_path = os.path.join(spec.resource_dir, filename)
+        with open(filename_with_path) as json_file:
             json_dict = json.load(json_file)
             for key in cmd_dict.keys():
                 if key not in json_dict:
@@ -67,12 +67,15 @@ class LegateInfo(object):
         return out_str
 
 
-_legate_info = LegateInfo("legate_jupyter.json")
-
-
 @magics_class
 class LegateInfoMagics(Magics):
+    __slots__ = ["legate_json"]
+
+    def __init__(self, shell):
+        super(LegateInfoMagics, self).__init__(shell)
+        self.legate_json = LegateInfo("legate_jupyter.json")
+
     @line_magic
     def legate_info(self, line: str) -> None:
-        print(_legate_info)
+        print(self.legate_json)
         # return line
