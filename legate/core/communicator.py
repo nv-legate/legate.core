@@ -18,7 +18,7 @@ import struct
 from abc import ABC, abstractmethod, abstractproperty
 from typing import TYPE_CHECKING
 
-from . import FutureMap, Point, Rect, legion, types as ty
+from . import FutureMap, Point, Rect, types as ty
 from .launcher import TaskLauncher as Task
 
 if TYPE_CHECKING:
@@ -122,7 +122,7 @@ class CPUCommunicator(Communicator):
         self._finalize_cpucoll = library.LEGATE_CORE_FINALIZE_CPUCOLL_TASK_ID
         num_omps = int(
             runtime.core_context.get_tunable(
-                legion.LEGATE_CORE_TUNABLE_TOTAL_OMPS,
+                runtime.core_library.LEGATE_CORE_TUNABLE_TOTAL_OMPS,
                 ty.int32,
             )
         )
