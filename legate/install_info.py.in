@@ -14,14 +14,21 @@
 from __future__ import annotations
 
 def get_libpath():
-    import os, sys
+    import os, sys, platform
     join = os.path.join
     exists = os.path.exists
     dirname = os.path.dirname
     lg_path = dirname(dirname(__file__))
+    so_ext = {
+        "": "",
+        "Java": ".jar",
+        "Linux": ".so",
+        "Darwin": ".dylib",
+        "Windows": ".dll"
+    }[platform.system()]
 
     def find_liblgcore(libdir):
-        if exists(join(libdir, "liblgcore.so")):
+        if exists(join(libdir, f"liblgcore{so_ext}")):
             return libdir
         return None
 
