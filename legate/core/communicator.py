@@ -18,14 +18,8 @@ import struct
 from abc import ABC, abstractmethod, abstractproperty
 from typing import TYPE_CHECKING
 
-from . import FutureMap, Point, Rect
+from . import FutureMap, Point, Rect, legion, types as ty
 from .launcher import TaskLauncher as Task
-
-from . import (
-    legion,
-    types as ty,
-)
-
 
 if TYPE_CHECKING:
     from .runtime import Runtime
@@ -134,7 +128,7 @@ class CPUCommunicator(Communicator):
         )
         if num_omps > 0:
             self._tag = library.LEGATE_OMP_VARIANT
-        else: 
+        else:
             self._tag = library.LEGATE_CPU_VARIANT
         self._needs_barrier = False
 
