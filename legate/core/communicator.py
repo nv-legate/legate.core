@@ -21,6 +21,12 @@ from typing import TYPE_CHECKING
 from . import FutureMap, Point, Rect
 from .launcher import TaskLauncher as Task
 
+from . import (
+    legion,
+    types as ty,
+)
+
+
 if TYPE_CHECKING:
     from .runtime import Runtime
 
@@ -120,7 +126,16 @@ class CPUCommunicator(Communicator):
         )
         self._init_cpucoll = library.LEGATE_CORE_INIT_CPUCOLL_TASK_ID
         self._finalize_cpucoll = library.LEGATE_CORE_FINALIZE_CPUCOLL_TASK_ID
-        self._tag = library.LEGATE_CPU_VARIANT
+        num_omps = int(
+            runtime.core_context.get_tunable(
+                legion.LEGATE_CORE_TUNABLE_TOTAL_OMPS,
+                ty.int32,
+            )
+        )
+        if num_omps > 0:
+            self._tag = library.LEGATE_OMP_VARIANT
+        else: 
+            self._tag = library.LEGATE_CPU_VARIANT
         self._needs_barrier = False
 
     def destroy(self) -> None:
