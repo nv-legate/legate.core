@@ -26,7 +26,6 @@ function(find_or_configure_legion)
     set(Legion_CUDA_ARCH ${CMAKE_CUDA_ARCHITECTURES})
     list(TRANSFORM Legion_CUDA_ARCH REPLACE "-real" "")
     list(TRANSFORM Legion_CUDA_ARCH REPLACE "-virtual" "")
-    list(JOIN Legion_CUDA_ARCH "," Legion_CUDA_ARCH)
   endif()
 
   set(FIND_PKG_ARGS
