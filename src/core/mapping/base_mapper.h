@@ -350,7 +350,7 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
   std::map<std::pair<Legion::TaskID, Legion::Processor::Kind>, Legion::VariantID> leaf_variants;
 
  protected:
-  std::unique_ptr<InstanceManager> local_instances;
+  InstanceManager* local_instances;
 
  protected:
   // Used for n-D cyclic distribution
