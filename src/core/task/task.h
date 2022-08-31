@@ -119,18 +119,7 @@ class LegateTask {
     }
 
     // Legion postamble
-    if (return_values.size() == 0)
-      Legion::Runtime::legion_task_postamble(legion_context);
-    else if (return_values.size() == 1) {
-      auto return_value = return_values[0];
-      Legion::Runtime::legion_task_postamble(
-        legion_context, return_value.first, return_value.second);
-    } else {
-      size_t buffer_size = return_values.legion_buffer_size();
-      void* buffer       = malloc(buffer_size);
-      return_values.legion_serialize(buffer);
-      Legion::Runtime::legion_task_postamble(legion_context, buffer, buffer_size, true);
-    }
+    return_values.call_postamble(legion_context);
   }
 
  public:

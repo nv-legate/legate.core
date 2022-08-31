@@ -58,13 +58,15 @@ struct ReturnValues {
   ReturnValues& operator=(ReturnValues&&) = default;
 
  public:
-  size_t size() const { return return_values_.size(); }
   ReturnValue operator[](int32_t idx) const;
 
  public:
   size_t legion_buffer_size() const;
   void legion_serialize(void* buffer) const;
   void legion_deserialize(const void* buffer);
+
+ public:
+  void call_postamble(Legion::Context legion_context) const;
 
  private:
   size_t buffer_size_{0};

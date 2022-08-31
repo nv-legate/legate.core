@@ -26,7 +26,7 @@
 #include "core/task/return.h"
 #include "core/utilities/machine.h"
 #ifdef LEGATE_USE_CUDA
-#include <cuda.h>
+#include "core/cuda/cuda_help.h"
 #endif
 
 using namespace Legion;
@@ -161,10 +161,6 @@ size_t ReturnValues::legion_buffer_size() const { return buffer_size_; }
 void ReturnValues::legion_serialize(void* buffer) const
 {
   auto ptr = static_cast<int8_t*>(buffer);
-#ifdef LEGATE_USE_CUDA
-  auto kind = Processor::get_executing_processor().kind();
-  if (kind == Processor::TOC_PROC) cudaDeviceSynchronize();
-#endif
   if (return_values_.size() > 1) {
     *reinterpret_cast<uint32_t*>(ptr) = return_values_.size();
     ptr += sizeof(uint32_t);
@@ -197,6 +193,33 @@ void ReturnValues::legion_deserialize(const void* buffer)
     ptr += size;
   }
   buffer_size_ = ptr - static_cast<const int8_t*>(buffer);
+}
+
+void ReturnValues::call_postamble(Legion::Context legion_context) const
+{
+  if (return_values_.empty()) {
+    Legion::Runtime::legion_task_postamble(legion_context);
+    return;
+  }
+
+#ifdef LEGATE_USE_CUDA
+  // FIXME: We don't currently have a good way to defer the return value packing on GPUs,
+  //        as doing so would require the packing to be chained up with all preceding kernels,
+  //        potentially launched with different streams, within the task. Until we find
+  //        the right approach, we simply synchornize the device before proceeding.
+  auto kind = Processor::get_executing_processor().kind();
+  if (kind == Processor::TOC_PROC) CHECK_CUDA(cudaDeviceSynchronize());
+#endif
+
+  if (return_values_.size() == 1) {
+    auto& return_value = return_values_.front();
+    Legion::Runtime::legion_task_postamble(legion_context, return_value.first, return_value.second);
+  } else {
+    size_t buffer_size = legion_buffer_size();
+    void* buffer       = malloc(buffer_size);
+    legion_serialize(buffer);
+    Legion::Runtime::legion_task_postamble(legion_context, buffer, buffer_size, true);
+  }
 }
 
 void register_exception_reduction_op(Runtime* runtime, const LibraryContext& context)
