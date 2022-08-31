@@ -614,7 +614,14 @@ class ImagePartition(PartitionBase):
             (
                 self.__class__,
                 self._store,
-                self._store._version,
+                # Importantly, we _cannot_ store the version of the store
+                # in the hash value. This is because the store's version may
+                # change after we've already put this functor into a table.
+                # That would result in the hash value changing without moving
+                # the position in the table, breaking invariants of the table.
+                # However, we must still check for version in equality to avoid
+                # using old values.
+                # self._store._version,
                 self._part,
                 self._range,
                 self._mapper,
