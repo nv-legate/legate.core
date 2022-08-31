@@ -58,6 +58,7 @@ struct ReturnValues {
   ReturnValues& operator=(ReturnValues&&) = default;
 
  public:
+  size_t size() const { return return_values_.size(); }
   ReturnValue operator[](int32_t idx) const;
 
  public:
