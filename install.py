@@ -230,6 +230,7 @@ def install(
     verbose,
     thrust_dir,
     legion_dir,
+    legion_src_dir,
     legion_url,
     legion_branch,
     unknown,
@@ -410,6 +411,8 @@ def install(
         cmake_flags += ["-DThrust_ROOT=%s" % thrust_dir]
     if legion_dir:
         cmake_flags += ["-DLegion_ROOT=%s" % legion_dir]
+    if legion_src_dir:
+        cmake_flags += ["-DCPM_Legion_SOURCE=%s" % legion_src_dir]
     if legion_url:
         cmake_flags += ["-Dlegate_core_LEGION_REPOSITORY=%s" % legion_url]
     if legion_branch:
@@ -667,8 +670,15 @@ def driver():
         "provided, Thrust will be installed automatically.",
     )
     parser.add_argument(
-        "--legion-dir",
+        "--with-legion",
         dest="legion_dir",
+        required=False,
+        default=None,
+        help="Path to an existing Legion build directory.",
+    )
+    parser.add_argument(
+        "--legion-src-dir",
+        dest="legion_src_dir",
         required=False,
         default=None,
         help="Path to an existing Legion build directory.",
