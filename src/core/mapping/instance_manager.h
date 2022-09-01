@@ -152,8 +152,7 @@ class InstanceManager {
   void erase(Instance inst);
 
  public:
-  void lock();
-  void unlock();
+  Legion::Mapping::LocalLock& lock() { return manager_lock_; }
 
  public:
   static InstanceManager* get_instance_manager();
@@ -163,7 +162,7 @@ class InstanceManager {
 
  private:
   std::map<FieldMemInfo, InstanceSet> instance_sets_{};
-  std::mutex manager_lock_{};
+  Legion::Mapping::LocalLock manager_lock_{};
 };
 
 }  // namespace mapping
