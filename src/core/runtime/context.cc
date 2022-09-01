@@ -204,7 +204,7 @@ ReturnValues TaskContext::pack_return_values() const
     ReturnedException exn{};
     return_values.push_back(exn.pack());
   }
-  return ReturnValues(std::move(return_values));
+  return ReturnValues(std::move(return_values), can_raise_exception_);
 }
 
 ReturnValues TaskContext::pack_return_values_with_exception(int32_t index,
@@ -215,7 +215,7 @@ ReturnValues TaskContext::pack_return_values_with_exception(int32_t index,
     ReturnedException exn(index, error_message);
     return_values.push_back(exn.pack());
   }
-  return ReturnValues(std::move(return_values));
+  return ReturnValues(std::move(return_values), can_raise_exception_);
 }
 
 std::vector<ReturnValue> TaskContext::get_return_values() const

@@ -47,7 +47,7 @@ struct ReturnedException {
 struct ReturnValues {
  public:
   ReturnValues();
-  ReturnValues(std::vector<ReturnValue>&& return_values);
+  ReturnValues(std::vector<ReturnValue>&& return_values, bool has_exception);
 
  public:
   ReturnValues(const ReturnValues&)            = default;
@@ -69,6 +69,7 @@ struct ReturnValues {
   void call_postamble(Legion::Context legion_context) const;
 
  private:
+  bool has_exception_{false};
   size_t buffer_size_{0};
   std::vector<ReturnValue> return_values_{};
 };

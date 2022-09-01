@@ -27,6 +27,8 @@
 #include "core/utilities/machine.h"
 #ifdef LEGATE_USE_CUDA
 #include "core/cuda/cuda_help.h"
+#include "core/cuda/stream_pool.h"
+#include "core/utilities/typedefs.h"
 #endif
 
 using namespace Legion;
@@ -144,8 +146,8 @@ ReturnValue ReturnedException::pack() const
 
 ReturnValues::ReturnValues() {}
 
-ReturnValues::ReturnValues(std::vector<ReturnValue>&& return_values)
-  : return_values_(std::move(return_values))
+ReturnValues::ReturnValues(std::vector<ReturnValue>&& return_values, bool has_exception)
+  : has_exception_(has_exception), return_values_(std::move(return_values))
 {
   if (return_values_.size() > 1) {
     buffer_size_ += sizeof(uint32_t);
@@ -203,12 +205,45 @@ void ReturnValues::call_postamble(Legion::Context legion_context) const
   }
 
 #ifdef LEGATE_USE_CUDA
-  // FIXME: We don't currently have a good way to defer the return value packing on GPUs,
-  //        as doing so would require the packing to be chained up with all preceding kernels,
-  //        potentially launched with different streams, within the task. Until we find
-  //        the right approach, we simply synchornize the device before proceeding.
   auto kind = Processor::get_executing_processor().kind();
-  if (kind == Processor::TOC_PROC) CHECK_CUDA(cudaDeviceSynchronize());
+  if (kind == Processor::TOC_PROC) {
+    // FIXME: We don't currently have a good way to defer the return value packing on GPUs,
+    //        as doing so would require the packing to be chained up with all preceding kernels,
+    //        potentially launched with different streams, within the task. Until we find
+    //        the right approach, we simply synchronize the device before proceeding.
+    CHECK_CUDA(cudaDeviceSynchronize());
+
+    size_t return_size = legion_buffer_size();
+
+    auto mem_kind = (return_values_.size() == 1 && !has_exception_)
+                      // The majority of cases would take this code path; there'd be a single
+                      // value (of a primitive type) from a task and no exception raised. For those
+                      // cases, we allocate the return instance on the framebuffer so that
+                      // downstream operations can keep the data within the GPU.
+                      ? Legion::Memory::Kind::GPU_FB_MEM
+                      // If there were more than one return value or an exception was raised,
+                      // we would need to take the slow host-side code path in downstream operations
+                      // for demux and/or serdez on packed values. For those cases, keeping the data
+                      // in a framebuffer is actually futile, so we just create the return instance
+                      // on the zero-copy memory to avoid any unnecessary data movement.
+                      : Legion::Memory::Kind::Z_COPY_MEM;
+
+    Rect<1> bounds(0, 0);
+    auto return_buffer = Legion::UntypedDeferredBuffer(return_size, 1, mem_kind, bounds);
+    AccessorWO<int8_t, 1> acc(return_buffer, bounds, return_size, false);
+    void* return_ptr = acc.ptr(0);
+
+    if (return_values_.size() == 1 && !has_exception_) {
+      auto stream = cuda::StreamPool::get_stream_pool().get_stream();
+      CHECK_CUDA(cudaMemcpyAsync(
+        return_ptr, return_values_.front().first, return_size, cudaMemcpyHostToDevice, stream));
+    } else
+      legion_serialize(return_ptr);
+
+    Legion::Runtime::legion_task_postamble(
+      legion_context, return_ptr, return_size, true, return_buffer.get_instance());
+    return;
+  }
 #endif
 
   if (return_values_.size() == 1) {

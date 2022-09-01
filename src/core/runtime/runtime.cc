@@ -89,7 +89,7 @@ static ReturnValues extract_scalar_task(const Task* task,
   TaskContext context(task, regions, legion_context, runtime);
   auto values = task->futures[0].get_result<ReturnValues>();
   auto idx    = context.scalars()[0].value<int32_t>();
-  return ReturnValues({values[idx]});
+  return ReturnValues({values[idx]}, false);
 }
 
 /*static*/ void Core::shutdown(void)
