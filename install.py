@@ -1020,7 +1020,7 @@ def driver():
         dest="thread_count",
         nargs="?",
         type=int,
-        default=os.environ.get("THREAD_COUNT"),
+        default=os.environ.get("CPU_COUNT"),
         help="Number of threads used to compile.",
     )
     parser.add_argument(
