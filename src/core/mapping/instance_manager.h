@@ -152,7 +152,7 @@ class InstanceManager {
   void erase(Instance inst);
 
  public:
-  Legion::Mapping::LocalLock& lock() { return manager_lock_; }
+  Legion::Mapping::LocalLock& manager_lock() { return manager_lock_; }
 
  public:
   static InstanceManager* get_instance_manager();
