@@ -681,7 +681,7 @@ def driver():
         dest="legion_src_dir",
         required=False,
         default=None,
-        help="Path to an existing Legion build directory.",
+        help="Path to an existing Legion source directory.",
     )
     parser.add_argument(
         "--legion-url",
