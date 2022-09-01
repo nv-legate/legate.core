@@ -269,6 +269,7 @@ def install(
         print("verbose:", verbose)
         print("thrust_dir:", thrust_dir)
         print("legion_dir:", legion_dir)
+        print("legion_src_dir:", legion_src_dir)
         print("legion_url:", legion_url)
         print("legion_branch:", legion_branch)
 
@@ -300,6 +301,7 @@ def install(
     cuda_dir = validate_path(cuda_dir)
     nccl_dir = validate_path(nccl_dir)
     legion_dir = validate_path(legion_dir)
+    legion_src_dir = validate_path(legion_src_dir)
     gasnet_dir = validate_path(gasnet_dir)
     thrust_dir = validate_path(thrust_dir)
 
@@ -308,6 +310,7 @@ def install(
         print("cuda_dir: ", cuda_dir)
         print("nccl_dir: ", nccl_dir)
         print("legion_dir: ", legion_dir)
+        print("legion_src_dir: ", legion_src_dir)
         print("gasnet_dir: ", gasnet_dir)
         print("thrust_dir: ", thrust_dir)
 
