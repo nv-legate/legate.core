@@ -251,7 +251,7 @@ void ReturnValues::legion_deserialize(const void* buffer)
   buffer_size_ = ptr - static_cast<const int8_t*>(buffer);
 }
 
-void ReturnValues::call_postamble(Context legion_context) const
+void ReturnValues::finalize(Context legion_context) const
 {
   if (return_values_.empty()) {
     Runtime::legion_task_postamble(legion_context);

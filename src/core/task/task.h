@@ -119,7 +119,7 @@ class LegateTask {
     }
 
     // Legion postamble
-    return_values.call_postamble(legion_context);
+    return_values.finalize(legion_context);
   }
 
  public:

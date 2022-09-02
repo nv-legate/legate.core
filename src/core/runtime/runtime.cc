@@ -96,7 +96,7 @@ static void extract_scalar_task(
   auto idx    = context.scalars()[0].value<int32_t>();
 
   // Legion postamble
-  ReturnValues({values[idx]}).call_postamble(legion_context);
+  ReturnValues({values[idx]}).finalize(legion_context);
 }
 
 /*static*/ void Core::shutdown(void)

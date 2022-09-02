@@ -66,7 +66,8 @@ struct ReturnValues {
   void legion_deserialize(const void* buffer);
 
  public:
-  void call_postamble(Legion::Context legion_context) const;
+  // Calls the Legion postamble with an instance that packs all return values
+  void finalize(Legion::Context legion_context) const;
 
  private:
   size_t buffer_size_{0};
