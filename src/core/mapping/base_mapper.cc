@@ -1041,6 +1041,7 @@ bool BaseMapper::map_raw_array(const MapperContext ctx,
 void BaseMapper::filter_failed_acquires(std::vector<PhysicalInstance>& needed_acquires,
                                         std::set<PhysicalInstance>& failed_acquires)
 {
+  AutoLock lock(local_instances->manager_lock());
   for (auto& instance : needed_acquires) {
     if (failed_acquires.find(instance) != failed_acquires.end()) continue;
     failed_acquires.insert(instance);
