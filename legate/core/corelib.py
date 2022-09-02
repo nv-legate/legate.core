@@ -29,6 +29,7 @@ from .resource import ResourceConfig
 
 class CoreLib(Library):
     def __init__(self) -> None:
+        super().__init__()
         self._lib: Union[Any, None] = None
 
     def get_name(self) -> str:

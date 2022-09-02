@@ -338,10 +338,6 @@ std::map<Legion::Memory, size_t> InstanceManager::aggregate_instance_sizes() con
   return result;
 }
 
-void InstanceManager::lock() { manager_lock_.lock(); }
-
-void InstanceManager::unlock() { manager_lock_.unlock(); }
-
 /*static*/ InstanceManager* InstanceManager::get_instance_manager()
 {
   static InstanceManager* manager{nullptr};
