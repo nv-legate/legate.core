@@ -47,7 +47,7 @@ class RegionField {
 
  private:
   template <typename ACC, int32_t N>
-  struct trans_accesor_fn {
+  struct trans_accessor_fn {
     template <int32_t M>
     ACC operator()(const Legion::PhysicalRegion& pr,
                    Legion::FieldID fid,
