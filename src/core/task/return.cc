@@ -184,8 +184,7 @@ ReturnValue unpack_return_value(const int8_t*& ptr, Memory::Kind memory_kind)
 
   UntypedDeferredValue value(size, memory_kind);
   AccessorWO<int8_t, 1> acc(value, size, false);
-  auto target = acc.ptr(0);
-  memcpy(target, ptr, size);
+  memcpy(acc.ptr(0), ptr, size);
   ptr += size;
 
   return ReturnValue(value, size);
@@ -272,11 +271,10 @@ void ReturnValues::call_postamble(Context legion_context) const
 #endif
 
   size_t return_size = legion_buffer_size();
-  auto mem_kind      = find_memory_kind_for_executing_processor();
-  auto return_buffer = UntypedDeferredValue(return_size, mem_kind);
+  auto return_buffer =
+    UntypedDeferredValue(return_size, find_memory_kind_for_executing_processor());
   AccessorWO<int8_t, 1> acc(return_buffer, return_size, false);
-  void* return_ptr = acc.ptr(0);
-  legion_serialize(return_ptr);
+  legion_serialize(acc.ptr(0));
   return_buffer.finalize(legion_context);
 }
 
