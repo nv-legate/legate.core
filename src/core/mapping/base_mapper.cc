@@ -700,8 +700,11 @@ bool BaseMapper::find_existing_instance(LogicalRegion region,
                                         FieldID fid,
                                         Memory target_memory,
                                         PhysicalInstance& result,
-                                        Strictness strictness)
+                                        Strictness strictness,
+                                        bool acquire_instance_lock)
 {
+  std::unique_ptr<AutoLock> lock =
+    acquire_instance_lock ? std::make_unique<AutoLock>(local_instances->manager_lock()) : nullptr;
   // See if we already have it in our local instances
   if (local_instances->find_instance(region, fid, target_memory, result))
     return true;
@@ -913,6 +916,9 @@ bool BaseMapper::map_raw_array(const MapperContext ctx,
     // We already did the acquire
     return false;
   }
+
+  AutoLock lock(local_instances->manager_lock());
+
   // See if we already have it in our local instances
   if (local_instances->find_instance(region, fid, target_memory, result))
     // Needs acquire to keep the runtime happy
@@ -1023,7 +1029,8 @@ bool BaseMapper::map_raw_array(const MapperContext ctx,
       if (local_instances->find_instance(region, fid, mem, result))
         // Needs acquire to keep the runtime happy
         return true;
-  } else if (find_existing_instance(region, fid, target_memory, result)) {
+  } else if (find_existing_instance(
+               region, fid, target_memory, result, Strictness::strict, false)) {
     return true;
   }
   // If we make it here then we failed entirely
