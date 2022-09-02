@@ -188,8 +188,11 @@ class OutputRegionField {
   ReturnValue pack_weight() const;
 
  private:
+  void update_num_elements(size_t num_elements);
+
+ private:
   bool bound_{false};
-  Legion::DeferredBuffer<size_t, 1> num_elements_;
+  Legion::UntypedDeferredValue num_elements_;
   Legion::OutputRegion out_{};
   Legion::FieldID fid_{-1U};
 };

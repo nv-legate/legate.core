@@ -137,17 +137,66 @@ ReturnValue ReturnedException::pack() const
 {
   auto buffer_size = legion_buffer_size();
   auto mem_kind    = find_memory_kind_for_executing_processor();
-  auto buffer      = create_buffer<int8_t>(buffer_size, mem_kind);
-  auto p_buffer    = buffer.ptr(0);
-  legion_serialize(p_buffer);
+  auto buffer      = UntypedDeferredValue(buffer_size, mem_kind);
 
-  return ReturnValue(p_buffer, buffer_size);
+  AccessorWO<int8_t, 1> acc(buffer, buffer_size, false);
+  legion_serialize(acc.ptr(0));
+
+  return ReturnValue(buffer, buffer_size);
 }
+
+namespace {
+
+template <bool PACK_SIZE>
+int8_t* pack_return_value(int8_t* target, const ReturnValue& value)
+{
+  if constexpr (PACK_SIZE) {
+    *reinterpret_cast<uint32_t*>(target) = value.second;
+    target += sizeof(uint32_t);
+  }
+
+  AccessorWO<int8_t, 1> acc(value.first, value.second, false);
+  memcpy(target, acc.ptr(0), value.second);
+  return target + value.second;
+}
+
+#ifdef LEGATE_USE_CUDA
+
+template <bool PACK_SIZE>
+int8_t* pack_return_value(int8_t* target, const ReturnValue& value, cuda::StreamView& stream)
+{
+  if constexpr (PACK_SIZE) {
+    *reinterpret_cast<uint32_t*>(target) = value.second;
+    target += sizeof(uint32_t);
+  }
+
+  AccessorWO<int8_t, 1> acc(value.first, value.second, false);
+  CHECK_CUDA(cudaMemcpyAsync(target, acc.ptr(0), value.second, cudaMemcpyDeviceToHost, stream));
+  return target + value.second;
+}
+
+#endif
+
+ReturnValue unpack_return_value(const int8_t*& ptr, Memory::Kind memory_kind)
+{
+  auto size = *reinterpret_cast<const uint32_t*>(ptr);
+  ptr += sizeof(uint32_t);
+
+  UntypedDeferredValue value(size, memory_kind);
+  AccessorWO<int8_t, 1> acc(value, size, false);
+  auto target = acc.ptr(0);
+  memcpy(target, ptr, size);
+  ptr += size;
+
+  return ReturnValue(value, size);
+}
+
+}  // namespace
 
 ReturnValues::ReturnValues() {}
 
-ReturnValues::ReturnValues(std::vector<ReturnValue>&& return_values, bool has_exception)
-  : has_exception_(has_exception), return_values_(std::move(return_values))
+ReturnValues::ReturnValues(std::vector<ReturnValue>&& return_values)
+  : return_values_(std::move(return_values))
 {
   if (return_values_.size() > 1) {
     buffer_size_ += sizeof(uint32_t);
@@ -162,19 +211,31 @@ size_t ReturnValues::legion_buffer_size() const { return buffer_size_; }
 
 void ReturnValues::legion_serialize(void* buffer) const
 {
+#ifdef LEGATE_USE_CUDA
+  auto stream = cuda::StreamPool::get_stream_pool().get_stream();
+#endif
+
   auto ptr = static_cast<int8_t*>(buffer);
-  if (return_values_.size() > 1) {
+  if (return_values_.size() == 1) {
+    auto& ret = return_values_.front();
+#ifdef LEGATE_USE_CUDA
+    if (ret.first.get_instance().get_location().kind() == Memory::Kind::GPU_FB_MEM)
+      ptr = pack_return_value<false>(ptr, ret, stream);
+    else
+#endif
+      ptr = pack_return_value<false>(ptr, ret);
+  } else {
     *reinterpret_cast<uint32_t*>(ptr) = return_values_.size();
     ptr += sizeof(uint32_t);
+
     for (auto& ret : return_values_) {
-      *reinterpret_cast<uint32_t*>(ptr) = ret.second;
-      ptr += sizeof(uint32_t);
-      memcpy(ptr, ret.first, ret.second);
-      ptr += ret.second;
+#ifdef LEGATE_USE_CUDA
+      if (ret.first.get_instance().get_location().kind() == Memory::Kind::GPU_FB_MEM)
+        ptr = pack_return_value<true>(ptr, ret, stream);
+      else
+#endif
+        ptr = pack_return_value<true>(ptr, ret);
     }
-  } else {
-    assert(return_values_.size() == 1);
-    memcpy(ptr, return_values_[0].first, return_values_[0].second);
   }
 }
 
@@ -187,74 +248,36 @@ void ReturnValues::legion_deserialize(const void* buffer)
   ptr += sizeof(uint32_t);
   return_values_.resize(num_values);
 
-  for (auto& ret : return_values_) {
-    auto size = *reinterpret_cast<const uint32_t*>(ptr);
-    ptr += sizeof(uint32_t);
-    ret.first  = ptr;
-    ret.second = size;
-    ptr += size;
-  }
+  for (auto& ret : return_values_) ret = unpack_return_value(ptr, mem_kind);
   buffer_size_ = ptr - static_cast<const int8_t*>(buffer);
 }
 
-void ReturnValues::call_postamble(Legion::Context legion_context) const
+void ReturnValues::call_postamble(Context legion_context) const
 {
   if (return_values_.empty()) {
-    Legion::Runtime::legion_task_postamble(legion_context);
+    Runtime::legion_task_postamble(legion_context);
+    return;
+  } else if (return_values_.size() == 1) {
+    return_values_.front().first.finalize(legion_context);
     return;
   }
 
 #ifdef LEGATE_USE_CUDA
   auto kind = Processor::get_executing_processor().kind();
-  if (kind == Processor::TOC_PROC) {
-    // FIXME: We don't currently have a good way to defer the return value packing on GPUs,
-    //        as doing so would require the packing to be chained up with all preceding kernels,
-    //        potentially launched with different streams, within the task. Until we find
-    //        the right approach, we simply synchronize the device before proceeding.
-    CHECK_CUDA(cudaDeviceSynchronize());
-
-    size_t return_size = legion_buffer_size();
-
-    auto mem_kind = (return_values_.size() == 1 && !has_exception_)
-                      // The majority of cases would take this code path; there'd be a single
-                      // value (of a primitive type) from a task and no exception raised. For those
-                      // cases, we allocate the return instance on the framebuffer so that
-                      // downstream operations can keep the data within the GPU.
-                      ? Legion::Memory::Kind::GPU_FB_MEM
-                      // If there were more than one return value or an exception was raised,
-                      // we would need to take the slow host-side code path in downstream operations
-                      // for demux and/or serdez on packed values. For those cases, keeping the data
-                      // in a framebuffer is actually futile, so we just create the return instance
-                      // on the zero-copy memory to avoid any unnecessary data movement.
-                      : Legion::Memory::Kind::Z_COPY_MEM;
-
-    Rect<1> bounds(0, 0);
-    auto return_buffer = Legion::UntypedDeferredBuffer(return_size, 1, mem_kind, bounds);
-    AccessorWO<int8_t, 1> acc(return_buffer, bounds, return_size, false);
-    void* return_ptr = acc.ptr(0);
-
-    if (return_values_.size() == 1 && !has_exception_) {
-      auto stream = cuda::StreamPool::get_stream_pool().get_stream();
-      CHECK_CUDA(cudaMemcpyAsync(
-        return_ptr, return_values_.front().first, return_size, cudaMemcpyHostToDevice, stream));
-    } else
-      legion_serialize(return_ptr);
-
-    Legion::Runtime::legion_task_postamble(
-      legion_context, return_ptr, return_size, true, return_buffer.get_instance());
-    return;
-  }
+  // FIXME: We don't currently have a good way to defer the return value packing on GPUs,
+  //        as doing so would require the packing to be chained up with all preceding kernels,
+  //        potentially launched with different streams, within the task. Until we find
+  //        the right approach, we simply synchronize the device before proceeding.
+  if (kind == Processor::TOC_PROC) CHECK_CUDA(cudaDeviceSynchronize());
 #endif
 
-  if (return_values_.size() == 1) {
-    auto& return_value = return_values_.front();
-    Legion::Runtime::legion_task_postamble(legion_context, return_value.first, return_value.second);
-  } else {
-    size_t buffer_size = legion_buffer_size();
-    void* buffer       = malloc(buffer_size);
-    legion_serialize(buffer);
-    Legion::Runtime::legion_task_postamble(legion_context, buffer, buffer_size, true);
-  }
+  size_t return_size = legion_buffer_size();
+  auto mem_kind      = find_memory_kind_for_executing_processor();
+  auto return_buffer = UntypedDeferredValue(return_size, mem_kind);
+  AccessorWO<int8_t, 1> acc(return_buffer, return_size, false);
+  void* return_ptr = acc.ptr(0);
+  legion_serialize(return_ptr);
+  return_buffer.finalize(legion_context);
 }
 
 void register_exception_reduction_op(Runtime* runtime, const LibraryContext& context)
