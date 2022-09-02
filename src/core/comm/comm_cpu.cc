@@ -64,7 +64,7 @@ static coll::CollComm init_cpucoll(const Legion::Task* task,
   assert(mapping_table[point] == comm->mpi_rank);
   free(mapping_table);
 #else
-  coll::collCommCreate(comm, num_ranks, point, unique_id, NULL);
+  coll::collCommCreate(comm, num_ranks, point, unique_id, nullptr);
 #endif
 
   return comm;
@@ -83,7 +83,7 @@ static void finalize_cpucoll(const Legion::Task* task,
   assert(comm->global_rank == point);
   coll::collCommDestroy(comm);
   free(comm);
-  comm = NULL;
+  comm = nullptr;
 }
 
 void register_tasks(Legion::Machine machine,
@@ -136,6 +136,21 @@ void register_tasks(Legion::Machine machine,
     auto registrar =
       make_registrar(finalize_cpucoll_task_id, finalize_cpucoll_task_name, Processor::LOC_PROC);
     runtime->register_task_variant<finalize_cpucoll>(registrar, LEGATE_CPU_VARIANT);
+  }
+  {
+    auto registrar = make_registrar(
+      init_cpucoll_mapping_task_id, init_cpucoll_mapping_task_name, Processor::OMP_PROC);
+    runtime->register_task_variant<int, init_cpucoll_mapping>(registrar, LEGATE_OMP_VARIANT);
+  }
+  {
+    auto registrar =
+      make_registrar(init_cpucoll_task_id, init_cpucoll_task_name, Processor::OMP_PROC);
+    runtime->register_task_variant<coll::CollComm, init_cpucoll>(registrar, LEGATE_OMP_VARIANT);
+  }
+  {
+    auto registrar =
+      make_registrar(finalize_cpucoll_task_id, finalize_cpucoll_task_name, Processor::OMP_PROC);
+    runtime->register_task_variant<finalize_cpucoll>(registrar, LEGATE_OMP_VARIANT);
   }
 }
 

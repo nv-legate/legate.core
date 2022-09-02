@@ -22,6 +22,7 @@
 #ifdef LEGATE_USE_CUDA
 #include "core/comm/comm_nccl.h"
 #endif
+#include "core/task/task.h"
 
 namespace legate {
 
@@ -31,9 +32,9 @@ using namespace Legion::Mapping;
 uint32_t extract_env(const char* env_name, const uint32_t default_value, const uint32_t test_value)
 {
   const char* env_value = getenv(env_name);
-  if (env_value == NULL) {
+  if (nullptr == env_value) {
     const char* legate_test = getenv("LEGATE_TEST");
-    if (legate_test != NULL)
+    if (legate_test != nullptr)
       return test_value;
     else
       return default_value;
@@ -234,6 +235,9 @@ void CoreMapper::select_task_options(const MapperContext ctx, const Task& task, 
   if (task.tag == LEGATE_CPU_VARIANT) {
     assert(!local_cpus.empty());
     output.initial_proc = local_cpus.front();
+  } else if (task.tag == LEGATE_OMP_VARIANT) {
+    assert(!local_omps.empty());
+    output.initial_proc = local_omps.front();
   } else {
     assert(task.tag == LEGATE_GPU_VARIANT);
     assert(!local_gpus.empty());
@@ -292,6 +296,18 @@ void CoreMapper::slice_task(const MapperContext ctx,
           assert(local_index < local_gpus.size());
           output.slices.push_back(TaskSlice(
             Domain(itr.p, itr.p), local_gpus[local_index], false /*recurse*/, false /*stealable*/));
+        }
+        break;
+      }
+      case Processor::OMP_PROC: {
+        for (Domain::DomainPointIterator itr(input.domain); itr; itr++) {
+          const Point<1> point = itr.p;
+          assert(point[0] >= start);
+          assert(point[0] < (start + chunk));
+          const unsigned local_index = point[0] - start;
+          assert(local_index < local_omps.size());
+          output.slices.push_back(TaskSlice(
+            Domain(itr.p, itr.p), local_omps[local_index], false /*recurse*/, false /*stealable*/));
         }
         break;
       }
@@ -357,6 +373,7 @@ void CoreMapper::map_future_map_reduction(const MapperContext ctx,
                                           const FutureMapReductionInput& input,
                                           FutureMapReductionOutput& output)
 {
+  output.serdez_upper_bound = LEGATE_MAX_SIZE_SCALAR_RETURN;
 }
 
 void CoreMapper::select_tunable_value(const MapperContext ctx,
@@ -371,6 +388,10 @@ void CoreMapper::select_tunable_value(const MapperContext ctx,
     }
     case LEGATE_CORE_TUNABLE_TOTAL_GPUS: {
       pack_tunable<int32_t>(local_gpus.size() * total_nodes, output);  // assume symmetry
+      return;
+    }
+    case LEGATE_CORE_TUNABLE_TOTAL_OMPS: {
+      pack_tunable<int32_t>(local_omps.size() * total_nodes, output);  // assume symmetry
       return;
     }
     case LEGATE_CORE_TUNABLE_NUM_PIECES: {

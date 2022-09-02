@@ -389,7 +389,11 @@ class Task(TaskProtocol):
             self._demux_scalar_stores_future(result)
         else:
             assert isinstance(result, FutureMap)
-            self._demux_scalar_stores_future_map(result, launch_domain)
+            if launch_domain.get_volume() == 1:
+                future = result.get_future(launch_domain.lo)
+                self._demux_scalar_stores_future(future)
+            else:
+                self._demux_scalar_stores_future_map(result, launch_domain)
 
     def add_nccl_communicator(self) -> None:
         comm = self._context.get_nccl_communicator()

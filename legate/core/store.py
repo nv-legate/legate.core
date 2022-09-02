@@ -340,7 +340,7 @@ class RegionField:
 
         physical_region = self.get_inline_mapped_region(context)
         # We need a pointer to the physical allocation for this physical region
-        dim = len(shape)
+        dim = max(shape.ndim, 1)
         # Build the accessor for this physical region
         if transform is not None:
             # We have a transform so build the accessor special with a
@@ -367,9 +367,13 @@ class RegionField:
             )
         # Now that we've got our accessor we can get a pointer to the memory
         rect = ffi.new(f"legion_rect_{dim}d_t *")
-        for d in range(dim):
-            rect[0].lo.x[d] = 0
-            rect[0].hi.x[d] = shape[d] - 1  # inclusive
+        if shape.ndim == 0:
+            rect[0].lo.x[0] = 0
+            rect[0].hi.x[0] = 0  # inclusive
+        else:
+            for d in range(dim):
+                rect[0].lo.x[d] = 0
+                rect[0].hi.x[d] = shape[d] - 1  # inclusive
         subrect = ffi.new(f"legion_rect_{dim}d_t *")
         offsets = ffi.new("legion_byte_offset_t[]", dim)
         func = getattr(legion, f"legion_accessor_array_{dim}d_raw_rect_ptr")
@@ -385,7 +389,7 @@ class RegionField:
         ptr = ffi.cast("size_t", base_ptr)
         return InlineMappedAllocation(
             self,
-            tuple(shape),
+            tuple(shape) if shape.ndim > 0 else (1,),
             int(ptr),  # type: ignore[call-overload]
             strides,
         )
