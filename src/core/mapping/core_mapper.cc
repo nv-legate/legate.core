@@ -378,6 +378,9 @@ void CoreMapper::map_future_map_reduction(const MapperContext ctx,
                                           FutureMapReductionOutput& output)
 {
   output.serdez_upper_bound = LEGATE_MAX_SIZE_SCALAR_RETURN;
+  // If this was joining exceptions, we don't want to put instances anywhere
+  // other than the system memory because they need serdez
+  if (input.tag == LEGATE_CORE_JOIN_EXCEPTION_TAG) return;
   if (!local_gpus.empty())
     for (auto& pair : local_frame_buffers) output.destination_memories.push_back(pair.second);
   else if (has_socket_mem)
