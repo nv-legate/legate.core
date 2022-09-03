@@ -44,14 +44,14 @@ template <typename T, int DIM>
 AccessorRO<T, DIM> RegionField::read_accessor(const Legion::DomainAffineTransform& transform) const
 {
   using ACC = AccessorRO<T, DIM>;
-  return dim_dispatch(transform.transform.m, trans_accesor_fn<ACC, DIM>{}, pr_, fid_, transform);
+  return dim_dispatch(transform.transform.m, trans_accessor_fn<ACC, DIM>{}, pr_, fid_, transform);
 }
 
 template <typename T, int DIM>
 AccessorWO<T, DIM> RegionField::write_accessor(const Legion::DomainAffineTransform& transform) const
 {
   using ACC = AccessorWO<T, DIM>;
-  return dim_dispatch(transform.transform.m, trans_accesor_fn<ACC, DIM>{}, pr_, fid_, transform);
+  return dim_dispatch(transform.transform.m, trans_accessor_fn<ACC, DIM>{}, pr_, fid_, transform);
 }
 
 template <typename T, int DIM>
@@ -59,7 +59,7 @@ AccessorRW<T, DIM> RegionField::read_write_accessor(
   const Legion::DomainAffineTransform& transform) const
 {
   using ACC = AccessorRW<T, DIM>;
-  return dim_dispatch(transform.transform.m, trans_accesor_fn<ACC, DIM>{}, pr_, fid_, transform);
+  return dim_dispatch(transform.transform.m, trans_accessor_fn<ACC, DIM>{}, pr_, fid_, transform);
 }
 
 template <typename OP, bool EXCLUSIVE, int DIM>
@@ -68,7 +68,7 @@ AccessorRD<OP, EXCLUSIVE, DIM> RegionField::reduce_accessor(
 {
   using ACC = AccessorRD<OP, EXCLUSIVE, DIM>;
   return dim_dispatch(
-    transform.transform.m, trans_accesor_fn<ACC, DIM>{}, pr_, fid_, redop_id, transform);
+    transform.transform.m, trans_accessor_fn<ACC, DIM>{}, pr_, fid_, redop_id, transform);
 }
 
 template <typename T, int DIM>
@@ -102,7 +102,7 @@ AccessorRO<T, DIM> RegionField::read_accessor(const Legion::Rect<DIM>& bounds,
 {
   using ACC = AccessorRO<T, DIM>;
   return dim_dispatch(
-    transform.transform.m, trans_accesor_fn<ACC, DIM>{}, pr_, fid_, transform, bounds);
+    transform.transform.m, trans_accessor_fn<ACC, DIM>{}, pr_, fid_, transform, bounds);
 }
 
 template <typename T, int32_t DIM>
@@ -111,7 +111,7 @@ AccessorWO<T, DIM> RegionField::write_accessor(const Legion::Rect<DIM>& bounds,
 {
   using ACC = AccessorWO<T, DIM>;
   return dim_dispatch(
-    transform.transform.m, trans_accesor_fn<ACC, DIM>{}, pr_, fid_, transform, bounds);
+    transform.transform.m, trans_accessor_fn<ACC, DIM>{}, pr_, fid_, transform, bounds);
 }
 
 template <typename T, int32_t DIM>
@@ -120,7 +120,7 @@ AccessorRW<T, DIM> RegionField::read_write_accessor(
 {
   using ACC = AccessorRW<T, DIM>;
   return dim_dispatch(
-    transform.transform.m, trans_accesor_fn<ACC, DIM>{}, pr_, fid_, transform, bounds);
+    transform.transform.m, trans_accessor_fn<ACC, DIM>{}, pr_, fid_, transform, bounds);
 }
 
 template <typename OP, bool EXCLUSIVE, int DIM>
@@ -131,7 +131,7 @@ AccessorRD<OP, EXCLUSIVE, DIM> RegionField::reduce_accessor(
 {
   using ACC = AccessorRD<OP, EXCLUSIVE, DIM>;
   return dim_dispatch(
-    transform.transform.m, trans_accesor_fn<ACC, DIM>{}, pr_, fid_, redop_id, transform, bounds);
+    transform.transform.m, trans_accessor_fn<ACC, DIM>{}, pr_, fid_, redop_id, transform, bounds);
 }
 
 template <int32_t DIM>

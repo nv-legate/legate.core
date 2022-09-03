@@ -19,19 +19,23 @@
 #include "core/data/buffer.h"
 #include "core/data/scalar.h"
 #include "core/data/store.h"
+#include "core/mapping/base_mapper.h"
 #include "core/runtime/context.h"
+#include "core/runtime/runtime.h"
 #include "core/utilities/deserializer.h"
 
 #ifdef LEGATE_USE_CUDA
 #include "core/cuda/cuda_help.h"
 #endif
 
+#include "mappers/logging_wrapper.h"
+
 namespace legate {
 
 LibraryContext::LibraryContext(Legion::Runtime* runtime,
                                const std::string& library_name,
                                const ResourceConfig& config)
-  : library_name_(library_name)
+  : runtime_(runtime), library_name_(library_name)
 {
   task_scope_ = ResourceScope(
     runtime->generate_library_task_ids(library_name.c_str(), config.max_tasks), config.max_tasks);
@@ -142,6 +146,15 @@ bool LibraryContext::valid_projection_id(Legion::ProjectionID proj_id) const
 bool LibraryContext::valid_sharding_id(Legion::ShardingID shard_id) const
 {
   return shard_scope_.in_scope(shard_id);
+}
+
+void LibraryContext::register_mapper(mapping::BaseMapper* mapper, int64_t local_mapper_id) const
+{
+  auto mapper_id = get_mapper_id(local_mapper_id);
+  if (Core::log_mapping_decisions)
+    runtime_->add_mapper(mapper_id, new Legion::Mapping::LoggingWrapper(mapper, &mapper->logger));
+  else
+    runtime_->add_mapper(mapper_id, mapper);
 }
 
 TaskContext::TaskContext(const Legion::Task* task,

@@ -40,6 +40,8 @@ static const char* const core_library_name = "legate.core";
 
 /*static*/ bool Core::synchronize_stream_view = false;
 
+/*static*/ bool Core::log_mapping_decisions = false;
+
 /*static*/ void Core::parse_config(void)
 {
 #ifndef LEGATE_USE_CUDA
@@ -69,14 +71,15 @@ static const char* const core_library_name = "legate.core";
     exit(1);
   }
 #endif
-  const char* progress = getenv("LEGATE_SHOW_PROGRESS");
-  if (progress != nullptr) show_progress_requested = true;
+  auto parse_variable = [](const char* variable, bool& result) {
+    const char* value = getenv(variable);
+    if (value != nullptr && atoi(value) > 0) result = true;
+  };
 
-  const char* empty_task = getenv("LEGATE_EMPTY_TASK");
-  if (empty_task != nullptr && atoi(empty_task) > 0) use_empty_task = true;
-
-  const char* sync_stream_view = getenv("LEGATE_SYNC_STREAM_VIEW");
-  if (sync_stream_view != nullptr && atoi(sync_stream_view) > 0) synchronize_stream_view = true;
+  parse_variable("LEGATE_SHOW_PROGRESS", show_progress_requested);
+  parse_variable("LEGATE_EMPTY_TASK", use_empty_task);
+  parse_variable("LEGATE_SYNC_STREAM_VIEW", synchronize_stream_view);
+  parse_variable("LEGATE_LOG_MAPPING", log_mapping_decisions);
 }
 
 static void extract_scalar_task(
