@@ -155,7 +155,7 @@ int8_t* pack_return_value(int8_t* target, const ReturnValue& value)
     target += sizeof(uint32_t);
   }
 
-  AccessorWO<int8_t, 1> acc(value.first, value.second, false);
+  AccessorRO<int8_t, 1> acc(value.first, value.second, false);
   memcpy(target, acc.ptr(0), value.second);
   return target + value.second;
 }
@@ -170,7 +170,7 @@ int8_t* pack_return_value(int8_t* target, const ReturnValue& value, cuda::Stream
     target += sizeof(uint32_t);
   }
 
-  AccessorWO<int8_t, 1> acc(value.first, value.second, false);
+  AccessorRO<int8_t, 1> acc(value.first, value.second, false);
   CHECK_CUDA(cudaMemcpyAsync(target, acc.ptr(0), value.second, cudaMemcpyDeviceToHost, stream));
   return target + value.second;
 }
