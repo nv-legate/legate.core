@@ -22,6 +22,10 @@
 #include "core/runtime/context.h"
 #include "core/utilities/deserializer.h"
 
+#ifdef LEGATE_USE_CUDA
+#include "core/cuda/cuda_help.h"
+#endif
+
 namespace legate {
 
 LibraryContext::LibraryContext(Legion::Runtime* runtime,
@@ -186,7 +190,7 @@ TaskContext::TaskContext(const Legion::Task* task,
 #ifdef LEGATE_USE_CUDA
   // If the task is running on a GPU and there is at least one scalar store for reduction,
   // we need to wait for all the host-to-device copies for initialization to finish
-  if (Legion::Processor::get_executing_processor() == Legion::Processor::Kind::TOC_PROC)
+  if (Legion::Processor::get_executing_processor().kind() == Legion::Processor::Kind::TOC_PROC)
     for (auto& reduction : reductions_)
       if (reduction.is_future()) {
         CHECK_CUDA(cudaDeviceSynchronize());

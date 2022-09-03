@@ -142,16 +142,17 @@ FutureWrapper::FutureWrapper(
     if (initialize) {
       auto p_init_value = future_.get_buffer(mem_kind);
 #ifdef LEGATE_USE_CUDA
-      if (mem_kind == Memory::Kind::GPU_FB_MEM) {
-        // TODO: This should be done by Legion
-        buffer_ = UntypedDeferredValue(field_size, mem_kind);
-        AccessorWO<int8_t, 1> acc(buffer_, field_size, false);
-        auto stream = cuda::StreamPool::get_stream_pool().get_stream();
-        CHECK_CUDA(
-          cudaMemcpyAsync(acc.ptr(0), p_init_value, field_size, cudaMemcpyDeviceToDevice, stream));
-      } else
+      // if (mem_kind == Memory::Kind::GPU_FB_MEM) {
+      //   // TODO: This should be done by Legion
+      //   buffer_ = UntypedDeferredValue(field_size, mem_kind);
+      //   AccessorWO<int8_t, 1> acc(buffer_, field_size, false);
+      //   auto stream = cuda::StreamPool::get_stream_pool().get_stream();
+      //   CHECK_CUDA(
+      //     cudaMemcpyAsync(acc.ptr(0), p_init_value, field_size, cudaMemcpyDeviceToDevice,
+      //     stream));
+      // } else
 #endif
-        buffer_ = UntypedDeferredValue(field_size, mem_kind, p_init_value);
+      buffer_ = UntypedDeferredValue(field_size, mem_kind, p_init_value);
     } else
       buffer_ = UntypedDeferredValue(field_size, mem_kind);
   }
