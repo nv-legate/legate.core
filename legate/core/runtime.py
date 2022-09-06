@@ -1370,6 +1370,7 @@ class Runtime:
                 self.legion_runtime,
                 self.core_context.get_reduction_op_id(redop),
                 mapper=self.core_context.get_mapper_id(0),
+                tag=self.core_library.LEGATE_CORE_JOIN_EXCEPTION_TAG,
             )
 
     def issue_execution_fence(self, block: bool = False) -> None:

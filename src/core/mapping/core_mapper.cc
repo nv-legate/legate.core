@@ -109,6 +109,7 @@ class CoreMapper : public Legion::Mapping::NullMapper {
   const bool precise_exception_trace;
   const uint32_t field_reuse_frac;
   const uint32_t field_reuse_freq;
+  bool has_socket_mem;
 
  protected:
   std::vector<Processor> local_cpus;
@@ -142,7 +143,8 @@ CoreMapper::CoreMapper(MapperRuntime* rt, Machine m, const LibraryContext& c)
                   1)),
     precise_exception_trace(static_cast<bool>(extract_env("LEGATE_PRECISE_EXCEPTION_TRACE", 0, 1))),
     field_reuse_frac(extract_env("LEGATE_FIELD_REUSE_FRAC", 256, 256)),
-    field_reuse_freq(extract_env("LEGATE_FIELD_REUSE_FREQ", 32, 32))
+    field_reuse_freq(extract_env("LEGATE_FIELD_REUSE_FREQ", 32, 32)),
+    has_socket_mem(false)
 {
   // Query to find all our local processors
   Machine::ProcessorQuery local_procs(machine);
@@ -191,8 +193,10 @@ CoreMapper::CoreMapper(MapperRuntime* rt, Machine m, const LibraryContext& c)
     local_numa.only_kind(Memory::SOCKET_MEM);
     local_numa.best_affinity_to(local_omp);
     if (local_numa.count() > 0)  // if we have NUMA memories then use them
+    {
+      has_socket_mem                = true;
       local_numa_domains[local_omp] = local_numa.first();
-    else  // Otherwise we just use the local system memory
+    } else  // Otherwise we just use the local system memory
       local_numa_domains[local_omp] = local_system_memory;
   }
 }
@@ -374,6 +378,13 @@ void CoreMapper::map_future_map_reduction(const MapperContext ctx,
                                           FutureMapReductionOutput& output)
 {
   output.serdez_upper_bound = LEGATE_MAX_SIZE_SCALAR_RETURN;
+  // If this was joining exceptions, we don't want to put instances anywhere
+  // other than the system memory because they need serdez
+  if (input.tag == LEGATE_CORE_JOIN_EXCEPTION_TAG) return;
+  if (!local_gpus.empty())
+    for (auto& pair : local_frame_buffers) output.destination_memories.push_back(pair.second);
+  else if (has_socket_mem)
+    for (auto& pair : local_numa_domains) output.destination_memories.push_back(pair.second);
 }
 
 void CoreMapper::select_tunable_value(const MapperContext ctx,
