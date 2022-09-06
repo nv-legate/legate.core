@@ -260,7 +260,8 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
                               Legion::FieldID fid,
                               Legion::Memory target_memory,
                               Legion::Mapping::PhysicalInstance& result,
-                              Strictness strictness = Strictness::hint);
+                              Strictness strictness      = Strictness::hint,
+                              bool acquire_instance_lock = true);
   bool map_legate_store(const Legion::Mapping::MapperContext ctx,
                         const Legion::Mappable& mappable,
                         const StoreMapping& mapping,
