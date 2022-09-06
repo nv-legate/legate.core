@@ -25,10 +25,10 @@
 #include "core/runtime/context.h"
 #include "core/task/return.h"
 #include "core/utilities/machine.h"
+#include "core/utilities/typedefs.h"
 #ifdef LEGATE_USE_CUDA
 #include "core/cuda/cuda_help.h"
 #include "core/cuda/stream_pool.h"
-#include "core/utilities/typedefs.h"
 #endif
 
 using namespace Legion;
