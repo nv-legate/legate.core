@@ -26,10 +26,8 @@ import sys
 os_name = platform.system()
 
 if os_name == "Linux":
-    dylib_ext = ".so"
     LIB_PATH = "LD_LIBRARY_PATH"
 elif os_name == "Darwin":  # Don't currently support Darwin at the moment
-    dylib_ext = ".dylib"
     LIB_PATH = "DYLD_LIBRARY_PATH"
 else:
     raise Exception("Legate does not work on %s" % platform.system())

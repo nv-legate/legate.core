@@ -859,6 +859,25 @@ class Runtime:
             )
         )
 
+        self._num_cpus = int(
+            self._core_context.get_tunable(
+                legion.LEGATE_CORE_TUNABLE_TOTAL_CPUS,
+                ty.int32,
+            )
+        )
+        self._num_omps = int(
+            self._core_context.get_tunable(
+                legion.LEGATE_CORE_TUNABLE_TOTAL_OMPS,
+                ty.int32,
+            )
+        )
+        self._num_gpus = int(
+            self._core_context.get_tunable(
+                legion.LEGATE_CORE_TUNABLE_TOTAL_GPUS,
+                ty.int32,
+            )
+        )
+
         # Now we initialize managers
         self._attachment_manager = AttachmentManager(self)
         self._partition_manager = PartitionManager(self)
@@ -934,6 +953,18 @@ class Runtime:
     @property
     def empty_argmap(self) -> ArgumentMap:
         return self._empty_argmap
+
+    @property
+    def num_cpus(self) -> int:
+        return self._num_cpus
+
+    @property
+    def num_omps(self) -> int:
+        return self._num_omps
+
+    @property
+    def num_gpus(self) -> int:
+        return self._num_gpus
 
     @property
     def attachment_manager(self) -> AttachmentManager:

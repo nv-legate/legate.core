@@ -45,7 +45,7 @@ BaseMapper::BaseMapper(Runtime* rt, Machine m, const LibraryContext& ctx)
     total_nodes(get_total_nodes(m)),
     mapper_name(std::move(create_name(local_node))),
     logger(create_logger_name().c_str()),
-    local_instances(std::make_unique<InstanceManager>())
+    local_instances(InstanceManager::get_instance_manager())
 {
   // Query to find all our local processors
   Machine::ProcessorQuery local_procs(machine);
@@ -777,15 +777,24 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
 
   auto& fields = layout_constraints.field_constraint.field_set;
 
-  // See if we already have it in our local instances
-  if (fields.size() == 1 && regions.size() == 1 &&
-      local_instances->find_instance(
-        regions.front(), fields.front(), target_memory, result, policy))
-    // Needs acquire to keep the runtime happy
-    return true;
+  // We need to hold the instance manager lock as we're about to try to find an instance
+  AutoLock lock(local_instances->manager_lock());
 
   // This whole process has to appear atomic
   runtime->disable_reentrant(ctx);
+
+  // See if we already have it in our local instances
+  if (fields.size() == 1 && regions.size() == 1 &&
+      local_instances->find_instance(
+        regions.front(), fields.front(), target_memory, result, policy)) {
+#ifdef DEBUG_LEGATE
+    logger.debug() << get_mapper_name() << " found instance " << result << " for "
+                   << regions.front();
+#endif
+    runtime->enable_reentrant(ctx);
+    // Needs acquire to keep the runtime happy
+    return true;
+  }
 
   std::shared_ptr<RegionGroup> group{nullptr};
 
@@ -802,7 +811,7 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
     const Domain domain = runtime->get_index_space_domain(ctx, is);
     group =
       local_instances->find_region_group(regions.front(), domain, fid, target_memory, policy.exact);
-    regions = group->regions;
+    regions = group->get_regions();
   }
 
   bool created     = false;
@@ -841,20 +850,20 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
   if (success) {
     // We succeeded in making the instance where we want it
     assert(result.exists());
-    if (created)
-      logger.info("%s created instance %lx containing %zd bytes in memory " IDFMT,
-                  get_mapper_name(),
-                  result.get_instance_id(),
-                  footprint,
-                  target_memory.id);
+#ifdef DEBUG_LEGATE
+    if (created) {
+      logger.debug() << get_mapper_name() << " created instance " << result << " for " << *group
+                     << " (size: " << footprint << " bytes, memory: " << target_memory << ")";
+    }
+#endif
     // Only save the result for future use if it is not an external instance
     if (!result.is_external_instance() && group != nullptr) {
       assert(fields.size() == 1);
       auto fid = fields.front();
       local_instances->record_instance(group, fid, result, policy);
     }
-    // We made it so no need for an acquire
     runtime->enable_reentrant(ctx);
+    // We made it so no need for an acquire
     return false;
   }
   // Done with the atomic part
@@ -961,7 +970,7 @@ bool BaseMapper::map_raw_array(const MapperContext ctx,
   if (runtime->find_or_create_physical_instance(ctx,
                                                 target_memory,
                                                 layout_constraints,
-                                                group->regions,
+                                                group->get_regions(),
                                                 result,
                                                 created,
                                                 true /*acquire*/,

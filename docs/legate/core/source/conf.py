@@ -42,8 +42,6 @@ extensions = [
     "recommonmark",
 ]
 
-copybutton_prompt_text = ">>> "
-
 # The master toctree document.
 master_doc = "index"
 
@@ -70,8 +68,6 @@ html_theme = "pydata_sphinx_theme"
 html_static_path = ["_static"]
 
 pygments_style = "sphinx"
-
-intersphinx_mapping = {"https://docs.python.org/": None}
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3/", None),
