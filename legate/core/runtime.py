@@ -40,17 +40,13 @@ from . import (
     types as ty,
 )
 from ._legion.util import Dispatchable
+from .allocation import Attachable
 from .communicator import CPUCommunicator, NCCLCommunicator
-from .context import Context
 from .corelib import core_library
 from .exception import PendingException
-from .launcher import TaskLauncher
-from .partition import Restriction
 from .projection import is_identity_projection, pack_symbolic_projection_repr
+from .restriction import Restriction
 from .shape import Shape
-from .solver import Partitioner
-from .store import DistributedAllocation, RegionField, Storage, Store
-from .transform import IdentityTransform
 from .utils import OrderedSet
 
 if TYPE_CHECKING:
@@ -59,14 +55,14 @@ if TYPE_CHECKING:
     from . import ArgumentMap, Detach, IndexDetach, IndexPartition, Library
     from ._legion import FieldListLike, PhysicalRegion
     from .communicator import Communicator
+    from .context import Context
     from .corelib import CoreLib
     from .operation import Operation
     from .partition import PartitionBase
     from .projection import ProjExpr
+    from .store import RegionField, Store
 
 from math import prod
-
-Attachable = Union[memoryview, DistributedAllocation]
 
 T = TypeVar("T")
 
@@ -975,6 +971,8 @@ class Runtime:
         return self._partition_manager
 
     def register_library(self, library: Library) -> Context:
+        from .context import Context
+
         libname = library.get_name()
         if libname in self._contexts:
             raise RuntimeError(
@@ -1054,6 +1052,8 @@ class Runtime:
         return op.launch(self.legion_runtime, self.legion_context)
 
     def _schedule(self, ops: List[Operation]) -> None:
+        from .solver import Partitioner
+
         # TODO: For now we run the partitioner for each operation separately.
         #       We will eventually want to compute a trace-wide partitioning
         #       strategy.
@@ -1165,6 +1165,8 @@ class Runtime:
         optimize_scalar: bool = False,
         ndim: Optional[int] = None,
     ) -> Store:
+        from .store import RegionField, Storage, Store
+
         if ndim is not None and shape is not None:
             raise ValueError("ndim cannot be used with shape")
         elif ndim is None and shape is None:
@@ -1183,7 +1185,6 @@ class Runtime:
             self,
             dtype,
             storage,
-            IdentityTransform(),
             shape=shape,
             ndim=ndim,
         )
@@ -1210,6 +1211,8 @@ class Runtime:
         return field_mgr
 
     def allocate_field(self, shape: Shape, dtype: Any) -> RegionField:
+        from .store import RegionField
+
         assert not self.destroyed
         region = None
         field_id = None
@@ -1233,6 +1236,8 @@ class Runtime:
     def import_output_region(
         self, out_region: OutputRegion, field_id: int, dtype: Any
     ) -> RegionField:
+        from .store import RegionField
+
         region = out_region.get_region()
         shape = Shape(ispace=region.index_space)
 
@@ -1323,6 +1328,8 @@ class Runtime:
         )
 
     def extract_scalar(self, future: Future, idx: int) -> Future:
+        from .launcher import TaskLauncher
+
         launcher = TaskLauncher(
             self.core_context,
             self.core_library.LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,
@@ -1335,6 +1342,8 @@ class Runtime:
     def extract_scalar_with_domain(
         self, future: FutureMap, idx: int, launch_domain: Rect
     ) -> FutureMap:
+        from .launcher import TaskLauncher
+
         launcher = TaskLauncher(
             self.core_context,
             self.core_library.LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,

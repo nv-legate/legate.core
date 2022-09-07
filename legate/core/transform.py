@@ -740,3 +740,6 @@ class IdentityTransform(TransformStackBase):
 
     def serialize(self, buf: BufferBuilder) -> None:
         buf.pack_32bit_int(-1)
+
+
+identity = IdentityTransform()

@@ -36,6 +36,7 @@ from . import (
     ffi,
     legion,
 )
+from .allocation import Attachable, DistributedAllocation
 from .partition import REPLICATE, PartitionBase, Restriction, Tiling
 from .projection import execute_functor_symbolically
 from .shape import Shape
@@ -46,6 +47,7 @@ from .transform import (
     Shift,
     TransformStack,
     Transpose,
+    identity,
 )
 from .types import _Dtype
 
@@ -95,37 +97,6 @@ class InlineMappedAllocation:
         result = ctor(self._shape, self._address, self._strides)
         self._region_field.register_consumer(result)
         return result
-
-
-class DistributedAllocation:
-    def __init__(
-        self,
-        partition: LegionPartition,
-        shard_local_buffers: dict[Point, memoryview],
-    ) -> None:
-        """
-        Represents a distributed collection of buffers, to be
-        collectively attached as sub-regions of the same
-        parent region.
-
-        This is a rare case of a data structure that is allowed (and expected)
-        to have a different value on different shards; each shard should
-        specify a distinct set of resources.
-
-        Parameters
-        ----------
-        partition : Partition
-            The partition to use in the IndexAttach operation
-        shard_local_buffers : dict[Point, memoryview]
-            Map from color to buffer that should back the sub-region of that
-            color. This map will only cover the buffers local to the current
-            shard.
-        """
-        self.partition = partition
-        self.shard_local_buffers = shard_local_buffers
-
-
-Attachable = Union[memoryview, DistributedAllocation]
 
 
 # A region field holds a reference to a field in a logical region
@@ -880,7 +851,7 @@ class Store:
         runtime: Runtime,
         dtype: _Dtype,
         storage: Storage,
-        transform: TransformStackBase,
+        transform: Optional[TransformStackBase] = None,
         shape: Optional[Shape] = None,
         ndim: Optional[int] = None,
     ) -> None:
@@ -906,6 +877,10 @@ class Store:
             A stack of transforms that describe a view to the storage
 
         """
+        if transform is not None:
+            sanitized_transform = transform
+        else:
+            sanitized_transform = identity
         assert isinstance(shape, Shape) or shape is None
         self._runtime = runtime
         self._partition_manager = runtime.partition_manager
@@ -913,7 +888,7 @@ class Store:
         self._ndim = ndim
         self._dtype = dtype
         self._storage = storage
-        self._transform = transform
+        self._transform: TransformStackBase = sanitized_transform
         self._key_partition: Union[None, PartitionBase] = None
         # This is a cache for the projection functor id
         # when no custom functor is given

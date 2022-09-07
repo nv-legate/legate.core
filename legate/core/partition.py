@@ -15,7 +15,6 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod, abstractproperty
-from enum import IntEnum, unique
 from typing import TYPE_CHECKING, Optional, Sequence, Type, Union
 
 from . import (
@@ -27,18 +26,12 @@ from . import (
     legion,
 )
 from .launcher import Broadcast, Partition
+from .restriction import Restriction
 from .shape import Shape
 
 if TYPE_CHECKING:
     from . import FutureMap, Partition as LegionPartition, Region
     from .runtime import Runtime
-
-
-@unique
-class Restriction(IntEnum):
-    RESTRICTED = -2
-    AVOIDED = -1
-    UNRESTRICTED = 1
 
 
 RequirementType = Union[Type[Broadcast], Type[Partition]]
