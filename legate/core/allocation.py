@@ -14,10 +14,41 @@
 #
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, Callable, Union
 
 if TYPE_CHECKING:
     from . import Partition as LegionPartition, Point
+    from .store import RegionField
+
+
+class InlineMappedAllocation:
+    """
+    This helper class is to tie the lifecycle of the client object to
+    the inline mapped allocation
+    """
+
+    def __init__(
+        self,
+        region_field: RegionField,
+        shape: tuple[int, ...],
+        address: int,
+        strides: tuple[int, ...],
+    ) -> None:
+        self._region_field = region_field
+        self._shape = shape
+        self._address = address
+        self._strides = strides
+        self._consumed = False
+
+    def consume(
+        self, ctor: Callable[[tuple[int, ...], int, tuple[int, ...]], Any]
+    ) -> Any:
+        if self._consumed:
+            raise RuntimeError("Each inline mapping can be consumed only once")
+        self._consumed = True
+        result = ctor(self._shape, self._address, self._strides)
+        self._region_field.register_consumer(result)
+        return result
 
 
 class DistributedAllocation:

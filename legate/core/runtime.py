@@ -71,14 +71,12 @@ T = TypeVar("T")
 class Field:
     def __init__(
         self,
-        runtime: Runtime,
         region: Region,
         field_id: int,
         dtype: Any,
         shape: Shape,
         own: bool = True,
     ) -> None:
-        self.runtime = runtime
         self.region = region
         self.field_id = field_id
         self.dtype = dtype
@@ -94,12 +92,19 @@ class Field:
     def __del__(self) -> None:
         if self.own:
             # Return our field back to the runtime
-            self.runtime.free_field(
-                self.region,
-                self.field_id,
-                self.dtype,
-                self.shape,
-            )
+            global runtime
+
+            try:
+                runtime.free_field(
+                    self.region,
+                    self.field_id,
+                    self.dtype,
+                    self.shape,
+                )
+            except NameError:
+                # We ignore any field destructions that happen after the
+                # runtime is destroyed
+                pass
 
 
 _sizeof_int = ffi.sizeof("int")
@@ -1180,9 +1185,8 @@ class Runtime:
             if optimize_scalar and shape is not None and shape.volume() == 1
             else RegionField
         )
-        storage = Storage(self, shape, 0, dtype, data=data, kind=kind)
+        storage = Storage(shape, 0, dtype, data=data, kind=kind)
         return Store(
-            self,
             dtype,
             storage,
             shape=shape,
@@ -1218,8 +1222,8 @@ class Runtime:
         field_id = None
         field_mgr = self.find_or_create_field_manager(shape, dtype)
         region, field_id = field_mgr.allocate_field()
-        field = Field(self, region, field_id, dtype, shape)
-        return RegionField(self, region, field, shape)
+        field = Field(region, field_id, dtype, shape)
+        return RegionField(region, field, shape)
 
     def free_field(
         self, region: Region, field_id: int, dtype: Any, shape: Shape
@@ -1244,7 +1248,6 @@ class Runtime:
         region_mgr = self.find_or_create_region_manager(shape)
         region_mgr.import_region(region)
         field = Field(
-            self,
             region,
             field_id,
             dtype,
@@ -1254,7 +1257,7 @@ class Runtime:
 
         self.find_or_create_field_manager(shape, dtype)
 
-        return RegionField(self, region, field, shape)
+        return RegionField(region, field, shape)
 
     def create_output_region(
         self, fspace: FieldSpace, fields: FieldListLike, ndim: int
@@ -1443,13 +1446,13 @@ class Runtime:
             pending.raise_exception()
 
 
-_runtime = Runtime(core_library)
+runtime: Runtime = Runtime(core_library)
 
 
 def _cleanup_legate_runtime() -> None:
-    global _runtime
-    _runtime.destroy()
-    del _runtime
+    global runtime
+    runtime.destroy()
+    del runtime
     gc.collect()
 
 
@@ -1457,16 +1460,16 @@ add_cleanup_item(_cleanup_legate_runtime)
 
 
 def get_legion_runtime() -> legion.legion_runtime_t:
-    return _runtime.legion_runtime
+    return runtime.legion_runtime
 
 
 def get_legion_context() -> legion.legion_context_t:
-    return _runtime.legion_context
+    return runtime.legion_context
 
 
 def legate_add_library(library: Library) -> None:
-    _runtime.register_library(library)
+    runtime.register_library(library)
 
 
 def get_legate_runtime() -> Runtime:
-    return _runtime
+    return runtime

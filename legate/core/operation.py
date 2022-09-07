@@ -336,7 +336,7 @@ class Task(TaskProtocol):
                 output = self.outputs[self.unbound_outputs[0]]
                 # TODO: need to track partitions for N-D unbound stores
                 if output.ndim == 1:
-                    partition = Weighted(runtime, launch_shape, result)
+                    partition = Weighted(launch_shape, result)
                     output.set_key_partition(partition)
             elif self.can_raise_exception:
                 runtime.record_pending_exception(
@@ -358,7 +358,7 @@ class Task(TaskProtocol):
                 weights = runtime.extract_scalar_with_domain(
                     result, idx, launch_domain
                 )
-                partition = Weighted(runtime, launch_shape, weights)
+                partition = Weighted(launch_shape, weights)
                 output.set_key_partition(partition)
                 idx += 1
             for red_idx in self.scalar_reductions:
@@ -951,7 +951,7 @@ class Reduce(AutoOperation):
             weights = launcher.execute(launch_domain)
 
             launch_shape = Shape(c + 1 for c in launch_domain.hi)
-            weighted = Weighted(self._runtime, launch_shape, weights)
+            weighted = Weighted(launch_shape, weights)
             output.set_key_partition(weighted)
             opart = output.partition(weighted)
 
