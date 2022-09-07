@@ -141,7 +141,7 @@ CoreMapper::CoreMapper(MapperRuntime* rt, Machine m, const LibraryContext& c)
                   64,
 #endif
                   1)),
-    precise_exception_trace(static_cast<bool>(extract_env("LEGATE_PRECISE_EXCEPTION_TRACE", 0, 1))),
+    precise_exception_trace(static_cast<bool>(extract_env("LEGATE_PRECISE_EXCEPTION_TRACE", 0, 0))),
     field_reuse_frac(extract_env("LEGATE_FIELD_REUSE_FRAC", 256, 256)),
     field_reuse_freq(extract_env("LEGATE_FIELD_REUSE_FREQ", 32, 32)),
     has_socket_mem(false)
