@@ -15,6 +15,7 @@
 
 import gc
 import inspect
+import sys
 from collections import deque
 from typing import Any, Union
 
@@ -44,7 +45,7 @@ def _find_cycles(root: Any, all_ids: set[int]) -> None:
         else:
             opened[id(dst)] = len(stack)
             for src in gc.get_referrers(dst):
-                if id(src) in all_ids:
+                if id(src) in all_ids and src is not sys.modules:
                     stack.append(src)
 
 
@@ -90,7 +91,11 @@ def _bfs(begin: Any, end: Any, all_ids: set[int]) -> None:
     while len(q) > 0:
         src = q.popleft()
         for dst in gc.get_referents(src):
-            if id(dst) not in all_ids or id(dst) in parent:
+            if (
+                id(dst) not in all_ids
+                or id(dst) in parent
+                or src is sys.modules
+            ):
                 continue
             parent[id(dst)] = src
             if dst is end:
