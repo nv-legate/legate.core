@@ -31,6 +31,7 @@ from . import (
     Point,
     Rect,
     Transform,
+    ffi,
     legion,
 )
 from .launcher import Broadcast, Partition
@@ -912,15 +913,32 @@ class AffineProjection:
     def project_partition(
         self, part: DomainPartition, bounds: Rect, tx_point: Any = None
     ) -> DomainPartition:
-        # Don't handle FutureMaps right now.
-        assert not isinstance(part._domains, FutureMap)
         projected = {}
-        for p, r in part._domains.items():
-            lo = self.project_point(r.lo, bounds.lo)
-            hi = self.project_point(r.hi, bounds.hi)
-            if tx_point is not None:
-                p = tx_point(p)
-            projected[p] = Rect(lo=lo, hi=hi, exclusive=False)
+        if isinstance(part._domains, FutureMap):
+            for point in Rect(hi=part.color_shape):
+                fut = part._domains.get_future(point)
+                buf = fut.get_buffer()
+                dom = ffi.from_buffer("legion_domain_t*", buf)[0]
+                lg_rect = getattr(
+                    legion, f"legion_domain_get_rect_{dom.dim}d"
+                )(dom)
+                lo = Point(dim=bounds.dim)
+                hi = Point(dim=bounds.dim)
+                for i in range(dom.dim):
+                    lo[i] = lg_rect.lo.x[i]
+                    hi[i] = lg_rect.hi.x[i]
+                lo = self.project_point(lo, bounds.lo)
+                hi = self.project_point(hi, bounds.hi)
+                if tx_point is not None:
+                    point = tx_point(point)
+                projected[point] = Rect(lo=lo, hi=hi, exclusive=False)
+        else:
+            for p, r in part._domains.items():
+                lo = self.project_point(r.lo, bounds.lo)
+                hi = self.project_point(r.hi, bounds.hi)
+                if tx_point is not None:
+                    p = tx_point(p)
+                projected[p] = Rect(lo=lo, hi=hi, exclusive=False)
         new_shape = Shape(
             tuple(bounds.hi[idx] + 1 for idx in range(bounds.dim))
         )
