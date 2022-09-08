@@ -60,13 +60,42 @@ if TYPE_CHECKING:
     from .context import Context
     from .launcher import Proj
     from .projection import ProjFn
-    from .runtime import Field
     from .transform import TransformStackBase
 
 from math import prod
 
 attachment_manager = runtime.attachment_manager
 partition_manager = runtime.partition_manager
+
+
+# A Field holds a reference to a field in a region tree
+class Field:
+    def __init__(
+        self,
+        region: Region,
+        field_id: int,
+        dtype: Any,
+        shape: Shape,
+    ) -> None:
+        self.region = region
+        self.field_id = field_id
+        self.dtype = dtype
+        self.shape = shape
+
+    def same_handle(self, other: Field) -> bool:
+        return type(self) == type(other) and self.field_id == other.field_id
+
+    def __str__(self) -> str:
+        return f"Field({self.field_id})"
+
+    def __del__(self) -> None:
+        # Return our field back to the runtime
+        runtime.free_field(
+            self.region,
+            self.field_id,
+            self.dtype,
+            self.shape,
+        )
 
 
 # A region field holds a reference to a field in a logical region
@@ -82,7 +111,6 @@ class RegionField:
         self.field = field
         self.shape = shape
         self.parent = parent
-        self.launch_space = None  # Parallel launch space for this region_field
         # External allocation we attached to this field
         self.attached_alloc: Union[None, Attachable] = None
         self.detach_key: int = -1
@@ -91,11 +119,18 @@ class RegionField:
         self.physical_region_refs = 0
         self.physical_region_mapped = False
 
-        self._partitions: dict[PartitionBase, LegionPartition] = {}
+        self._partitions: dict[Tiling, LegionPartition] = {}
 
     def __del__(self) -> None:
         if self.attached_alloc is not None:
             self.detach_external_allocation(unordered=True, defer=True)
+
+    @staticmethod
+    def create(
+        region: Region, field_id: int, dtype: Any, shape: Shape
+    ) -> RegionField:
+        field = Field(region, field_id, dtype, shape)
+        return RegionField(region, field, shape)
 
     def same_handle(self, other: RegionField) -> bool:
         return (

@@ -67,46 +67,6 @@ from math import prod
 T = TypeVar("T")
 
 
-# A Field holds a reference to a field in a region tree
-class Field:
-    def __init__(
-        self,
-        region: Region,
-        field_id: int,
-        dtype: Any,
-        shape: Shape,
-        own: bool = True,
-    ) -> None:
-        self.region = region
-        self.field_id = field_id
-        self.dtype = dtype
-        self.shape = shape
-        self.own = own
-
-    def same_handle(self, other: Field) -> bool:
-        return type(self) == type(other) and self.field_id == other.field_id
-
-    def __str__(self) -> str:
-        return f"Field({self.field_id})"
-
-    def __del__(self) -> None:
-        if self.own:
-            # Return our field back to the runtime
-            global runtime
-
-            try:
-                runtime.free_field(
-                    self.region,
-                    self.field_id,
-                    self.dtype,
-                    self.shape,
-                )
-            except NameError:
-                # We ignore any field destructions that happen after the
-                # runtime is destroyed
-                pass
-
-
 _sizeof_int = ffi.sizeof("int")
 _sizeof_size_t = ffi.sizeof("size_t")
 assert _sizeof_size_t == 4 or _sizeof_size_t == 8
@@ -1222,8 +1182,7 @@ class Runtime:
         field_id = None
         field_mgr = self.find_or_create_field_manager(shape, dtype)
         region, field_id = field_mgr.allocate_field()
-        field = Field(region, field_id, dtype, shape)
-        return RegionField(region, field, shape)
+        return RegionField.create(region, field_id, dtype, shape)
 
     def free_field(
         self, region: Region, field_id: int, dtype: Any, shape: Shape
@@ -1247,17 +1206,9 @@ class Runtime:
 
         region_mgr = self.find_or_create_region_manager(shape)
         region_mgr.import_region(region)
-        field = Field(
-            region,
-            field_id,
-            dtype,
-            shape,
-            own=True,
-        )
-
         self.find_or_create_field_manager(shape, dtype)
 
-        return RegionField(region, field, shape)
+        return RegionField.create(region, field_id, dtype, shape)
 
     def create_output_region(
         self, fspace: FieldSpace, fields: FieldListLike, ndim: int
