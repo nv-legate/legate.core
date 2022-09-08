@@ -421,6 +421,10 @@ void CoreMapper::select_tunable_value(const MapperContext ctx,
         pack_tunable<int32_t>(local_cpus.size() * total_nodes, output);
       return;
     }
+    case LEGATE_CORE_TUNABLE_NUM_NODES: {
+      pack_tunable<int32_t>(total_nodes, output);
+      return;
+    }
     case LEGATE_CORE_TUNABLE_MIN_SHARD_VOLUME: {
       // TODO: make these profile guided
       if (!local_gpus.empty())

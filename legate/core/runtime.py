@@ -19,7 +19,6 @@ import math
 import struct
 import weakref
 from collections import deque
-from functools import reduce
 from typing import TYPE_CHECKING, Any, Deque, List, Optional, TypeVar, Union
 
 from legion_top import add_cleanup_item, top_level
@@ -173,6 +172,7 @@ class RegionManager:
         self._shape = shape
         self._top_regions: List[Region] = []
         self._region_set: OrderedSet[Region] = OrderedSet()
+        self._next_field_id = 1000
 
     def destroy(self) -> None:
         while self._top_regions:
@@ -197,6 +197,11 @@ class RegionManager:
             and self.active_region.field_space.has_space
         )
 
+    def get_next_field_id(self) -> int:
+        field_id = self._next_field_id
+        self._next_field_id += 1
+        return field_id
+
     def _create_region(self) -> None:
         # Note that the regions created in this method are always fresh
         # so we don't need to de-duplicate them to keep track of their
@@ -211,7 +216,9 @@ class RegionManager:
         if not self.has_space:
             self._create_region()
         region = self.active_region
-        field_id = region.field_space.allocate_field(field_size)
+        field_id = region.field_space.allocate_field(
+            field_size, self.get_next_field_id()
+        )
         return region, field_id
 
 
@@ -228,16 +235,45 @@ class FieldManager:
         # guaranteed to be ordered across all the shards even with
         # control replication
         self.free_fields: Deque[tuple[Region, int]] = deque()
+
+    def destroy(self) -> None:
+        self.free_fields = deque()
+
+    def try_reuse_field(self) -> Optional[tuple[Region, int]]:
+        if len(self.free_fields) > 0:
+            return self.free_fields.popleft()
+        else:
+            return None
+
+    def allocate_field(self) -> tuple[Region, int]:
+        result = self.try_reuse_field()
+        if result is not None:
+            return result
+        region_manager = self.runtime.find_or_create_region_manager(self.shape)
+        return region_manager.allocate_field(self.field_size)
+
+    def free_field(
+        self, region: Region, field_id: int, ordered: bool = False
+    ) -> None:
+        self.free_fields.append((region, field_id))
+
+
+class ConsensusMatchingFieldManager(FieldManager):
+    def __init__(
+        self, runtime: Runtime, shape: Shape, field_size: int
+    ) -> None:
+        super().__init__(runtime, shape, field_size)
+
         # This is an unsanitized list of (region,field_id) pairs which is not
         # guaranteed to be ordered across all shards with control replication
-        self.freed_fields: List[tuple[Region, int]] = []
+        self.pending_free_fields: List[tuple[Region, int]] = []
+
         # A list of match operations that have been issued and for which
         # we are waiting for values to come back
         self.matches: Deque[FieldMatch] = deque()
         self.match_counter = 0
         # Figure out how big our match frequency is based on our size
-        volume = reduce(lambda x, y: x * y, self.shape, 1)
-        size = volume * self.field_size
+        size = self.field_size * shape.volume()
         if size > runtime.max_field_reuse_size:
             # Figure out the ratio our size to the max reuse size (round up)
             ratio = (
@@ -252,10 +288,10 @@ class FieldManager:
             self.match_frequency = runtime.max_field_reuse_frequency
 
     def destroy(self) -> None:
-        self.free_fields = deque()
-        self.freed_fields = []
+        super().destroy()
+        self.pending_free_fields = []
 
-    def allocate_field(self) -> tuple[Region, int]:
+    def try_reuse_field(self) -> Optional[tuple[Region, int]]:
         # Increment our match counter
         self.match_counter += 1
         # If the match counter equals our match frequency then do an exchange
@@ -269,11 +305,11 @@ class FieldManager:
             # the first one and put the remainder on our free fields list
             # so that we can reuse them later. If there aren't any then
             # all the shards will go allocate a new field.
-            local_freed_fields = self.freed_fields
+            local_free_fields = self.pending_free_fields
             # The match now owns our freed fields so make a new list
             # Have to do this before dispatching the match
-            self.freed_fields = list()
-            match = FieldMatch(self, local_freed_fields)
+            self.pending_free_fields = list()
+            match = FieldMatch(self, local_free_fields)
             # Dispatch the match
             self.runtime.dispatch(match)
             # Put it on the deque of outstanding matches
@@ -292,18 +328,15 @@ class FieldManager:
             if len(self.free_fields) > 0:
                 return self.free_fields.popleft()
 
-        region_manager = self.runtime.find_or_create_region_manager(self.shape)
-        return region_manager.allocate_field(self.field_size)
+        return None
 
     def free_field(
         self, region: Region, field_id: int, ordered: bool = False
     ) -> None:
         if ordered:
-            if self.free_fields is not None:
-                self.free_fields.append((region, field_id))
+            self.free_fields.append((region, field_id))
         else:  # Put this on the unordered list
-            if self.freed_fields is not None:
-                self.freed_fields.append((region, field_id))
+            self.pending_free_fields.append((region, field_id))
 
 
 class Attachment:
@@ -841,6 +874,12 @@ class Runtime:
                 ty.int32,
             )
         )
+        self._num_nodes = int(
+            self._core_context.get_tunable(
+                legion.LEGATE_CORE_TUNABLE_NUM_NODES,
+                ty.int32,
+            )
+        )
 
         # Now we initialize managers
         self._attachment_manager = AttachmentManager(self)
@@ -852,6 +891,11 @@ class Runtime:
         self.region_managers: dict[Shape, RegionManager] = {}
         # map from (shape,dtype) to field managers
         self.field_managers: dict[tuple[Shape, Any], FieldManager] = {}
+        self._field_manager_class = (
+            ConsensusMatchingFieldManager
+            if self._num_nodes > 1
+            else FieldManager
+        )
 
         self.destroyed = False
         self.max_field_reuse_size = self._core_context.get_tunable(
@@ -1171,7 +1215,7 @@ class Runtime:
         field_mgr = self.field_managers.get(key)
         if field_mgr is not None:
             return field_mgr
-        field_mgr = FieldManager(self, shape, field_size)
+        field_mgr = self._field_manager_class(self, shape, field_size)
         self.field_managers[key] = field_mgr
         return field_mgr
 
