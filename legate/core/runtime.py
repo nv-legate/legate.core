@@ -1025,9 +1025,7 @@ class Runtime:
         strategies = []
         for op in ops:
             must_be_single = len(op.scalar_outputs) > 0
-            partitioner = Partitioner(
-                self, [op], must_be_single=must_be_single
-            )
+            partitioner = Partitioner([op], must_be_single=must_be_single)
             strategies.append(partitioner.partition_stores())
 
         for op, strategy in zip(ops, strategies):
