@@ -74,12 +74,12 @@ class Field:
         self,
         region: Region,
         field_id: int,
-        dtype: Any,
+        field_size: int,
         shape: Shape,
     ) -> None:
         self.region = region
         self.field_id = field_id
-        self.dtype = dtype
+        self.field_size = field_size
         self.shape = shape
 
     def same_handle(self, other: Field) -> bool:
@@ -93,7 +93,7 @@ class Field:
         runtime.free_field(
             self.region,
             self.field_id,
-            self.dtype,
+            self.field_size,
             self.shape,
         )
 
@@ -108,6 +108,8 @@ class RegionField:
         parent: Optional[RegionField] = None,
     ) -> None:
         self.region = region
+        # Note that self.region can be different from self.field.region
+        # if this is for a subregion
         self.field = field
         self.shape = shape
         self.parent = parent
@@ -127,16 +129,14 @@ class RegionField:
 
     @staticmethod
     def create(
-        region: Region, field_id: int, dtype: Any, shape: Shape
+        region: Region, field_id: int, field_size: int, shape: Shape
     ) -> RegionField:
-        field = Field(region, field_id, dtype, shape)
+        field = Field(region, field_id, field_size, shape)
         return RegionField(region, field, shape)
 
     def same_handle(self, other: RegionField) -> bool:
-        return (
-            type(self) == type(other)
-            and self.region.same_handle(other.region)
-            and self.field.same_handle(other.field)
+        return type(self) == type(other) and self.field.same_handle(
+            other.field
         )
 
     def __str__(self) -> str:

@@ -207,20 +207,23 @@ class RegionManager:
         self._top_regions.append(region)
         self._region_set.add(region)
 
-    def allocate_field(self, dtype: Any) -> tuple[Region, int]:
+    def allocate_field(self, field_size: Any) -> tuple[Region, int]:
         if not self.has_space:
             self._create_region()
         region = self.active_region
-        field_id = region.field_space.allocate_field(dtype)
+        field_id = region.field_space.allocate_field(field_size)
         return region, field_id
 
 
 # This class manages the allocation and reuse of fields
 class FieldManager:
-    def __init__(self, runtime: Runtime, shape: Shape, dtype: Any) -> None:
+    def __init__(
+        self, runtime: Runtime, shape: Shape, field_size: int
+    ) -> None:
+        assert isinstance(field_size, int)
         self.runtime = runtime
         self.shape = shape
-        self.dtype = dtype
+        self.field_size = field_size
         # This is a sanitized list of (region,field_id) pairs that is
         # guaranteed to be ordered across all the shards even with
         # control replication
@@ -234,7 +237,7 @@ class FieldManager:
         self.match_counter = 0
         # Figure out how big our match frequency is based on our size
         volume = reduce(lambda x, y: x * y, self.shape, 1)
-        size = volume * self.dtype.size
+        size = volume * self.field_size
         if size > runtime.max_field_reuse_size:
             # Figure out the ratio our size to the max reuse size (round up)
             ratio = (
@@ -290,7 +293,7 @@ class FieldManager:
                 return self.free_fields.popleft()
 
         region_manager = self.runtime.find_or_create_region_manager(self.shape)
-        return region_manager.allocate_field(self.dtype)
+        return region_manager.allocate_field(self.field_size)
 
     def free_field(
         self, region: Region, field_id: int, ordered: bool = False
@@ -1162,13 +1165,13 @@ class Runtime:
         return region_mgr
 
     def find_or_create_field_manager(
-        self, shape: Shape, dtype: Any
+        self, shape: Shape, field_size: int
     ) -> FieldManager:
-        key = (shape, dtype)
+        key = (shape, field_size)
         field_mgr = self.field_managers.get(key)
         if field_mgr is not None:
             return field_mgr
-        field_mgr = FieldManager(self, shape, dtype)
+        field_mgr = FieldManager(self, shape, field_size)
         self.field_managers[key] = field_mgr
         return field_mgr
 
@@ -1178,19 +1181,19 @@ class Runtime:
         assert not self.destroyed
         region = None
         field_id = None
-        field_mgr = self.find_or_create_field_manager(shape, dtype)
+        field_mgr = self.find_or_create_field_manager(shape, dtype.size)
         region, field_id = field_mgr.allocate_field()
-        return RegionField.create(region, field_id, dtype, shape)
+        return RegionField.create(region, field_id, dtype.size, shape)
 
     def free_field(
-        self, region: Region, field_id: int, dtype: Any, shape: Shape
+        self, region: Region, field_id: int, field_size: int, shape: Shape
     ) -> None:
         # Have a guard here to make sure that we don't try to
         # do this after we have been destroyed
         if self.destroyed:
             return
         # Now save it in our data structure for free fields eligible for reuse
-        key = (shape, dtype)
+        key = (shape, field_size)
         if self.field_managers is not None:
             self.field_managers[key].free_field(region, field_id)
 
@@ -1204,9 +1207,9 @@ class Runtime:
 
         region_mgr = self.find_or_create_region_manager(shape)
         region_mgr.import_region(region)
-        self.find_or_create_field_manager(shape, dtype)
+        self.find_or_create_field_manager(shape, dtype.size)
 
-        return RegionField.create(region, field_id, dtype, shape)
+        return RegionField.create(region, field_id, dtype.size, shape)
 
     def create_output_region(
         self, fspace: FieldSpace, fields: FieldListLike, ndim: int
