@@ -40,6 +40,7 @@ from . import (
     legion,
     types as ty,
 )
+from .runtime import runtime
 from .utils import OrderedSet
 
 if TYPE_CHECKING:
@@ -54,7 +55,6 @@ if TYPE_CHECKING:
     )
     from ._legion.util import FieldListLike
     from .context import Context
-    from .runtime import Runtime
     from .store import RegionField, Store
     from .types import DTType
 
@@ -442,10 +442,7 @@ class RegionReq:
 
 
 class OutputReq:
-    def __init__(
-        self, runtime: Runtime, fspace: FieldSpace, ndim: int
-    ) -> None:
-        self.runtime = runtime
+    def __init__(self, fspace: FieldSpace, ndim: int) -> None:
         self.fspace = fspace
         self.ndim = ndim
         self.output_region: Union[OutputRegion, None] = None
@@ -466,7 +463,7 @@ class OutputReq:
 
     def _create_output_region(self, fields: FieldListLike) -> None:
         assert self.output_region is None
-        self.output_region = self.runtime.create_output_region(
+        self.output_region = runtime.create_output_region(
             self.fspace, fields, self.ndim
         )
 
@@ -480,7 +477,7 @@ class OutputReq:
 
     def update_storage(self, store: Store, field_id: int) -> None:
         assert self.output_region is not None
-        region_field = self.runtime.import_output_region(
+        region_field = runtime.import_output_region(
             self.output_region,
             field_id,
             store.type,
@@ -636,8 +633,7 @@ class RequirementAnalyzer:
 
 
 class OutputAnalyzer:
-    def __init__(self, runtime: Runtime) -> None:
-        self._runtime = runtime
+    def __init__(self) -> None:
         self._groups: dict[Any, OrderedSet[tuple[int, Store]]] = {}
         self._requirements: list[tuple[OutputReq, Any]] = []
         self._requirement_map: dict[tuple[OutputReq, int], int] = {}
@@ -699,8 +695,7 @@ class TaskLauncher:
     ) -> None:
         assert type(tag) != bool
         self._context = context
-        self._runtime = context.runtime
-        self._core_types = self._runtime.core_context.type_system
+        self._core_types = runtime.core_context.type_system
         self._task_id = task_id
         self._mapper_id = mapper_id
         self._inputs: list[LauncherArg] = []
@@ -709,7 +704,7 @@ class TaskLauncher:
         self._scalars: list[ScalarArg] = []
         self._comms: list[FutureMap] = []
         self._req_analyzer = RequirementAnalyzer(error_on_interference)
-        self._out_analyzer = OutputAnalyzer(context.runtime)
+        self._out_analyzer = OutputAnalyzer()
         self._future_args: list[Future] = []
         self._future_map_args: list[FutureMap] = []
         self._tag = tag
@@ -832,7 +827,7 @@ class TaskLauncher:
     def add_unbound_output(
         self, store: Store, fspace: FieldSpace, field_id: int
     ) -> None:
-        req = OutputReq(self._runtime, fspace, store.ndim)
+        req = OutputReq(fspace, store.ndim)
 
         self._out_analyzer.insert(req, field_id, store)
 
@@ -909,7 +904,7 @@ class TaskLauncher:
             task.add_future(future)
         if self._insert_barrier:
             volume = launch_domain.get_volume()
-            arrival, wait = self._runtime.get_barriers(volume)
+            arrival, wait = runtime.get_barriers(volume)
             task.add_future(arrival)
             task.add_future(wait)
         for (out_req, fields) in self._out_analyzer.requirements:
@@ -982,7 +977,6 @@ class CopyLauncher:
     ) -> None:
         assert type(tag) != bool
         self._context = context
-        self._runtime = context.runtime
         self._mapper_id = mapper_id
         self._req_analyzer = RequirementAnalyzer()
         self._tag = tag

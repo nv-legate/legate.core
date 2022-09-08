@@ -28,7 +28,7 @@ from . import (
 )
 from .legate import Array, Table
 from .partition import Tiling
-from .runtime import _runtime
+from .runtime import runtime
 from .shape import Shape
 from .store import DistributedAllocation, RegionField, Store
 
@@ -36,6 +36,11 @@ if TYPE_CHECKING:
     from pyarrow import DataType
 
     from . import Partition
+
+
+legion_runtime = runtime.legion_runtime
+
+legion_context = runtime.legion_context
 
 
 class DataSplit:
@@ -80,10 +85,10 @@ class CustomSplit(DataSplit):
         futures = {}
         for c in local_colors:
             rect = self.get_subdomain(c)
-            futures[c] = Future.from_cdata(_runtime.legion_runtime, rect.raw())
+            futures[c] = Future.from_cdata(legion_runtime, rect.raw())
         domains = FutureMap.from_dict(
-            _runtime.legion_context,
-            _runtime.legion_runtime,
+            legion_context,
+            legion_runtime,
             Rect(colors),
             futures,
             collective=True,
@@ -91,10 +96,10 @@ class CustomSplit(DataSplit):
         assert isinstance(store.storage, RegionField)
         region = store.storage.region
         index_partition = IndexPartition(
-            _runtime.legion_context,
-            _runtime.legion_runtime,
+            legion_context,
+            legion_runtime,
             region.index_space,
-            _runtime.find_or_create_index_space(colors),
+            runtime.find_or_create_index_space(colors),
             PartitionByDomain(domains),
         )
         return region.get_child(index_partition)
@@ -120,7 +125,6 @@ class TiledSplit(DataSplit):
         local_colors: Iterable[Point],
     ) -> Partition:
         functor = Tiling(
-            _runtime,
             Shape(self.tile_shape),
             Shape(colors),
         )
@@ -215,15 +219,15 @@ def ingest(
 
     # Assign colors following the default sharding
     def default_get_local_colors() -> list[Point]:
-        sid = _runtime.core_context.get_sharding_id(
-            _runtime.core_library.LEGATE_CORE_LINEARIZE_SHARD_ID
+        sid = runtime.core_context.get_sharding_id(
+            runtime.core_library.LEGATE_CORE_LINEARIZE_SHARD_ID
         )
         shard = legion.legion_runtime_local_shard(
-            _runtime.legion_runtime, _runtime.legion_context
+            legion_runtime, legion_context
         )
         domain = Rect(colors).raw()
         total_shards = legion.legion_runtime_total_shards(
-            _runtime.legion_runtime, _runtime.legion_context
+            legion_runtime, legion_context
         )
         points_size = ffi.new("size_t *")
         points_size[0] = 1
@@ -241,14 +245,14 @@ def ingest(
         )
         return [Point(points_ptr[i]) for i in range(points_size[0])]
 
-    store = _runtime.core_context.create_store(dtype, Shape(shape))
+    store = runtime.core_context.create_store(dtype, Shape(shape))
     local_colors = (
         get_local_colors() if get_local_colors else default_get_local_colors()
     )
     partition = data_split.make_partition(store, colors, local_colors)
     shard_local_buffers = {c: get_buffer(c) for c in local_colors}
     alloc = DistributedAllocation(partition, shard_local_buffers)
-    store.attach_external_allocation(_runtime.core_context, alloc, False)
+    store.attach_external_allocation(runtime.core_context, alloc, False)
     # first store is the (non-existent) mask
     array = Array(dtype, [None, store])
     return Table.from_arrays([array], ["ingested"])

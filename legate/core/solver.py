@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Generic, List, Optional, TypeVar
 from . import FieldSpace, Future, Rect
 from .constraints import Alignment, Broadcast, Containment, PartSym
 from .partition import REPLICATE
+from .runtime import runtime
 from .shape import Shape
 from .utils import OrderedSet
 
@@ -26,7 +27,6 @@ if TYPE_CHECKING:
     from .constraints import Expr, Lit
     from .operation import Operation
     from .partition import PartitionBase
-    from .runtime import Runtime
     from .store import Store
     from .transform import Restrictions
 
@@ -189,11 +189,9 @@ class Strategy:
 class Partitioner:
     def __init__(
         self,
-        runtime: Runtime,
         ops: List[Operation],
         must_be_single: bool = False,
     ):
-        self._runtime = runtime
         self._ops = ops
         self._must_be_single = must_be_single
 
@@ -244,7 +242,7 @@ class Partitioner:
             cls = constraints.find(unknown)
             assert all(to_align.store.unbound for to_align in cls)
 
-            fspace = self._runtime.create_field_space()
+            fspace = runtime.create_field_space()
             for to_align in cls:
                 partitions[unknown] = REPLICATE
                 fspaces[unknown] = fspace
