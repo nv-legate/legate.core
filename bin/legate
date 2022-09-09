@@ -14,9 +14,10 @@ for path in sys.path[:]: # slice to void inf append loop
         if os.path.exists(new_prefix_path):
             sys.path.append(new_prefix_path)
 
-from legate.__main__ import driver
+from legate.driver import main
+
 if __name__ == '__main__':
     # if legate is installed into a non-standard location, the legate
     # libraries may not be available in the python import path
     sys.argv[0] = re.sub(r'(-script\.pyw|\.exe)?$', '', sys.argv[0])
-    sys.exit(driver())
+    sys.exit(main(sys.argv))

@@ -1,6 +1,4 @@
-#!/usr/bin/env python
-
-# Copyright 2021-2022 NVIDIA Corporation
+# Copyright 2022 NVIDIA Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,11 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+"""
+
+"""
 from __future__ import annotations
 
-import sys
+__all__ = ("main",)
 
-from .driver import main
 
-if __name__ == "__main__":
-    sys.exit(main(sys.argv))
+def main(argv: list[str]) -> int:
+    from . import Config, Driver, System
+
+    config = Config(argv)
+    system = System()
+    driver = Driver(config, system)
+
+    return driver.run()
