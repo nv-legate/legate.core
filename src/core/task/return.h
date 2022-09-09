@@ -20,7 +20,7 @@
 
 namespace legate {
 
-using ReturnValue = std::pair<const void*, size_t>;
+using ReturnValue = std::pair<Legion::UntypedDeferredValue, size_t>;
 
 struct ReturnedException {
  public:
@@ -64,6 +64,10 @@ struct ReturnValues {
   size_t legion_buffer_size() const;
   void legion_serialize(void* buffer) const;
   void legion_deserialize(const void* buffer);
+
+ public:
+  // Calls the Legion postamble with an instance that packs all return values
+  void finalize(Legion::Context legion_context) const;
 
  private:
   size_t buffer_size_{0};

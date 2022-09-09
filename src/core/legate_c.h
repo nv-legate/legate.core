@@ -51,6 +51,7 @@ typedef enum legate_core_shard_id_t {
 
 typedef enum legate_core_tunable_t {
   LEGATE_CORE_TUNABLE_TOTAL_CPUS = 12345,
+  LEGATE_CORE_TUNABLE_TOTAL_OMPS,
   LEGATE_CORE_TUNABLE_TOTAL_GPUS,
   LEGATE_CORE_TUNABLE_NUM_PIECES,
   LEGATE_CORE_TUNABLE_MIN_SHARD_VOLUME,
@@ -101,6 +102,7 @@ typedef enum legate_core_mapping_tag_t {
   LEGATE_CORE_KEY_STORE_TAG              = 1,
   LEGATE_CORE_MANUAL_PARALLEL_LAUNCH_TAG = 2,
   LEGATE_CORE_TREE_REDUCE_TAG            = 3,
+  LEGATE_CORE_JOIN_EXCEPTION_TAG         = 4,
 } legate_core_mapping_tag_t;
 
 typedef enum legate_core_reduction_op_id_t {

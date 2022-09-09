@@ -20,6 +20,7 @@
 #include "core/runtime/projection.h"
 #include "core/runtime/shard.h"
 #include "core/task/exception.h"
+#include "core/task/task.h"
 #include "core/utilities/deserializer.h"
 #include "legate.h"
 
@@ -38,6 +39,8 @@ static const char* const core_library_name = "legate.core";
 /*static*/ bool Core::use_empty_task = false;
 
 /*static*/ bool Core::synchronize_stream_view = false;
+
+/*static*/ bool Core::log_mapping_decisions = false;
 
 /*static*/ void Core::parse_config(void)
 {
@@ -68,27 +71,35 @@ static const char* const core_library_name = "legate.core";
     exit(1);
   }
 #endif
-  const char* progress = getenv("LEGATE_SHOW_PROGRESS");
-  if (progress != nullptr) show_progress_requested = true;
+  auto parse_variable = [](const char* variable, bool& result) {
+    const char* value = getenv(variable);
+    if (value != nullptr && atoi(value) > 0) result = true;
+  };
 
-  const char* empty_task = getenv("LEGATE_EMPTY_TASK");
-  if (empty_task != nullptr && atoi(empty_task) > 0) use_empty_task = true;
-
-  const char* sync_stream_view = getenv("LEGATE_SYNC_STREAM_VIEW");
-  if (sync_stream_view != nullptr && atoi(sync_stream_view) > 0) synchronize_stream_view = true;
+  parse_variable("LEGATE_SHOW_PROGRESS", show_progress_requested);
+  parse_variable("LEGATE_EMPTY_TASK", use_empty_task);
+  parse_variable("LEGATE_SYNC_STREAM_VIEW", synchronize_stream_view);
+  parse_variable("LEGATE_LOG_MAPPING", log_mapping_decisions);
 }
 
-static ReturnValues extract_scalar_task(const Task* task,
-                                        const std::vector<PhysicalRegion>& regions,
-                                        Context legion_context,
-                                        Runtime* runtime)
+static void extract_scalar_task(
+  const void* args, size_t arglen, const void* userdata, size_t userlen, Legion::Processor p)
 {
+  // Legion preamble
+  const Legion::Task* task;
+  const std::vector<Legion::PhysicalRegion>* regions;
+  Legion::Context legion_context;
+  Legion::Runtime* runtime;
+  Legion::Runtime::legion_task_preamble(args, arglen, p, task, regions, legion_context, runtime);
+
   Core::show_progress(task, legion_context, runtime, task->get_task_name());
 
-  TaskContext context(task, regions, legion_context, runtime);
+  TaskContext context(task, *regions, legion_context, runtime);
   auto values = task->futures[0].get_result<ReturnValues>();
   auto idx    = context.scalars()[0].value<int32_t>();
-  return ReturnValues({values[idx]});
+
+  // Legion postamble
+  ReturnValues({values[idx]}).finalize(legion_context);
 }
 
 /*static*/ void Core::shutdown(void)
@@ -150,8 +161,9 @@ void register_legate_core_tasks(Machine machine, Runtime* runtime, const Library
   {
     auto registrar =
       make_registrar(extract_scalar_task_id, extract_scalar_task_name, Processor::LOC_PROC);
-    runtime->register_task_variant<ReturnValues, extract_scalar_task>(registrar,
-                                                                      LEGATE_CPU_VARIANT);
+    Legion::CodeDescriptor desc(extract_scalar_task);
+    runtime->register_task_variant(
+      registrar, desc, nullptr, 0, LEGATE_MAX_SIZE_SCALAR_RETURN, LEGATE_CPU_VARIANT);
   }
   comm::register_tasks(machine, runtime, context);
 }

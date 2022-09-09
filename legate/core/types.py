@@ -34,7 +34,7 @@ class Complex64Dtype(pa.ExtensionType):
 
     @classmethod
     def __arrow_ext_deserialize__(
-        self, storage_type: pa.lib.DataType, serialized: str
+        cls, storage_type: pa.lib.DataType, serialized: str
     ) -> Complex64Dtype:
         return Complex64Dtype()
 
@@ -51,7 +51,7 @@ class Complex128Dtype(pa.ExtensionType):
 
     @classmethod
     def __arrow_ext_deserialize__(
-        self, storage_type: pa.lib.DataType, serialized: str
+        cls, storage_type: pa.lib.DataType, serialized: str
     ) -> Complex128Dtype:
         return Complex128Dtype()
 

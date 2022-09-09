@@ -17,6 +17,7 @@
 #pragma once
 
 #include <memory>
+#include <mutex>
 
 #include "legion.h"
 
@@ -32,17 +33,24 @@ struct RegionGroup {
   using Domain = Legion::Domain;
 
  public:
-  RegionGroup(const std::vector<Region>& regions, const Domain bounding_box);
-  RegionGroup(std::vector<Region>&& regions, const Domain bounding_box);
+  RegionGroup(const std::set<Region>& regions, const Domain bounding_box);
+  RegionGroup(std::set<Region>&& regions, const Domain bounding_box);
 
  public:
   RegionGroup(const RegionGroup&) = default;
   RegionGroup(RegionGroup&&)      = default;
 
  public:
-  std::vector<Region> regions;
+  std::vector<Region> get_regions() const;
+  bool subsumes(const RegionGroup* other);
+
+ public:
+  std::set<Region> regions;
   Domain bounding_box;
+  std::map<const RegionGroup*, bool> subsumption_cache;
 };
+
+std::ostream& operator<<(std::ostream& os, const RegionGroup& region_group);
 
 struct InstanceSet {
  public:
@@ -80,7 +88,10 @@ struct InstanceSet {
   size_t get_instance_size() const;
 
  private:
-  std::map<RegionGroupP, InstanceSpec> instances_;
+  void dump_and_sanity_check() const;
+
+ private:
+  std::map<RegionGroup*, InstanceSpec> instances_;
   std::map<Legion::LogicalRegion, RegionGroupP> groups_;
 };
 
@@ -141,10 +152,17 @@ class InstanceManager {
   void erase(Instance inst);
 
  public:
+  Legion::Mapping::LocalLock& manager_lock() { return manager_lock_; }
+
+ public:
+  static InstanceManager* get_instance_manager();
+
+ public:
   std::map<Legion::Memory, size_t> aggregate_instance_sizes() const;
 
  private:
-  std::map<FieldMemInfo, InstanceSet> instance_sets_;
+  std::map<FieldMemInfo, InstanceSet> instance_sets_{};
+  Legion::Mapping::LocalLock manager_lock_{};
 };
 
 }  // namespace mapping

@@ -67,7 +67,7 @@ class ProjExpr:
         return (
             self._dim == other._dim
             and self._weight == other._weight
-            and self._offset == self._offset
+            and self._offset == other._offset
         )
 
     def __mul__(self, other: int) -> ProjExpr:
