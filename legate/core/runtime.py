@@ -38,6 +38,7 @@ from . import (
     legion,
     types as ty,
 )
+from ._legion.env import LEGATE_MAX_FIELDS
 from ._legion.util import Dispatchable
 from .allocation import Attachable
 from .communicator import CPUCommunicator, NCCLCommunicator
@@ -46,7 +47,6 @@ from .exception import PendingException
 from .projection import is_identity_projection, pack_symbolic_projection_repr
 from .restriction import Restriction
 from .shape import Shape
-from .utils import OrderedSet
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -156,13 +156,12 @@ class FieldMatch(Dispatchable[Future]):
             for pair in ordered_fields:
                 if pair is None:
                     continue
-                region, field_id = pair
-                self.manager.free_field(region, field_id, ordered=True)
+                self.manager.free_field(*pair, ordered=True)
         else:
             # No fields on all shards so put all our fields back into
             # the unorered queue
-            for region, field_id in self.fields:
-                self.manager.free_field(region, field_id, ordered=False)
+            for pair in self.fields:
+                self.manager.free_field(*pair, ordered=False)
 
 
 # This class manages all regions of the same shape.
@@ -171,7 +170,7 @@ class RegionManager:
         self._runtime = runtime
         self._shape = shape
         self._top_regions: List[Region] = []
-        self._region_set: OrderedSet[Region] = OrderedSet()
+        self._field_counts: dict[Region, int] = {}
         self._next_field_id = 1000
 
     def destroy(self) -> None:
@@ -179,12 +178,32 @@ class RegionManager:
             region = self._top_regions.pop()
             region.destroy()
         self._top_regions = []
-        self._region_set = OrderedSet()
+        self._field_counts = {}
 
     def import_region(self, region: Region) -> None:
-        if region not in self._region_set:
+        if region not in self._field_counts:
             self._top_regions.append(region)
-            self._region_set.add(region)
+            self._field_counts[region] = 0
+            self._runtime.record_region_manager(region, self)
+
+    def increase_field_count(self, region: Region) -> None:
+        assert region in self._field_counts
+        self._field_counts[region] += 1
+
+    def decrease_field_count(self, region: Region) -> bool:
+        assert region in self._field_counts
+        cnt = self._field_counts[region]
+        cnt -= 1
+        self._field_counts[region] = cnt
+        return cnt == 0
+
+    def remove_region(self, region: Region) -> None:
+        top_regions = []
+        del self._field_counts[region]
+        for rgn in self._top_regions:
+            if rgn != region:
+                top_regions.append(rgn)
+        self._top_regions = top_regions
 
     @property
     def active_region(self) -> Region:
@@ -194,7 +213,7 @@ class RegionManager:
     def has_space(self) -> bool:
         return (
             len(self._top_regions) > 0
-            and self.active_region.field_space.has_space
+            and self._field_counts[self.active_region] < LEGATE_MAX_FIELDS
         )
 
     def get_next_field_id(self) -> int:
@@ -210,7 +229,8 @@ class RegionManager:
         field_space = self._runtime.create_field_space()
         region = self._runtime.create_region(index_space, field_space)
         self._top_regions.append(region)
-        self._region_set.add(region)
+        self._field_counts[region] = 0
+        self._runtime.record_region_manager(region, self)
 
     def allocate_field(self, field_size: Any) -> tuple[Region, int]:
         if not self.has_space:
@@ -219,6 +239,7 @@ class RegionManager:
         field_id = region.field_space.allocate_field(
             field_size, self.get_next_field_id()
         )
+        self.increase_field_count(region)
         return region, field_id
 
 
@@ -248,14 +269,29 @@ class FieldManager:
     def allocate_field(self) -> tuple[Region, int]:
         result = self.try_reuse_field()
         if result is not None:
+            region_manager = self.runtime.find_region_manager(result[0])
+            region_manager.increase_field_count(result[0])
             return result
         region_manager = self.runtime.find_or_create_region_manager(self.shape)
         return region_manager.allocate_field(self.field_size)
 
     def free_field(
         self, region: Region, field_id: int, ordered: bool = False
-    ) -> None:
-        self.free_fields.append((region, field_id))
+    ) -> bool:
+        region_manager = self.runtime.find_or_create_region_manager(self.shape)
+        destroy = region_manager.decrease_field_count(region)
+        if not destroy:
+            self.free_fields.append((region, field_id))
+            return False
+        else:
+            return True
+
+    def remove_all_fields(self, region: Region) -> None:
+        free_fields: Deque[tuple[Region, int]] = deque()
+        for pair in self.free_fields:
+            if pair[0] != region:
+                free_fields.append(pair)
+        self.free_fields = free_fields
 
 
 class ConsensusMatchingFieldManager(FieldManager):
@@ -308,9 +344,11 @@ class ConsensusMatchingFieldManager(FieldManager):
             local_free_fields = self.pending_free_fields
             # The match now owns our freed fields so make a new list
             # Have to do this before dispatching the match
-            self.pending_free_fields = list()
+            self.pending_free_fields = []
             match = FieldMatch(self, local_free_fields)
-            # Dispatch the match
+            # Dispatch the match. Note that this is necessary even when
+            # the field list is empty, as other shards might have non-empty
+            # lists and all shards should participate the match.
             self.runtime.dispatch(match)
             # Put it on the deque of outstanding matches
             self.matches.append(match)
@@ -332,11 +370,12 @@ class ConsensusMatchingFieldManager(FieldManager):
 
     def free_field(
         self, region: Region, field_id: int, ordered: bool = False
-    ) -> None:
+    ) -> bool:
         if ordered:
-            self.free_fields.append((region, field_id))
+            return super().free_field(region, field_id, ordered=ordered)
         else:  # Put this on the unordered list
             self.pending_free_fields.append((region, field_id))
+            return False
 
 
 class Attachment:
@@ -889,6 +928,7 @@ class Runtime:
         self.index_spaces: dict[Rect, IndexSpace] = {}
         # map from shape to region managers
         self.region_managers: dict[Shape, RegionManager] = {}
+        self.region_managers_by_region: dict[Region, RegionManager] = {}
         # map from (shape,dtype) to field managers
         self.field_managers: dict[tuple[Shape, Any], FieldManager] = {}
         self._field_manager_class = (
@@ -1198,9 +1238,17 @@ class Runtime:
             ndim=ndim,
         )
 
-    def find_or_create_region_manager(
-        self, shape: Shape, region: Optional[Region] = None
-    ) -> RegionManager:
+    def find_region_manager(self, region: Region) -> RegionManager:
+        assert region in self.region_managers_by_region
+        return self.region_managers_by_region[region]
+
+    def record_region_manager(
+        self, region: Region, region_manager: RegionManager
+    ) -> None:
+        assert region not in self.region_managers_by_region
+        self.region_managers_by_region[region] = region_manager
+
+    def find_or_create_region_manager(self, shape: Shape) -> RegionManager:
         region_mgr = self.region_managers.get(shape)
         if region_mgr is not None:
             return region_mgr
@@ -1238,8 +1286,20 @@ class Runtime:
             return
         # Now save it in our data structure for free fields eligible for reuse
         key = (shape, field_size)
-        if self.field_managers is not None:
-            self.field_managers[key].free_field(region, field_id)
+        if key not in self.field_managers:
+            return
+
+        destroy = self.field_managers[key].free_field(region, field_id)
+        if destroy:
+            self.destroy_region(region)
+
+    def destroy_region(self, region: Region) -> None:
+        region_mgr = self.region_managers_by_region[region]
+        region_mgr.remove_region(region)
+        del self.region_managers_by_region[region]
+        for field_manager in self.field_managers.values():
+            field_manager.remove_all_fields(region)
+        region.destroy(unordered=True)
 
     def import_output_region(
         self, out_region: OutputRegion, field_id: int, dtype: Any
@@ -1251,6 +1311,7 @@ class Runtime:
 
         region_mgr = self.find_or_create_region_manager(shape)
         region_mgr.import_region(region)
+        region_mgr.increase_field_count(region)
         self.find_or_create_field_manager(shape, dtype.size)
 
         return RegionField.create(region, field_id, dtype.size, shape)
