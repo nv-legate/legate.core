@@ -24,6 +24,10 @@
 #include "core/runtime/runtime.h"
 #include "core/utilities/deserializer.h"
 
+#ifdef LEGATE_USE_CUDA
+#include "core/cuda/cuda_help.h"
+#endif
+
 #include "mappers/logging_wrapper.h"
 
 namespace legate {
@@ -196,6 +200,16 @@ TaskContext::TaskContext(const Legion::Task* task,
     arrival.arrive();
     wait.wait();
   }
+#ifdef LEGATE_USE_CUDA
+  // If the task is running on a GPU and there is at least one scalar store for reduction,
+  // we need to wait for all the host-to-device copies for initialization to finish
+  if (Legion::Processor::get_executing_processor().kind() == Legion::Processor::Kind::TOC_PROC)
+    for (auto& reduction : reductions_)
+      if (reduction.is_future()) {
+        CHECK_CUDA(cudaDeviceSynchronize());
+        break;
+      }
+#endif
 }
 
 bool TaskContext::is_single_task() const { return !task_->is_index_space; }

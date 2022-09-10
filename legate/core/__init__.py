@@ -67,6 +67,7 @@ from ._legion import (
 )
 
 # Import select types for Legate library construction
+from .allocation import DistributedAllocation
 from .legate import (
     Array,
     Library,
@@ -78,7 +79,7 @@ from .runtime import (
     get_legion_runtime,
     legate_add_library,
 )
-from .store import DistributedAllocation, Store
+from .store import Store
 
 from .types import (
     bool_,

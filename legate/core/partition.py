@@ -15,7 +15,6 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod, abstractproperty
-from enum import IntEnum, unique
 from typing import TYPE_CHECKING, Optional, Sequence, Type, Union
 
 from . import (
@@ -27,18 +26,12 @@ from . import (
     legion,
 )
 from .launcher import Broadcast, Partition
+from .restriction import Restriction
+from .runtime import runtime
 from .shape import Shape
 
 if TYPE_CHECKING:
     from . import FutureMap, Partition as LegionPartition, Region
-    from .runtime import Runtime
-
-
-@unique
-class Restriction(IntEnum):
-    RESTRICTED = -2
-    AVOIDED = -1
-    UNRESTRICTED = 1
 
 
 RequirementType = Union[Type[Broadcast], Type[Partition]]
@@ -151,13 +144,11 @@ class Interval:
 class Tiling(PartitionBase):
     def __init__(
         self,
-        runtime: Runtime,
         tile_shape: Shape,
         color_shape: Shape,
         offset: Optional[Shape] = None,
     ):
         assert len(tile_shape) == len(color_shape)
-        self._runtime = runtime
         self._tile_shape = tile_shape
         self._color_shape = color_shape
         self._offset = (
@@ -172,10 +163,6 @@ class Tiling(PartitionBase):
             and self._color_shape == other._color_shape
             and self._offset == other._offset
         )
-
-    @property
-    def runtime(self) -> Runtime:
-        return self._runtime
 
     @property
     def tile_shape(self) -> Shape:
@@ -262,7 +249,6 @@ class Tiling(PartitionBase):
 
     def translate(self, offset: Shape) -> Tiling:
         return Tiling(
-            self._runtime,
             self._tile_shape,
             self._color_shape,
             self._offset + offset,
@@ -286,7 +272,6 @@ class Tiling(PartitionBase):
             return REPLICATE
         else:
             return Tiling(
-                self._runtime,
                 self._tile_shape,
                 self._color_shape,
                 self._offset + offset,
@@ -299,7 +284,6 @@ class Tiling(PartitionBase):
                 "not well-defined"
             )
         return Tiling(
-            self._runtime,
             self._tile_shape * scale,
             self._color_shape,
             self._offset * scale,
@@ -309,7 +293,7 @@ class Tiling(PartitionBase):
         self, region: Region, complete: bool = False
     ) -> Optional[LegionPartition]:
         index_space = region.index_space
-        index_partition = self._runtime.find_partition(index_space, self)
+        index_partition = runtime.find_partition(index_space, self)
         if index_partition is None:
             tile_shape = self._tile_shape
             transform = Transform(tile_shape.ndim, tile_shape.ndim)
@@ -321,32 +305,27 @@ class Tiling(PartitionBase):
 
             extent = Rect(hi, lo, exclusive=False)
 
-            color_space = self._runtime.find_or_create_index_space(
-                self._color_shape
-            )
+            color_space = runtime.find_or_create_index_space(self._color_shape)
             functor = PartitionByRestriction(transform, extent)
             if complete:
                 kind = legion.LEGION_DISJOINT_COMPLETE_KIND
             else:
                 kind = legion.LEGION_DISJOINT_INCOMPLETE_KIND
             index_partition = IndexPartition(
-                self._runtime.legion_context,
-                self._runtime.legion_runtime,
+                runtime.legion_context,
+                runtime.legion_runtime,
                 index_space,
                 color_space,
                 functor,
                 kind=kind,
                 keep=True,  # export this partition functor to other libraries
             )
-            self._runtime.record_partition(index_space, self, index_partition)
+            runtime.record_partition(index_space, self, index_partition)
         return region.get_child(index_partition)
 
 
 class Weighted(PartitionBase):
-    def __init__(
-        self, runtime: Runtime, color_shape: Shape, weights: FutureMap
-    ) -> None:
-        self._runtime = runtime
+    def __init__(self, color_shape: Shape, weights: FutureMap) -> None:
         self._color_shape = color_shape
         self._weights = weights
         self._hash: Union[int, None] = None
@@ -357,10 +336,6 @@ class Weighted(PartitionBase):
             and self._color_shape == other._color_shape
             and self._weights == other._weights
         )
-
-    @property
-    def runtime(self) -> Runtime:
-        return self._runtime
 
     @property
     def color_shape(self) -> Optional[Shape]:
@@ -429,21 +404,19 @@ class Weighted(PartitionBase):
         assert complete
 
         index_space = region.index_space
-        index_partition = self._runtime.find_partition(index_space, self)
+        index_partition = runtime.find_partition(index_space, self)
         if index_partition is None:
-            color_space = self._runtime.find_or_create_index_space(
-                self._color_shape
-            )
+            color_space = runtime.find_or_create_index_space(self._color_shape)
             functor = PartitionByWeights(self._weights)
             kind = legion.LEGION_DISJOINT_COMPLETE_KIND
             index_partition = IndexPartition(
-                self._runtime.legion_context,
-                self._runtime.legion_runtime,
+                runtime.legion_context,
+                runtime.legion_runtime,
                 index_space,
                 color_space,
                 functor,
                 kind=kind,
                 keep=True,  # export this partition functor to other libraries
             )
-            self._runtime.record_partition(index_space, self, index_partition)
+            runtime.record_partition(index_space, self, index_partition)
         return region.get_child(index_partition)

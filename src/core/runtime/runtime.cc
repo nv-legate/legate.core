@@ -82,17 +82,24 @@ static const char* const core_library_name = "legate.core";
   parse_variable("LEGATE_LOG_MAPPING", log_mapping_decisions);
 }
 
-static ReturnValues extract_scalar_task(const Task* task,
-                                        const std::vector<PhysicalRegion>& regions,
-                                        Context legion_context,
-                                        Runtime* runtime)
+static void extract_scalar_task(
+  const void* args, size_t arglen, const void* userdata, size_t userlen, Legion::Processor p)
 {
+  // Legion preamble
+  const Legion::Task* task;
+  const std::vector<Legion::PhysicalRegion>* regions;
+  Legion::Context legion_context;
+  Legion::Runtime* runtime;
+  Legion::Runtime::legion_task_preamble(args, arglen, p, task, regions, legion_context, runtime);
+
   Core::show_progress(task, legion_context, runtime, task->get_task_name());
 
-  TaskContext context(task, regions, legion_context, runtime);
+  TaskContext context(task, *regions, legion_context, runtime);
   auto values = task->futures[0].get_result<ReturnValues>();
   auto idx    = context.scalars()[0].value<int32_t>();
-  return ReturnValues({values[idx]});
+
+  // Legion postamble
+  ReturnValues({values[idx]}).finalize(legion_context);
 }
 
 /*static*/ void Core::shutdown(void)
@@ -154,8 +161,7 @@ void register_legate_core_tasks(Machine machine, Runtime* runtime, const Library
   {
     auto registrar =
       make_registrar(extract_scalar_task_id, extract_scalar_task_name, Processor::LOC_PROC);
-    Legion::CodeDescriptor desc(
-      Legion::LegionTaskWrapper::legion_task_wrapper<ReturnValues, extract_scalar_task>);
+    Legion::CodeDescriptor desc(extract_scalar_task);
     runtime->register_task_variant(
       registrar, desc, nullptr, 0, LEGATE_MAX_SIZE_SCALAR_RETURN, LEGATE_CPU_VARIANT);
   }
