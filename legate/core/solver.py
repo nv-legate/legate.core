@@ -116,6 +116,9 @@ class EqClass(Generic[T]):
         else:
             return self._classes[self._class_ids[var]]
 
+    def aligned(self, var1: T, var2: T) -> bool:
+        return self._class_ids[var1] == self._class_ids[var2]
+
 
 class Strategy:
     _launch_domain: Optional[Rect]
@@ -126,6 +129,7 @@ class Strategy:
         strategy: dict[PartSym, PartitionBase],
         fspaces: dict[PartSym, FieldSpace],
         key_parts: set[PartSym],
+        eq_classes: EqClass[PartSym],
     ) -> None:
         if launch_shape is not None:
             self._launch_domain = Rect(hi=launch_shape)
@@ -134,6 +138,7 @@ class Strategy:
         self._strategy = strategy
         self._fspaces = fspaces
         self._key_parts = key_parts
+        self._eq_classes = eq_classes
 
     @property
     def parallel(self) -> bool:
@@ -149,6 +154,9 @@ class Strategy:
             return 1
         else:
             return self._launch_domain.dim
+
+    def aligned(self, symb1: PartSym, symb2: PartSym) -> bool:
+        return self._eq_classes.aligned(symb1, symb2)
 
     def set_launch_domain(self, launch_domain: Rect) -> None:
         if self._launch_domain is not None:
@@ -172,6 +180,12 @@ class Strategy:
 
     def is_key_part(self, part: PartSym) -> bool:
         return part in self._key_parts
+
+    def unify_key_part(self, part1: PartSym, part2: PartSym) -> None:
+        non_members = {part1, part2} - self._key_parts
+        if len(non_members) == 2:
+            return
+        self._key_parts.update(non_members)
 
     def __str__(self) -> str:
         st = "[Strategy]"
@@ -502,4 +516,6 @@ class Partitioner:
             partitions, all_outputs, unbound_ndim
         )
 
-        return Strategy(launch_shape, partitions, fspaces, key_parts)
+        return Strategy(
+            launch_shape, partitions, fspaces, key_parts, constraints
+        )

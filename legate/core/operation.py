@@ -14,7 +14,15 @@
 #
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Iterable, Optional, Protocol, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Iterable,
+    Optional,
+    Protocol,
+    Tuple,
+    Union,
+)
 
 import legate.core.types as ty
 
@@ -185,7 +193,7 @@ class Operation(OperationProtocol):
             )
         return parts[0]
 
-    def get_tag(self, strategy: Strategy, part: Any) -> int:
+    def get_tag(self, strategy: Strategy, part: PartSym) -> int:
         if strategy.is_key_part(part):
             return 1  # LEGATE_CORE_KEY_STORE_TAG
         else:
@@ -481,6 +489,62 @@ class AutoTask(AutoOperation, Task):
             op_id=op_id,
             **kwargs,
         )
+        self._reusable_stores: list[Tuple[Store, PartSym]] = []
+        self._reuse_map: dict[int, Store] = {}
+
+    def record_reuse(
+        self,
+        strategy: Strategy,
+        out_idx: int,
+        store: Store,
+        part_symb: PartSym,
+    ) -> None:
+        found = -1
+        for idx, pair in enumerate(self._reusable_stores):
+            to_reuse, to_reuse_part_symb = pair
+            if store.type.size != to_reuse.type.size:
+                continue
+            if store.extents != to_reuse.extents:
+                continue
+            if not strategy.aligned(to_reuse_part_symb, part_symb):
+                continue
+            found = idx
+            break
+
+        if found != -1:
+            to_reuse, to_reuse_part_symb = self._reusable_stores[found]
+            self._reuse_map[out_idx] = to_reuse
+            strategy.unify_key_part(part_symb, to_reuse_part_symb)
+            self._reusable_stores = (
+                self._reusable_stores[:found]
+                + self._reusable_stores[found + 1 :]
+            )
+
+    def find_all_reusable_store_pairs(self, strategy: Strategy) -> None:
+        # We attempt to reuse a store's storage only when the following
+        # conditions are satisfied:
+        #
+        # 1. the source is marked linear and has no transforms
+        # 2. the target is initialized by this operation (i.e., does not have
+        #    a storage yet) and also has no transforms
+        # 3. the source and target have the same storage size
+        # 4. the source and target are aligned
+
+        self._reusable_stores.extend(
+            pair
+            for pair in zip(self._inputs, self._input_parts)
+            if pair[0].linear and not pair[0].transformed
+        )
+        if len(self._reusable_stores) == 0:
+            return
+        for idx, (store, part_symb) in enumerate(
+            zip(self._outputs, self._output_parts)
+        ):
+            if store.unbound or store.kind is Future:
+                continue
+            if store._storage.has_data or store.transformed:
+                continue
+            self.record_reuse(strategy, idx, store, part_symb)
 
     def launch(self, strategy: Strategy) -> None:
         launcher = TaskLauncher(self.context, self._task_id, self.mapper_id)
@@ -493,13 +557,19 @@ class AutoTask(AutoOperation, Task):
             tag = self.get_tag(strategy, part_symb)
             return req, tag, store_part
 
+        self.find_all_reusable_store_pairs(strategy)
+
         for store, part_symb in zip(self._inputs, self._input_parts):
             req, tag, _ = get_requirement(store, part_symb)
             launcher.add_input(store, req, tag=tag)
 
-        for store, part_symb in zip(self._outputs, self._output_parts):
+        for idx, (store, part_symb) in enumerate(
+            zip(self._outputs, self._output_parts)
+        ):
             if store.unbound:
                 continue
+            if idx in self._reuse_map:
+                store.move_data(self._reuse_map[idx])
             req, tag, store_part = get_requirement(store, part_symb)
             launcher.add_output(store, req, tag=tag)
             # We update the key partition of a store only when it gets updated

@@ -523,6 +523,11 @@ class Storage:
         if self._offsets is None and self._extents is not None:
             self._offsets = Shape((0,) * self._extents.ndim)
 
+        # True means this storage is transferrable
+        self._linear = False
+        # True means this storage is transferred
+        self._transferred = False
+
     def __str__(self) -> str:
         return (
             f"{self._kind.__name__}(uninitialized)"
@@ -570,6 +575,11 @@ class Storage:
         # If someone is trying to retreive the storage of a store,
         # we need to execute outstanding operations so that we know
         # it has been initialized correctly.
+        if self._transferred:
+            raise ValueError(
+                "Storage is already transferred. Reusing a linear store "
+                "is illegal."
+            )
         runtime.flush_scheduling_window()
         if self._data is None:
             if self._kind is Future:
@@ -591,6 +601,21 @@ class Storage:
             self._kind is Future and type(data) is Future
         ) or self._data is None
         self._data = data
+
+    @property
+    def linear(self) -> bool:
+        return self._linear
+
+    def set_linear(self) -> None:
+        self._linear = True
+
+    def move_data(self, other: Storage) -> None:
+        assert other._linear
+        assert other.has_data
+        assert not self.has_data
+        other._transferred = True
+        self._data = other._data
+        other._data = None
 
     def set_extents(self, extents: Shape) -> None:
         self._extents = extents
@@ -881,6 +906,16 @@ class Store:
             )
 
     @property
+    def linear(self) -> bool:
+        return self._storage.linear
+
+    def set_linear(self) -> None:
+        return self._storage.set_linear()
+
+    def move_data(self, other: Store) -> None:
+        self._storage.move_data(other._storage)
+
+    @property
     def shape(self) -> Shape:
         if self._shape is None:
             # If someone wants to access the shape of an unbound
@@ -991,6 +1026,7 @@ class Store:
         return self._storage.volume()
 
     def set_storage(self, data: Union[RegionField, Future]) -> None:
+        assert not self.linear
         self._storage.set_data(data)
         if self._shape is None:
             assert isinstance(data, RegionField)
