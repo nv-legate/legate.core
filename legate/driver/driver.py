@@ -24,7 +24,7 @@ from .config import Config
 from .launcher import Launcher
 from .system import System
 from .types import Command, EnvDict
-from .ui import bright, cyan, dim, green, white, yellow
+from .ui import bright, cyan, dim, green, red, white, yellow
 
 __all__ = ("Driver",)
 
@@ -92,7 +92,11 @@ class Driver:
             libpath = self.env[self.system.LIB_PATH]
             pythonpath = self.env["PYTHONPATH"]
             print(
-                _DARWIN_GDB_WARN.format(libpath=libpath, pythonpath=pythonpath)
+                red(
+                    _DARWIN_GDB_WARN.format(
+                        libpath=libpath, pythonpath=pythonpath
+                    )
+                )
             )
 
     def _init_logging(self) -> None:

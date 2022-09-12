@@ -171,7 +171,9 @@ class Config:
         if args.dataflow or args.event:
             if args.user_logging_levels is not None and not args.log_to_file:
                 print(
-                    "WARNING: Logging output is being redirected to a file in "
-                    f"directory {args.logdir}"
+                    red(
+                        "WARNING: Logging output is being redirected to a "
+                        f"file in directory {args.logdir}"
+                    )
                 )
             args.log_to_file = True

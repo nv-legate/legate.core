@@ -14,6 +14,7 @@
 #
 from __future__ import annotations
 
+import re
 from shlex import quote
 from typing import Any
 
@@ -30,6 +31,14 @@ from legate.driver.types import LauncherType
 from legate.driver.ui import scrub
 
 SYSTEM = System()
+
+DARWIN_GDB_WARN_EXPECTED_PAT = """\
+WARNING: You must start the debugging session with the following command,
+as LLDB no longer forwards the environment to subprocesses for security
+reasons:
+
+[(]lldb[)] process launch -v LIB_PATH=(.*) -v PYTHONPATH=(.*)
+"""
 
 
 class TestDriver:
@@ -132,3 +141,25 @@ class TestDriver:
             assert f"{k}={driver.env[k].rstrip()}" in out
 
         assert out.endswith(f"\n{'-':-<80}")
+
+    @pytest.mark.parametrize("launch", LAUNCHERS)
+    def test_darwin_gdb_warning(
+        self,
+        mocker: MockerFixture,
+        capsys: Capsys,
+        genconfig: Any,
+        launch: str,
+    ) -> None:
+        mocker.patch("platform.system", return_value="Darwin")
+
+        system = m.System()
+
+        # set --dry-run to avoid needing to mock anything
+        config = genconfig(["--launcher", launch, "--gdb", "--dry-run"])
+        driver = m.Driver(config, system)
+
+        driver.run()
+
+        out, _ = capsys.readouterr()
+
+        assert re.search(DARWIN_GDB_WARN_EXPECTED_PAT, scrub(out))
