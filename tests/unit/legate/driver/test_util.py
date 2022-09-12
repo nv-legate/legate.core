@@ -16,7 +16,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from subprocess import CalledProcessError
 
 import pytest
 
@@ -63,16 +62,19 @@ def test_read_c_define_miss() -> None:
 CMAKE_CACHE_PATH = Path(__file__).parent / "sample_cmake_cache.txt"
 
 
-def test_grep_file_hit() -> None:
+def test_read_cmake_cache_value_hit() -> None:
     assert (
-        m.grep_file("Legion_SOURCE_DIR:STATIC=", CMAKE_CACHE_PATH)
+        m.read_cmake_cache_value("Legion_SOURCE_DIR:STATIC=", CMAKE_CACHE_PATH)
         == '"foo/bar"'
     )
     assert (
-        m.grep_file("FIND_LEGATE_CORE_CPP:BOOL=OFF", CMAKE_CACHE_PATH) == "OFF"
+        m.read_cmake_cache_value(
+            "FIND_LEGATE_CORE_CPP:BOOL=OFF", CMAKE_CACHE_PATH
+        )
+        == "OFF"
     )
 
 
-def test_grep_file_miss() -> None:
-    with pytest.raises(CalledProcessError):
-        assert m.grep_file("JUNK", CMAKE_CACHE_PATH) is None
+def test_read_cmake_cache_value_miss() -> None:
+    with pytest.raises(RuntimeError):
+        assert m.read_cmake_cache_value("JUNK", CMAKE_CACHE_PATH) is None

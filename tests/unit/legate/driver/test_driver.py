@@ -19,6 +19,7 @@ from typing import Any
 
 import pytest
 from pytest_mock import MockerFixture
+from util import Capsys
 
 import legate.driver.driver as m
 from legate.driver.args import LAUNCHERS
@@ -27,8 +28,6 @@ from legate.driver.launcher import Launcher
 from legate.driver.system import System
 from legate.driver.types import LauncherType
 from legate.driver.ui import scrub
-
-from util import Capsys
 
 SYSTEM = System()
 
@@ -102,7 +101,11 @@ class TestDriver:
 
     @pytest.mark.parametrize("launch", LAUNCHERS)
     def test_verbose(
-        self, capsys: Capsys, genconfig: Any, mocker: MockerFixture, launch: LauncherType
+        self,
+        capsys: Capsys,
+        genconfig: Any,
+        mocker: MockerFixture,
+        launch: LauncherType,
     ) -> None:
         # set --dry-run to avoid needing to mock anything
         config = genconfig(["--launcher", launch, "--verbose", "--dry-run"])
@@ -129,5 +132,3 @@ class TestDriver:
             assert f"{k}={driver.env[k].rstrip()}" in out
 
         assert out.endswith(f"\n{'-':-<80}")
-
-
