@@ -40,17 +40,13 @@ from . import (
     types as ty,
 )
 from ._legion.util import Dispatchable
+from .allocation import Attachable
 from .communicator import CPUCommunicator, NCCLCommunicator
-from .context import Context
 from .corelib import core_library
 from .exception import PendingException
-from .launcher import TaskLauncher
-from .partition import Restriction
 from .projection import is_identity_projection, pack_symbolic_projection_repr
+from .restriction import Restriction
 from .shape import Shape
-from .solver import Partitioner
-from .store import DistributedAllocation, RegionField, Storage, Store
-from .transform import IdentityTransform
 from .utils import OrderedSet
 
 if TYPE_CHECKING:
@@ -59,51 +55,16 @@ if TYPE_CHECKING:
     from . import ArgumentMap, Detach, IndexDetach, IndexPartition, Library
     from ._legion import FieldListLike, PhysicalRegion
     from .communicator import Communicator
+    from .context import Context
     from .corelib import CoreLib
     from .operation import Operation
     from .partition import PartitionBase
     from .projection import ProjExpr
+    from .store import RegionField, Store
 
 from math import prod
 
-Attachable = Union[memoryview, DistributedAllocation]
-
 T = TypeVar("T")
-
-
-# A Field holds a reference to a field in a region tree
-class Field:
-    def __init__(
-        self,
-        runtime: Runtime,
-        region: Region,
-        field_id: int,
-        dtype: Any,
-        shape: Shape,
-        own: bool = True,
-    ) -> None:
-        self.runtime = runtime
-        self.region = region
-        self.field_id = field_id
-        self.dtype = dtype
-        self.shape = shape
-        self.own = own
-
-    def same_handle(self, other: Field) -> bool:
-        return type(self) == type(other) and self.field_id == other.field_id
-
-    def __str__(self) -> str:
-        return f"Field({self.field_id})"
-
-    def __del__(self) -> None:
-        if self.own:
-            # Return our field back to the runtime
-            self.runtime.free_field(
-                self.region,
-                self.field_id,
-                self.dtype,
-                self.shape,
-            )
 
 
 _sizeof_int = ffi.sizeof("int")
@@ -975,6 +936,8 @@ class Runtime:
         return self._partition_manager
 
     def register_library(self, library: Library) -> Context:
+        from .context import Context
+
         libname = library.get_name()
         if libname in self._contexts:
             raise RuntimeError(
@@ -1054,15 +1017,15 @@ class Runtime:
         return op.launch(self.legion_runtime, self.legion_context)
 
     def _schedule(self, ops: List[Operation]) -> None:
+        from .solver import Partitioner
+
         # TODO: For now we run the partitioner for each operation separately.
         #       We will eventually want to compute a trace-wide partitioning
         #       strategy.
         strategies = []
         for op in ops:
             must_be_single = len(op.scalar_outputs) > 0
-            partitioner = Partitioner(
-                self, [op], must_be_single=must_be_single
-            )
+            partitioner = Partitioner([op], must_be_single=must_be_single)
             strategies.append(partitioner.partition_stores())
 
         for op, strategy in zip(ops, strategies):
@@ -1165,6 +1128,8 @@ class Runtime:
         optimize_scalar: bool = False,
         ndim: Optional[int] = None,
     ) -> Store:
+        from .store import RegionField, Storage, Store
+
         if ndim is not None and shape is not None:
             raise ValueError("ndim cannot be used with shape")
         elif ndim is None and shape is None:
@@ -1178,12 +1143,10 @@ class Runtime:
             if optimize_scalar and shape is not None and shape.volume() == 1
             else RegionField
         )
-        storage = Storage(self, shape, 0, dtype, data=data, kind=kind)
+        storage = Storage(shape, 0, dtype, data=data, kind=kind)
         return Store(
-            self,
             dtype,
             storage,
-            IdentityTransform(),
             shape=shape,
             ndim=ndim,
         )
@@ -1210,13 +1173,14 @@ class Runtime:
         return field_mgr
 
     def allocate_field(self, shape: Shape, dtype: Any) -> RegionField:
+        from .store import RegionField
+
         assert not self.destroyed
         region = None
         field_id = None
         field_mgr = self.find_or_create_field_manager(shape, dtype)
         region, field_id = field_mgr.allocate_field()
-        field = Field(self, region, field_id, dtype, shape)
-        return RegionField(self, region, field, shape)
+        return RegionField.create(region, field_id, dtype, shape)
 
     def free_field(
         self, region: Region, field_id: int, dtype: Any, shape: Shape
@@ -1233,23 +1197,16 @@ class Runtime:
     def import_output_region(
         self, out_region: OutputRegion, field_id: int, dtype: Any
     ) -> RegionField:
+        from .store import RegionField
+
         region = out_region.get_region()
         shape = Shape(ispace=region.index_space)
 
         region_mgr = self.find_or_create_region_manager(shape)
         region_mgr.import_region(region)
-        field = Field(
-            self,
-            region,
-            field_id,
-            dtype,
-            shape,
-            own=True,
-        )
-
         self.find_or_create_field_manager(shape, dtype)
 
-        return RegionField(self, region, field, shape)
+        return RegionField.create(region, field_id, dtype, shape)
 
     def create_output_region(
         self, fspace: FieldSpace, fields: FieldListLike, ndim: int
@@ -1323,6 +1280,8 @@ class Runtime:
         )
 
     def extract_scalar(self, future: Future, idx: int) -> Future:
+        from .launcher import TaskLauncher
+
         launcher = TaskLauncher(
             self.core_context,
             self.core_library.LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,
@@ -1335,6 +1294,8 @@ class Runtime:
     def extract_scalar_with_domain(
         self, future: FutureMap, idx: int, launch_domain: Rect
     ) -> FutureMap:
+        from .launcher import TaskLauncher
+
         launcher = TaskLauncher(
             self.core_context,
             self.core_library.LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,
@@ -1370,6 +1331,7 @@ class Runtime:
                 self.legion_runtime,
                 self.core_context.get_reduction_op_id(redop),
                 mapper=self.core_context.get_mapper_id(0),
+                tag=self.core_library.LEGATE_CORE_JOIN_EXCEPTION_TAG,
             )
 
     def issue_execution_fence(self, block: bool = False) -> None:
@@ -1433,13 +1395,13 @@ class Runtime:
             pending.raise_exception()
 
 
-_runtime = Runtime(core_library)
+runtime: Runtime = Runtime(core_library)
 
 
 def _cleanup_legate_runtime() -> None:
-    global _runtime
-    _runtime.destroy()
-    del _runtime
+    global runtime
+    runtime.destroy()
+    del runtime
     gc.collect()
 
 
@@ -1447,16 +1409,16 @@ add_cleanup_item(_cleanup_legate_runtime)
 
 
 def get_legion_runtime() -> legion.legion_runtime_t:
-    return _runtime.legion_runtime
+    return runtime.legion_runtime
 
 
 def get_legion_context() -> legion.legion_context_t:
-    return _runtime.legion_context
+    return runtime.legion_context
 
 
 def legate_add_library(library: Library) -> None:
-    _runtime.register_library(library)
+    runtime.register_library(library)
 
 
 def get_legate_runtime() -> Runtime:
-    return _runtime
+    return runtime

@@ -19,15 +19,23 @@
 #include "core/data/buffer.h"
 #include "core/data/scalar.h"
 #include "core/data/store.h"
+#include "core/mapping/base_mapper.h"
 #include "core/runtime/context.h"
+#include "core/runtime/runtime.h"
 #include "core/utilities/deserializer.h"
+
+#ifdef LEGATE_USE_CUDA
+#include "core/cuda/cuda_help.h"
+#endif
+
+#include "mappers/logging_wrapper.h"
 
 namespace legate {
 
 LibraryContext::LibraryContext(Legion::Runtime* runtime,
                                const std::string& library_name,
                                const ResourceConfig& config)
-  : library_name_(library_name)
+  : runtime_(runtime), library_name_(library_name)
 {
   task_scope_ = ResourceScope(
     runtime->generate_library_task_ids(library_name.c_str(), config.max_tasks), config.max_tasks);
@@ -140,6 +148,15 @@ bool LibraryContext::valid_sharding_id(Legion::ShardingID shard_id) const
   return shard_scope_.in_scope(shard_id);
 }
 
+void LibraryContext::register_mapper(mapping::BaseMapper* mapper, int64_t local_mapper_id) const
+{
+  auto mapper_id = get_mapper_id(local_mapper_id);
+  if (Core::log_mapping_decisions)
+    runtime_->add_mapper(mapper_id, new Legion::Mapping::LoggingWrapper(mapper, &mapper->logger));
+  else
+    runtime_->add_mapper(mapper_id, mapper);
+}
+
 TaskContext::TaskContext(const Legion::Task* task,
                          const std::vector<Legion::PhysicalRegion>& regions,
                          Legion::Context context,
@@ -183,6 +200,16 @@ TaskContext::TaskContext(const Legion::Task* task,
     arrival.arrive();
     wait.wait();
   }
+#ifdef LEGATE_USE_CUDA
+  // If the task is running on a GPU and there is at least one scalar store for reduction,
+  // we need to wait for all the host-to-device copies for initialization to finish
+  if (Legion::Processor::get_executing_processor().kind() == Legion::Processor::Kind::TOC_PROC)
+    for (auto& reduction : reductions_)
+      if (reduction.is_future()) {
+        CHECK_CUDA(cudaDeviceSynchronize());
+        break;
+      }
+#endif
 }
 
 bool TaskContext::is_single_task() const { return !task_->is_index_space; }

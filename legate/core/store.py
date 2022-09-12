@@ -15,15 +15,7 @@
 from __future__ import annotations
 
 import weakref
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Optional,
-    Sequence,
-    Type,
-    Union,
-)
+from typing import TYPE_CHECKING, Any, Optional, Sequence, Type, Union
 
 from . import (
     Attach,
@@ -36,8 +28,14 @@ from . import (
     ffi,
     legion,
 )
+from .allocation import (
+    Attachable,
+    DistributedAllocation,
+    InlineMappedAllocation,
+)
 from .partition import REPLICATE, PartitionBase, Restriction, Tiling
 from .projection import execute_functor_symbolically
+from .runtime import runtime
 from .shape import Shape
 from .transform import (
     Delinearize,
@@ -46,6 +44,7 @@ from .transform import (
     Shift,
     TransformStack,
     Transpose,
+    identity,
 )
 from .types import _Dtype
 
@@ -61,91 +60,57 @@ if TYPE_CHECKING:
     from .context import Context
     from .launcher import Proj
     from .projection import ProjFn
-    from .runtime import Field, Runtime
     from .transform import TransformStackBase
 
 from math import prod
 
+attachment_manager = runtime.attachment_manager
+partition_manager = runtime.partition_manager
 
-class InlineMappedAllocation:
-    """
-    This helper class is to tie the lifecycle of the client object to
-    the inline mapped allocation
-    """
 
+# A Field holds a reference to a field in a region tree
+class Field:
     def __init__(
         self,
-        region_field: RegionField,
-        shape: tuple[int, ...],
-        address: int,
-        strides: tuple[int, ...],
+        region: Region,
+        field_id: int,
+        dtype: Any,
+        shape: Shape,
     ) -> None:
-        self._region_field = region_field
-        self._shape = shape
-        self._address = address
-        self._strides = strides
-        self._consumed = False
+        self.region = region
+        self.field_id = field_id
+        self.dtype = dtype
+        self.shape = shape
 
-    def consume(
-        self, ctor: Callable[[tuple[int, ...], int, tuple[int, ...]], Any]
-    ) -> Any:
-        if self._consumed:
-            raise RuntimeError("Each inline mapping can be consumed only once")
-        self._consumed = True
-        result = ctor(self._shape, self._address, self._strides)
-        self._region_field.register_consumer(result)
-        return result
+    def same_handle(self, other: Field) -> bool:
+        return type(self) == type(other) and self.field_id == other.field_id
 
+    def __str__(self) -> str:
+        return f"Field({self.field_id})"
 
-class DistributedAllocation:
-    def __init__(
-        self,
-        partition: LegionPartition,
-        shard_local_buffers: dict[Point, memoryview],
-    ) -> None:
-        """
-        Represents a distributed collection of buffers, to be
-        collectively attached as sub-regions of the same
-        parent region.
-
-        This is a rare case of a data structure that is allowed (and expected)
-        to have a different value on different shards; each shard should
-        specify a distinct set of resources.
-
-        Parameters
-        ----------
-        partition : Partition
-            The partition to use in the IndexAttach operation
-        shard_local_buffers : dict[Point, memoryview]
-            Map from color to buffer that should back the sub-region of that
-            color. This map will only cover the buffers local to the current
-            shard.
-        """
-        self.partition = partition
-        self.shard_local_buffers = shard_local_buffers
-
-
-Attachable = Union[memoryview, DistributedAllocation]
+    def __del__(self) -> None:
+        # Return our field back to the runtime
+        runtime.free_field(
+            self.region,
+            self.field_id,
+            self.dtype,
+            self.shape,
+        )
 
 
 # A region field holds a reference to a field in a logical region
 class RegionField:
     def __init__(
         self,
-        runtime: Runtime,
         region: Region,
         field: Field,
         shape: Shape,
         parent: Optional[RegionField] = None,
     ) -> None:
-        self.runtime = runtime
-        self.attachment_manager = runtime.attachment_manager
-        self.partition_manager = runtime.partition_manager
         self.region = region
         self.field = field
         self.shape = shape
         self.parent = parent
-        self.launch_space = None  # Parallel launch space for this region_field
         # External allocation we attached to this field
         self.attached_alloc: Union[None, Attachable] = None
         self.detach_key: int = -1
@@ -154,11 +119,18 @@ class RegionField:
         self.physical_region_refs = 0
         self.physical_region_mapped = False
 
-        self._partitions: dict[PartitionBase, LegionPartition] = {}
+        self._partitions: dict[Tiling, LegionPartition] = {}
 
     def __del__(self) -> None:
         if self.attached_alloc is not None:
             self.detach_external_allocation(unordered=True, defer=True)
+
+    @staticmethod
+    def create(
+        region: Region, field_id: int, dtype: Any, shape: Shape
+    ) -> RegionField:
+        field = Field(region, field_id, dtype, shape)
+        return RegionField(region, field, shape)
 
     def same_handle(self, other: RegionField) -> bool:
         return (
@@ -187,7 +159,7 @@ class RegionField:
         assert self.physical_region_refs == 0
         # Record the attached memory ranges, and confirm no overlaps with
         # previously encountered ranges.
-        self.attachment_manager.attach_external_allocation(alloc, self)
+        attachment_manager.attach_external_allocation(alloc, self)
 
         def record_detach(detach: Union[Detach, IndexDetach]) -> None:
             # Dangle these fields off the detachment operation, to prevent
@@ -197,9 +169,7 @@ class RegionField:
             # Don't store the detachment operation here, instead register it
             # on the attachment manager and record its unique key
             # TODO: This might not be necessary anymore
-            self.detach_key = self.attachment_manager.register_detachment(
-                detach
-            )
+            self.detach_key = attachment_manager.register_detachment(detach)
 
         if isinstance(alloc, memoryview):
             # Singleton attachment
@@ -218,7 +188,7 @@ class RegionField:
                 self.physical_region_mapped = True
             # Singleton allocations return a physical region for the entire
             # domain, that can be inline-mapped directly.
-            self.physical_region = self.runtime.dispatch(attach)
+            self.physical_region = runtime.dispatch(attach)
             # Add a reference here to prevent collection in inline mapped
             # cases. This reference will never be removed, we'll delete the
             # physical region once the object is deleted.
@@ -264,7 +234,7 @@ class RegionField:
             # If we're not sharing there is no need to restrict the attachment
             if not share:
                 index_attach.set_restricted(False)
-            external_resources = self.runtime.dispatch(index_attach)
+            external_resources = runtime.dispatch(index_attach)
             # We don't need to flush the contents back to the attached memory
             # if this is an internal temporary allocation.
             record_detach(IndexDetach(external_resources, flush=share))
@@ -276,9 +246,9 @@ class RegionField:
     ) -> None:
         assert self.parent is None
         assert self.attached_alloc is not None
-        detach = self.attachment_manager.remove_detachment(self.detach_key)
+        detach = attachment_manager.remove_detachment(self.detach_key)
         detach.unordered = unordered  # type: ignore[union-attr]
-        self.attachment_manager.detach_external_allocation(
+        attachment_manager.detach_external_allocation(
             self.attached_alloc, detach, defer
         )
         self.physical_region = None
@@ -296,14 +266,14 @@ class RegionField:
                     self.field.field_id,
                     mapper=context.mapper_id,
                 )
-                self.physical_region = self.runtime.dispatch(mapping)
+                self.physical_region = runtime.dispatch(mapping)
                 self.physical_region_mapped = True
                 # Wait until it is valid before returning
                 self.physical_region.wait_until_valid()
             elif not self.physical_region_mapped:
                 # If we have a physical region but it is not mapped then
                 # we actually need to remap it, we do this by launching it
-                self.runtime.dispatch(self.physical_region)
+                runtime.dispatch(self.physical_region)
                 self.physical_region_mapped = True
                 # Wait until it is valid before returning
                 self.physical_region.wait_until_valid()
@@ -322,9 +292,7 @@ class RegionField:
             assert self.physical_region_refs > 0
             self.physical_region_refs -= 1
             if self.physical_region_refs == 0:
-                self.runtime.unmap_region(
-                    self.physical_region, unordered=unordered
-                )
+                runtime.unmap_region(self.physical_region, unordered=unordered)
                 self.physical_region = None
                 self.physical_region_mapped = False
         else:
@@ -336,7 +304,7 @@ class RegionField:
         context: Optional[Context] = None,
         transform: Optional[AffineTransform] = None,
     ) -> InlineMappedAllocation:
-        context = self.runtime.core_context if context is None else context
+        context = runtime.core_context if context is None else context
 
         physical_region = self.get_inline_mapped_region(context)
         # We need a pointer to the physical allocation for this physical region
@@ -421,7 +389,6 @@ class RegionField:
 
         child_region = partition.get_child(Point(color))
         return RegionField(
-            self.runtime,
             child_region,
             self.field,
             functor.get_subregion_size(self.shape, color),
@@ -432,13 +399,11 @@ class RegionField:
 class StoragePartition:
     def __init__(
         self,
-        runtime: Runtime,
         level: int,
         parent: Storage,
         partition: PartitionBase,
         complete: bool = False,
     ) -> None:
-        self._runtime = runtime
         self._level = level
         self._parent = parent
         self._partition = partition
@@ -467,7 +432,6 @@ class StoragePartition:
         extents = self.get_child_size(color)
         offsets = self.get_child_offsets(color)
         return Storage(
-            self._runtime,
             extents,
             self._level + 1,
             self._parent.dtype,
@@ -529,7 +493,6 @@ class StoragePartition:
 class Storage:
     def __init__(
         self,
-        runtime: Runtime,
         extents: Optional[Shape],
         level: int,
         dtype: Any,
@@ -546,9 +509,6 @@ class Storage:
         )
         assert not isinstance(data, Future) or parent is None
         assert parent is None or color is not None
-        self._runtime = runtime
-        self._attachment_manager = runtime.attachment_manager
-        self._partition_manager = runtime.partition_manager
         self._extents = extents
         self._offsets = offsets
         self._level = level
@@ -576,7 +536,7 @@ class Storage:
     @property
     def extents(self) -> Shape:
         if self._extents is None:
-            self._runtime.flush_scheduling_window()
+            runtime.flush_scheduling_window()
             if self._extents is None:
                 raise ValueError(
                     "Illegal to access an uninitialized unbound store"
@@ -610,14 +570,12 @@ class Storage:
         # If someone is trying to retreive the storage of a store,
         # we need to execute outstanding operations so that we know
         # it has been initialized correctly.
-        self._runtime.flush_scheduling_window()
+        runtime.flush_scheduling_window()
         if self._data is None:
             if self._kind is Future:
                 raise ValueError("Illegal to access an uninitialized storage")
             if self._parent is None:
-                self._data = self._runtime.allocate_field(
-                    self.extents, self._dtype
-                )
+                self._data = runtime.allocate_field(self.extents, self._dtype)
             else:
                 assert self._color
                 self._data = self._parent.get_child_data(self._color)
@@ -716,9 +674,7 @@ class Storage:
         # This is the only situation where we can attach the same buffer to
         # two Stores, since they are both backed by the same RegionField.
         if self._data is None and share and isinstance(alloc, memoryview):
-            self._data = self._attachment_manager.reuse_existing_attachment(
-                alloc
-            )
+            self._data = attachment_manager.reuse_existing_attachment(alloc)
             if self._data is not None:
                 return
         # Force the RegionField to be instantiated, do the attachment normally
@@ -737,9 +693,8 @@ class Storage:
             shape % tile_shape
         ).sum() == 0
 
-        if (
-            can_tile_completely
-            and self._partition_manager.use_complete_tiling(shape, tile_shape)
+        if can_tile_completely and partition_manager.use_complete_tiling(
+            shape, tile_shape
         ):
             color_shape = shape // tile_shape
             color = offsets // tile_shape
@@ -750,10 +705,9 @@ class Storage:
             color = Shape((0,) * shape.ndim)
             complete = False
 
-        tiling = Tiling(self._runtime, tile_shape, color_shape, offsets)
+        tiling = Tiling(tile_shape, color_shape, offsets)
         # We create a slice partition directly off of the root
         partition = StoragePartition(
-            self._runtime,
             1,
             self.get_root(),
             tiling,
@@ -764,7 +718,7 @@ class Storage:
     def partition(self, partition: PartitionBase) -> StoragePartition:
         complete = partition.is_complete_for(self.extents, self.offsets)
         return StoragePartition(
-            self._runtime, self._level + 1, self, partition, complete=complete
+            self._level + 1, self, partition, complete=complete
         )
 
     def get_inline_allocation(
@@ -817,12 +771,10 @@ class Storage:
 class StorePartition:
     def __init__(
         self,
-        runtime: Runtime,
         store: Store,
         partition: PartitionBase,
         storage_partition: StoragePartition,
     ) -> None:
-        self._runtime = runtime
         self._store = store
         self._partition = partition
         self._storage_partition = storage_partition
@@ -845,10 +797,9 @@ class StorePartition:
         child_transform = self.transform
         for dim, offset in enumerate(child_storage.offsets):
             child_transform = TransformStack(
-                Shift(self._runtime, dim, -offset), child_transform
+                Shift(dim, -offset), child_transform
             )
         return Store(
-            self._runtime,
             self._store.type,
             child_storage,
             child_transform,
@@ -865,7 +816,7 @@ class StorePartition:
             proj_id = self._store.compute_projection(proj_fn, launch_ndim)
             if self._partition.needs_delinearization(launch_ndim):
                 assert proj_id == 0
-                proj_id = self._runtime.get_delinearize_functor()
+                proj_id = runtime.get_delinearize_functor()
         else:
             proj_id = 0
         return self._partition.requirement(part, proj_id)
@@ -877,10 +828,9 @@ class StorePartition:
 class Store:
     def __init__(
         self,
-        runtime: Runtime,
         dtype: _Dtype,
         storage: Storage,
-        transform: TransformStackBase,
+        transform: Optional[TransformStackBase] = None,
         shape: Optional[Shape] = None,
         ndim: Optional[int] = None,
     ) -> None:
@@ -906,14 +856,16 @@ class Store:
             A stack of transforms that describe a view to the storage
 
         """
+        if transform is not None:
+            sanitized_transform = transform
+        else:
+            sanitized_transform = identity
         assert isinstance(shape, Shape) or shape is None
-        self._runtime = runtime
-        self._partition_manager = runtime.partition_manager
         self._shape = shape
         self._ndim = ndim
         self._dtype = dtype
         self._storage = storage
-        self._transform = transform
+        self._transform: TransformStackBase = sanitized_transform
         self._key_partition: Union[None, PartitionBase] = None
         # This is a cache for the projection functor id
         # when no custom functor is given
@@ -934,7 +886,7 @@ class Store:
             # If someone wants to access the shape of an unbound
             # store before it is set, that means the producer task is
             # sitting in the queue, so we should flush the queue.
-            self._runtime.flush_scheduling_window()
+            runtime.flush_scheduling_window()
 
             # If the shape is still None, this store has not been passed to any
             # task yet. Accessing the shape of an uninitialized store is
@@ -1074,13 +1026,12 @@ class Store:
                 f"{self.ndim}-D store"
             )
 
-        transform = Promote(self._runtime, extra_dim, dim_size)
+        transform = Promote(extra_dim, dim_size)
         old_shape = self.shape
         shape = transform.compute_shape(old_shape)
         if old_shape == shape:
             return self
         return Store(
-            self._runtime,
             self._dtype,
             self._storage,
             TransformStack(transform, self._transform),
@@ -1104,7 +1055,7 @@ class Store:
                 f"{index} for a store of shape {old_shape}"
             )
 
-        transform = Project(self._runtime, dim, index)
+        transform = Project(dim, index)
         shape = transform.compute_shape(old_shape)
         if old_shape == shape:
             return self
@@ -1120,7 +1071,6 @@ class Store:
                 self._transform.invert_point(offsets),
             )
         return Store(
-            self._runtime,
             self._dtype,
             storage,
             TransformStack(transform, self._transform),
@@ -1167,12 +1117,9 @@ class Store:
         transform = (
             self._transform
             if start == 0
-            else TransformStack(
-                Shift(self._runtime, dim, -start), self._transform
-            )
+            else TransformStack(Shift(dim, -start), self._transform)
         )
         return Store(
-            self._runtime,
             self._dtype,
             storage,
             transform,
@@ -1197,10 +1144,9 @@ class Store:
         if all(idx == val for idx, val in enumerate(axes)):
             return self
 
-        transform = Transpose(self._runtime, axes)
+        transform = Transpose(axes)
         shape = transform.compute_shape(self.shape)
         return Store(
-            self._runtime,
             self._dtype,
             self._storage,
             TransformStack(transform, self._transform),
@@ -1218,7 +1164,7 @@ class Store:
         if len(shape) == 1:
             return self
         s = Shape(shape)
-        transform = Delinearize(self._runtime, dim, s)
+        transform = Delinearize(dim, s)
         old_shape = self.shape
         if old_shape[dim] != s.volume():
             raise ValueError(
@@ -1227,7 +1173,6 @@ class Store:
             )
         new_shape = transform.compute_shape(old_shape)
         return Store(
-            self._runtime,
             self._dtype,
             self._storage,
             TransformStack(transform, self._transform),
@@ -1257,7 +1202,7 @@ class Store:
     def get_key_partition(self) -> Optional[PartitionBase]:
         # Flush outstanding operations to have the key partition of this store
         # registered correctly
-        self._runtime.flush_scheduling_window()
+        runtime.flush_scheduling_window()
 
         restrictions = self.find_restrictions()
 
@@ -1311,17 +1256,17 @@ class Store:
             partition = self._transform.convert_partition(partition)
             return partition
         else:
-            launch_shape = self._partition_manager.compute_launch_shape(
+            launch_shape = partition_manager.compute_launch_shape(
                 self,
                 restrictions,
             )
             if launch_shape is None:
                 partition = REPLICATE
             else:
-                tile_shape = self._partition_manager.compute_tile_shape(
+                tile_shape = partition_manager.compute_tile_shape(
                     self.shape, launch_shape
                 )
-                partition = Tiling(self._runtime, tile_shape, launch_shape)
+                partition = Tiling(tile_shape, launch_shape)
             return partition
 
     def compute_projection(
@@ -1343,16 +1288,14 @@ class Store:
             if self._projection is None:
                 point = execute_functor_symbolically(self.ndim)
                 point = self._transform.invert_symbolic_point(point)
-                self._projection = self._runtime.get_projection(
-                    self.ndim, point
-                )
+                self._projection = runtime.get_projection(self.ndim, point)
             return self._projection
         # For more general cases, don't bother to cache anything
         else:
             assert launch_ndim is not None
             point = execute_functor_symbolically(launch_ndim, proj_fn)
             point = self._transform.invert_symbolic_point(point)
-            return self._runtime.get_projection(launch_ndim, point)
+            return runtime.get_projection(launch_ndim, point)
 
     def find_restrictions(self) -> tuple[Restriction, ...]:
         if self._restrictions is not None:
@@ -1376,9 +1319,7 @@ class Store:
         storage_partition = self._storage.partition(
             self.invert_partition(partition),
         )
-        return StorePartition(
-            self._runtime, self, partition, storage_partition
-        )
+        return StorePartition(self, partition, storage_partition)
 
     def partition_by_tiling(
         self, tile_shape: Union[Shape, Sequence[int]]
@@ -1388,5 +1329,5 @@ class Store:
         if not isinstance(tile_shape, Shape):
             tile_shape = Shape(tile_shape)
         launch_shape = (self.shape + tile_shape - 1) // tile_shape
-        partition = Tiling(self._runtime, tile_shape, launch_shape)
+        partition = Tiling(tile_shape, launch_shape)
         return self.partition(partition)

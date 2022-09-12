@@ -19,7 +19,6 @@ from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union, cast
 import numpy as np
 
 from . import Future, legion
-from .operation import AutoTask, Copy, ManualTask, Reduce
 from .resource import ResourceScope
 from .types import TypeSystem
 
@@ -31,6 +30,7 @@ if TYPE_CHECKING:
     from ._legion.util import Dispatchable
     from .communicator import Communicator
     from .legate import Library
+    from .operation import AutoTask, Copy, ManualTask
     from .runtime import Runtime
     from .shape import Shape
     from .store import RegionField, Store
@@ -182,6 +182,8 @@ class Context:
         manual: Optional[bool] = False,
         launch_domain: Optional[Rect] = None,
     ) -> Union[AutoTask, ManualTask]:
+        from .operation import AutoTask, ManualTask
+
         unique_op_id = self.get_unique_op_id()
         if not manual:
             return AutoTask(self, task_id, mapper_id, unique_op_id)
@@ -205,6 +207,8 @@ class Context:
         mapper_id: int = 0,
         launch_domain: Optional[Rect] = None,
     ) -> ManualTask:
+        from .operation import ManualTask
+
         return cast(
             ManualTask,
             self.create_task(
@@ -221,6 +225,8 @@ class Context:
         mapper_id: int = 0,
         launch_domain: Optional[Rect] = None,
     ) -> AutoTask:
+        from .operation import AutoTask
+
         return cast(
             AutoTask,
             self.create_task(
@@ -232,6 +238,8 @@ class Context:
         )
 
     def create_copy(self, mapper_id: int = 0) -> Copy:
+        from .operation import Copy
+
         return Copy(self, mapper_id)
 
     def dispatch(self, op: Dispatchable[T]) -> T:
@@ -269,6 +277,8 @@ class Context:
     def tree_reduce(
         self, task_id: int, store: Store, mapper_id: int = 0, radix: int = 4
     ) -> Store:
+        from .operation import Reduce
+
         result = self.create_store(store.type)
         unique_op_id = self.get_unique_op_id()
 
