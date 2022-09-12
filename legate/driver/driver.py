@@ -14,7 +14,6 @@
 #
 from __future__ import annotations
 
-import os
 from shlex import quote
 from subprocess import run
 from textwrap import indent
@@ -22,6 +21,7 @@ from textwrap import indent
 from .command import CMD_PARTS
 from .config import Config
 from .launcher import Launcher
+from .logs import process_logs
 from .system import System
 from .types import Command, EnvDict
 from .ui import bright, cyan, dim, green, red, white, yellow
@@ -35,11 +35,6 @@ reasons:
 
 (lldb) process launch -v LIB_PATH={libpath} -v PYTHONPATH={pythonpath}
 
-"""
-
-_TOOL_WARN = """\
-Skipping the processing of {tool} output, to avoid wasting resources in a
-large allocation. Please manually run: {cmd}"
 """
 
 
@@ -77,13 +72,8 @@ class Driver:
         if self.config.other.dry_run:
             return 0
 
-        self._init_logging()
-
-        proc = run(self.cmd, env=self.env)
-
-        self._process_logging()
-
-        return proc.returncode
+        with process_logs(self.config, self.system, self.launcher):
+            return run(self.cmd, env=self.env).returncode
 
     def _darwin_gdb_warn(self) -> None:
         gdb = self.config.debugging.gdb
@@ -98,9 +88,6 @@ class Driver:
                     )
                 )
             )
-
-    def _init_logging(self) -> None:
-        os.makedirs(self.config.logging.logdir, exist_ok=True)
 
     def _print_verbose(self) -> None:
 
@@ -124,70 +111,3 @@ class Driver:
         print(cyan(f"\n{'-':-<80}"))
 
         print(flush=True)
-
-    def _process_logging(self) -> None:
-        # make sure we only run processing at most once on multi-rank
-        if self.launcher.kind == "none" or self.launcher.rank_id != "0":
-            return
-
-        if self.config.profiling.profile:
-            self._process_profiling()
-
-        if self.config.debugging.dataflow or self.config.debugging.event:
-            self._process_debugging()
-
-    def _process_debugging(self) -> None:
-        legion_spy_py = str(self.system.legion_paths.legion_spy_py)
-        ranks = self.config.multi_node.ranks
-
-        cmd: Command = (legion_spy_py,)
-
-        dflag = "d" if self.config.debugging.dataflow else ""
-        eflag = "e" if self.config.debugging.event else ""
-        if dflag or eflag:
-            cmd += ("-{dflag}{eflag}",)
-
-        cmd += tuple(f"legate_{n}.log" for n in range(ranks))
-
-        keep_logs = self._run_processing(cmd, "spy")
-
-        # Clean Legion Spy files, unless the user is doing extra logging, in
-        # which case their logs and Spy's logs will be in the same file.
-        user_logging_levels = self.config.logging.user_logging_levels
-        if user_logging_levels is None and not keep_logs:
-            log_dir = self.config.logging.logdir
-            ranks = self.config.multi_node.ranks
-            for n in range(ranks):
-                log_dir.joinpath(f"legate_{n}.log").unlink()
-
-    def _process_profiling(self) -> None:
-        legion_prof_py = str(self.system.legion_paths.legion_prof_py)
-        ranks = self.config.multi_node.ranks
-
-        cmd: Command = (legion_prof_py, "-o", "legate_prof")
-
-        cmd += tuple(f"legate_{n}.prof" for n in range(ranks))
-
-        keep_logs = self._run_processing(cmd, "profiler")
-
-        if not keep_logs:
-            log_dir = self.config.logging.logdir
-            ranks = self.config.multi_node.ranks
-            for n in range(ranks):
-                log_dir.joinpath(f"legate_{n}.prof").unlink()
-
-    def _run_processing(self, cmd: Command, tool: str) -> bool:
-        cmdstr = " ".join(quote(t) for t in cmd)
-        ranks = self.config.multi_node.ranks
-        ranks_per_node = self.config.multi_node.ranks_per_node
-
-        if ranks // ranks_per_node > 4:
-            print(_TOOL_WARN.format(tool=tool, cmd=cmdstr), flush=True)
-            keep_logs = True
-        else:
-            log_dir = self.config.logging.logdir
-            if self.config.info.verbose:
-                print(f"Running: {cmdstr}", flush=True)
-            run(cmd, check=True, cwd=log_dir)
-
-        return keep_logs

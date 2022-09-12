@@ -87,6 +87,8 @@ class TestDriver:
     ) -> None:
         config = genconfig(["--launcher", launch, "--dry-run"])
         driver = m.Driver(config, SYSTEM)
+
+        mocker.patch.object(m, "process_logs")
         mock_run = mocker.patch.object(m, "run")
 
         driver.run()
@@ -100,8 +102,7 @@ class TestDriver:
         config = genconfig(["--launcher", launch])
         driver = m.Driver(config, SYSTEM)
 
-        mocker.patch("legate.driver.driver.Driver._init_logging")
-        mocker.patch("legate.driver.driver.Driver._process_logging")
+        mocker.patch.object(m, "process_logs")
         mock_run = mocker.patch.object(m, "run")
 
         driver.run()
@@ -113,7 +114,6 @@ class TestDriver:
         self,
         capsys: Capsys,
         genconfig: Any,
-        mocker: MockerFixture,
         launch: LauncherType,
     ) -> None:
         # set --dry-run to avoid needing to mock anything
@@ -151,6 +151,7 @@ class TestDriver:
         launch: str,
     ) -> None:
         mocker.patch("platform.system", return_value="Darwin")
+        mocker.patch.object(m, "process_logs")
 
         system = m.System()
 
