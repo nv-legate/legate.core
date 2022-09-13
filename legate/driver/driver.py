@@ -14,9 +14,7 @@
 #
 from __future__ import annotations
 
-from shlex import quote
 from subprocess import run
-from textwrap import indent
 
 from .command import CMD_PARTS
 from .config import Config
@@ -24,7 +22,8 @@ from .launcher import Launcher
 from .logs import process_logs
 from .system import System
 from .types import Command, EnvDict
-from .ui import kvtable, rule, section, value, warn
+from .ui import warn
+from .util import print_verbose
 
 __all__ = ("Driver",)
 
@@ -65,7 +64,7 @@ class Driver:
 
     def run(self) -> int:
         if self.config.info.verbose:
-            self._print_verbose()
+            print_verbose(self.system, self)
 
         self._darwin_gdb_warn()
 
@@ -88,30 +87,3 @@ class Driver:
                     )
                 )
             )
-
-    def _print_verbose(self) -> None:
-
-        print(f"\n{rule('Legion Python Configuration')}")
-
-        print(section("\nLegate paths:"))
-        print(indent(str(self.system.legate_paths), prefix="  "))
-
-        print(section("\nLegion paths:"))
-        print(indent(str(self.system.legion_paths), prefix="  "))
-
-        print(section("\nCommand:"))
-        cmd = " ".join(quote(t) for t in self.cmd)
-        print(f"  {value(cmd)}")
-
-        if keys := sorted(self.custom_env_vars):
-            print(section("\nCustomized Environment:"))
-            print(
-                indent(
-                    kvtable(self.env, delim="=", align=False, keys=keys),
-                    prefix="  ",
-                )
-            )
-
-        print(f"\n{rule()}")
-
-        print(flush=True)

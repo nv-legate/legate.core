@@ -15,7 +15,6 @@
 from __future__ import annotations
 
 import re
-from shlex import quote
 from typing import Any
 
 import pytest
@@ -29,6 +28,7 @@ from legate.driver.launcher import Launcher
 from legate.driver.system import System
 from legate.driver.types import LauncherType
 from legate.driver.ui import scrub
+from legate.driver.util import print_verbose
 
 SYSTEM = System()
 
@@ -122,25 +122,13 @@ class TestDriver:
 
         driver.run()
 
-        out = scrub(capsys.readouterr()[0]).strip()
+        run_out = scrub(capsys.readouterr()[0]).strip()
 
-        assert out.startswith(f"{'--- Legion Python Configuration ':-<80}")
-        assert "Legate paths:" in out
-        for line in scrub(str(driver.system.legate_paths)).split():
-            assert line in out
+        print_verbose(driver.system, driver)
 
-        assert "Legion paths:" in out
-        for line in scrub(str(driver.system.legion_paths)).split():
-            assert line in out
+        pv_out = scrub(capsys.readouterr()[0]).strip()
 
-        assert "Command:" in out
-        assert f"  {' '.join(quote(t) for t in driver.cmd)}" in out
-
-        assert "Customized Environment:" in out
-        for k in driver.custom_env_vars:
-            assert f"{k}={driver.env[k].rstrip()}" in out
-
-        assert out.endswith(f"\n{'-':-<80}")
+        assert pv_out in run_out
 
     @pytest.mark.parametrize("launch", LAUNCHERS)
     def test_darwin_gdb_warning(

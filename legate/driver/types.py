@@ -61,16 +61,22 @@ Command: TypeAlias = Tuple[str, ...]
 
 # This seems like it ought to be in stdlib
 class DataclassProtocol(Protocol):
+    """Afford better type checking for our dataclasses."""
+
     __dataclass_fields__: dict[str, Field[Any]]
 
 
 class DataclassMixin(DataclassProtocol):
+    """A mixin for automatically pretty-printing a dataclass."""
+
     def __str__(self) -> str:
         return kvtable(self.__dict__)
 
 
 @dataclass(frozen=True)
 class LegatePaths(DataclassMixin):
+    """Collect all the filesystem paths relevant for Legate."""
+
     legate_dir: Path
     legate_build_dir: Path | None
     bind_sh_path: Path
@@ -79,6 +85,8 @@ class LegatePaths(DataclassMixin):
 
 @dataclass(frozen=True)
 class LegionPaths(DataclassMixin):
+    """Collect all the filesystem paths relevant for Legate."""
+
     legion_bin_path: Path
     legion_lib_path: Path
     realm_defines_h: Path

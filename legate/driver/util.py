@@ -17,15 +17,23 @@ from __future__ import annotations
 import re
 import sys
 from pathlib import Path
-from typing import Type, TypeVar
+from shlex import quote
+from textwrap import indent
+from typing import TYPE_CHECKING, Type, TypeVar
 
 from .types import DataclassProtocol, LegatePaths, LegionPaths
+from .ui import kvtable, rule, section, value
+
+if TYPE_CHECKING:
+    from .driver import Driver
+    from .system import System
 
 __all__ = (
     "get_legate_build_dir",
     "get_legate_paths",
     "get_legion_paths",
     "object_to_dataclass",
+    "print_verbose",
     "read_c_define",
     "read_cmake_cache_value",
 )
@@ -37,6 +45,38 @@ T = TypeVar("T", bound=DataclassProtocol)
 def object_to_dataclass(obj: object, typ: Type[T]) -> T:
     kws = {name: getattr(obj, name) for name in typ.__dataclass_fields__}
     return typ(**kws)
+
+
+def print_verbose(
+    system: System,
+    driver: Driver | None = None,
+) -> None:
+
+    print(f"\n{rule('Legion Python Configuration')}")
+
+    print(section("\nLegate paths:"))
+    print(indent(str(system.legate_paths), prefix="  "))
+
+    print(section("\nLegion paths:"))
+    print(indent(str(system.legion_paths), prefix="  "))
+
+    if driver:
+        print(section("\nCommand:"))
+        cmd = " ".join(quote(t) for t in driver.cmd)
+        print(f"  {value(cmd)}")
+
+        if keys := sorted(driver.custom_env_vars):
+            print(section("\nCustomized Environment:"))
+            print(
+                indent(
+                    kvtable(driver.env, delim="=", align=False, keys=keys),
+                    prefix="  ",
+                )
+            )
+
+    print(f"\n{rule()}")
+
+    print(flush=True)
 
 
 def read_c_define(header_path: Path, name: str) -> str | None:

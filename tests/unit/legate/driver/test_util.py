@@ -16,10 +16,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from shlex import quote
 
 import pytest
+from util import Capsys
 
 import legate.driver.util as m
+from legate.driver.config import Config
+from legate.driver.driver import Driver
+from legate.driver.system import System
+from legate.driver.ui import scrub
 
 
 class Source:
@@ -45,6 +51,51 @@ def test_object_to_dataclass() -> None:
     assert set(target.__dict__) == set(Target.__dataclass_fields__)
     for k, v in target.__dict__.items():
         assert getattr(source, k) == v
+
+
+class Test_print_verbose:
+    def test_system_only(self, capsys: Capsys) -> None:
+        system = System()
+
+        m.print_verbose(system)
+
+        out = scrub(capsys.readouterr()[0]).strip()
+
+        assert out.startswith(f"{'--- Legion Python Configuration ':-<80}")
+        assert "Legate paths:" in out
+        for line in scrub(str(system.legate_paths)).split():
+            assert line in out
+
+        assert "Legion paths:" in out
+        for line in scrub(str(system.legion_paths)).split():
+            assert line in out
+
+    def test_system_and_driver(self, capsys: Capsys) -> None:
+        config = Config(["legate", "--no-replicate"])
+        system = System()
+        driver = Driver(config, system)
+
+        m.print_verbose(system, driver)
+
+        out = scrub(capsys.readouterr()[0]).strip()
+
+        assert out.startswith(f"{'--- Legion Python Configuration ':-<80}")
+        assert "Legate paths:" in out
+        for line in scrub(str(system.legate_paths)).split():
+            assert line in out
+
+        assert "Legion paths:" in out
+        for line in scrub(str(system.legion_paths)).split():
+            assert line in out
+
+        assert "Command:" in out
+        assert f"  {' '.join(quote(t) for t in driver.cmd)}" in out
+
+        assert "Customized Environment:" in out
+        for k in driver.custom_env_vars:
+            assert f"{k}={driver.env[k]}" in out
+
+        assert out.endswith(f"\n{'-':-<80}")
 
 
 HEADER_PATH = Path(__file__).parent / "sample_header.h"

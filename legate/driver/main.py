@@ -22,9 +22,27 @@ __all__ = ("main",)
 
 def main(argv: list[str]) -> int:
     from . import Config, Driver, System
+    from .ui import error
+    from .util import print_verbose
 
-    config = Config(argv)
-    system = System()
-    driver = Driver(config, system)
+    try:
+        config = Config(argv)
+    except Exception as e:
+        print(error("Could not configure Legate driver:\n"))
+        raise e
+
+    try:
+        system = System()
+    except Exception as e:
+        print(error("Could not determine System settings: \n"))
+        raise e
+
+    try:
+        driver = Driver(config, system)
+    except Exception as e:
+        msg = "Could not initialize Legate driver, path config and exception follow:"  # noqa
+        print(error(msg))
+        print_verbose(system)
+        raise e
 
     return driver.run()
