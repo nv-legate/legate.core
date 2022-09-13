@@ -98,12 +98,13 @@ class FieldMatch(Dispatchable[Future]):
         self.fields = fields
         # Allocate arrays of ints that are twice as long as fields since
         # our values will be 'field_id,tree_id' pairs
-        if len(fields) > 0:
-            alloc_string = "int[" + str(2 * len(fields)) + "]"
+        num_fields = len(fields)
+        if num_fields > 0:
+            alloc_string = f"int[{2 * num_fields}]"
             self.input = ffi.new(alloc_string)
             self.output = ffi.new(alloc_string)
             # Fill in the input buffer with our data
-            for idx in range(len(fields)):
+            for idx in range(num_fields):
                 region, field_id = fields[idx]
                 self.input[2 * idx] = region.handle.tree_id
                 self.input[2 * idx + 1] = field_id
@@ -252,12 +253,14 @@ class FieldManager:
 
     def free_field(
         self, region: Region, field_id: int, ordered: bool = False
-    ) -> bool:
+    ) -> None:
+        self.free_fields.append((region, field_id))
         region_manager = self.runtime.find_region_manager(region)
         destroy = region_manager.decrease_field_count()
-        if not destroy:
-            self.free_fields.append((region, field_id))
-        return destroy
+        if destroy:
+            self.runtime.destroy_region_manager(
+                self.shape, region, unordered=not ordered
+            )
 
     def remove_all_fields(self, region: Region) -> None:
         free_fields: Deque[tuple[Region, int]] = deque()
@@ -343,12 +346,11 @@ class ConsensusMatchingFieldManager(FieldManager):
 
     def free_field(
         self, region: Region, field_id: int, ordered: bool = False
-    ) -> bool:
+    ) -> None:
         if ordered:
-            return super().free_field(region, field_id, ordered=ordered)
+            super().free_field(region, field_id, ordered=ordered)
         else:  # Put this on the unordered list
             self.pending_free_fields.append((region, field_id))
-            return False
 
 
 class Attachment:
@@ -914,13 +916,17 @@ class Runtime:
         )
 
         self.destroyed = False
-        self.max_field_reuse_size = self._core_context.get_tunable(
-            legion.LEGATE_CORE_TUNABLE_FIELD_REUSE_SIZE,
-            ty.uint64,
+        self.max_field_reuse_size = int(
+            self._core_context.get_tunable(
+                legion.LEGATE_CORE_TUNABLE_FIELD_REUSE_SIZE,
+                ty.uint64,
+            )
         )
-        self.max_field_reuse_frequency = self._core_context.get_tunable(
-            legion.LEGATE_CORE_TUNABLE_FIELD_REUSE_FREQUENCY,
-            ty.uint32,
+        self.max_field_reuse_frequency = int(
+            self._core_context.get_tunable(
+                legion.LEGATE_CORE_TUNABLE_FIELD_REUSE_FREQUENCY,
+                ty.uint32,
+            )
         )
         self._empty_argmap: ArgumentMap = legion.legion_argument_map_create()
 
@@ -1281,9 +1287,7 @@ class Runtime:
         if key not in self.field_managers:
             return
 
-        destroy = self.field_managers[key].free_field(region, field_id)
-        if destroy:
-            self.destroy_region_manager(shape, region, unordered=True)
+        self.field_managers[key].free_field(region, field_id)
 
     def import_output_region(
         self, out_region: OutputRegion, field_id: int, dtype: Any
