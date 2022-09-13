@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import re
 import sys
+from typing import Any, Iterable
 
 __all__ = (
     "bright",
@@ -73,5 +74,42 @@ except ImportError:
 _ANSI_ESCAPE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 
 
+def key(text: str) -> str:
+    return dim(green(text))
+
+
+def value(text: str) -> str:
+    return yellow(text)
+
+
+def kvtable(
+    kvs: dict[str, Any],
+    *,
+    delim: str = " : ",
+    align: bool = True,
+    keys: Iterable[str] | None = None,
+) -> str:
+    # annoying but necessary to take len on color-formatted version
+    N = max(len(dim(green(name))) for name in kvs) if align else 0
+    keys = kvs.keys() if keys is None else keys
+    return "\n".join(
+        f"{key(k): <{N}}{delim}{value(str(kvs[k]))}" for k in keys
+    )
+
+
+def rule(text: str | None = None, N: int = 80) -> str:
+    if text is None:
+        return cyan(f"{'-':-<{N}}")
+    return cyan(f"{f'--- {text} ' :-<{N}}")
+
+
+def section(text: str) -> str:
+    return bright(white(text))
+
+
 def scrub(text: str) -> str:
     return _ANSI_ESCAPE.sub("", text)
+
+
+def warn(text: str) -> str:
+    return red(f"WARNING: {text}")

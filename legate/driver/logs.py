@@ -28,13 +28,13 @@ from .config import Config
 from .launcher import Launcher
 from .system import System
 from .types import Command
-from .ui import red
+from .ui import warn
 
 __all__ = ("process_logs",)
 
 _LOG_TOOL_WARN = """\
-Skipping the processing of {tool} output, to avoid wasting resources in a
-large allocation. Please manually run: {cmd}
+Skipping the processing of {tool} output, to avoid wasting
+resources in a large allocation. Please manually run: {cmd}
 """
 
 
@@ -62,7 +62,7 @@ class LogHandler(metaclass=ABCMeta):
 
         if ranks // ranks_per_node > 4:
             print(
-                red(_LOG_TOOL_WARN.format(tool=tool, cmd=cmdstr)), flush=True
+                warn(_LOG_TOOL_WARN.format(tool=tool, cmd=cmdstr)), flush=True
             )
             keep_logs = True
         else:

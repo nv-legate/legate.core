@@ -25,7 +25,7 @@ from typing import Any
 
 from .args import parser
 from .types import ArgList, DataclassMixin, LauncherType
-from .ui import red
+from .ui import warn
 from .util import object_to_dataclass
 
 __all__ = ("Config",)
@@ -158,11 +158,7 @@ class Config:
 
     def _fixup_nocr(self, args: Namespace) -> None:
         if self.console and not args.not_control_replicable:
-            print(
-                red(
-                    "WARNING: Disabling control replication for interactive run"  # noqa
-                )
-            )
+            print(warn("Disabling control replication for interactive run"))
             args.not_control_replicable = True
 
     def _fixup_log_to_file(self, args: Namespace) -> None:
@@ -171,8 +167,8 @@ class Config:
         if args.dataflow or args.event:
             if args.user_logging_levels is not None and not args.log_to_file:
                 print(
-                    red(
-                        "WARNING: Logging output is being redirected to a "
+                    warn(
+                        "Logging output is being redirected to a "
                         f"file in directory {args.logdir}"
                     )
                 )

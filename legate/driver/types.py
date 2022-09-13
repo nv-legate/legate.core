@@ -23,7 +23,7 @@ from typing import Any, Dict, List, Protocol, Tuple, Union
 
 from typing_extensions import Literal, TypeAlias
 
-from .ui import dim, green, yellow
+from .ui import kvtable
 
 __all__ = (
     "ArgList",
@@ -66,12 +66,7 @@ class DataclassProtocol(Protocol):
 
 class DataclassMixin(DataclassProtocol):
     def __str__(self) -> str:
-        # annoying but necessary to take len on color-formatted version
-        N = max(len(dim(green(name))) for name in self.__dataclass_fields__)
-        return "\n".join(
-            f"{dim(green(k)): <{N}} : {yellow(v)}"
-            for k, v in self.__dict__.items()
-        )
+        return kvtable(self.__dict__)
 
 
 @dataclass(frozen=True)

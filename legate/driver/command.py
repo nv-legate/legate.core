@@ -16,6 +16,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from .ui import warn
+
 if TYPE_CHECKING:
     from .config import Config
     from .launcher import Launcher
@@ -72,7 +74,7 @@ def cmd_gdb(config: Config, system: System, launcher: Launcher) -> CommandPart:
         return ()
 
     if config.multi_node.ranks > 1:
-        print("WARNING: Legate does not support gdb for multi-rank runs")
+        print(warn("Legate does not support gdb for multi-rank runs"))
         return ()
 
     return ("lldb", "--") if system.os == "Darwin" else ("gdb", "--args")
@@ -85,7 +87,7 @@ def cmd_cuda_gdb(
         return ()
 
     if config.multi_node.ranks > 1:
-        print("WARNING: Legate does not support cuda-gdb for multi-rank runs")
+        print(warn("Legate does not support cuda-gdb for multi-rank runs"))
         return ()
 
     return ("cuda-gdb", "--args")
@@ -207,8 +209,10 @@ def cmd_openmp(
 
     if ompthreads == 0:
         print(
-            "WARNING: Legate is ignoring request for "
-            f"{openmp} OpenMP processors with 0 threads"
+            warn(
+                f"Legate is ignoring request for {openmp} "
+                "OpenMP processors with 0 threads"
+            )
         )
         return ()
 

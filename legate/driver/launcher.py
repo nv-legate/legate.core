@@ -21,6 +21,7 @@ from pathlib import Path
 from .config import Config
 from .system import System
 from .types import Command, EnvDict, LauncherType
+from .ui import warn
 from .util import read_c_define
 
 __all__ = ("Launcher",)
@@ -128,9 +129,11 @@ class Launcher:
         realm_home = Path(realm_pylib[1:-1]).parents[1]
         if (current_home := Path(sys.executable).parents[1]) != realm_home:
             print(
-                "WARNING: Legate was compiled against the Python installation "
-                f"at {realm_home}, but you are currently using the Python "
-                f"installation at {current_home}"
+                warn(
+                    "Legate was compiled against the Python installation at "
+                    f"{realm_home}, but you are currently using the Python "
+                    f"installation at {current_home}"
+                )
             )
 
     def _compute_env(self) -> tuple[EnvDict, set[str]]:

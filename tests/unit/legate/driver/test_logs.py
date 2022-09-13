@@ -39,8 +39,8 @@ class MockHandler(m.LogHandler):
 
 
 _EXPECTED_RANK_WARN = """\
-Skipping the processing of toolname output, to avoid wasting resources in a
-large allocation. Please manually run: foo bar"""
+WARNING: Skipping the processing of toolname output, to avoid wasting
+resources in a large allocation. Please manually run: foo bar"""
 
 
 class TestLogHandler:

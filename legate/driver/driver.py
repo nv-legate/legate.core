@@ -24,12 +24,12 @@ from .launcher import Launcher
 from .logs import process_logs
 from .system import System
 from .types import Command, EnvDict
-from .ui import bright, cyan, dim, green, red, white, yellow
+from .ui import kvtable, rule, section, value, warn
 
 __all__ = ("Driver",)
 
 _DARWIN_GDB_WARN = """\
-WARNING: You must start the debugging session with the following command,
+You must start the debugging session with the following command,
 as LLDB no longer forwards the environment to subprocesses for security
 reasons:
 
@@ -82,7 +82,7 @@ class Driver:
             libpath = self.env[self.system.LIB_PATH]
             pythonpath = self.env["PYTHONPATH"]
             print(
-                red(
+                warn(
                     _DARWIN_GDB_WARN.format(
                         libpath=libpath, pythonpath=pythonpath
                     )
@@ -91,23 +91,27 @@ class Driver:
 
     def _print_verbose(self) -> None:
 
-        print(cyan(f"\n{'--- Legion Python Configuration ':-<80}"))
+        print(f"\n{rule('Legion Python Configuration')}")
 
-        print(bright(white("\nLegate paths:")))
+        print(section("\nLegate paths:"))
         print(indent(str(self.system.legate_paths), prefix="  "))
 
-        print(bright(white("\nLegion paths:")))
+        print(section("\nLegion paths:"))
         print(indent(str(self.system.legion_paths), prefix="  "))
 
-        print(bright(white("\nCommand:")))
-        print(yellow(f"  {' '.join(quote(t) for t in self.cmd)}"))
+        print(section("\nCommand:"))
+        cmd = " ".join(quote(t) for t in self.cmd)
+        print(f"  {value(cmd)}")
 
-        if log_env := sorted(self.custom_env_vars):
-            print(bright(white("\nCustomized Environment:")))
-            for k in log_env:
-                v = self.env[k].rstrip()
-                print(f"  {dim(green(k))}={yellow(v)}")
+        if keys := sorted(self.custom_env_vars):
+            print(section("\nCustomized Environment:"))
+            print(
+                indent(
+                    kvtable(self.env, delim="=", align=False, keys=keys),
+                    prefix="  ",
+                )
+            )
 
-        print(cyan(f"\n{'-':-<80}"))
+        print(f"\n{rule()}")
 
         print(flush=True)
