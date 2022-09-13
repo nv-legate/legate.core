@@ -16,10 +16,9 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Any
 
 import pytest
-from util import Capsys, powerset_nonempty
+from util import Capsys, GenObjs, powerset_nonempty
 
 import legate.driver.command as m
 from legate.driver.launcher import RANK_ENV_VARS
@@ -61,7 +60,7 @@ def test_CMD_PARTS() -> None:
 
 
 class Test_cmd_bind:
-    def test_default(self, genobjs: Any) -> None:
+    def test_default(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs([])
 
         result = m.cmd_bind(config, system, launcher)
@@ -69,7 +68,7 @@ class Test_cmd_bind:
         assert result == ()
 
     @pytest.mark.parametrize("kind", ("cpu", "gpu", "mem", "nic"))
-    def test_basic_local(self, genobjs: Any, kind: str) -> None:
+    def test_basic_local(self, genobjs: GenObjs, kind: str) -> None:
         config, system, launcher = genobjs([f"--{kind}-bind", "1"])
 
         result = m.cmd_bind(config, system, launcher)
@@ -80,7 +79,7 @@ class Test_cmd_bind:
     @pytest.mark.parametrize("launch", ("none", "mpirun", "jsrun", "srun"))
     def test_combo_local(
         self,
-        genobjs: Any,
+        genobjs: GenObjs,
         launch: LauncherType,
     ) -> None:
         all_binds = [
@@ -113,7 +112,7 @@ class Test_cmd_bind:
     @pytest.mark.parametrize("kind", ("cpu", "gpu", "mem", "nic"))
     def test_ranks_good(
         self,
-        genobjs: Any,
+        genobjs: GenObjs,
         launch: LauncherType,
         kind: str,
         rank_var: dict[str, str],
@@ -133,7 +132,11 @@ class Test_cmd_bind:
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("kind", ("cpu", "gpu", "mem", "nic"))
     def test_ranks_bad(
-        self, genobjs: Any, binding: str, kind: str, rank_var: dict[str, str]
+        self,
+        genobjs: GenObjs,
+        binding: str,
+        kind: str,
+        rank_var: dict[str, str],
     ) -> None:
         config, system, launcher = genobjs(
             [f"--{kind}-bind", binding],
@@ -154,7 +157,7 @@ class Test_cmd_gdb:
         "WARNING: Legate does not support gdb for multi-rank runs"
     )
 
-    def test_default(self, genobjs: Any) -> None:
+    def test_default(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs([])
 
         result = m.cmd_gdb(config, system, launcher)
@@ -162,7 +165,7 @@ class Test_cmd_gdb:
         assert result == ()
 
     @pytest.mark.parametrize("os", ("Darwin", "Linux"))
-    def test_with_option(self, genobjs: Any, os: str) -> None:
+    def test_with_option(self, genobjs: GenObjs, os: str) -> None:
         config, system, launcher = genobjs(["--gdb"], os=os)
 
         result = m.cmd_gdb(config, system, launcher)
@@ -173,7 +176,7 @@ class Test_cmd_gdb:
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("os", ("Darwin", "Linux"))
     def test_with_option_multi_rank(
-        self, genobjs: Any, capsys: Capsys, os: str, rank_var: str
+        self, genobjs: GenObjs, capsys: Capsys, os: str, rank_var: str
     ) -> None:
         config, system, launcher = genobjs(
             ["--gdb"], multi_rank=(2, 2), rank_env={rank_var: "1"}, os=os
@@ -192,7 +195,7 @@ class Test_cmd_cuda_gdb:
         "WARNING: Legate does not support cuda-gdb for multi-rank runs"
     )
 
-    def test_default(self, genobjs: Any) -> None:
+    def test_default(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs([])
 
         result = m.cmd_cuda_gdb(config, system, launcher)
@@ -200,7 +203,7 @@ class Test_cmd_cuda_gdb:
         assert result == ()
 
     @pytest.mark.parametrize("os", ("Darwin", "Linux"))
-    def test_with_option(self, genobjs: Any, os: str) -> None:
+    def test_with_option(self, genobjs: GenObjs, os: str) -> None:
         config, system, launcher = genobjs(["--cuda-gdb"], os=os)
 
         result = m.cmd_cuda_gdb(config, system, launcher)
@@ -210,7 +213,7 @@ class Test_cmd_cuda_gdb:
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("os", ("Darwin", "Linux"))
     def test_with_option_multi_rank(
-        self, genobjs: Any, capsys: Capsys, os: str, rank_var: str
+        self, genobjs: GenObjs, capsys: Capsys, os: str, rank_var: str
     ) -> None:
         config, system, launcher = genobjs(
             ["--cuda-gdb"], multi_rank=(2, 2), rank_env={rank_var: "1"}, os=os
@@ -224,14 +227,14 @@ class Test_cmd_cuda_gdb:
 
 
 class Test_cmd_nvprof:
-    def test_default(self, genobjs: Any) -> None:
+    def test_default(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs([])
 
         result = m.cmd_nvprof(config, system, launcher)
 
         assert result == ()
 
-    def test_with_option(self, genobjs: Any) -> None:
+    def test_with_option(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs(["--nvprof", "--logdir", "foo"])
 
         result = m.cmd_nvprof(config, system, launcher)
@@ -242,7 +245,7 @@ class Test_cmd_nvprof:
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("rank", ("0", "1", "2"))
     def test_multi_rank_no_launcher(
-        self, genobjs: Any, rank_var: str, rank: str
+        self, genobjs: GenObjs, rank_var: str, rank: str
     ) -> None:
         config, system, launcher = genobjs(
             ["--nvprof", "--logdir", "foo"],
@@ -258,7 +261,7 @@ class Test_cmd_nvprof:
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     def test_multi_rank_with_launcher(
         self,
-        genobjs: Any,
+        genobjs: GenObjs,
         launch: str,
     ) -> None:
         config, system, launcher = genobjs(
@@ -275,7 +278,7 @@ class Test_cmd_nvprof:
 
 
 class Test_cmd_nsys:
-    def test_default(self, genobjs: Any) -> None:
+    def test_default(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs([])
 
         result = m.cmd_nsys(config, system, launcher)
@@ -285,7 +288,7 @@ class Test_cmd_nsys:
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("rank", ("0", "1", "2"))
     def test_multi_rank_no_launcher(
-        self, genobjs: Any, rank_var: str, rank: str
+        self, genobjs: GenObjs, rank_var: str, rank: str
     ) -> None:
         config, system, launcher = genobjs(
             ["--nsys", "--logdir", "foo"],
@@ -308,7 +311,9 @@ class Test_cmd_nsys:
         )
 
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
-    def test_multi_rank_with_launcher(self, genobjs: Any, launch: str) -> None:
+    def test_multi_rank_with_launcher(
+        self, genobjs: GenObjs, launch: str
+    ) -> None:
         config, system, launcher = genobjs(
             ["--nsys", "--logdir", "foo", "--launcher", launch],
             multi_rank=(2, 2),
@@ -331,7 +336,7 @@ class Test_cmd_nsys:
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("rank", ("0", "1", "2"))
     def test_multi_rank_extra_no_s(
-        self, genobjs: Any, rank_var: str, rank: str
+        self, genobjs: GenObjs, rank_var: str, rank: str
     ) -> None:
         config, system, launcher = genobjs(
             [
@@ -366,7 +371,7 @@ class Test_cmd_nsys:
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("rank", ("0", "1", "2"))
     def test_multi_rank_extra_with_s(
-        self, genobjs: Any, rank_var: str, rank: str
+        self, genobjs: GenObjs, rank_var: str, rank: str
     ) -> None:
         config, system, launcher = genobjs(
             [
@@ -404,7 +409,7 @@ class Test_cmd_nsys:
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("rank", ("0", "1", "2"))
     def test_multi_rank_targets(
-        self, genobjs: Any, rank_var: str, rank: str
+        self, genobjs: GenObjs, rank_var: str, rank: str
     ) -> None:
         config, system, launcher = genobjs(
             [
@@ -434,14 +439,14 @@ class Test_cmd_nsys:
 
 
 class Test_cmd_memcheck:
-    def test_default(self, genobjs: Any) -> None:
+    def test_default(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs([])
 
         result = m.cmd_memcheck(config, system, launcher)
 
         assert result == ()
 
-    def test_with_option(self, genobjs: Any) -> None:
+    def test_with_option(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs(["--memcheck"])
 
         result = m.cmd_memcheck(config, system, launcher)
@@ -450,21 +455,21 @@ class Test_cmd_memcheck:
 
 
 class Test_cmd_nocr:
-    def test_default(self, genobjs: Any) -> None:
+    def test_default(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs([])
 
         result = m.cmd_nocr(config, system, launcher)
 
         assert result == ()
 
-    def test_console(self, genobjs: Any) -> None:
+    def test_console(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs([], fake_module=None)
 
         result = m.cmd_nocr(config, system, launcher)
 
         assert result == ("--nocr",)
 
-    def test_with_option(self, genobjs: Any) -> None:
+    def test_with_option(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs(["--no-replicate"])
 
         result = m.cmd_nocr(config, system, launcher)
@@ -473,14 +478,14 @@ class Test_cmd_nocr:
 
 
 class Test_cmd_module:
-    def test_default(self, genobjs: Any) -> None:
+    def test_default(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs([])
 
         result = m.cmd_module(config, system, launcher)
 
         assert result == ()
 
-    def test_with_module(self, genobjs: Any) -> None:
+    def test_with_module(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs(["--module", "foo"])
 
         result = m.cmd_module(config, system, launcher)
@@ -489,14 +494,14 @@ class Test_cmd_module:
 
 
 class Test_cmd_rlwrap:
-    def test_default(self, genobjs: Any) -> None:
+    def test_default(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs([])
 
         result = m.cmd_rlwrap(config, system, launcher)
 
         assert result == ()
 
-    def test_with_option(self, genobjs: Any) -> None:
+    def test_with_option(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs(["--rlwrap"])
 
         result = m.cmd_rlwrap(config, system, launcher)
@@ -505,7 +510,7 @@ class Test_cmd_rlwrap:
 
 
 class Test_cmd_legion:
-    def test_default(self, genobjs: Any) -> None:
+    def test_default(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs([])
 
         result = m.cmd_legion(config, system, launcher)
@@ -514,7 +519,7 @@ class Test_cmd_legion:
 
 
 class Test_cmd_processor:
-    def test_default(self, genobjs: Any) -> None:
+    def test_default(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs([])
 
         result = m.cmd_processor(config, system, launcher)
@@ -526,7 +531,7 @@ class Test_cmd_kthreads:
 
     DBG_OPTS = ("--gdb", "--cuda-gdb", "--freeze-on-error")
 
-    def test_default(self, genobjs: Any) -> None:
+    def test_default(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs([])
 
         result = m.cmd_kthreads(config, system, launcher)
@@ -534,7 +539,7 @@ class Test_cmd_kthreads:
         assert result == ()
 
     @pytest.mark.parametrize("args", powerset_nonempty(DBG_OPTS), ids=str)
-    def test_with_debugging(self, genobjs: Any, args: list[str]) -> None:
+    def test_with_debugging(self, genobjs: GenObjs, args: list[str]) -> None:
         config, system, launcher = genobjs(list(args))
 
         result = m.cmd_kthreads(config, system, launcher)
@@ -543,14 +548,14 @@ class Test_cmd_kthreads:
 
 
 class Test_cmd_cpus:
-    def test_default(self, genobjs: Any) -> None:
+    def test_default(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs([])
 
         result = m.cmd_cpus(config, system, launcher)
 
         assert result == ("-ll:cpu", str(config.core.cpus))
 
-    def test_one(self, genobjs: Any) -> None:
+    def test_one(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs(["--cpus", "1"])
 
         result = m.cmd_cpus(config, system, launcher)
@@ -558,7 +563,7 @@ class Test_cmd_cpus:
         assert result == ()
 
     @pytest.mark.parametrize("value", ("2", "16"))
-    def test_multiple(self, genobjs: Any, value: str) -> None:
+    def test_multiple(self, genobjs: GenObjs, value: str) -> None:
         config, system, launcher = genobjs(["--cpus", value])
 
         result = m.cmd_cpus(config, system, launcher)
@@ -567,14 +572,14 @@ class Test_cmd_cpus:
 
 
 class Test_cmd_gpus:
-    def test_default(self, genobjs: Any) -> None:
+    def test_default(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs([])
 
         result = m.cmd_gpus(config, system, launcher)
 
         assert result == ()
 
-    def test_zero(self, genobjs: Any) -> None:
+    def test_zero(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs(["--gpus", "0"])
 
         result = m.cmd_gpus(config, system, launcher)
@@ -582,7 +587,7 @@ class Test_cmd_gpus:
         assert result == ()
 
     @pytest.mark.parametrize("value", ("1", "2", "16"))
-    def test_nonzero(self, genobjs: Any, value: str) -> None:
+    def test_nonzero(self, genobjs: GenObjs, value: str) -> None:
         config, system, launcher = genobjs(["--gpus", value])
 
         result = m.cmd_gpus(config, system, launcher)
@@ -596,14 +601,14 @@ class Test_cmd_openmp:
         "{omps} OpenMP processors with 0 threads"
     )
 
-    def test_default(self, genobjs: Any) -> None:
+    def test_default(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs([])
 
         result = m.cmd_openmp(config, system, launcher)
 
         assert result == ()
 
-    def test_omps_zero(self, genobjs: Any) -> None:
+    def test_omps_zero(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs(["--omps", "0"])
 
         result = m.cmd_openmp(config, system, launcher)
@@ -612,7 +617,7 @@ class Test_cmd_openmp:
 
     @pytest.mark.parametrize("omps", ("1", "12"))
     def test_ompthreads_zero(
-        self, genobjs: Any, capsys: Capsys, omps: str
+        self, genobjs: GenObjs, capsys: Capsys, omps: str
     ) -> None:
         args = ["--ompthreads", "0", "--omps", omps]
         config, system, launcher = genobjs(args)
@@ -627,7 +632,7 @@ class Test_cmd_openmp:
     @pytest.mark.parametrize("omps", ("1", "2", "12"))
     @pytest.mark.parametrize("ompthreads", ("1", "2", "12"))
     def test_ompthreads_no_numa(
-        self, genobjs: Any, omps: str, ompthreads: str
+        self, genobjs: GenObjs, omps: str, ompthreads: str
     ) -> None:
         args = ["--ompthreads", ompthreads, "--omps", omps]
         config, system, launcher = genobjs(args)
@@ -646,7 +651,7 @@ class Test_cmd_openmp:
     @pytest.mark.parametrize("omps", ("1", "2", "12"))
     @pytest.mark.parametrize("ompthreads", ("1", "2", "12"))
     def test_ompthreads_with_numa(
-        self, genobjs: Any, omps: str, ompthreads: str
+        self, genobjs: GenObjs, omps: str, ompthreads: str
     ) -> None:
         args = ["--ompthreads", ompthreads, "--omps", omps, "--numamem", "100"]
         config, system, launcher = genobjs(args)
@@ -664,14 +669,14 @@ class Test_cmd_openmp:
 
 
 class Test_cmd_utility:
-    def test_default_single_rank(self, genobjs: Any) -> None:
+    def test_default_single_rank(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs([])
 
         result = m.cmd_utility(config, system, launcher)
 
         assert result == ("-ll:util", "2")
 
-    def test_utility_1_single_rank(self, genobjs: Any) -> None:
+    def test_utility_1_single_rank(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs(["--utility", "1"])
 
         result = m.cmd_utility(config, system, launcher)
@@ -679,7 +684,9 @@ class Test_cmd_utility:
         assert result == ()
 
     @pytest.mark.parametrize("value", ("2", "3", "10"))
-    def test_utiltity_n_single_rank(self, genobjs: Any, value: str) -> None:
+    def test_utiltity_n_single_rank(
+        self, genobjs: GenObjs, value: str
+    ) -> None:
         config, system, launcher = genobjs(["--utility", value])
 
         result = m.cmd_utility(config, system, launcher)
@@ -689,7 +696,7 @@ class Test_cmd_utility:
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("rank", ("0", "1", "2"))
     def test_default_multi_rank(
-        self, genobjs: Any, rank: str, rank_var: dict[str, str]
+        self, genobjs: GenObjs, rank: str, rank_var: dict[str, str]
     ) -> None:
         config, system, launcher = genobjs(
             [], multi_rank=(2, 2), rank_env={rank_var: rank}
@@ -702,7 +709,7 @@ class Test_cmd_utility:
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("rank", ("0", "1", "2"))
     def test_utility_1_multi_rank_no_launcher(
-        self, genobjs: Any, rank: str, rank_var: dict[str, str]
+        self, genobjs: GenObjs, rank: str, rank_var: dict[str, str]
     ) -> None:
         config, system, launcher = genobjs(
             ["--utility", "1"], multi_rank=(2, 2), rank_env={rank_var: rank}
@@ -714,7 +721,7 @@ class Test_cmd_utility:
 
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     def test_utility_1_multi_rank_with_launcher(
-        self, genobjs: Any, launch: str
+        self, genobjs: GenObjs, launch: str
     ) -> None:
         config, system, launcher = genobjs(
             ["--utility", "1", "--launcher", launch], multi_rank=(2, 2)
@@ -728,7 +735,7 @@ class Test_cmd_utility:
     @pytest.mark.parametrize("rank", ("0", "1", "2"))
     @pytest.mark.parametrize("value", ("2", "3", "10"))
     def test_utility_n_multi_rank_no_launcher(
-        self, genobjs: Any, value: str, rank: str, rank_var: dict[str, str]
+        self, genobjs: GenObjs, value: str, rank: str, rank_var: dict[str, str]
     ) -> None:
         config, system, launcher = genobjs(
             ["--utility", value], multi_rank=(2, 2), rank_env={rank_var: rank}
@@ -741,7 +748,7 @@ class Test_cmd_utility:
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     @pytest.mark.parametrize("value", ("2", "3", "10"))
     def test_utility_n_multi_rank_with_launcher(
-        self, genobjs: Any, value: str, launch: str
+        self, genobjs: GenObjs, value: str, launch: str
     ) -> None:
         config, system, launcher = genobjs(
             ["--utility", value, "--launcher", launch], multi_rank=(2, 2)
@@ -753,7 +760,7 @@ class Test_cmd_utility:
 
 
 class Test_cmd_sysmem:
-    def test_default(self, genobjs: Any) -> None:
+    def test_default(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs([])
 
         result = m.cmd_mem(config, system, launcher)
@@ -761,7 +768,7 @@ class Test_cmd_sysmem:
         assert result == ("-ll:csize", str(config.memory.sysmem))
 
     @pytest.mark.parametrize("value", ("0", "100", "12344"))
-    def test_value(self, genobjs: Any, value: str) -> None:
+    def test_value(self, genobjs: GenObjs, value: str) -> None:
         config, system, launcher = genobjs(["--sysmem", value])
 
         result = m.cmd_mem(config, system, launcher)
@@ -770,14 +777,14 @@ class Test_cmd_sysmem:
 
 
 class Test_cmd_numamem:
-    def test_default(self, genobjs: Any) -> None:
+    def test_default(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs([])
 
         result = m.cmd_numamem(config, system, launcher)
 
         assert result == ()
 
-    def test_zero(self, genobjs: Any) -> None:
+    def test_zero(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs(["--numamem", "0"])
 
         result = m.cmd_numamem(config, system, launcher)
@@ -785,7 +792,7 @@ class Test_cmd_numamem:
         assert result == ()
 
     @pytest.mark.parametrize("value", ("100", "12344"))
-    def test_nonzero(self, genobjs: Any, value: str) -> None:
+    def test_nonzero(self, genobjs: GenObjs, value: str) -> None:
         config, system, launcher = genobjs(["--numamem", value])
 
         result = m.cmd_numamem(config, system, launcher)
@@ -798,7 +805,7 @@ class Test_cmd_fbmem:
     @pytest.mark.parametrize("zc", ("10", "1234"))
     @pytest.mark.parametrize("gpus", ([], ["--gpus", "0"]), ids=str)
     def test_no_gpus_with_values(
-        self, genobjs: Any, gpus: list[str], fb: str, zc: str
+        self, genobjs: GenObjs, gpus: list[str], fb: str, zc: str
     ) -> None:
         config, system, launcher = genobjs(
             gpus + ["--fbmem", fb, "--zcmem", zc]
@@ -809,14 +816,16 @@ class Test_cmd_fbmem:
         assert result == ()
 
     @pytest.mark.parametrize("gpus", ([], ["--gpus", "0"]), ids=str)
-    def test_no_gpus_no_values(self, genobjs: Any, gpus: list[str]) -> None:
+    def test_no_gpus_no_values(
+        self, genobjs: GenObjs, gpus: list[str]
+    ) -> None:
         config, system, launcher = genobjs(gpus)
 
         result = m.cmd_fbmem(config, system, launcher)
 
         assert result == ()
 
-    def test_with_gpus_no_values(self, genobjs: Any) -> None:
+    def test_with_gpus_no_values(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs(["--gpus", "1"])
 
         result = m.cmd_fbmem(config, system, launcher)
@@ -830,7 +839,7 @@ class Test_cmd_fbmem:
 
     @pytest.mark.parametrize("fb", ("10", "1234"))
     @pytest.mark.parametrize("zc", ("10", "1234"))
-    def test_with_gpus(self, genobjs: Any, fb: str, zc: str) -> None:
+    def test_with_gpus(self, genobjs: GenObjs, fb: str, zc: str) -> None:
         args = ["--gpus", "1", "--fbmem", fb, "--zcmem", zc]
         config, system, launcher = genobjs(args)
 
@@ -840,14 +849,14 @@ class Test_cmd_fbmem:
 
 
 class Test_cmd_regmem:
-    def test_default(self, genobjs: Any) -> None:
+    def test_default(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs([])
 
         result = m.cmd_regmem(config, system, launcher)
 
         assert result == ()
 
-    def test_zero(self, genobjs: Any) -> None:
+    def test_zero(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs(["--regmem", "0"])
 
         result = m.cmd_regmem(config, system, launcher)
@@ -855,7 +864,7 @@ class Test_cmd_regmem:
         assert result == ()
 
     @pytest.mark.parametrize("value", ("100", "12344"))
-    def test_nonzero(self, genobjs: Any, value: str) -> None:
+    def test_nonzero(self, genobjs: GenObjs, value: str) -> None:
         config, system, launcher = genobjs(["--regmem", value])
 
         result = m.cmd_regmem(config, system, launcher)
@@ -864,14 +873,14 @@ class Test_cmd_regmem:
 
 
 class Test_cmd_log_levels:
-    def test_default(self, genobjs: Any) -> None:
+    def test_default(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs([])
 
         result = m.cmd_log_levels(config, system, launcher)
 
         assert result == ("-level", "openmp=5")
 
-    def test_profile_single_rank_no_launcher(self, genobjs: Any) -> None:
+    def test_profile_single_rank_no_launcher(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs(["--profile"])
 
         result = m.cmd_log_levels(config, system, launcher)
@@ -885,7 +894,7 @@ class Test_cmd_log_levels:
 
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     def test_profile_single_rank_with_launcher(
-        self, genobjs: Any, launch: str
+        self, genobjs: GenObjs, launch: str
     ) -> None:
         config, system, launcher = genobjs(["--profile", "--launcher", launch])
 
@@ -900,7 +909,7 @@ class Test_cmd_log_levels:
 
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     def test_profile_multi_rank_no_launcher(
-        self, genobjs: Any, rank_var: str
+        self, genobjs: GenObjs, rank_var: str
     ) -> None:
         config, system, launcher = genobjs(
             ["--profile"], multi_rank=(2, 2), rank_env={rank_var: "2"}
@@ -917,7 +926,7 @@ class Test_cmd_log_levels:
 
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     def test_profile_multi_rank_with_launcher(
-        self, genobjs: Any, launch: str
+        self, genobjs: GenObjs, launch: str
     ) -> None:
         config, system, launcher = genobjs(
             ["--profile", "--launcher", launch], multi_rank=(2, 2)
@@ -932,7 +941,7 @@ class Test_cmd_log_levels:
             + ("-level", "openmp=5,legion_prof=2")
         )
 
-    def test_gpus(self, genobjs: Any) -> None:
+    def test_gpus(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs(["--gpus", "2"])
 
         result = m.cmd_log_levels(config, system, launcher)
@@ -942,7 +951,7 @@ class Test_cmd_log_levels:
     @pytest.mark.parametrize(
         "args", powerset_nonempty(("--event", "--dataflow"))
     )
-    def test_debugging(self, genobjs: Any, args: tuple[str, ...]) -> None:
+    def test_debugging(self, genobjs: GenObjs, args: tuple[str, ...]) -> None:
         config, system, launcher = genobjs(list(args))
 
         result = m.cmd_log_levels(config, system, launcher)
@@ -951,7 +960,9 @@ class Test_cmd_log_levels:
 
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
-    def test_combined(self, genobjs: Any, launch: str, rank_var: str) -> None:
+    def test_combined(
+        self, genobjs: GenObjs, launch: str, rank_var: str
+    ) -> None:
         config, system, launcher = genobjs(
             ["--profile", "--launcher", launch, "--profile", "--gpus", "4"],
             multi_rank=(2, 2),
@@ -969,21 +980,21 @@ class Test_cmd_log_levels:
 
 
 class Test_cmd_log_file:
-    def test_default(self, genobjs: Any) -> None:
+    def test_default(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs([])
 
         result = m.cmd_log_file(config, system, launcher)
 
         assert result == ()
 
-    def test_dir_without_flag(self, genobjs: Any) -> None:
+    def test_dir_without_flag(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs(["--logdir", "foo"])
 
         result = m.cmd_log_file(config, system, launcher)
 
         assert result == ()
 
-    def test_flag_without_dir(self, genobjs: Any) -> None:
+    def test_flag_without_dir(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs(["--log-to-file"])
 
         result = m.cmd_log_file(config, system, launcher)
@@ -991,7 +1002,7 @@ class Test_cmd_log_file:
         logfile = str(config.logging.logdir / "legate_%.log")
         assert result == ("-logfile", logfile)
 
-    def test_flag_with_dir(self, genobjs: Any) -> None:
+    def test_flag_with_dir(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs(
             ["--log-to-file", "--logdir", "foo"]
         )
@@ -1004,7 +1015,7 @@ class Test_cmd_log_file:
 
 class Test_cmd_eager_alloc:
     @pytest.mark.parametrize("value", ("0", "1", "12", "99", "100"))
-    def test_basic(self, genobjs: Any, value: str) -> None:
+    def test_basic(self, genobjs: GenObjs, value: str) -> None:
         config, system, launcher = genobjs(["--eager-alloc-percentage", value])
 
         result = m.cmd_eager_alloc(config, system, launcher)
@@ -1023,7 +1034,7 @@ class Test_cmd_user_opts:
     )
 
     @pytest.mark.parametrize("opts", USER_OPTS, ids=str)
-    def test_basic(self, genobjs: Any, opts: list[str]) -> None:
+    def test_basic(self, genobjs: GenObjs, opts: list[str]) -> None:
         config, system, launcher = genobjs(opts, fake_module=None)
 
         result = m.cmd_user_opts(config, system, launcher)
@@ -1031,7 +1042,7 @@ class Test_cmd_user_opts:
         assert result == tuple(opts)
 
     @pytest.mark.parametrize("opts", USER_OPTS, ids=str)
-    def test_with_legate_opts(self, genobjs: Any, opts: list[str]) -> None:
+    def test_with_legate_opts(self, genobjs: GenObjs, opts: list[str]) -> None:
         args = ["--verbose", "--rlwrap", "--gpus", "2"] + opts
         config, system, launcher = genobjs(args, fake_module=None)
 

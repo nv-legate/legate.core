@@ -18,8 +18,15 @@ from itertools import chain, combinations
 from typing import Any, Iterable, Iterator
 
 import pytest
+from typing_extensions import TypeAlias
 
-Capsys = pytest.CaptureFixture[str]
+Capsys: TypeAlias = pytest.CaptureFixture[str]
+
+GenConfig: TypeAlias = Any
+
+GenSystem: TypeAlias = Any
+
+GenObjs: TypeAlias = Any
 
 
 # ref: https://docs.python.org/3/library/itertools.html

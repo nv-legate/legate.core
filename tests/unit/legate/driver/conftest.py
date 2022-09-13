@@ -19,6 +19,7 @@ from types import ModuleType
 from typing import Any, Callable, Iterable
 
 import pytest
+from util import GenConfig, GenSystem
 
 from legate.driver import Config, Launcher, System
 from legate.driver.config import MultiNode
@@ -97,7 +98,7 @@ def gensystem(monkeypatch: pytest.MonkeyPatch) -> Any:
 
 @pytest.fixture
 def genobjs(
-    genconfig: Any, gensystem: Any, monkeypatch: pytest.MonkeyPatch
+    genconfig: GenConfig, gensystem: GenSystem, monkeypatch: pytest.MonkeyPatch
 ) -> Any:
     def _objs(
         args: list[str] | None = None,

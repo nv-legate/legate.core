@@ -15,11 +15,10 @@
 from __future__ import annotations
 
 import re
-from typing import Any
 
 import pytest
 from pytest_mock import MockerFixture
-from util import Capsys
+from util import Capsys, GenConfig
 
 import legate.driver.driver as m
 from legate.driver.args import LAUNCHERS
@@ -43,7 +42,7 @@ reasons:
 
 class TestDriver:
     @pytest.mark.parametrize("launch", LAUNCHERS)
-    def test_init(self, genconfig: Any, launch: LauncherType) -> None:
+    def test_init(self, genconfig: GenConfig, launch: LauncherType) -> None:
         config = genconfig(["--launcher", launch])
 
         driver = m.Driver(config, SYSTEM)
@@ -53,7 +52,7 @@ class TestDriver:
         assert driver.launcher == Launcher.create(config, SYSTEM)
 
     @pytest.mark.parametrize("launch", LAUNCHERS)
-    def test_cmd(self, genconfig: Any, launch: LauncherType) -> None:
+    def test_cmd(self, genconfig: GenConfig, launch: LauncherType) -> None:
         config = genconfig(["--launcher", launch])
 
         driver = m.Driver(config, SYSTEM)
@@ -64,7 +63,7 @@ class TestDriver:
         assert driver.cmd == expected_cmd
 
     @pytest.mark.parametrize("launch", LAUNCHERS)
-    def test_env(self, genconfig: Any, launch: LauncherType) -> None:
+    def test_env(self, genconfig: GenConfig, launch: LauncherType) -> None:
         config = genconfig(["--launcher", launch])
 
         driver = m.Driver(config, SYSTEM)
@@ -73,7 +72,7 @@ class TestDriver:
 
     @pytest.mark.parametrize("launch", LAUNCHERS)
     def test_custom_env_vars(
-        self, genconfig: Any, launch: LauncherType
+        self, genconfig: GenConfig, launch: LauncherType
     ) -> None:
         config = genconfig(["--launcher", launch])
 
@@ -83,7 +82,7 @@ class TestDriver:
 
     @pytest.mark.parametrize("launch", LAUNCHERS)
     def test_dry_run(
-        self, genconfig: Any, mocker: MockerFixture, launch: LauncherType
+        self, genconfig: GenConfig, mocker: MockerFixture, launch: LauncherType
     ) -> None:
         config = genconfig(["--launcher", launch, "--dry-run"])
         driver = m.Driver(config, SYSTEM)
@@ -97,7 +96,7 @@ class TestDriver:
 
     @pytest.mark.parametrize("launch", LAUNCHERS)
     def test_run(
-        self, genconfig: Any, mocker: MockerFixture, launch: LauncherType
+        self, genconfig: GenConfig, mocker: MockerFixture, launch: LauncherType
     ) -> None:
         config = genconfig(["--launcher", launch])
         driver = m.Driver(config, SYSTEM)
@@ -113,7 +112,7 @@ class TestDriver:
     def test_verbose(
         self,
         capsys: Capsys,
-        genconfig: Any,
+        genconfig: GenConfig,
         launch: LauncherType,
     ) -> None:
         # set --dry-run to avoid needing to mock anything
@@ -135,7 +134,7 @@ class TestDriver:
         self,
         mocker: MockerFixture,
         capsys: Capsys,
-        genconfig: Any,
+        genconfig: GenConfig,
         launch: str,
     ) -> None:
         mocker.patch("platform.system", return_value="Darwin")

@@ -15,10 +15,9 @@
 from __future__ import annotations
 
 import os
-from typing import Any
 
 import pytest
-from util import powerset_nonempty
+from util import GenConfig, GenObjs, powerset_nonempty
 
 import legate.driver.launcher as m
 from legate.driver.args import LAUNCHERS
@@ -74,28 +73,28 @@ class TestLauncher:
     def test_is_launcher_var_bad_junk(self, value: str) -> None:
         assert not m.Launcher.is_launcher_var(value)
 
-    def test_create_launcher_none(self, genconfig: Any) -> None:
+    def test_create_launcher_none(self, genconfig: GenConfig) -> None:
         config = genconfig([])
 
         launcher = m.Launcher.create(config, SYSTEM)
 
         assert isinstance(launcher, m.SimpleLauncher)
 
-    def test_create_launcher_mpirun(self, genconfig: Any) -> None:
+    def test_create_launcher_mpirun(self, genconfig: GenConfig) -> None:
         config = genconfig(["--launcher", "mpirun"])
 
         launcher = m.Launcher.create(config, SYSTEM)
 
         assert isinstance(launcher, m.MPILauncher)
 
-    def test_create_launcher_jsrun(self, genconfig: Any) -> None:
+    def test_create_launcher_jsrun(self, genconfig: GenConfig) -> None:
         config = genconfig(["--launcher", "jsrun"])
 
         launcher = m.Launcher.create(config, SYSTEM)
 
         assert isinstance(launcher, m.JSRunLauncher)
 
-    def test_create_launcher_srun(self, genconfig: Any) -> None:
+    def test_create_launcher_srun(self, genconfig: GenConfig) -> None:
         config = genconfig(["--launcher", "srun"])
 
         launcher = m.Launcher.create(config, SYSTEM)
@@ -105,7 +104,9 @@ class TestLauncher:
 
 @pytest.mark.parametrize("launch", LAUNCHERS)
 class TestLauncher__eq__:
-    def test_identity(self, genconfig: Any, launch: LauncherType) -> None:
+    def test_identity(
+        self, genconfig: GenConfig, launch: LauncherType
+    ) -> None:
         config = genconfig(["--launcher", launch])
 
         launcher = m.Launcher.create(config, SYSTEM)
@@ -113,7 +114,7 @@ class TestLauncher__eq__:
         assert launcher == launcher
 
     def test_identical_config(
-        self, genconfig: Any, launch: LauncherType
+        self, genconfig: GenConfig, launch: LauncherType
     ) -> None:
         config1 = genconfig(["--launcher", launch])
         config2 = genconfig(["--launcher", launch])
@@ -130,7 +131,9 @@ class TestLauncher__eq__:
 
 @pytest.mark.parametrize("launch", LAUNCHERS)
 class TestLauncherEnv:
-    def test_no_bytecode(self, genconfig: Any, launch: LauncherType) -> None:
+    def test_no_bytecode(
+        self, genconfig: GenConfig, launch: LauncherType
+    ) -> None:
         config = genconfig(["--launcher", launch])
 
         env = m.Launcher.create(config, SYSTEM).env
@@ -140,7 +143,7 @@ class TestLauncherEnv:
     # TODO: pythonpath
 
     def test_nccl_launch_mode(
-        self, genconfig: Any, launch: LauncherType
+        self, genconfig: GenConfig, launch: LauncherType
     ) -> None:
         config = genconfig(["--launcher", launch])
 
@@ -149,7 +152,7 @@ class TestLauncherEnv:
         assert env["NCCL_LAUNCH_MODE"] == "PARALLEL"
 
     def test_gasnet_mpi_thread(
-        self, genconfig: Any, launch: LauncherType
+        self, genconfig: GenConfig, launch: LauncherType
     ) -> None:
         config = genconfig(["--launcher", launch])
 
@@ -159,7 +162,7 @@ class TestLauncherEnv:
 
     def test_libpath_no_system(
         self,
-        genconfig: Any,
+        genconfig: GenConfig,
         monkeypatch: pytest.MonkeyPatch,
         launch: LauncherType,
     ) -> None:
@@ -180,7 +183,7 @@ class TestLauncherEnv:
 
     def test_libpath_with_system(
         self,
-        genconfig: Any,
+        genconfig: GenConfig,
         monkeypatch: pytest.MonkeyPatch,
         launch: LauncherType,
     ) -> None:
@@ -201,7 +204,7 @@ class TestLauncherEnv:
         )
 
     def test_need_cuda_false(
-        self, genconfig: Any, launch: LauncherType
+        self, genconfig: GenConfig, launch: LauncherType
     ) -> None:
         config = genconfig(["--launcher", launch, "--gpus", "0"])
 
@@ -210,7 +213,7 @@ class TestLauncherEnv:
         assert "LEGATE_NEED_CUDA" not in env
 
     def test_need_cuda_true(
-        self, genconfig: Any, launch: LauncherType
+        self, genconfig: GenConfig, launch: LauncherType
     ) -> None:
         config = genconfig(["--launcher", launch, "--gpus", "1"])
 
@@ -219,7 +222,7 @@ class TestLauncherEnv:
         assert env["LEGATE_NEED_CUDA"] == "1"
 
     def test_need_openmp_false(
-        self, genconfig: Any, launch: LauncherType
+        self, genconfig: GenConfig, launch: LauncherType
     ) -> None:
         config = genconfig(["--launcher", launch, "--omps", "0"])
 
@@ -228,7 +231,7 @@ class TestLauncherEnv:
         assert "LEGATE_NEED_OPENMP" not in env
 
     def test_need_openmp_true(
-        self, genconfig: Any, launch: LauncherType
+        self, genconfig: GenConfig, launch: LauncherType
     ) -> None:
         config = genconfig(["--launcher", launch, "--omps", "1"])
 
@@ -237,7 +240,7 @@ class TestLauncherEnv:
         assert env["LEGATE_NEED_OPENMP"] == "1"
 
     def test_need_gasnet_false(  # iff single rank
-        self, genconfig: Any, launch: LauncherType
+        self, genconfig: GenConfig, launch: LauncherType
     ) -> None:
         config = genconfig(["--launcher", launch])
 
@@ -248,7 +251,7 @@ class TestLauncherEnv:
     @pytest.mark.parametrize("rank_var", m.RANK_ENV_VARS)
     @pytest.mark.parametrize("rank", ("0", "1", "2"))
     def test_need_gasnet_true(  # iff multi rank
-        self, genobjs: Any, launch: LauncherType, rank_var: str, rank: str
+        self, genobjs: GenObjs, launch: LauncherType, rank_var: str, rank: str
     ) -> None:
         # need to use full genobjs to simulate multi-rank for all cases
         config, system, launcher = genobjs(
@@ -262,7 +265,7 @@ class TestLauncherEnv:
         assert env["LEGATE_NEED_GASNET"] == "1"
 
     def test_show_progress_false(
-        self, genconfig: Any, launch: LauncherType
+        self, genconfig: GenConfig, launch: LauncherType
     ) -> None:
         config = genconfig(["--launcher", launch, "--omps", "0"])
 
@@ -271,7 +274,7 @@ class TestLauncherEnv:
         assert "LEGATE_SHOW_PROGRESS" not in env
 
     def test_show_progress_true(
-        self, genconfig: Any, launch: LauncherType
+        self, genconfig: GenConfig, launch: LauncherType
     ) -> None:
         config = genconfig(["--launcher", launch, "--progress"])
 
@@ -280,7 +283,7 @@ class TestLauncherEnv:
         assert env["LEGATE_SHOW_PROGRESS"] == "1"
 
     def test_show_usage_false(
-        self, genconfig: Any, launch: LauncherType
+        self, genconfig: GenConfig, launch: LauncherType
     ) -> None:
         config = genconfig(["--launcher", launch, "--omps", "0"])
 
@@ -289,7 +292,7 @@ class TestLauncherEnv:
         assert "LEGATE_SHOW_USAGE" not in env
 
     def test_show_usage_true(
-        self, genconfig: Any, launch: LauncherType
+        self, genconfig: GenConfig, launch: LauncherType
     ) -> None:
         config = genconfig(["--launcher", launch, "--mem-usage"])
 
@@ -299,7 +302,7 @@ class TestLauncherEnv:
 
     @pytest.mark.parametrize("name", ("LEGATE_MAX_DIM", "LEGATE_MAX_FIELDS"))
     def test_legate_values(
-        self, genconfig: Any, name: str, launch: LauncherType
+        self, genconfig: GenConfig, name: str, launch: LauncherType
     ) -> None:
         config = genconfig(["--launcher", launch])
 
@@ -309,7 +312,7 @@ class TestLauncherEnv:
         assert int(env[name]) > 0
 
     def test_freeze_on_error_false(
-        self, genconfig: Any, launch: LauncherType
+        self, genconfig: GenConfig, launch: LauncherType
     ) -> None:
         config = genconfig(["--launcher", launch])
 
@@ -318,7 +321,7 @@ class TestLauncherEnv:
         assert "LEGION_FREEZE_ON_ERROR" not in env
 
     def test_freeze_on_error_true(
-        self, genconfig: Any, launch: LauncherType
+        self, genconfig: GenConfig, launch: LauncherType
     ) -> None:
         config = genconfig(["--launcher", launch, "--freeze-on-error"])
 
@@ -327,7 +330,7 @@ class TestLauncherEnv:
         assert env["LEGION_FREEZE_ON_ERROR"] == "1"
 
     def test_realm_backtrace(
-        self, genconfig: Any, launch: LauncherType
+        self, genconfig: GenConfig, launch: LauncherType
     ) -> None:
         config = genconfig(["--launcher", launch])
 
@@ -335,7 +338,9 @@ class TestLauncherEnv:
 
         assert env["REALM_BACKTRACE"] == "1"
 
-    def test_gasnet_trace(self, genconfig: Any, launch: LauncherType) -> None:
+    def test_gasnet_trace(
+        self, genconfig: GenConfig, launch: LauncherType
+    ) -> None:
         config = genconfig(["--launcher", launch, "--gasnet-trace"])
 
         env = m.Launcher.create(config, SYSTEM).env
@@ -346,7 +351,7 @@ class TestLauncherEnv:
 
 
 class TestSimpleLauncher:
-    def test_single_rank(self, genconfig: Any) -> None:
+    def test_single_rank(self, genconfig: GenConfig) -> None:
         config = genconfig([])
 
         launcher = m.Launcher.create(config, SYSTEM)
@@ -354,7 +359,9 @@ class TestSimpleLauncher:
         assert launcher.rank_id == "0"
         assert launcher.cmd == ()
 
-    def test_single_rank_launcher_extra_ignored(self, genconfig: Any) -> None:
+    def test_single_rank_launcher_extra_ignored(
+        self, genconfig: GenConfig
+    ) -> None:
         config = genconfig(
             ["--launcher-extra", "foo", "--launcher-extra", "bar"]
         )
@@ -366,7 +373,10 @@ class TestSimpleLauncher:
 
     @pytest.mark.parametrize("rank_var", m.RANK_ENV_VARS)
     def test_multi_rank(
-        self, monkeypatch: pytest.MonkeyPatch, genconfig: Any, rank_var: str
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        genconfig: GenConfig,
+        rank_var: str,
     ) -> None:
         for name in m.RANK_ENV_VARS:
             monkeypatch.delenv(name, raising=False)
@@ -379,7 +389,7 @@ class TestSimpleLauncher:
         assert launcher.rank_id == "123"
         assert launcher.cmd == ()
 
-    def test_multi_rank_bad(self, genconfig: Any) -> None:
+    def test_multi_rank_bad(self, genconfig: GenConfig) -> None:
         config = genconfig([], multi_rank=(2, 2))
 
         msg = "Could not detect rank ID on multi-rank run with no --launcher provided."  # noqa
@@ -388,7 +398,10 @@ class TestSimpleLauncher:
 
     @pytest.mark.parametrize("rank_var", m.RANK_ENV_VARS)
     def test_multi_rank_launcher_extra_ignored(
-        self, monkeypatch: pytest.MonkeyPatch, genconfig: Any, rank_var: str
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        genconfig: GenConfig,
+        rank_var: str,
     ) -> None:
         for name in m.RANK_ENV_VARS:
             monkeypatch.delenv(name, raising=False)
@@ -445,7 +458,7 @@ class TestMPILauncher:
         + ("-x", "REALM_BACKTRACE")
     )
 
-    def test_single_rank(self, genconfig: Any) -> None:
+    def test_single_rank(self, genconfig: GenConfig) -> None:
         config = genconfig(["--launcher", "mpirun"])
 
         launcher = m.Launcher.create(config, SYSTEM)
@@ -459,7 +472,7 @@ class TestMPILauncher:
             + self.XARGS2
         )
 
-    def test_single_rank_launcher_extra(self, genconfig: Any) -> None:
+    def test_single_rank_launcher_extra(self, genconfig: GenConfig) -> None:
         config = genconfig(
             [
                 "--launcher",
@@ -485,7 +498,10 @@ class TestMPILauncher:
 
     @pytest.mark.parametrize("rank_var", m.RANK_ENV_VARS)
     def test_multi_rank(
-        self, monkeypatch: pytest.MonkeyPatch, genconfig: Any, rank_var: str
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        genconfig: GenConfig,
+        rank_var: str,
     ) -> None:
         for name in m.RANK_ENV_VARS:
             monkeypatch.delenv(name, raising=False)
@@ -507,7 +523,10 @@ class TestMPILauncher:
 
     @pytest.mark.parametrize("rank_var", m.RANK_ENV_VARS)
     def test_multi_rank_launcher_extra(
-        self, monkeypatch: pytest.MonkeyPatch, genconfig: Any, rank_var: str
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        genconfig: GenConfig,
+        rank_var: str,
     ) -> None:
 
         for name in m.RANK_ENV_VARS:
@@ -541,7 +560,7 @@ class TestMPILauncher:
 
 
 class TestJSRunLauncher:
-    def test_single_rank(self, genconfig: Any) -> None:
+    def test_single_rank(self, genconfig: GenConfig) -> None:
         config = genconfig(["--launcher", "jsrun"])
 
         launcher = m.Launcher.create(config, SYSTEM)
@@ -553,7 +572,7 @@ class TestJSRunLauncher:
             + ("-c", "ALL_CPUS", "-g", "ALL_GPUS", "-b", "none")
         )
 
-    def test_single_rank_launcher_extra(self, genconfig: Any) -> None:
+    def test_single_rank_launcher_extra(self, genconfig: GenConfig) -> None:
         config = genconfig(
             [
                 "--launcher",
@@ -577,7 +596,10 @@ class TestJSRunLauncher:
 
     @pytest.mark.parametrize("rank_var", m.RANK_ENV_VARS)
     def test_multi_rank(
-        self, monkeypatch: pytest.MonkeyPatch, genconfig: Any, rank_var: str
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        genconfig: GenConfig,
+        rank_var: str,
     ) -> None:
         for name in m.RANK_ENV_VARS:
             monkeypatch.delenv(name, raising=False)
@@ -596,7 +618,10 @@ class TestJSRunLauncher:
 
     @pytest.mark.parametrize("rank_var", m.RANK_ENV_VARS)
     def test_multi_rank_launcher_extra(
-        self, monkeypatch: pytest.MonkeyPatch, genconfig: Any, rank_var: str
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        genconfig: GenConfig,
+        rank_var: str,
     ) -> None:
 
         for name in m.RANK_ENV_VARS:
@@ -627,7 +652,7 @@ class TestJSRunLauncher:
 
 
 class TestSRunLauncher:
-    def test_single_rank(self, genconfig: Any) -> None:
+    def test_single_rank(self, genconfig: GenConfig) -> None:
         config = genconfig(["--launcher", "srun"])
 
         launcher = m.Launcher.create(config, SYSTEM)
@@ -635,7 +660,7 @@ class TestSRunLauncher:
         assert launcher.rank_id == "%q{SLURM_PROCID}"
         assert launcher.cmd == ("srun", "-n", "1", "--ntasks-per-node", "1")
 
-    def test_single_rank_launcher_extra(self, genconfig: Any) -> None:
+    def test_single_rank_launcher_extra(self, genconfig: GenConfig) -> None:
         config = genconfig(
             [
                 "--launcher",
@@ -664,7 +689,7 @@ class TestSRunLauncher:
         "debugger", powerset_nonempty(("--gdb", "--cuda-gdb")), ids=str
     )
     def test_single_rank_debugging(
-        self, genconfig: Any, debugger: str
+        self, genconfig: GenConfig, debugger: str
     ) -> None:
         config = genconfig(["--launcher", "srun"] + list(debugger))
 
@@ -682,7 +707,10 @@ class TestSRunLauncher:
 
     @pytest.mark.parametrize("rank_var", m.RANK_ENV_VARS)
     def test_multi_rank(
-        self, monkeypatch: pytest.MonkeyPatch, genconfig: Any, rank_var: str
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        genconfig: GenConfig,
+        rank_var: str,
     ) -> None:
         for name in m.RANK_ENV_VARS:
             monkeypatch.delenv(name, raising=False)
@@ -697,7 +725,10 @@ class TestSRunLauncher:
 
     @pytest.mark.parametrize("rank_var", m.RANK_ENV_VARS)
     def test_multi_rank_launcher_extra(
-        self, monkeypatch: pytest.MonkeyPatch, genconfig: Any, rank_var: str
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        genconfig: GenConfig,
+        rank_var: str,
     ) -> None:
         for name in m.RANK_ENV_VARS:
             monkeypatch.delenv(name, raising=False)
@@ -735,7 +766,7 @@ class TestSRunLauncher:
     def test_multi_rank_debugging(
         self,
         monkeypatch: pytest.MonkeyPatch,
-        genconfig: Any,
+        genconfig: GenConfig,
         debugger: str,
         rank_var: str,
     ) -> None:

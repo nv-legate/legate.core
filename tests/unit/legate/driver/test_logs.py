@@ -14,11 +14,9 @@
 #
 from __future__ import annotations
 
-from typing import Any
-
 import pytest
 from pytest_mock import MockerFixture
-from util import Capsys, powerset_nonempty
+from util import Capsys, GenObjs, powerset_nonempty
 
 import legate.driver.logs as m
 from legate.driver.config import Config
@@ -44,7 +42,7 @@ resources in a large allocation. Please manually run: foo bar"""
 
 
 class TestLogHandler:
-    def test_init(self, genobjs: Any) -> None:
+    def test_init(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs([])
 
         handler = MockHandler(config, system)
@@ -53,7 +51,7 @@ class TestLogHandler:
         assert handler.system == system
 
     def test_run_processing_command_basic(
-        self, mocker: MockerFixture, genobjs: Any
+        self, mocker: MockerFixture, genobjs: GenObjs
     ) -> None:
         config, system, launcher = genobjs([])
         mock_run = mocker.patch.object(m, "run")
@@ -68,7 +66,7 @@ class TestLogHandler:
         )
 
     def test_run_processing_command_verbose(
-        self, capsys: Capsys, mocker: MockerFixture, genobjs: Any
+        self, capsys: Capsys, mocker: MockerFixture, genobjs: GenObjs
     ) -> None:
         config, system, launcher = genobjs(["--verbose"])
         mock_run = mocker.patch.object(m, "run")
@@ -88,7 +86,7 @@ class TestLogHandler:
 
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     def test_run_processing_command_mulit_rank_no_launcher_no_warning(
-        self, mocker: MockerFixture, genobjs: Any, rank_var: str
+        self, mocker: MockerFixture, genobjs: GenObjs, rank_var: str
     ) -> None:
         config, system, launcher = genobjs(
             [],
@@ -108,7 +106,7 @@ class TestLogHandler:
 
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     def test_run_processing_command_mulit_rank_with_launcher_no_warning(
-        self, mocker: MockerFixture, genobjs: Any, launch: str
+        self, mocker: MockerFixture, genobjs: GenObjs, launch: str
     ) -> None:
         config, system, launcher = genobjs(
             ["--launcher", launch], multi_rank=(2, 2)
@@ -129,7 +127,7 @@ class TestLogHandler:
         self,
         capsys: Capsys,
         mocker: MockerFixture,
-        genobjs: Any,
+        genobjs: GenObjs,
         rank_var: str,
     ) -> None:
         config, system, launcher = genobjs(
@@ -151,7 +149,11 @@ class TestLogHandler:
 
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     def test_run_processing_command_mulit_rank_with_launcher_with_warning(
-        self, capsys: Capsys, mocker: MockerFixture, genobjs: Any, launch: str
+        self,
+        capsys: Capsys,
+        mocker: MockerFixture,
+        genobjs: GenObjs,
+        launch: str,
     ) -> None:
         config, system, launcher = genobjs(
             ["--launcher", launch], multi_rank=(5, 2)
@@ -170,13 +172,15 @@ class TestLogHandler:
 
 
 class Test_process_logs:
-    def test_default(self, genobjs: Any) -> None:
+    def test_default(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs([])
 
         with m.process_logs(config, system, launcher) as handlers:
             assert handlers == ()
 
-    def test_with_profiling(self, mocker: MockerFixture, genobjs: Any) -> None:
+    def test_with_profiling(
+        self, mocker: MockerFixture, genobjs: GenObjs
+    ) -> None:
         config, system, launcher = genobjs(["--profile"])
 
         mocker.patch.object(m, "ProfilingHandler", MockHandler)
@@ -193,7 +197,7 @@ class Test_process_logs:
         "args", powerset_nonempty(("--event", "--dataflow"))
     )
     def test_with_debugging(
-        self, mocker: MockerFixture, genobjs: Any, args: tuple[str, ...]
+        self, mocker: MockerFixture, genobjs: GenObjs, args: tuple[str, ...]
     ) -> None:
         config, system, launcher = genobjs(list(args))
 
@@ -211,7 +215,7 @@ class Test_process_logs:
         "args", powerset_nonempty(("--event", "--dataflow"))
     )
     def test_with_debugging_and_profiling(
-        self, mocker: MockerFixture, genobjs: Any, args: tuple[str, ...]
+        self, mocker: MockerFixture, genobjs: GenObjs, args: tuple[str, ...]
     ) -> None:
         config, system, launcher = genobjs(["--profile"] + list(args))
 
@@ -243,7 +247,7 @@ class TestDebuggingHandler:
         "args", powerset_nonempty(("--event", "--dataflow"))
     )
     def test_process_single_rank_no_launcher(
-        self, genobjs: Any, mocker: MockerFixture, args: str
+        self, genobjs: GenObjs, mocker: MockerFixture, args: str
     ) -> None:
         config, system, launcher = genobjs([])
 
@@ -261,7 +265,7 @@ class TestDebuggingHandler:
     )
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     def test_process_single_rank_with_launcher(
-        self, genobjs: Any, mocker: MockerFixture, launch: str, args: str
+        self, genobjs: GenObjs, mocker: MockerFixture, launch: str, args: str
     ) -> None:
         config, system, launcher = genobjs(["--launcher", launch])
 
@@ -279,7 +283,7 @@ class TestDebuggingHandler:
     )
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     def test_process_multi_rank_no_launcher(
-        self, genobjs: Any, mocker: MockerFixture, rank_var: str, args: str
+        self, genobjs: GenObjs, mocker: MockerFixture, rank_var: str, args: str
     ) -> None:
         config, system, launcher = genobjs(
             [], multi_rank=(3, 2), rank_env={rank_var: "1"}
@@ -303,7 +307,7 @@ class TestDebuggingHandler:
     )
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     def test_process_multi_rank_with_launcher(
-        self, genobjs: Any, mocker: MockerFixture, launch: str, args: str
+        self, genobjs: GenObjs, mocker: MockerFixture, launch: str, args: str
     ) -> None:
         config, system, launcher = genobjs(
             ["--launcher", launch], multi_rank=(3, 2)
@@ -323,7 +327,7 @@ class TestDebuggingHandler:
         mock_run.assert_called_once_with(expected, "spy")
 
     def test_cleanup_keep_logs_True(
-        self, genobjs: Any, mocker: MockerFixture
+        self, genobjs: GenObjs, mocker: MockerFixture
     ) -> None:
         config, system, launcher = genobjs([])
 
@@ -335,7 +339,7 @@ class TestDebuggingHandler:
         mock_unlink.assert_not_called()
 
     def test_cleanup_keep_logs_False(
-        self, genobjs: Any, mocker: MockerFixture
+        self, genobjs: GenObjs, mocker: MockerFixture
     ) -> None:
         config, system, launcher = genobjs([])
 
@@ -348,7 +352,7 @@ class TestDebuggingHandler:
 
     @pytest.mark.parametrize("keep_logs", (True, False))
     def test_cleanup_with_user_log_levels(
-        self, genobjs: Any, mocker: MockerFixture, keep_logs: bool
+        self, genobjs: GenObjs, mocker: MockerFixture, keep_logs: bool
     ) -> None:
         config, system, launcher = genobjs(["--logging", "foo"])
 
@@ -362,7 +366,7 @@ class TestDebuggingHandler:
 
 class TestProcessingHandler:
     def test_process_single_rank_no_launcher(
-        self, genobjs: Any, mocker: MockerFixture
+        self, genobjs: GenObjs, mocker: MockerFixture
     ) -> None:
         config, system, launcher = genobjs([])
 
@@ -377,7 +381,7 @@ class TestProcessingHandler:
 
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     def test_process_single_rank_with_launcher(
-        self, genobjs: Any, mocker: MockerFixture, launch: str
+        self, genobjs: GenObjs, mocker: MockerFixture, launch: str
     ) -> None:
         config, system, launcher = genobjs(["--launcher", launch])
 
@@ -392,7 +396,7 @@ class TestProcessingHandler:
 
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     def test_process_multi_rank_no_launcher(
-        self, genobjs: Any, mocker: MockerFixture, rank_var: str
+        self, genobjs: GenObjs, mocker: MockerFixture, rank_var: str
     ) -> None:
         config, system, launcher = genobjs(
             [], multi_rank=(3, 2), rank_env={rank_var: "1"}
@@ -411,7 +415,7 @@ class TestProcessingHandler:
 
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     def test_process_multi_rank_with_launcher(
-        self, genobjs: Any, mocker: MockerFixture, launch: str
+        self, genobjs: GenObjs, mocker: MockerFixture, launch: str
     ) -> None:
         config, system, launcher = genobjs(
             ["--launcher", launch], multi_rank=(3, 2)
@@ -429,7 +433,7 @@ class TestProcessingHandler:
         mock_run.assert_called_once_with(expected, "profiler")
 
     def test_cleanup_keep_logs_True(
-        self, genobjs: Any, mocker: MockerFixture
+        self, genobjs: GenObjs, mocker: MockerFixture
     ) -> None:
         config, system, launcher = genobjs([])
 
@@ -441,7 +445,7 @@ class TestProcessingHandler:
         mock_unlink.assert_not_called()
 
     def test_cleanup_keep_logs_False(
-        self, genobjs: Any, mocker: MockerFixture
+        self, genobjs: GenObjs, mocker: MockerFixture
     ) -> None:
         config, system, launcher = genobjs([])
 
