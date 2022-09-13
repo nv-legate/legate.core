@@ -91,10 +91,7 @@ ARGS = [
 class FieldMatch(Dispatchable[Future]):
     __slots__ = ["manager", "fields", "input", "output", "future"]
 
-    def __init__(
-        self, manager: FieldManager, fields: List[tuple[Region, int]]
-    ) -> None:
-        self.manager = manager
+    def __init__(self, fields: List[tuple[FieldManager, Region, int]]) -> None:
         self.fields = fields
         # Allocate arrays of ints that are twice as long as fields since
         # our values will be 'field_id,tree_id' pairs
@@ -105,7 +102,7 @@ class FieldMatch(Dispatchable[Future]):
             self.output = ffi.new(alloc_string)
             # Fill in the input buffer with our data
             for idx in range(num_fields):
-                region, field_id = fields[idx]
+                _, region, field_id = fields[idx]
                 self.input[2 * idx] = region.handle.tree_id
                 self.input[2 * idx + 1] = field_id
         else:
@@ -151,10 +148,10 @@ class FieldMatch(Dispatchable[Future]):
         if num_fields > 0:
             # Put all the returned fields onto the ordered queue in the order
             # that they are in this list since we know
-            ordered_fields: List[Optional[tuple[Region, int]]] = [
-                None
-            ] * num_fields
-            for region, field_id in self.fields:
+            ordered_fields: List[
+                Optional[tuple[FieldManager, Region, int]]
+            ] = [None] * num_fields
+            for manager, region, field_id in self.fields:
                 found = False
                 for idx in range(num_fields):
                     if self.output[2 * idx] != region.handle.tree_id:
@@ -162,23 +159,75 @@ class FieldMatch(Dispatchable[Future]):
                     if self.output[2 * idx + 1] != field_id:
                         continue
                     assert ordered_fields[idx] is None
-                    ordered_fields[idx] = (region, field_id)
+                    ordered_fields[idx] = (manager, region, field_id)
                     found = True
                     break
                 if not found:
                     # Not found so put it back int the unordered queue
-                    self.manager.free_field(region, field_id, ordered=False)
+                    manager.free_field(region, field_id, ordered=False)
             # Notice that we do this in the order of the list which is the
             # same order as they were in the array returned by the match
-            for pair in ordered_fields:
-                if pair is None:
+            for tpl in ordered_fields:
+                if tpl is None:
                     continue
-                self.manager.free_field(*pair, ordered=True)
+                manager, region, field_id = tpl
+                manager.free_field(region, field_id, ordered=True)
         else:
             # No fields on all shards so put all our fields back into
             # the unorered queue
-            for pair in self.fields:
-                self.manager.free_field(*pair, ordered=False)
+            for manager, region, field_id in self.fields:
+                manager.free_field(region, field_id, ordered=False)
+
+
+# A simple manager that keeps track of free fields from all free managers
+# and outstanding field matches issued for them.
+class FieldMatchManager:
+    def __init__(self, runtime: Runtime) -> None:
+        self._runtime = runtime
+        self._freed_fields: List[tuple[FieldManager, Region, int]] = []
+        self._matches: Deque[FieldMatch] = deque()
+        self._match_counter = 0
+        self._match_frequency = runtime.max_field_reuse_frequency
+
+    def add_free_field(
+        self, manager: FieldManager, region: Region, field_id: int
+    ) -> None:
+        self._freed_fields.append((manager, region, field_id))
+
+    def issue_field_match(self) -> None:
+        # Increment our match counter
+        self._match_counter += 1
+        if self._match_counter < self._match_frequency:
+            return
+        # If the match counter equals our match frequency then do an exchange
+
+        # This is where the rubber meets the road between control
+        # replication and garbage collection. We need to see if there
+        # are any freed fields that are shared across all the shards.
+        # We have to test this deterministically no matter what even
+        # if we don't have any fields to offer ourselves because this
+        # is a collective with other shards. If we have any we can use
+        # the first one and put the remainder on our free fields list
+        # so that we can reuse them later. If there aren't any then
+        # all the shards will go allocate a new field.
+        local_free_fields = self._freed_fields
+        # The match now owns our freed fields so make a new list
+        # Have to do this before dispatching the match
+        self._freed_fields = []
+        match = FieldMatch(local_free_fields)
+        # Dispatch the match. Note that this is necessary even when
+        # the field list is empty, as other shards might have non-empty
+        # lists and all shards should participate the match.
+        self._runtime.dispatch(match)
+        # Put it on the deque of outstanding matches
+        self._matches.append(match)
+        # Reset the match counter back to 0
+        self._match_counter = 0
+
+    def update_free_fields(self) -> None:
+        while len(self._matches) > 0:
+            match = self._matches.popleft()
+            match.update_free_fields()
 
 
 # This class keeps track of usage of a single region
@@ -275,72 +324,20 @@ class ConsensusMatchingFieldManager(FieldManager):
         self, runtime: Runtime, shape: Shape, field_size: int
     ) -> None:
         super().__init__(runtime, shape, field_size)
-
-        # This is an unsanitized list of (region,field_id) pairs which is not
-        # guaranteed to be ordered across all shards with control replication
-        self.pending_free_fields: List[tuple[Region, int]] = []
-
-        # A list of match operations that have been issued and for which
-        # we are waiting for values to come back
-        self.matches: Deque[FieldMatch] = deque()
-        self.match_counter = 0
-        # Figure out how big our match frequency is based on our size
-        size = self.field_size * shape.volume()
-        if size > runtime.max_field_reuse_size:
-            # Figure out the ratio our size to the max reuse size (round up)
-            ratio = (
-                size + runtime.max_field_reuse_size - 1
-            ) // runtime.max_field_reuse_size
-            assert ratio >= 1
-            # Scale the frequency by the ratio, but make it at least 1
-            self.match_frequency = (
-                runtime.max_field_reuse_frequency + ratio - 1
-            ) // ratio
-        else:
-            self.match_frequency = runtime.max_field_reuse_frequency
-
-    def destroy(self) -> None:
-        super().destroy()
-        self.pending_free_fields = []
+        self._field_match_manager = runtime.field_match_manager
 
     def try_reuse_field(self) -> Optional[tuple[Region, int]]:
-        # Increment our match counter
-        self.match_counter += 1
-        # If the match counter equals our match frequency then do an exchange
-        if self.match_counter == self.match_frequency:
-            # This is where the rubber meets the road between control
-            # replication and garbage collection. We need to see if there
-            # are any freed fields that are shared across all the shards.
-            # We have to test this deterministically no matter what even
-            # if we don't have any fields to offer ourselves because this
-            # is a collective with other shards. If we have any we can use
-            # the first one and put the remainder on our free fields list
-            # so that we can reuse them later. If there aren't any then
-            # all the shards will go allocate a new field.
-            local_free_fields = self.pending_free_fields
-            # The match now owns our freed fields so make a new list
-            # Have to do this before dispatching the match
-            self.pending_free_fields = []
-            match = FieldMatch(self, local_free_fields)
-            # Dispatch the match. Note that this is necessary even when
-            # the field list is empty, as other shards might have non-empty
-            # lists and all shards should participate the match.
-            self.runtime.dispatch(match)
-            # Put it on the deque of outstanding matches
-            self.matches.append(match)
-            # Reset the match counter back to 0
-            self.match_counter = 0
+        self._field_match_manager.issue_field_match()
+
         # First, if we have a free field then we know everyone has one of those
         if len(self.free_fields) > 0:
             return self.free_fields.popleft()
-        # If we don't have any free fields then see if we have a pending match
-        # outstanding that we can now add to our free fields and use
-        while len(self.matches) > 0:
-            match = self.matches.popleft()
-            match.update_free_fields()
-            # Check again to see if we have any free fields
-            if len(self.free_fields) > 0:
-                return self.free_fields.popleft()
+
+        self._field_match_manager.update_free_fields()
+
+        # Check again to see if we have any free fields
+        if len(self.free_fields) > 0:
+            return self.free_fields.popleft()
 
         return None
 
@@ -350,7 +347,7 @@ class ConsensusMatchingFieldManager(FieldManager):
         if ordered:
             super().free_field(region, field_id, ordered=ordered)
         else:  # Put this on the unordered list
-            self.pending_free_fields.append((region, field_id))
+            self._field_match_manager.add_free_field(self, region, field_id)
 
 
 class Attachment:
@@ -896,11 +893,23 @@ class Runtime:
                 ty.int32,
             )
         )
+        self.max_field_reuse_frequency = int(
+            self._core_context.get_tunable(
+                legion.LEGATE_CORE_TUNABLE_FIELD_REUSE_FREQUENCY,
+                ty.uint32,
+            )
+        )
+        self._field_manager_class = (
+            ConsensusMatchingFieldManager
+            if self._num_nodes > 1 or self._args.consensus
+            else FieldManager
+        )
 
         # Now we initialize managers
         self._attachment_manager = AttachmentManager(self)
         self._partition_manager = PartitionManager(self)
         self._comm_manager = CommunicatorManager(self)
+        self._field_match_manager = FieldMatchManager(self)
         # map shapes to index spaces
         self.index_spaces: dict[Rect, IndexSpace] = {}
         # map from shapes to active region managers
@@ -909,25 +918,8 @@ class Runtime:
         self.region_managers_by_region: dict[Region, RegionManager] = {}
         # map from (shape,dtype) to field managers
         self.field_managers: dict[tuple[Shape, Any], FieldManager] = {}
-        self._field_manager_class = (
-            ConsensusMatchingFieldManager
-            if self._num_nodes > 1 or self._args.consensus
-            else FieldManager
-        )
 
         self.destroyed = False
-        self.max_field_reuse_size = int(
-            self._core_context.get_tunable(
-                legion.LEGATE_CORE_TUNABLE_FIELD_REUSE_SIZE,
-                ty.uint64,
-            )
-        )
-        self.max_field_reuse_frequency = int(
-            self._core_context.get_tunable(
-                legion.LEGATE_CORE_TUNABLE_FIELD_REUSE_FREQUENCY,
-                ty.uint32,
-            )
-        )
         self._empty_argmap: ArgumentMap = legion.legion_argument_map_create()
 
         # A projection functor and its corresponding sharding functor
@@ -1003,6 +995,10 @@ class Runtime:
     @property
     def partition_manager(self) -> PartitionManager:
         return self._partition_manager
+
+    @property
+    def field_match_manager(self) -> FieldMatchManager:
+        return self._field_match_manager
 
     def register_library(self, library: Library) -> Context:
         from .context import Context
