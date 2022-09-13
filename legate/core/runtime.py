@@ -23,6 +23,8 @@ from typing import TYPE_CHECKING, Any, Deque, List, Optional, TypeVar, Union
 
 from legion_top import add_cleanup_item, top_level
 
+from legate.rc import ArgSpec, Argument, parse_command_args
+
 from . import ffi  # Make sure we only have one ffi instance
 from . import (
     Fence,
@@ -71,6 +73,18 @@ _sizeof_size_t = ffi.sizeof("size_t")
 assert _sizeof_size_t == 4 or _sizeof_size_t == 8
 
 _LEGATE_FIELD_ID_BASE = 1000
+
+ARGS = [
+    Argument(
+        "consensus",
+        ArgSpec(
+            action="store_true",
+            default=False,
+            dest="consensus",
+            help="Turn on consensus match on single node. (for testing)",
+        ),
+    ),
+]
 
 
 # A helper class for doing field management with control replication
@@ -806,6 +820,8 @@ class Runtime:
         focus on implementing their domain logic.
         """
 
+        self._args = parse_command_args("legate", ARGS)
+
         try:
             self._legion_context = top_level.context[0]
         except AttributeError:
@@ -893,7 +909,7 @@ class Runtime:
         self.field_managers: dict[tuple[Shape, Any], FieldManager] = {}
         self._field_manager_class = (
             ConsensusMatchingFieldManager
-            if self._num_nodes > 1
+            if self._num_nodes > 1 or self._args.consensus
             else FieldManager
         )
 
