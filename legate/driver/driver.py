@@ -38,6 +38,17 @@ reasons:
 
 
 class Driver:
+    """Coordinate the system, user-configuration, and launcher to appropriately
+    execute the Legate process.
+
+    Parameters
+    ----------
+        config : Config
+
+        system : System
+
+    """
+
     def __init__(self, config: Config, system: System) -> None:
         self.config = config
         self.system = system
@@ -45,6 +56,7 @@ class Driver:
 
     @property
     def cmd(self) -> Command:
+        """The full command invocation that should be used to start Legate."""
         config = self.config
         launcher = self.launcher
         system = self.system
@@ -54,15 +66,27 @@ class Driver:
 
     @property
     def env(self) -> EnvDict:
+        """The system environment that should be used when started Legate."""
         # in case we want to augment the launcher env we could do it here
         return self.launcher.env
 
     @property
     def custom_env_vars(self) -> set[str]:
+        """The names of environment variables that we have explicitly set
+        for the system environment.
+
+        """
         # in case we want to augment the launcher env we could do it here
         return self.launcher.custom_env_vars
 
     def run(self) -> int:
+        """Run the Legate process.
+
+        Returns
+        -------
+            int : process return code
+
+        """
         if self.config.info.verbose:
             print_verbose(self.system, self)
 

@@ -115,12 +115,12 @@ CMAKE_CACHE_PATH = Path(__file__).parent / "sample_cmake_cache.txt"
 
 def test_read_cmake_cache_value_hit() -> None:
     assert (
-        m.read_cmake_cache_value("Legion_SOURCE_DIR:STATIC=", CMAKE_CACHE_PATH)
+        m.read_cmake_cache_value(CMAKE_CACHE_PATH, "Legion_SOURCE_DIR:STATIC=")
         == '"foo/bar"'
     )
     assert (
         m.read_cmake_cache_value(
-            "FIND_LEGATE_CORE_CPP:BOOL=OFF", CMAKE_CACHE_PATH
+            CMAKE_CACHE_PATH, "FIND_LEGATE_CORE_CPP:BOOL=OFF"
         )
         == "OFF"
     )
@@ -128,4 +128,4 @@ def test_read_cmake_cache_value_hit() -> None:
 
 def test_read_cmake_cache_value_miss() -> None:
     with pytest.raises(RuntimeError):
-        assert m.read_cmake_cache_value("JUNK", CMAKE_CACHE_PATH) is None
+        assert m.read_cmake_cache_value(CMAKE_CACHE_PATH, "JUNK") is None

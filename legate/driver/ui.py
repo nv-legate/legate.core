@@ -92,6 +92,10 @@ def error(text: str) -> str:
     text : str
         The text to format
 
+    Returns
+    -------
+        str
+
     """
     return red(f"ERROR: {text}")
 
@@ -104,6 +108,10 @@ def key(text: str) -> str:
     text : str
         The key to format
 
+    Returns
+    -------
+        str
+
     """
     return dim(green(text))
 
@@ -115,6 +123,10 @@ def value(text: str) -> str:
     ----------
     text : str
         The key to format
+
+    Returns
+    -------
+        str
 
     """
     return yellow(text)
@@ -144,6 +156,10 @@ def kvtable(
         If not None, only the specified subset of keys is included in the
         table output (default: None)
 
+    Returns
+    -------
+        str
+
     """
     # annoying but necessary to take len on color-formatted version
     N = max(len(key(k)) for k in items) if align else 0
@@ -169,6 +185,10 @@ def rule(text: str | None = None, *, char: str = "-", N: int = 80) -> str:
     N : int, optional
         Character width for the rule (default: 80)
 
+    Returns
+    -------
+        str
+
     """
     if text is None:
         return cyan(f"{char:-<{N}}")
@@ -183,6 +203,10 @@ def section(text: str) -> str:
     text : str
         The text to format
 
+    Returns
+    -------
+        str
+
     """
     return bright(white(text))
 
@@ -195,6 +219,10 @@ def scrub(text: str) -> str:
     text : str
         The text to scrub
 
+    Returns
+    -------
+        str
+
     """
     return _ANSI_ESCAPE.sub("", text)
 
@@ -206,6 +234,10 @@ def warn(text: str) -> str:
     ----------
     text : str
         The text to format
+
+    Returns
+    -------
+        str
 
     """
     return magenta(f"WARNING: {text}")

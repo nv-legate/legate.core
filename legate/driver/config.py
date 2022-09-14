@@ -154,6 +154,7 @@ class Config:
 
     @cached_property
     def console(self) -> bool:
+        """Whether we are starting Legate as an interactive console."""
         return not any(opt.endswith(".py") for opt in self.user_opts)
 
     def _fixup_nocr(self, args: Namespace) -> None:

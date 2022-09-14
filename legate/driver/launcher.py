@@ -49,6 +49,18 @@ LAUNCHER_VAR_PREFIXES = (
 
 
 class Launcher:
+    """A base class for custom launch handlers for Legate.
+
+    Subclasses should set ``kind``, ``rank_id``, and ``cmd`` properties during
+    their initialization.
+
+    Parameters
+    ----------
+        config : Config
+
+        system : System
+
+    """
 
     kind: LauncherType
 
@@ -81,6 +93,19 @@ class Launcher:
 
     @classmethod
     def create(cls, config: Config, system: System) -> Launcher:
+        """Factory method for creating appropriate Launcher subclass based on
+        user configuration.
+
+        Parameters
+        ----------
+            config : Config
+
+            system : System
+
+        Returns
+            Launcher
+
+        """
         kind = config.multi_node.launcher
         if kind == "none":
             return SimpleLauncher(config, system)
@@ -99,20 +124,23 @@ class Launcher:
 
     @property
     def env(self) -> EnvDict:
+        """A system environment to use with this launcher process."""
         if self._env is None:
             self._env, self._custom_env_vars = self._compute_env()
         return self._env
 
     @property
     def custom_env_vars(self) -> set[str]:
+        """The set of environment variables specificaly customized by us."""
         if self._custom_env_vars is None:
             self._env, self._custom_env_vars = self._compute_env()
         return self._custom_env_vars
 
     @staticmethod
-    def is_launcher_var(var: str) -> bool:
-        return var.endswith("PATH") or any(
-            var.startswith(prefix) for prefix in LAUNCHER_VAR_PREFIXES
+    def is_launcher_var(name: str) -> bool:
+        """Whether an environment variable name is relevant for the laucher."""
+        return name.endswith("PATH") or any(
+            name.startswith(prefix) for prefix in LAUNCHER_VAR_PREFIXES
         )
 
     def _check_realm_python(self) -> None:
@@ -139,6 +167,7 @@ class Launcher:
     def _compute_env(self) -> tuple[EnvDict, set[str]]:
         config = self._config
         system = self._system
+
         env = {}
 
         # We never want to save python byte code for legate
@@ -250,6 +279,8 @@ invoke the legate script itself through a launcher.
 
 
 class SimpleLauncher(Launcher):
+    """A Launcher subclass for the "no launcher" case."""
+
     kind: LauncherType = "none"
 
     def __init__(self, config: Config, system: System) -> None:
@@ -272,6 +303,12 @@ class SimpleLauncher(Launcher):
 
 
 class MPILauncher(Launcher):
+    """A Launcher subclass to use mpirun [1] for launching Legate processes.
+
+    [1] https://www.open-mpi.org/doc/current/man1/mpirun.1.php
+
+    """
+
     kind: LauncherType = "mpirun"
 
     def __init__(self, config: Config, system: System) -> None:
@@ -296,6 +333,12 @@ class MPILauncher(Launcher):
 
 
 class JSRunLauncher(Launcher):
+    """A Launcher subclass to use jsrun [1] for launching Legate processes.
+
+    [1] https://www.ibm.com/docs/en/spectrum-lsf/10.1.0?topic=SSWRJV_10.1.0/jsm/jsrun.html  # noqa
+
+    """
+
     kind: LauncherType = "jsrun"
 
     def __init__(self, config: Config, system: System) -> None:
@@ -318,6 +361,12 @@ class JSRunLauncher(Launcher):
 
 
 class SRunLauncher(Launcher):
+    """A Launcher subclass to use srun [1] for launching Legate processes.
+
+    [1] https://slurm.schedmd.com/srun.html
+
+    """
+
     kind: LauncherType = "srun"
 
     def __init__(self, config: Config, system: System) -> None:

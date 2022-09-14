@@ -21,6 +21,19 @@ __all__ = ("main",)
 
 
 def main(argv: list[str]) -> int:
+    """A main function for the Legate driver that can be used programmatically
+    or by entry-points.
+
+    Parameters
+    ----------
+        argv : list[str]
+            Command-line arguments to start the Legate driver with
+
+    Returns
+    -------
+        int, a process return code
+
+    """
     from . import Config, Driver, System
     from .ui import error
     from .util import print_verbose

@@ -30,7 +30,12 @@ from .system import System
 from .types import Command
 from .ui import warn
 
-__all__ = ("process_logs",)
+__all__ = (
+    "DebuggingHandler",
+    "LogHandler",
+    "process_logs",
+    "ProfilingHandler",
+)
 
 _LOG_TOOL_WARN = """\
 Skipping the processing of {tool} output, to avoid wasting
@@ -39,6 +44,13 @@ resources in a large allocation. Please manually run: {cmd}
 
 
 class LogHandler(metaclass=ABCMeta):
+    """A base class for handling log output from external tools such as
+    debuggers or profilers that can be run along with Legate.
+
+    Subclasses must implement ``process`` and ``cleanup`` methods.
+
+    """
+
     config: Config
     system: System
 
@@ -48,13 +60,35 @@ class LogHandler(metaclass=ABCMeta):
 
     @abstractmethod
     def process(self) -> bool:
+        """Perform processing of log files from external tools."""
         ...
 
     @abstractmethod
     def cleanup(self, keep_logs: bool) -> None:
+        """Clean up and remove log files left by external tools"""
         ...
 
     def run_processing_cmd(self, cmd: Command, tool: str) -> bool:
+        """A helper for running log-processing commands, as long as the
+        allocation is not too large.
+
+        Returns a boolean indicating whether log files should be kept or not.
+        The value from the user config may be overridden, e.g. if processing
+        is skipped because of allocation size.
+
+        Parameters
+        ----------
+            cmd : Command
+                A command invocation for ``subprocess.run``
+
+            tool : str
+                The name of the external tool, for display purposes
+
+        Returns
+        -------
+            bool : whether to keep log files or clean them up
+
+        """
         cmdstr = " ".join(quote(t) for t in cmd)
         ranks = self.config.multi_node.ranks
         ranks_per_node = self.config.multi_node.ranks_per_node
@@ -75,6 +109,8 @@ class LogHandler(metaclass=ABCMeta):
 
 
 class ProfilingHandler(LogHandler):
+    """A LogHandler subclass for .prof log files."""
+
     def process(self) -> bool:
         legion_prof_py = str(self.system.legion_paths.legion_prof_py)
         ranks = self.config.multi_node.ranks
@@ -96,6 +132,8 @@ class ProfilingHandler(LogHandler):
 
 
 class DebuggingHandler(LogHandler):
+    """A LogHandler subclass for legion_spy .log files."""
+
     def process(self) -> bool:
         legion_spy_py = str(self.system.legion_paths.legion_spy_py)
         ranks = self.config.multi_node.ranks
@@ -126,6 +164,20 @@ class DebuggingHandler(LogHandler):
 def process_logs(
     config: Config, system: System, launcher: Launcher
 ) -> Iterator[tuple[LogHandler, ...]]:
+    """A context manager for log initializion and processing/cleanup, based
+    on the user configuration.
+
+    Paramerters
+        config : Config
+
+        system : System
+
+        launcher : Launcher
+
+    Returns
+        tuple[LogHandler] : All the handlers created, based on user config
+
+    """
 
     os.makedirs(config.logging.logdir, exist_ok=True)
 

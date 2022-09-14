@@ -43,6 +43,22 @@ T = TypeVar("T", bound=DataclassProtocol)
 
 
 def object_to_dataclass(obj: object, typ: Type[T]) -> T:
+    """Automatically generate a dataclass from an object with appropriate
+    attributes.
+
+    Parameters
+    ----------
+    obj: object
+        An object to pull values from (e.g. an argparse Namespace)
+
+    typ:
+        A dataclass type to generate from ``obj``
+
+    Returns
+    -------
+        The generated dataclass instance
+
+    """
     kws = {name: getattr(obj, name) for name in typ.__dataclass_fields__}
     return typ(**kws)
 
@@ -51,6 +67,22 @@ def print_verbose(
     system: System,
     driver: Driver | None = None,
 ) -> None:
+    """Print system and driver configuration values.
+
+    Parameters
+    ----------
+    system : System
+        A System instance to obtain Legate and Legion paths from
+
+    driver : Driver or None, optional
+        If not None, a Driver instance to obtain command invocation and
+        environment from (default: None)
+
+    Returns
+    -------
+        None
+
+    """
 
     print(f"\n{rule('Legion Python Configuration')}")
 
@@ -80,6 +112,21 @@ def print_verbose(
 
 
 def read_c_define(header_path: Path, name: str) -> str | None:
+    """Open a C header file and read the value of a #define
+
+    Parameters
+    ----------
+    header_path : Path
+        Location of the C header file to scan
+
+    name : str
+        The name to search the header for
+
+    Returns
+    -------
+        str : value from the header or None, if it does not exist
+
+    """
     try:
         with open(header_path, "r") as f:
             lines = (line for line in f if line.startswith("#define"))
@@ -93,7 +140,27 @@ def read_c_define(header_path: Path, name: str) -> str | None:
     return None
 
 
-def read_cmake_cache_value(pattern: str, file_path: Path) -> str:
+def read_cmake_cache_value(file_path: Path, pattern: str) -> str:
+    """Search a cmake cache file for a given pattern and return the associated
+    value.
+
+    Parameters
+    ----------
+        file_path: Path
+            Location of the cmake cache file to scan
+
+        pattern : str
+            A pattern to seach for in the file
+
+    Returns
+    -------
+        str
+
+    Raises
+    ------
+        RuntimeError, if the value is not found
+
+    """
     with open(file_path, encoding="utf-8") as f:
         for line in f:
             if re.match(pattern, line):
@@ -103,6 +170,20 @@ def read_cmake_cache_value(pattern: str, file_path: Path) -> str:
 
 
 def get_legate_build_dir(legate_dir: Path) -> Path | None:
+    """Determine the location of the Legate build directory.
+
+    If the build directory cannot be found, None is returned.
+
+    Parameters
+    ----------
+        legate_dir : Path
+            Directory containing a Legate executable
+
+
+    Returns
+        Path or None
+
+    """
     # If using a local non-scikit-build CMake build dir, read
     # Legion_BINARY_DIR and Legion_SOURCE_DIR from CMakeCache.txt
     legate_build_dir = legate_dir / "build"
@@ -128,7 +209,7 @@ def get_legate_build_dir(legate_dir: Path) -> Path | None:
                 # isn't, then we built legate_core C++ as a side-effect of
                 # building legate_core_python.
                 read_cmake_cache_value(
-                    "FIND_LEGATE_CORE_CPP:BOOL=OFF", cmake_cache_txt
+                    cmake_cache_txt, "FIND_LEGATE_CORE_CPP:BOOL=OFF"
                 )
             except Exception:
                 # If FIND_LEGATE_CORE_CPP is set to ON, check to see if
@@ -137,7 +218,7 @@ def get_legate_build_dir(legate_dir: Path) -> Path | None:
                 # `-D legate_core_ROOT=/legate.core/build`
                 legate_core_dir = Path(
                     read_cmake_cache_value(
-                        "legate_core_DIR:PATH=", cmake_cache_txt
+                        cmake_cache_txt, "legate_core_DIR:PATH="
                     )
                 )
 
@@ -148,7 +229,7 @@ def get_legate_build_dir(legate_dir: Path) -> Path | None:
                 if cmake_cache_txt.exists():
                     return Path(
                         read_cmake_cache_value(
-                            "legate_core_BINARY_DIR:STATIC=", cmake_cache_txt
+                            cmake_cache_txt, "legate_core_BINARY_DIR:STATIC="
                         )
                     )
                 return None
@@ -159,6 +240,13 @@ def get_legate_build_dir(legate_dir: Path) -> Path | None:
 
 
 def get_legate_paths() -> LegatePaths:
+    """Determine all the important runtime paths for Legate
+
+    Returns
+    -------
+        LegatePaths
+
+    """
     import legate
 
     legate_dir = Path(legate.__path__[0]).parent
@@ -176,13 +264,13 @@ def get_legate_paths() -> LegatePaths:
 
     legate_source_dir = Path(
         read_cmake_cache_value(
-            "legate_core_SOURCE_DIR:STATIC=", cmake_cache_txt
+            cmake_cache_txt, "legate_core_SOURCE_DIR:STATIC="
         )
     )
 
     legate_binary_dir = Path(
         read_cmake_cache_value(
-            "legate_core_BINARY_DIR:STATIC=", cmake_cache_txt
+            cmake_cache_txt, "legate_core_BINARY_DIR:STATIC="
         )
     )
 
@@ -195,8 +283,19 @@ def get_legate_paths() -> LegatePaths:
 
 
 def get_legion_paths(legate_paths: LegatePaths) -> LegionPaths:
+    """Determine all the important runtime paths for Legion
 
-    #
+    Parameters
+    ----------
+        legate_paths : LegatePaths
+            Locations of Legate runtime paths
+
+    Returns
+    -------
+        LegionPaths
+
+    """
+
     # Construct and return paths needed to launch `legion_python`,accounting
     # for multiple ways Legion and legate_core may be configured or installed.
     #
@@ -221,7 +320,6 @@ def get_legion_paths(legate_paths: LegatePaths) -> LegionPaths:
     # When determining locations of Legion and legate_core paths, prioritize
     # local builds over global installations. This allows devs to work in the
     # source tree and re-run without overwriting existing installations.
-    #
 
     def installed_legion_paths(
         legion_dir: Path, legion_module: Path | None = None
@@ -268,13 +366,13 @@ def get_legion_paths(legate_paths: LegatePaths) -> LegionPaths:
         # Test whether Legion_DIR is set. If it isn't, then we built Legion as
         # a side-effect of building legate_core
         read_cmake_cache_value(
-            "Legion_DIR:PATH=Legion_DIR-NOTFOUND", cmake_cache_txt
+            cmake_cache_txt, "Legion_DIR:PATH=Legion_DIR-NOTFOUND"
         )
     except Exception:
         # If Legion_DIR is a valid path, check whether it's a
         # Legion build dir, i.e. `-D Legion_ROOT=/legion/build`
         legion_dir = Path(
-            read_cmake_cache_value("Legion_DIR:PATH=", cmake_cache_txt)
+            read_cmake_cache_value(cmake_cache_txt, "Legion_DIR:PATH=")
         )
         if legion_dir.joinpath("CMakeCache.txt").exists():
             cmake_cache_txt = legion_dir / "CMakeCache.txt"
@@ -284,12 +382,12 @@ def get_legion_paths(legate_paths: LegatePaths) -> LegionPaths:
         # return the paths to Legion in the legate_core build dir.
         legion_source_dir = Path(
             read_cmake_cache_value(
-                "Legion_SOURCE_DIR:STATIC=", cmake_cache_txt
+                cmake_cache_txt, "Legion_SOURCE_DIR:STATIC="
             )
         )
         legion_binary_dir = Path(
             read_cmake_cache_value(
-                "Legion_BINARY_DIR:STATIC=", cmake_cache_txt
+                cmake_cache_txt, "Legion_BINARY_DIR:STATIC="
             )
         )
 
