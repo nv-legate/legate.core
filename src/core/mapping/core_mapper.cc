@@ -412,6 +412,10 @@ void CoreMapper::select_tunable_value(const MapperContext ctx,
       pack_tunable<int32_t>(local_omps.size() * total_nodes, output);  // assume symmetry
       return;
     }
+    case LEGATE_CORE_TUNABLE_NUM_NODES: {
+        pack_tunable<int32_t>(total_nodes, output);
+        return;
+    }
     case LEGATE_CORE_TUNABLE_NUM_PIECES: {
       if (!local_gpus.empty())  // If we have GPUs, use those
         pack_tunable<int32_t>(local_gpus.size() * total_nodes, output);

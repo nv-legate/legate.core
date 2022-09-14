@@ -61,7 +61,7 @@ if TYPE_CHECKING:
     from .context import Context
     from .launcher import Proj
     from .projection import ProjFn
-    from .runtime import Field, Runtime
+    from .runtime import Field, Runtime, DeviceID
     from .transform import TransformStackBase
 
 from math import prod
@@ -538,6 +538,7 @@ class Storage:
         parent: Optional[StoragePartition] = None,
         color: Optional[Shape] = None,
         offsets: Optional[Shape] = None,
+        location: Optional[DeviceID] = None,
     ) -> None:
         assert (
             data is None
@@ -562,6 +563,7 @@ class Storage:
 
         if self._offsets is None and self._extents is not None:
             self._offsets = Shape((0,) * self._extents.ndim)
+        self._location = location
 
     def __str__(self) -> str:
         return (
@@ -653,6 +655,10 @@ class Storage:
     @property
     def color(self) -> Optional[Shape]:
         return self._color
+
+    @property
+    def location(self) ->Optional[DeviceID]:
+        return self._location
 
     def get_root(self) -> Storage:
         if self._parent is None:
@@ -1012,6 +1018,10 @@ class Store:
     @property
     def transformed(self) -> bool:
         return not self._transform.bottom
+
+    @property
+    def get_location(self)->Optional[DeviceID]:
+        return self._storage.location()
 
     def attach_external_allocation(
         self, context: Context, alloc: Attachable, share: bool
