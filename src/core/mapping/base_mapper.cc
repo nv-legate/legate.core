@@ -623,7 +623,6 @@ void BaseMapper::map_task(const MapperContext ctx,
       for (auto req_idx : req_indices) {
         output.output_targets[req_idx] = get_target_memory(task.target_proc, mapping.policy.target);
         auto ndim                      = mapping.stores.front().dim();
-
         // FIXME: Unbound stores can have more than one dimension later
         std::vector<DimensionKind> dimension_ordering;
         for (int32_t dim = ndim - 1; dim >= 0; --dim)
@@ -648,14 +647,16 @@ void BaseMapper::map_task(const MapperContext ctx,
       continue;
     }
 
-    // Get an instance and acquire it if necessary (and we haven't already acquired the same
-    // instance in a previous iteration). If the acquire fails then repeat until we succeed or
-    // map_legate_store fails with an out of memory error.
+    // Get an instance and acquire it if necessary. If the acquire fails then repeat until we
+    // succeed or map_legate_store fails with an out of memory error.
     PhysicalInstance result;
-    while (map_legate_store(ctx, task, mapping, reqs, task.target_proc, result) &&
-           instances_to_mappings.count(result) == 0 && !runtime->acquire_instance(ctx, result)) {
+    while (
+      !map_legate_store(ctx, task, mapping, reqs, task.target_proc, result, false /* can_fail */)) {
+      // Need to acquire the instance, but check if we already acquired it as part of handling a
+      // previous mapping.
+      if (instances_to_mappings.count(result) > 0 || runtime->acquire_instance(ctx, result)) break;
       // If we fail to acquire a cached instance then we need to prune it
-      // out of the mapper's data structures.
+      // out of the mapper's data structures and try again.
       AutoLock lock(local_instances->manager_lock());
       local_instances->erase(result);
     }
@@ -722,7 +723,8 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
                                   const StoreMapping& mapping,
                                   std::vector<std::reference_wrapper<const RegionRequirement>> reqs,
                                   Processor target_proc,
-                                  PhysicalInstance& result)
+                                  PhysicalInstance& result,
+                                  bool can_fail)
 {
   const auto& policy = mapping.policy;
   std::vector<LogicalRegion> regions;
@@ -751,11 +753,11 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
   // If we're making a reduction instance, we should just make it now
   if (redop != 0) {
     layout_constraints.add_constraint(SpecializedConstraint(REDUCTION_FOLD_SPECIALIZE, redop));
-
-    if (!runtime->create_physical_instance(
+    if (runtime->create_physical_instance(
           ctx, target_memory, layout_constraints, regions, result, true /*acquire*/))
+      return true;
+    if (!can_fail)
       report_failed_mapping(mappable, mapping.requirement_index(), target_memory, redop);
-    // We already did the acquire
     return false;
   }
 
@@ -776,8 +778,8 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
                    << regions.front();
 #endif
     runtime->enable_reentrant(ctx);
-    // Needs acquire to keep the runtime happy
-    return true;
+    // We have the instance, but still need to acquire it, to keep the runtime happy.
+    return false;
   }
 
   std::shared_ptr<RegionGroup> group{nullptr};
@@ -848,15 +850,17 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
     }
     runtime->enable_reentrant(ctx);
     // We made it so no need for an acquire
-    return false;
+    return true;
   }
   // Done with the atomic part
   runtime->enable_reentrant(ctx);
 
   // If we make it here then we failed entirely
-  auto req_indices = mapping.requirement_indices();
-  for (auto req_idx : req_indices) report_failed_mapping(mappable, req_idx, target_memory, redop);
-  return true;
+  if (!can_fail) {
+    auto req_indices = mapping.requirement_indices();
+    for (auto req_idx : req_indices) report_failed_mapping(mappable, req_idx, target_memory, redop);
+  }
+  return false;
 }
 
 bool BaseMapper::map_raw_array(const MapperContext ctx,
