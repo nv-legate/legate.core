@@ -682,7 +682,7 @@ void BaseMapper::map_task(const MapperContext ctx,
     // mapper's data structures and retry, until we succeed or map_legate_store fails with an out of
     // memory error.
     PhysicalInstance result;
-    while (!map_legate_store(ctx, task, mapping, reqs, task.target_proc, result, can_fail)) {
+    while (map_legate_store(ctx, task, mapping, reqs, task.target_proc, result, can_fail)) {
       if (result == PhysicalInstance()) break;
       if (instance_to_mappings.count(result) > 0 || runtime->acquire_instance(ctx, result)) break;
       AutoLock lock(local_instances->manager_lock());
@@ -801,10 +801,10 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
     layout_constraints.add_constraint(SpecializedConstraint(REDUCTION_FOLD_SPECIALIZE, redop));
     if (runtime->create_physical_instance(
           ctx, target_memory, layout_constraints, regions, result, true /*acquire*/))
-      return true;
+      return false;
     if (!can_fail)
       report_failed_mapping(mappable, mapping.requirement_index(), target_memory, redop);
-    return false;
+    return true;
   }
 
   auto& fields = layout_constraints.field_constraint.field_set;
@@ -825,7 +825,7 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
 #endif
     runtime->enable_reentrant(ctx);
     // We have the instance, but still need to acquire it, to keep the runtime happy.
-    return false;
+    return true;
   }
 
   std::shared_ptr<RegionGroup> group{nullptr};
@@ -896,7 +896,7 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
     }
     runtime->enable_reentrant(ctx);
     // We made it so no need for an acquire
-    return true;
+    return false;
   }
   // Done with the atomic part
   runtime->enable_reentrant(ctx);
@@ -906,7 +906,7 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
     auto req_indices = mapping.requirement_indices();
     for (auto req_idx : req_indices) report_failed_mapping(mappable, req_idx, target_memory, redop);
   }
-  return false;
+  return true;
 }
 
 bool BaseMapper::map_raw_array(const MapperContext ctx,
