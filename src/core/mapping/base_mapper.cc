@@ -601,12 +601,41 @@ void BaseMapper::map_task(const MapperContext ctx,
 
   output.chosen_instances.resize(task.regions.size());
 
-  // Map each field separately for each of the logical regions
-  std::map<PhysicalInstance, std::set<int32_t>> instances_to_mappings;
+  bool can_fail = true;
+  std::map<PhysicalInstance, std::set<int32_t>> instance_to_mappings;
+  std::map<int32_t, PhysicalInstance> mapping_to_instance;
   std::vector<bool> handled(mappings.size(), false);
+
+  // See case of failed instance creation below
+  auto tighten_write_reqs = [&]() {
+    for (int32_t mapping_idx = 0; mapping_idx < mappings.size(); ++mapping_idx) {
+      auto& mapping = mappings[mapping_idx];
+      PrivilegeMode priv;
+      for (auto req_idx : mapping.requirement_indices()) {
+        const RegionRequirement& req = task.regions[req_idx];
+        if (!req.region.exists()) continue;
+        priv |= req.privilege;
+      }
+      if (!(priv & LEGION_WRITE_PRIV) || mapping.policy.exact) continue;
+      mapping.policy.exact = true;
+      if (!handled[mapping_idx]) continue;
+      handled[mapping_idx] = false;
+      auto m2i_it          = mapping_to_instance.find(mapping_idx);
+      if (m2i_it == mapping_to_instance.end()) continue;
+      PhysicalInstance inst = m2i_it->second;
+      mapping_to_instance.erase(m2i_it);
+      auto i2m_it = instance_to_mappings.find(inst);
+      i2m_it->second.erase(mapping_idx);
+      if (i2m_it->second.empty()) {
+        runtime->release_instance(ctx, inst);
+        instance_to_mappings.erase(i2m_it);
+      }
+    }
+  };
+
+  // Mapping each field separately for each of the logical regions
   for (int32_t mapping_idx = 0; mapping_idx < mappings.size(); ++mapping_idx) {
     if (handled[mapping_idx]) continue;
-
     auto& mapping    = mappings[mapping_idx];
     auto req_indices = mapping.requirement_indices();
 
@@ -649,24 +678,39 @@ void BaseMapper::map_task(const MapperContext ctx,
       continue;
     }
 
-    // Get an instance and acquire it if necessary. If the acquire fails then repeat until we
-    // succeed or map_legate_store fails with an out of memory error.
+    // Get an instance and acquire it if necessary. If the acquire fails then prune it from the
+    // mapper's data structures and retry, until we succeed or map_legate_store fails with an out of
+    // memory error.
     PhysicalInstance result;
-    while (
-      !map_legate_store(ctx, task, mapping, reqs, task.target_proc, result, false /* can_fail */)) {
-      // Need to acquire the instance, but check if we already acquired it as part of handling a
-      // previous mapping.
-      if (instances_to_mappings.count(result) > 0 || runtime->acquire_instance(ctx, result)) break;
-      // If we fail to acquire a cached instance then we need to prune it
-      // out of the mapper's data structures and try again.
+    while (!map_legate_store(ctx, task, mapping, reqs, task.target_proc, result, can_fail)) {
+      if (result == PhysicalInstance()) break;
+      if (instance_to_mappings.count(result) > 0 || runtime->acquire_instance(ctx, result)) break;
       AutoLock lock(local_instances->manager_lock());
       local_instances->erase(result);
     }
-    for (auto req_idx : req_indices) output.chosen_instances[req_idx].push_back(result);
-    instances_to_mappings[result].insert(mapping_idx);
 
-    handled[mapping_idx] = true;
+    // If instance creation failed we try mapping all stores again, but request tight instances for
+    // write requirements. The hope is that these write requirements cover the entire region (i.e.
+    // they use a complete partition), so the new tight instances will invalidate any pre-existing
+    // "bloated" instances for the same region, freeing up enough memory so that mapping can succeed
+    if (result == PhysicalInstance()) {
+      assert(can_fail);
+      tighten_write_reqs();
+      mapping_idx = -1;
+      can_fail    = false;
+      continue;
+    }
+
+    // Success; record the instance for this mapping.
+    instance_to_mappings[result].insert(mapping_idx);
+    mapping_to_instance[mapping_idx] = result;
+    handled[mapping_idx]             = true;
   }
+
+  // Succeeded in mapping all stores, record it on map_task output.
+  for (const auto& m2i : mapping_to_instance)
+    for (auto req_idx : mappings[m2i.first].requirement_indices())
+      output.chosen_instances[req_idx].push_back(m2i.second);
 }
 
 void BaseMapper::map_replicate_task(const MapperContext ctx,
