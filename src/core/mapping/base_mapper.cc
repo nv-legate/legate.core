@@ -602,9 +602,11 @@ void BaseMapper::map_task(const MapperContext ctx,
   output.chosen_instances.resize(task.regions.size());
 
   // Map each field separately for each of the logical regions
-  std::map<PhysicalInstance, std::set<uint32_t>> instances_to_mappings;
+  std::map<PhysicalInstance, std::set<int32_t>> instances_to_mappings;
   std::vector<bool> handled(mappings.size(), false);
   for (int32_t mapping_idx = 0; mapping_idx < mappings.size(); ++mapping_idx) {
+    if (handled[mapping_idx]) continue;
+
     auto& mapping    = mappings[mapping_idx];
     auto req_indices = mapping.requirement_indices();
 
