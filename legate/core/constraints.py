@@ -258,7 +258,6 @@ class Image(Expr):
             return Lit(part)
         return Lit(
             self._functor(
-                part.runtime,
                 self._source_store,
                 part,
                 self._mapper,

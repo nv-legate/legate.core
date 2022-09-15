@@ -39,7 +39,7 @@ from .runtime import runtime
 from .shape import Shape
 
 if TYPE_CHECKING:
-    from . import FutureMap, Partition as LegionPartition, Region
+    from . import Partition as LegionPartition, Region
 
 
 RequirementType = Union[Type[Broadcast], Type[Partition]]
@@ -86,19 +86,8 @@ class PartitionBase(ABC):
     def requirement(self) -> RequirementType:
         ...
 
-    @abstractproperty
-    def runtime(self) -> Runtime:
-        ...
-
 
 class Replicate(PartitionBase):
-    def __init__(self, runtime: Runtime):
-        self._runtime = runtime
-
-    @property
-    def runtime(self):
-        return self._runtime
-
     @property
     def color_shape(self) -> Optional[Shape]:
         return None
@@ -154,6 +143,9 @@ class Replicate(PartitionBase):
         color_transform: Optional[Transform] = None,
     ) -> Optional[LegionPartition]:
         return None
+
+
+REPLICATE = Replicate()
 
 
 class Interval:
@@ -365,7 +357,7 @@ class Tiling(PartitionBase):
                 kind=kind,
                 keep=True,  # export this partition functor to other libraries
             )
-            self._runtime.record_partition(
+            runtime.record_partition(
                 index_space, self, index_partition, color_shape=color_shape
             )
         return region.get_child(index_partition)
@@ -476,7 +468,6 @@ class Weighted(PartitionBase):
 class ImagePartition(PartitionBase):
     def __init__(
         self,
-        runtime: Runtime,
         store: Any,
         part: PartitionBase,
         mapper: int,
@@ -484,7 +475,6 @@ class ImagePartition(PartitionBase):
         disjoint: bool = True,
         complete: bool = True,
     ) -> None:
-        self._runtime = runtime
         self._mapper = mapper
         self._store = store
         self._part = part
@@ -532,9 +522,7 @@ class ImagePartition(PartitionBase):
                 source_field.field_id,
                 mapper=self._mapper,
             )
-        index_partition = self._runtime.find_partition(
-            region.index_space, self
-        )
+        index_partition = runtime.find_partition(region.index_space, self)
         if index_partition is None:
             if self._disjoint and self._complete:
                 kind = legion.LEGION_DISJOINT_COMPLETE_KIND
@@ -545,17 +533,15 @@ class ImagePartition(PartitionBase):
             else:
                 kind = legion.LEGION_ALIASED_INCOMPLETE_KIND
             index_partition = IndexPartition(
-                self._runtime.legion_context,
-                self._runtime.legion_runtime,
+                runtime.legion_context,
+                runtime.legion_runtime,
                 region.index_space,
                 source_part.color_space,
                 functor=functor,
                 kind=kind,
                 keep=True,
             )
-            self._runtime.record_partition(
-                region.index_space, self, index_partition
-            )
+            runtime.record_partition(region.index_space, self, index_partition)
         return region.get_child(index_partition)
 
     def is_complete_for(self, extents: Shape, offsets: Shape) -> bool:
@@ -580,10 +566,6 @@ class ImagePartition(PartitionBase):
     @property
     def requirement(self) -> RequirementType:
         return Partition
-
-    @property
-    def runtime(self) -> Runtime:
-        return self._runtime
 
     def __hash__(self) -> int:
         return hash(
@@ -628,7 +610,6 @@ class PreimagePartition(PartitionBase):
     #  For simplicities sake it seems like taking the store is fine.
     def __init__(
         self,
-        runtime: Runtime,
         source: Any,
         dest: Any,
         part: PartitionBase,
@@ -637,7 +618,6 @@ class PreimagePartition(PartitionBase):
         disjoint: bool = False,
         complete: bool = True,
     ) -> None:
-        self._runtime = runtime
         self._mapper = mapper
         self._source = source
         self._dest = dest
@@ -676,9 +656,7 @@ class PreimagePartition(PartitionBase):
             source_field,
             mapper=self._mapper,
         )
-        index_partition = self._runtime.find_partition(
-            region.index_space, self
-        )
+        index_partition = runtime.find_partition(region.index_space, self)
         if index_partition is None:
             if self._disjoint and self._complete:
                 kind = legion.LEGION_DISJOINT_COMPLETE_KIND
@@ -689,17 +667,15 @@ class PreimagePartition(PartitionBase):
             else:
                 kind = legion.LEGION_ALIASED_INCOMPLETE_KIND
             index_partition = IndexPartition(
-                self._runtime.legion_context,
-                self._runtime.legion_runtime,
+                runtime.legion_context,
+                runtime.legion_runtime,
                 region.index_space,
                 dest_part.color_space,
                 functor=functor,
                 kind=kind,
                 keep=True,
             )
-            self._runtime.record_partition(
-                region.index_space, self, index_partition
-            )
+            runtime.record_partition(region.index_space, self, index_partition)
         return region.get_child(index_partition)
 
     def is_complete_for(self, extents: Shape, offsets: Shape) -> bool:
@@ -723,16 +699,19 @@ class PreimagePartition(PartitionBase):
     def requirement(self) -> RequirementType:
         return Partition
 
-    @property
-    def runtime(self) -> Runtime:
-        return self._runtime
-
     def __hash__(self) -> int:
         return hash(
             (
                 self.__class__,
                 self._source,
-                self._source._version,
+                # Importantly, we _cannot_ store the version of the store
+                # in the hash value. This is because the store's version may
+                # change after we've already put this functor into a table.
+                # That would result in the hash value changing without moving
+                # the position in the table, breaking invariants of the table.
+                # However, we must still check for version in equality to avoid
+                # using old values.
+                # self._store._version,
                 self._dest.storage.region.index_space,
                 self._part,
                 self._range,
@@ -762,12 +741,10 @@ class PreimagePartition(PartitionBase):
 class DomainPartition(PartitionBase):
     def __init__(
         self,
-        runtime: Runtime,
         shape: Shape,
         color_shape: Shape,
         domains: Union[FutureMap, dict[Point, Rect]],
     ):
-        self._runtime = runtime
         self._color_shape = color_shape
         self._domains = domains
         self._shape = shape
@@ -790,18 +767,18 @@ class DomainPartition(PartitionBase):
         color_transform: Optional[Transform] = None,
     ) -> Optional[LegionPartition]:
         index_space = region.index_space
-        index_partition = self._runtime.find_partition(index_space, self)
+        index_partition = runtime.find_partition(index_space, self)
         if index_partition is None:
             functor = PartitionByDomain(self._domains)
             index_partition = IndexPartition(
-                self._runtime.legion_context,
-                self._runtime.legion_runtime,
+                runtime.legion_context,
+                runtime.legion_runtime,
                 index_space,
-                self._runtime.find_or_create_index_space(self._color_shape),
+                runtime.find_or_create_index_space(self._color_shape),
                 functor=functor,
                 keep=True,
             )
-            self._runtime.record_partition(index_space, self, index_partition)
+            runtime.record_partition(index_space, self, index_partition)
         return region.get_child(index_partition)
 
     # TODO (rohany): We could figure this out by staring at the domain map.
@@ -825,10 +802,6 @@ class DomainPartition(PartitionBase):
     @property
     def requirement(self) -> RequirementType:
         return Partition
-
-    @property
-    def runtime(self) -> Runtime:
-        return self._runtime
 
     def needs_delinearization(self, launch_ndim: int) -> bool:
         return launch_ndim != self._color_shape.ndim
@@ -920,4 +893,4 @@ class AffineProjection:
         color_shape = part.color_shape
         if tx_point is not None:
             color_shape = Shape(tx_point(color_shape, exclusive=True))
-        return DomainPartition(part.runtime, new_shape, color_shape, projected)
+        return DomainPartition(new_shape, color_shape, projected)

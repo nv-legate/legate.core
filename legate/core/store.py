@@ -60,7 +60,7 @@ if TYPE_CHECKING:
     from .context import Context
     from .launcher import Proj
     from .projection import ProjFn
-    from .transform import TransformStackBase
+    from .transform import Transform, TransformStackBase
 
 from math import prod
 
@@ -1267,7 +1267,7 @@ class Store:
 
         # If this is effectively a scalar store, we don't need to partition it
         if self.kind is Future or self.ndim == 0:
-            return Replicate(self._runtime)
+            return REPLICATE
 
         # We need the transformations to be convertible so that we can map
         # the storage partition to this store's coordinate space
@@ -1287,7 +1287,7 @@ class Store:
                 restrictions,
             )
             if launch_shape is None:
-                partition = Replicate(self._runtime)
+                partition = REPLICATE
             else:
                 tile_shape = partition_manager.compute_tile_shape(
                     self.shape, launch_shape

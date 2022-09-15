@@ -213,11 +213,11 @@ class Partitioner:
                 continue
 
             if store.kind is Future:
-                partitions[unknown] = Replicate(self._runtime)
+                partitions[unknown] = REPLICATE
             else:
                 cls = constraints.find(unknown)
                 for to_align in cls:
-                    partitions[to_align] = Replicate(self._runtime)
+                    partitions[to_align] = REPLICATE
 
         return unknowns.remove_all(to_remove)
 
@@ -244,7 +244,7 @@ class Partitioner:
 
             fspace = runtime.create_field_space()
             for to_align in cls:
-                partitions[unknown] = Replicate(self._runtime)
+                partitions[unknown] = REPLICATE
                 fspaces[unknown] = fspace
 
         unbound_ndims = set(unknown.store.ndim for unknown in to_remove)
@@ -342,16 +342,12 @@ class Partitioner:
         # to replication, in which case the operation must be performed
         # sequentially
         for unknown, part in partitions.items():
-            if unknown.store in all_outputs and isinstance(part, Replicate):
+            if unknown.store in all_outputs and part == REPLICATE:
                 return None
 
         # If we're here, this means that replicated stores are safe to access
         # in parallel, so we filter those out to determine the launch domain
-        parts = [
-            part
-            for part in partitions.values()
-            if not isinstance(part, Replicate)
-        ]
+        parts = [part for part in partitions.values() if part != REPLICATE]
 
         # If all stores are replicated, we can't parallelize the operation
         if len(parts) == 0:
