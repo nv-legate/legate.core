@@ -602,9 +602,9 @@ void BaseMapper::map_task(const MapperContext ctx,
   output.chosen_instances.resize(task.regions.size());
 
   // Map each field separately for each of the logical regions
-  std::vector<PhysicalInstance> needed_acquires;
   std::map<PhysicalInstance, std::set<uint32_t>> instances_to_mappings;
-  for (uint32_t mapping_idx = 0; mapping_idx < mappings.size(); ++mapping_idx) {
+  std::vector<bool> handled(mappings.size(), false);
+  for (int32_t mapping_idx = 0; mapping_idx < mappings.size(); ++mapping_idx) {
     auto& mapping    = mappings[mapping_idx];
     auto req_indices = mapping.requirement_indices();
 
@@ -615,8 +615,11 @@ void BaseMapper::map_task(const MapperContext ctx,
       if (target == StoreTarget::FBMEM) target = StoreTarget::ZCMEM;
 #endif
       output.future_locations.push_back(get_target_memory(task.target_proc, target));
+      handled[mapping_idx] = true;
       continue;
-    } else if (mapping.for_unbound_stores()) {
+    }
+
+    if (mapping.for_unbound_stores()) {
       for (auto req_idx : req_indices) {
         output.output_targets[req_idx] = get_target_memory(task.target_proc, mapping.policy.target);
         auto ndim                      = mapping.stores.front().dim();
@@ -630,6 +633,7 @@ void BaseMapper::map_task(const MapperContext ctx,
         output.output_constraints[req_idx].ordering_constraint =
           OrderingConstraint(dimension_ordering, false);
       }
+      handled[mapping_idx] = true;
       continue;
     }
 
@@ -639,55 +643,26 @@ void BaseMapper::map_task(const MapperContext ctx,
       if (!req.region.exists()) continue;
       reqs.push_back(std::cref(req));
     }
+    if (reqs.empty()) {
+      handled[mapping_idx] = true;
+      continue;
+    }
 
-    if (reqs.empty()) continue;
-
-    // Get the reference to our valid instances in case we decide to use them
+    // Get an instance and acquire it if necessary (and we haven't already acquired the same
+    // instance in a previous iteration). If the acquire fails then repeat until we succeed or
+    // map_legate_store fails with an out of memory error.
     PhysicalInstance result;
-    if (map_legate_store(ctx, task, mapping, reqs, task.target_proc, result))
-      needed_acquires.push_back(result);
-
+    while (map_legate_store(ctx, task, mapping, reqs, task.target_proc, result) &&
+           instances_to_mappings.count(result) == 0 && !runtime->acquire_instance(ctx, result)) {
+      // If we fail to acquire a cached instance then we need to prune it
+      // out of the mapper's data structures.
+      AutoLock lock(local_instances->manager_lock());
+      local_instances->erase(result);
+    }
     for (auto req_idx : req_indices) output.chosen_instances[req_idx].push_back(result);
     instances_to_mappings[result].insert(mapping_idx);
-  }
 
-  // Do an acquire on all the instances so we have our result
-  // Keep doing this until we succed or we get an out of memory error
-  while (!needed_acquires.empty() &&
-         !runtime->acquire_and_filter_instances(ctx, needed_acquires, true /*filter on acquire*/)) {
-    assert(!needed_acquires.empty());
-    // If we failed to acquire any of the instances we need to prune them
-    // out of the mapper's data structure so do that first
-    std::set<PhysicalInstance> failed_acquires;
-    filter_failed_acquires(ctx, needed_acquires, failed_acquires);
-
-    for (auto failed_acquire : failed_acquires) {
-      auto affected_mappings = instances_to_mappings[failed_acquire];
-      instances_to_mappings.erase(failed_acquire);
-
-      for (auto& mapping_idx : affected_mappings) {
-        auto& mapping    = mappings[mapping_idx];
-        auto req_indices = mapping.requirement_indices();
-
-        std::vector<std::reference_wrapper<const RegionRequirement>> reqs;
-        for (auto req_idx : req_indices) reqs.push_back(std::cref(task.regions[req_idx]));
-
-        for (auto req_idx : req_indices) {
-          auto& instances   = output.chosen_instances[req_idx];
-          uint32_t inst_idx = 0;
-          for (; inst_idx < instances.size(); ++inst_idx)
-            if (instances[inst_idx] == failed_acquire) break;
-          instances.erase(instances.begin() + inst_idx);
-        }
-
-        PhysicalInstance result;
-        if (map_legate_store(ctx, task, mapping, reqs, task.target_proc, result))
-          needed_acquires.push_back(result);
-
-        for (auto req_idx : req_indices) output.chosen_instances[req_idx].push_back(result);
-        instances_to_mappings[result].insert(mapping_idx);
-      }
-    }
+    handled[mapping_idx] = true;
   }
 }
 
