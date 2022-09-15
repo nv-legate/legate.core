@@ -801,6 +801,7 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
     layout_constraints.add_constraint(SpecializedConstraint(REDUCTION_FOLD_SPECIALIZE, redop));
     if (runtime->create_physical_instance(
           ctx, target_memory, layout_constraints, regions, result, true /*acquire*/))
+      // We already did the acquire
       return false;
     if (!can_fail)
       report_failed_mapping(mappable, mapping.requirement_index(), target_memory, redop);
@@ -824,7 +825,7 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
                    << regions.front();
 #endif
     runtime->enable_reentrant(ctx);
-    // We have the instance, but still need to acquire it, to keep the runtime happy.
+    // Needs acquire to keep the runtime happy
     return true;
   }
 
