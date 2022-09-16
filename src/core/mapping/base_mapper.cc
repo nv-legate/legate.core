@@ -609,8 +609,8 @@ void BaseMapper::map_task(const MapperContext ctx,
   // See case of failed instance creation below
   auto tighten_write_reqs = [&]() {
     for (int32_t mapping_idx = 0; mapping_idx < mappings.size(); ++mapping_idx) {
-      auto& mapping = mappings[mapping_idx];
-      PrivilegeMode priv;
+      auto& mapping      = mappings[mapping_idx];
+      PrivilegeMode priv = LEGION_NO_ACCESS;
       for (auto req_idx : mapping.requirement_indices()) {
         const RegionRequirement& req = task.regions[req_idx];
         if (!req.region.exists()) continue;
