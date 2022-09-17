@@ -950,6 +950,10 @@ class Store:
             )
         return self._storage.data
 
+    @property
+    def has_storage(self) -> bool:
+        return self._storage.has_data
+
     def same_root(self, rhs: Store) -> bool:
         return self._storage.get_root() is rhs._storage.get_root()
 

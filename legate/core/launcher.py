@@ -763,7 +763,16 @@ class TaskLauncher:
             if TYPE_CHECKING:
                 assert isinstance(store.storage, Future)
 
-            has_storage = perm != Permission.WRITE
+            # In theory we need to copy the storage's current value only when
+            # the store can ever be read by the task, but the permission being
+            # WRITE alone doesn't guarantee the read access freedom, as
+            # the same store can also be passed as an input and we don't
+            # perform coalescing analyses for future-backed stores as we do
+            # for region-backed ones. Here we simply pass the storage's
+            # current value whenever the store has a storage. (if this
+            # was a write-only store, it would not have a storage yet, but
+            # the inverse isn't true.)
+            has_storage = store.has_storage
             read_only = perm == Permission.READ
             if has_storage:
                 self.add_future(store.storage)
