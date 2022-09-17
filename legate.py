@@ -483,11 +483,11 @@ def run_legate(
         )
         print()
         print(
-            "(lldb) process launch -v "
+            "(lldb) process launch -E "
             + LIB_PATH
             + "="
             + cmd_env[LIB_PATH]
-            + " -v PYTHONPATH="
+            + " -E PYTHONPATH="
             + cmd_env["PYTHONPATH"]
         )
         print()
