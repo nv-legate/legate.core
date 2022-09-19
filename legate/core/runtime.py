@@ -76,7 +76,7 @@ class MachineModel:
         num_nodes: int,
         num_gpus : int,
         num_cpus: int,
-        num_omps : int
+        num_omps : int,
     )->None:
         self._num_nodes = num_nodes
         self._num_gpus = num_gpus
@@ -110,11 +110,11 @@ class DeviceID:
         self._local_id = local_id
         self._node_id = node_id
 
-     def __str__(self) -> str:
+    def __str__(self) -> str:
         return f"DeviceID({self._local_id}, {self._node_id})"
 
-     def __getitem__(self) -> tuple[int,int]:
-         return self._local_id, self._node_id
+    def __getitem__(self) -> tuple[int,int]:
+        return self._local_id, self._node_id
 
 # A Field holds a reference to a field in a region tree
 class Field:
@@ -923,14 +923,14 @@ class Runtime:
             )
         )
 
-        self.num_nodes = int(
+        self._num_nodes = int(
             self._core_context.get_tunable(
-                legion.LEGATE_CORE_TUNABLE_TOTAL_NODES,
+                legion.LEGATE_CORE_TUNABLE_NUM_NODES,
                 ty.int32,
             )
         )
 
-        self._machine_model = MachineModel(self.num_nodes, self._num_gpus, self._num_cpus, self._num_omps)
+        self._machine_model = MachineModel(self._num_nodes, self._num_gpus, self._num_cpus, self._num_omps)
 
         # Now we initialize managers
         self._attachment_manager = AttachmentManager(self)
