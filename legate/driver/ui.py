@@ -33,6 +33,7 @@ __all__ = (
     "green",
     "key",
     "kvtable",
+    "magenta",
     "red",
     "rule",
     "scrub",
@@ -42,6 +43,9 @@ __all__ = (
     "white",
     "yellow",
 )
+
+def _text(text: str) -> str:
+    return text
 
 try:
     import colorama  # type: ignore[import]
@@ -74,9 +78,6 @@ try:
         colorama.init()
 
 except ImportError:
-
-    def _text(text: str) -> str:
-        return text
 
     bright = dim = white = cyan = red = magenta = green = yellow = _text
 
@@ -191,8 +192,8 @@ def rule(text: str | None = None, *, char: str = "-", N: int = 80) -> str:
 
     """
     if text is None:
-        return cyan(f"{char:-<{N}}")
-    return cyan(char * 3 + f"{f' {text} ' :-<{N}}")
+        return cyan(char * N)
+    return cyan(char * 3 + f"{f' {text} ' :{char}<{N-3}}")
 
 
 def section(text: str) -> str:
