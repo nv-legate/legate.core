@@ -73,6 +73,7 @@ T = TypeVar("T")
 
 class MachineModel:
     def __init__(
+        self,
         num_nodes: int,
         num_gpus : int,
         num_cpus: int,
@@ -929,7 +930,7 @@ class Runtime:
                 ty.int32,
             )
         )
-
+  
         self._machine_model = MachineModel(self._num_nodes, self._num_gpus, self._num_cpus, self._num_omps)
 
         # Now we initialize managers
