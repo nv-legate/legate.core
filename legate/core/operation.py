@@ -20,7 +20,7 @@ import legate.core.types as ty
 
 from . import Future, FutureMap, Rect
 from .constraints import PartSym
-from .launcher import CopyLauncher, TaskLauncher
+from .launcher import CopyLauncher, FillLauncher, TaskLauncher
 from .partition import REPLICATE, Weighted
 from .shape import Shape
 from .store import Store, StorePartition
@@ -884,6 +884,49 @@ class Copy(AutoOperation):
             launcher.execute(launch_domain)
         else:
             launcher.execute_single()
+
+
+class Fill(Operation):
+    def __init__(
+        self,
+        context: Context,
+        lhs: Store,
+        value: Store,
+        mapper_id: int = 0,
+    ) -> None:
+        super().__init__(context=context, mapper_id=mapper_id)
+        self._inputs.append(value)
+        self._outputs.append(lhs)
+
+    def get_name(self) -> str:
+        libname = self.context.library.get_name()
+        return f"{libname}.Fill(uid:{self._op_id})"
+
+    def add_alignment(self, store1: Store, store2: Store) -> None:
+        raise TypeError(
+            "User partitioning constraints are not allowed for fills"
+        )
+
+    def add_broadcast(
+        self, store: Store, axes: Optional[Union[int, Iterable[int]]] = None
+    ) -> None:
+        raise TypeError(
+            "User partitioning constraints are not allowed for fills"
+        )
+
+    def add_constraint(self, constraint: Constraint) -> None:
+        raise TypeError(
+            "User partitioning constraints are not allowed for fills"
+        )
+
+    def launch(self, strategy: Strategy) -> None:
+        launcher = FillLauncher(
+            self.context,
+            self._outputs[0],
+            self._inputs[0],
+            mapper_id=self.mapper_id,
+        )
+        launcher.execute_single()
 
 
 class _RadixProj:

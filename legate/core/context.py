@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from ._legion.util import Dispatchable
     from .communicator import Communicator
     from .legate import Library
-    from .operation import AutoTask, Copy, ManualTask
+    from .operation import AutoTask, Copy, Fill, ManualTask
     from .runtime import Runtime
     from .shape import Shape
     from .store import RegionField, Store
@@ -241,6 +241,13 @@ class Context:
         from .operation import Copy
 
         return Copy(self, mapper_id)
+
+    def create_fill(
+        self, lhs: Store, value: Store, mapper_id: int = 0
+    ) -> Fill:
+        from .operation import Fill
+
+        return Fill(self, lhs, value, mapper_id)
 
     def dispatch(self, op: Dispatchable[T]) -> T:
         return self._runtime.dispatch(op)

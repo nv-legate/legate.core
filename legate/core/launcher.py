@@ -31,6 +31,7 @@ from . import (
     ArgumentMap,
     BufferBuilder,
     Copy as SingleCopy,
+    Fill,
     Future,
     FutureMap,
     IndexCopy,
@@ -1111,3 +1112,59 @@ class CopyLauncher:
     def execute_single(self) -> None:
         copy = self.build_single_copy()
         self._context.dispatch_single(copy)
+
+
+class FillLauncher:
+    def __init__(
+        self,
+        context: Context,
+        lhs: Store,
+        value: Store,
+        mapper_id: int = 0,
+        tag: int = 0,
+    ) -> None:
+        self._context = context
+        self._lhs = lhs
+        self._value = value
+        self._mapper_id = mapper_id
+        self._tag = tag
+        self._sharding_space: Union[IndexSpace, None] = None
+        self._point: Union[Point, None] = None
+
+    @property
+    def library_mapper_id(self) -> int:
+        return self._mapper_id
+
+    @property
+    def legion_mapper_id(self) -> int:
+        return self._context.get_mapper_id(self._mapper_id)
+
+    def set_sharding_space(self, space: IndexSpace) -> None:
+        self._sharding_space = space
+
+    def set_point(self, point: Point) -> None:
+        self._point = point
+
+    def build_single_fill(self) -> Fill:
+        assert self._lhs.kind is not Future
+        assert self._value.kind is Future
+        if TYPE_CHECKING:
+            assert isinstance(self._lhs.storage, RegionField)
+            assert isinstance(self._value.storage, Future)
+        fill = Fill(
+            self._lhs.storage.region,
+            self._lhs.storage.region.get_root(),
+            self._lhs.storage.field.field_id,
+            self._value.storage,
+            mapper=self.legion_mapper_id,
+            tag=self._tag,
+        )
+        if self._sharding_space is not None:
+            fill.set_sharding_space(self._sharding_space)
+        if self._point is not None:
+            fill.set_point(self._point)
+        return fill
+
+    def execute_single(self) -> None:
+        fill = self.build_single_fill()
+        self._context.dispatch_single(fill)
