@@ -183,9 +183,8 @@ class Strategy:
 
     def unify_key_part(self, part1: PartSym, part2: PartSym) -> None:
         non_members = {part1, part2} - self._key_parts
-        if len(non_members) == 2:
-            return
-        self._key_parts.update(non_members)
+        if len(non_members) == 1:
+            self._key_parts.update(non_members)
 
     def __str__(self) -> str:
         st = "[Strategy]"

@@ -19,6 +19,7 @@ import math
 import struct
 import weakref
 from collections import deque
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Deque, List, Optional, TypeVar, Union
 
 from legion_top import add_cleanup_item, top_level
@@ -88,23 +89,32 @@ ARGS = [
 
 
 # A helper class for doing field management with control replication
+@dataclass(frozen=True)
+class FreeFieldInfo:
+    manager: FieldManager
+    region: Region
+    field_id: int
+
+    def free(self, ordered: bool = False) -> None:
+        self.manager.free_field(self.region, self.field_id, ordered=ordered)
+
+
 class FieldMatch(Dispatchable[Future]):
     __slots__ = ["manager", "fields", "input", "output", "future"]
 
-    def __init__(self, fields: List[tuple[FieldManager, Region, int]]) -> None:
+    def __init__(self, fields: List[FreeFieldInfo]) -> None:
         self.fields = fields
         # Allocate arrays of ints that are twice as long as fields since
         # our values will be 'field_id,tree_id' pairs
-        num_fields = len(fields)
-        if num_fields > 0:
+        if (num_fields := len(fields)) > 0:
             alloc_string = f"int[{2 * num_fields}]"
             self.input = ffi.new(alloc_string)
             self.output = ffi.new(alloc_string)
             # Fill in the input buffer with our data
             for idx in range(num_fields):
-                _, region, field_id = fields[idx]
-                self.input[2 * idx] = region.handle.tree_id
-                self.input[2 * idx + 1] = field_id
+                field = fields[idx]
+                self.input[2 * idx] = field.region.handle.tree_id
+                self.input[2 * idx + 1] = field.field_id
         else:
             self.input = ffi.NULL
             self.output = ffi.NULL
@@ -148,35 +158,31 @@ class FieldMatch(Dispatchable[Future]):
         if num_fields > 0:
             # Put all the returned fields onto the ordered queue in the order
             # that they are in this list since we know
-            ordered_fields: List[
-                Optional[tuple[FieldManager, Region, int]]
-            ] = [None] * num_fields
-            for manager, region, field_id in self.fields:
+            ordered_fields: List[Optional[FreeFieldInfo]] = [None] * num_fields
+            for field in self.fields:
                 found = False
                 for idx in range(num_fields):
-                    if self.output[2 * idx] != region.handle.tree_id:
+                    if self.output[2 * idx] != field.region.handle.tree_id:
                         continue
-                    if self.output[2 * idx + 1] != field_id:
+                    if self.output[2 * idx + 1] != field.field_id:
                         continue
                     assert ordered_fields[idx] is None
-                    ordered_fields[idx] = (manager, region, field_id)
+                    ordered_fields[idx] = field
                     found = True
                     break
                 if not found:
                     # Not found so put it back int the unordered queue
-                    manager.free_field(region, field_id, ordered=False)
+                    field.free(ordered=False)
             # Notice that we do this in the order of the list which is the
             # same order as they were in the array returned by the match
-            for tpl in ordered_fields:
-                if tpl is None:
-                    continue
-                manager, region, field_id = tpl
-                manager.free_field(region, field_id, ordered=True)
+            fields = (field for field in ordered_fields if field is not None)
+            for field in fields:
+                field.free(ordered=True)
         else:
             # No fields on all shards so put all our fields back into
             # the unorered queue
-            for manager, region, field_id in self.fields:
-                manager.free_field(region, field_id, ordered=False)
+            for field in self.fields:
+                field.free(ordered=False)
 
 
 # A simple manager that keeps track of free fields from all free managers
@@ -184,7 +190,7 @@ class FieldMatch(Dispatchable[Future]):
 class FieldMatchManager:
     def __init__(self, runtime: Runtime) -> None:
         self._runtime = runtime
-        self._freed_fields: List[tuple[FieldManager, Region, int]] = []
+        self._freed_fields: List[FreeFieldInfo] = []
         self._matches: Deque[FieldMatch] = deque()
         self._match_counter = 0
         self._match_frequency = runtime.max_field_reuse_frequency
@@ -192,7 +198,7 @@ class FieldMatchManager:
     def add_free_field(
         self, manager: FieldManager, region: Region, field_id: int
     ) -> None:
-        self._freed_fields.append((manager, region, field_id))
+        self._freed_fields.append(FreeFieldInfo(manager, region, field_id))
 
     def issue_field_match(self) -> None:
         # Increment our match counter
@@ -286,14 +292,12 @@ class FieldManager:
         self.free_fields = deque()
 
     def try_reuse_field(self) -> Optional[tuple[Region, int]]:
-        if len(self.free_fields) > 0:
-            return self.free_fields.popleft()
-        else:
-            return None
+        return (
+            self.free_fields.popleft() if len(self.free_fields) > 0 else None
+        )
 
     def allocate_field(self) -> tuple[Region, int]:
-        result = self.try_reuse_field()
-        if result is not None:
+        if (result := self.try_reuse_field()) is not None:
             region_manager = self.runtime.find_region_manager(result[0])
             region_manager.increase_field_count()
             return result
@@ -305,18 +309,13 @@ class FieldManager:
     ) -> None:
         self.free_fields.append((region, field_id))
         region_manager = self.runtime.find_region_manager(region)
-        destroy = region_manager.decrease_field_count()
-        if destroy:
+        if region_manager.decrease_field_count():
             self.runtime.destroy_region_manager(
                 self.shape, region, unordered=not ordered
             )
 
     def remove_all_fields(self, region: Region) -> None:
-        free_fields: Deque[tuple[Region, int]] = deque()
-        for pair in self.free_fields:
-            if pair[0] != region:
-                free_fields.append(pair)
-        self.free_fields = free_fields
+        self.free_fields = deque(f for f in self.free_fields if f[0] != region)
 
 
 class ConsensusMatchingFieldManager(FieldManager):
@@ -336,10 +335,9 @@ class ConsensusMatchingFieldManager(FieldManager):
         self._field_match_manager.update_free_fields()
 
         # Check again to see if we have any free fields
-        if len(self.free_fields) > 0:
-            return self.free_fields.popleft()
-
-        return None
+        return (
+            self.free_fields.popleft() if len(self.free_fields) > 0 else None
+        )
 
     def free_field(
         self, region: Region, field_id: int, ordered: bool = False
