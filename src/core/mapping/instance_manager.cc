@@ -148,8 +148,8 @@ struct construct_overlapping_region_group_fn {
 
       // NOTE: It is critical that we maintain the invariant that if at least one region is mapped
       // to a group in the instances_ table, that group is still present on the groups_ table, and
-      // thus there's at least one shared_ptr remaining to it. Otherwise we run the risk that a
-      // group pointer stored on the instances_ table points to a group that has been collected.
+      // thus there's at least one shared_ptr remaining that points to it. Otherwise we run the risk
+      // that a group pointer stored on the instances_ table points to a group that's been collected
       regions.insert(group->regions.begin(), group->regions.end());
 #ifdef DEBUG_LEGATE
       log_instmgr.debug() << "    bounds updated: " << bound << " ~> " << union_bbox;
@@ -264,7 +264,7 @@ bool InstanceSet::erase(PhysicalInstance inst)
   for (RegionGroup* group : filtered_groups)
     for (Region region : group->regions)
       if (groups_.at(region).get() == group)
-        // We have to do this in two steps; we don't want to remove the last shard_ptr to a group
+        // We have to do this in two steps; we don't want to remove the last shared_ptr to a group
         // while iterating over the same group's regions
         filtered_regions.push_back(region);
   for (Region region : filtered_regions) groups_.erase(region);
