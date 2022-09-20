@@ -502,6 +502,11 @@ void BaseMapper::map_task(const MapperContext ctx,
                           const MapTaskInput& input,
                           MapTaskOutput& output)
 {
+  if (task.target_proc.id == 0x1d00000000000004) {
+    std::cout << "ENTER" << std::endl;
+    std::cout.flush();
+  }
+
   // Should never be mapping the top-level task here
   assert(task.get_depth() > 0);
 
@@ -616,6 +621,14 @@ void BaseMapper::map_task(const MapperContext ctx,
         if (!req.region.exists()) continue;
         priv |= req.privilege;
       }
+      if (task.target_proc.id == 0x1d00000000000004) {
+        std::cout << "TIGHTEN";
+        for (auto req_idx : mapping.requirement_indices()) { std::cout << " " << req_idx; }
+        std::cout << " priv = " << std::hex << priv << std::dec
+                  << " exact = " << mapping.policy.exact << " handled = " << handled[mapping_idx]
+                  << std::endl;
+        std::cout.flush();
+      }
       if (!(priv & LEGION_WRITE_PRIV) || mapping.policy.exact) continue;
       mapping.policy.exact = true;
       if (!handled[mapping_idx]) continue;
@@ -682,6 +695,12 @@ void BaseMapper::map_task(const MapperContext ctx,
     // mapper's data structures and retry, until we succeed or map_legate_store fails with an out of
     // memory error.
     PhysicalInstance result;
+    if (task.target_proc.id == 0x1d00000000000004) {
+      std::cout << "FULFILLING";
+      for (auto req_idx : req_indices) { std::cout << " " << req_idx; }
+      std::cout << " with exact = " << mapping.policy.exact << std::endl;
+      std::cout.flush();
+    }
     while (map_legate_store(ctx, task, mapping, reqs, task.target_proc, result, can_fail)) {
       if (result == PhysicalInstance()) break;
       if (instance_to_mappings.count(result) > 0 || runtime->acquire_instance(ctx, result)) break;
@@ -694,6 +713,10 @@ void BaseMapper::map_task(const MapperContext ctx,
     // they use a complete partition), so the new tight instances will invalidate any pre-existing
     // "bloated" instances for the same region, freeing up enough memory so that mapping can succeed
     if (result == PhysicalInstance()) {
+      if (task.target_proc.id == 0x1d00000000000004) {
+        std::cout << "THIS HAPPENED" << std::endl;
+        std::cout.flush();
+      }
       assert(can_fail);
       tighten_write_reqs();
       mapping_idx = -1;
