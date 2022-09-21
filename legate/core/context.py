@@ -97,6 +97,7 @@ class Context:
         )
 
         self._unique_op_id = 0
+        self._provenance: Union[str, None] = None
 
     def destroy(self) -> None:
         self._library.destroy()
@@ -132,6 +133,10 @@ class Context:
     @property
     def type_system(self) -> TypeSystem:
         return self._type_system
+
+    @property
+    def provenance(self) -> Optional[str]:
+        return self._provenance
 
     def get_task_id(self, task_id: int) -> int:
         return self._task_scope.translate(task_id)
@@ -174,6 +179,12 @@ class Context:
 
     def get_unique_op_id(self) -> int:
         return self._runtime.get_unique_op_id()
+
+    def set_provenance(self, provenance: str) -> None:
+        self._provenance = provenance
+
+    def reset_provenance(self) -> None:
+        self._provenance = None
 
     def create_task(
         self,
