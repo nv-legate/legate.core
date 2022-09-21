@@ -83,6 +83,13 @@ class MachineModel:
         self._num_gpus = num_gpus
         self._num_cpus = num_cpus
         self._num_omps = num_omps
+        self._last_point = 0
+        if self._num_gpus > 0:
+            self._num_devices = self._num_gpus
+        elif self._num_omps > 0:
+            self._num_devices = self._num_omps
+        else:
+            self._num_devices = self._num_cpus
 
     def __str__(self) -> str:
         res = f"MachineModel({self._num_nodes}, {self._num_cpus}, "
@@ -104,6 +111,14 @@ class MachineModel:
     @property
     def num_omps(self) -> int:
         return self._num_omps
+
+    def next_available_point(self) -> DeviceID:
+        if self._last_point == self._num_devices:
+            self._last_point = 0
+        else:
+            self._last_point += 1
+        n = self._last_point
+        return DeviceID(n % self._num_nodes, int(n / self._num_nodes), n)
 
 
 class DeviceID:
@@ -1039,8 +1054,7 @@ class Runtime:
         return self._machine_model
 
     def get_next_available_point(self) -> DeviceID:
-        point = DeviceID(1, 0, 1)
-        return point
+        return self._machine_model.next_available_point()
 
     @property
     def attachment_manager(self) -> AttachmentManager:
