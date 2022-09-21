@@ -17,9 +17,8 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from typing_extensions import TypeAlias
-
 from pytest_mock import MockerFixture
+from typing_extensions import TypeAlias
 
 import legate.driver.ui as m
 
@@ -29,6 +28,7 @@ except ImportError:
     colorama = None
 
 UsePlainTextFixture: TypeAlias = Any
+
 
 @pytest.fixture
 def use_plain_text(mocker: MockerFixture) -> None:
@@ -40,6 +40,7 @@ def use_plain_text(mocker: MockerFixture) -> None:
     mocker.patch.object(m, "green", m._text)
     mocker.patch.object(m, "yellow", m._text)
     mocker.patch.object(m, "magenta", m._text)
+
 
 COLOR_FUNCS = (
     "cyan",
@@ -55,6 +56,7 @@ STYLE_FUNCS = (
     "dim",
 )
 
+
 @pytest.mark.skipif(colorama is None, reason="colorama required")
 @pytest.mark.parametrize("color", COLOR_FUNCS)
 def test_color_functions(color: str) -> None:
@@ -64,6 +66,7 @@ def test_color_functions(color: str) -> None:
     out = cfunc("some text")
 
     assert out == f"{cprop}some text{colorama.Style.RESET_ALL}"
+
 
 @pytest.mark.skipif(colorama is None, reason="colorama required")
 @pytest.mark.parametrize("style", STYLE_FUNCS)
@@ -75,26 +78,33 @@ def test_style_functions(style: str) -> None:
 
     assert out == f"{sprop}some text{colorama.Style.RESET_ALL}"
 
+
 @pytest.mark.skipif(colorama is None, reason="colorama required")
 def test_error(use_plain_text: UsePlainTextFixture) -> None:
     assert m.error("some message") == m.red("ERROR: some message")
 
+
 def test_error_plain(use_plain_text: UsePlainTextFixture) -> None:
     assert m.error("some message") == "ERROR: some message"
+
 
 @pytest.mark.skipif(colorama is None, reason="colorama required")
 def test_key(use_plain_text: UsePlainTextFixture) -> None:
     assert m.key("some key") == m.dim(m.green("some key"))
 
+
 def test_key_plain(use_plain_text: UsePlainTextFixture) -> None:
     assert m.key("some key") == "some key"
+
 
 @pytest.mark.skipif(colorama is None, reason="colorama required")
 def test_value(use_plain_text: UsePlainTextFixture) -> None:
     assert m.value("some value") == m.yellow("some value")
 
+
 def test_value_plain(use_plain_text: UsePlainTextFixture) -> None:
     assert m.value("some value") == "some value"
+
 
 class Test_kvtable:
     ONE = {"foo": 10}
@@ -105,32 +115,50 @@ class Test_kvtable:
     @pytest.mark.parametrize("items", (ONE, TWO, THREE))
     def test_default(self, items: dict[str, Any]) -> None:
         N = max(len(m.key(k)) for k in items)
-        assert m.kvtable(items) == "\n".join(f"{m.key(k): <{N}} : {m.value(str(items[k]))}" for k in items)
+        assert m.kvtable(items) == "\n".join(
+            f"{m.key(k): <{N}} : {m.value(str(items[k]))}" for k in items
+        )
 
     @pytest.mark.parametrize("items", (ONE, TWO, THREE))
-    def test_default_plain(self, use_plain_text: UsePlainTextFixture, items: dict[str, Any]) -> None:
+    def test_default_plain(
+        self, use_plain_text: UsePlainTextFixture, items: dict[str, Any]
+    ) -> None:
         N = max(len(k) for k in items)
-        assert m.kvtable(items) == "\n".join(f"{k: <{N}} : {items[k]}" for k in items)
+        assert m.kvtable(items) == "\n".join(
+            f"{k: <{N}} : {items[k]}" for k in items
+        )
 
     @pytest.mark.skipif(colorama is None, reason="colorama required")
     @pytest.mark.parametrize("items", (ONE, TWO, THREE))
     def test_delim(self, items: dict[str, Any]) -> None:
         N = max(len(m.key(k)) for k in items)
-        assert m.kvtable(items, delim="/") == "\n".join(f"{m.key(k): <{N}}/{m.value(str(items[k]))}" for k in items)
+        assert m.kvtable(items, delim="/") == "\n".join(
+            f"{m.key(k): <{N}}/{m.value(str(items[k]))}" for k in items
+        )
 
     @pytest.mark.parametrize("items", (ONE, TWO, THREE))
-    def test_delim_plain(self, use_plain_text: UsePlainTextFixture, items: dict[str, Any]) -> None:
+    def test_delim_plain(
+        self, use_plain_text: UsePlainTextFixture, items: dict[str, Any]
+    ) -> None:
         N = max(len(k) for k in items)
-        assert m.kvtable(items, delim="/") == "\n".join(f"{k: <{N}}/{items[k]}" for k in items)
+        assert m.kvtable(items, delim="/") == "\n".join(
+            f"{k: <{N}}/{items[k]}" for k in items
+        )
 
     @pytest.mark.skipif(colorama is None, reason="colorama required")
     @pytest.mark.parametrize("items", (ONE, TWO, THREE))
     def test_align_False(self, items: dict[str, Any]) -> None:
-        assert m.kvtable(items, align=False) == "\n".join(f"{m.key(k)} : {m.value(str(items[k]))}" for k in items)
+        assert m.kvtable(items, align=False) == "\n".join(
+            f"{m.key(k)} : {m.value(str(items[k]))}" for k in items
+        )
 
     @pytest.mark.parametrize("items", (ONE, TWO, THREE))
-    def test_align_False_plain(self, use_plain_text: UsePlainTextFixture, items: dict[str, Any]) -> None:
-        assert m.kvtable(items, align=False) == "\n".join(f"{k} : {items[k]}" for k in items)
+    def test_align_False_plain(
+        self, use_plain_text: UsePlainTextFixture, items: dict[str, Any]
+    ) -> None:
+        assert m.kvtable(items, align=False) == "\n".join(
+            f"{k} : {items[k]}" for k in items
+        )
 
     @pytest.mark.skipif(colorama is None, reason="colorama required")
     def test_keys(self) -> None:
@@ -138,14 +166,19 @@ class Test_kvtable:
         keys = ("foo", "a")
         N = max(len(m.key(k)) for k in items)
 
-        assert m.kvtable(self.THREE, keys=keys) == "\n".join(f"{m.key(k): <{N}} : {m.value(str(items[k]))}" for k in keys)
+        assert m.kvtable(self.THREE, keys=keys) == "\n".join(
+            f"{m.key(k): <{N}} : {m.value(str(items[k]))}" for k in keys
+        )
 
     def test_keys_plain(self, use_plain_text: UsePlainTextFixture) -> None:
         items = self.THREE
         keys = ("foo", "a")
         N = max(len(m.key(k)) for k in items)
 
-        assert m.kvtable(items, keys=keys) == "\n".join(f"{k: <{N}} : {items[k]}" for k in keys)
+        assert m.kvtable(items, keys=keys) == "\n".join(
+            f"{k: <{N}} : {items[k]}" for k in keys
+        )
+
 
 class Test_rule:
     @pytest.mark.skipif(colorama is None, reason="colorama required")
@@ -173,8 +206,11 @@ class Test_rule:
     def test_N_plain(self, use_plain_text: UsePlainTextFixture) -> None:
         assert m.rule(N=60) == "-" * 60
 
-    def test_N_with_text_plain(self, use_plain_text: UsePlainTextFixture) -> None:
+    def test_N_with_text_plain(
+        self, use_plain_text: UsePlainTextFixture
+    ) -> None:
         assert m.rule("foo bar", N=65) == "--- foo bar " + "-" * 53
+
 
 @pytest.mark.skipif(colorama is None, reason="colorama required")
 @pytest.mark.parametrize("color", COLOR_FUNCS)
@@ -186,26 +222,33 @@ def test_scrub(style: str, color: str) -> None:
     assert m.scrub(cfunc(sfunc("some text"))) == "some text"
     assert m.scrub(sfunc(cfunc("some text"))) == "some text"
 
+
 @pytest.mark.skipif(colorama is None, reason="colorama required")
 @pytest.mark.parametrize("color", COLOR_FUNCS)
 @pytest.mark.parametrize("style", STYLE_FUNCS)
-def test_scrub_plain(use_plain_text: UsePlainTextFixture, style: str, color: str) -> None:
+def test_scrub_plain(
+    use_plain_text: UsePlainTextFixture, style: str, color: str
+) -> None:
     cfunc = getattr(m, color)
     sfunc = getattr(m, style)
 
     assert m.scrub(cfunc(sfunc("some text"))) == "some text"
     assert m.scrub(sfunc(cfunc("some text"))) == "some text"
 
+
 @pytest.mark.skipif(colorama is None, reason="colorama required")
 def test_section(use_plain_text: UsePlainTextFixture) -> None:
     assert m.section("some section") == m.bright(m.white("some section"))
 
+
 def test_section_plain(use_plain_text: UsePlainTextFixture) -> None:
     assert m.section("some section") == "some section"
+
 
 @pytest.mark.skipif(colorama is None, reason="colorama required")
 def test_warn(use_plain_text: UsePlainTextFixture) -> None:
     assert m.warn("some message") == m.magenta("WARNING: some message")
+
 
 def test_warn_plain(use_plain_text: UsePlainTextFixture) -> None:
     assert m.warn("some message") == "WARNING: some message"

@@ -44,8 +44,10 @@ __all__ = (
     "yellow",
 )
 
+
 def _text(text: str) -> str:
     return text
+
 
 try:
     import colorama  # type: ignore[import]
