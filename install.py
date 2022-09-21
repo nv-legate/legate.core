@@ -455,6 +455,14 @@ calls into NCCL either directly or through some other Legate library.
     verbose_check_call(
         [
             "cp",
+            "legion_util.py",
+            os.path.join(install_dir, "share", "legate", "legion_util.py"),
+        ],
+        cwd=os.path.join(legion_src_dir, "tools"),
+    )
+    verbose_check_call(
+        [
+            "cp",
             "legion_serializer.py",
             os.path.join(
                 install_dir, "share", "legate", "legion_serializer.py"
@@ -474,6 +482,13 @@ calls into NCCL either directly or through some other Legate library.
             ),
         ],
         cwd=os.path.join(legion_src_dir, "tools"),
+    )
+    verbose_check_call(
+        [
+            "rm",
+            "-rf",
+            os.path.join(install_dir, "share", "legate", "legion_prof_files"),
+        ],
     )
     verbose_check_call(
         [
