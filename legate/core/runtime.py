@@ -75,47 +75,54 @@ class MachineModel:
     def __init__(
         self,
         num_nodes: int,
-        num_gpus : int,
+        num_gpus: int,
         num_cpus: int,
-        num_omps : int,
-    )->None:
+        num_omps: int,
+    ) -> None:
         self._num_nodes = num_nodes
         self._num_gpus = num_gpus
         self._num_cpus = num_cpus
         self._num_omps = num_omps
 
     def __str__(self) -> str:
-        return f"MachineModel({self._num_nodes}, {self._num_cpus}, {self._num_gpus}, {self._num_omps})"
+        res = f"MachineModel({self._num_nodes}, {self._num_cpus}, "
+        res += f"{self._num_gpus}, {self._num_omps})"
+        return res
 
     @property
-    def num_nodes(self) ->int:
+    def num_nodes(self) -> int:
         return self._num_nodes
 
     @property
-    def num_cpus(self) ->int:
+    def num_cpus(self) -> int:
         return self._num_cpus
 
     @property
-    def num_gpus(self) ->int:
+    def num_gpus(self) -> int:
         return self._num_gpus
 
     @property
-    def num_omps(self) ->int:
+    def num_omps(self) -> int:
         return self._num_omps
 
 
 class DeviceID:
-    def __init__(
-        local_id:int,
-        node_id:int)->None:
+    def __init__(self, local_id: int, node_id: int, global_id: int) -> None:
         self._local_id = local_id
         self._node_id = node_id
+        self._global_id = global_id
 
     def __str__(self) -> str:
-        return f"DeviceID({self._local_id}, {self._node_id})"
+        return (
+            f"DeviceID({self._local_id}, {self._node_id}, {self._global_id})"
+        )
 
-    def __getitem__(self) -> tuple[int,int]:
-        return self._local_id, self._node_id
+    def __getitem__(self) -> tuple[int, int, int]:
+        return self._local_id, self._node_id, self._global_id
+
+    def get_global_id(self) -> int:
+        return self._global_id
+
 
 # A Field holds a reference to a field in a region tree
 class Field:
@@ -930,8 +937,10 @@ class Runtime:
                 ty.int32,
             )
         )
-  
-        self._machine_model = MachineModel(self._num_nodes, self._num_gpus, self._num_cpus, self._num_omps)
+
+        self._machine_model = MachineModel(
+            self._num_nodes, self._num_gpus, self._num_cpus, self._num_omps
+        )
 
         # Now we initialize managers
         self._attachment_manager = AttachmentManager(self)
@@ -1022,12 +1031,16 @@ class Runtime:
         return self._num_gpus
 
     @property
-    def num_nodes(self)->int:
+    def num_nodes(self) -> int:
         return self._num_nodes
 
     @property
-    def machine_model(self)->MachineModel:
+    def machine_model(self) -> MachineModel:
         return self._machine_model
+
+    def get_next_available_point(self) -> DeviceID:
+        point = DeviceID(1, 0, 1)
+        return point
 
     @property
     def attachment_manager(self) -> AttachmentManager:

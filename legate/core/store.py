@@ -137,6 +137,7 @@ class RegionField:
         field: Field,
         shape: Shape,
         parent: Optional[RegionField] = None,
+        location: Optional[DeviceID] = None,
     ) -> None:
         self.runtime = runtime
         self.attachment_manager = runtime.attachment_manager
@@ -153,6 +154,10 @@ class RegionField:
         self.physical_region: Union[None, PhysicalRegion] = None
         self.physical_region_refs = 0
         self.physical_region_mapped = False
+        if parent is None:
+            self._location = location
+        else:
+            self._location = parent._location
 
         self._partitions: dict[PartitionBase, LegionPartition] = {}
 
@@ -408,6 +413,12 @@ class RegionField:
 
         weakref.finalize(consumer, callback)
 
+    def get_location(self) -> Optional[DeviceID]:
+        return self._location
+
+    def set_location(self, point: DeviceID) -> None:
+        self._location = point
+
     def get_child(
         self, functor: Tiling, color: Shape, complete: bool = False
     ) -> RegionField:
@@ -656,9 +667,11 @@ class Storage:
     def color(self) -> Optional[Shape]:
         return self._color
 
-    @property
-    def location(self) ->Optional[DeviceID]:
+    def get_location(self) -> Optional[DeviceID]:
         return self._location
+
+    def set_location(self, point: DeviceID) -> None:
+        self._location = point
 
     def get_root(self) -> Storage:
         if self._parent is None:
@@ -1019,9 +1032,12 @@ class Store:
     def transformed(self) -> bool:
         return not self._transform.bottom
 
-    @property
-    def get_location(self)->Optional[DeviceID]:
-        return self._storage.location()
+    # @property
+    # def get_location(self) -> Optional[DeviceID]:
+    #    return self._storage.location
+
+    # def set_location(self, point: DeviceID) -> None:
+    #    self.storage.location = point
 
     def attach_external_allocation(
         self, context: Context, alloc: Attachable, share: bool

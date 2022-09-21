@@ -54,7 +54,7 @@ if TYPE_CHECKING:
     )
     from ._legion.util import FieldListLike
     from .context import Context
-    from .runtime import Runtime
+    from .runtime import DeviceID, Runtime
     from .store import RegionField, Store
     from .types import DTType
 
@@ -720,6 +720,8 @@ class TaskLauncher:
         self._has_side_effect = side_effect
         self._insert_barrier = False
         self._can_raise_exception = False
+        self._location_map: dict[DeviceID, int] = {}
+        self._stores: list[RegionField] = []
 
     @property
     def library_task_id(self) -> int:
@@ -794,6 +796,21 @@ class TaskLauncher:
                     redop,
                 )
             )
+
+            # filling the map of (DeviceID, comm_size) for the store if
+            # DeviceID is set (store has been mapped to the task before)
+            # otherwise don't do anything
+
+            location = store.storage.get_location()
+            if location is not None:
+                if self._location_map.get(location) is None:
+                    self._location_map[location] = store.comm_volume()
+                else:
+                    self._location_map[location] = (
+                        self._location_map[location] + store.comm_volume()
+                    )
+
+            self._stores.append(store.storage)
 
     def add_input(
         self, store: Store, proj: Proj, tag: int = 0, flags: int = 0
@@ -920,6 +937,27 @@ class TaskLauncher:
             task.add_point_future(ArgumentMap(future_map=future_map))
         return task
 
+    def _calculate_task_location(self) -> DeviceID:
+        if len(self._location_map) > 0:
+            # TODO make logic more complicated: find max volume per node
+            # for CPUs
+            # return max(self._location_map)
+            max_keys = [
+                key
+                for key, value in self._location_map.items()
+                if value == max(self._location_map.values())
+            ]
+            print("IRINA DEBUG map = ", self._location_map)
+            print("IRINA DEBUG max = ", max_keys)
+            return max_keys[0]
+        else:
+            # FIXME return next point available for task to be scheduled at
+            return self._runtime.get_next_available_point()
+
+    def _set_store_location(self, point: DeviceID) -> None:
+        for s in self._stores:
+            s.set_location(point)
+
     def build_single_task(self, argbuf: BufferBuilder) -> SingleTask:
         self._req_analyzer.analyze_requirements()
         self._out_analyzer.analyze_requirements()
@@ -939,6 +977,15 @@ class TaskLauncher:
             mapper=self.legion_mapper_id,
             tag=self._tag,
         )
+
+        # calculate point of the task based on the location_map
+        point = self._calculate_task_location()
+        task.set_point((point.get_global_id(),))
+
+        # change location of all stores mapped to the task:
+        print("IRINA DEBUG point ", point)
+        self._set_store_location(point)
+
         for (req, fields) in self._req_analyzer.requirements:
             req.proj.add_single(task, req, fields, _single_task_calls)
         for future in self._future_args:
