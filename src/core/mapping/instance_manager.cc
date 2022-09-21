@@ -260,13 +260,13 @@ bool InstanceSet::erase(PhysicalInstance inst)
       it++;
   }
 
-  std::vector<Region> filtered_regions;
+  std::set<Region> filtered_regions;
   for (RegionGroup* group : filtered_groups)
     for (Region region : group->regions)
       if (groups_.at(region).get() == group)
         // We have to do this in two steps; we don't want to remove the last shared_ptr to a group
         // while iterating over the same group's regions
-        filtered_regions.push_back(region);
+        filtered_regions.insert(region);
   for (Region region : filtered_regions) groups_.erase(region);
 
 #ifdef DEBUG_LEGATE
