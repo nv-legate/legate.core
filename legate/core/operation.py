@@ -896,7 +896,13 @@ class Fill(Operation):
         mapper_id: int = 0,
     ) -> None:
         super().__init__(context=context, mapper_id=mapper_id)
+        self._check_store(value, allow_unbound=False)
+        if not value.scalar:
+            raise ValueError("Fill value must be a scalar Store")
         self._inputs.append(value)
+        self._check_store(lhs, allow_unbound=False)
+        if lhs.kind is Future:
+            raise ValueError("Fill lhs must be a RegionField-backed Store")
         self._outputs.append(lhs)
 
     def get_name(self) -> str:
@@ -921,13 +927,22 @@ class Fill(Operation):
         )
 
     def launch(self, strategy: Strategy) -> None:
+        lhs = self._outputs[0]
+        lhs_part_sym = self._get_unique_partition(lhs)
+        lhs_part = lhs.partition(strategy.get_partition(lhs_part_sym))
+        lhs_proj = lhs_part.get_requirement(strategy.launch_ndim)
         launcher = FillLauncher(
             self.context,
-            self._outputs[0],
+            lhs,
+            lhs_proj,
             self._inputs[0],
             mapper_id=self.mapper_id,
         )
-        launcher.execute_single()
+        launch_domain = strategy.launch_domain if strategy.parallel else None
+        if launch_domain is not None:
+            launcher.execute(launch_domain)
+        else:
+            launcher.execute_single()
 
 
 class _RadixProj:

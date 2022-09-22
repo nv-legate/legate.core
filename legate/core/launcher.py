@@ -31,10 +31,11 @@ from . import (
     ArgumentMap,
     BufferBuilder,
     Copy as SingleCopy,
-    Fill,
+    Fill as SingleFill,
     Future,
     FutureMap,
     IndexCopy,
+    IndexFill,
     IndexTask,
     Partition as LegionPartition,
     Task as SingleTask,
@@ -1111,12 +1112,14 @@ class FillLauncher:
         self,
         context: Context,
         lhs: Store,
+        lhs_proj: Proj,
         value: Store,
         mapper_id: int = 0,
         tag: int = 0,
     ) -> None:
         self._context = context
         self._lhs = lhs
+        self._lhs_proj = lhs_proj
         self._value = value
         self._mapper_id = mapper_id
         self._tag = tag
@@ -1137,25 +1140,46 @@ class FillLauncher:
     def set_point(self, point: Point) -> None:
         self._point = point
 
-    def build_single_fill(self) -> Fill:
-        assert self._lhs.kind is not Future
-        assert self._value.kind is Future
+    def build_fill(self, launch_domain: Rect) -> IndexFill:
         if TYPE_CHECKING:
             assert isinstance(self._lhs.storage, RegionField)
             assert isinstance(self._value.storage, Future)
-        fill = Fill(
+        assert self._lhs_proj.part is not None
+        fill = IndexFill(
+            self._lhs_proj.part,
+            self._lhs_proj.proj,
+            self._lhs.storage.region.get_root(),
+            self._lhs.storage.field.field_id,
+            self._value.storage,
+            self.legion_mapper_id,
+            self._tag,
+            launch_domain.raw(),
+        )
+        if self._sharding_space is not None:
+            fill.set_sharding_space(self._sharding_space)
+        return fill
+
+    def build_single_fill(self) -> SingleFill:
+        if TYPE_CHECKING:
+            assert isinstance(self._lhs.storage, RegionField)
+            assert isinstance(self._value.storage, Future)
+        fill = SingleFill(
             self._lhs.storage.region,
             self._lhs.storage.region.get_root(),
             self._lhs.storage.field.field_id,
             self._value.storage,
-            mapper=self.legion_mapper_id,
-            tag=self._tag,
+            self.legion_mapper_id,
+            self._tag,
         )
         if self._sharding_space is not None:
             fill.set_sharding_space(self._sharding_space)
         if self._point is not None:
             fill.set_point(self._point)
         return fill
+
+    def execute(self, launch_domain: Rect) -> None:
+        fill = self.build_fill(launch_domain)
+        self._context.dispatch(fill)
 
     def execute_single(self) -> None:
         fill = self.build_single_fill()
