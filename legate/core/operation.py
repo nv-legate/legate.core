@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from .communicator import Communicator
     from .constraints import Constraint
     from .context import Context
+    from .launcher import Proj
     from .projection import ProjFn, ProjOut, SymbolicPoint
     from .solver import Strategy
     from .types import DTType
@@ -185,7 +186,7 @@ class Operation(OperationProtocol):
             )
         return parts[0]
 
-    def get_tag(self, strategy: Strategy, part: Any) -> int:
+    def get_tag(self, strategy: Strategy, part: PartSym) -> int:
         if strategy.is_key_part(part):
             return 1  # LEGATE_CORE_KEY_STORE_TAG
         else:
@@ -487,7 +488,7 @@ class AutoTask(AutoOperation, Task):
 
         def get_requirement(
             store: Store, part_symb: PartSym
-        ) -> tuple[Any, int, StorePartition]:
+        ) -> tuple[Proj, int, StorePartition]:
             store_part = store.partition(strategy.get_partition(part_symb))
             req = store_part.get_requirement(strategy.launch_ndim)
             tag = self.get_tag(strategy, part_symb)
@@ -844,7 +845,7 @@ class Copy(AutoOperation):
 
         def get_requirement(
             store: Store, part_symb: PartSym
-        ) -> tuple[Any, int, StorePartition]:
+        ) -> tuple[Proj, int, StorePartition]:
             store_part = store.partition(strategy.get_partition(part_symb))
             req = store_part.get_requirement(strategy.launch_ndim)
             tag = self.get_tag(strategy, part_symb)
