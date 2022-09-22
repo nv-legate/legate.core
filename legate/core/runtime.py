@@ -113,12 +113,13 @@ class MachineModel:
         return self._num_omps
 
     def next_available_point(self) -> DeviceID:
-        if self._last_point == self._num_devices:
+        if self._last_point == (self._num_devices - 1):
             self._last_point = 0
         else:
             self._last_point += 1
         n = self._last_point
-        return DeviceID(n % self._num_nodes, int(n / self._num_nodes), n)
+
+        return DeviceID(int(n / self._num_nodes), (n % self._num_nodes), n)
 
 
 class DeviceID:

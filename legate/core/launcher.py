@@ -27,7 +27,7 @@ from typing import (
     overload,
 )
 
-from . import (
+from . import (  # Point,
     ArgumentMap,
     BufferBuilder,
     Copy as SingleCopy,
@@ -941,17 +941,13 @@ class TaskLauncher:
         if len(self._location_map) > 0:
             # TODO make logic more complicated: find max volume per node
             # for CPUs
-            # return max(self._location_map)
             max_keys = [
                 key
                 for key, value in self._location_map.items()
                 if value == max(self._location_map.values())
             ]
-            print("IRINA DEBUG map = ", self._location_map)
-            print("IRINA DEBUG max = ", max_keys)
             return max_keys[0]
         else:
-            # FIXME return next point available for task to be scheduled at
             return self._runtime.get_next_available_point()
 
     def _set_store_location(self, point: DeviceID) -> None:
@@ -980,10 +976,9 @@ class TaskLauncher:
 
         # calculate point of the task based on the location_map
         point = self._calculate_task_location()
-        task.set_point((point.get_global_id(),))
+        task.set_point(Point([point._node_id, point._local_id]))
 
         # change location of all stores mapped to the task:
-        print("IRINA DEBUG point ", point)
         self._set_store_location(point)
 
         for (req, fields) in self._req_analyzer.requirements:
