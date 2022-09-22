@@ -27,7 +27,7 @@ from typing import (
     overload,
 )
 
-from . import (  # Point,
+from . import (
     ArgumentMap,
     BufferBuilder,
     Copy as SingleCopy,
@@ -36,6 +36,7 @@ from . import (  # Point,
     IndexCopy,
     IndexTask,
     Partition as LegionPartition,
+    Point,
     Task as SingleTask,
     legion,
     types as ty,
@@ -43,15 +44,7 @@ from . import (  # Point,
 from .utils import OrderedSet
 
 if TYPE_CHECKING:
-    from . import (
-        FieldID,
-        FieldSpace,
-        IndexSpace,
-        OutputRegion,
-        Point,
-        Rect,
-        Region,
-    )
+    from . import FieldID, FieldSpace, IndexSpace, OutputRegion, Rect, Region
     from ._legion.util import FieldListLike
     from .context import Context
     from .runtime import DeviceID, Runtime
