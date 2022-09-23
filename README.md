@@ -267,19 +267,31 @@ example, if your system-wide CUDA installation is at version 10.2, add:
 The Legate Core library comes with both a standard `setup.py` script and a
 custom `install.py` script in the top-level directory of the repository that
 will build and install the Legate Core library. Users can use either script
-to install Legate as they will produce the same effect. A simple
-single-node, CPU-only installation of Legate into `targetdir` will be performed by:
+to install Legate as they will produce the same effect. Users can do a simple
+pip installation of a single-node, CPU-only Legate configuration by navigating
+to the Legate source directory and running:
 ```
-./setup.py --install-dir targetdir
+pip install .
 ```
-To add GPU support for Legate simply use the `--cuda` flag. The first time you request
-GPU support you will need to use the `--with-cuda` flag to specify the location
-of your CUDA installation and the `--with-nccl` flag to specify the path to your NCCL
-installation. For later invocations you do not need to use these
-flags again and the installation scripts will remember the locations you provided
-until you tell them differently. You can also specify the name of the
-CUDA architecture you want to target with the `--arch` flag (by default the srcipt
-tries to auto-detect the architecture of the first CUDA-capable GPU that is available.)
+or
+```
+python3 -m pip install .
+```
+
+This will install Legate into the standard packages of the Python environment.
+
+To add GPU support or do more complicated customization, Legate provides a
+helper `install.py` script. For GPU support, simply use the `--cuda` flag:
+
+```
+./install.py --cuda
+```
+
+The first time you request GPU support you may need to use the `--with-cuda` flag to
+specify the location of your CUDA installation and the `--with-nccl` flag to specify
+the path to your NCCL installation, if these cannot be automatically located by the build system.
+You can also specify the name of the CUDA architecture you want to target with the `--arch`
+flag. By default the script relies on CMake's auto-detection.
 ```
 ./install.py --cuda --with-cuda /usr/local/cuda/ --with-nccl "$CONDA_PREFIX" --arch ampere
 ```
@@ -299,39 +311,23 @@ Alternatively here is an install line for the
 ```
 ./install.py --gasnet --conduit aries --cuda --arch pascal
 ```
-To see all the options available for installing Legate, just run with the `--help` flag:
+To see all the options available for installing Legate, run with the `--help` flag:
 ```
 ./install.py --help
 ```
-Options passed to `setup.py` will automatically be forwarded to `install.py` so
-that users can use them interchangeably (this provides backwards compatibility
-for earlier versions of Legate when only `install.py` existed).
 
-### Python used by Legate
+### Toolchain Selection
 
-Legate discovers the Python library and version during build time, and then it
-builds all successive Legate libraries against that version of Python. The build system
-tries to detect the Python setup from the default Python interpreter, but sometimes
-it is unsuccessful or a different version of Python than the one in the environment
-may be desired. To use a different version of Python than the one available in the
-environment, the `PYTHON_ROOT` variable must be set to the base directory of the
-desired Python installation.
+Legate relies on CMake to select its toolchain and build flags.
+Users can set the environment variables `CXX` or `CXXFLAGS`
+prior to building to override the CMake defaults. Alternatively, CMake values
+can be overriden through the `SKBUILD_CONFIGURE_OPTIONS` variable,
+which is discussed in more detail in the [developer build instructions](BUILD.md).
 
-Sometimes, the search for the Python library may fail.  In such situation, the
-build system generates a warning:
-```
-runtime.mk: cannot find libpython3.8*.so - falling back to using LD_LIBRARY_PATH
-```
-In this case, Legate will use the Python library that is available at runtime, if any.
-To explicitly specify the Python library to use, `PYTHON_LIB` should be set to the
-location of the library, and `PYTHON_VERSION_MAJOR` should be set to `3`.
+### Developer Workflow
 
-### Toolchain selection
-
-Legate relies on environment variables to select its toolchain and build flags
-(such as `CXX`, `CC_FLAGS`, `LD_FLAGS`, `NVCC_FLAGS`). Setting these environment
-variables prior to building and installing Legate will influence the build of
-any C++ and CUDA code in Legate.
+Details on doing incremental CMake builds and editable pip installations can be
+found in the [developer build instructions](BUILD.md).
 
 ## How Do I Use Legate?
 
@@ -358,7 +354,7 @@ need to use this custom driver script.**
 For example, to run your script in the default configuration (4 CPUs cores and
 4 GB of memory) just run:
 ```
-installdir/bin/legate my_python_program.py [other args]
+$ legate my_python_program.py [other args]
 ```
 The `legate` script also allows you to control the amount of resources that
 Legate consumes when running on the machine. The `--cpus` and `--gpus` flags
@@ -368,7 +364,7 @@ to use per node, while the `--fbmem` flag controls how many MBs of framebuffer
 memory Legate is allowed to use per GPU. For example, when running on a DGX
 station, you might run your application as follows:
 ```
-installdir/bin/legate --cpus 16 --gpus 4 --sysmem 100000 --fbmem 15000 my_python_program.py
+$ legate --cpus 16 --gpus 4 --sysmem 100000 --fbmem 15000 my_python_program.py
 ```
 This will make 16 CPU processors and all 4 GPUs available for use by Legate.
 It will also allow Legate to consume up to 100 GB of DRAM memory and 15 GB of
@@ -383,14 +379,14 @@ There are many other flags available for use in the `legate` driver script that 
 can use to communicate how Legate should view the available machine resources.
 You can see a list of them by running:
 ```
-installdir/bin/legate --help
+$ legate --help
 ```
 In addition to running Legate programs, you can also use Legate in an interactive
 mode by simply not passing any `*py` files on the command line. You can still
 request resources just as you would though with a normal file. Legate will
 still use all the resources available to it, including doing multi-node execution.
 ```
-installdir/bin/legate --cpus 16 --gpus 4 --sysmem 100000 --fbmem 15000
+$ legate --cpus 16 --gpus 4 --sysmem 100000 --fbmem 15000
 Welcome to Legion Python interactive console
 >>>
 ```

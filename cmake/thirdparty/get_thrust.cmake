@@ -1,4 +1,5 @@
-# Copyright 2021-2022 NVIDIA Corporation
+#=============================================================================
+# Copyright 2022 NVIDIA Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,8 +12,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-from __future__ import annotations
-from . import _version
+#=============================================================================
 
-__version__ = _version.get_versions()["version"]  # type: ignore[no-untyped-call]
+# Use CPM to find or clone thrust
+function(find_or_configure_thrust)
+    include(${rapids-cmake-dir}/cpm/thrust.cmake)
+
+    rapids_cpm_thrust(NAMESPACE legate
+                      BUILD_EXPORT_SET legate-core-exports
+                      INSTALL_EXPORT_SET legate-core-exports)
+endfunction()
+
+find_or_configure_thrust()
