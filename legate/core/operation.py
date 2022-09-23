@@ -901,6 +901,8 @@ class Fill(AutoOperation):
         super().__init__(context=context, mapper_id=mapper_id, op_id=op_id)
         if not value.scalar:
             raise ValueError("Fill value must be a scalar Store")
+        if lhs.unbound:
+            raise ValueError("Fill lhs must be a bound Store")
         if lhs.kind is Future:
             raise ValueError("Fill lhs must be a RegionField-backed Store")
         super().add_input(value)
@@ -943,10 +945,18 @@ class Fill(AutoOperation):
         raise TypeError("No reductions can be added to fills")
 
     def launch(self, strategy: Strategy) -> None:
+        def get_requirement(
+            store: Store, part_symb: PartSym
+        ) -> tuple[Proj, int, StorePartition]:
+            store_part = store.partition(strategy.get_partition(part_symb))
+            req = store_part.get_requirement(strategy.launch_ndim)
+            tag = self.get_tag(strategy, part_symb)
+            return req, tag, store_part
+
         lhs = self._outputs[0]
         lhs_part_sym = self._output_parts[0]
-        lhs_part = lhs.partition(strategy.get_partition(lhs_part_sym))
-        lhs_proj = lhs_part.get_requirement(strategy.launch_ndim)
+        lhs_proj, _, lhs_part = get_requirement(lhs, lhs_part_sym)
+        lhs.set_key_partition(lhs_part.partition)
         launcher = FillLauncher(
             self.context,
             lhs,
