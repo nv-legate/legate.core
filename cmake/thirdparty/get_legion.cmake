@@ -49,6 +49,12 @@ function(find_or_configure_legion)
   rapids_find_package(Legion ${PKG_VERSION} EXACT CONFIG ${_find_mode} ${FIND_PKG_ARGS})
 
   if(Legion_FOUND)
+    if (DEFINED CPM_Legion_SOURCE)
+      message(FATAL_ERROR "Existing Legion found in your environment at ${Legion_DIR}, but you"
+              " requested a source override at CPM_Legion_SOURCE=${CPM_Legion_SOURCE}. You "
+              " either need to build in a new environment without a pre-built Legion or "
+              " remove the request for a source override.")
+    endif()
     message(STATUS "CPM: using local package Legion@${PKG_VERSION}")
   else()
     include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/cpm_helpers.cmake)
