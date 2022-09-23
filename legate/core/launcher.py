@@ -1153,7 +1153,7 @@ class FillLauncher:
             self._value.storage,
             self.legion_mapper_id,
             self._tag,
-            launch_domain.raw(),
+            launch_domain.to_domain(),
         )
         if self._sharding_space is not None:
             fill.set_sharding_space(self._sharding_space)
