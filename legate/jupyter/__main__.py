@@ -16,55 +16,21 @@
 #
 
 # mypy: ignore-errors
-import os
 import shutil
-import sys
+from pathlib import Path
 
 from jupyter_client.kernelspec import KernelSpecManager
-
-
-def find_python_module(legate_dir: str) -> str:
-    lib_dir = os.path.join(legate_dir, "lib")
-    python_lib = None
-    for f in os.listdir(lib_dir):
-        if f.startswith("python") and not os.path.isfile(f):
-            if python_lib is not None:
-                print(
-                    "WARNING: Found multiple python supports in your Legion "
-                    "installation."
-                )
-                print("Using the following one: " + str(python_lib))
-            else:
-                python_lib = os.path.join(
-                    lib_dir, os.path.join(f, "site-packages")
-                )
-
-    if python_lib is None:
-        raise Exception("Cannot find a Legate python library")
-    return python_lib
-
+from legion_jupyter.install_jupyter import driver, parse_args
 
 if __name__ == "__main__":
-    try:
-        legate_dir = os.environ["LEGATE_DIR"]
-        legate_dir = os.path.abspath(legate_dir)
-    except KeyError:
-        print(
-            "Please specify the legate installation dir "
-            "by setting LEGATE_DIR"
-        )
-        sys.exit(1)
-
-    python_lib_dir = find_python_module(legate_dir)
-    sys.path.append(python_lib_dir)
-    from install_jupyter import driver, parse_args
-
+    legate_exe = Path(shutil.which("legate"))
+    legate_dir = legate_exe.parent.absolute()
     args, opts = parse_args()
     if args.json == "legion_python.json":
         # override the default one
         args.json = "legate_jupyter.json"
-    args.legion_prefix = legate_dir + "/bin"
-    kernel_file_dir = python_lib_dir
+    args.legion_prefix = legate_dir
+    kernel_file_dir = None
     kernel_name = driver(args, opts, kernel_file_dir)
     # copy the json file into ipython kernel directory
     ksm = KernelSpecManager()

@@ -199,13 +199,14 @@ def install_legion_python_bindings(
             verbose,
         )
 
+
 def install_legion_jupyter_notebook(
-    verbose, legate_build_dir, legion_dir, install_dir
+    verbose, cmake_exe, legate_build_dir, legion_dir, install_dir
 ):
     join = os.path.join
     exists = os.path.exists
 
-    # Install Legion Python bindings if `legion_dir` is a Legion build dir
+    # Install Legion Jupyter Notebook if `legion_dir` is a Legion build dir
     # or if we built Legion as a side-effect of building `legate_core`
     if legion_dir is None or not exists(join(legion_dir, "CMakeCache.txt")):
         legion_dir = None
@@ -220,18 +221,16 @@ def install_legion_jupyter_notebook(
     if legion_dir is not None:
         if verbose:
             print(f"installing legion jupyter notebook to {install_dir}")
-        legion_jupyter_dir = os.path.join(legion_dir, "jupyter_notebook")
         execute_command(
             [
-                sys.executable,
-                "setup.py",
-                "install",
+                cmake_exe,
+                "--install",
+                join(legion_dir, "jupyter_notebook"),
                 "--prefix",
-                str(os.path.realpath(install_dir)),
-            ]
-            verbose,
-            cwd=legion_jupyter_dir
+                install_dir,
+            ],
         )
+
 
 def install(
     gasnet,
@@ -433,6 +432,7 @@ def install(
 -DLegion_REDOP_COMPLEX=ON
 -DLegion_REDOP_HALF=ON
 -DLegion_BUILD_BINDINGS=ON
+-DLegion_BUILD_JUPYTER=ON
 """.splitlines()
 
     if nccl_dir:
@@ -470,7 +470,7 @@ def install(
             verbose, cmake_exe, legate_build_dir, legion_dir, install_dir
         )
         install_legion_jupyter_notebook(
-            verbose, legate_build_dir, legion_dir, install_dir
+            verbose, cmake_exe, legate_build_dir, legion_dir, install_dir
         )
 
 

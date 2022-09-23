@@ -506,7 +506,7 @@ Other configuration options can be added by using the `other_options` field of t
 
 We provide a Jupyter magic command to display the IPython kernel configuration.
 ```
-%load_ext legate.info
+%load_ext legate.jupyter
 %legate_info
 Number of CPUs to use per rank: 4
 Number of GPUs to use per rank: 1
