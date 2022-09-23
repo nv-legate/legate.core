@@ -977,6 +977,7 @@ class Fill(AutoOperation):
             lhs_proj,
             self._inputs[0],
             mapper_id=self.mapper_id,
+            provenance=self.provenance,
         )
         if strategy.launch_domain is not None:
             launcher.execute(strategy.launch_domain)

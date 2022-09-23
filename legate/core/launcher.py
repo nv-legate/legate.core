@@ -1124,6 +1124,7 @@ class FillLauncher:
         value: Store,
         mapper_id: int = 0,
         tag: int = 0,
+        provenance: Optional[str] = None,
     ) -> None:
         self._context = context
         self._lhs = lhs
@@ -1133,6 +1134,7 @@ class FillLauncher:
         self._tag = tag
         self._sharding_space: Union[IndexSpace, None] = None
         self._point: Union[Point, None] = None
+        self._provenance = provenance
 
     @property
     def library_mapper_id(self) -> int:
@@ -1162,6 +1164,7 @@ class FillLauncher:
             self.legion_mapper_id,
             self._tag,
             launch_domain.to_domain(),
+            self._provenance,
         )
         if self._sharding_space is not None:
             fill.set_sharding_space(self._sharding_space)
@@ -1178,6 +1181,7 @@ class FillLauncher:
             self._value.storage,
             self.legion_mapper_id,
             self._tag,
+            self._provenance,
         )
         if self._sharding_space is not None:
             fill.set_sharding_space(self._sharding_space)
