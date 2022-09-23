@@ -883,14 +883,13 @@ class Copy(AutoOperation):
             req, tag, store_part = get_requirement(store, part_symb)
             launcher.add_target_indirect(store, req, tag=tag)
 
-        launch_domain = strategy.launch_domain if strategy.parallel else None
-        if launch_domain is not None:
-            launcher.execute(launch_domain)
+        if strategy.launch_domain is not None:
+            launcher.execute(strategy.launch_domain)
         else:
             launcher.execute_single()
 
 
-class Fill(Operation):
+class Fill(AutoOperation):
     def __init__(
         self,
         context: Context,
@@ -900,14 +899,12 @@ class Fill(Operation):
         op_id: int,
     ) -> None:
         super().__init__(context=context, mapper_id=mapper_id, op_id=op_id)
-        self._check_store(value, allow_unbound=False)
         if not value.scalar:
             raise ValueError("Fill value must be a scalar Store")
-        self._inputs.append(value)
-        self._check_store(lhs, allow_unbound=False)
         if lhs.kind is Future:
             raise ValueError("Fill lhs must be a RegionField-backed Store")
-        self._outputs.append(lhs)
+        super().add_input(value)
+        super().add_output(lhs)
 
     def get_name(self) -> str:
         libname = self.context.library.get_name()
@@ -930,9 +927,24 @@ class Fill(Operation):
             "User partitioning constraints are not allowed for fills"
         )
 
+    def add_input(
+        self, store: Store, partition: Optional[PartSym] = None
+    ) -> None:
+        raise TypeError("No further inputs can be added to fills")
+
+    def add_output(
+        self, store: Store, partition: Optional[PartSym] = None
+    ) -> None:
+        raise TypeError("No further outputs can be added to fills")
+
+    def add_reduction(
+        self, store: Store, redop: int, partition: Optional[PartSym] = None
+    ) -> None:
+        raise TypeError("No reductions can be added to fills")
+
     def launch(self, strategy: Strategy) -> None:
         lhs = self._outputs[0]
-        lhs_part_sym = self._get_unique_partition(lhs)
+        lhs_part_sym = self._output_parts[0]
         lhs_part = lhs.partition(strategy.get_partition(lhs_part_sym))
         lhs_proj = lhs_part.get_requirement(strategy.launch_ndim)
         launcher = FillLauncher(
@@ -942,9 +954,8 @@ class Fill(Operation):
             self._inputs[0],
             mapper_id=self.mapper_id,
         )
-        launch_domain = strategy.launch_domain if strategy.parallel else None
-        if launch_domain is not None:
-            launcher.execute(launch_domain)
+        if strategy.launch_domain is not None:
+            launcher.execute(strategy.launch_domain)
         else:
             launcher.execute_single()
 
