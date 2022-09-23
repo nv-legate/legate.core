@@ -135,6 +135,10 @@ class Operation(OperationProtocol):
         self._launch_domain: Union[Rect, None] = None
         self._error_on_interference = True
 
+    @property
+    def provenance(self) -> Optional[str]:
+        return self._context.provenance
+
     def get_all_stores(self) -> OrderedSet[Store]:
         result: OrderedSet[Store] = OrderedSet()
         result.update(self._inputs)
@@ -482,7 +486,12 @@ class AutoTask(AutoOperation, Task):
         )
 
     def launch(self, strategy: Strategy) -> None:
-        launcher = TaskLauncher(self.context, self._task_id, self.mapper_id)
+        launcher = TaskLauncher(
+            self.context,
+            self._task_id,
+            self.mapper_id,
+            provenance=self.provenance,
+        )
 
         def get_requirement(
             store: Store, part_symb: PartSym
@@ -558,7 +567,10 @@ class ManualTask(Operation, Task):
         op_id: int,
     ) -> None:
         super().__init__(
-            context=context, task_id=task_id, mapper_id=mapper_id, op_id=op_id
+            context=context,
+            task_id=task_id,
+            mapper_id=mapper_id,
+            op_id=op_id,
         )
         self._launch_domain: Rect = launch_domain
         self._input_projs: list[Union[ProjFn, None]] = []
@@ -657,6 +669,7 @@ class ManualTask(Operation, Task):
             self.mapper_id,
             error_on_interference=False,
             tag=tag,
+            provenance=self.provenance,
         )
 
         for part, proj_fn in zip(self._input_parts, self._input_projs):
@@ -827,6 +840,7 @@ class Copy(AutoOperation):
             source_oor=self._source_indirect_out_of_range,
             target_oor=self._target_indirect_out_of_range,
             mapper_id=self.mapper_id,
+            provenance=self.provenance,
         )
 
         assert len(self._inputs) == len(self._outputs) or len(
@@ -988,7 +1002,11 @@ class Reduce(AutoOperation):
         mapper_id: int,
         op_id: int,
     ) -> None:
-        super().__init__(context=context, mapper_id=mapper_id, op_id=op_id)
+        super().__init__(
+            context=context,
+            mapper_id=mapper_id,
+            op_id=op_id,
+        )
         self._runtime = context.runtime
         self._radix = radix
         self._task_id = task_id
@@ -1019,7 +1037,11 @@ class Reduce(AutoOperation):
 
             tag = self.context.core_library.LEGATE_CORE_TREE_REDUCE_TAG
             launcher = TaskLauncher(
-                self.context, self._task_id, self.mapper_id, tag=tag
+                self.context,
+                self._task_id,
+                self.mapper_id,
+                tag=tag,
+                provenance=self.provenance,
             )
 
             for proj_fn in proj_fns:
