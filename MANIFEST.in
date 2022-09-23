@@ -1,0 +1,3 @@
+include versioneer.py
+include legate/_version.py
+include legate/py.typed

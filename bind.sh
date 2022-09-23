@@ -101,4 +101,4 @@ if command -v numactl &> /dev/null; then
 elif [[ -n "${CPUS+x}" || -n "${MEMS+x}" ]]; then
     echo "Warning: numactl is not available, cannot bind to cores or memories" 1>&2
 fi
-"$@"
+exec "$@"
