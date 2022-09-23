@@ -201,7 +201,7 @@ def install_legion_python_bindings(
 
 
 def install(
-    gasnet,
+    networks,
     cuda,
     arch,
     openmp,
@@ -235,12 +235,18 @@ def install(
     legion_branch,
     unknown,
 ):
+    if len(networks) > 1:
+        print(
+            "Warning: Building Realm with multiple networking backends is not "
+            "fully supported currently."
+        )
+
     if clean_first is None:
         clean_first = not editable
 
     print("Verbose build is ", "on" if verbose else "off")
     if verbose:
-        print("gasnet:", gasnet)
+        print("networks:", networks)
         print("cuda:", cuda)
         print("arch:", arch)
         print("openmp:", openmp)
@@ -393,7 +399,7 @@ def install(
 -DLegion_USE_CUDA={("ON" if cuda else "OFF")}
 -DLegion_USE_OpenMP={("ON" if openmp else "OFF")}
 -DLegion_USE_LLVM={("ON" if llvm else "OFF")}
--DLegion_USE_GASNet={("ON" if gasnet else "OFF")}
+-DLegion_NETWORKS={";".join(networks)}
 -DLegion_USE_HDF5={("ON" if hdf else "OFF")}
 -DLegion_USE_Python=ON
 -DLegion_Python_Version={pyversion}
@@ -489,12 +495,13 @@ def driver():
         help="Maximum number of fields that Legate will support",
     )
     parser.add_argument(
-        "--gasnet",
-        dest="gasnet",
-        action="store_true",
+        "--network",
+        dest="networks",
+        action="append",
         required=False,
-        default=os.environ.get("USE_GASNET", "0") == "1",
-        help="Build Legate with GASNet.",
+        choices=["gasnet1", "gasnetex", "mpi"],
+        default=[],
+        help="Realm networking backend to use for multi-node execution.",
     )
     parser.add_argument(
         "--with-gasnet",
