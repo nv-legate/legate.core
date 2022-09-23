@@ -692,6 +692,7 @@ class TaskLauncher:
         tag: int = 0,
         error_on_interference: bool = True,
         side_effect: bool = False,
+        provenance: Optional[str] = None,
     ) -> None:
         assert type(tag) != bool
         self._context = context
@@ -715,6 +716,7 @@ class TaskLauncher:
         self._has_side_effect = side_effect
         self._insert_barrier = False
         self._can_raise_exception = False
+        self._provenance = provenance
 
     @property
     def library_task_id(self) -> int:
@@ -903,6 +905,7 @@ class TaskLauncher:
             argbuf.get_size(),
             mapper=self.legion_mapper_id,
             tag=self._tag,
+            provenance=self._provenance,
         )
         if self._sharding_space is not None:
             task.set_sharding_space(self._sharding_space)
@@ -942,6 +945,7 @@ class TaskLauncher:
             argbuf.get_size(),
             mapper=self.legion_mapper_id,
             tag=self._tag,
+            provenance=self._provenance,
         )
         for (req, fields) in self._req_analyzer.requirements:
             req.proj.add_single(task, req, fields, _single_task_calls)
@@ -983,6 +987,7 @@ class CopyLauncher:
         target_oor: bool = True,
         mapper_id: int = 0,
         tag: int = 0,
+        provenance: Optional[str] = None,
     ) -> None:
         assert type(tag) != bool
         self._context = context
@@ -993,6 +998,7 @@ class CopyLauncher:
         self._point: Union[Point, None] = None
         self._source_oor = source_oor
         self._target_oor = target_oor
+        self._provenance = provenance
 
     @property
     def library_mapper_id(self) -> int:
@@ -1064,6 +1070,7 @@ class CopyLauncher:
             launch_domain,
             mapper=self.legion_mapper_id,
             tag=self._tag,
+            provenance=self._provenance,
         )
         for (req, fields) in self._req_analyzer.requirements:
             if req.permission in (
@@ -1085,6 +1092,7 @@ class CopyLauncher:
         copy = SingleCopy(
             mapper=self.legion_mapper_id,
             tag=self._tag,
+            provenance=self._provenance,
         )
         for (req, fields) in self._req_analyzer.requirements:
             if req.permission in (
