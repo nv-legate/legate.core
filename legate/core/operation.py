@@ -115,8 +115,8 @@ class Operation(OperationProtocol):
     def __init__(
         self,
         context: Context,
-        mapper_id: int = 0,
-        op_id: int = 0,
+        mapper_id: int,
+        op_id: int,
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
@@ -420,8 +420,8 @@ class AutoOperation(Operation):
     def __init__(
         self,
         context: Context,
-        mapper_id: int = 0,
-        op_id: int = 0,
+        mapper_id: int,
+        op_id: int,
         **kwargs: Any,
     ) -> None:
         super().__init__(
@@ -471,16 +471,14 @@ class AutoTask(AutoOperation, Task):
         self,
         context: Context,
         task_id: int,
-        mapper_id: int = 0,
-        op_id: int = 0,
-        **kwargs: Any,
+        mapper_id: int,
+        op_id: int,
     ) -> None:
         super().__init__(
             context=context,
             task_id=task_id,
             mapper_id=mapper_id,
             op_id=op_id,
-            **kwargs,
         )
 
     def launch(self, strategy: Strategy) -> None:
@@ -556,8 +554,8 @@ class ManualTask(Operation, Task):
         context: Context,
         task_id: int,
         launch_domain: Rect,
-        mapper_id: int = 0,
-        op_id: int = 0,
+        mapper_id: int,
+        op_id: int,
     ) -> None:
         super().__init__(
             context=context, task_id=task_id, mapper_id=mapper_id, op_id=op_id
@@ -700,8 +698,13 @@ class ManualTask(Operation, Task):
 
 
 class Copy(AutoOperation):
-    def __init__(self, context: Context, mapper_id: int = 0) -> None:
-        super().__init__(context=context, mapper_id=mapper_id)
+    def __init__(
+        self,
+        context: Context,
+        mapper_id: int,
+        op_id: int,
+    ) -> None:
+        super().__init__(context=context, mapper_id=mapper_id, op_id=op_id)
         self._source_indirects: list[Store] = []
         self._target_indirects: list[Store] = []
         self._source_indirect_parts: list[PartSym] = []
@@ -893,9 +896,10 @@ class Fill(Operation):
         context: Context,
         lhs: Store,
         value: Store,
-        mapper_id: int = 0,
+        mapper_id: int,
+        op_id: int,
     ) -> None:
-        super().__init__(context=context, mapper_id=mapper_id)
+        super().__init__(context=context, mapper_id=mapper_id, op_id=op_id)
         self._check_store(value, allow_unbound=False)
         if not value.scalar:
             raise ValueError("Fill value must be a scalar Store")

@@ -96,8 +96,6 @@ class Context:
             config.max_shardings,
         )
 
-        self._unique_op_id = 0
-
     def destroy(self) -> None:
         self._library.destroy()
 
@@ -240,14 +238,14 @@ class Context:
     def create_copy(self, mapper_id: int = 0) -> Copy:
         from .operation import Copy
 
-        return Copy(self, mapper_id)
+        return Copy(self, mapper_id, self.get_unique_op_id())
 
     def create_fill(
         self, lhs: Store, value: Store, mapper_id: int = 0
     ) -> Fill:
         from .operation import Fill
 
-        return Fill(self, lhs, value, mapper_id)
+        return Fill(self, lhs, value, mapper_id, self.get_unique_op_id())
 
     def dispatch(self, op: Dispatchable[T]) -> T:
         return self._runtime.dispatch(op)
