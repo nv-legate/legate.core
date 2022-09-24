@@ -155,9 +155,12 @@ class Operation(OperationProtocol):
         return result
 
     def add_alignment(self, store1: Store, store2: Store) -> None:
-        self._check_store(store1)
-        self._check_store(store2)
-        if store1.shape != store2.shape:
+        self._check_store(store1, allow_unbound=True)
+        self._check_store(store2, allow_unbound=True)
+        if not (
+            (store1.unbound and store2.unbound)
+            or (store1.shape == store2.shape)
+        ):
             raise ValueError(
                 "Stores must have the same shape to be aligned, "
                 f"but got {store1.shape} and {store2.shape}"

@@ -238,16 +238,20 @@ class FieldMatchManager:
 
 # This class keeps track of usage of a single region
 class RegionManager:
-    def __init__(self, region: Region) -> None:
+    def __init__(self, region: Region, imported: bool = False) -> None:
         self._region = region
         # Monotonically increases as more fields are allocated
         self._alloc_field_count = 0
         # Fluctuates based on field usage
         self._active_field_count = 0
         self._next_field_id = _LEGATE_FIELD_ID_BASE
+        self._imported = imported
 
     def destroy(self, unordered: bool = False) -> None:
         self._region.destroy(unordered=unordered)
+        if self._imported:
+            self._region.index_space.destroy(unordered=unordered)
+            self._region.field_space.destroy(unordered=unordered)
 
     def increase_field_count(self) -> None:
         self._active_field_count += 1
@@ -1290,12 +1294,13 @@ class Runtime:
 
         region = out_region.get_region()
         shape = Shape(ispace=region.index_space)
+        region_mgr = self.region_managers_by_region.get(region)
+        if region_mgr is None:
+            region_mgr = RegionManager(region, imported=True)
+            self.region_managers_by_region[region] = region_mgr
+            self.find_or_create_field_manager(shape, dtype.size)
 
-        region_mgr = RegionManager(region)
         region_mgr.increase_field_count()
-        self.region_managers_by_region[region] = region_mgr
-        self.find_or_create_field_manager(shape, dtype.size)
-
         return RegionField.create(region, field_id, dtype.size, shape)
 
     def create_output_region(
