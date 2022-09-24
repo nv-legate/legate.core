@@ -20,7 +20,7 @@ import legate.core.types as ty
 
 from . import Future, FutureMap, Rect
 from .constraints import PartSym
-from .launcher import CopyLauncher, TaskLauncher
+from .launcher import CopyLauncher, FillLauncher, TaskLauncher
 from .partition import REPLICATE, Weighted
 from .shape import Shape
 from .store import Store, StorePartition
@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from .communicator import Communicator
     from .constraints import Constraint
     from .context import Context
+    from .launcher import Proj
     from .projection import ProjFn, ProjOut, SymbolicPoint
     from .solver import Strategy
     from .types import DTType
@@ -114,8 +115,8 @@ class Operation(OperationProtocol):
     def __init__(
         self,
         context: Context,
-        mapper_id: int = 0,
-        op_id: int = 0,
+        mapper_id: int,
+        op_id: int,
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
@@ -189,7 +190,7 @@ class Operation(OperationProtocol):
             )
         return parts[0]
 
-    def get_tag(self, strategy: Strategy, part: Any) -> int:
+    def get_tag(self, strategy: Strategy, part: PartSym) -> int:
         if strategy.is_key_part(part):
             return 1  # LEGATE_CORE_KEY_STORE_TAG
         else:
@@ -423,8 +424,8 @@ class AutoOperation(Operation):
     def __init__(
         self,
         context: Context,
-        mapper_id: int = 0,
-        op_id: int = 0,
+        mapper_id: int,
+        op_id: int,
         **kwargs: Any,
     ) -> None:
         super().__init__(
@@ -474,16 +475,14 @@ class AutoTask(AutoOperation, Task):
         self,
         context: Context,
         task_id: int,
-        mapper_id: int = 0,
-        op_id: int = 0,
-        **kwargs: Any,
+        mapper_id: int,
+        op_id: int,
     ) -> None:
         super().__init__(
             context=context,
             task_id=task_id,
             mapper_id=mapper_id,
             op_id=op_id,
-            **kwargs,
         )
 
     def launch(self, strategy: Strategy) -> None:
@@ -496,7 +495,7 @@ class AutoTask(AutoOperation, Task):
 
         def get_requirement(
             store: Store, part_symb: PartSym
-        ) -> tuple[Any, int, StorePartition]:
+        ) -> tuple[Proj, int, StorePartition]:
             store_part = store.partition(strategy.get_partition(part_symb))
             req = store_part.get_requirement(strategy.launch_ndim)
             tag = self.get_tag(strategy, part_symb)
@@ -564,16 +563,14 @@ class ManualTask(Operation, Task):
         context: Context,
         task_id: int,
         launch_domain: Rect,
-        mapper_id: int = 0,
-        op_id: int = 0,
-        **kwargs: Any,
+        mapper_id: int,
+        op_id: int,
     ) -> None:
         super().__init__(
             context=context,
             task_id=task_id,
             mapper_id=mapper_id,
             op_id=op_id,
-            **kwargs,
         )
         self._launch_domain: Rect = launch_domain
         self._input_projs: list[Union[ProjFn, None]] = []
@@ -717,10 +714,10 @@ class Copy(AutoOperation):
     def __init__(
         self,
         context: Context,
-        mapper_id: int = 0,
-        **kwargs: Any,
+        mapper_id: int,
+        op_id: int,
     ) -> None:
-        super().__init__(context=context, mapper_id=mapper_id, **kwargs)
+        super().__init__(context=context, mapper_id=mapper_id, op_id=op_id)
         self._source_indirects: list[Store] = []
         self._target_indirects: list[Store] = []
         self._source_indirect_parts: list[PartSym] = []
@@ -865,7 +862,7 @@ class Copy(AutoOperation):
 
         def get_requirement(
             store: Store, part_symb: PartSym
-        ) -> tuple[Any, int, StorePartition]:
+        ) -> tuple[Proj, int, StorePartition]:
             store_part = store.partition(strategy.get_partition(part_symb))
             req = store_part.get_requirement(strategy.launch_ndim)
             tag = self.get_tag(strategy, part_symb)
@@ -900,9 +897,90 @@ class Copy(AutoOperation):
             req, tag, store_part = get_requirement(store, part_symb)
             launcher.add_target_indirect(store, req, tag=tag)
 
-        launch_domain = strategy.launch_domain if strategy.parallel else None
-        if launch_domain is not None:
-            launcher.execute(launch_domain)
+        if strategy.launch_domain is not None:
+            launcher.execute(strategy.launch_domain)
+        else:
+            launcher.execute_single()
+
+
+class Fill(AutoOperation):
+    def __init__(
+        self,
+        context: Context,
+        lhs: Store,
+        value: Store,
+        mapper_id: int,
+        op_id: int,
+    ) -> None:
+        super().__init__(context=context, mapper_id=mapper_id, op_id=op_id)
+        if not value.scalar:
+            raise ValueError("Fill value must be a scalar Store")
+        if lhs.unbound:
+            raise ValueError("Fill lhs must be a bound Store")
+        if lhs.kind is Future:
+            raise ValueError("Fill lhs must be a RegionField-backed Store")
+        super().add_input(value)
+        super().add_output(lhs)
+
+    def get_name(self) -> str:
+        libname = self.context.library.get_name()
+        return f"{libname}.Fill(uid:{self._op_id})"
+
+    def add_alignment(self, store1: Store, store2: Store) -> None:
+        raise TypeError(
+            "User partitioning constraints are not allowed for fills"
+        )
+
+    def add_broadcast(
+        self, store: Store, axes: Optional[Union[int, Iterable[int]]] = None
+    ) -> None:
+        raise TypeError(
+            "User partitioning constraints are not allowed for fills"
+        )
+
+    def add_constraint(self, constraint: Constraint) -> None:
+        raise TypeError(
+            "User partitioning constraints are not allowed for fills"
+        )
+
+    def add_input(
+        self, store: Store, partition: Optional[PartSym] = None
+    ) -> None:
+        raise TypeError("No further inputs can be added to fills")
+
+    def add_output(
+        self, store: Store, partition: Optional[PartSym] = None
+    ) -> None:
+        raise TypeError("No further outputs can be added to fills")
+
+    def add_reduction(
+        self, store: Store, redop: int, partition: Optional[PartSym] = None
+    ) -> None:
+        raise TypeError("No reductions can be added to fills")
+
+    def launch(self, strategy: Strategy) -> None:
+        def get_requirement(
+            store: Store, part_symb: PartSym
+        ) -> tuple[Proj, int, StorePartition]:
+            store_part = store.partition(strategy.get_partition(part_symb))
+            req = store_part.get_requirement(strategy.launch_ndim)
+            tag = self.get_tag(strategy, part_symb)
+            return req, tag, store_part
+
+        lhs = self._outputs[0]
+        lhs_part_sym = self._output_parts[0]
+        lhs_proj, _, lhs_part = get_requirement(lhs, lhs_part_sym)
+        lhs.set_key_partition(lhs_part.partition)
+        launcher = FillLauncher(
+            self.context,
+            lhs,
+            lhs_proj,
+            self._inputs[0],
+            mapper_id=self.mapper_id,
+            provenance=self.provenance,
+        )
+        if strategy.launch_domain is not None:
+            launcher.execute(strategy.launch_domain)
         else:
             launcher.execute_single()
 
@@ -924,13 +1002,11 @@ class Reduce(AutoOperation):
         radix: int,
         mapper_id: int,
         op_id: int,
-        **kwargs: Any,
     ) -> None:
         super().__init__(
             context=context,
             mapper_id=mapper_id,
             op_id=op_id,
-            **kwargs,
         )
         self._runtime = context.runtime
         self._radix = radix
