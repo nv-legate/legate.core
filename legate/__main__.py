@@ -395,8 +395,8 @@ def run_legate(
         cmd_env["LEGATE_NEED_OPENMP"] = str(1)
 
     if ranks > 1:
-        assert "LEGATE_NEED_GASNET" not in cmd_env
-        cmd_env["LEGATE_NEED_GASNET"] = str(1)
+        assert "LEGATE_NEED_NETWORK" not in cmd_env
+        cmd_env["LEGATE_NEED_NETWORK"] = str(1)
 
     if progress:
         assert "LEGATE_SHOW_PROGRESS" not in cmd_env
@@ -1045,7 +1045,7 @@ def driver():
     parser.add_argument(
         "--nic-bind",
         help="NICs to bind each rank to. Use comma-separated device names as "
-        "appropriate for the GASNet conduit in use. Binding instructions for "
+        "appropriate for the network in use. Binding instructions for "
         "all ranks should be listed in one string, separated by `/`.",
     )
     parser.add_argument(

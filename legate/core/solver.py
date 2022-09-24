@@ -257,8 +257,8 @@ class Partitioner:
 
             fspace = runtime.create_field_space()
             for to_align in cls:
-                partitions[unknown] = REPLICATE
-                fspaces[unknown] = fspace
+                partitions[to_align] = REPLICATE
+                fspaces[to_align] = fspace
 
         unbound_ndims = set(unknown.store.ndim for unknown in to_remove)
 

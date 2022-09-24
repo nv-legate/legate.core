@@ -62,12 +62,12 @@ static const char* const core_library_name = "legate.core";
     exit(1);
   }
 #endif
-#ifndef LEGATE_USE_GASNET
-  const char* need_gasnet = getenv("LEGATE_NEED_GASNET");
-  if (need_gasnet != nullptr) {
+#ifndef LEGATE_USE_NETWORK
+  const char* need_network = getenv("LEGATE_NEED_NETWORK");
+  if (need_network != nullptr) {
     fprintf(stderr,
-            "Legate was run on multiple nodes but was not built with "
-            "GASNet support. Please install Legate again with the \"--gasnet\" flag.\n");
+            "Legate was run on multiple nodes but was not built with networking "
+            "support. Please install Legate again with \"--network\".\n");
     exit(1);
   }
 #endif
