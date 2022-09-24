@@ -19,22 +19,21 @@
 import shutil
 from pathlib import Path
 
+import install_jupyter
 from jupyter_client.kernelspec import KernelSpecManager
-from legion_jupyter.install_jupyter import driver, parse_args
 
 if __name__ == "__main__":
     legate_exe = Path(shutil.which("legate"))
     legate_dir = legate_exe.parent.absolute()
-    args, opts = parse_args()
+    args, opts = install_jupyter.parse_args()
     if args.json == "legion_python.json":
         # override the default one
         args.json = "legate_jupyter.json"
-    args.legion_prefix = legate_dir
-    kernel_file_dir = None
-    kernel_name = driver(args, opts, kernel_file_dir)
+    args.legion_prefix = str(legate_dir)
+    legion_jupyter_file = Path(install_jupyter.__file__)
+    kernel_file_dir = str(legion_jupyter_file.parent.absolute())
+    kernel_name = install_jupyter.driver(args, opts, kernel_file_dir)
     # copy the json file into ipython kernel directory
     ksm = KernelSpecManager()
     spec = ksm.get_kernel_spec(kernel_name)
     shutil.copy(args.json, spec.resource_dir)
-
-    # TODO: copy legate_info.py and json file into legate dir
