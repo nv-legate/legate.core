@@ -211,6 +211,7 @@ def get_legion_paths(legate_dir, legate_build_dir=None):
             "legion_prof_py": join(legion_dir, "bin", "legion_prof.py"),
             "legion_python": join(legion_dir, "bin", "legion_python"),
             "legion_module": legion_module,
+            "legion_jupyter_module": legion_module,
         }
 
     if legate_build_dir is None:
@@ -264,6 +265,9 @@ def get_legion_paths(legate_dir, legate_build_dir=None):
             "legion_python": join(legion_binary_dir, "bin", "legion_python"),
             "legion_module": join(
                 legion_source_dir, "bindings", "python", "build", "lib"
+            ),
+            "legion_jupyter_module": join(
+                legion_source_dir, "jupyter_notebook"
             ),
         }
     except Exception:
@@ -338,6 +342,7 @@ def run_legate(
     legion_prof_py = legion_paths["legion_prof_py"]
     legion_python = legion_paths["legion_python"]
     legion_module = legion_paths["legion_module"]
+    legion_jupyter_module = legion_paths["legion_jupyter_module"]
     if verbose:
         print("legion_lib_path: ", legion_lib_path)
         print("realm_defines_h: ", realm_defines_h)
@@ -346,6 +351,7 @@ def run_legate(
         print("legion_prof_py:  ", legion_prof_py)
         print("legion_python:   ", legion_python)
         print("legion_module:   ", legion_module)
+        print("legion_jupyter_module:   ", legion_jupyter_module)
 
     cmd_env = dict(os.environ.items())
     # We never want to save python byte code for legate
@@ -357,6 +363,8 @@ def run_legate(
     )
     if legion_module is not None:
         extra_python_paths.append(legion_module)
+    if legion_jupyter_module is not None:
+        extra_python_paths.append(legion_jupyter_module)
     # Make sure the base directory for this file is in the python path
     extra_python_paths.append(os.path.dirname(os.path.dirname(__file__)))
     cmd_env["PYTHONPATH"] = os.pathsep.join(extra_python_paths)

@@ -218,7 +218,6 @@ def install_legion_jupyter_notebook(
             ):
                 legion_dir = legion_build_dir
 
-    # assert 0, "legion_dir: " + str(legion_dir) + str(legate_build_dir)
     if legion_dir is not None:
         if verbose:
             print(f"installing legion jupyter notebook to {install_dir}")
