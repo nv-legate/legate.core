@@ -74,12 +74,12 @@ class Field:
         self,
         region: Region,
         field_id: int,
-        dtype: Any,
+        field_size: int,
         shape: Shape,
     ) -> None:
         self.region = region
         self.field_id = field_id
-        self.dtype = dtype
+        self.field_size = field_size
         self.shape = shape
 
     def same_handle(self, other: Field) -> bool:
@@ -93,7 +93,7 @@ class Field:
         runtime.free_field(
             self.region,
             self.field_id,
-            self.dtype,
+            self.field_size,
             self.shape,
         )
 
@@ -108,6 +108,8 @@ class RegionField:
         parent: Optional[RegionField] = None,
     ) -> None:
         self.region = region
+        # Note that self.region can be different from self.field.region
+        # if this is for a subregion
         self.field = field
         self.shape = shape
         self.parent = parent
@@ -127,16 +129,14 @@ class RegionField:
 
     @staticmethod
     def create(
-        region: Region, field_id: int, dtype: Any, shape: Shape
+        region: Region, field_id: int, field_size: int, shape: Shape
     ) -> RegionField:
-        field = Field(region, field_id, dtype, shape)
+        field = Field(region, field_id, field_size, shape)
         return RegionField(region, field, shape)
 
     def same_handle(self, other: RegionField) -> bool:
-        return (
-            type(self) == type(other)
-            and self.region.same_handle(other.region)
-            and self.field.same_handle(other.field)
+        return type(self) == type(other) and self.field.same_handle(
+            other.field
         )
 
     def __str__(self) -> str:
@@ -523,6 +523,11 @@ class Storage:
         if self._offsets is None and self._extents is not None:
             self._offsets = Shape((0,) * self._extents.ndim)
 
+        # True means this storage is transferrable
+        self._linear = False
+        # True means this storage is transferred
+        self._transferred = False
+
     def __str__(self) -> str:
         return (
             f"{self._kind.__name__}(uninitialized)"
@@ -570,6 +575,11 @@ class Storage:
         # If someone is trying to retreive the storage of a store,
         # we need to execute outstanding operations so that we know
         # it has been initialized correctly.
+        if self._transferred:
+            raise ValueError(
+                "Storage is already transferred. Reusing a linear store "
+                "is illegal."
+            )
         runtime.flush_scheduling_window()
         if self._data is None:
             if self._kind is Future:
@@ -591,6 +601,21 @@ class Storage:
             self._kind is Future and type(data) is Future
         ) or self._data is None
         self._data = data
+
+    @property
+    def linear(self) -> bool:
+        return self._linear
+
+    def set_linear(self) -> None:
+        self._linear = True
+
+    def move_data(self, other: Storage) -> None:
+        assert other._linear
+        assert other.has_data
+        assert not self.has_data
+        other._transferred = True
+        self._data = other._data
+        other._data = None
 
     def set_extents(self, extents: Shape) -> None:
         self._extents = extents
@@ -881,6 +906,16 @@ class Store:
             )
 
     @property
+    def linear(self) -> bool:
+        return self._storage.linear
+
+    def set_linear(self) -> None:
+        return self._storage.set_linear()
+
+    def move_data(self, other: Store) -> None:
+        self._storage.move_data(other._storage)
+
+    @property
     def shape(self) -> Shape:
         if self._shape is None:
             # If someone wants to access the shape of an unbound
@@ -995,6 +1030,7 @@ class Store:
         return self._storage.volume()
 
     def set_storage(self, data: Union[RegionField, Future]) -> None:
+        assert not self.linear
         self._storage.set_data(data)
         if self._shape is None:
             assert isinstance(data, RegionField)
