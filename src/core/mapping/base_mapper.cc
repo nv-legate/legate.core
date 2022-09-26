@@ -186,18 +186,25 @@ void BaseMapper::select_task_options(const MapperContext ctx,
   Task legate_task(&task, context, runtime, ctx);
   auto target = task_target(legate_task, options);
 
+  std::cout << "IRINA DEBUG task poin = " << task.index_point << " , dim =" << task.index_point.dim
+            << std::endl;
+
+  unsigned int idx = 0;
+  if (task.index_point.dim == 2) { idx = task.index_point[1]; }
+
   // We never want valid instances
   switch (target) {
     case TaskTarget::CPU: {
-      output.initial_proc = local_cpus.front();
+      output.initial_proc = local_cpus[idx];
+      std::cout << "IRINA DEBUG idx = " << idx << " ," << local_cpus[idx] << std::endl;
       break;
     }
     case TaskTarget::GPU: {
-      output.initial_proc = local_gpus.front();
+      output.initial_proc = local_gpus[idx];
       break;
     }
     case TaskTarget::OMP: {
-      output.initial_proc = local_omps.front();
+      output.initial_proc = local_omps[idx];
       break;
     }
   }
@@ -1262,7 +1269,7 @@ void BaseMapper::select_sharding_functor(const MapperContext ctx,
       return;
     }
 
-  output.chosen_functor = 0;
+  output.chosen_functor = find_sharding_functor_by_projection_functor(0);
 }
 
 void BaseMapper::map_inline(const MapperContext ctx,
