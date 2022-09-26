@@ -24,7 +24,7 @@ from jupyter_client.kernelspec import KernelSpecManager, NoSuchKernel
 cmd_dict = {
     "cpus": "Number of CPUs to use per rank",
     "gpus": "Number of GPUs to use per rank",
-    "openmp": "Number of OpenMP groups to use per rank",
+    "omps": "Number of OpenMP groups to use per rank",
     "ompthreads": "Number of threads per OpenMP group",
     "utility": "Number of Utility processors per rank",
     "sysmem": "Amount of DRAM memory per rank (in MBs)",
@@ -76,4 +76,3 @@ class LegateInfoMagics(Magics):
     @line_magic
     def legate_info(self, line: str) -> None:
         print(self.legate_json)
-        # return line
