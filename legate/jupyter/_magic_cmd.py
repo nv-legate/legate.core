@@ -56,7 +56,7 @@ class LegateInfo(object):
             if missing := (set(cmd_dict) - set(json_dict)):
                 raise RuntimeError(f"Expected keys {missing!r} are missing")
             for key in cmd_dict.keys():
-                    self.config_dict[key] = json_dict[key]["value"]
+                self.config_dict[key] = json_dict[key]["value"]
 
     def __repr__(self) -> str:
         out_str = ""
