@@ -146,6 +146,10 @@ struct construct_overlapping_region_group_fn {
         continue;
       }
 
+      // NOTE: It is critical that we maintain the invariant that if at least one region is mapped
+      // to a group in the instances_ table, that group is still present on the groups_ table, and
+      // thus there's at least one shared_ptr remaining that points to it. Otherwise we run the risk
+      // that a group pointer stored on the instances_ table points to a group that's been collected
       regions.insert(group->regions.begin(), group->regions.end());
 #ifdef DEBUG_LEGATE
       log_instmgr.debug() << "    bounds updated: " << bound << " ~> " << union_bbox;
@@ -205,17 +209,25 @@ std::set<InstanceSet::Instance> InstanceSet::record_instance(RegionGroupP group,
     }
   }
 
-  for (auto& removed_group : removed_groups)
-    // Because of exact policies, we can't simple remove the groups where regions in the `group`
-    // originally belong, because one region can be included in multiple region groups. (Note that
+  for (auto& removed_group : removed_groups) {
+    // Because of exact policies, we can't simply remove the groups where regions in the `group`
+    // originally belonged, because one region can be included in multiple region groups. (Note that
     // the exact mapping bypasses the coalescing heuristic and always creates a fresh singleton
-    // group.) So, before we prune out each of those potentially obsoletegroups, we need to
-    // make sure that it is subsumed by the new group.
-    if (group->subsumes(removed_group.get())) {
+    // group.) So, before we prune out each of those potentially obsolete groups, we need to
+    // make sure that it has no remaining references.
+    bool can_remove = true;
+    for (Region rg : removed_group->regions) {
+      if (groups_.at(rg) == removed_group) {
+        can_remove = false;
+        break;
+      }
+    }
+    if (can_remove) {
       auto finder = instances_.find(removed_group.get());
       replaced.insert(finder->second.instance);
       instances_.erase(finder);
     }
+  }
 
   replaced.erase(instance);
 
@@ -232,6 +244,13 @@ std::set<InstanceSet::Instance> InstanceSet::record_instance(RegionGroupP group,
 bool InstanceSet::erase(PhysicalInstance inst)
 {
   std::set<RegionGroup*> filtered_groups;
+#ifdef DEBUG_LEGATE
+#ifdef DEBUG_INSTANCE_MANAGER
+  log_instmgr.debug() << "===== before erasing an instance " << inst << " =====";
+#endif
+  dump_and_sanity_check();
+#endif
+
   for (auto it = instances_.begin(); it != instances_.end(); /*nothing*/) {
     if (it->second.instance == inst) {
       auto to_erase = it++;
@@ -241,8 +260,21 @@ bool InstanceSet::erase(PhysicalInstance inst)
       it++;
   }
 
-  for (auto& group : filtered_groups)
-    for (auto& region : group->regions) groups_.erase(region);
+  std::set<Region> filtered_regions;
+  for (RegionGroup* group : filtered_groups)
+    for (Region region : group->regions)
+      if (groups_.at(region).get() == group)
+        // We have to do this in two steps; we don't want to remove the last shared_ptr to a group
+        // while iterating over the same group's regions
+        filtered_regions.insert(region);
+  for (Region region : filtered_regions) groups_.erase(region);
+
+#ifdef DEBUG_LEGATE
+#ifdef DEBUG_INSTANCE_MANAGER
+  log_instmgr.debug() << "===== after erasing an instance " << inst << " =====";
+#endif
+  dump_and_sanity_check();
+#endif
 
   return instances_.empty();
 }
@@ -261,7 +293,13 @@ void InstanceSet::dump_and_sanity_check() const
   for (auto& entry : instances_)
     log_instmgr.debug() << "  " << *entry.first << " ~> " << entry.second.instance;
 #endif
-  for (auto& entry : groups_) assert(instances_.find(entry.second.get()) != instances_.end());
+  std::set<RegionGroup*> found_groups;
+  for (auto& entry : groups_) {
+    found_groups.insert(entry.second.get());
+    assert(instances_.count(entry.second.get()) > 0);
+    assert(entry.second->regions.count(entry.first) > 0);
+  }
+  for (auto& entry : instances_) assert(found_groups.count(entry.first) > 0);
 }
 
 bool InstanceManager::find_instance(Region region,

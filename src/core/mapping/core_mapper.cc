@@ -141,7 +141,7 @@ CoreMapper::CoreMapper(MapperRuntime* rt, Machine m, const LibraryContext& c)
                   64,
 #endif
                   1)),
-    precise_exception_trace(static_cast<bool>(extract_env("LEGATE_PRECISE_EXCEPTION_TRACE", 0, 1))),
+    precise_exception_trace(static_cast<bool>(extract_env("LEGATE_PRECISE_EXCEPTION_TRACE", 0, 0))),
     field_reuse_frac(extract_env("LEGATE_FIELD_REUSE_FRAC", 256, 256)),
     field_reuse_freq(extract_env("LEGATE_FIELD_REUSE_FREQ", 32, 32)),
     has_socket_mem(false)
@@ -412,10 +412,6 @@ void CoreMapper::select_tunable_value(const MapperContext ctx,
       pack_tunable<int32_t>(local_omps.size() * total_nodes, output);  // assume symmetry
       return;
     }
-    case LEGATE_CORE_TUNABLE_NUM_NODES: {
-        pack_tunable<int32_t>(total_nodes, output);
-        return;
-    }
     case LEGATE_CORE_TUNABLE_NUM_PIECES: {
       if (!local_gpus.empty())  // If we have GPUs, use those
         pack_tunable<int32_t>(local_gpus.size() * total_nodes, output);
@@ -423,6 +419,10 @@ void CoreMapper::select_tunable_value(const MapperContext ctx,
         pack_tunable<int32_t>(local_omps.size() * total_nodes, output);
       else  // Otherwise use the CPUs
         pack_tunable<int32_t>(local_cpus.size() * total_nodes, output);
+      return;
+    }
+    case LEGATE_CORE_TUNABLE_NUM_NODES: {
+      pack_tunable<int32_t>(total_nodes, output);
       return;
     }
     case LEGATE_CORE_TUNABLE_MIN_SHARD_VOLUME: {

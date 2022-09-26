@@ -107,7 +107,11 @@ class Shape:
 
     @property
     def ndim(self) -> int:
-        return len(self.extents)
+        if self._extents is None:
+            assert self._ispace is not None
+            return self._ispace.get_dim()
+        else:
+            return len(self._extents)
 
     def get_index_space(self, runtime: Runtime) -> IndexSpace:
         if self._ispace is None:
@@ -196,7 +200,8 @@ class Shape:
         return Shape(tuple(a // b for (a, b) in zip(lh, rh)))
 
     def drop(self, dim: int) -> Shape:
-        return Shape(self.extents[:dim] + self.extents[dim + 1 :])
+        extents = self.extents
+        return Shape(extents[:dim] + extents[dim + 1 :])
 
     def update(self, dim: int, new_value: int) -> Shape:
         return self.replace(dim, (new_value,))
@@ -204,10 +209,12 @@ class Shape:
     def replace(self, dim: int, new_values: Iterable[int]) -> Shape:
         if not isinstance(new_values, tuple):
             new_values = tuple(new_values)
-        return Shape(self.extents[:dim] + new_values + self.extents[dim + 1 :])
+        extents = self.extents
+        return Shape(extents[:dim] + new_values + extents[dim + 1 :])
 
     def insert(self, dim: int, new_value: int) -> Shape:
-        return Shape(self.extents[:dim] + (new_value,) + self.extents[dim:])
+        extents = self.extents
+        return Shape(extents[:dim] + (new_value,) + extents[dim:])
 
     def map(self, mapping: tuple[int, ...]) -> Shape:
         return Shape(tuple(self[mapping[dim]] for dim in range(self.ndim)))
