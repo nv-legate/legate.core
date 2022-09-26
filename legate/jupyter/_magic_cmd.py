@@ -61,7 +61,7 @@ class LegateInfo(object):
     def __repr__(self) -> str:
         out_str = ""
         for key, value in self.config_dict.items():
-            out_str += cmd_dict[key] + ": " + str(value) + "\n"
+            out_str += f"{cmd_dict[key]}: {value}\n"
         out_str = out_str[:-1]
         return out_str
 
