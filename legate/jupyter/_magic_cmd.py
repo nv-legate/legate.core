@@ -53,10 +53,9 @@ class LegateInfo(object):
         filename_with_path = os.path.join(spec.resource_dir, filename)
         with open(filename_with_path) as json_file:
             json_dict = json.load(json_file)
+            if missing := (set(cmd_dict) - set(json_dict)):
+                raise RuntimeError(f"Expected keys {missing!r} are missing")
             for key in cmd_dict.keys():
-                if key not in json_dict:
-                    assert 0, "Key: " + key + " does not exist."
-                else:
                     self.config_dict[key] = json_dict[key]["value"]
 
     def __repr__(self) -> str:
