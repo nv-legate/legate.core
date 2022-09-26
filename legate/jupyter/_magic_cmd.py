@@ -62,8 +62,7 @@ class LegateInfo(object):
         out_str = ""
         for key, value in self.config_dict.items():
             out_str += f"{cmd_dict[key]}: {value}\n"
-        out_str = out_str[:-1]
-        return out_str
+        return out_str[:-1]
 
 
 @magics_class
