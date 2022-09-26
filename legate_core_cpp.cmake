@@ -103,7 +103,7 @@ endif()
 ###
 # If we find Legion already configured on the system, it will report whether it
 # was compiled with Python (Legion_USE_PYTHON), CUDA (Legion_USE_CUDA), OpenMP
-# (Legion_USE_OpenMP), and GASNet (Legion_USE_GASNet).
+# (Legion_USE_OpenMP), and networking (Legion_NETWORKS).
 #
 # We use the same variables as Legion because we want to enable/disable each of
 # these features based on how Legion was configured (it doesn't make sense to
@@ -116,7 +116,7 @@ if(Legion_USE_Python AND (NOT Python3_FOUND))
   _find_package_Python3()
 endif()
 
-if(Legion_USE_GASNet)
+if(Legion_NETWORKS)
   find_package(MPI REQUIRED)
 endif()
 
@@ -163,9 +163,9 @@ if(Legion_USE_OpenMP)
   list(APPEND legate_core_CUDA_DEFS LEGATE_USE_OPENMP)
 endif()
 
-if(Legion_USE_GASNet)
-  list(APPEND legate_core_CXX_DEFS LEGATE_USE_GASNET)
-  list(APPEND legate_core_CUDA_DEFS LEGATE_USE_GASNET)
+if(Legion_NETWORKS)
+  list(APPEND legate_core_CXX_DEFS LEGATE_USE_NETWORK)
+  list(APPEND legate_core_CUDA_DEFS LEGATE_USE_NETWORK)
 endif()
 
 # Change THRUST_DEVICE_SYSTEM for `.cpp` files
@@ -209,7 +209,7 @@ list(APPEND legate_core_SOURCES
   src/core/utilities/linearize.cc
 )
 
-if(Legion_USE_GASNet)
+if(Legion_NETWORKS)
   list(APPEND legate_core_SOURCES
     src/core/comm/alltoall_thread_mpi.cc
     src/core/comm/alltoallv_thread_mpi.cc
@@ -391,7 +391,7 @@ endif()
   "set(Legion_USE_CUDA ${Legion_USE_CUDA})"
   "set(Legion_USE_OpenMP ${Legion_USE_OpenMP})"
   "set(Legion_USE_Python ${Legion_USE_Python})"
-  "set(Legion_USE_GASNet ${Legion_USE_GASNet})"
+  "set(Legion_NETWORKS ${Legion_NETWORKS})"
   "set(Legion_BOUNDS_CHECKS ${Legion_BOUNDS_CHECKS})"
 )
 

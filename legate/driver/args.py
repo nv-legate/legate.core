@@ -118,8 +118,8 @@ binding.add_argument(
 binding.add_argument(
     "--nic-bind",
     help="NICs to bind each rank to. Use comma-separated device names as "
-    "appropriate for the GASNet conduit in use. Binding instructions for "
-    "all ranks should be listed in one string, separated by `/`.",
+    "appropriate for the network in use. Binding instructions for all ranks "
+    "should be listed in one string, separated by `/`.",
 )
 
 

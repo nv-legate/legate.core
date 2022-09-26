@@ -215,8 +215,8 @@ class Launcher:
             env["LEGATE_NEED_OPENMP"] = "1"
 
         if config.multi_node.ranks > 1:
-            assert "LEGATE_NEED_GASNET" not in system.env
-            env["LEGATE_NEED_GASNET"] = "1"
+            assert "LEGATE_NEED_NETWORK" not in system.env
+            env["LEGATE_NEED_NETWORK"] = "1"
 
         if config.info.progress:
             assert "LEGATE_SHOW_PROGRESS" not in system.env

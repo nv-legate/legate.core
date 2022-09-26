@@ -36,6 +36,7 @@ class Task(Dispatchable[Future]):
         size: int = 0,
         mapper: int = 0,
         tag: int = 0,
+        provenance: Optional[str] = None,
     ) -> None:
         """
         A Task object provides a mechanism for launching individual sub-tasks
@@ -77,6 +78,10 @@ class Task(Dispatchable[Future]):
                 legion.legion_predicate_true(),
                 mapper,
                 tag,
+            )
+        if provenance is not None:
+            legion.legion_task_launcher_set_provenance(
+                self.launcher, provenance.encode()
             )
         self._launcher = ffi.gc(
             self.launcher, legion.legion_task_launcher_destroy
@@ -478,6 +483,7 @@ class IndexTask(Dispatchable[Union[Future, FutureMap]]):
         size: int = 0,
         mapper: int = 0,
         tag: int = 0,
+        provenance: Optional[str] = None,
     ) -> None:
         """
         An IndexTask object provides a mechnanism for launching a collection
@@ -540,6 +546,10 @@ class IndexTask(Dispatchable[Union[Future, FutureMap]]):
                 False,
                 mapper,
                 tag,
+            )
+        if provenance is not None:
+            legion.legion_index_launcher_set_provenance(
+                self.launcher, provenance.encode()
             )
         self._launcher = ffi.gc(
             self.launcher, legion.legion_index_launcher_destroy
