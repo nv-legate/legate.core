@@ -343,6 +343,7 @@ def get_legion_paths(legate_paths: LegatePaths) -> LegionPaths:
                 legion_prof_py=legion_bin_path / "legion_prof.py",
                 legion_python=legion_bin_path / "legion_python",
                 legion_module=legion_module,
+                legion_jupyter_module=legion_module,
             )
 
         raise RuntimeError("Could not determine legion paths")
@@ -403,6 +404,7 @@ def get_legion_paths(legate_paths: LegatePaths) -> LegionPaths:
             legion_prof_py=legion_source_dir / "tools" / "legion_prof.py",
             legion_python=legion_binary_dir / "bin" / "legion_python",
             legion_module=legion_bindings_dir / "python" / "build" / "lib",
+            legion_jupyter_module=legion_source_dir / "jupyter_notebook",
         )
     except Exception:
         pass

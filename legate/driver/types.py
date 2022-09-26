@@ -95,3 +95,4 @@ class LegionPaths(DataclassMixin):
     legion_prof_py: Path
     legion_python: Path
     legion_module: Path | None
+    legion_jupyter_module: Path | None

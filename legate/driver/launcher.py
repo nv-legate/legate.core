@@ -182,6 +182,11 @@ class Launcher:
         if system.legion_paths.legion_module is not None:
             extra_python_paths.append(str(system.legion_paths.legion_module))
 
+        if system.legion_paths.legion_jupyter_module is not None:
+            extra_python_paths.append(
+                str(system.legion_paths.legion_jupyter_module)
+            )
+
         # Make sure the base directory for this file is in the python path
         extra_python_paths.append(str(Path(__file__).parents[1]))
 
