@@ -24,9 +24,31 @@ import shutil
 import subprocess
 import sys
 from distutils import sysconfig
+from typing import Callable, Optional, Tuple
 
 # Flush output on newlines
 sys.stdout.reconfigure(line_buffering=True)
+
+
+class bcolors:
+    OKGREEN = "\033[92m"
+    WARNING = "\033[93m"
+    FAIL = "\033[91m"
+    ENDC = "\033[0m"
+
+
+CUDA_PATH_ERROR_RE = (
+    r"The\s+following\s+variables\s+are\s+used\s+in\s+this\s+project,\s+but"
+    r"\s+they\s+are\s+set\s+to\s+NOTFOUND.\s+Please\s+set\s+them\s+or\s+make"
+    r"\s+sure\s+they\s+are\s+set\s+and\s+tested\s+correctly\s+in\s+the\s+CMake"
+    r"\s+files:\s+CUDA_CUDA_LIBRARY\s+\(ADVANCED"
+)
+
+CUDA_PATH_ERROR_MESSAGE = """
+The most likely error is Legion's FindCUDA failing to find the CUDA libraries.
+This can usually be fixed by setting CUDA_PATH in the environment.
+For most systems, this will be CUDA_PATH=/usr/local/cuda/lib64/stubs.
+"""
 
 
 class BooleanFlag(argparse.Action):
@@ -69,10 +91,21 @@ class BooleanFlag(argparse.Action):
         setattr(namespace, self.dest, not option_string.startswith("--no"))
 
 
-def execute_command(args, verbose, **kwargs):
+def execute_command(
+    args, verbose, suggested_fixes: Optional[Tuple[Callable]] = None, **kwargs
+):
     if verbose:
         print('Executing: "', " ".join(args), '" with ', kwargs)
-    subprocess.check_call(args, **kwargs)
+    try:
+        output = subprocess.check_output(
+            args, stderr=subprocess.STDOUT, **kwargs
+        ).decode("utf-8")
+        for fix in suggested_fixes:
+            fix(output)
+    except subprocess.CalledProcessError as e:
+        for fix in suggested_fixes:
+            fix(e.output.decode("utf-8"))
+        raise
 
 
 def find_active_python_version_and_path():
@@ -198,6 +231,14 @@ def install_legion_python_bindings(
             ],
             verbose,
         )
+
+
+def check_cuda_paths_error(output):
+    import re
+
+    match = re.compile(CUDA_PATH_ERROR_RE).search(output)
+    if match:
+        print(bcolors.FAIL + CUDA_PATH_ERROR_MESSAGE + bcolors.ENDC)
 
 
 def install(
@@ -436,7 +477,13 @@ def install(
     )
 
     # execute python -m pip install <args> .
-    execute_command(pip_install_cmd, verbose, cwd=legate_core_dir, env=cmd_env)
+    execute_command(
+        pip_install_cmd,
+        verbose,
+        suggested_fixes=(check_cuda_paths_error,),
+        cwd=legate_core_dir,
+        env=cmd_env,
+    )
 
     if not editable:
         install_legion_python_bindings(
