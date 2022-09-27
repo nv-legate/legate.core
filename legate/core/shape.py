@@ -32,7 +32,9 @@ def _cast_tuple(value: ExtentLike, ndim: int) -> tuple[int, ...]:
         return value.extents
     elif isinstance(value, Iterable):
         return tuple(value)
-    elif isinstance(value, int) or np.issubdtype(type(value), np.integer):
+    elif isinstance(value, int) or np.issubdtype(
+        type(value), np.integer
+    ):  # type: ignore
         return (value,) * ndim
     else:
         raise ValueError(f"Cannot cast {type(value).__name__} to tuple")

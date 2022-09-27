@@ -142,7 +142,7 @@ class Operation(OperationProtocol):
         return result
 
     def get_all_modified_stores(self) -> OrderedSet[Store]:
-        result = OrderedSet()
+        result: OrderedSet[Store] = OrderedSet()
         result.update(self._outputs)
         result.update(store for (store, _) in self._reductions)
         return result
@@ -176,7 +176,7 @@ class Operation(OperationProtocol):
         functor: Any = ImagePartition,
         disjoint: bool = True,
         complete: bool = True,
-    ):
+    ) -> None:
         self._check_store(store1)
         self._check_store(store2)
         # TODO (rohany): We only support point (and rect types if range) here.
@@ -626,7 +626,7 @@ class ManualTask(Operation, Task):
     def add_input(
         self,
         arg: Union[Store, StorePartition],
-        proj: Optional[ProjFn, int] = None,
+        proj: Optional[Union[ProjFn, int]] = None,
     ) -> None:
         self._check_arg(arg)
         if isinstance(arg, Store):

@@ -297,9 +297,10 @@ class FieldManager:
         self, region: Region, field_id: int, ordered: bool = False
     ) -> None:
         if ordered:
-            # When freeing this field, also issue a fill to invalidate any valid
-            # instances attached to this region. This allows us to reuse that space
-            # without having to make an instance allocation of the same size and shape.
+            # When freeing this field, also issue a fill to invalidate any
+            # valid instances attached to this region. This allows us to reuse
+            # that space without having to make an instance allocation of the
+            # same size and shape.
             buf = ffi.new("char[]", self.dtype.size)
             fut = Future.from_buffer(
                 self.runtime.legion_runtime, ffi.buffer(buf)
@@ -545,7 +546,7 @@ class PartitionManager:
             )
         self._piece_factors = list(reversed(factors))
         self._index_partitions: dict[
-            tuple[IndexSpace, PartitionBase], IndexPartition
+            tuple[IndexSpace, PartitionBase, Optional[Shape]], IndexPartition
         ] = {}
 
     def compute_launch_shape(

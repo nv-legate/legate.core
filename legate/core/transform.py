@@ -14,7 +14,7 @@
 #
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Protocol, Tuple
+from typing import TYPE_CHECKING, Optional, Protocol, Tuple
 
 import numpy as np
 
@@ -231,13 +231,13 @@ class Promote(Transform):
             # Project away the desired dimension.
             all_axes = list(range(0, len(partition._shape)))
             shape = partition._shape.drop(self._extra_dim)
-            axes = (
-                all_axes[: self._extra_dim]
-                + [None]
+            axes: list[Optional[int]] = (
+                all_axes[: self._extra_dim]  # type: ignore
+                + [None]  # type: ignore
                 + [x - 1 for x in all_axes[self._extra_dim + 1 :]]
             )
 
-            def tx_point(p: Point, exclusive=False) -> Point:
+            def tx_point(p: Point, exclusive: bool = False) -> Point:
                 return Point(Shape(p).drop(self._extra_dim))
 
             result = AffineProjection(axes).project_partition(
@@ -292,12 +292,12 @@ class Promote(Transform):
                 + shape[self._extra_dim :]
             )
 
-            def tx_point(p: Point, exclusive=False) -> Point:
+            def tx_point(p: Point, exclusive: bool = False) -> Point:
                 return Point(
                     Shape(p).insert(self._extra_dim, 1 if exclusive else 0)
                 )
 
-            result = AffineProjection(axes).project_partition(
+            result = AffineProjection(axes).project_partition(  # type: ignore
                 partition, Rect(hi=new_shape), tx_point=tx_point
             )
             return result

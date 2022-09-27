@@ -285,7 +285,7 @@ class Tiling(PartitionBase):
             # TODO: We can actually bloat the tile so that all stencils within
             #       the range are contained, but here we simply replicate
             #       the region, as this usually happens for small inputs.
-            return Replicate(self.runtime)
+            return REPLICATE
         else:
             return Tiling(
                 self._tile_shape,
@@ -340,13 +340,13 @@ class Tiling(PartitionBase):
                 kind = (
                     legion.LEGION_DISJOINT_COMPLETE_KIND
                     if color_shape is None
-                    else legion.LEGION_ALIASED_COMPLETE_KIND
+                    else legion.LEGION_ALIASED_COMPLETE_KIND  # type: ignore
                 )
             else:
                 kind = (
                     legion.LEGION_DISJOINT_INCOMPLETE_KIND
                     if color_shape is None
-                    else legion.LEGION_ALIASED_INCOMPLETE_KIND
+                    else legion.LEGION_ALIASED_INCOMPLETE_KIND  # type: ignore
                 )
             index_partition = IndexPartition(
                 runtime.legion_context,
@@ -516,7 +516,7 @@ class ImagePartition(PartitionBase):
                 mapper=self._mapper,
             )
         else:
-            functor = PartitionByImage(
+            functor = PartitionByImage(  # type: ignore
                 source_region,
                 source_part,
                 source_field.field_id,
@@ -529,9 +529,9 @@ class ImagePartition(PartitionBase):
             elif self._disjoint and not self._complete:
                 kind = legion.LEGION_DISJOINT_INCOMPLETE_KIND
             elif not self._disjoint and self._complete:
-                kind = legion.LEGION_ALIASED_COMPLETE_KIND
+                kind = legion.LEGION_ALIASED_COMPLETE_KIND  # type: ignore
             else:
-                kind = legion.LEGION_ALIASED_INCOMPLETE_KIND
+                kind = legion.LEGION_ALIASED_INCOMPLETE_KIND  # type: ignore
             index_partition = IndexPartition(
                 runtime.legion_context,
                 runtime.legion_runtime,
@@ -561,6 +561,7 @@ class ImagePartition(PartitionBase):
         return True
 
     def needs_delinearization(self, launch_ndim: int) -> bool:
+        assert self.color_shape is not None
         return launch_ndim != self.color_shape.ndim
 
     @property
@@ -650,7 +651,7 @@ class PreimagePartition(PartitionBase):
             PartitionByPreimageRange if self._range else PartitionByPreimage
         )
         functor = functorFn(
-            dest_part.index_partition,
+            dest_part.index_partition,  # type: ignore
             source_region,
             source_region,
             source_field,
@@ -663,9 +664,11 @@ class PreimagePartition(PartitionBase):
             elif self._disjoint and not self._complete:
                 kind = legion.LEGION_DISJOINT_INCOMPLETE_KIND
             elif not self._disjoint and self._complete:
-                kind = legion.LEGION_ALIASED_COMPLETE_KIND
+                kind = legion.LEGION_ALIASED_COMPLETE_KIND  # type: ignore
             else:
-                kind = legion.LEGION_ALIASED_INCOMPLETE_KIND
+                kind = legion.LEGION_ALIASED_INCOMPLETE_KIND  # type: ignore
+            # Discharge some typing errors.
+            assert dest_part is not None
             index_partition = IndexPartition(
                 runtime.legion_context,
                 runtime.legion_runtime,
@@ -693,6 +696,7 @@ class PreimagePartition(PartitionBase):
         return True
 
     def needs_delinearization(self, launch_ndim: int) -> bool:
+        assert self.color_shape is not None
         return launch_ndim != self.color_shape.ndim
 
     @property
@@ -732,7 +736,7 @@ class PreimagePartition(PartitionBase):
         )
 
     def __str__(self) -> str:
-        return f"preimage({self._store}, {self._part}, range={self._range})"
+        return f"preimage({self._source}, {self._part}, range={self._range})"
 
     def __repr__(self) -> str:
         return str(self)
@@ -835,11 +839,11 @@ class AffineProjection:
     # Project each point to the following dimensions of the output point.
     # Passing `None` as an entry in `projs` discards the chosen dimension
     # from the projection.
-    def __init__(self, projs):
+    def __init__(self, projs: list[Optional[int]]):
         self.projs = projs
 
     @property
-    def dim(self):
+    def dim(self) -> int:
         return len(self.projs)
 
     def project_point(self, point: Point, output_bound: Point) -> Point:
@@ -866,7 +870,7 @@ class AffineProjection:
             for point in Rect(hi=part.color_shape):
                 fut = part._domains.get_future(point)
                 buf = fut.get_buffer()
-                dom = ffi.from_buffer("legion_domain_t*", buf)[0]
+                dom = ffi.from_buffer("legion_domain_t*", buf)[0]  # type: ignore # noqa
                 lg_rect = getattr(
                     legion, f"legion_domain_get_rect_{dom.dim}d"
                 )(dom)
@@ -879,18 +883,23 @@ class AffineProjection:
                 hi = self.project_point(hi, bounds.hi)
                 if tx_point is not None:
                     point = tx_point(point)
-                projected[point] = Rect(lo=lo, hi=hi, exclusive=False)
+                projected[point] = Rect(
+                    lo=tuple(lo), hi=tuple(hi), exclusive=False
+                )
         else:
             for p, r in part._domains.items():
                 lo = self.project_point(r.lo, bounds.lo)
                 hi = self.project_point(r.hi, bounds.hi)
                 if tx_point is not None:
                     p = tx_point(p)
-                projected[p] = Rect(lo=lo, hi=hi, exclusive=False)
+                projected[p] = Rect(
+                    lo=tuple(lo), hi=tuple(hi), exclusive=False
+                )
         new_shape = Shape(
             tuple(bounds.hi[idx] + 1 for idx in range(bounds.dim))
         )
         color_shape = part.color_shape
         if tx_point is not None:
             color_shape = Shape(tx_point(color_shape, exclusive=True))
+        assert color_shape is not None
         return DomainPartition(new_shape, color_shape, projected)

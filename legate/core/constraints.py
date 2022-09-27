@@ -271,7 +271,7 @@ class Image(Expr):
         for unknown in self._src_part_sym.unknowns():
             yield unknown
 
-    def equals(self, other: object):
+    def equals(self, other: object) -> bool:
         return (
             isinstance(other, Image)
             and self._source_store == other._source_store

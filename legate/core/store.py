@@ -771,7 +771,7 @@ class Storage:
             self.data.region,
             complete=complete,
             color_shape=color_shape,
-            color_transform=color_transform,
+            color_transform=color_transform,  # type: ignore
         )
         if color_shape is None:
             self._partitions[functor] = part
@@ -820,7 +820,7 @@ class StorePartition:
     def get_requirement(
         self,
         launch_ndim: int,
-        proj_fn: Optional[ProjFn, int] = None,
+        proj_fn: Optional[Union[ProjFn, int]] = None,
     ) -> Proj:
         part = self._storage_partition.find_or_create_legion_partition()
         if part is not None:
@@ -992,7 +992,7 @@ class Store:
     def version(self) -> int:
         return self._version
 
-    def bump_version(self):
+    def bump_version(self) -> None:
         self._version += 1
 
     def attach_external_allocation(
@@ -1350,8 +1350,8 @@ class Store:
                 self._transform.invert_partition(partition),
                 complete=complete,
                 color_shape=partition.color_shape,
-                color_transform=self._transform.get_inverse_color_transform(
-                    partition.color_shape.ndim,
+                color_transform=self._transform.get_inverse_color_transform(  # type: ignore # noqa
+                    partition.color_shape.ndim,  # type: ignore
                 ),
             )
         else:
@@ -1365,15 +1365,6 @@ class Store:
             self.invert_partition(partition),
         )
         return StorePartition(self, partition, storage_partition)
-
-    # TODO (rohany): Hacking...
-    def direct_partition(self, partition: PartitionBase) -> StorePartition:
-        return StorePartition(
-            self._runtime,
-            self,
-            partition,
-            self._storage.partition(partition),
-        )
 
     def partition_by_tiling(
         self, tile_shape: Union[Shape, Sequence[int]]

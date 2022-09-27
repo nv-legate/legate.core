@@ -271,12 +271,12 @@ class IndexPartition:
 
     @property
     def disjoint(self) -> bool:
-        return legion.legion_index_partition_is_disjoint(
+        return legion.legion_index_partition_is_disjoint(  # type: ignore
             self.runtime, self.handle
         )
 
     @property
     def complete(self) -> bool:
-        return legion.legion_index_partition_is_complete(
+        return legion.legion_index_partition_is_complete(  # type: ignore
             self.runtime, self.handle
         )
