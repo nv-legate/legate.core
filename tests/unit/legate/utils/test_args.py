@@ -48,18 +48,18 @@ def test_entries() -> None:
     assert set(m.entries(_TestObj())) == {("a", 10), ("c", "foo")}
 
 
-class Test_parse_command_args:
+class Test_parse_library_command_args:
     @pytest.mark.parametrize("name", ("1foo", "a.b", "a/b", "a[", "a("))
     def test_bad_libname(self, name: str) -> None:
         with pytest.raises(ValueError):
-            m.parse_command_args(name, [])
+            m.parse_library_command_args(name, [])
 
     def test_default_help(
         self, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
     ) -> None:
         monkeypatch.setattr("sys.argv", ["app", "-foo:help"])
         with pytest.raises(SystemExit) as e:
-            m.parse_command_args("foo", [])
+            m.parse_library_command_args("foo", [])
         assert e.value.code is None
         out, err = capsys.readouterr()  # type: ignore[unreachable]
         assert out.startswith("usage: <foo program>")
@@ -70,7 +70,7 @@ class Test_parse_command_args:
         monkeypatch.setattr("sys.argv", ["app", "-foo:help", "-foo:bar"])
         args = [m.Argument("bar", m.ArgSpec(dest="help"))]
         with pytest.raises(SystemExit) as e:
-            m.parse_command_args("foo", args)
+            m.parse_library_command_args("foo", args)
         assert e.value.code is None
         out, err = capsys.readouterr()  # type: ignore[unreachable]
         assert out.startswith("usage: <foo program>")
@@ -80,7 +80,7 @@ class Test_parse_command_args:
     ) -> None:
         monkeypatch.setattr("sys.argv", ["app", "-foo:help"])
         args = [m.Argument("help", m.ArgSpec(dest="help"))]
-        ns = m.parse_command_args("foo", args)
+        ns = m.parse_library_command_args("foo", args)
         out, err = capsys.readouterr()
         assert out == ""
         assert vars(ns) == {"help": True}
@@ -96,7 +96,7 @@ class Test_parse_command_args:
                 "quux", m.ArgSpec(dest="quux", action="store", type=int)
             ),
         ]
-        ns = m.parse_command_args("foo", args)
+        ns = m.parse_library_command_args("foo", args)
         out, err = capsys.readouterr()
         assert out == ""
         assert vars(ns) == {"bar": True, "quux": 1}
@@ -107,7 +107,7 @@ class Test_parse_command_args:
     ) -> None:
         monkeypatch.setattr("sys.argv", ["app", "-foo:bar", "--extra", "1"])
         args = [m.Argument("bar", m.ArgSpec(dest="bar"))]
-        ns = m.parse_command_args("foo", args)
+        ns = m.parse_library_command_args("foo", args)
         out, err = capsys.readouterr()
         assert out == ""
         assert vars(ns) == {"bar": True}
@@ -118,7 +118,7 @@ class Test_parse_command_args:
     ) -> None:
         monkeypatch.setattr("sys.argv", ["app", "-foo:bar", "-foo:baz"])
         with pytest.warns(UserWarning) as record:
-            ns = m.parse_command_args("foo", [])
+            ns = m.parse_library_command_args("foo", [])
         out, err = capsys.readouterr()
         assert out == ""
         assert vars(ns) == {}

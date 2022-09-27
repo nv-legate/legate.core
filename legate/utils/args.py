@@ -76,7 +76,9 @@ def entries(obj: Any) -> Iterable[tuple[str, Any]]:
             yield (f.name, value)
 
 
-def parse_command_args(libname: str, args: Iterable[Argument]) -> Namespace:
+def parse_library_command_args(
+    libname: str, args: Iterable[Argument]
+) -> Namespace:
     """ """
     if not libname.isidentifier():
         raise ValueError(
