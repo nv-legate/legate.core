@@ -33,7 +33,7 @@ from .allocation import (
     DistributedAllocation,
     InlineMappedAllocation,
 )
-from .partition import REPLICATE, PartitionBase, Restriction, Tiling
+from .partition import REPLICATE, PartitionBase, Restriction, Tiling, Weighted
 from .projection import execute_functor_symbolically
 from .runtime import runtime
 from .shape import Shape
@@ -1282,7 +1282,9 @@ class Store:
         else:
             partition = None
 
-        if partition is not None:
+        if partition is not None and (
+            not (self.transformed and isinstance(partition, Weighted))
+        ):
             partition = self._transform.convert_partition(partition)
             return partition
         else:
