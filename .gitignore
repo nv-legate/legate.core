@@ -35,3 +35,5 @@ config.mk
 .vscode
 _cmake_test_compile
 !cmake/versions.json
+legate.core.code-workspace
+
