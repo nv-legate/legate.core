@@ -978,6 +978,7 @@ class TaskLauncher:
         self._point = Point([point._node_id, point._local_id])
         # change location of all stores mapped to the task:
         self._set_store_location(point)
+        self._sharding_space = runtime.machine_model().sharding_space()
 
         for (req, fields) in self._req_analyzer.requirements:
             req.proj.add_single(task, req, fields, _single_task_calls)

@@ -76,11 +76,16 @@ class MachineModel:
         num_gpus: int,
         num_cpus: int,
         num_omps: int,
+        legion_runtime: Optional[legion.legion_runtime_t] = None,
+        legion_context: Optional[legion.legion_context_t] = None,
     ) -> None:
         self._num_nodes = num_nodes
         self._num_gpus = num_gpus
         self._num_cpus = num_cpus
         self._num_omps = num_omps
+        self._legion_runtime = legion_runtime
+        self._legion_context = legion_context
+
         self._last_point = 0
         if self._num_gpus > 0:
             self._num_devices = self._num_gpus
@@ -118,6 +123,22 @@ class MachineModel:
         n = self._last_point
 
         return DeviceID(int(n / self._num_nodes), (n % self._num_nodes), n)
+
+    def sharding_space(self) -> Union[IndexSpace, None]:
+        if (
+            self._legion_context is not None
+            and self._legion_runtime is not None
+        ):
+            rect = Rect((0, self._num_devices))
+            handle = legion.legion_index_space_create_domain(
+                self._legion_runtime, self._legion_context, rect.raw()
+            )
+            result = IndexSpace(
+                self._legion_context, self._legion_runtime, handle=handle
+            )
+            return result
+        else:
+            return None
 
 
 class DeviceID:
@@ -977,7 +998,12 @@ class Runtime:
         )
 
         self._machine_model = MachineModel(
-            self._num_nodes, self._num_gpus, self._num_cpus, self._num_omps
+            self._num_nodes,
+            self._num_gpus,
+            self._num_cpus,
+            self._num_omps,
+            self._legion_runtime,
+            self._legion_context,
         )
 
         # Now we initialize managers
@@ -1067,7 +1093,6 @@ class Runtime:
     def num_nodes(self) -> int:
         return self._num_nodes
 
-    @property
     def machine_model(self) -> MachineModel:
         return self._machine_model
 
