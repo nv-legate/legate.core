@@ -250,7 +250,6 @@ class RegionManager:
     def destroy(self, unordered: bool = False) -> None:
         self._region.destroy(unordered=unordered)
         if self._imported:
-            self._region.index_space.destroy(unordered=unordered)
             self._region.field_space.destroy(unordered=unordered)
 
     def increase_field_count(self) -> None:
