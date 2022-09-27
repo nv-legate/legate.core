@@ -21,7 +21,7 @@ import legate.core.types as ty
 from . import Future, FutureMap, Rect
 from .constraints import Image, PartSym
 from .launcher import CopyLauncher, TaskLauncher
-from .partition import ImagePartition, Replicate, Weighted
+from .partition import REPLICATE, ImagePartition, Weighted
 from .shape import Shape
 from .store import Store, StorePartition
 from .utils import OrderedSet, capture_traceback
@@ -630,9 +630,7 @@ class ManualTask(Operation, Task):
     ) -> None:
         self._check_arg(arg)
         if isinstance(arg, Store):
-            self._input_parts.append(
-                arg.partition(Replicate(self.context.runtime))
-            )
+            self._input_parts.append(arg.partition(REPLICATE))
         else:
             self._input_parts.append(arg)
         self._input_projs.append(proj)
@@ -650,9 +648,7 @@ class ManualTask(Operation, Task):
                 return
             if arg.kind is Future:
                 self._scalar_outputs.append(len(self._outputs))
-            self._output_parts.append(
-                arg.partition(Replicate(self.context.runtime))
-            )
+            self._output_parts.append(arg.partition(REPLICATE))
         else:
             self._output_parts.append(arg)
         self._output_projs.append(proj)
@@ -667,9 +663,7 @@ class ManualTask(Operation, Task):
         if isinstance(arg, Store):
             if arg.kind is Future:
                 self._scalar_reductions.append(len(self._reductions))
-            self._reduction_parts.append(
-                (arg.partition(Replicate(self.context.runtime)), redop)
-            )
+            self._reduction_parts.append((arg.partition(REPLICATE), redop))
         else:
             self._reduction_parts.append((arg, redop))
         self._reduction_projs.append(proj)
