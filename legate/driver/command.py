@@ -299,6 +299,9 @@ def cmd_log_levels(
         opts += ("-lg:spy",)
         levels += ("legion_spy=2",)
 
+    if config.logging.user_logging_levels is not None:
+        levels += (config.logging.user_logging_levels,)
+
     opts += ("-level", ",".join(levels))
 
     return opts

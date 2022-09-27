@@ -880,6 +880,13 @@ class Test_cmd_log_levels:
 
         assert result == ("-level", "openmp=5")
 
+    def test_default_with_user_levels(self, genobjs: GenObjs) -> None:
+        config, system, launcher = genobjs(["--logging", "foo,bar"])
+
+        result = m.cmd_log_levels(config, system, launcher)
+
+        assert result == ("-level", "openmp=5,foo,bar")
+
     def test_profile_single_rank_no_launcher(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs(["--profile"])
 
@@ -964,7 +971,16 @@ class Test_cmd_log_levels:
         self, genobjs: GenObjs, launch: str, rank_var: str
     ) -> None:
         config, system, launcher = genobjs(
-            ["--profile", "--launcher", launch, "--profile", "--gpus", "4"],
+            [
+                "--profile",
+                "--launcher",
+                launch,
+                "--profile",
+                "--gpus",
+                "4",
+                "--logging",
+                "foo",
+            ],
             multi_rank=(2, 2),
             rank_env={rank_var: "2"},
         )
@@ -975,7 +991,7 @@ class Test_cmd_log_levels:
         assert result == (
             ("-lg:prof", "4")
             + ("-lg:prof_logfile", log_file)
-            + ("-level", "openmp=5,legion_prof=2,gpu=5")
+            + ("-level", "openmp=5,legion_prof=2,gpu=5,foo")
         )
 
 
