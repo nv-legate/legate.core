@@ -24,9 +24,9 @@ from legate.driver.args import LAUNCHERS
 from legate.driver.command import CMD_PARTS
 from legate.driver.launcher import Launcher
 from legate.driver.system import System
-from legate.driver.types import LauncherType
 from legate.driver.util import print_verbose
 from legate.utils.colors import scrub
+from legate.utils.types import LauncherType
 
 from ...util import Capsys
 from .util import GenConfig

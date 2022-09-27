@@ -21,7 +21,7 @@ import pytest
 import legate.driver.launcher as m
 from legate.driver.args import LAUNCHERS
 from legate.driver.system import System
-from legate.driver.types import LauncherType
+from legate.utils.types import LauncherType
 
 from ...util import powerset_nonempty
 from .util import GenConfig, GenObjs

@@ -21,8 +21,8 @@ import pytest
 
 import legate.driver.command as m
 from legate.driver.launcher import RANK_ENV_VARS
-from legate.driver.types import LauncherType
 from legate.utils.colors import scrub
+from legate.utils.types import LauncherType
 
 from ...util import Capsys, powerset_nonempty
 from .util import GenObjs

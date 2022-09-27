@@ -27,7 +27,7 @@ from pathlib import Path
 from subprocess import PIPE, STDOUT, run as stdlib_run
 from typing import Sequence
 
-from .types import CPUInfo, EnvDict, GPUInfo
+from ..utils.types import CPUInfo, EnvDict, GPUInfo
 
 
 @dataclass

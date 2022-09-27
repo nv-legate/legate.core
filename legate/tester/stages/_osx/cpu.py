@@ -14,10 +14,8 @@
 #
 from __future__ import annotations
 
-from ... import FeatureType
-from ...config import Config
-from ...system import System
-from ...types import ArgList, EnvDict
+from typing import TYPE_CHECKING
+
 from ..test_stage import TestStage
 from ..util import (
     CUNUMERIC_TEST_ARG,
@@ -26,6 +24,12 @@ from ..util import (
     StageSpec,
     adjust_workers,
 )
+
+if TYPE_CHECKING:
+    from ....utils.types import ArgList, EnvDict
+    from ... import FeatureType
+    from ...config import Config
+    from ...system import System
 
 
 class CPU(TestStage):

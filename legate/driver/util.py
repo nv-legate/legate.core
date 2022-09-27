@@ -21,7 +21,7 @@ from shlex import quote
 from textwrap import indent
 from typing import TYPE_CHECKING, Type, TypeVar
 
-from .types import DataclassProtocol, LegatePaths, LegionPaths
+from ..utils.types import DataclassProtocol, LegatePaths, LegionPaths
 from .ui import kvtable, rule, section, value
 
 if TYPE_CHECKING:

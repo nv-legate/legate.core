@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-"""Provide types that are useful throughout the driver code.
+"""Provide types that are useful throughout the test driver code.
 
 """
 from __future__ import annotations
@@ -23,19 +23,41 @@ from typing import Any, Dict, List, Protocol, Tuple, Union
 
 from typing_extensions import Literal, TypeAlias
 
-from .ui import kvtable
+from ..driver.ui import kvtable  # TODO (bv) consolidate ui
 
 __all__ = (
     "ArgList",
     "Command",
     "CommandPart",
+    "CPUInfo",
     "DataclassMixin",
     "DataclassProtocol",
     "EnvDict",
+    "GPUInfo",
     "LauncherType",
     "LegatePaths",
     "LegionPaths",
 )
+
+
+@dataclass(frozen=True)
+class CPUInfo:
+    """Encapsulate information about a single CPU"""
+
+    #: IDs of hypterthreading sibling cores for a given physscal core
+    ids: tuple[int, ...]
+
+
+@dataclass(frozen=True)
+class GPUInfo:
+    """Encapsulate information about a single CPU"""
+
+    #: ID of the GPU to specify in test shards
+    id: int
+
+    #: The total framebuffer memory of this GPU
+    total: int
+
 
 #: Define the available launcher for the driver to use
 LauncherType: TypeAlias = Union[

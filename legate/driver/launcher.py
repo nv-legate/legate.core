@@ -17,12 +17,15 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from .config import Config
-from .system import System
-from .types import Command, EnvDict, LauncherType
 from .ui import warn
 from .util import read_c_define
+
+if TYPE_CHECKING:
+    from ..utils.types import Command, EnvDict, LauncherType
+    from .config import Config
+    from .system import System
 
 __all__ = ("Launcher",)
 

@@ -19,10 +19,10 @@ from typing import TYPE_CHECKING
 from .ui import warn
 
 if TYPE_CHECKING:
+    from ..utils.types import CommandPart
     from .config import Config
     from .launcher import Launcher
     from .system import System
-    from .types import CommandPart
 
 __all__ = ("CMD_PARTS",)
 

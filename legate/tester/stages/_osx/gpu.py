@@ -15,13 +15,16 @@
 from __future__ import annotations
 
 import time
+from typing import TYPE_CHECKING
 
-from ... import FeatureType
-from ...config import Config
-from ...system import System
-from ...types import ArgList, EnvDict
 from ..test_stage import TestStage
 from ..util import CUNUMERIC_TEST_ARG, UNPIN_ENV, Shard
+
+if TYPE_CHECKING:
+    from ....utils.types import ArgList, EnvDict
+    from ... import FeatureType
+    from ...config import Config
+    from ...system import System
 
 
 class GPU(TestStage):
