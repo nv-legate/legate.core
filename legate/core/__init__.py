@@ -70,6 +70,7 @@ from ._legion import (
 
 # Import select types for Legate library construction
 from .allocation import DistributedAllocation
+from .context import track_provenance
 from .legate import (
     Array,
     Library,

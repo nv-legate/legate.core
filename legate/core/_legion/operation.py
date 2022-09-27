@@ -133,6 +133,7 @@ class Fill(Dispatchable[None]):
         future: Future,
         mapper: int = 0,
         tag: int = 0,
+        provenance: Optional[str] = None,
     ) -> None:
         """
         A Fill object provides a mechanism for launching fill operations
@@ -169,6 +170,10 @@ class Fill(Dispatchable[None]):
             mapper,
             tag,
         )
+        if provenance is not None:
+            legion.legion_fill_launcher_set_provenance(
+                self.launcher, provenance.encode()
+            )
         self._launcher = ffi.gc(
             self.launcher, legion.legion_fill_launcher_destroy
         )
@@ -225,6 +230,7 @@ class IndexFill(Dispatchable[None]):
         mapper: int = 0,
         tag: int = 0,
         space: Optional[Union[IndexSpace, Domain]] = None,
+        provenance: Optional[str] = None,
     ) -> None:
         """
         An IndexFill object provides a mechanism for launching index space fill
@@ -308,6 +314,10 @@ class IndexFill(Dispatchable[None]):
                 mapper,
                 tag,
             )
+        if provenance is not None:
+            legion.legion_index_fill_launcher_set_provenance(
+                self.launcher, provenance.encode()
+            )
         self._launcher = ffi.gc(
             self.launcher, legion.legion_index_fill_launcher_destroy
         )
@@ -342,7 +352,12 @@ class IndexFill(Dispatchable[None]):
 
 
 class Copy(Dispatchable[None]):
-    def __init__(self, mapper: int = 0, tag: int = 0) -> None:
+    def __init__(
+        self,
+        mapper: int = 0,
+        tag: int = 0,
+        provenance: Optional[str] = None,
+    ) -> None:
         """
         A Copy object provides a mechanism for launching explicit
         region-to-region copy operations. Note: you should NOT use
@@ -359,6 +374,10 @@ class Copy(Dispatchable[None]):
         self.launcher = legion.legion_copy_launcher_create(
             legion.legion_predicate_true(), mapper, tag
         )
+        if provenance is not None:
+            legion.legion_copy_launcher_set_provenance(
+                self.launcher, provenance.encode()
+            )
         self._launcher = ffi.gc(
             self.launcher, legion.legion_copy_launcher_destroy
         )
@@ -643,7 +662,13 @@ class Copy(Dispatchable[None]):
 
 
 class IndexCopy(Dispatchable[None]):
-    def __init__(self, domain: Rect, mapper: int = 0, tag: int = 0) -> None:
+    def __init__(
+        self,
+        domain: Rect,
+        mapper: int = 0,
+        tag: int = 0,
+        provenance: Optional[str] = None,
+    ) -> None:
         """
         An IndexCopy object provides a mechanism for launching explicit
         region-to-region copies between many different subregions
@@ -663,6 +688,10 @@ class IndexCopy(Dispatchable[None]):
         self.launcher = legion.legion_index_copy_launcher_create(
             domain.raw(), legion.legion_predicate_true(), mapper, tag
         )
+        if provenance is not None:
+            legion.legion_index_copy_launcher_set_provenance(
+                self.launcher, provenance.encode()
+            )
         self._launcher = ffi.gc(
             self.launcher, legion.legion_index_copy_launcher_destroy
         )

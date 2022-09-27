@@ -655,7 +655,7 @@ void BaseMapper::map_task(const MapperContext ctx,
     // If we failed to acquire any of the instances we need to prune them
     // out of the mapper's data structure so do that first
     std::set<PhysicalInstance> failed_acquires;
-    filter_failed_acquires(needed_acquires, failed_acquires);
+    filter_failed_acquires(ctx, needed_acquires, failed_acquires);
 
     for (auto failed_acquire : failed_acquires) {
       auto affected_mappings = instances_to_mappings[failed_acquire];
@@ -696,7 +696,8 @@ void BaseMapper::map_replicate_task(const MapperContext ctx,
   LEGATE_ABORT;
 }
 
-bool BaseMapper::find_existing_instance(LogicalRegion region,
+bool BaseMapper::find_existing_instance(const MapperContext ctx,
+                                        LogicalRegion region,
                                         FieldID fid,
                                         Memory target_memory,
                                         PhysicalInstance& result,
@@ -704,7 +705,8 @@ bool BaseMapper::find_existing_instance(LogicalRegion region,
                                         bool acquire_instance_lock)
 {
   std::unique_ptr<AutoLock> lock =
-    acquire_instance_lock ? std::make_unique<AutoLock>(local_instances->manager_lock()) : nullptr;
+    acquire_instance_lock ? std::make_unique<AutoLock>(ctx, local_instances->manager_lock())
+                          : nullptr;
   // See if we already have it in our local instances
   if (local_instances->find_instance(region, fid, target_memory, result))
     return true;
@@ -781,7 +783,7 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
   auto& fields = layout_constraints.field_constraint.field_set;
 
   // We need to hold the instance manager lock as we're about to try to find an instance
-  AutoLock lock(local_instances->manager_lock());
+  AutoLock lock(ctx, local_instances->manager_lock());
 
   // This whole process has to appear atomic
   runtime->disable_reentrant(ctx);
@@ -917,7 +919,7 @@ bool BaseMapper::map_raw_array(const MapperContext ctx,
     return false;
   }
 
-  AutoLock lock(local_instances->manager_lock());
+  AutoLock lock(ctx, local_instances->manager_lock());
 
   // See if we already have it in our local instances
   if (local_instances->find_instance(region, fid, target_memory, result))
@@ -1030,18 +1032,18 @@ bool BaseMapper::map_raw_array(const MapperContext ctx,
         // Needs acquire to keep the runtime happy
         return true;
   } else if (find_existing_instance(
-               region, fid, target_memory, result, Strictness::strict, false)) {
+               ctx, region, fid, target_memory, result, Strictness::strict, false))
     return true;
-  }
   // If we make it here then we failed entirely
   report_failed_mapping(mappable, index, target_memory, redop);
   return true;
 }
 
-void BaseMapper::filter_failed_acquires(std::vector<PhysicalInstance>& needed_acquires,
+void BaseMapper::filter_failed_acquires(const MapperContext ctx,
+                                        std::vector<PhysicalInstance>& needed_acquires,
                                         std::set<PhysicalInstance>& failed_acquires)
 {
-  AutoLock lock(local_instances->manager_lock());
+  AutoLock lock(ctx, local_instances->manager_lock());
   for (auto& instance : needed_acquires) {
     if (failed_acquires.find(instance) != failed_acquires.end()) continue;
     failed_acquires.insert(instance);
@@ -1292,7 +1294,7 @@ void BaseMapper::map_inline(const MapperContext ctx,
          !runtime->acquire_and_filter_instances(ctx, needed_acquires, true /*filter on acquire*/)) {
     assert(!needed_acquires.empty());
     std::set<PhysicalInstance> failed_instances;
-    filter_failed_acquires(needed_acquires, failed_instances);
+    filter_failed_acquires(ctx, needed_acquires, failed_instances);
     // Now go through all the fields for the instances and try and remap
     std::set<FieldID>::const_iterator fit = req.privilege_fields.begin();
     for (uint32_t idx = 0; idx < output.chosen_instances.size(); idx++, fit++) {
@@ -1371,7 +1373,7 @@ void BaseMapper::map_copy(const MapperContext ctx,
         ++fidx;
         continue;
       }
-      if (find_existing_instance(region, fid, target_memory, outputs[fidx]) ||
+      if (find_existing_instance(ctx, region, fid, target_memory, outputs[fidx]) ||
           map_raw_array(ctx,
                         copy,
                         idx,
@@ -1450,7 +1452,7 @@ void BaseMapper::map_copy(const MapperContext ctx,
     // If we failed to acquire any of the instances we need to prune them
     // out of the mapper's data structure so do that first
     std::set<PhysicalInstance> failed_acquires;
-    filter_failed_acquires(needed_acquires, failed_acquires);
+    filter_failed_acquires(ctx, needed_acquires, failed_acquires);
 
     // Now go through and try to remap region requirements with failed acquisitions
     for (uint32_t idx = 0; idx < copy.src_requirements.size(); idx++) {
@@ -1632,7 +1634,8 @@ void BaseMapper::map_partition(const MapperContext ctx,
   uint32_t fidx      = 0;
   const bool memoize = true;
   for (auto fid : req.privilege_fields) {
-    if (find_existing_instance(req.region,
+    if (find_existing_instance(ctx,
+                               req.region,
                                fid,
                                local_system_memory,
                                output.chosen_instances[fidx],
@@ -1655,7 +1658,7 @@ void BaseMapper::map_partition(const MapperContext ctx,
          !runtime->acquire_and_filter_instances(ctx, needed_acquires, true /*filter on acquire*/)) {
     assert(!needed_acquires.empty());
     std::set<PhysicalInstance> failed_instances;
-    filter_failed_acquires(needed_acquires, failed_instances);
+    filter_failed_acquires(ctx, needed_acquires, failed_instances);
     // Now go through all the fields for the instances and try and remap
     auto fit = req.privilege_fields.begin();
     for (uint32_t idx = 0; idx < output.chosen_instances.size(); idx++, fit++) {
