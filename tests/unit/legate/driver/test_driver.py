@@ -18,7 +18,6 @@ import re
 
 import pytest
 from pytest_mock import MockerFixture
-from util import Capsys, GenConfig
 
 import legate.driver.driver as m
 from legate.driver.args import LAUNCHERS
@@ -28,6 +27,9 @@ from legate.driver.system import System
 from legate.driver.types import LauncherType
 from legate.driver.ui import scrub
 from legate.driver.util import print_verbose
+
+from ...util import Capsys
+from .util import GenConfig
 
 SYSTEM = System()
 

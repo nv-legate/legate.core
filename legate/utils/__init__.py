@@ -13,13 +13,3 @@
 # limitations under the License.
 #
 from __future__ import annotations
-
-from typing import Any
-
-from typing_extensions import TypeAlias
-
-GenConfig: TypeAlias = Any
-
-GenSystem: TypeAlias = Any
-
-GenObjs: TypeAlias = Any

@@ -14,12 +14,20 @@
 #
 from __future__ import annotations
 
-from typing import Any
+from itertools import chain, combinations
+from typing import Any, Iterable, Iterator
 
+import pytest
 from typing_extensions import TypeAlias
 
-GenConfig: TypeAlias = Any
+Capsys: TypeAlias = pytest.CaptureFixture[str]
 
-GenSystem: TypeAlias = Any
 
-GenObjs: TypeAlias = Any
+# ref: https://docs.python.org/3/library/itertools.html
+def powerset(iterable: Iterable[Any]) -> Iterator[Any]:
+    s = list(iterable)
+    return chain.from_iterable(combinations(s, r) for r in range(len(s) + 1))
+
+
+def powerset_nonempty(iterable: Iterable[Any]) -> Iterator[Any]:
+    return (x for x in powerset(iterable) if len(x))

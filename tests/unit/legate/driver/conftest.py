@@ -19,10 +19,11 @@ from types import ModuleType
 from typing import Any, Callable, Iterable
 
 import pytest
-from util import GenConfig, GenSystem
 
 from legate.driver import Config, Launcher, System
 from legate.driver.config import MultiNode
+
+from .util import GenConfig, GenSystem
 
 
 @pytest.fixture

@@ -19,13 +19,14 @@ from pathlib import Path
 from shlex import quote
 
 import pytest
-from util import Capsys
 
 import legate.driver.util as m
 from legate.driver.config import Config
 from legate.driver.driver import Driver
 from legate.driver.system import System
 from legate.driver.ui import scrub
+
+from ...util import Capsys
 
 
 class Source:
