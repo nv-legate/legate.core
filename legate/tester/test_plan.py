@@ -20,11 +20,12 @@ from __future__ import annotations
 from datetime import timedelta
 from itertools import chain
 
+from ..utils.colors import yellow
 from .config import Config
 from .logger import LOG
 from .stages import STAGES, log_proc
 from .system import System
-from .ui import banner, rule, summary, yellow
+from .ui import banner, rule, summary
 
 
 class TestPlan:

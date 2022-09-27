@@ -24,7 +24,7 @@ from pytest_mock import MockerFixture
 import legate.driver.config as m
 import legate.driver.defaults as defaults
 from legate.driver.types import DataclassMixin
-from legate.driver.ui import scrub
+from legate.utils.colors import scrub
 
 from ...util import Capsys, powerset, powerset_nonempty
 

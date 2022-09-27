@@ -21,70 +21,28 @@ text output (i.e. without ANSI color codes) will be generated.
 """
 from __future__ import annotations
 
-import re
-import sys
 from typing import Any, Iterable
 
+from ..utils.colors import (
+    bright,
+    cyan,
+    dim,
+    green,
+    magenta,
+    red,
+    white,
+    yellow,
+)
+
 __all__ = (
-    "bright",
-    "cyan",
-    "dim",
     "error",
-    "green",
     "key",
     "kvtable",
-    "magenta",
-    "red",
     "rule",
-    "scrub",
     "section",
     "value",
     "warn",
-    "white",
-    "yellow",
 )
-
-
-def _text(text: str) -> str:
-    return text
-
-
-try:
-    import colorama  # type: ignore[import]
-
-    def bright(text: str) -> str:
-        return f"{colorama.Style.BRIGHT}{text}{colorama.Style.RESET_ALL}"
-
-    def dim(text: str) -> str:
-        return f"{colorama.Style.DIM}{text}{colorama.Style.RESET_ALL}"
-
-    def white(text: str) -> str:
-        return f"{colorama.Fore.WHITE}{text}{colorama.Style.RESET_ALL}"
-
-    def cyan(text: str) -> str:
-        return f"{colorama.Fore.CYAN}{text}{colorama.Style.RESET_ALL}"
-
-    def red(text: str) -> str:
-        return f"{colorama.Fore.RED}{text}{colorama.Style.RESET_ALL}"
-
-    def magenta(text: str) -> str:
-        return f"{colorama.Fore.MAGENTA}{text}{colorama.Style.RESET_ALL}"
-
-    def green(text: str) -> str:
-        return f"{colorama.Fore.GREEN}{text}{colorama.Style.RESET_ALL}"
-
-    def yellow(text: str) -> str:
-        return f"{colorama.Fore.YELLOW}{text}{colorama.Style.RESET_ALL}"
-
-    if sys.platform == "win32":
-        colorama.init()
-
-except ImportError:
-
-    bright = dim = white = cyan = red = magenta = green = yellow = _text
-
-# ref: https://stackoverflow.com/a/14693789
-_ANSI_ESCAPE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 
 
 def error(text: str) -> str:
@@ -212,22 +170,6 @@ def section(text: str) -> str:
 
     """
     return bright(white(text))
-
-
-def scrub(text: str) -> str:
-    """Remove ANSI color codes from a text string.
-
-    Parameters
-    ----------
-    text : str
-        The text to scrub
-
-    Returns
-    -------
-        str
-
-    """
-    return _ANSI_ESCAPE.sub("", text)
 
 
 def warn(text: str) -> str:

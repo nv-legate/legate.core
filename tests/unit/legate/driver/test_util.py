@@ -24,7 +24,7 @@ import legate.driver.util as m
 from legate.driver.config import Config
 from legate.driver.driver import Driver
 from legate.driver.system import System
-from legate.driver.ui import scrub
+from legate.utils.colors import scrub
 
 from ...util import Capsys
 

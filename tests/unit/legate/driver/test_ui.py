@@ -21,6 +21,7 @@ from pytest_mock import MockerFixture
 from typing_extensions import TypeAlias
 
 import legate.driver.ui as m
+import legate.utils.colors as colors
 
 try:
     import colorama  # type: ignore
@@ -32,56 +33,19 @@ UsePlainTextFixture: TypeAlias = Any
 
 @pytest.fixture
 def use_plain_text(mocker: MockerFixture) -> None:
-    mocker.patch.object(m, "bright", m._text)
-    mocker.patch.object(m, "dim", m._text)
-    mocker.patch.object(m, "white", m._text)
-    mocker.patch.object(m, "cyan", m._text)
-    mocker.patch.object(m, "red", m._text)
-    mocker.patch.object(m, "green", m._text)
-    mocker.patch.object(m, "yellow", m._text)
-    mocker.patch.object(m, "magenta", m._text)
-
-
-COLOR_FUNCS = (
-    "cyan",
-    "green",
-    "magenta",
-    "red",
-    "white",
-    "yellow",
-)
-
-STYLE_FUNCS = (
-    "bright",
-    "dim",
-)
+    mocker.patch.object(m, "bright", colors._text)
+    mocker.patch.object(m, "dim", colors._text)
+    mocker.patch.object(m, "white", colors._text)
+    mocker.patch.object(m, "cyan", colors._text)
+    mocker.patch.object(m, "red", colors._text)
+    mocker.patch.object(m, "green", colors._text)
+    mocker.patch.object(m, "yellow", colors._text)
+    mocker.patch.object(m, "magenta", colors._text)
 
 
 @pytest.mark.skipif(colorama is None, reason="colorama required")
-@pytest.mark.parametrize("color", COLOR_FUNCS)
-def test_color_functions(color: str) -> None:
-    cfunc = getattr(m, color)
-    cprop = getattr(colorama.Fore, color.upper())
-
-    out = cfunc("some text")
-
-    assert out == f"{cprop}some text{colorama.Style.RESET_ALL}"
-
-
-@pytest.mark.skipif(colorama is None, reason="colorama required")
-@pytest.mark.parametrize("style", STYLE_FUNCS)
-def test_style_functions(style: str) -> None:
-    sfunc = getattr(m, style)
-    sprop = getattr(colorama.Style, style.upper())
-
-    out = sfunc("some text")
-
-    assert out == f"{sprop}some text{colorama.Style.RESET_ALL}"
-
-
-@pytest.mark.skipif(colorama is None, reason="colorama required")
-def test_error(use_plain_text: UsePlainTextFixture) -> None:
-    assert m.error("some message") == m.red("ERROR: some message")
+def test_error() -> None:
+    assert m.error("some message") == colors.red("ERROR: some message")
 
 
 def test_error_plain(use_plain_text: UsePlainTextFixture) -> None:
@@ -89,8 +53,8 @@ def test_error_plain(use_plain_text: UsePlainTextFixture) -> None:
 
 
 @pytest.mark.skipif(colorama is None, reason="colorama required")
-def test_key(use_plain_text: UsePlainTextFixture) -> None:
-    assert m.key("some key") == m.dim(m.green("some key"))
+def test_key() -> None:
+    assert m.key("some key") == colors.dim(colors.green("some key"))
 
 
 def test_key_plain(use_plain_text: UsePlainTextFixture) -> None:
@@ -98,7 +62,7 @@ def test_key_plain(use_plain_text: UsePlainTextFixture) -> None:
 
 
 @pytest.mark.skipif(colorama is None, reason="colorama required")
-def test_value(use_plain_text: UsePlainTextFixture) -> None:
+def test_value() -> None:
     assert m.value("some value") == m.yellow("some value")
 
 
@@ -183,19 +147,21 @@ class Test_kvtable:
 class Test_rule:
     @pytest.mark.skipif(colorama is None, reason="colorama required")
     def test_text(self) -> None:
-        assert m.rule("foo bar") == m.cyan("--- foo bar " + "-" * 68)
+        assert m.rule("foo bar") == colors.cyan("--- foo bar " + "-" * 68)
 
     @pytest.mark.skipif(colorama is None, reason="colorama required")
     def test_char(self) -> None:
-        assert m.rule(char="a") == m.cyan("a" * 80)
+        assert m.rule(char="a") == colors.cyan("a" * 80)
 
     @pytest.mark.skipif(colorama is None, reason="colorama required")
     def test_N(self) -> None:
-        assert m.rule(N=60) == m.cyan("-" * 60)
+        assert m.rule(N=60) == colors.cyan("-" * 60)
 
     @pytest.mark.skipif(colorama is None, reason="colorama required")
     def test_N_with_text(self) -> None:
-        assert m.rule("foo bar", N=65) == m.cyan("--- foo bar " + "-" * 53)
+        assert m.rule("foo bar", N=65) == colors.cyan(
+            "--- foo bar " + "-" * 53
+        )
 
     def test_text_plain(self, use_plain_text: UsePlainTextFixture) -> None:
         assert m.rule("foo bar") == "--- foo bar " + "-" * 68
@@ -213,31 +179,7 @@ class Test_rule:
 
 
 @pytest.mark.skipif(colorama is None, reason="colorama required")
-@pytest.mark.parametrize("color", COLOR_FUNCS)
-@pytest.mark.parametrize("style", STYLE_FUNCS)
-def test_scrub(style: str, color: str) -> None:
-    cfunc = getattr(m, color)
-    sfunc = getattr(m, style)
-
-    assert m.scrub(cfunc(sfunc("some text"))) == "some text"
-    assert m.scrub(sfunc(cfunc("some text"))) == "some text"
-
-
-@pytest.mark.skipif(colorama is None, reason="colorama required")
-@pytest.mark.parametrize("color", COLOR_FUNCS)
-@pytest.mark.parametrize("style", STYLE_FUNCS)
-def test_scrub_plain(
-    use_plain_text: UsePlainTextFixture, style: str, color: str
-) -> None:
-    cfunc = getattr(m, color)
-    sfunc = getattr(m, style)
-
-    assert m.scrub(cfunc(sfunc("some text"))) == "some text"
-    assert m.scrub(sfunc(cfunc("some text"))) == "some text"
-
-
-@pytest.mark.skipif(colorama is None, reason="colorama required")
-def test_section(use_plain_text: UsePlainTextFixture) -> None:
+def test_section() -> None:
     assert m.section("some section") == m.bright(m.white("some section"))
 
 
@@ -246,7 +188,7 @@ def test_section_plain(use_plain_text: UsePlainTextFixture) -> None:
 
 
 @pytest.mark.skipif(colorama is None, reason="colorama required")
-def test_warn(use_plain_text: UsePlainTextFixture) -> None:
+def test_warn() -> None:
     assert m.warn("some message") == m.magenta("WARNING: some message")
 
 
