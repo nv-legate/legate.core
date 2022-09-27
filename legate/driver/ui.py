@@ -1,4 +1,4 @@
-# Copyright AS2022 NVIDIA Corporation
+# Copyright 2022 NVIDIA Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-"""Helpler functions for simple text UI output.
+"""Helper functions for simple text UI output.
 
 The color functions in this module require ``colorama`` to be installed in
 order to generate color output. If ``colorama`` is not available, plain
-text output (i.e. without ANSI color codes) will generated.
+text output (i.e. without ANSI color codes) will be generated.
 
 """
 from __future__ import annotations
