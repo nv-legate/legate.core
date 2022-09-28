@@ -346,8 +346,6 @@ def get_legion_paths(legate_paths: LegatePaths) -> LegionPaths:
             legion_jupyter_module=legion_module,
         )
 
-        raise RuntimeError("Could not determine legion paths")
-
     if (legate_build_dir := legate_paths.legate_build_dir) is None:
         legate_build_dir = get_legate_build_dir(legate_paths.legate_dir)
 
