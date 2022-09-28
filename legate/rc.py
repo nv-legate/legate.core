@@ -27,6 +27,13 @@ Use "bin/legate --verbose ..." to see some examples of how to call
 legion_python directly.
 """
 
+# TODO (bv) temp transitive imports until cunumeric is updated
+from .utils.args import (  # noqa
+    ArgSpec,
+    Argument,
+    parse_library_command_args as parse_command_args,
+)
+
 
 def has_legion_context() -> bool:
     """Determine whether we are running in legion_python.
