@@ -323,6 +323,7 @@ install(
 install(
   FILES src/core/comm/coll.h
         src/core/comm/communicator.h
+        src/core/comm/pthread_barrier.h
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/legate/core/comm)
 
 install(
