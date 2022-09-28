@@ -825,6 +825,8 @@ class CommunicatorManager:
 class Runtime:
     _legion_runtime: Union[legion.legion_runtime_t, None]
     _legion_context: Union[legion.legion_context_t, None]
+    # TODO: do we want this to be configurable?
+    _LRU_FLUSH_THRESHOLD: int = 10
 
     def __init__(self, core_library: CoreLib) -> None:
         """
@@ -940,6 +942,7 @@ class Runtime:
         self.region_managers_by_region: dict[Region, RegionManager] = {}
         # LRU for free region managers
         self.lru_managers: Deque[RegionManager] = deque()
+        self.lru_flush_counter: int = 0
         # map from (shape,dtype) to field managers
         self.field_managers: dict[tuple[Shape, Any], FieldManager] = {}
 
@@ -1081,6 +1084,7 @@ class Runtime:
         # Remove references to our legion resources so they can be collected
         self.active_region_managers = {}
         self.region_managers_by_region = {}
+        self.lru_managers = deque()
         self.field_managers = {}
         self.index_spaces = {}
 
@@ -1245,6 +1249,15 @@ class Runtime:
         assert region in self.region_managers_by_region
         return self.region_managers_by_region[region]
 
+    def flush_unused_region_managers(self) -> None:
+        self.lru_flush_counter += 1
+
+        if self.lru_flush_counter > self._LRU_FLUSH_THRESHOLD:
+            for region_mgr in self.lru_managers:
+                self.destroy_region_manager(region_mgr, False)
+            self.lru_managers = deque()
+            self.lru_flush_counter = 0
+
     def revive_manager(self, region_mgr: RegionManager) -> None:
         lru_managers: Deque[RegionManager] = deque()
         for to_check in self.lru_managers:
@@ -1312,6 +1325,11 @@ class Runtime:
         field_id = None
         field_mgr = self.find_or_create_field_manager(shape, dtype.size)
         region, field_id = field_mgr.allocate_field()
+
+        # After allocating fields for an enough number of times,
+        # flush any region managers that are still unused
+        self.flush_unused_region_managers()
+
         return RegionField.create(region, field_id, dtype.size, shape)
 
     def free_field(
