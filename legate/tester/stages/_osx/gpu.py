@@ -21,7 +21,7 @@ from ..test_stage import TestStage
 from ..util import CUNUMERIC_TEST_ARG, UNPIN_ENV, Shard
 
 if TYPE_CHECKING:
-    from ....utils.types import ArgList, EnvDict
+    from ....util.types import ArgList, EnvDict
     from ... import FeatureType
     from ...config import Config
     from ...test_system import TestSystem

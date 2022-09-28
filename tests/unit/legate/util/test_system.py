@@ -20,7 +20,7 @@ import sys
 import pytest
 from pytest_mock import MockerFixture
 
-import legate.utils.system as m
+import legate.util.system as m
 
 
 def test___all__() -> None:
@@ -74,7 +74,7 @@ class TestSystem:
 
     def test_legate_paths(self, mocker: MockerFixture) -> None:
         mocker.patch(
-            "legate.utils.system.get_legate_paths",
+            "legate.util.system.get_legate_paths",
             return_value="legate paths",
         )
 
@@ -84,7 +84,7 @@ class TestSystem:
 
     def test_legion_paths(self, mocker: MockerFixture) -> None:
         mocker.patch(
-            "legate.utils.system.get_legion_paths",
+            "legate.util.system.get_legion_paths",
             return_value="legion paths",
         )
 

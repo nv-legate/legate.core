@@ -20,8 +20,8 @@ from __future__ import annotations
 from datetime import timedelta
 from itertools import chain
 
-from ..utils.colors import yellow
-from ..utils.ui import banner, rule, summary
+from ..util.colors import yellow
+from ..util.ui import banner, rule, summary
 from .config import Config
 from .logger import LOG
 from .stages import STAGES, log_proc

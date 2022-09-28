@@ -28,7 +28,7 @@ legion_python directly.
 """
 
 # TODO (bv) temp transitive imports until cunumeric is updated
-from .utils.args import (  # noqa
+from .util.args import (  # noqa
     ArgSpec,
     Argument,
     parse_library_command_args as parse_command_args,

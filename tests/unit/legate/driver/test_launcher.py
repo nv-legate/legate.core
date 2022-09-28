@@ -20,8 +20,8 @@ import pytest
 
 import legate.driver.launcher as m
 from legate.driver.args import LAUNCHERS
-from legate.utils.system import System
-from legate.utils.types import LauncherType
+from legate.util.system import System
+from legate.util.types import LauncherType
 
 from ...util import powerset_nonempty
 from .util import GenConfig, GenObjs

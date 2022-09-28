@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, Any, Deque, List, Optional, TypeVar, Union
 
 from legion_top import add_cleanup_item, top_level
 
-from ..utils.args import ArgSpec, Argument, parse_library_command_args
+from ..util.args import ArgSpec, Argument, parse_library_command_args
 from . import ffi  # Make sure we only have one ffi instance
 from . import (
     Fence,

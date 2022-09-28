@@ -16,11 +16,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ..utils.ui import warn
+from ..util.ui import warn
 
 if TYPE_CHECKING:
-    from ..utils.system import System
-    from ..utils.types import CommandPart
+    from ..util.system import System
+    from ..util.types import CommandPart
     from .config import Config
     from .launcher import Launcher
 

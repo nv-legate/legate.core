@@ -27,7 +27,7 @@ from ..util import (
 )
 
 if TYPE_CHECKING:
-    from ....utils.types import ArgList, EnvDict
+    from ....util.types import ArgList, EnvDict
     from ... import FeatureType
     from ...config import Config
     from ...test_system import TestSystem

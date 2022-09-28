@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-import legate.utils.fs as m
+import legate.util.fs as m
 
 HEADER_PATH = Path(__file__).parent / "sample_header.h"
 

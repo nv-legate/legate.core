@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-import legate.utils.types as m
+import legate.util.types as m
 
 
 class TestCPUInfo:

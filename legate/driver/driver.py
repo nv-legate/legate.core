@@ -19,15 +19,15 @@ from subprocess import run
 from textwrap import indent
 from typing import TYPE_CHECKING
 
-from ..utils.system import System
-from ..utils.ui import kvtable, rule, section, value, warn
+from ..util.system import System
+from ..util.ui import kvtable, rule, section, value, warn
 from .command import CMD_PARTS
 from .config import Config
 from .launcher import Launcher
 from .logs import process_logs
 
 if TYPE_CHECKING:
-    from ..utils.types import Command, EnvDict
+    from ..util.types import Command, EnvDict
 
 __all__ = ("Driver", "print_verbose")
 

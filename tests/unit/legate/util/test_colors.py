@@ -20,7 +20,7 @@ import pytest
 from pytest_mock import MockerFixture
 from typing_extensions import TypeAlias
 
-import legate.utils.colors as m
+import legate.util.colors as m
 
 try:
     import colorama  # type: ignore

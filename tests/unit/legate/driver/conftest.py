@@ -22,7 +22,7 @@ import pytest
 
 from legate.driver import Config, Launcher
 from legate.driver.config import MultiNode
-from legate.utils.system import System
+from legate.util.system import System
 
 from .util import GenConfig, GenSystem
 

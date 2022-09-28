@@ -17,7 +17,7 @@ from __future__ import annotations
 from typing import Any
 
 from legate.tester.test_system import TestSystem
-from legate.utils.types import CPUInfo, GPUInfo
+from legate.util.types import CPUInfo, GPUInfo
 
 
 class FakeSystem(TestSystem):

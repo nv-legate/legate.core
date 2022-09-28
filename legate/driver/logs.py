@@ -24,11 +24,11 @@ from shlex import quote
 from subprocess import run
 from typing import TYPE_CHECKING, Iterator
 
-from ..utils.ui import warn
+from ..util.ui import warn
 
 if TYPE_CHECKING:
-    from ..utils.system import System
-    from ..utils.types import Command
+    from ..util.system import System
+    from ..util.types import Command
     from .config import Config
     from .launcher import Launcher
 

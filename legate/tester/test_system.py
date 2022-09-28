@@ -25,8 +25,8 @@ from pathlib import Path
 from subprocess import PIPE, STDOUT, run as stdlib_run
 from typing import Sequence
 
-from ..utils.system import System
-from ..utils.types import EnvDict
+from ..util.system import System
+from ..util.types import EnvDict
 
 __all__ = ("TestSystem",)
 

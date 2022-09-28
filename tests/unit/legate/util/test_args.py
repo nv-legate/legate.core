@@ -18,7 +18,7 @@ from dataclasses import dataclass
 
 import pytest
 
-import legate.utils.args as m
+import legate.util.args as m
 
 from ...util import Capsys
 
