@@ -239,15 +239,16 @@ def get_legion_paths(legate_paths: LegatePaths) -> LegionPaths:
     # local builds over global installations. This allows devs to work in the
     # source tree and re-run without overwriting existing installations.
 
-    def installed_legion_paths(
-        legion_dir: Path, legion_module: Path | None = None
-    ) -> LegionPaths:
-        if legion_module is None:
-            legion_lib_dir = legion_dir / "lib"
-            for f in legion_lib_dir.iterdir():
-                if f.joinpath("site-packages").exists():
-                    legion_module = f / "site-packages"
-                    break
+    def installed_legion_paths(legion_dir: Path) -> LegionPaths:
+        legion_lib_dir = legion_dir / "lib"
+        for f in legion_lib_dir.iterdir():
+            legion_module = f / "site-packages"
+            if legion_module.exists():
+                break
+
+        # NB: for-else clause! (executes if NO loop break)
+        else:
+            raise RuntimeError("could not determine legion module location")
 
         legion_bin_path = legion_dir / "bin"
         legion_include_path = legion_dir / "include"
