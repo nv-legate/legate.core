@@ -247,12 +247,6 @@ class RegionManager:
         self._next_field_id = _LEGATE_FIELD_ID_BASE
         self._imported = imported
 
-    def destroy(self, unordered: bool = False) -> None:
-        self._region.destroy(unordered=unordered)
-        if self._imported:
-            self._region.index_space.destroy(unordered=unordered)
-            self._region.field_space.destroy(unordered=unordered)
-
     def increase_field_count(self) -> None:
         self._active_field_count += 1
 
@@ -1233,7 +1227,6 @@ class Runtime:
         for field_manager in self.field_managers.values():
             field_manager.remove_all_fields(region)
 
-        region_mgr.destroy(unordered=unordered)
         active_mgr = self.active_region_managers.get(shape)
         if active_mgr is region_mgr:
             del self.active_region_managers[shape]
