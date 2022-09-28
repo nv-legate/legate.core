@@ -28,7 +28,6 @@ from legate.tester import (
     FEATURES,
     PER_FILE_ARGS,
     SKIPPED_EXAMPLES,
-    UI_WIDTH,
 )
 
 
@@ -55,9 +54,6 @@ class TestConsts:
         assert DEFAULT_PROCESS_ENV == {
             "LEGATE_TEST": "1",
         }
-
-    def test_UI_WIDTH(self) -> None:
-        assert UI_WIDTH == 65
 
     def test_FEATURES(self) -> None:
         assert FEATURES == ("cpus", "cuda", "eager", "openmp")

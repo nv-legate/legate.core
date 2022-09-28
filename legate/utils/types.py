@@ -23,7 +23,7 @@ from typing import Any, Dict, List, Protocol, Tuple, Union
 
 from typing_extensions import Literal, TypeAlias
 
-from ..driver.ui import kvtable  # TODO (bv) consolidate ui
+from .ui import kvtable
 
 __all__ = (
     "ArgList",

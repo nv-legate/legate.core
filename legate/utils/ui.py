@@ -1,4 +1,4 @@
-# Copyright AS2022 NVIDIA Corporation
+# Copyright 2022 NVIDIA Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,24 +12,39 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-"""Helpler functions for simple text UI output.
+"""Helper functions for simple text UI output.
 
 The color functions in this module require ``colorama`` to be installed in
 order to generate color output. If ``colorama`` is not available, plain
-text output (i.e. without ANSI color codes) will generated.
+text output (i.e. without ANSI color codes) will be generated.
 
 """
 from __future__ import annotations
 
 from datetime import timedelta
-from typing import Iterable
+from typing import Any, Iterable
 
 from typing_extensions import TypeAlias
 
-from ..utils.colors import bright, cyan, dim, green, red, white
-from . import UI_WIDTH
+from .colors import bright, cyan, dim, green, magenta, red, white, yellow
 
 Details: TypeAlias = Iterable[str]
+
+__all__ = (
+    "UI_WIDTH",
+    "banner",
+    "error",
+    "key",
+    "kvtable",
+    "rule",
+    "section",
+    "value",
+    "warn",
+)
+
+
+#: Width for terminal ouput headers and footers.
+UI_WIDTH = 80
 
 
 def _format_details(
@@ -79,6 +94,22 @@ def banner(
 {divider}"""
 
 
+def error(text: str) -> str:
+    """Format text as an error.
+
+    Parameters
+    ----------
+    text : str
+        The text to format
+
+    Returns
+    -------
+        str
+
+    """
+    return red(f"ERROR: {text}")
+
+
 def failed(msg: str, *, details: Details | None = None) -> str:
     """Report a failed test result with a bright red [FAIL].
 
@@ -113,20 +144,125 @@ def passed(msg: str, *, details: Details | None = None) -> str:
     return f"{bright(green('[PASS]'))} {msg}"
 
 
-def rule(pad: int = 4, char: str = "~") -> str:
-    """Generate a horizontal rule.
+def key(text: str) -> str:
+    """Format a 'key' from a key-value pair.
 
     Parameters
     ----------
-    pad : int, optional
-        How much whitespace to precede the rule. (default: 4)
+    text : str
+        The key to format
 
-    char : str, optional
-        A character to use to "draw" the rule. (default: "~")
+    Returns
+    -------
+        str
 
     """
-    w = UI_WIDTH - pad
-    return f"{char*w: >{UI_WIDTH}}"
+    return dim(green(text))
+
+
+def value(text: str) -> str:
+    """Format a 'value' from of a key-value pair.
+
+    Parameters
+    ----------
+    text : str
+        The key to format
+
+    Returns
+    -------
+        str
+
+    """
+    return yellow(text)
+
+
+def kvtable(
+    items: dict[str, Any],
+    *,
+    delim: str = " : ",
+    align: bool = True,
+    keys: Iterable[str] | None = None,
+) -> str:
+    """Format a dictionay as a table of key-value pairs.
+
+    Parameters
+    ----------
+    items : dict[str, Any]
+        The dictionary of items to format
+
+    delim : str, optional
+        A delimiter to display between keys and values (default: " : ")
+
+    align : bool, optional
+        Whether to align delimiters to the longest key length (default: True)
+
+    keys : Iterable[str] or None, optional
+        If not None, only the specified subset of keys is included in the
+        table output (default: None)
+
+    Returns
+    -------
+        str
+
+    """
+    # annoying but necessary to take len on color-formatted version
+    N = max(len(key(k)) for k in items) if align else 0
+
+    keys = items.keys() if keys is None else keys
+
+    return "\n".join(
+        f"{key(k): <{N}}{delim}{value(str(items[k]))}" for k in keys
+    )
+
+
+def rule(
+    text: str | None = None,
+    *,
+    pad: int = 0,
+    char: str = "-",
+    N: int = UI_WIDTH,
+) -> str:
+    """Format a horizontal rule, optionally with text
+
+    Parameters
+    ----------
+    text : str or None, optional
+        If not None, display this text inline in the rule (default: None)
+
+    pad : int, optional
+        An amount of padding to put in front of the rule
+
+    char: str, optional
+        A character to use for the rule (default: "-")
+
+    N : int, optional
+        Character width for the rule (default: 80)
+
+    Returns
+    -------
+        str
+
+    """
+    width = N - pad
+    if text is None:
+        return cyan(f"{char*width: >{N}}")
+    return cyan(" " * pad + char * 3 + f"{f' {text} ' :{char}<{width-3}}")
+
+
+def section(text: str) -> str:
+    """Format text as a section header
+
+    Parameters
+    ----------
+    text : str
+        The text to format
+
+    Returns
+    -------
+        str
+
+    """
+    return bright(white(text))
 
 
 def shell(cmd: str, *, char: str = "+") -> str:
@@ -191,3 +327,19 @@ def summary(
     )
     color = green if passed == total and total > 0 else red
     return bright(color(f"{summary: >{UI_WIDTH}}" if justify else summary))
+
+
+def warn(text: str) -> str:
+    """Format text as a warning.
+
+    Parameters
+    ----------
+    text : str
+        The text to format
+
+    Returns
+    -------
+        str
+
+    """
+    return magenta(f"WARNING: {text}")

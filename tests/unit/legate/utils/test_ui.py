@@ -14,14 +14,14 @@
 #
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import Any
 
 import pytest
 from pytest_mock import MockerFixture
 from typing_extensions import TypeAlias
 
-import legate.driver.ui as m
-import legate.utils.colors as colors
+from legate.utils import colors, ui as m
 
 try:
     import colorama  # type: ignore
@@ -41,6 +41,46 @@ def use_plain_text(mocker: MockerFixture) -> None:
     mocker.patch.object(m, "green", colors._text)
     mocker.patch.object(m, "yellow", colors._text)
     mocker.patch.object(m, "magenta", colors._text)
+
+
+def test_UI_WIDTH() -> None:
+    assert m.UI_WIDTH == 80
+
+
+@pytest.mark.skipif(colorama is None, reason="colorama required")
+def test_banner_simple() -> None:
+    assert (
+        m.banner("some text")
+        == "\n" + "#" * m.UI_WIDTH + "\n### some text\n" + "#" * m.UI_WIDTH
+    )
+
+
+def test_banner_simple_plain(use_plain_text: UsePlainTextFixture) -> None:
+    assert (
+        m.banner("some text")
+        == "\n" + "#" * m.UI_WIDTH + "\n### some text\n" + "#" * m.UI_WIDTH
+    )
+
+
+@pytest.mark.skipif(colorama is None, reason="colorama required")
+def test_banner_full() -> None:
+    assert (
+        m.banner("some text", char="*", width=100, details=["a", "b"])
+        == "\n"
+        + "*" * 100
+        + "\n*** \n*** some text\n*** \n*** a\n*** b\n*** \n"
+        + "*" * 100
+    )
+
+
+def test_banner_full_plain(use_plain_text: UsePlainTextFixture) -> None:
+    assert (
+        m.banner("some text", char="*", width=100, details=["a", "b"])
+        == "\n"
+        + "*" * 100
+        + "\n*** \n*** some text\n*** \n*** a\n*** b\n*** \n"
+        + "*" * 100
+    )
 
 
 @pytest.mark.skipif(colorama is None, reason="colorama required")
@@ -146,12 +186,27 @@ class Test_kvtable:
 
 class Test_rule:
     @pytest.mark.skipif(colorama is None, reason="colorama required")
+    def test_pad(self) -> None:
+        assert m.rule(pad=4) == colors.cyan("    " + "-" * (m.UI_WIDTH - 4))
+
+    def test_pad_with_text(
+        self,
+    ) -> None:
+        front = "    --- foo bar "
+        assert m.rule("foo bar", pad=4) == colors.cyan(
+            front + "-" * (m.UI_WIDTH - len(front))
+        )
+
+    @pytest.mark.skipif(colorama is None, reason="colorama required")
     def test_text(self) -> None:
-        assert m.rule("foo bar") == colors.cyan("--- foo bar " + "-" * 68)
+        front = "--- foo bar "
+        assert m.rule("foo bar") == colors.cyan(
+            front + "-" * (m.UI_WIDTH - len(front))
+        )
 
     @pytest.mark.skipif(colorama is None, reason="colorama required")
     def test_char(self) -> None:
-        assert m.rule(char="a") == colors.cyan("a" * 80)
+        assert m.rule(char="a") == colors.cyan("a" * m.UI_WIDTH)
 
     @pytest.mark.skipif(colorama is None, reason="colorama required")
     def test_N(self) -> None:
@@ -159,15 +214,31 @@ class Test_rule:
 
     @pytest.mark.skipif(colorama is None, reason="colorama required")
     def test_N_with_text(self) -> None:
+        front = "--- foo bar "
         assert m.rule("foo bar", N=65) == colors.cyan(
-            "--- foo bar " + "-" * 53
+            front + "-" * (65 - len(front))
+        )
+
+    @pytest.mark.skipif(colorama is None, reason="colorama required")
+    def test_pad_plain(self, use_plain_text: UsePlainTextFixture) -> None:
+        assert m.rule(pad=4) == "    " + "-" * (m.UI_WIDTH - 4)
+
+    def test_pad_with_text_plain(
+        self, use_plain_text: UsePlainTextFixture
+    ) -> None:
+        front = "    --- foo bar "
+        assert m.rule("foo bar", pad=4) == front + "-" * (
+            m.UI_WIDTH - len(front)
         )
 
     def test_text_plain(self, use_plain_text: UsePlainTextFixture) -> None:
-        assert m.rule("foo bar") == "--- foo bar " + "-" * 68
+        front = "--- foo bar "
+        assert m.rule("foo bar") == "--- foo bar " + "-" * (
+            m.UI_WIDTH - len(front)
+        )
 
     def test_char_plain(self, use_plain_text: UsePlainTextFixture) -> None:
-        assert m.rule(char="a") == "a" * 80
+        assert m.rule(char="a") == "a" * m.UI_WIDTH
 
     def test_N_plain(self, use_plain_text: UsePlainTextFixture) -> None:
         assert m.rule(N=60) == "-" * 60
@@ -175,7 +246,8 @@ class Test_rule:
     def test_N_with_text_plain(
         self, use_plain_text: UsePlainTextFixture
     ) -> None:
-        assert m.rule("foo bar", N=65) == "--- foo bar " + "-" * 53
+        front = "--- foo bar "
+        assert m.rule("foo bar", N=65) == front + "-" * (65 - len(front))
 
 
 @pytest.mark.skipif(colorama is None, reason="colorama required")
@@ -194,3 +266,110 @@ def test_warn() -> None:
 
 def test_warn_plain(use_plain_text: UsePlainTextFixture) -> None:
     assert m.warn("some message") == "WARNING: some message"
+
+
+@pytest.mark.skipif(colorama is None, reason="colorama required")
+def test_shell() -> None:
+    assert m.shell("cmd --foo") == colors.dim(colors.white("+cmd --foo"))
+
+
+def test_shell_plain(use_plain_text: UsePlainTextFixture) -> None:
+    assert m.shell("cmd --foo") == "+cmd --foo"
+
+
+@pytest.mark.skipif(colorama is None, reason="colorama required")
+def test_shell_with_char() -> None:
+    assert m.shell("cmd --foo", char="") == colors.dim(
+        colors.white("cmd --foo")
+    )
+
+
+def test_shell_with_char_plain(use_plain_text: UsePlainTextFixture) -> None:
+    assert m.shell("cmd --foo", char="") == "cmd --foo"
+
+
+@pytest.mark.skipif(colorama is None, reason="colorama required")
+def test_passed() -> None:
+    assert m.passed("msg") == f"{colors.bright(colors.green('[PASS]'))} msg"
+
+
+def test_passed_plain(use_plain_text: UsePlainTextFixture) -> None:
+    assert m.passed("msg") == "[PASS] msg"
+
+
+@pytest.mark.skipif(colorama is None, reason="colorama required")
+def test_passed_with_details() -> None:
+    assert (
+        m.passed("msg", details=["a", "b"])
+        == f"{colors.bright(colors.green('[PASS]'))} msg\n   a\n   b"
+    )
+
+
+def test_passed_with_details_plain(
+    use_plain_text: UsePlainTextFixture,
+) -> None:
+    assert m.passed("msg", details=["a", "b"]) == "[PASS] msg\n   a\n   b"
+
+
+@pytest.mark.skipif(colorama is None, reason="colorama required")
+def test_failed() -> None:
+    assert m.failed("msg") == f"{colors.bright(colors.red('[FAIL]'))} msg"
+
+
+def test_failed_plain(use_plain_text: UsePlainTextFixture) -> None:
+    assert m.failed("msg") == "[FAIL] msg"
+
+
+@pytest.mark.skipif(colorama is None, reason="colorama required")
+def test_failed_with_details() -> None:
+    assert (
+        m.failed("msg", details=["a", "b"])
+        == f"{colors.bright(colors.red('[FAIL]'))} msg\n   a\n   b"
+    )
+
+
+def test_failed_with_details_plain(
+    use_plain_text: UsePlainTextFixture,
+) -> None:
+    assert m.failed("msg", details=["a", "b"]) == "[FAIL] msg\n   a\n   b"
+
+
+@pytest.mark.skipif(colorama is None, reason="colorama required")
+def test_skipped() -> None:
+    assert m.skipped("msg") == f"{colors.cyan('[SKIP]')} msg"
+
+
+def test_skipped_plain(use_plain_text: UsePlainTextFixture) -> None:
+    assert m.skipped("msg") == "[SKIP] msg"
+
+
+@pytest.mark.skipif(colorama is None, reason="colorama required")
+def test_summary() -> None:
+    assert m.summary("foo", 12, 11, timedelta(seconds=2.123)) == colors.bright(
+        colors.red(
+            f"{'foo: Passed 11 of 12 tests (91.7%) in 2.12s': >{m.UI_WIDTH}}"
+        )
+    )
+
+
+def test_summary_plain(use_plain_text: UsePlainTextFixture) -> None:
+    assert (
+        m.summary("foo", 12, 11, timedelta(seconds=2.123))
+        == f"{'foo: Passed 11 of 12 tests (91.7%) in 2.12s': >{m.UI_WIDTH}}"
+    )
+
+
+@pytest.mark.skipif(colorama is None, reason="colorama required")
+def test_summary_no_justify() -> None:
+    assert m.summary(
+        "foo", 12, 11, timedelta(seconds=2.123), justify=False
+    ) == colors.bright(
+        colors.red("foo: Passed 11 of 12 tests (91.7%) in 2.12s")
+    )
+
+
+def test_summary_no_justify_plain(use_plain_text: UsePlainTextFixture) -> None:
+    assert (
+        m.summary("foo", 12, 11, timedelta(seconds=2.123), justify=False)
+        == "foo: Passed 11 of 12 tests (91.7%) in 2.12s"
+    )

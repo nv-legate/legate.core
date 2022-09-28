@@ -22,7 +22,7 @@ from textwrap import indent
 from typing import TYPE_CHECKING, Type, TypeVar
 
 from ..utils.types import DataclassProtocol, LegatePaths, LegionPaths
-from .ui import kvtable, rule, section, value
+from ..utils.ui import kvtable, rule, section, value
 
 if TYPE_CHECKING:
     from .driver import Driver

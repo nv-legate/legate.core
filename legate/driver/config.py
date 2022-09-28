@@ -24,8 +24,8 @@ from pathlib import Path
 from typing import Any
 
 from ..utils.types import ArgList, DataclassMixin, LauncherType
+from ..utils.ui import warn
 from .args import parser
-from .ui import warn
 from .util import object_to_dataclass
 
 __all__ = ("Config",)

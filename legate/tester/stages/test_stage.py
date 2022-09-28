@@ -22,10 +22,10 @@ from typing_extensions import Protocol
 
 from ...utils.colors import yellow
 from ...utils.types import ArgList, EnvDict
+from ...utils.ui import banner, summary
 from .. import PER_FILE_ARGS, FeatureType
 from ..config import Config
 from ..system import ProcessResult, System
-from ..ui import banner, summary
 from .util import Shard, StageResult, StageSpec, log_proc
 
 

@@ -48,9 +48,6 @@ DEFAULT_PROCESS_ENV = {
     "LEGATE_TEST": "1",
 }
 
-#: Width for terminal ouput headers and footers.
-UI_WIDTH = 65
-
 #: Feature values that are accepted for --use, in the relative order
 #: that the corresponding test stages should always execute in
 FEATURES: tuple[FeatureType, ...] = (

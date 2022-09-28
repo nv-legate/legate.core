@@ -34,8 +34,8 @@ def main(argv: list[str]) -> int:
         int, a process return code
 
     """
+    from ..utils.ui import error
     from . import Config, Driver, System
-    from .ui import error
     from .util import print_verbose
 
     try:

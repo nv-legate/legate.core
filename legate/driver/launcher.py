@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from .ui import warn
+from ..utils.ui import warn
 from .util import read_c_define
 
 if TYPE_CHECKING:

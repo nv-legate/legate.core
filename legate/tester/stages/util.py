@@ -20,10 +20,10 @@ from typing import Tuple, Union
 
 from typing_extensions import TypeAlias
 
+from ...utils.ui import failed, passed, shell, skipped
 from ..config import Config
 from ..logger import LOG
 from ..system import ProcessResult
-from ..ui import failed, passed, shell, skipped
 
 CUNUMERIC_TEST_ARG = "-cunumeric:test"
 

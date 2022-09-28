@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .ui import warn
+from ..utils.ui import warn
 
 if TYPE_CHECKING:
     from ..utils.types import CommandPart

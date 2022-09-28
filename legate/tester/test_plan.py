@@ -21,11 +21,11 @@ from datetime import timedelta
 from itertools import chain
 
 from ..utils.colors import yellow
+from ..utils.ui import banner, rule, summary
 from .config import Config
 from .logger import LOG
 from .stages import STAGES, log_proc
 from .system import System
-from .ui import banner, rule, summary
 
 
 class TestPlan:
@@ -65,7 +65,7 @@ class TestPlan:
         total = len(all_procs)
         passed = sum(proc.returncode == 0 for proc in all_procs)
 
-        LOG(f"\n{rule()}")
+        LOG(f"\n{rule(pad=4)}")
 
         self._log_failures(total, passed)
 

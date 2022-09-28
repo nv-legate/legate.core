@@ -24,7 +24,7 @@ from shlex import quote
 from subprocess import run
 from typing import TYPE_CHECKING, Iterator
 
-from .ui import warn
+from ..utils.ui import warn
 
 if TYPE_CHECKING:
     from ..utils.types import Command
