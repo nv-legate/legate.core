@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from __future__ import annotations
-from pkgutil import extend_path
 
-__path__ = extend_path(__path__, __name__)
+# mypy: ignore-errors
+from ._magic_cmd import LegateInfoMagics
 
-from . import _version
 
-__version__ = _version.get_versions()["version"]  # type: ignore[no-untyped-call]
+def load_ipython_extension(ipython) -> None:
+    legate_info_magic = LegateInfoMagics(ipython)
+    ipython.register_magics(legate_info_magic)

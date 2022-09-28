@@ -13,10 +13,27 @@
 # limitations under the License.
 #
 from __future__ import annotations
-from pkgutil import extend_path
 
-__path__ = extend_path(__path__, __name__)
+from itertools import chain, combinations
+from typing import Any, Iterable, Iterator
 
-from . import _version
+import pytest
+from typing_extensions import TypeAlias
 
-__version__ = _version.get_versions()["version"]  # type: ignore[no-untyped-call]
+Capsys: TypeAlias = pytest.CaptureFixture[str]
+
+GenConfig: TypeAlias = Any
+
+GenSystem: TypeAlias = Any
+
+GenObjs: TypeAlias = Any
+
+
+# ref: https://docs.python.org/3/library/itertools.html
+def powerset(iterable: Iterable[Any]) -> Iterator[Any]:
+    s = list(iterable)
+    return chain.from_iterable(combinations(s, r) for r in range(len(s) + 1))
+
+
+def powerset_nonempty(iterable: Iterable[Any]) -> Iterator[Any]:
+    return (x for x in powerset(iterable) if len(x))

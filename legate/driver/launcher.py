@@ -1,0 +1,393 @@
+# Copyright 2021-2022 NVIDIA Corporation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+from __future__ import annotations
+
+import os
+import sys
+from pathlib import Path
+
+from .config import Config
+from .system import System
+from .types import Command, EnvDict, LauncherType
+from .ui import warn
+from .util import read_c_define
+
+__all__ = ("Launcher",)
+
+RANK_ENV_VARS = (
+    "OMPI_COMM_WORLD_RANK",
+    "PMI_RANK",
+    "MV2_COMM_WORLD_RANK",
+    "SLURM_PROCID",
+)
+
+LAUNCHER_VAR_PREFIXES = (
+    "CONDA_",
+    "LEGATE_",
+    "LEGION_",
+    "LG_",
+    "REALM_",
+    "GASNET_",
+    "PYTHON",
+    "UCX_",
+    "NCCL_",
+    "CUNUMERIC_",
+    "NVIDIA_",
+)
+
+
+class Launcher:
+    """A base class for custom launch handlers for Legate.
+
+    Subclasses should set ``kind``, ``rank_id``, and ``cmd`` properties during
+    their initialization.
+
+    Parameters
+    ----------
+        config : Config
+
+        system : System
+
+    """
+
+    kind: LauncherType
+
+    rank_id: str
+
+    cmd: Command
+
+    _config: Config
+
+    _system: System
+
+    _env: EnvDict | None = None
+
+    _custom_env_vars: set[str] | None = None
+
+    def __init__(self, config: Config, system: System) -> None:
+        self._config = config
+        self._system = system
+
+        self._check_realm_python()
+
+    def __eq__(self, other: object) -> bool:
+        return (
+            isinstance(other, type(self))
+            and self.kind == other.kind
+            and self.rank_id == other.rank_id
+            and self.cmd == other.cmd
+            and self.env == other.env
+        )
+
+    @classmethod
+    def create(cls, config: Config, system: System) -> Launcher:
+        """Factory method for creating appropriate Launcher subclass based on
+        user configuration.
+
+        Parameters
+        ----------
+            config : Config
+
+            system : System
+
+        Returns
+            Launcher
+
+        """
+        kind = config.multi_node.launcher
+        if kind == "none":
+            return SimpleLauncher(config, system)
+        if kind == "mpirun":
+            return MPILauncher(config, system)
+        if kind == "jsrun":
+            return JSRunLauncher(config, system)
+        if kind == "srun":
+            return SRunLauncher(config, system)
+
+        raise RuntimeError(f"Unsupported launcher: {kind}")
+
+    # Slightly annoying, but it is helpful for testing to avoid importing
+    # legate unless necessary, so defined these two as properties since the
+    # command env depends on legate/legion paths
+
+    @property
+    def env(self) -> EnvDict:
+        """A system environment to use with this launcher process."""
+        if self._env is None:
+            self._env, self._custom_env_vars = self._compute_env()
+        return self._env
+
+    @property
+    def custom_env_vars(self) -> set[str]:
+        """The set of environment variables specificaly customized by us."""
+        if self._custom_env_vars is None:
+            self._env, self._custom_env_vars = self._compute_env()
+        return self._custom_env_vars
+
+    @staticmethod
+    def is_launcher_var(name: str) -> bool:
+        """Whether an environment variable name is relevant for the laucher."""
+        return name.endswith("PATH") or any(
+            name.startswith(prefix) for prefix in LAUNCHER_VAR_PREFIXES
+        )
+
+    def _check_realm_python(self) -> None:
+
+        # Make sure the version of Python used by Realm is the same as what the
+        # user is using currently.
+        realm_pylib = read_c_define(
+            self._system.legion_paths.realm_defines_h, "REALM_PYTHON_LIB"
+        )
+
+        if realm_pylib is None:
+            raise RuntimeError("Cannot determine Realm Python Lib")
+
+        realm_home = Path(realm_pylib[1:-1]).parents[1]
+        if (current_home := Path(sys.executable).parents[1]) != realm_home:
+            print(
+                warn(
+                    "Legate was compiled against the Python installation at "
+                    f"{realm_home}, but you are currently using the Python "
+                    f"installation at {current_home}"
+                )
+            )
+
+    def _compute_env(self) -> tuple[EnvDict, set[str]]:
+        config = self._config
+        system = self._system
+
+        env = {}
+
+        # We never want to save python byte code for legate
+        env["PYTHONDONTWRITEBYTECODE"] = "1"
+
+        # Set the path to the Legate module as an environment variable
+        # The current directory should be added to PYTHONPATH as well
+        extra_python_paths = []
+        if "PYTHONPATH" in env:
+            extra_python_paths.append(env["PYTHONPATH"])
+
+        if system.legion_paths.legion_module is not None:
+            extra_python_paths.append(str(system.legion_paths.legion_module))
+
+        if system.legion_paths.legion_jupyter_module is not None:
+            extra_python_paths.append(
+                str(system.legion_paths.legion_jupyter_module)
+            )
+
+        # Make sure the base directory for this file is in the python path
+        extra_python_paths.append(str(Path(__file__).parents[1]))
+
+        env["PYTHONPATH"] = os.pathsep.join(extra_python_paths)
+
+        # If using NCCL prefer parallel launch mode over cooperative groups,
+        # as the former plays better with Realm.
+        env["NCCL_LAUNCH_MODE"] = "PARALLEL"
+
+        # Make sure GASNet initializes MPI with the right level of
+        # threading support
+        env["GASNET_MPI_THREAD"] = "MPI_THREAD_MULTIPLE"
+
+        # Set some environment variables depending on our configuration that
+        # we will check in the Legate binary to ensure that it is properly.
+        # configured. Always make sure we include the Legion library
+        lpaths = [
+            str(system.legion_paths.legion_lib_path),
+            str(system.legate_paths.legate_lib_path),
+        ]
+        if system.LIB_PATH in system.env:
+            lpaths.append(system.env[system.LIB_PATH])
+        env[system.LIB_PATH] = os.pathsep.join(lpaths)
+
+        if config.core.gpus > 0:
+            assert "LEGATE_NEED_CUDA" not in system.env
+            env["LEGATE_NEED_CUDA"] = "1"
+
+        if config.core.openmp > 0:
+            assert "LEGATE_NEED_OPENMP" not in system.env
+            env["LEGATE_NEED_OPENMP"] = "1"
+
+        if config.multi_node.ranks > 1:
+            assert "LEGATE_NEED_NETWORK" not in system.env
+            env["LEGATE_NEED_NETWORK"] = "1"
+
+        if config.info.progress:
+            assert "LEGATE_SHOW_PROGRESS" not in system.env
+            env["LEGATE_SHOW_PROGRESS"] = "1"
+
+        if config.info.mem_usage:
+            assert "LEGATE_SHOW_USAGE" not in system.env
+            env["LEGATE_SHOW_USAGE"] = "1"
+
+        # Configure certain limits
+        LEGATE_MAX_DIM = system.env.get(
+            "LEGATE_MAX_DIM",
+            read_c_define(
+                system.legion_paths.legion_defines_h, "LEGION_MAX_DIM"
+            ),
+        )
+        if LEGATE_MAX_DIM is None:
+            raise RuntimeError("Cannot determine LEGATE_MAX_DIM")
+        env["LEGATE_MAX_DIM"] = LEGATE_MAX_DIM
+
+        LEGATE_MAX_FIELDS = system.env.get(
+            "LEGATE_MAX_FIELDS",
+            read_c_define(
+                system.legion_paths.legion_defines_h, "LEGION_MAX_FIELDS"
+            ),
+        )
+        if LEGATE_MAX_FIELDS is None:
+            raise RuntimeError("Cannot determine LEGATE_MAX_FIELDS")
+        env["LEGATE_MAX_FIELDS"] = LEGATE_MAX_FIELDS
+
+        assert env["LEGATE_MAX_DIM"] is not None
+        assert env["LEGATE_MAX_FIELDS"] is not None
+
+        # Special run modes
+        if config.debugging.freeze_on_error:
+            env["LEGION_FREEZE_ON_ERROR"] = "1"
+
+        # Debugging options
+        env["REALM_BACKTRACE"] = "1"
+
+        if config.debugging.gasnet_trace:
+            env["GASNET_TRACEFILE"] = str(
+                config.logging.logdir / "gasnet_%.log"
+            )
+
+        custom_env_vars = set(env)
+
+        full_env = dict(system.env)
+        full_env.update(env)
+
+        return full_env, custom_env_vars
+
+
+RANK_ERR_MSG = """\
+Could not detect rank ID on multi-rank run with no --launcher provided. If you
+want Legate to use a launcher, e.g. mpirun, internally (recommended), then you
+need to specify which one to use by passing --launcher. Otherwise you need to
+invoke the legate script itself through a launcher.
+"""
+
+
+class SimpleLauncher(Launcher):
+    """A Launcher subclass for the "no launcher" case."""
+
+    kind: LauncherType = "none"
+
+    def __init__(self, config: Config, system: System) -> None:
+        super().__init__(config, system)
+
+        if config.multi_node.ranks == 1:
+            self.rank_id = "0"
+
+        else:
+            for var in RANK_ENV_VARS:
+                if var in system.env:
+                    self.rank_id = system.env[var]
+                    break
+
+            # NB: for-else clause! (executes if NO loop break)
+            else:
+                raise RuntimeError(RANK_ERR_MSG)
+
+        self.cmd = ()
+
+
+class MPILauncher(Launcher):
+    """A Launcher subclass to use mpirun [1] for launching Legate processes.
+
+    [1] https://www.open-mpi.org/doc/current/man1/mpirun.1.php
+
+    """
+
+    kind: LauncherType = "mpirun"
+
+    def __init__(self, config: Config, system: System) -> None:
+        super().__init__(config, system)
+
+        self.rank_id = "%q{OMPI_COMM_WORLD_RANK}"
+
+        ranks = config.multi_node.ranks
+        ranks_per_node = config.multi_node.ranks_per_node
+
+        cmd = ["mpirun", "-n", str(ranks)]
+
+        cmd += ["--npernode", str(ranks_per_node)]
+        cmd += ["--bind-to", "none"]
+        cmd += ["--mca", "mpi_warn_on_fork", "0"]
+
+        for var in self.env:
+            if self.is_launcher_var(var):
+                cmd += ["-x", var]
+
+        self.cmd = tuple(cmd + config.multi_node.launcher_extra)
+
+
+class JSRunLauncher(Launcher):
+    """A Launcher subclass to use jsrun [1] for launching Legate processes.
+
+    [1] https://www.ibm.com/docs/en/spectrum-lsf/10.1.0?topic=SSWRJV_10.1.0/jsm/jsrun.html  # noqa
+
+    """
+
+    kind: LauncherType = "jsrun"
+
+    def __init__(self, config: Config, system: System) -> None:
+        super().__init__(config, system)
+
+        self.rank_id = "%q{OMPI_COMM_WORLD_RANK}"
+
+        ranks = config.multi_node.ranks
+        ranks_per_node = config.multi_node.ranks_per_node
+
+        cmd = ["jsrun", "-n", str(ranks // ranks_per_node)]
+
+        cmd += ["-r", "1"]
+        cmd += ["-a", str(ranks_per_node)]
+        cmd += ["-c", "ALL_CPUS"]
+        cmd += ["-g", "ALL_GPUS"]
+        cmd += ["-b", "none"]
+
+        self.cmd = tuple(cmd + config.multi_node.launcher_extra)
+
+
+class SRunLauncher(Launcher):
+    """A Launcher subclass to use srun [1] for launching Legate processes.
+
+    [1] https://slurm.schedmd.com/srun.html
+
+    """
+
+    kind: LauncherType = "srun"
+
+    def __init__(self, config: Config, system: System) -> None:
+        super().__init__(config, system)
+
+        self.rank_id = "%q{SLURM_PROCID}"
+
+        ranks = config.multi_node.ranks
+        ranks_per_node = config.multi_node.ranks_per_node
+
+        cmd = ["srun", "-n", str(ranks)]
+
+        cmd += ["--ntasks-per-node", str(ranks_per_node)]
+
+        if config.debugging.gdb or config.debugging.cuda_gdb:
+            # Execute in pseudo-terminal mode when we need to be interactive
+            cmd += ["--pty"]
+
+        self.cmd = tuple(cmd + config.multi_node.launcher_extra)
