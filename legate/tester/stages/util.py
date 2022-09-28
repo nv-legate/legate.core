@@ -23,7 +23,7 @@ from typing_extensions import TypeAlias
 from ...utils.ui import failed, passed, shell, skipped
 from ..config import Config
 from ..logger import LOG
-from ..system import ProcessResult
+from ..test_system import ProcessResult
 
 CUNUMERIC_TEST_ARG = "-cunumeric:test"
 

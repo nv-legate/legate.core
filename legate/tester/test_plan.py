@@ -25,7 +25,7 @@ from ..utils.ui import banner, rule, summary
 from .config import Config
 from .logger import LOG
 from .stages import STAGES, log_proc
-from .system import System
+from .test_system import TestSystem
 
 
 class TestPlan:
@@ -36,12 +36,12 @@ class TestPlan:
     config: Config
         Test runner configuration
 
-    system: System
+    system: TestSystem
         Process execution wrapper
 
     """
 
-    def __init__(self, config: Config, system: System) -> None:
+    def __init__(self, config: Config, system: TestSystem) -> None:
         self._config = config
         self._system = system
         self._stages = [
@@ -86,7 +86,7 @@ class TestPlan:
         details = (
             f"* Feature stages       : {', '.join(yellow(x) for x in self._config.features)}",  # noqa E501
             f"* Test files per stage : {yellow(str(len(self._config.test_files)))}",  # noqa E501
-            f"* System description   : {yellow(str(cpus) + ' cpus')} / {yellow(str(gpus) + ' gpus')}",  # noqa E501
+            f"* TestSystem description   : {yellow(str(cpus) + ' cpus')} / {yellow(str(gpus) + ' gpus')}",  # noqa E501
         )
         return banner("Test Suite Configuration", details=details)
 

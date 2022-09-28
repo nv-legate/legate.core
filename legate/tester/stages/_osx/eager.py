@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from ....utils.types import ArgList, EnvDict
     from ... import FeatureType
     from ...config import Config
-    from ...system import System
+    from ...test_system import TestSystem
 
 
 class Eager(TestStage):
@@ -34,7 +34,7 @@ class Eager(TestStage):
     config: Config
         Test runner configuration
 
-    system: System
+    system: TestSystem
         Process execution wrapper
 
     """
@@ -43,10 +43,10 @@ class Eager(TestStage):
 
     args: ArgList = []
 
-    def __init__(self, config: Config, system: System) -> None:
+    def __init__(self, config: Config, system: TestSystem) -> None:
         self._init(config, system)
 
-    def env(self, config: Config, system: System) -> EnvDict:
+    def env(self, config: Config, system: TestSystem) -> EnvDict:
         # Raise min chunk sizes for deferred codepaths to force eager execution
         env = {
             "CUNUMERIC_MIN_CPU_CHUNK": "2000000000",
@@ -59,7 +59,7 @@ class Eager(TestStage):
     def shard_args(self, shard: Shard, config: Config) -> ArgList:
         return ["--cpus", "1"]
 
-    def compute_spec(self, config: Config, system: System) -> StageSpec:
+    def compute_spec(self, config: Config, system: TestSystem) -> StageSpec:
         N = len(system.cpus)
         degree = min(N, 60)  # ~LEGION_MAX_NUM_PROCS just in case
         workers = adjust_workers(degree, config.requested_workers)

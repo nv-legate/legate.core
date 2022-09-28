@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from ....utils.types import ArgList, EnvDict
     from ... import FeatureType
     from ...config import Config
-    from ...system import System
+    from ...test_system import TestSystem
 
 BLOAT_FACTOR = 1.5  # hard coded for now
 
@@ -37,7 +37,7 @@ class GPU(TestStage):
     config: Config
         Test runner configuration
 
-    system: System
+    system: TestSystem
         Process execution wrapper
 
     """
@@ -46,13 +46,13 @@ class GPU(TestStage):
 
     args = [CUNUMERIC_TEST_ARG]
 
-    def __init__(self, config: Config, system: System) -> None:
+    def __init__(self, config: Config, system: TestSystem) -> None:
         self._init(config, system)
 
-    def env(self, config: Config, system: System) -> EnvDict:
+    def env(self, config: Config, system: TestSystem) -> EnvDict:
         return {}
 
-    def delay(self, shard: Shard, config: Config, system: System) -> None:
+    def delay(self, shard: Shard, config: Config, system: TestSystem) -> None:
         time.sleep(config.gpu_delay / 1000)
 
     def shard_args(self, shard: Shard, config: Config) -> ArgList:
@@ -65,7 +65,7 @@ class GPU(TestStage):
             ",".join(str(x) for x in shard),
         ]
 
-    def compute_spec(self, config: Config, system: System) -> StageSpec:
+    def compute_spec(self, config: Config, system: TestSystem) -> StageSpec:
         N = len(system.gpus)
         degree = N // config.gpus
 

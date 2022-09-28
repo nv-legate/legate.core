@@ -25,7 +25,7 @@ from ...utils.types import ArgList, EnvDict
 from ...utils.ui import banner, summary
 from .. import PER_FILE_ARGS, FeatureType
 from ..config import Config
-from ..system import ProcessResult, System
+from ..test_system import ProcessResult, TestSystem
 from .util import Shard, StageResult, StageSpec, log_proc
 
 
@@ -37,7 +37,7 @@ class TestStage(Protocol):
     config: Config
         Test runner configuration
 
-    system: System
+    system: TestSystem
         Process execution wrapper
 
     """
@@ -59,10 +59,10 @@ class TestStage(Protocol):
 
     # --- Protocol methods
 
-    def __init__(self, config: Config, system: System) -> None:
+    def __init__(self, config: Config, system: TestSystem) -> None:
         ...
 
-    def env(self, config: Config, system: System) -> EnvDict:
+    def env(self, config: Config, system: TestSystem) -> EnvDict:
         """Generate stage-specific customizations to the process env
 
         Parameters
@@ -70,13 +70,13 @@ class TestStage(Protocol):
         config: Config
             Test runner configuration
 
-        system: System
+        system: TestSystem
             Process execution wrapper
 
         """
         ...
 
-    def delay(self, shard: Shard, config: Config, system: System) -> None:
+    def delay(self, shard: Shard, config: Config, system: TestSystem) -> None:
         """Wait any delay that should be applied before running the next
         test.
 
@@ -88,7 +88,7 @@ class TestStage(Protocol):
         config: Config
             Test runner configuration
 
-        system: System
+        system: TestSystem
             Process execution wrapper
 
         """
@@ -109,7 +109,7 @@ class TestStage(Protocol):
         """
         ...
 
-    def compute_spec(self, config: Config, system: System) -> StageSpec:
+    def compute_spec(self, config: Config, system: TestSystem) -> StageSpec:
         """Compute the number of worker processes to launch and stage shards
         to use for running the configured test files.
 
@@ -118,7 +118,7 @@ class TestStage(Protocol):
         config: Config
             Test runner configuration
 
-        system: System
+        system: TestSystem
             Process execution wrapper
 
         """
@@ -126,7 +126,7 @@ class TestStage(Protocol):
 
     # --- Shared implementation methods
 
-    def __call__(self, config: Config, system: System) -> None:
+    def __call__(self, config: Config, system: TestSystem) -> None:
         """Execute this test stage.
 
         Parameters
@@ -134,7 +134,7 @@ class TestStage(Protocol):
         config: Config
             Test runner configuration
 
-        system: System
+        system: TestSystem
             Process execution wrapper
 
         """
@@ -206,7 +206,7 @@ class TestStage(Protocol):
         return args
 
     def run(
-        self, test_file: Path, config: Config, system: System
+        self, test_file: Path, config: Config, system: TestSystem
     ) -> ProcessResult:
         """Execute a single test files with appropriate environment and
         command-line options for a feature test stage.
@@ -219,7 +219,7 @@ class TestStage(Protocol):
         config: Config
             Test runner configuration
 
-        system: System
+        system: TestSystem
             Process execution wrapper
 
         """
@@ -242,18 +242,20 @@ class TestStage(Protocol):
 
         return result
 
-    def _env(self, config: Config, system: System) -> EnvDict:
+    def _env(self, config: Config, system: TestSystem) -> EnvDict:
         env = dict(config.env)
         env.update(self.env(config, system))
         return env
 
-    def _init(self, config: Config, system: System) -> None:
+    def _init(self, config: Config, system: TestSystem) -> None:
         self.spec = self.compute_spec(config, system)
         self.shards = system.manager.Queue(len(self.spec.shards))
         for shard in self.spec.shards:
             self.shards.put(shard)
 
-    def _launch(self, config: Config, system: System) -> list[ProcessResult]:
+    def _launch(
+        self, config: Config, system: TestSystem
+    ) -> list[ProcessResult]:
 
         pool = multiprocessing.pool.ThreadPool(self.spec.workers)
 

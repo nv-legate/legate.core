@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from ....utils.types import ArgList, EnvDict
     from ... import FeatureType
     from ...config import Config
-    from ...system import System
+    from ...test_system import TestSystem
 
 
 class GPU(TestStage):
@@ -35,7 +35,7 @@ class GPU(TestStage):
     config: Config
         Test runner configuration
 
-    system: System
+    system: TestSystem
         Process execution wrapper
 
     """
@@ -44,11 +44,11 @@ class GPU(TestStage):
 
     args: ArgList = [CUNUMERIC_TEST_ARG]
 
-    def __init__(self, config: Config, system: System) -> None:
+    def __init__(self, config: Config, system: TestSystem) -> None:
         raise RuntimeError("GPU test are not supported on OSX")
 
-    def env(self, config: Config, system: System) -> EnvDict:
+    def env(self, config: Config, system: TestSystem) -> EnvDict:
         return UNPIN_ENV
 
-    def delay(self, shard: Shard, config: Config, system: System) -> None:
+    def delay(self, shard: Shard, config: Config, system: TestSystem) -> None:
         time.sleep(config.gpu_delay / 1000)

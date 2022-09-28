@@ -16,13 +16,13 @@ from __future__ import annotations
 
 from subprocess import run
 
+from ..utils.system import System
 from ..utils.types import Command, EnvDict
 from ..utils.ui import warn
 from .command import CMD_PARTS
 from .config import Config
 from .launcher import Launcher
 from .logs import process_logs
-from .system import System
 from .util import print_verbose
 
 __all__ = ("Driver",)

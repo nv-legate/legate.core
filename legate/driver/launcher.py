@@ -19,13 +19,13 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from ..utils.fs import read_c_define
 from ..utils.ui import warn
-from .util import read_c_define
 
 if TYPE_CHECKING:
+    from ..utils.system import System
     from ..utils.types import Command, EnvDict, LauncherType
     from .config import Config
-    from .system import System
 
 __all__ = ("Launcher",)
 

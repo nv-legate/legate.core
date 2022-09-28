@@ -16,11 +16,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from legate.tester.system import System
+from legate.tester.test_system import TestSystem
 from legate.utils.types import CPUInfo, GPUInfo
 
 
-class FakeSystem(System):
+class FakeSystem(TestSystem):
     def __init__(
         self, cpus: int = 6, gpus: int = 6, fbmem: int = 6 << 32, **kwargs: Any
     ) -> None:

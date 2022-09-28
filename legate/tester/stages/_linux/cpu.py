@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from ....utils.types import ArgList, EnvDict
     from ... import FeatureType
     from ...config import Config
-    from ...system import System
+    from ...test_system import TestSystem
 
 
 class CPU(TestStage):
@@ -41,7 +41,7 @@ class CPU(TestStage):
     config: Config
         Test runner configuration
 
-    system: System
+    system: TestSystem
         Process execution wrapper
 
     """
@@ -50,10 +50,10 @@ class CPU(TestStage):
 
     args = [CUNUMERIC_TEST_ARG]
 
-    def __init__(self, config: Config, system: System) -> None:
+    def __init__(self, config: Config, system: TestSystem) -> None:
         self._init(config, system)
 
-    def env(self, config: Config, system: System) -> EnvDict:
+    def env(self, config: Config, system: TestSystem) -> EnvDict:
         return {} if config.cpu_pin == "strict" else dict(UNPIN_ENV)
 
     def shard_args(self, shard: Shard, config: Config) -> ArgList:
@@ -68,7 +68,7 @@ class CPU(TestStage):
             ]
         return args
 
-    def compute_spec(self, config: Config, system: System) -> StageSpec:
+    def compute_spec(self, config: Config, system: TestSystem) -> StageSpec:
         cpus = system.cpus
 
         procs = config.cpus + config.utility + int(config.cpu_pin == "strict")

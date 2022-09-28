@@ -17,7 +17,6 @@
 """
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 from subprocess import CompletedProcess
 from unittest.mock import MagicMock
@@ -25,7 +24,7 @@ from unittest.mock import MagicMock
 import pytest
 from pytest_mock import MockerFixture
 
-from legate.tester import system as m
+from legate.tester import test_system as m
 
 
 @pytest.fixture
@@ -38,11 +37,11 @@ CMD = "legate script.py --cpus 4"
 
 class TestSystem:
     def test_init(self) -> None:
-        s = m.System()
+        s = m.TestSystem()
         assert s.dry_run is False
 
     def test_run(self, mock_subprocess_run: MagicMock) -> None:
-        s = m.System()
+        s = m.TestSystem()
 
         expected = m.ProcessResult(
             CMD, Path("test/file"), returncode=10, output="<output>"
@@ -57,22 +56,10 @@ class TestSystem:
         assert result == expected
 
     def test_dry_run(self, mock_subprocess_run: MagicMock) -> None:
-        s = m.System(dry_run=True)
+        s = m.TestSystem(dry_run=True)
 
         result = s.run(CMD.split(), Path("test/file"))
         mock_subprocess_run.assert_not_called()
 
         assert result.output == ""
         assert result.skipped
-
-    def test_cpus(self) -> None:
-        s = m.System()
-        cpus = s.cpus
-        assert len(cpus) > 0
-        assert all(len(cpu.ids) > 0 for cpu in cpus)
-
-    @pytest.mark.skipif(sys.platform != "linux", reason="pynvml required")
-    def test_gpus(self) -> None:
-        s = m.System()
-        # can't really assume / test much here
-        s.gpus

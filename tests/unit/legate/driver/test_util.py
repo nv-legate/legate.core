@@ -15,16 +15,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 from shlex import quote
-
-import pytest
 
 import legate.driver.util as m
 from legate.driver.config import Config
 from legate.driver.driver import Driver
-from legate.driver.system import System
 from legate.utils.colors import scrub
+from legate.utils.system import System
 
 from ...util import Capsys
 
@@ -97,36 +94,3 @@ class Test_print_verbose:
             assert f"{k}={driver.env[k]}" in out
 
         assert out.endswith(f"\n{'-':-<80}")
-
-
-HEADER_PATH = Path(__file__).parent / "sample_header.h"
-
-
-def test_read_c_define_hit() -> None:
-    assert m.read_c_define(HEADER_PATH, "FOO") == "10"
-    assert m.read_c_define(HEADER_PATH, "BAR") == '"bar"'
-
-
-def test_read_c_define_miss() -> None:
-    assert m.read_c_define(HEADER_PATH, "JUNK") is None
-
-
-CMAKE_CACHE_PATH = Path(__file__).parent / "sample_cmake_cache.txt"
-
-
-def test_read_cmake_cache_value_hit() -> None:
-    assert (
-        m.read_cmake_cache_value(CMAKE_CACHE_PATH, "Legion_SOURCE_DIR:STATIC=")
-        == '"foo/bar"'
-    )
-    assert (
-        m.read_cmake_cache_value(
-            CMAKE_CACHE_PATH, "FIND_LEGATE_CORE_CPP:BOOL=OFF"
-        )
-        == "OFF"
-    )
-
-
-def test_read_cmake_cache_value_miss() -> None:
-    with pytest.raises(RuntimeError):
-        assert m.read_cmake_cache_value(CMAKE_CACHE_PATH, "JUNK") is None
