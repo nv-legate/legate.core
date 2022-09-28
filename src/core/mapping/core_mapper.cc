@@ -113,6 +113,7 @@ class CoreMapper : public Legion::Mapping::NullMapper {
   const bool precise_exception_trace;
   const uint32_t field_reuse_frac;
   const uint32_t field_reuse_freq;
+  const uint32_t max_lru_length;
   bool has_socket_mem;
 
  protected:
@@ -148,6 +149,7 @@ CoreMapper::CoreMapper(MapperRuntime* rt, Machine m, const LibraryContext& c)
     precise_exception_trace(static_cast<bool>(extract_env("LEGATE_PRECISE_EXCEPTION_TRACE", 0, 0))),
     field_reuse_frac(extract_env("LEGATE_FIELD_REUSE_FRAC", 256, 256)),
     field_reuse_freq(extract_env("LEGATE_FIELD_REUSE_FREQ", 32, 32)),
+    max_lru_length(extract_env("LEGATE_MAX_LRU_LENGTH", 5, 0)),
     has_socket_mem(false)
 {
   // Query to find all our local processors
@@ -486,6 +488,10 @@ void CoreMapper::select_tunable_value(const MapperContext ctx,
     }
     case LEGATE_CORE_TUNABLE_FIELD_REUSE_FREQUENCY: {
       pack_tunable<uint32_t>(field_reuse_freq, output);
+      return;
+    }
+    case LEGATE_CORE_TUNABLE_MAX_LRU_LENGTH: {
+      pack_tunable<uint32_t>(max_lru_length, output);
       return;
     }
     case LEGATE_CORE_TUNABLE_NCCL_NEEDS_BARRIER: {
