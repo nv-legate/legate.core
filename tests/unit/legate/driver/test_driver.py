@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import re
+from shlex import quote
 
 import pytest
 from pytest_mock import MockerFixture
@@ -22,8 +23,8 @@ from pytest_mock import MockerFixture
 import legate.driver.driver as m
 from legate.driver.args import LAUNCHERS
 from legate.driver.command import CMD_PARTS
+from legate.driver.config import Config
 from legate.driver.launcher import Launcher
-from legate.driver.util import print_verbose
 from legate.utils.colors import scrub
 from legate.utils.system import System
 from legate.utils.types import LauncherType
@@ -125,7 +126,7 @@ class TestDriver:
 
         run_out = scrub(capsys.readouterr()[0]).strip()
 
-        print_verbose(driver.system, driver)
+        m.print_verbose(driver.system, driver)
 
         pv_out = scrub(capsys.readouterr()[0]).strip()
 
@@ -153,3 +154,48 @@ class TestDriver:
         out, _ = capsys.readouterr()
 
         assert re.search(DARWIN_GDB_WARN_EXPECTED_PAT, scrub(out))
+
+
+class Test_print_verbose:
+    def test_system_only(self, capsys: Capsys) -> None:
+        system = System()
+
+        m.print_verbose(system)
+
+        out = scrub(capsys.readouterr()[0]).strip()
+
+        assert out.startswith(f"{'--- Legion Python Configuration ':-<80}")
+        assert "Legate paths:" in out
+        for line in scrub(str(system.legate_paths)).split():
+            assert line in out
+
+        assert "Legion paths:" in out
+        for line in scrub(str(system.legion_paths)).split():
+            assert line in out
+
+    def test_system_and_driver(self, capsys: Capsys) -> None:
+        config = Config(["legate", "--no-replicate"])
+        system = System()
+        driver = m.Driver(config, system)
+
+        m.print_verbose(system, driver)
+
+        out = scrub(capsys.readouterr()[0]).strip()
+
+        assert out.startswith(f"{'--- Legion Python Configuration ':-<80}")
+        assert "Legate paths:" in out
+        for line in scrub(str(system.legate_paths)).split():
+            assert line in out
+
+        assert "Legion paths:" in out
+        for line in scrub(str(system.legion_paths)).split():
+            assert line in out
+
+        assert "Command:" in out
+        assert f"  {' '.join(quote(t) for t in driver.cmd)}" in out
+
+        assert "Customized Environment:" in out
+        for k in driver.custom_env_vars:
+            assert f"{k}={driver.env[k]}" in out
+
+        assert out.endswith(f"\n{'-':-<80}")

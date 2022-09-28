@@ -23,10 +23,14 @@ from functools import cached_property
 from pathlib import Path
 from typing import Any
 
-from ..utils.types import ArgList, DataclassMixin, LauncherType
+from ..utils.types import (
+    ArgList,
+    DataclassMixin,
+    LauncherType,
+    object_to_dataclass,
+)
 from ..utils.ui import warn
 from .args import parser
-from .util import object_to_dataclass
 
 __all__ = ("Config",)
 

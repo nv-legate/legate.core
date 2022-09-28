@@ -37,7 +37,7 @@ def main(argv: list[str]) -> int:
     from ..utils.system import System
     from ..utils.ui import error
     from . import Config, Driver
-    from .util import print_verbose
+    from .driver import print_verbose
 
     try:
         config = Config(argv)

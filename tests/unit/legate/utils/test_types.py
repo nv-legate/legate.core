@@ -17,6 +17,8 @@
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import legate.utils.types as m
 
 
@@ -28,3 +30,28 @@ class TestCPUInfo:
 class TestGPUInfo:
     def test_fields(self) -> None:
         assert set(m.GPUInfo.__dataclass_fields__) == {"id", "total"}
+
+
+class Source:
+    foo = 10
+    bar = 10.2
+    baz = "test"
+    quux = ["a", "b", "c"]
+    extra = (1, 2, 3)
+
+
+@dataclass(frozen=True)
+class Target:
+    foo: int
+    bar: float
+    baz: str
+    quux: list[str]
+
+
+def test_object_to_dataclass() -> None:
+    source = Source()
+    target = m.object_to_dataclass(source, Target)
+
+    assert set(target.__dict__) == set(Target.__dataclass_fields__)
+    for k, v in target.__dict__.items():
+        assert getattr(source, k) == v

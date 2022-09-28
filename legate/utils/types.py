@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from dataclasses import Field, dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Protocol, Tuple, Union
+from typing import Any, Dict, List, Protocol, Tuple, Type, TypeVar, Union
 
 from typing_extensions import Literal, TypeAlias
 
@@ -37,6 +37,7 @@ __all__ = (
     "LauncherType",
     "LegatePaths",
     "LegionPaths",
+    "object_to_dataclass",
 )
 
 
@@ -93,6 +94,30 @@ class DataclassMixin(DataclassProtocol):
 
     def __str__(self) -> str:
         return kvtable(self.__dict__)
+
+
+T = TypeVar("T", bound=DataclassProtocol)
+
+
+def object_to_dataclass(obj: object, typ: Type[T]) -> T:
+    """Automatically generate a dataclass from an object with appropriate
+    attributes.
+
+    Parameters
+    ----------
+    obj: object
+        An object to pull values from (e.g. an argparse Namespace)
+
+    typ:
+        A dataclass type to generate from ``obj``
+
+    Returns
+    -------
+        The generated dataclass instance
+
+    """
+    kws = {name: getattr(obj, name) for name in typ.__dataclass_fields__}
+    return typ(**kws)
 
 
 @dataclass(frozen=True)
