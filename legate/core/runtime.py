@@ -238,7 +238,10 @@ class FieldMatchManager:
 
 # This class keeps track of usage of a single region
 class RegionManager:
-    def __init__(self, region: Region, imported: bool = False) -> None:
+    def __init__(
+        self, shape: Shape, region: Region, imported: bool = False
+    ) -> None:
+        self._shape = shape
         self._region = region
         # Monotonically increases as more fields are allocated
         self._alloc_field_count = 0
@@ -247,8 +250,24 @@ class RegionManager:
         self._next_field_id = _LEGATE_FIELD_ID_BASE
         self._imported = imported
 
-    def increase_field_count(self) -> None:
+    @property
+    def region(self) -> Region:
+        return self._region
+
+    @property
+    def shape(self) -> Shape:
+        return self._shape
+
+    def destroy(self, unordered: bool) -> None:
+        # An explicit destruction has a benefit that we can sometimes perform
+        # ordered destructions, whereas in a destructor we can only do
+        # unordered destructions
+        self._region.destroy(unordered)
+
+    def increase_field_count(self) -> bool:
+        revived = self._active_field_count == 0
         self._active_field_count += 1
+        return revived
 
     def decrease_field_count(self) -> bool:
         self._active_field_count -= 1
@@ -297,7 +316,8 @@ class FieldManager:
     def allocate_field(self) -> tuple[Region, int]:
         if (result := self.try_reuse_field()) is not None:
             region_manager = self.runtime.find_region_manager(result[0])
-            region_manager.increase_field_count()
+            if region_manager.increase_field_count():
+                self.runtime.revive_manager(region_manager)
             return result
         region_manager = self.runtime.find_or_create_region_manager(self.shape)
         return region_manager.allocate_field(self.field_size)
@@ -308,7 +328,7 @@ class FieldManager:
         self.free_fields.append((region, field_id))
         region_manager = self.runtime.find_region_manager(region)
         if region_manager.decrease_field_count():
-            self.runtime.destroy_region_manager(
+            self.runtime.free_region_manager(
                 self.shape, region, unordered=not ordered
             )
 
@@ -900,6 +920,12 @@ class Runtime:
             if self._num_nodes > 1 or self._args.consensus
             else FieldManager
         )
+        self._max_lru_length = int(
+            self._core_context.get_tunable(
+                legion.LEGATE_CORE_TUNABLE_MAX_LRU_LENGTH,
+                ty.uint32,
+            )
+        )
 
         # Now we initialize managers
         self._attachment_manager = AttachmentManager(self)
@@ -912,6 +938,8 @@ class Runtime:
         self.active_region_managers: dict[Shape, RegionManager] = {}
         # map from regions to their managers
         self.region_managers_by_region: dict[Region, RegionManager] = {}
+        # LRU for free region managers
+        self.lru_managers: Deque[RegionManager] = deque()
         # map from (shape,dtype) to field managers
         self.field_managers: dict[tuple[Shape, Any], FieldManager] = {}
 
@@ -1217,19 +1245,39 @@ class Runtime:
         assert region in self.region_managers_by_region
         return self.region_managers_by_region[region]
 
-    def destroy_region_manager(
+    def revive_manager(self, region_mgr: RegionManager) -> None:
+        lru_managers: Deque[RegionManager] = deque()
+        for to_check in self.lru_managers:
+            if to_check is not region_mgr:
+                lru_managers.append(to_check)
+        assert len(lru_managers) < len(self.lru_managers)
+        self.lru_managers = lru_managers
+
+    def free_region_manager(
         self, shape: Shape, region: Region, unordered: bool = False
     ) -> None:
         assert region in self.region_managers_by_region
         region_mgr = self.region_managers_by_region[region]
-        del self.region_managers_by_region[region]
+        self.lru_managers.appendleft(region_mgr)
 
+        if len(self.lru_managers) > self._max_lru_length:
+            region_mgr = self.lru_managers.pop()
+            self.destroy_region_manager(region_mgr, unordered)
+        assert len(self.lru_managers) <= self._max_lru_length
+
+    def destroy_region_manager(
+        self, region_mgr: RegionManager, unordered: bool
+    ) -> None:
+        region = region_mgr.region
+        del self.region_managers_by_region[region]
         for field_manager in self.field_managers.values():
             field_manager.remove_all_fields(region)
 
+        shape = region_mgr.shape
         active_mgr = self.active_region_managers.get(shape)
         if active_mgr is region_mgr:
             del self.active_region_managers[shape]
+        region_mgr.destroy(unordered)
 
     def find_or_create_region_manager(self, shape: Shape) -> RegionManager:
         region_mgr = self.active_region_managers.get(shape)
@@ -1240,7 +1288,7 @@ class Runtime:
         field_space = self.create_field_space()
         region = self.create_region(index_space, field_space)
 
-        region_mgr = RegionManager(region)
+        region_mgr = RegionManager(shape, region)
         self.active_region_managers[shape] = region_mgr
         self.region_managers_by_region[region] = region_mgr
         return region_mgr
@@ -1289,7 +1337,7 @@ class Runtime:
         shape = Shape(ispace=region.index_space)
         region_mgr = self.region_managers_by_region.get(region)
         if region_mgr is None:
-            region_mgr = RegionManager(region, imported=True)
+            region_mgr = RegionManager(shape, region, imported=True)
             self.region_managers_by_region[region] = region_mgr
             self.find_or_create_field_manager(shape, dtype.size)
 
