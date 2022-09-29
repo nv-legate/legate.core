@@ -14,13 +14,60 @@
 #
 
 import sys
+from argparse import ArgumentParser
 from dataclasses import dataclass
+from typing import Iterable, TypeVar
 
 import pytest
 
 import legate.util.args as m
 
-from ...util import Capsys
+from ...util import Capsys, powerset
+
+T = TypeVar("T")
+
+
+class TestMultipleChoices:
+    @pytest.mark.parametrize("choices", ([1, 2, 3], range(4), ("a", "b")))
+    def test_init(self, choices: Iterable[T]) -> None:
+        mc = m.MultipleChoices(choices)
+        assert mc._choices == set(choices)
+
+    def test_contains_item(self) -> None:
+        choices = [1, 2, 3]
+        mc = m.MultipleChoices(choices)
+        for item in choices:
+            assert item in mc
+
+    def test_contains_subset(self) -> None:
+        choices = [1, 2, 3]
+        mc = m.MultipleChoices(choices)
+        for subset in powerset(choices):
+            assert subset in mc
+
+    def test_iter(self) -> None:
+        choices = [1, 2, 3]
+        mc = m.MultipleChoices(choices)
+        assert list(mc) == choices
+
+
+class TestExtendAction:
+    parser = ArgumentParser()
+    parser.add_argument(
+        "--foo", dest="foo", action=m.ExtendAction, choices=("a", "b", "c")
+    )
+
+    def test_single(self) -> None:
+        ns = self.parser.parse_args(["--foo", "a"])
+        assert ns.foo == ["a"]
+
+    def test_multi(self) -> None:
+        ns = self.parser.parse_args(["--foo", "a", "--foo", "b"])
+        assert sorted(ns.foo) == ["a", "b"]
+
+    def test_repeat(self) -> None:
+        ns = self.parser.parse_args(["--foo", "a", "--foo", "a"])
+        assert ns.foo == ["a"]
 
 
 @dataclass(frozen=True)

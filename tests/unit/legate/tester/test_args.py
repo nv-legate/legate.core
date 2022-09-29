@@ -17,11 +17,6 @@
 """
 from __future__ import annotations
 
-from itertools import chain, combinations
-from typing import Iterable, TypeVar
-
-import pytest
-
 from legate.tester import (
     DEFAULT_CPUS_PER_NODE,
     DEFAULT_GPU_DELAY,
@@ -31,14 +26,6 @@ from legate.tester import (
     DEFAULT_OMPTHREADS,
     args as m,
 )
-
-T = TypeVar("T")
-
-
-# https://docs.python.org/3/library/itertools.html#itertools-recipes
-def powerset(iterable: Iterable[T]) -> Iterable[Iterable[T]]:
-    xs = list(iterable)
-    return chain.from_iterable(combinations(xs, n) for n in range(len(xs) + 1))
 
 
 class TestParserDefaults:
@@ -100,33 +87,3 @@ class TestParserConfig:
 
     def test_parser_description(self) -> None:
         assert m.parser.description == "Run the Cunumeric test suite"
-
-
-class TestMultipleChoices:
-    @pytest.mark.parametrize("choices", ([1, 2, 3], range(4), ("a", "b")))
-    def test_init(self, choices: Iterable[T]) -> None:
-        mc = m.MultipleChoices(choices)
-        assert mc.choices == set(choices)
-
-    def test_contains_item(self) -> None:
-        choices = [1, 2, 3]
-        mc = m.MultipleChoices(choices)
-        for item in choices:
-            assert item in mc
-
-    def test_contains_subset(self) -> None:
-        choices = [1, 2, 3]
-        mc = m.MultipleChoices(choices)
-        for subset in powerset(choices):
-            assert subset in mc
-
-    def test_iter(self) -> None:
-        choices = [1, 2, 3]
-        mc = m.MultipleChoices(choices)
-        assert list(mc) == choices
-
-
-# Testing this directly would require getting into argparse
-# internals. See test_config.py for indirect tests with --use
-class TestExtendAction:
-    pass

@@ -16,9 +16,19 @@ from __future__ import annotations
 
 import sys
 import warnings
-from argparse import ArgumentParser, Namespace
+from argparse import Action, ArgumentParser, Namespace
 from dataclasses import dataclass, fields
-from typing import Any, Iterable, Literal, Sequence, Type, TypeVar, Union
+from typing import (
+    Any,
+    Generic,
+    Iterable,
+    Iterator,
+    Literal,
+    Sequence,
+    Type,
+    TypeVar,
+    Union,
+)
 
 from typing_extensions import TypeAlias
 
@@ -29,8 +39,10 @@ class _UnsetType:
 
 Unset = _UnsetType()
 
-_T = TypeVar("_T")
-NotRequired = Union[_UnsetType, _T]
+
+T = TypeVar("T")
+
+NotRequired = Union[_UnsetType, T]
 
 
 # https://docs.python.org/3/library/argparse.html#action
@@ -74,6 +86,58 @@ def entries(obj: Any) -> Iterable[tuple[str, Any]]:
         value = getattr(obj, f.name)
         if value is not Unset:
             yield (f.name, value)
+
+
+class MultipleChoices(Generic[T]):
+    """A container that reports True for any item or subset inclusion.
+
+    Parameters
+    ----------
+    choices: Iterable[T]
+        The values to populate the containter.
+
+    Examples
+    --------
+
+    >>> choices = MultipleChoices(["a", "b", "c"])
+
+    >>> "a" in choices
+    True
+
+    >>> ("b", "c") in choices
+    True
+
+    """
+
+    def __init__(self, choices: Iterable[T]) -> None:
+        self._choices = set(choices)
+
+    def __contains__(self, x: Union[T, Sequence[T]]) -> bool:
+        if isinstance(x, (list, tuple)):
+            return set(x).issubset(self._choices)
+        return x in self._choices
+
+    def __iter__(self) -> Iterator[T]:
+        return self._choices.__iter__()
+
+
+class ExtendAction(Action, Generic[T]):
+    """A custom argparse action to collect multiple values into a list."""
+
+    def __call__(
+        self,
+        parser: ArgumentParser,
+        namespace: Namespace,
+        values: Union[str, Sequence[T], None],
+        option_string: Union[str, None] = None,
+    ) -> None:
+        items = getattr(namespace, self.dest) or []
+        if isinstance(values, (list, tuple)):
+            items.extend(values)
+        else:
+            items.append(values)
+        # removing any duplicates before storing
+        setattr(namespace, self.dest, list(set(items)))
 
 
 def parse_library_command_args(

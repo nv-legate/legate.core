@@ -17,20 +17,12 @@
 """
 from __future__ import annotations
 
-from argparse import Action, ArgumentParser, Namespace
-from typing import (
-    Any,
-    Generic,
-    Iterable,
-    Iterator,
-    Literal,
-    Sequence,
-    TypeVar,
-    Union,
-)
+from argparse import ArgumentParser
+from typing import Literal, Union
 
 from typing_extensions import TypeAlias
 
+from ..util.args import ExtendAction, MultipleChoices
 from . import (
     DEFAULT_CPUS_PER_NODE,
     DEFAULT_GPU_DELAY,
@@ -40,8 +32,6 @@ from . import (
     DEFAULT_OMPTHREADS,
     FEATURES,
 )
-
-T = TypeVar("T")
 
 PinOptionsType: TypeAlias = Union[
     Literal["partial"],
@@ -54,57 +44,6 @@ PIN_OPTIONS: tuple[PinOptionsType, ...] = (
     "none",
     "strict",
 )
-
-
-class MultipleChoices(Generic[T]):
-    """A container that reports True for any item or subset inclusion.
-
-    Parameters
-    ----------
-    choices: Iterable[T]
-        The values to populate the containter.
-
-    Examples
-    --------
-
-    >>> choices = MultipleChoices(["a", "b", "c"])
-
-    >>> "a" in choices
-    True
-
-    >>> ("b", "c") in choices
-    True
-
-    """
-
-    def __init__(self, choices: Iterable[T]) -> None:
-        self.choices = set(choices)
-
-    def __contains__(self, x: Union[T, Iterable[T]]) -> bool:
-        if isinstance(x, (list, tuple)):
-            return set(x).issubset(self.choices)
-        return x in self.choices
-
-    def __iter__(self) -> Iterator[T]:
-        return self.choices.__iter__()
-
-
-class ExtendAction(Action):
-    """A custom argparse action to collect multiple values into a list."""
-
-    def __call__(
-        self,
-        parser: ArgumentParser,
-        namespace: Namespace,
-        values: Union[str, Sequence[Any], None],
-        option_string: Union[str, None] = None,
-    ) -> None:
-        items = getattr(namespace, self.dest, None) or []
-        if isinstance(values, list):
-            items.extend(values)
-        else:
-            items.append(values)
-        setattr(namespace, self.dest, items)
 
 
 #: The argument parser for test.py
@@ -122,9 +61,7 @@ stages.add_argument(
     dest="features",
     action=ExtendAction,
     choices=MultipleChoices(sorted(FEATURES)),
-    # argpase evidently only expects string returns from the type converter
-    # here, but returning a list of strings seems to work in practice
-    type=lambda s: s.split(","),  # type: ignore[return-value, arg-type]
+    type=lambda s: s.split(","),  # type: ignore
     help="Test Legate with features (also via USE_*)",
 )
 

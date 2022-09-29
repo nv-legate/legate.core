@@ -24,7 +24,7 @@ from legate.tester import FeatureType
 from legate.tester.config import Config
 from legate.tester.stages import test_stage as m
 from legate.tester.stages.util import StageResult, StageSpec
-from legate.tester.test_system import ProcessResult, TestSystem
+from legate.tester.test_system import ProcessResult, TestSystem as _TestSystem
 
 from . import FakeSystem
 
@@ -39,10 +39,10 @@ class MockTestStage(m.TestStage):
 
     args = ["-foo", "-bar"]
 
-    def __init__(self, config: Config, system: TestSystem) -> None:
+    def __init__(self, config: Config, system: _TestSystem) -> None:
         self._init(config, system)
 
-    def compute_spec(self, config: Config, system: TestSystem) -> StageSpec:
+    def compute_spec(self, config: Config, system: _TestSystem) -> StageSpec:
         return StageSpec(2, [(0,), (1,), (2,)])
 
 
