@@ -1,46 +1,53 @@
-# Do not compile with NDEBUG until Legion handles it without warnings
-export CPPFLAGS="$CPPFLAGS -UNDEBUG"
+#!/bin/bash
 
-install_args=()
+set -x;
+
+# Rewrite conda's -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY to
+#                 -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=BOTH
+CMAKE_ARGS="$(echo "$CMAKE_ARGS" | sed -r "s@_INCLUDE=ONLY@_INCLUDE=BOTH@g")"
+
+# Add our options to conda's CMAKE_ARGS
+CMAKE_ARGS+="
+--log-level=VERBOSE
+-DBUILD_MARCH=haswell
+-DLegion_USE_OpenMP=ON
+-DLegion_USE_Python=ON
+-DLegion_BUILD_BINDINGS=ON"
 
 # We rely on an environment variable to determine if we need to build cpu-only bits
 if [ -z "$CPU_ONLY" ]; then
-  # cuda, relying on the stub library provided by the toolkit
-  install_args+=("--cuda" "--with-cuda" "$BUILD_PREFIX")
-
-  # nccl, relying on the conda nccl package
-  install_args+=("--with-nccl" "$PREFIX")
-
-  # targetted architecture to compile cubin support for
-  install_args+=("--arch" "70,75,80")
+  CMAKE_ARGS+="
+-DLegion_USE_CUDA=ON
+-DCMAKE_CUDA_ARCHITECTURES:LIST=60-real;70-real;75-real;80-real;86
+"
 fi
 
-#CPU targeting
-install_args+=("--march" "haswell")
+# Do not compile with NDEBUG until Legion handles it without warnings
+export CFLAGS="-UNDEBUG"
+export CXXFLAGS="-UNDEBUG"
+export CPPFLAGS="-UNDEBUG"
+export CUDAFLAGS="-UNDEBUG"
+export CMAKE_GENERATOR=Ninja
+export CUDAHOSTCXX=${CXX}
 
-#openMP support
-install_args+=("--openmp")
+cmake -S . -B build ${CMAKE_ARGS}
+cmake --build build -j$CPU_COUNT
+cmake --install build --prefix "$PREFIX"
 
-# Target directory
-install_args+=("--install-dir" "$PREFIX")
+CMAKE_ARGS="
+-DFIND_LEGATE_CORE_CPP=ON
+-Dlegate_core_ROOT=$PREFIX
+"
 
-# Verbose mode
-install_args+=("-v")
-
-# Move the stub library into the lib package to make the install think it's pointing at a live installation
-if [ -z "$CPU_ONLY" ]; then
-  cp $PREFIX/lib/stubs/libcuda.so $PREFIX/lib/libcuda.so
-  ln -s $PREFIX/lib $PREFIX/lib64
-fi
-
-echo "Install command: $PYTHON install.py ${install_args[@]}"
-$PYTHON install.py "${install_args[@]}"
-
-# Remove the stub library and linking
-if [ -z "$CPU_ONLY" ]; then
-  rm $PREFIX/lib/libcuda.so
-  rm $PREFIX/lib64
-fi
+SKBUILD_BUILD_OPTIONS=-j$CPU_COUNT \
+$PYTHON -m pip install             \
+  --root /                         \
+  --no-deps                        \
+  --prefix "$PREFIX"               \
+  --no-build-isolation             \
+  --cache-dir "$PIP_CACHE_DIR"     \
+  --disable-pip-version-check      \
+  . -vv
 
 # Legion leaves an egg-info file which will confuse conda trying to pick up the information
 # Remove it so the legate-core is the only egg-info file added

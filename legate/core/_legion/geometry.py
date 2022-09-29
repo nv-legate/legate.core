@@ -216,6 +216,9 @@ class Rect:
             self.rect.rect_data[dim + i] = self._hi[i]
         return self.rect
 
+    def to_domain(self) -> Domain:
+        return Domain(self.raw())
+
 
 class Domain:
     def __init__(self, domain: Any) -> None:
