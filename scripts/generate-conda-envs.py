@@ -34,6 +34,9 @@ class SectionConfig(Protocol):
     def pip(self) -> Reqs:
         return ()
 
+    def __str__(self) -> str:
+        return self.heading
+
 
 @dataclass(frozen=True)
 class CUDAConfig(SectionConfig):
@@ -53,33 +56,44 @@ class CUDAConfig(SectionConfig):
             "pynvml",  # tests
         )
 
-    @property
-    def filename_component(self) -> str:
+    def __str__(self) -> str:
         if self.ctk_version is None:
             return ""
 
         return f"-cuda-{self.ctk_version}"
 
 
+@dataclass(frozen=True)
 class BuildConfig(SectionConfig):
+    compilers: bool = True
+    openmpi: bool = True
+
     header = "build"
 
     @property
     def conda(self) -> Reqs:
-        return (
-            "c-compiler",
+        pkgs = (
             "cmake>=3.24",
-            "cxx-compiler",
             "git",
             "make",
             "ninja",
-            "openmpi",
             "scikit-build>=0.13.1",
             "setuptools>=60",
             "zlib",
         )
+        if self.compilers:
+            pkgs += ("c-compiler", "cxx-compiler")
+        if self.openmpi:
+            pkgs += ("openmpi",)
+        return sorted(pkgs)
+
+    def __str__(self) -> str:
+        val = "-compilers" if self.compilers else "-no-compilers"
+        val += "-with-openmpi" if self.openmpi else "-without-openmpi"
+        return val
 
 
+@dataclass(frozen=True)
 class RuntimeConfig(SectionConfig):
     header = "runtime"
 
@@ -96,6 +110,7 @@ class RuntimeConfig(SectionConfig):
         )
 
 
+@dataclass(frozen=True)
 class TestsConfig(SectionConfig):
     header = "tests"
 
@@ -120,6 +135,7 @@ class TestsConfig(SectionConfig):
         return ("tifffile",)
 
 
+@dataclass(frozen=True)
 class DocsConfig(SectionConfig):
     header = "docs"
 
@@ -142,15 +158,17 @@ class EnvConfig:
     python: str
     os: OSType
     ctk: str | None
+    compilers: bool
+    openmpi: bool
 
     @property
     def sections(self) -> tuple[SectionConfig, ...]:
         return (
             self.cuda,
-            BuildConfig(),
-            RuntimeConfig(),
-            TestsConfig(),
-            DocsConfig(),
+            self.build,
+            self.runtime,
+            self.tests,
+            self.docs,
         )
 
     @property
@@ -158,10 +176,25 @@ class EnvConfig:
         return CUDAConfig(self.ctk)
 
     @property
+    def build(self) -> BuildConfig:
+        return BuildConfig(self.compilers, self.openmpi)
+
+    @property
+    def runtime(self) -> RuntimeConfig:
+        return RuntimeConfig()
+
+    @property
+    def tests(self) -> TestsConfig:
+        return TestsConfig()
+
+    @property
+    def docs(self) -> DocsConfig:
+        return DocsConfig()
+
+    @property
     def filename(self) -> str:
         python = f"py{self.python.replace('.', '')}"
-        cuda = self.cuda.filename_component
-        return f"environment-{self.use}-{self.os}-{python}{cuda}.yaml"
+        return f"environment-{self.use}-{self.os}-{python}{self.cuda}{self.build}.yaml"  # noqa
 
 
 # --- Setup -------------------------------------------------------------------
@@ -218,10 +251,17 @@ dependencies:
 )
 
 CONFIGS = [
-    EnvConfig("test", python, "linux", ctk)
+    EnvConfig("test", python, "linux", ctk, compilers, openmpi)
     for python in PYTHON_VERSIONS
     for ctk in CTK_VERSIONS + (None,)
-] + [EnvConfig("test", python, "darwin", None) for python in PYTHON_VERSIONS]
+    for compilers in (True, False)
+    for openmpi in (True, False)
+] + [
+    EnvConfig("test", python, "darwin", None, compilers, openmpi)
+    for python in PYTHON_VERSIONS
+    for compilers in (True, False)
+    for openmpi in (True, False)
+]
 
 # --- Code --------------------------------------------------------------------
 
