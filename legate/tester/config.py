@@ -82,7 +82,9 @@ class Config:
         """Path to the directory containing the tests."""
         if self.test_root:
             return Path(self.test_root)
-        return Path(__file__).parents[2]
+
+        # if not explicitly given, just use cwd assuming we are at a repo top
+        return Path(os.getcwd())
 
     @property
     def test_files(self) -> tuple[Path, ...]:
