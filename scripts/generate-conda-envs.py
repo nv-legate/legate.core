@@ -70,14 +70,12 @@ class BuildConfig(SectionConfig):
             "c-compiler",
             "cmake>=3.24",
             "cxx-compiler",
-            "gcc_linux-64 # [linux64]",
             "git",
             "make",
             "ninja",
             "openmpi",
             "scikit-build>=0.13.1",
             "setuptools>=60",
-            "sysroot_linux-64==2.17 # [linux64]",
             "zlib",
         )
 
