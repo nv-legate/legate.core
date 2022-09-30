@@ -1272,12 +1272,7 @@ class Runtime:
         return self.region_managers_by_region[region]
 
     def revive_manager(self, region_mgr: RegionManager) -> None:
-        lru_managers: Deque[RegionManager] = deque()
-        for to_check in self.lru_managers:
-            if to_check is not region_mgr:
-                lru_managers.append(to_check)
-        assert len(lru_managers) < len(self.lru_managers)
-        self.lru_managers = lru_managers
+        self.lru_managers.remove(region_mgr)
 
     def free_region_manager(
         self, shape: Shape, region: Region, unordered: bool = False
