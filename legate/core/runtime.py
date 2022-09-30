@@ -200,9 +200,9 @@ class FieldMatchManager:
     ) -> None:
         self._freed_fields.append(FreeFieldInfo(manager, region, field_id))
 
-    def issue_field_match(self) -> None:
+    def issue_field_match(self, credit: int) -> None:
         # Increment our match counter
-        self._match_counter += 1
+        self._match_counter += credit
         if self._match_counter < self._match_frequency:
             return
         # If the match counter equals our match frequency then do an exchange
@@ -342,9 +342,29 @@ class ConsensusMatchingFieldManager(FieldManager):
     ) -> None:
         super().__init__(runtime, shape, field_size)
         self._field_match_manager = runtime.field_match_manager
+        self._update_match_credit()
+
+    def _update_match_credit(self) -> None:
+        if self.shape.fixed:
+            size = self.shape.volume() * self.field_size
+            self._match_credit = (
+                size + self.runtime.max_field_reuse_size - 1
+                if size > self.runtime.max_field_reuse_size
+                else self.runtime.max_field_reuse_size
+            ) // self.runtime.max_field_reuse_size
+            # No need to update the credit as the exact size is known
+            self._need_to_update_match_credit = False
+        # If the shape is unknown, we set the credit such that every new
+        # free field leads to a consensus match, and ask the manager
+        # to update the credit.
+        else:
+            self._match_credit = self.runtime.max_field_reuse_frequency
+            self._need_to_update_match_credit = True
 
     def try_reuse_field(self) -> Optional[tuple[Region, int]]:
-        self._field_match_manager.issue_field_match()
+        if self._need_to_update_match_credit:
+            self._update_match_credit()
+        self._field_match_manager.issue_field_match(self._match_credit)
 
         # First, if we have a free field then we know everyone has one of those
         if len(self.free_fields) > 0:
@@ -915,6 +935,12 @@ class Runtime:
                 ty.uint32,
             )
         )
+        self.max_field_reuse_size = int(
+            self._core_context.get_tunable(
+                legion.LEGATE_CORE_TUNABLE_FIELD_REUSE_SIZE,
+                ty.uint64,
+            )
+        )
         self._field_manager_class = (
             ConsensusMatchingFieldManager
             if self._num_nodes > 1 or self._args.consensus
@@ -1246,12 +1272,7 @@ class Runtime:
         return self.region_managers_by_region[region]
 
     def revive_manager(self, region_mgr: RegionManager) -> None:
-        lru_managers: Deque[RegionManager] = deque()
-        for to_check in self.lru_managers:
-            if to_check is not region_mgr:
-                lru_managers.append(to_check)
-        assert len(lru_managers) < len(self.lru_managers)
-        self.lru_managers = lru_managers
+        self.lru_managers.remove(region_mgr)
 
     def free_region_manager(
         self, shape: Shape, region: Region, unordered: bool = False
