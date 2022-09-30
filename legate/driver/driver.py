@@ -88,7 +88,9 @@ class Driver:
 
         """
         if self.config.info.verbose:
-            print_verbose(self.system, self)
+            # we only want to print verbose output on a "head" node
+            if self.launcher.kind != "none" or self.launcher.rank_id == "0":
+                print_verbose(self.system, self)
 
         self._darwin_gdb_warn()
 
