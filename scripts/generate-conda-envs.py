@@ -289,7 +289,7 @@ if __name__ == "__main__":
         "--os",
         choices=OS_NAMES,
         default=None,
-        help="OS to generate for, if unset, generate for all OSes",
+        help="OS to generate for (default: all OSes)",
     )
     parser.add_argument(
         "--compilers",
@@ -301,7 +301,7 @@ if __name__ == "__main__":
         "--openmpi",
         action=BooleanOptionalAction,
         default=None,
-        help="Whether to include openmpi or not, (default: both)",
+        help="Whether to include openmpi or not (default: both)",
     )
 
     args = parser.parse_args(sys.argv[1:])
