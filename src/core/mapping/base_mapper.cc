@@ -192,11 +192,11 @@ void BaseMapper::select_task_options(const MapperContext ctx,
   unsigned int idx = 0;
   if (task.index_point.dim == 2) { idx = task.index_point[1]; }
 
+  std::cout << "IRINA DEBUG idx = " << idx << " ," << local_cpus[idx] << std::endl;
   // We never want valid instances
   switch (target) {
     case TaskTarget::CPU: {
       output.initial_proc = local_cpus[idx];
-      std::cout << "IRINA DEBUG idx = " << idx << " ," << local_cpus[idx] << std::endl;
       break;
     }
     case TaskTarget::GPU: {
