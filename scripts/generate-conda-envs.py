@@ -57,7 +57,7 @@ class CUDAConfig(SectionConfig):
         )
 
     def __str__(self) -> str:
-        if self.ctk_version is None:
+        if self.ctk_version == "none":
             return ""
 
         return f"-cuda-{self.ctk_version}"
@@ -202,6 +202,7 @@ class EnvConfig:
 PYTHON_VERSIONS = ("3.8", "3.9", "3.10")
 
 CTK_VERSIONS = (
+    "none",
     "10.2",
     "11.0",
     "11.1",
@@ -250,14 +251,14 @@ dependencies:
     lstrip_blocks=True,
 )
 
-CONFIGS = [
+ALL_CONFIGS = [
     EnvConfig("test", python, "linux", ctk, compilers, openmpi)
     for python in PYTHON_VERSIONS
-    for ctk in CTK_VERSIONS + (None,)
+    for ctk in CTK_VERSIONS
     for compilers in (True, False)
     for openmpi in (True, False)
 ] + [
-    EnvConfig("test", python, "darwin", None, compilers, openmpi)
+    EnvConfig("test", python, "darwin", "none", compilers, openmpi)
     for python in PYTHON_VERSIONS
     for compilers in (True, False)
     for openmpi in (True, False)
@@ -265,15 +266,72 @@ CONFIGS = [
 
 # --- Code --------------------------------------------------------------------
 
-for config in CONFIGS:
-    conda_sections = [section for section in config.sections if section.conda]
-    pip_sections = [section for section in config.sections if section.pip]
+if __name__ == "__main__":
 
-    print(f"------- {config.filename}")
-    out = ENV_TEMPLATE.render(
-        python=config.python,
-        conda_sections=conda_sections,
-        pip_sections=pip_sections,
+    import sys
+    from argparse import ArgumentParser, BooleanOptionalAction
+
+    parser = ArgumentParser()
+    parser.add_argument(
+        "--python",
+        choices=PYTHON_VERSIONS,
+        default=None,
+        help="Python version to generate for, (default: all python versions)",
     )
-    with open(f"conda/{config.filename}", "w") as f:
-        f.write(out)
+    parser.add_argument(
+        "--ctk",
+        choices=CTK_VERSIONS,
+        default=None,
+        dest="ctk_version",
+        help="CTK version to generate for (default: all CTK versions)",
+    )
+    parser.add_argument(
+        "--os",
+        choices=OS_NAMES,
+        default=None,
+        help="OS to generate for, if unset, generate for all OSes",
+    )
+    parser.add_argument(
+        "--compilers",
+        action=BooleanOptionalAction,
+        default=None,
+        help="Whether to include conda compilers or not (default: both)",
+    )
+    parser.add_argument(
+        "--openmpi",
+        action=BooleanOptionalAction,
+        default=None,
+        help="Whether to include openmpi or not, (default: both)",
+    )
+
+    args = parser.parse_args(sys.argv[1:])
+
+    configs = ALL_CONFIGS
+
+    if args.python is not None:
+        configs = (x for x in configs if x.python == args.python)
+    if args.ctk_version is not None:
+        configs = (
+            x for x in configs if x.cuda.ctk_version == args.ctk_version
+        )
+    if args.compilers is not None:
+        configs = (x for x in configs if x.build.compilers == args.compilers)
+    if args.os is not None:
+        configs = (x for x in configs if x.os == args.os)
+    if args.openmpi is not None:
+        configs = (x for x in configs if x.build.openmpi == args.openmpi)
+
+    for config in configs:
+        conda_sections = [
+            section for section in config.sections if section.conda
+        ]
+        pip_sections = [section for section in config.sections if section.pip]
+
+        print(f"--- generating: {config.filename}")
+        out = ENV_TEMPLATE.render(
+            python=config.python,
+            conda_sections=conda_sections,
+            pip_sections=pip_sections,
+        )
+        with open(f"{config.filename}", "w") as f:
+            f.write(out)
