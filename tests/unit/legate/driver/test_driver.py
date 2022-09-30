@@ -23,7 +23,7 @@ from util import Capsys, GenConfig
 import legate.driver.driver as m
 from legate.driver.args import LAUNCHERS
 from legate.driver.command import CMD_PARTS
-from legate.driver.launcher import Launcher
+from legate.driver.launcher import RANK_ENV_VARS, Launcher
 from legate.driver.system import System
 from legate.driver.types import LauncherType
 from legate.driver.ui import scrub
@@ -128,6 +128,35 @@ class TestDriver:
         pv_out = scrub(capsys.readouterr()[0]).strip()
 
         assert pv_out in run_out
+
+    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
+    def test_verbose_nonero_rank_id(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: Capsys,
+        genconfig: GenConfig,
+        rank_var: str,
+    ) -> None:
+        for name in RANK_ENV_VARS:
+            monkeypatch.delenv(name, raising=False)
+        monkeypatch.setenv(name, "1")
+
+        # set --dry-run to avoid needing to mock anything
+        config = genconfig(
+            ["--launcher", "none", "--verbose", "--dry-run"], multi_rank=(2, 2)
+        )
+        system = System()
+        driver = m.Driver(config, system)
+
+        driver.run()
+
+        run_out = scrub(capsys.readouterr()[0]).strip()
+
+        print_verbose(driver.system, driver)
+
+        pv_out = scrub(capsys.readouterr()[0]).strip()
+
+        assert pv_out not in run_out
 
     @pytest.mark.parametrize("launch", LAUNCHERS)
     def test_darwin_gdb_warning(
