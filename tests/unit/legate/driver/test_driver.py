@@ -155,7 +155,7 @@ class TestDriver:
 
         run_out = scrub(capsys.readouterr()[0]).strip()
 
-        print_verbose(driver.system, driver)
+        m.print_verbose(driver.system, driver)
 
         pv_out = scrub(capsys.readouterr()[0]).strip()
 
