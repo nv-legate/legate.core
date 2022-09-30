@@ -327,26 +327,24 @@ def get_legion_paths(legate_paths: LegatePaths) -> LegionPaths:
         if legion_module is None:
             legion_lib_dir = legion_dir / "lib"
             for f in legion_lib_dir.iterdir():
-                if legion_lib_dir.joinpath(f / "site-packages").exists():
-                    legion_module = legion_lib_dir / f / "site-packages"
+                if f.joinpath("site-packages").exists():
+                    legion_module = f / "site-packages"
                     break
 
-            legion_bin_path = legion_dir / "bin"
-            legion_include_path = legion_dir / "include"
+        legion_bin_path = legion_dir / "bin"
+        legion_include_path = legion_dir / "include"
 
-            return LegionPaths(
-                legion_bin_path=legion_bin_path,
-                legion_lib_path=legion_lib_dir,
-                realm_defines_h=legion_include_path / "realm_defines.h",
-                legion_defines_h=legion_include_path / "legion_defines.h",
-                legion_spy_py=legion_bin_path / "legion_spy.py",
-                legion_prof_py=legion_bin_path / "legion_prof.py",
-                legion_python=legion_bin_path / "legion_python",
-                legion_module=legion_module,
-                legion_jupyter_module=legion_module,
-            )
-
-        raise RuntimeError("Could not determine legion paths")
+        return LegionPaths(
+            legion_bin_path=legion_bin_path,
+            legion_lib_path=legion_lib_dir,
+            realm_defines_h=legion_include_path / "realm_defines.h",
+            legion_defines_h=legion_include_path / "legion_defines.h",
+            legion_spy_py=legion_bin_path / "legion_spy.py",
+            legion_prof_py=legion_bin_path / "legion_prof.py",
+            legion_python=legion_bin_path / "legion_python",
+            legion_module=legion_module,
+            legion_jupyter_module=legion_module,
+        )
 
     if (legate_build_dir := legate_paths.legate_build_dir) is None:
         legate_build_dir = get_legate_build_dir(legate_paths.legate_dir)
