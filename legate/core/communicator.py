@@ -19,7 +19,6 @@ from abc import ABC, abstractmethod, abstractproperty
 from typing import TYPE_CHECKING
 
 from . import FutureMap, Point, Rect
-from .launcher import TaskLauncher as Task
 
 if TYPE_CHECKING:
     from .runtime import Runtime
@@ -92,6 +91,8 @@ class NCCLCommunicator(Communicator):
         return self._needs_barrier
 
     def _initialize(self, volume: int) -> FutureMap:
+        from .launcher import TaskLauncher as Task
+
         # This doesn't need to run on a GPU, but will use it anyway
         task = Task(
             self._context, self._init_nccl_id, tag=self._tag, side_effect=True
@@ -105,6 +106,8 @@ class NCCLCommunicator(Communicator):
         return handle
 
     def _finalize(self, volume: int, handle: FutureMap) -> None:
+        from .launcher import TaskLauncher as Task
+
         task = Task(self._context, self._finalize_nccl, tag=self._tag)
         task.add_future_map(handle)
         task.execute(Rect([volume]))
@@ -146,6 +149,8 @@ class CPUCommunicator(Communicator):
         return self._needs_barrier
 
     def _initialize(self, volume: int) -> FutureMap:
+        from .launcher import TaskLauncher as Task
+
         cpucoll_uid = self._runtime.core_library.legate_cpucoll_initcomm()
         buf = struct.pack("i", cpucoll_uid)
         cpucoll_uid_f = self._runtime.create_future(buf, len(buf))
@@ -161,6 +166,8 @@ class CPUCommunicator(Communicator):
         return handle
 
     def _finalize(self, volume: int, handle: FutureMap) -> None:
+        from .launcher import TaskLauncher as Task
+
         task = Task(self._context, self._finalize_cpucoll, tag=self._tag)
         task.add_future_map(handle)
         task.execute(Rect([volume]))

@@ -1,0 +1,71 @@
+{
+    "name": "Legate",
+    "kernel_name": "legate_kernel_nocr",
+    "legion_prefix": null,
+    "exe": "legate",
+    "cpus": {
+        "cmd": "--cpus", 
+        "value": 4
+    },
+    "gpus": {
+        "cmd": "--gpus",
+        "value": 1
+    },
+    "omps": {
+        "cmd": "--omps", 
+        "value": 0
+    },
+    "ompthreads": {
+        "cmd": "--ompthreads", 
+        "value": 4
+    },
+    "utility": {
+        "cmd": "--utility", 
+        "value": 2
+    },
+    "sysmem": {
+        "cmd": "--sysmem", 
+        "value": 4000
+    },
+    "numamem": {
+        "cmd": "--numamem", 
+        "value": 0
+    },
+    "fbmem": {
+        "cmd": "--fbmem", 
+        "value": 4000
+    },
+    "zcmem": {
+        "cmd": "--zcmem", 
+        "value": 32
+    },
+    "regmem": {
+        "cmd": "--regmem", 
+        "value": 0
+    },
+    "not_control_replicable": {
+        "action": "store_true",
+        "cmd": "--no-replicate", 
+        "value": null
+    },
+    "nodes": {
+        "cmd": "--nodes", 
+        "value": 1
+    },
+    "ranks_per_node": {
+        "cmd": "--ranks-per-node", 
+        "value": 1
+    },
+    "launcher": {
+        "type": "legate",
+        "cmd": "--launcher",
+        "value": null,
+        "launcher_extra": null
+    },
+    "other_options": [
+        {
+            "cmd": "--verbose", 
+            "value": null
+        }
+    ]
+}

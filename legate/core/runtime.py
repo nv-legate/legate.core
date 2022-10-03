@@ -19,10 +19,12 @@ import math
 import struct
 import weakref
 from collections import deque
-from functools import reduce
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Deque, List, Optional, TypeVar, Union
 
 from legion_top import add_cleanup_item, top_level
+
+from legate.rc import ArgSpec, Argument, parse_command_args
 
 from . import ffi  # Make sure we only have one ffi instance
 from . import (
@@ -39,19 +41,15 @@ from . import (
     legion,
     types as ty,
 )
+from ._legion.env import LEGATE_MAX_FIELDS
 from ._legion.util import Dispatchable
+from .allocation import Attachable
 from .communicator import CPUCommunicator, NCCLCommunicator
-from .context import Context
 from .corelib import core_library
 from .exception import PendingException
-from .launcher import TaskLauncher
-from .partition import Restriction
 from .projection import is_identity_projection, pack_symbolic_projection_repr
+from .restriction import Restriction
 from .shape import Shape
-from .solver import Partitioner
-from .store import DistributedAllocation, RegionField, Storage, Store
-from .transform import IdentityTransform
-from .utils import OrderedSet
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -59,78 +57,64 @@ if TYPE_CHECKING:
     from . import ArgumentMap, Detach, IndexDetach, IndexPartition, Library
     from ._legion import FieldListLike, PhysicalRegion
     from .communicator import Communicator
+    from .context import Context
     from .corelib import CoreLib
     from .operation import Operation
     from .partition import PartitionBase
     from .projection import ProjExpr
+    from .store import RegionField, Store
 
 from math import prod
 
-Attachable = Union[memoryview, DistributedAllocation]
-
 T = TypeVar("T")
-
-
-# A Field holds a reference to a field in a region tree
-class Field:
-    def __init__(
-        self,
-        runtime: Runtime,
-        region: Region,
-        field_id: int,
-        dtype: Any,
-        shape: Shape,
-        own: bool = True,
-    ) -> None:
-        self.runtime = runtime
-        self.region = region
-        self.field_id = field_id
-        self.dtype = dtype
-        self.shape = shape
-        self.own = own
-
-    def same_handle(self, other: Field) -> bool:
-        return type(self) == type(other) and self.field_id == other.field_id
-
-    def __str__(self) -> str:
-        return f"Field({self.field_id})"
-
-    def __del__(self) -> None:
-        if self.own:
-            # Return our field back to the runtime
-            self.runtime.free_field(
-                self.region,
-                self.field_id,
-                self.dtype,
-                self.shape,
-            )
 
 
 _sizeof_int = ffi.sizeof("int")
 _sizeof_size_t = ffi.sizeof("size_t")
 assert _sizeof_size_t == 4 or _sizeof_size_t == 8
 
+_LEGATE_FIELD_ID_BASE = 1000
+
+ARGS = [
+    Argument(
+        "consensus",
+        ArgSpec(
+            action="store_true",
+            default=False,
+            dest="consensus",
+            help="Turn on consensus match on single node. (for testing)",
+        ),
+    ),
+]
+
 
 # A helper class for doing field management with control replication
+@dataclass(frozen=True)
+class FreeFieldInfo:
+    manager: FieldManager
+    region: Region
+    field_id: int
+
+    def free(self, ordered: bool = False) -> None:
+        self.manager.free_field(self.region, self.field_id, ordered=ordered)
+
+
 class FieldMatch(Dispatchable[Future]):
     __slots__ = ["manager", "fields", "input", "output", "future"]
 
-    def __init__(
-        self, manager: FieldManager, fields: List[tuple[Region, int]]
-    ) -> None:
-        self.manager = manager
+    def __init__(self, fields: List[FreeFieldInfo]) -> None:
         self.fields = fields
         # Allocate arrays of ints that are twice as long as fields since
         # our values will be 'field_id,tree_id' pairs
-        if len(fields) > 0:
-            alloc_string = "int[" + str(2 * len(fields)) + "]"
+        if (num_fields := len(fields)) > 0:
+            alloc_string = f"int[{2 * num_fields}]"
             self.input = ffi.new(alloc_string)
             self.output = ffi.new(alloc_string)
             # Fill in the input buffer with our data
-            for idx in range(len(fields)):
-                region, field_id = fields[idx]
-                self.input[2 * idx] = region.handle.tree_id
-                self.input[2 * idx + 1] = field_id
+            for idx in range(num_fields):
+                field = fields[idx]
+                self.input[2 * idx] = field.region.handle.tree_id
+                self.input[2 * idx + 1] = field.field_id
         else:
             self.input = ffi.NULL
             self.output = ffi.NULL
@@ -174,172 +158,232 @@ class FieldMatch(Dispatchable[Future]):
         if num_fields > 0:
             # Put all the returned fields onto the ordered queue in the order
             # that they are in this list since we know
-            ordered_fields: List[Optional[tuple[Region, int]]] = [
-                None
-            ] * num_fields
-            for region, field_id in self.fields:
+            ordered_fields: List[Optional[FreeFieldInfo]] = [None] * num_fields
+            for field in self.fields:
                 found = False
                 for idx in range(num_fields):
-                    if self.output[2 * idx] != region.handle.tree_id:
+                    if self.output[2 * idx] != field.region.handle.tree_id:
                         continue
-                    if self.output[2 * idx + 1] != field_id:
+                    if self.output[2 * idx + 1] != field.field_id:
                         continue
                     assert ordered_fields[idx] is None
-                    ordered_fields[idx] = (region, field_id)
+                    ordered_fields[idx] = field
                     found = True
                     break
                 if not found:
                     # Not found so put it back int the unordered queue
-                    self.manager.free_field(region, field_id, ordered=False)
+                    field.free(ordered=False)
             # Notice that we do this in the order of the list which is the
             # same order as they were in the array returned by the match
-            for pair in ordered_fields:
-                if pair is None:
-                    continue
-                region, field_id = pair
-                self.manager.free_field(region, field_id, ordered=True)
+            fields = (field for field in ordered_fields if field is not None)
+            for field in fields:
+                field.free(ordered=True)
         else:
             # No fields on all shards so put all our fields back into
             # the unorered queue
-            for region, field_id in self.fields:
-                self.manager.free_field(region, field_id, ordered=False)
+            for field in self.fields:
+                field.free(ordered=False)
 
 
-# This class manages all regions of the same shape.
-class RegionManager:
-    def __init__(self, runtime: Runtime, shape: Shape) -> None:
+# A simple manager that keeps track of free fields from all free managers
+# and outstanding field matches issued for them.
+class FieldMatchManager:
+    def __init__(self, runtime: Runtime) -> None:
         self._runtime = runtime
+        self._freed_fields: List[FreeFieldInfo] = []
+        self._matches: Deque[FieldMatch] = deque()
+        self._match_counter = 0
+        self._match_frequency = runtime.max_field_reuse_frequency
+
+    def add_free_field(
+        self, manager: FieldManager, region: Region, field_id: int
+    ) -> None:
+        self._freed_fields.append(FreeFieldInfo(manager, region, field_id))
+
+    def issue_field_match(self, credit: int) -> None:
+        # Increment our match counter
+        self._match_counter += credit
+        if self._match_counter < self._match_frequency:
+            return
+        # If the match counter equals our match frequency then do an exchange
+
+        # This is where the rubber meets the road between control
+        # replication and garbage collection. We need to see if there
+        # are any freed fields that are shared across all the shards.
+        # We have to test this deterministically no matter what even
+        # if we don't have any fields to offer ourselves because this
+        # is a collective with other shards. If we have any we can use
+        # the first one and put the remainder on our free fields list
+        # so that we can reuse them later. If there aren't any then
+        # all the shards will go allocate a new field.
+        local_free_fields = self._freed_fields
+        # The match now owns our freed fields so make a new list
+        # Have to do this before dispatching the match
+        self._freed_fields = []
+        match = FieldMatch(local_free_fields)
+        # Dispatch the match. Note that this is necessary even when
+        # the field list is empty, as other shards might have non-empty
+        # lists and all shards should participate the match.
+        self._runtime.dispatch(match)
+        # Put it on the deque of outstanding matches
+        self._matches.append(match)
+        # Reset the match counter back to 0
+        self._match_counter = 0
+
+    def update_free_fields(self) -> None:
+        while len(self._matches) > 0:
+            match = self._matches.popleft()
+            match.update_free_fields()
+
+
+# This class keeps track of usage of a single region
+class RegionManager:
+    def __init__(
+        self, shape: Shape, region: Region, imported: bool = False
+    ) -> None:
         self._shape = shape
-        self._top_regions: List[Region] = []
-        self._region_set: OrderedSet[Region] = OrderedSet()
-
-    def destroy(self) -> None:
-        while self._top_regions:
-            region = self._top_regions.pop()
-            region.destroy()
-        self._top_regions = []
-        self._region_set = OrderedSet()
-
-    def import_region(self, region: Region) -> None:
-        if region not in self._region_set:
-            self._top_regions.append(region)
-            self._region_set.add(region)
+        self._region = region
+        # Monotonically increases as more fields are allocated
+        self._alloc_field_count = 0
+        # Fluctuates based on field usage
+        self._active_field_count = 0
+        self._next_field_id = _LEGATE_FIELD_ID_BASE
+        self._imported = imported
 
     @property
-    def active_region(self) -> Region:
-        return self._top_regions[-1]
+    def region(self) -> Region:
+        return self._region
+
+    @property
+    def shape(self) -> Shape:
+        return self._shape
+
+    def destroy(self, unordered: bool) -> None:
+        # An explicit destruction has a benefit that we can sometimes perform
+        # ordered destructions, whereas in a destructor we can only do
+        # unordered destructions
+        self._region.destroy(unordered)
+
+    def increase_field_count(self) -> bool:
+        revived = self._active_field_count == 0
+        self._active_field_count += 1
+        return revived
+
+    def decrease_field_count(self) -> bool:
+        self._active_field_count -= 1
+        return self._active_field_count == 0
 
     @property
     def has_space(self) -> bool:
-        return (
-            len(self._top_regions) > 0
-            and self.active_region.field_space.has_space
+        return self._alloc_field_count < LEGATE_MAX_FIELDS
+
+    def get_next_field_id(self) -> int:
+        field_id = self._next_field_id
+        self._next_field_id += 1
+        return field_id
+
+    def allocate_field(self, field_size: Any) -> tuple[Region, int]:
+        field_id = self._region.field_space.allocate_field(
+            field_size, self.get_next_field_id()
         )
-
-    def _create_region(self) -> None:
-        # Note that the regions created in this method are always fresh
-        # so we don't need to de-duplicate them to keep track of their
-        # life cycles correctly.
-        index_space = self._shape.get_index_space(self._runtime)
-        field_space = self._runtime.create_field_space()
-        region = self._runtime.create_region(index_space, field_space)
-        self._top_regions.append(region)
-        self._region_set.add(region)
-
-    def allocate_field(self, dtype: Any) -> tuple[Region, int]:
-        if not self.has_space:
-            self._create_region()
-        region = self.active_region
-        field_id = region.field_space.allocate_field(dtype)
-        return region, field_id
+        self._alloc_field_count += 1
+        self.increase_field_count()
+        return self._region, field_id
 
 
 # This class manages the allocation and reuse of fields
 class FieldManager:
-    def __init__(self, runtime: Runtime, shape: Shape, dtype: Any) -> None:
+    def __init__(
+        self, runtime: Runtime, shape: Shape, field_size: int
+    ) -> None:
+        assert isinstance(field_size, int)
         self.runtime = runtime
         self.shape = shape
-        self.dtype = dtype
+        self.field_size = field_size
         # This is a sanitized list of (region,field_id) pairs that is
         # guaranteed to be ordered across all the shards even with
         # control replication
         self.free_fields: Deque[tuple[Region, int]] = deque()
-        # This is an unsanitized list of (region,field_id) pairs which is not
-        # guaranteed to be ordered across all shards with control replication
-        self.freed_fields: List[tuple[Region, int]] = []
-        # A list of match operations that have been issued and for which
-        # we are waiting for values to come back
-        self.matches: Deque[FieldMatch] = deque()
-        self.match_counter = 0
-        # Figure out how big our match frequency is based on our size
-        volume = reduce(lambda x, y: x * y, self.shape, 1)
-        size = volume * self.dtype.size
-        if size > runtime.max_field_reuse_size:
-            # Figure out the ratio our size to the max reuse size (round up)
-            ratio = (
-                size + runtime.max_field_reuse_size - 1
-            ) // runtime.max_field_reuse_size
-            assert ratio >= 1
-            # Scale the frequency by the ratio, but make it at least 1
-            self.match_frequency = (
-                runtime.max_field_reuse_frequency + ratio - 1
-            ) // ratio
-        else:
-            self.match_frequency = runtime.max_field_reuse_frequency
 
     def destroy(self) -> None:
         self.free_fields = deque()
-        self.freed_fields = []
+
+    def try_reuse_field(self) -> Optional[tuple[Region, int]]:
+        return (
+            self.free_fields.popleft() if len(self.free_fields) > 0 else None
+        )
 
     def allocate_field(self) -> tuple[Region, int]:
-        # Increment our match counter
-        self.match_counter += 1
-        # If the match counter equals our match frequency then do an exchange
-        if self.match_counter == self.match_frequency:
-            # This is where the rubber meets the road between control
-            # replication and garbage collection. We need to see if there
-            # are any freed fields that are shared across all the shards.
-            # We have to test this deterministically no matter what even
-            # if we don't have any fields to offer ourselves because this
-            # is a collective with other shards. If we have any we can use
-            # the first one and put the remainder on our free fields list
-            # so that we can reuse them later. If there aren't any then
-            # all the shards will go allocate a new field.
-            local_freed_fields = self.freed_fields
-            # The match now owns our freed fields so make a new list
-            # Have to do this before dispatching the match
-            self.freed_fields = list()
-            match = FieldMatch(self, local_freed_fields)
-            # Dispatch the match
-            self.runtime.dispatch(match)
-            # Put it on the deque of outstanding matches
-            self.matches.append(match)
-            # Reset the match counter back to 0
-            self.match_counter = 0
+        if (result := self.try_reuse_field()) is not None:
+            region_manager = self.runtime.find_region_manager(result[0])
+            if region_manager.increase_field_count():
+                self.runtime.revive_manager(region_manager)
+            return result
+        region_manager = self.runtime.find_or_create_region_manager(self.shape)
+        return region_manager.allocate_field(self.field_size)
+
+    def free_field(
+        self, region: Region, field_id: int, ordered: bool = False
+    ) -> None:
+        self.free_fields.append((region, field_id))
+        region_manager = self.runtime.find_region_manager(region)
+        if region_manager.decrease_field_count():
+            self.runtime.free_region_manager(
+                self.shape, region, unordered=not ordered
+            )
+
+    def remove_all_fields(self, region: Region) -> None:
+        self.free_fields = deque(f for f in self.free_fields if f[0] != region)
+
+
+class ConsensusMatchingFieldManager(FieldManager):
+    def __init__(
+        self, runtime: Runtime, shape: Shape, field_size: int
+    ) -> None:
+        super().__init__(runtime, shape, field_size)
+        self._field_match_manager = runtime.field_match_manager
+        self._update_match_credit()
+
+    def _update_match_credit(self) -> None:
+        if self.shape.fixed:
+            size = self.shape.volume() * self.field_size
+            self._match_credit = (
+                size + self.runtime.max_field_reuse_size - 1
+                if size > self.runtime.max_field_reuse_size
+                else self.runtime.max_field_reuse_size
+            ) // self.runtime.max_field_reuse_size
+            # No need to update the credit as the exact size is known
+            self._need_to_update_match_credit = False
+        # If the shape is unknown, we set the credit such that every new
+        # free field leads to a consensus match, and ask the manager
+        # to update the credit.
+        else:
+            self._match_credit = self.runtime.max_field_reuse_frequency
+            self._need_to_update_match_credit = True
+
+    def try_reuse_field(self) -> Optional[tuple[Region, int]]:
+        if self._need_to_update_match_credit:
+            self._update_match_credit()
+        self._field_match_manager.issue_field_match(self._match_credit)
+
         # First, if we have a free field then we know everyone has one of those
         if len(self.free_fields) > 0:
             return self.free_fields.popleft()
-        # If we don't have any free fields then see if we have a pending match
-        # outstanding that we can now add to our free fields and use
-        while len(self.matches) > 0:
-            match = self.matches.popleft()
-            match.update_free_fields()
-            # Check again to see if we have any free fields
-            if len(self.free_fields) > 0:
-                return self.free_fields.popleft()
 
-        region_manager = self.runtime.find_or_create_region_manager(self.shape)
-        return region_manager.allocate_field(self.dtype)
+        self._field_match_manager.update_free_fields()
+
+        # Check again to see if we have any free fields
+        return (
+            self.free_fields.popleft() if len(self.free_fields) > 0 else None
+        )
 
     def free_field(
         self, region: Region, field_id: int, ordered: bool = False
     ) -> None:
         if ordered:
-            if self.free_fields is not None:
-                self.free_fields.append((region, field_id))
+            super().free_field(region, field_id, ordered=ordered)
         else:  # Put this on the unordered list
-            if self.freed_fields is not None:
-                self.freed_fields.append((region, field_id))
+            self._field_match_manager.add_free_field(self, region, field_id)
 
 
 class Attachment:
@@ -811,6 +855,8 @@ class Runtime:
         focus on implementing their domain logic.
         """
 
+        self._args = parse_command_args("legate", ARGS)
+
         try:
             self._legion_context = top_level.context[0]
         except AttributeError:
@@ -877,27 +923,53 @@ class Runtime:
                 ty.int32,
             )
         )
+        self._num_nodes = int(
+            self._core_context.get_tunable(
+                legion.LEGATE_CORE_TUNABLE_NUM_NODES,
+                ty.int32,
+            )
+        )
+        self.max_field_reuse_frequency = int(
+            self._core_context.get_tunable(
+                legion.LEGATE_CORE_TUNABLE_FIELD_REUSE_FREQUENCY,
+                ty.uint32,
+            )
+        )
+        self.max_field_reuse_size = int(
+            self._core_context.get_tunable(
+                legion.LEGATE_CORE_TUNABLE_FIELD_REUSE_SIZE,
+                ty.uint64,
+            )
+        )
+        self._field_manager_class = (
+            ConsensusMatchingFieldManager
+            if self._num_nodes > 1 or self._args.consensus
+            else FieldManager
+        )
+        self._max_lru_length = int(
+            self._core_context.get_tunable(
+                legion.LEGATE_CORE_TUNABLE_MAX_LRU_LENGTH,
+                ty.uint32,
+            )
+        )
 
         # Now we initialize managers
         self._attachment_manager = AttachmentManager(self)
         self._partition_manager = PartitionManager(self)
         self._comm_manager = CommunicatorManager(self)
+        self._field_match_manager = FieldMatchManager(self)
         # map shapes to index spaces
         self.index_spaces: dict[Rect, IndexSpace] = {}
-        # map from shape to region managers
-        self.region_managers: dict[Shape, RegionManager] = {}
+        # map from shapes to active region managers
+        self.active_region_managers: dict[Shape, RegionManager] = {}
+        # map from regions to their managers
+        self.region_managers_by_region: dict[Region, RegionManager] = {}
+        # LRU for free region managers
+        self.lru_managers: Deque[RegionManager] = deque()
         # map from (shape,dtype) to field managers
         self.field_managers: dict[tuple[Shape, Any], FieldManager] = {}
 
         self.destroyed = False
-        self.max_field_reuse_size = self._core_context.get_tunable(
-            legion.LEGATE_CORE_TUNABLE_FIELD_REUSE_SIZE,
-            ty.uint64,
-        )
-        self.max_field_reuse_frequency = self._core_context.get_tunable(
-            legion.LEGATE_CORE_TUNABLE_FIELD_REUSE_FREQUENCY,
-            ty.uint32,
-        )
         self._empty_argmap: ArgumentMap = legion.legion_argument_map_create()
 
         # A projection functor and its corresponding sharding functor
@@ -974,7 +1046,13 @@ class Runtime:
     def partition_manager(self) -> PartitionManager:
         return self._partition_manager
 
+    @property
+    def field_match_manager(self) -> FieldMatchManager:
+        return self._field_match_manager
+
     def register_library(self, library: Library) -> Context:
+        from .context import Context
+
         libname = library.get_name()
         if libname in self._contexts:
             raise RuntimeError(
@@ -1027,7 +1105,8 @@ class Runtime:
         self._attachment_manager.destroy()
 
         # Remove references to our legion resources so they can be collected
-        self.region_managers = {}
+        self.active_region_managers = {}
+        self.region_managers_by_region = {}
         self.field_managers = {}
         self.index_spaces = {}
 
@@ -1054,15 +1133,15 @@ class Runtime:
         return op.launch(self.legion_runtime, self.legion_context)
 
     def _schedule(self, ops: List[Operation]) -> None:
+        from .solver import Partitioner
+
         # TODO: For now we run the partitioner for each operation separately.
         #       We will eventually want to compute a trace-wide partitioning
         #       strategy.
         strategies = []
         for op in ops:
             must_be_single = len(op.scalar_outputs) > 0
-            partitioner = Partitioner(
-                self, [op], must_be_single=must_be_single
-            )
+            partitioner = Partitioner([op], must_be_single=must_be_single)
             strategies.append(partitioner.partition_stores())
 
         for op, strategy in zip(ops, strategies):
@@ -1165,6 +1244,8 @@ class Runtime:
         optimize_scalar: bool = False,
         ndim: Optional[int] = None,
     ) -> Store:
+        from .store import RegionField, Storage, Store
+
         if ndim is not None and shape is not None:
             raise ValueError("ndim cannot be used with shape")
         elif ndim is None and shape is None:
@@ -1178,78 +1259,111 @@ class Runtime:
             if optimize_scalar and shape is not None and shape.volume() == 1
             else RegionField
         )
-        storage = Storage(self, shape, 0, dtype, data=data, kind=kind)
+        storage = Storage(shape, 0, dtype, data=data, kind=kind)
         return Store(
-            self,
             dtype,
             storage,
-            IdentityTransform(),
             shape=shape,
             ndim=ndim,
         )
 
-    def find_or_create_region_manager(
-        self, shape: Shape, region: Optional[Region] = None
-    ) -> RegionManager:
-        region_mgr = self.region_managers.get(shape)
-        if region_mgr is not None:
+    def find_region_manager(self, region: Region) -> RegionManager:
+        assert region in self.region_managers_by_region
+        return self.region_managers_by_region[region]
+
+    def revive_manager(self, region_mgr: RegionManager) -> None:
+        self.lru_managers.remove(region_mgr)
+
+    def free_region_manager(
+        self, shape: Shape, region: Region, unordered: bool = False
+    ) -> None:
+        assert region in self.region_managers_by_region
+        region_mgr = self.region_managers_by_region[region]
+        self.lru_managers.appendleft(region_mgr)
+
+        if len(self.lru_managers) > self._max_lru_length:
+            region_mgr = self.lru_managers.pop()
+            self.destroy_region_manager(region_mgr, unordered)
+        assert len(self.lru_managers) <= self._max_lru_length
+
+    def destroy_region_manager(
+        self, region_mgr: RegionManager, unordered: bool
+    ) -> None:
+        region = region_mgr.region
+        del self.region_managers_by_region[region]
+        for field_manager in self.field_managers.values():
+            field_manager.remove_all_fields(region)
+
+        shape = region_mgr.shape
+        active_mgr = self.active_region_managers.get(shape)
+        if active_mgr is region_mgr:
+            del self.active_region_managers[shape]
+        region_mgr.destroy(unordered)
+
+    def find_or_create_region_manager(self, shape: Shape) -> RegionManager:
+        region_mgr = self.active_region_managers.get(shape)
+        if region_mgr is not None and region_mgr.has_space:
             return region_mgr
-        region_mgr = RegionManager(self, shape)
-        self.region_managers[shape] = region_mgr
+
+        index_space = shape.get_index_space(self)
+        field_space = self.create_field_space()
+        region = self.create_region(index_space, field_space)
+
+        region_mgr = RegionManager(shape, region)
+        self.active_region_managers[shape] = region_mgr
+        self.region_managers_by_region[region] = region_mgr
         return region_mgr
 
     def find_or_create_field_manager(
-        self, shape: Shape, dtype: Any
+        self, shape: Shape, field_size: int
     ) -> FieldManager:
-        key = (shape, dtype)
+        key = (shape, field_size)
         field_mgr = self.field_managers.get(key)
         if field_mgr is not None:
             return field_mgr
-        field_mgr = FieldManager(self, shape, dtype)
+        field_mgr = self._field_manager_class(self, shape, field_size)
         self.field_managers[key] = field_mgr
         return field_mgr
 
     def allocate_field(self, shape: Shape, dtype: Any) -> RegionField:
+        from .store import RegionField
+
         assert not self.destroyed
         region = None
         field_id = None
-        field_mgr = self.find_or_create_field_manager(shape, dtype)
+        field_mgr = self.find_or_create_field_manager(shape, dtype.size)
         region, field_id = field_mgr.allocate_field()
-        field = Field(self, region, field_id, dtype, shape)
-        return RegionField(self, region, field, shape)
+        return RegionField.create(region, field_id, dtype.size, shape)
 
     def free_field(
-        self, region: Region, field_id: int, dtype: Any, shape: Shape
+        self, region: Region, field_id: int, field_size: int, shape: Shape
     ) -> None:
         # Have a guard here to make sure that we don't try to
         # do this after we have been destroyed
         if self.destroyed:
             return
         # Now save it in our data structure for free fields eligible for reuse
-        key = (shape, dtype)
-        if self.field_managers is not None:
-            self.field_managers[key].free_field(region, field_id)
+        key = (shape, field_size)
+        if key not in self.field_managers:
+            return
+
+        self.field_managers[key].free_field(region, field_id)
 
     def import_output_region(
         self, out_region: OutputRegion, field_id: int, dtype: Any
     ) -> RegionField:
+        from .store import RegionField
+
         region = out_region.get_region()
         shape = Shape(ispace=region.index_space)
+        region_mgr = self.region_managers_by_region.get(region)
+        if region_mgr is None:
+            region_mgr = RegionManager(shape, region, imported=True)
+            self.region_managers_by_region[region] = region_mgr
+            self.find_or_create_field_manager(shape, dtype.size)
 
-        region_mgr = self.find_or_create_region_manager(shape)
-        region_mgr.import_region(region)
-        field = Field(
-            self,
-            region,
-            field_id,
-            dtype,
-            shape,
-            own=True,
-        )
-
-        self.find_or_create_field_manager(shape, dtype)
-
-        return RegionField(self, region, field, shape)
+        region_mgr.increase_field_count()
+        return RegionField.create(region, field_id, dtype.size, shape)
 
     def create_output_region(
         self, fspace: FieldSpace, fields: FieldListLike, ndim: int
@@ -1323,6 +1437,8 @@ class Runtime:
         )
 
     def extract_scalar(self, future: Future, idx: int) -> Future:
+        from .launcher import TaskLauncher
+
         launcher = TaskLauncher(
             self.core_context,
             self.core_library.LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,
@@ -1335,6 +1451,8 @@ class Runtime:
     def extract_scalar_with_domain(
         self, future: FutureMap, idx: int, launch_domain: Rect
     ) -> FutureMap:
+        from .launcher import TaskLauncher
+
         launcher = TaskLauncher(
             self.core_context,
             self.core_library.LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,
@@ -1434,13 +1552,13 @@ class Runtime:
             pending.raise_exception()
 
 
-_runtime = Runtime(core_library)
+runtime: Runtime = Runtime(core_library)
 
 
 def _cleanup_legate_runtime() -> None:
-    global _runtime
-    _runtime.destroy()
-    del _runtime
+    global runtime
+    runtime.destroy()
+    del runtime
     gc.collect()
 
 
@@ -1448,16 +1566,16 @@ add_cleanup_item(_cleanup_legate_runtime)
 
 
 def get_legion_runtime() -> legion.legion_runtime_t:
-    return _runtime.legion_runtime
+    return runtime.legion_runtime
 
 
 def get_legion_context() -> legion.legion_context_t:
-    return _runtime.legion_context
+    return runtime.legion_context
 
 
 def legate_add_library(library: Library) -> None:
-    _runtime.register_library(library)
+    runtime.register_library(library)
 
 
 def get_legate_runtime() -> Runtime:
-    return _runtime
+    return runtime
