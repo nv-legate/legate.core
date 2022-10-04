@@ -168,6 +168,15 @@ ARGS = [
             help="Turn on consensus match on single node. (for testing)",
         ),
     ),
+    Argument(
+        "parallel_execution",
+        ArgSpec(
+            action="store_true",
+            default=False,
+            dest="parallel_execution",
+            help="Turn on parallel task execution logic for single tasks",
+        ),
+    ),
 ]
 
 
@@ -1036,14 +1045,15 @@ class Runtime:
             )
         )
 
-        self._machine_model = MachineModel(
-            self._num_nodes,
-            self._num_gpus,
-            self._num_cpus,
-            self._num_omps,
-            self._legion_runtime,
-            self._legion_context,
-        )
+        if self._args.parallel_execution:
+            self._machine_model = MachineModel(
+                self._num_nodes,
+                self._num_gpus,
+                self._num_cpus,
+                self._num_omps,
+                self._legion_runtime,
+                self._legion_context,
+            )
 
         # Now we initialize managers
         self._attachment_manager = AttachmentManager(self)

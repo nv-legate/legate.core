@@ -794,20 +794,21 @@ class TaskLauncher:
                 )
             )
 
-            # filling the map of (DeviceID, comm_size) for the store if
-            # DeviceID is set (store has been mapped to the task before)
-            # otherwise don't do anything
+            if runtime._args.parallel_execution:
+                # filling the map of (DeviceID, comm_size) for the store if
+                # DeviceID is set (store has been mapped to the task before)
+                # otherwise don't do anything
 
-            location = store.storage.get_location()
-            if location is not None:
-                if self._location_map.get(location) is None:
-                    self._location_map[location] = store.comm_volume()
-                else:
-                    self._location_map[location] = (
-                        self._location_map[location] + store.comm_volume()
-                    )
+                location = store.storage.get_location()
+                if location is not None:
+                    if self._location_map.get(location) is None:
+                        self._location_map[location] = store.comm_volume()
+                    else:
+                        self._location_map[location] = (
+                            self._location_map[location] + store.comm_volume()
+                        )
 
-            self._stores.append(store.storage)
+                self._stores.append(store.storage)
 
     def add_input(
         self, store: Store, proj: Proj, tag: int = 0, flags: int = 0
@@ -972,13 +973,13 @@ class TaskLauncher:
             tag=self._tag,
             provenance=self._provenance,
         )
-
-        # calculate point of the task based on the location_map
-        point = self._calculate_task_location()
-        self._point = Point([point._id])
-        # change location of all stores mapped to the task:
-        self._set_store_location(point)
-        self._sharding_space = runtime.machine_model().sharding_space()
+        if runtime._args.parallel_execution:
+            # calculate point of the task based on the location_map
+            point = self._calculate_task_location()
+            self._point = Point([point._id])
+            # change location of all stores mapped to the task:
+            self._set_store_location(point)
+            self._sharding_space = runtime.machine_model().sharding_space()
 
         for (req, fields) in self._req_analyzer.requirements:
             req.proj.add_single(task, req, fields, _single_task_calls)
