@@ -610,9 +610,10 @@ void BaseMapper::map_task(const MapperContext ctx,
 
     if (req_indices.empty()) {
       // This is a mapping for futures
-      // TODO: 2022-10-04: Work around a Legion bug, by not instantiating futures on framebuffer.
       StoreTarget target = mapping.policy.target;
+#ifdef LEGATE_NO_FUTURES_ON_FB
       if (target == StoreTarget::FBMEM) target = StoreTarget::ZCMEM;
+#endif
       output.future_locations.push_back(get_target_memory(task.target_proc, target));
       continue;
     } else if (mapping.for_unbound_stores()) {
