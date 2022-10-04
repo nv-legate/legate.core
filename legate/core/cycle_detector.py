@@ -17,12 +17,17 @@ import gc
 import inspect
 import sys
 from collections import deque
-from types import GetSetDescriptorType
+from types import FunctionType
 from typing import Any, Set, Union
 
 
-def _skip_src(src: Any) -> bool:
-    return src is sys.modules or isinstance(src, GetSetDescriptorType)
+def _skip(src: Any, dst: Any) -> bool:
+    return (
+        src is sys.modules
+        or isinstance(src, FunctionType)
+        and hasattr(src, "__globals__")
+        and src.__globals__ is dst
+    )
 
 
 def _find_cycles(root: Any, all_ids: Set[int]) -> bool:
@@ -48,7 +53,7 @@ def _find_cycles(root: Any, all_ids: Set[int]) -> bool:
         else:
             opened[id(dst)] = len(stack)
             for src in gc.get_referrers(dst):
-                if id(src) in all_ids and not _skip_src(src):
+                if id(src) in all_ids and not _skip(src, dst):
                     stack.append(src)
     return False
 
@@ -99,7 +104,7 @@ def _bfs(begin: Any, end: Any, all_ids: Set[int]) -> None:
     while len(q) > 0:
         src = q.popleft()
         for dst in gc.get_referents(src):
-            if id(dst) not in all_ids or id(dst) in parent or _skip_src(src):
+            if id(dst) not in all_ids or id(dst) in parent or _skip(src, dst):
                 continue
             parent[id(dst)] = src
             if dst is end:
