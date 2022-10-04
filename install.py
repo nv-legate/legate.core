@@ -145,26 +145,26 @@ def was_previously_built_with_different_build_isolation(
     return False
 
 
-def get_install_dir_or_default(install_dir):
-    # If no install dir was passed on the command line, infer the location
-    # of where to install the Legion Python bindings, otherwise they'll only
-    # be installed into the local scikit-build cmake-install dir
-    if install_dir is None:
-        # Install into conda prefix if defined
-        if "CONDA_PREFIX" in os.environ:
-            install_dir = os.environ["CONDA_PREFIX"]
-        else:
-            import site
+def get_install_dir():
+    # Infer the location where to install the Legion Python bindings,
+    # otherwise they'll only be installed into the local scikit-build
+    # cmake-install dir
 
-            # Try to install into user site packages first?
-            if site.ENABLE_USER_SITE and os.path.exists(
-                site_pkgs := site.getusersitepackages()
-            ):
-                install_dir = site_pkgs
-            # Otherwise fallback to regular site-packages?
-            elif os.path.exists(site_pkgs := site.getsitepackages()):
-                install_dir = site_pkgs
-    return install_dir
+    # Install into conda prefix if defined
+    if "CONDA_PREFIX" in os.environ:
+        return os.environ["CONDA_PREFIX"]
+
+    import site
+
+    # Try to install into user site packages first?
+    if site.ENABLE_USER_SITE and os.path.exists(
+        user_site_pkgs := site.getusersitepackages()
+    ):
+        return user_site_pkgs
+
+    # Otherwise fallback to regular site-packages?
+    if os.path.exists(site_pkgs := site.getsitepackages()):
+        return site_pkgs
 
 
 def install_legion_python_bindings(
@@ -246,7 +246,6 @@ def install(
     nccl_dir,
     cmake_exe,
     cmake_generator,
-    install_dir,
     gasnet_dir,
     pylib_name,
     cuda_dir,
@@ -291,7 +290,6 @@ def install(
         print("nccl_dir:", nccl_dir)
         print("cmake_exe:", cmake_exe)
         print("cmake_generator:", cmake_generator)
-        print("install_dir:", install_dir)
         print("gasnet_dir:", gasnet_dir)
         print("pylib_name:", pylib_name)
         print("cuda_dir:", cuda_dir)
@@ -388,7 +386,7 @@ def install(
         except Exception:
             pass
 
-    install_dir = get_install_dir_or_default(validate_path(install_dir))
+    install_dir = get_install_dir()
 
     if verbose:
         print("install_dir: ", install_dir)
@@ -483,14 +481,6 @@ def install(
 
 def driver():
     parser = argparse.ArgumentParser(description="Install Legate front end.")
-    parser.add_argument(
-        "--install-dir",
-        dest="install_dir",
-        metavar="DIR",
-        required=False,
-        default=None,
-        help="Path to install all Legate-related software",
-    )
     parser.add_argument(
         "--debug",
         dest="debug",
