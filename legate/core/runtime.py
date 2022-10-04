@@ -116,20 +116,18 @@ class MachineModel:
         return self._num_omps
 
     def next_available_point(self) -> DeviceID:
-        if self._last_point == (self._num_devices - 1):
+        if self._last_point >= (self._num_devices - 1):
             self._last_point = 0
         else:
             self._last_point += 1
-        n = self._last_point
-
-        return DeviceID(int(n / self._num_nodes), (n % self._num_nodes), n)
+        return DeviceID(self._last_point)
 
     def sharding_space(self) -> Union[IndexSpace, None]:
         if (
             self._legion_context is not None
             and self._legion_runtime is not None
         ):
-            rect = Rect((0, self._num_devices))
+            rect = Rect([self._num_devices], [0], True, 1)
             handle = legion.legion_index_space_create_domain(
                 self._legion_runtime, self._legion_context, rect.raw()
             )
@@ -142,21 +140,16 @@ class MachineModel:
 
 
 class DeviceID:
-    def __init__(self, local_id: int, node_id: int, global_id: int) -> None:
-        self._local_id = local_id
-        self._node_id = node_id
-        self._global_id = global_id
+    def __init__(self, id: int) -> None:
+        self._id = id
+        # self._node_id = node_id
+        # self._global_id = global_id
 
     def __str__(self) -> str:
-        return (
-            f"DeviceID({self._local_id}, {self._node_id}, {self._global_id})"
-        )
+        return f"DeviceID({self._id})"
 
-    def __getitem__(self) -> tuple[int, int, int]:
-        return self._local_id, self._node_id, self._global_id
-
-    def get_global_id(self) -> int:
-        return self._global_id
+    def __getitem__(self) -> int:
+        return self._id
 
 
 _sizeof_int = ffi.sizeof("int")

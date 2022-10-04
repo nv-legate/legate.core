@@ -186,24 +186,22 @@ void BaseMapper::select_task_options(const MapperContext ctx,
   Task legate_task(&task, context, runtime, ctx);
   auto target = task_target(legate_task, options);
 
-  std::cout << "IRINA DEBUG task poin = " << task.index_point << " , dim =" << task.index_point.dim
-            << std::endl;
+  unsigned int idx = task.index_point[0];
 
-  unsigned int idx = 0;
-  if (task.index_point.dim == 2) { idx = task.index_point[1]; }
-
-  std::cout << "IRINA DEBUG idx = " << idx << " ," << local_cpus[idx] << std::endl;
   // We never want valid instances
   switch (target) {
     case TaskTarget::CPU: {
+      idx                 = idx % local_cpus.size();
       output.initial_proc = local_cpus[idx];
       break;
     }
     case TaskTarget::GPU: {
+      idx                 = idx % local_gpus.size();
       output.initial_proc = local_gpus[idx];
       break;
     }
     case TaskTarget::OMP: {
+      idx                 = idx % local_omps.size();
       output.initial_proc = local_omps[idx];
       break;
     }

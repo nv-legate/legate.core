@@ -975,7 +975,7 @@ class TaskLauncher:
 
         # calculate point of the task based on the location_map
         point = self._calculate_task_location()
-        self._point = Point([point._node_id, point._local_id])
+        self._point = Point([point._id])
         # change location of all stores mapped to the task:
         self._set_store_location(point)
         self._sharding_space = runtime.machine_model().sharding_space()
