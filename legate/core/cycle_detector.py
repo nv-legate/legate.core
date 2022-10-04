@@ -22,7 +22,8 @@ from typing import Any, Set, Union
 
 def _skip(src: Any, dst: Any) -> bool:
     return (
-        isinstance(src, ModuleType)
+        isinstance(src, type)
+        or isinstance(src, ModuleType)
         or isinstance(src, FunctionType)
         and hasattr(src, "__globals__")
         and src.__globals__ is dst
