@@ -57,6 +57,10 @@ def _find_field(src: Any, dst: Any) -> Union[str, None]:
         for k, v in enumerate(src):
             if v is dst:
                 return f"[{k}]"
+    if type(src) == list:
+        for i, v in enumerate(src):
+            if v is dst:
+                return f"[{i}]"
     try:
         for fld in dir(src):
             try:
