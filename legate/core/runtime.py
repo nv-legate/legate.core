@@ -857,11 +857,6 @@ class Runtime:
 
         self._args = parse_command_args("legate", ARGS)
 
-        try:
-            self._legion_context = top_level.context[0]
-        except AttributeError:
-            pass
-
         # Record whether we need to run finalize tasks
         # Key off whether we are being loaded in a context or not
         try:
