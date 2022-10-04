@@ -17,14 +17,12 @@ import gc
 import inspect
 import sys
 from collections import deque
-from typing import Any, Union
-
-from .store import RegionField
+from typing import Any, Set, Union
 
 
-def _find_cycles(root: Any, all_ids: set[int]) -> None:
+def _find_cycles(root: Any, all_ids: Set[int]) -> bool:
     opened: dict[int, int] = {}
-    closed: set[int] = set()
+    closed: Set[int] = set()
     stack = [root]
     while len(stack) > 0:
         dst = stack[-1]
@@ -38,7 +36,7 @@ def _find_cycles(root: Any, all_ids: set[int]) -> None:
                 _bfs(dst, root, all_ids)
                 print("  cycle:")
                 _bfs(dst, dst, all_ids)
-                return
+                return True
             stack.pop()
         elif id(dst) in closed:
             stack.pop()
@@ -47,6 +45,7 @@ def _find_cycles(root: Any, all_ids: set[int]) -> None:
             for src in gc.get_referrers(dst):
                 if id(src) in all_ids and src is not sys.modules:
                     stack.append(src)
+    return False
 
 
 def _find_field(src: Any, dst: Any) -> Union[str, None]:
@@ -85,7 +84,7 @@ def _find_field(src: Any, dst: Any) -> Union[str, None]:
     return None
 
 
-def _bfs(begin: Any, end: Any, all_ids: set[int]) -> None:
+def _bfs(begin: Any, end: Any, all_ids: Set[int]) -> None:
     parent = {}
     q = deque([begin])
     while len(q) > 0:
@@ -120,7 +119,10 @@ def _bfs(begin: Any, end: Any, all_ids: set[int]) -> None:
     print(f"    {hex(id(begin))}: {type(begin)}")
 
 
-def print_cycles() -> None:
+def find_cycles() -> bool:
+    from .store import RegionField
+
+    found_cycles = False
     all_objs = gc.get_objects()
     all_ids = set(id(obj) for obj in all_objs)
     for obj in all_objs:
@@ -129,4 +131,6 @@ def print_cycles() -> None:
                 f"looking for cycles involving {hex(id(obj))}, "
                 f"of type {type(obj)}"
             )
-            _find_cycles(obj, all_ids)
+            if _find_cycles(obj, all_ids):
+                found_cycles = True
+    return found_cycles
