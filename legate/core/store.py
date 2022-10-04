@@ -382,7 +382,7 @@ class RegionField:
 
         weakref.finalize(consumer, callback)
 
-    def get_location(self) -> Optional[DeviceID]:
+    def get_location(self) -> Union[DeviceID, None]:
         return self._location
 
     def set_location(self, point: DeviceID) -> None:
@@ -1023,13 +1023,6 @@ class Store:
     @property
     def transformed(self) -> bool:
         return not self._transform.bottom
-
-    # @property
-    # def get_location(self) -> Optional[DeviceID]:
-    #    return self._storage.location
-
-    # def set_location(self, point: DeviceID) -> None:
-    #    self.storage.location = point
 
     def attach_external_allocation(
         self, context: Context, alloc: Attachable, share: bool
