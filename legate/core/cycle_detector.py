@@ -15,15 +15,14 @@
 
 import gc
 import inspect
-import sys
 from collections import deque
-from types import FunctionType
+from types import FunctionType, ModuleType
 from typing import Any, Set, Union
 
 
 def _skip(src: Any, dst: Any) -> bool:
     return (
-        src is sys.modules
+        isinstance(src, ModuleType)
         or isinstance(src, FunctionType)
         and hasattr(src, "__globals__")
         and src.__globals__ is dst
