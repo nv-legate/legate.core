@@ -97,6 +97,13 @@ def _find_field(src: Any, dst: Any) -> Union[str, None]:
     return None
 
 
+def _obj_str(obj: Any) -> str:
+    res = f"{hex(id(obj))}: {type(obj)}"
+    if hasattr(obj, "__name__"):
+        res += f" {obj.__name__}"
+    return res
+
+
 def _bfs(begin: Any, end: Any, all_ids: Set[int]) -> None:
     parent = {}
     q = deque([begin])
@@ -107,7 +114,7 @@ def _bfs(begin: Any, end: Any, all_ids: Set[int]) -> None:
                 continue
             parent[id(dst)] = src
             if dst is end:
-                print(f"    {hex(id(dst))}: {type(dst)}")
+                print(f"    {_obj_str(dst)}")
                 while True:
                     src = parent[id(dst)]
                     fld = _find_field(src, dst)
@@ -115,17 +122,17 @@ def _bfs(begin: Any, end: Any, all_ids: Set[int]) -> None:
                         print("     ^")
                     else:
                         print(f"     ^ {fld}")
-                    print(f"    {hex(id(src))}: {type(src)}")
+                    print(f"    {_obj_str(src)}")
                     dst = src
                     if dst is begin:
                         break
                 return
             q.append(dst)
-    print(f"    {hex(id(end))}: {type(end)}")
+    print(f"    {_obj_str(end)}")
     print("     ^")
     print("    ???")
     print("     ^")
-    print(f"    {hex(id(begin))}: {type(begin)}")
+    print(f"    {_obj_str(begin)}")
 
 
 def find_cycles() -> bool:
