@@ -137,9 +137,12 @@ FutureWrapper::FutureWrapper(
     assert(!initialize || future_.get_untyped_size() == field_size);
 #endif
     auto proc = Processor::get_executing_processor();
-    // TODO: 2022-10-04: Work around a Legion bug, by not instantiating futures on framebuffer.
-    auto mem_kind = proc.kind() == Processor::Kind::TOC_PROC ? Memory::Kind::Z_COPY_MEM
+#ifdef LEGATE_NO_FUTURES_ON_FB
+    auto mem_kind = find_memory_kind_for_executing_processor();
+#else
+    auto mem_kind = proc.kind() == Processor::Kind::TOC_PROC ? Memory::Kind::GPU_FB_MEM
                                                              : Memory::Kind::SYSTEM_MEM;
+#endif
     if (initialize) {
       auto p_init_value = future_.get_buffer(mem_kind);
 #ifdef LEGATE_USE_CUDA
