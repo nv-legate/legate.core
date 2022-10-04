@@ -136,7 +136,7 @@ FutureWrapper::FutureWrapper(
 #ifdef DEBUG_LEGATE
     assert(!initialize || future_.get_untyped_size() == field_size);
 #endif
-    auto proc     = Processor::get_executing_processor();
+    auto proc = Processor::get_executing_processor();
     // TODO: 2022-10-04: Work around a Legion bug, by not instantiating futures on framebuffer.
     auto mem_kind = proc.kind() == Processor::Kind::TOC_PROC ? Memory::Kind::Z_COPY_MEM
                                                              : Memory::Kind::SYSTEM_MEM;
