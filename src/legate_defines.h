@@ -50,3 +50,6 @@
 #define LEGATE_USE_NETWORK
 #endif
 #endif
+
+// TODO: 2022-10-04: Work around a Legion bug, by not instantiating futures on framebuffer.
+#define LEGATE_NO_FUTURES_ON_FB
