@@ -142,8 +142,6 @@ class MachineModel:
 class DeviceID:
     def __init__(self, id: int) -> None:
         self._id = id
-        # self._node_id = node_id
-        # self._global_id = global_id
 
     def __str__(self) -> str:
         return f"DeviceID({self._id})"
