@@ -137,13 +137,18 @@ def _bfs(begin: Any, end: Any, all_ids: Set[int]) -> None:
 
 
 def find_cycles() -> bool:
-    from .store import Store
+    from ._legion import Future, FutureMap
+    from .store import RegionField
 
     found_cycles = False
     all_objs = gc.get_objects()
     all_ids = set(id(obj) for obj in all_objs)
     for obj in all_objs:
-        if isinstance(obj, Store):
+        if (
+            isinstance(obj, RegionField)
+            or isinstance(obj, Future)
+            or isinstance(obj, FutureMap)
+        ):
             print(
                 f"looking for cycles involving {hex(id(obj))}, "
                 f"of type {type(obj)}"
