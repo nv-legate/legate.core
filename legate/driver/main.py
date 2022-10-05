@@ -34,9 +34,10 @@ def main(argv: list[str]) -> int:
         int, a process return code
 
     """
-    from . import Config, Driver, System
-    from .ui import error
-    from .util import print_verbose
+    from ..util.system import System
+    from ..util.ui import error
+    from . import Config, Driver
+    from .driver import print_verbose
 
     try:
         config = Config(argv)

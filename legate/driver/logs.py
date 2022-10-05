@@ -22,13 +22,15 @@ from abc import ABCMeta, abstractmethod
 from contextlib import contextmanager
 from shlex import quote
 from subprocess import run
-from typing import Iterator
+from typing import TYPE_CHECKING, Iterator
 
-from .config import Config
-from .launcher import Launcher
-from .system import System
-from .types import Command
-from .ui import warn
+from ..util.ui import warn
+
+if TYPE_CHECKING:
+    from ..util.system import System
+    from ..util.types import Command
+    from .config import Config
+    from .launcher import Launcher
 
 __all__ = (
     "DebuggingHandler",

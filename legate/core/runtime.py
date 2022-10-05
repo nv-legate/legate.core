@@ -24,8 +24,7 @@ from typing import TYPE_CHECKING, Any, Deque, List, Optional, TypeVar, Union
 
 from legion_top import add_cleanup_item, top_level
 
-from legate.rc import ArgSpec, Argument, parse_command_args
-
+from ..util.args import ArgSpec, Argument, parse_library_command_args
 from . import ffi  # Make sure we only have one ffi instance
 from . import (
     Fence,
@@ -855,7 +854,7 @@ class Runtime:
         focus on implementing their domain logic.
         """
 
-        self._args = parse_command_args("legate", ARGS)
+        self._args = parse_library_command_args("legate", ARGS)
 
         try:
             self._legion_context = top_level.context[0]
