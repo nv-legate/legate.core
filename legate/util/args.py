@@ -172,7 +172,7 @@ def parse_library_command_args(
     # ref: https://github.com/nv-legate/legate.core/issues/415
 
     short_prefix = f"-{libname}:"
-    long_prefix = f"-{short_prefix}:"
+    long_prefix = f"-{short_prefix}"
 
     argnames = [arg.name for arg in args]
 
