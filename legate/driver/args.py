@@ -18,12 +18,26 @@ from __future__ import annotations
 
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 
-from ..util.types import LauncherType
+from ..util.shared_args import (
+    CPUS,
+    FBMEM,
+    GPUS,
+    LAUNCHER,
+    LAUNCHER_EXTRA,
+    NOCR,
+    NODES,
+    NUMAMEM,
+    OMPS,
+    OMPTHREADS,
+    RANKS_PER_NODE,
+    REGMEM,
+    SYSMEM,
+    UTILITY,
+    ZCMEM,
+)
 from . import defaults
 
 __all__ = ("parser",)
-
-LAUNCHERS: tuple[LauncherType, ...] = ("mpirun", "jsrun", "srun", "none")
 
 parser = ArgumentParser(
     description="Legate Driver",
@@ -33,58 +47,11 @@ parser = ArgumentParser(
 
 
 multi_node = parser.add_argument_group("Multi-node configuration")
-
-
-multi_node.add_argument(
-    "--nodes",
-    type=int,
-    default=defaults.LEGATE_NODES,
-    dest="nodes",
-    help="Number of nodes to use",
-)
-
-
-multi_node.add_argument(
-    "--ranks-per-node",
-    type=int,
-    default=defaults.LEGATE_RANKS_PER_NODE,
-    dest="ranks_per_node",
-    help="Number of ranks (processes running copies of the program) to "
-    "launch per node. The default (1 rank per node) will typically result "
-    "in the best performance.",
-)
-
-
-multi_node.add_argument(
-    "--no-replicate",
-    dest="not_control_replicable",
-    action="store_true",
-    required=False,
-    help="Execute this program without control replication.  Most of the "
-    "time, this is not recommended.  This option should be used for "
-    "debugging.  The -lg:safe_ctrlrepl Legion option may be helpful "
-    "with discovering issues with replicated control.",
-)
-
-multi_node.add_argument(
-    "--launcher",
-    dest="launcher",
-    choices=LAUNCHERS,
-    default="none",
-    help='launcher program to use (set to "none" for local runs, or if '
-    "the launch has already happened by the time legate is invoked)",
-)
-
-
-multi_node.add_argument(
-    "--launcher-extra",
-    dest="launcher_extra",
-    action="append",
-    default=[],
-    required=False,
-    help="additional argument to pass to the launcher (can appear more "
-    "than once)",
-)
+multi_node.add_argument(NODES.name, **NODES.kwargs)
+multi_node.add_argument(RANKS_PER_NODE.name, **RANKS_PER_NODE.kwargs)
+multi_node.add_argument(NOCR.name, **NOCR.kwargs)
+multi_node.add_argument(LAUNCHER.name, **LAUNCHER.kwargs)
+multi_node.add_argument(LAUNCHER_EXTRA.name, **LAUNCHER_EXTRA.kwargs)
 
 
 binding = parser.add_argument_group("Hardware binding")
@@ -124,98 +91,19 @@ binding.add_argument(
 
 
 core = parser.add_argument_group("Core alloction")
-
-
-core.add_argument(
-    "--cpus",
-    type=int,
-    default=defaults.LEGATE_CPUS,
-    dest="cpus",
-    help="Number of CPUs to use per rank",
-)
-
-
-core.add_argument(
-    "--gpus",
-    type=int,
-    default=defaults.LEGATE_GPUS,
-    dest="gpus",
-    help="Number of GPUs to use per rank",
-)
-
-
-core.add_argument(
-    "--omps",
-    type=int,
-    default=defaults.LEGATE_OMP_PROCS,
-    dest="openmp",
-    help="Number of OpenMP groups to use per rank",
-)
-
-
-core.add_argument(
-    "--ompthreads",
-    type=int,
-    default=defaults.LEGATE_OMP_THREADS,
-    dest="ompthreads",
-    help="Number of threads per OpenMP group",
-)
-
-
-core.add_argument(
-    "--utility",
-    type=int,
-    default=defaults.LEGATE_UTILITY_CORES,
-    dest="utility",
-    help="Number of Utility processors per rank to request for meta-work",
-)
+core.add_argument(CPUS.name, **CPUS.kwargs)
+core.add_argument(GPUS.name, **GPUS.kwargs)
+core.add_argument(OMPS.name, **OMPS.kwargs)
+core.add_argument(OMPTHREADS.name, **OMPTHREADS.kwargs)
+core.add_argument(UTILITY.name, **UTILITY.kwargs)
 
 
 memory = parser.add_argument_group("Memory alloction")
-
-memory.add_argument(
-    "--sysmem",
-    type=int,
-    default=defaults.LEGATE_SYSMEM,
-    dest="sysmem",
-    help="Amount of DRAM memory per rank (in MBs)",
-)
-
-
-memory.add_argument(
-    "--numamem",
-    type=int,
-    default=defaults.LEGATE_NUMAMEM,
-    dest="numamem",
-    help="Amount of DRAM memory per NUMA domain per rank (in MBs)",
-)
-
-
-memory.add_argument(
-    "--fbmem",
-    type=int,
-    default=defaults.LEGATE_FBMEM,
-    dest="fbmem",
-    help="Amount of framebuffer memory per GPU (in MBs)",
-)
-
-
-memory.add_argument(
-    "--zcmem",
-    type=int,
-    default=defaults.LEGATE_ZCMEM,
-    dest="zcmem",
-    help="Amount of zero-copy memory per rank (in MBs)",
-)
-
-
-memory.add_argument(
-    "--regmem",
-    type=int,
-    default=defaults.LEGATE_REGMEM,
-    dest="regmem",
-    help="Amount of registered CPU-side pinned memory per rank (in MBs)",
-)
+memory.add_argument(SYSMEM.name, **SYSMEM.kwargs)
+memory.add_argument(NUMAMEM.name, **NUMAMEM.kwargs)
+memory.add_argument(FBMEM.name, **FBMEM.kwargs)
+memory.add_argument(ZCMEM.name, **ZCMEM.kwargs)
+memory.add_argument(REGMEM.name, **REGMEM.kwargs)
 
 
 # FIXME: We set the eager pool size to 50% of the total size for now.

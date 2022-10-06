@@ -14,26 +14,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from __future__ import annotations
 
-# mypy: ignore-errors
-import shutil
-from pathlib import Path
+import sys
 
-import install_jupyter
-from jupyter_client.kernelspec import KernelSpecManager
+from ..driver import Driver
+from ..util.system import System
+from .config import Config
+from .kernel import generate_kernel_spec, install_kernel_spec
 
 if __name__ == "__main__":
-    legate_exe = Path(shutil.which("legate"))
-    legate_dir = legate_exe.parent.absolute()
-    args, opts = install_jupyter.parse_args()
-    if args.json == "legion_python.json":
-        # override the default one
-        args.json = "legate_jupyter.json"
-    args.legion_prefix = str(legate_dir)
-    legion_jupyter_file = Path(install_jupyter.__file__)
-    kernel_file_dir = str(legion_jupyter_file.parent.absolute())
-    kernel_name = install_jupyter.driver(args, opts, kernel_file_dir)
-    # copy the json file into ipython kernel directory
-    ksm = KernelSpecManager()
-    spec = ksm.get_kernel_spec(kernel_name)
-    shutil.copy(args.json, spec.resource_dir)
+    config = Config(sys.argv)
+    system = System()
+
+    driver = Driver(config, system)
+
+    spec = generate_kernel_spec(driver, config)
+
+    install_kernel_spec(spec, config)
