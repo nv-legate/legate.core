@@ -1066,74 +1066,81 @@ void BaseMapper::report_failed_mapping(const Mappable& mappable,
     REALM_MEMORY_KINDS(MEM_NAMES)
 #undef MEM_NAMES
   };
+  const auto& provenance = mappable.get_provenance_string();
   switch (mappable.get_mappable_type()) {
     case Mappable::TASK_MAPPABLE: {
       const auto task = mappable.as_task();
       if (redop > 0)
         logger.error(
           "Mapper %s failed to map reduction (%d) region "
-          "requirement %d of task %s (UID %lld) into %s memory " IDFMT,
+          "requirement %d of task %s (UID %lld) into %s memory " IDFMT " [%s]",
           get_mapper_name(),
           redop,
           index,
           task->get_task_name(),
           mappable.get_unique_id(),
           memory_kinds[target_memory.kind()],
-          target_memory.id);
+          target_memory.id,
+          provenance.c_str());
       else
         logger.error(
           "Mapper %s failed to map region requirement %d of "
-          "task %s (UID %lld) into %s memory " IDFMT,
+          "task %s (UID %lld) into %s memory " IDFMT " [%s]",
           get_mapper_name(),
           index,
           task->get_task_name(),
           mappable.get_unique_id(),
           memory_kinds[target_memory.kind()],
-          target_memory.id);
+          target_memory.id,
+          provenance.c_str());
       break;
     }
     case Mappable::COPY_MAPPABLE: {
       if (redop > 0)
         logger.error(
           "Mapper %s failed to map reduction (%d) region "
-          "requirement %d of copy (UID %lld) into %s memory " IDFMT,
+          "requirement %d of copy (UID %lld) into %s memory " IDFMT " [%s]",
           get_mapper_name(),
           redop,
           index,
           mappable.get_unique_id(),
           memory_kinds[target_memory.kind()],
-          target_memory.id);
+          target_memory.id,
+          provenance.c_str());
       else
         logger.error(
           "Mapper %s failed to map region requirement %d of "
-          "copy (UID %lld) into %s memory " IDFMT,
+          "copy (UID %lld) into %s memory " IDFMT " [%s]",
           get_mapper_name(),
           index,
           mappable.get_unique_id(),
           memory_kinds[target_memory.kind()],
-          target_memory.id);
+          target_memory.id,
+          provenance.c_str());
       break;
     }
     case Mappable::INLINE_MAPPABLE: {
       if (redop > 0)
         logger.error(
           "Mapper %s failed to map reduction (%d) region "
-          "requirement %d of inline mapping (UID %lld) into %s memory " IDFMT,
+          "requirement %d of inline mapping (UID %lld) into %s memory " IDFMT " [%s]",
           get_mapper_name(),
           redop,
           index,
           mappable.get_unique_id(),
           memory_kinds[target_memory.kind()],
-          target_memory.id);
+          target_memory.id,
+          provenance.c_str());
       else
         logger.error(
           "Mapper %s failed to map region requirement %d of "
-          "inline mapping (UID %lld) into %s memory " IDFMT,
+          "inline mapping (UID %lld) into %s memory " IDFMT " [%s]",
           get_mapper_name(),
           index,
           mappable.get_unique_id(),
           memory_kinds[target_memory.kind()],
-          target_memory.id);
+          target_memory.id,
+          provenance.c_str());
       break;
     }
     case Mappable::PARTITION_MAPPABLE: {
