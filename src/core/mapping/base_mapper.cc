@@ -18,6 +18,7 @@
 #include <sstream>
 
 #include "legion/legion_mapping.h"
+#include "mappers/mapping_utilities.h"
 
 #include "core/data/store.h"
 #include "core/mapping/base_mapper.h"
@@ -502,6 +503,10 @@ void BaseMapper::map_task(const MapperContext ctx,
                           const MapTaskInput& input,
                           MapTaskOutput& output)
 {
+#ifdef DEBUG_LEGATE
+  logger.debug() << "Entering map_task for " << Utilities::to_string(runtime, ctx, task);
+#endif
+
   // Should never be mapping the top-level task here
   assert(task.get_depth() > 0);
 
@@ -624,7 +629,8 @@ void BaseMapper::map_task(const MapperContext ctx,
       }
       if (!(priv & LEGION_WRITE_PRIV) || mapping.policy.exact) continue;
 #ifdef DEBUG_LEGATE
-      logger.debug() << "tightened mapping policy for reqs:" << reqs_ss.str();
+      logger.debug() << "Task " << task.get_unique_id()
+                     << ": tightened mapping policy for reqs:" << reqs_ss.str();
 #endif
       mapping.policy.exact = true;
       if (!handled[mapping_idx]) continue;
@@ -701,12 +707,14 @@ void BaseMapper::map_task(const MapperContext ctx,
       if (result == PhysicalInstance()) break;
       if (instance_to_mappings.count(result) > 0 || runtime->acquire_instance(ctx, result)) {
 #ifdef DEBUG_LEGATE
-        logger.debug() << "acquired instance " << result << " for reqs:" << reqs_ss.str();
+        logger.debug() << "Task " << task.get_unique_id() << ": acquired instance " << result
+                       << " for reqs:" << reqs_ss.str();
 #endif
         break;
       }
 #ifdef DEBUG_LEGATE
-      logger.debug() << "failed to acquire instance " << result << " for reqs:" << reqs_ss.str();
+      logger.debug() << "Task " << task.get_unique_id() << ": failed to acquire instance " << result
+                     << " for reqs:" << reqs_ss.str();
 #endif
       AutoLock lock(ctx, local_instances->manager_lock());
       local_instances->erase(result);
@@ -718,7 +726,8 @@ void BaseMapper::map_task(const MapperContext ctx,
     // "bloated" instances for the same region, freeing up enough memory so that mapping can succeed
     if (result == PhysicalInstance()) {
 #ifdef DEBUG_LEGATE
-      logger.debug() << "failed mapping for reqs:" << reqs_ss.str();
+      logger.debug() << "Task " << task.get_unique_id()
+                     << ": failed mapping for reqs:" << reqs_ss.str();
 #endif
       assert(can_fail);
       tighten_write_reqs();
@@ -729,7 +738,8 @@ void BaseMapper::map_task(const MapperContext ctx,
 
     // Success; record the instance for this mapping.
 #ifdef DEBUG_LEGATE
-    logger.debug() << "completed mapping for reqs:" << reqs_ss.str();
+    logger.debug() << "Task " << task.get_unique_id()
+                   << ": completed mapping for reqs:" << reqs_ss.str();
 #endif
     instance_to_mappings[result].insert(mapping_idx);
     mapping_to_instance[mapping_idx] = result;
@@ -832,7 +842,8 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
           ctx, target_memory, layout_constraints, regions, result, true /*acquire*/)) {
 #ifdef DEBUG_LEGATE
       Realm::LoggerMessage msg = logger.debug();
-      msg << "created reduction instance " << result << " for";
+      msg << "Operation " << mappable.get_unique_id() << ": created reduction instance " << result
+          << " for";
       for (LogicalRegion r : regions) msg << " " << r;
 #endif
       // We already did the acquire
@@ -856,7 +867,8 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
       local_instances->find_instance(
         regions.front(), fields.front(), target_memory, result, policy)) {
 #ifdef DEBUG_LEGATE
-    logger.debug() << "reused cached instance " << result << " for " << regions.front();
+    logger.debug() << "Operation " << mappable.get_unique_id() << ": reused cached instance "
+                   << result << " for " << regions.front();
 #endif
     runtime->enable_reentrant(ctx);
     // Needs acquire to keep the runtime happy
@@ -919,10 +931,12 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
     assert(result.exists());
 #ifdef DEBUG_LEGATE
     if (created) {
-      logger.debug() << "created instance " << result << " for " << *group
-                     << " (size: " << footprint << " bytes, memory: " << target_memory << ")";
+      logger.debug() << "Operation " << mappable.get_unique_id() << ": created instance " << result
+                     << " for " << *group << " (size: " << footprint
+                     << " bytes, memory: " << target_memory << ")";
     } else {
-      logger.debug() << "found instance " << result << " for " << *group;
+      logger.debug() << "Operation " << mappable.get_unique_id() << ": found instance " << result
+                     << " for " << *group;
     }
 #endif
     // Only save the result for future use if it is not an external instance
