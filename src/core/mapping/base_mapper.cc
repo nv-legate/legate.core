@@ -502,11 +502,6 @@ void BaseMapper::map_task(const MapperContext ctx,
                           const MapTaskInput& input,
                           MapTaskOutput& output)
 {
-  if (task.target_proc.id == 0x1d00000000000004) {
-    std::cout << "ENTER" << std::endl;
-    std::cout.flush();
-  }
-
   // Should never be mapping the top-level task here
   assert(task.get_depth() > 0);
 
@@ -616,20 +611,21 @@ void BaseMapper::map_task(const MapperContext ctx,
     for (int32_t mapping_idx = 0; mapping_idx < mappings.size(); ++mapping_idx) {
       auto& mapping      = mappings[mapping_idx];
       PrivilegeMode priv = LEGION_NO_ACCESS;
+#ifdef DEBUG_LEGATE
+      std::stringstream reqs_ss;
+#endif
       for (auto req_idx : mapping.requirement_indices()) {
         const RegionRequirement& req = task.regions[req_idx];
         if (!req.region.exists()) continue;
         priv |= req.privilege;
-      }
-      if (task.target_proc.id == 0x1d00000000000004) {
-        std::cout << "TIGHTEN";
-        for (auto req_idx : mapping.requirement_indices()) { std::cout << " " << req_idx; }
-        std::cout << " priv = " << std::hex << priv << std::dec
-                  << " exact = " << mapping.policy.exact << " handled = " << handled[mapping_idx]
-                  << std::endl;
-        std::cout.flush();
+#ifdef DEBUG_LEGATE
+        reqs_ss << " " << req_idx;
+#endif
       }
       if (!(priv & LEGION_WRITE_PRIV) || mapping.policy.exact) continue;
+#ifdef DEBUG_LEGATE
+      logger.debug() << get_mapper_name() << " tightened mapping policy for reqs:" << reqs_ss.str();
+#endif
       mapping.policy.exact = true;
       if (!handled[mapping_idx]) continue;
       handled[mapping_idx] = false;
@@ -681,10 +677,16 @@ void BaseMapper::map_task(const MapperContext ctx,
     }
 
     std::vector<std::reference_wrapper<const RegionRequirement>> reqs;
+#ifdef DEBUG_LEGATE
+    std::stringstream reqs_ss;
+#endif
     for (auto req_idx : req_indices) {
       const auto& req = task.regions[req_idx];
       if (!req.region.exists()) continue;
       reqs.push_back(std::cref(req));
+#ifdef DEBUG_LEGATE
+      reqs_ss << " " << req_idx;
+#endif
     }
     if (reqs.empty()) {
       handled[mapping_idx] = true;
@@ -695,16 +697,20 @@ void BaseMapper::map_task(const MapperContext ctx,
     // mapper's data structures and retry, until we succeed or map_legate_store fails with an out of
     // memory error.
     PhysicalInstance result;
-    if (task.target_proc.id == 0x1d00000000000004) {
-      std::cout << "FULFILLING";
-      for (auto req_idx : req_indices) { std::cout << " " << req_idx; }
-      std::cout << " with exact = " << mapping.policy.exact << std::endl;
-      std::cout.flush();
-    }
     while (map_legate_store(ctx, task, mapping, reqs, task.target_proc, result, can_fail)) {
       if (result == PhysicalInstance()) break;
-      if (instance_to_mappings.count(result) > 0 || runtime->acquire_instance(ctx, result)) break;
-      AutoLock lock(local_instances->manager_lock());
+      if (instance_to_mappings.count(result) > 0 || runtime->acquire_instance(ctx, result)) {
+#ifdef DEBUG_LEGATE
+        logger.debug() << get_mapper_name() << " acquired instance " << result
+                       << " for reqs:" << reqs_ss.str();
+#endif
+        break;
+      }
+#ifdef DEBUG_LEGATE
+      logger.debug() << get_mapper_name() << " failed to acquire instance " << result
+                     << " for reqs:" << reqs_ss.str();
+#endif
+      AutoLock lock(ctx, local_instances->manager_lock());
       local_instances->erase(result);
     }
 
@@ -713,10 +719,9 @@ void BaseMapper::map_task(const MapperContext ctx,
     // they use a complete partition), so the new tight instances will invalidate any pre-existing
     // "bloated" instances for the same region, freeing up enough memory so that mapping can succeed
     if (result == PhysicalInstance()) {
-      if (task.target_proc.id == 0x1d00000000000004) {
-        std::cout << "THIS HAPPENED" << std::endl;
-        std::cout.flush();
-      }
+#ifdef DEBUG_LEGATE
+      logger.debug() << get_mapper_name() << " failed mapping for reqs:" << reqs_ss.str();
+#endif
       assert(can_fail);
       tighten_write_reqs();
       mapping_idx = -1;
@@ -725,6 +730,9 @@ void BaseMapper::map_task(const MapperContext ctx,
     }
 
     // Success; record the instance for this mapping.
+#ifdef DEBUG_LEGATE
+    logger.debug() << get_mapper_name() << " completed mapping for reqs:" << reqs_ss.str();
+#endif
     instance_to_mappings[result].insert(mapping_idx);
     mapping_to_instance[mapping_idx] = result;
     handled[mapping_idx]             = true;
@@ -823,9 +831,15 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
   if (redop != 0) {
     layout_constraints.add_constraint(SpecializedConstraint(REDUCTION_FOLD_SPECIALIZE, redop));
     if (runtime->create_physical_instance(
-          ctx, target_memory, layout_constraints, regions, result, true /*acquire*/))
+          ctx, target_memory, layout_constraints, regions, result, true /*acquire*/)) {
+#ifdef DEBUG_LEGATE
+      Realm::LoggerMessage msg = logger.debug();
+      msg << get_mapper_name() << " created reduction instance " << result << " for";
+      for (LogicalRegion r : regions) msg << " " << r;
+#endif
       // We already did the acquire
       return false;
+    }
     if (!can_fail)
       report_failed_mapping(mappable, mapping.requirement_index(), target_memory, redop);
     return true;
@@ -844,7 +858,7 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
       local_instances->find_instance(
         regions.front(), fields.front(), target_memory, result, policy)) {
 #ifdef DEBUG_LEGATE
-    logger.debug() << get_mapper_name() << " found instance " << result << " for "
+    logger.debug() << get_mapper_name() << " reused cached instance " << result << " for "
                    << regions.front();
 #endif
     runtime->enable_reentrant(ctx);
@@ -910,6 +924,8 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
     if (created) {
       logger.debug() << get_mapper_name() << " created instance " << result << " for " << *group
                      << " (size: " << footprint << " bytes, memory: " << target_memory << ")";
+    } else {
+      logger.debug() << get_mapper_name() << " found instance " << result << " for " << *group;
     }
 #endif
     // Only save the result for future use if it is not an external instance
