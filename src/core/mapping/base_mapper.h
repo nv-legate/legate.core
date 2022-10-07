@@ -268,7 +268,8 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
                         const StoreMapping& mapping,
                         std::vector<std::reference_wrapper<const Legion::RegionRequirement>> reqs,
                         Legion::Processor target_proc,
-                        Legion::Mapping::PhysicalInstance& result);
+                        Legion::Mapping::PhysicalInstance& result,
+                        bool can_fail);
   bool map_raw_array(const Legion::Mapping::MapperContext ctx,
                      const Legion::Mappable& mappable,
                      unsigned index,
