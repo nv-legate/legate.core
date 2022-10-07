@@ -91,6 +91,13 @@ class TestArgSpec:
         }
 
 
+class TestArgument:
+    def test_kwargs(self) -> None:
+        arg = m.Argument("arg", m.ArgSpec("dest", default=2, help="help"))
+
+        assert arg.kwargs == dict(m.entries(arg.spec))
+
+
 def test_entries() -> None:
     assert set(m.entries(_TestObj())) == {("a", 10), ("c", "foo")}
 
@@ -115,12 +122,25 @@ class Test_parse_library_command_args:
         self, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
     ) -> None:
         monkeypatch.setattr("sys.argv", ["app", "-foo:help", "-foo:bar"])
-        args = [m.Argument("bar", m.ArgSpec(dest="help"))]
+        args = [m.Argument("bar", m.ArgSpec(dest="bar"))]
         with pytest.raises(SystemExit) as e:
             m.parse_library_command_args("foo", args)
         assert e.value.code is None
         out, err = capsys.readouterr()  # type: ignore[unreachable]
         assert out.startswith("usage: <foo program>")
+
+    def test_default_help_patches_short_args(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+    ) -> None:
+        monkeypatch.setattr("sys.argv", ["app", "-foo:help", "-foo:bar"])
+        args = [m.Argument("bar", m.ArgSpec(dest="bar"))]
+        with pytest.raises(SystemExit) as e:
+            m.parse_library_command_args("foo", args)
+        assert e.value.code is None
+        out, err = capsys.readouterr()  # type: ignore[unreachable]
+        assert out.startswith("usage: <foo program>")
+        assert "-foo:bar" in out
+        assert "--foo:bar" not in out
 
     def test_help_override(
         self, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
@@ -181,6 +201,19 @@ class Test_parse_library_command_args:
         assert out == ""
         assert vars(ns) == {}
         assert sys.argv == ["app", "-foo:bar", "-foo:baz"]
+
+    def test_no_prefix_conflict(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
+    ) -> None:
+        monkeypatch.setattr(
+            "sys.argv", ["app", "-foo:bar", "--foo", "-f", "1", "-ff"]
+        )
+        args = [m.Argument("bar", m.ArgSpec(dest="bar"))]
+        ns = m.parse_library_command_args("foo", args)
+        out, err = capsys.readouterr()
+        assert out == ""
+        assert vars(ns) == {"bar": True}
+        assert sys.argv == ["app", "--foo", "-f", "1", "-ff"]
 
 
 if __name__ == "__main__":
