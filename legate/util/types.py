@@ -12,14 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-"""Provide types that are useful throughout the driver code.
+"""Provide types that are useful throughout the test driver code.
 
 """
 from __future__ import annotations
 
 from dataclasses import Field, dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Protocol, Tuple, Union
+from typing import Any, Dict, List, Protocol, Tuple, Type, TypeVar, Union
 
 from typing_extensions import Literal, TypeAlias
 
@@ -29,13 +29,36 @@ __all__ = (
     "ArgList",
     "Command",
     "CommandPart",
+    "CPUInfo",
     "DataclassMixin",
     "DataclassProtocol",
     "EnvDict",
+    "GPUInfo",
     "LauncherType",
     "LegatePaths",
     "LegionPaths",
+    "object_to_dataclass",
 )
+
+
+@dataclass(frozen=True)
+class CPUInfo:
+    """Encapsulate information about a single CPU"""
+
+    #: IDs of hypterthreading sibling cores for a given physscal core
+    ids: tuple[int, ...]
+
+
+@dataclass(frozen=True)
+class GPUInfo:
+    """Encapsulate information about a single CPU"""
+
+    #: ID of the GPU to specify in test shards
+    id: int
+
+    #: The total framebuffer memory of this GPU
+    total: int
+
 
 #: Define the available launcher for the driver to use
 LauncherType: TypeAlias = Union[
@@ -71,6 +94,30 @@ class DataclassMixin(DataclassProtocol):
 
     def __str__(self) -> str:
         return kvtable(self.__dict__)
+
+
+T = TypeVar("T", bound=DataclassProtocol)
+
+
+def object_to_dataclass(obj: object, typ: Type[T]) -> T:
+    """Automatically generate a dataclass from an object with appropriate
+    attributes.
+
+    Parameters
+    ----------
+    obj: object
+        An object to pull values from (e.g. an argparse Namespace)
+
+    typ:
+        A dataclass type to generate from ``obj``
+
+    Returns
+    -------
+        The generated dataclass instance
+
+    """
+    kws = {name: getattr(obj, name) for name in typ.__dataclass_fields__}
+    return typ(**kws)
 
 
 @dataclass(frozen=True)

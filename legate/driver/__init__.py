@@ -18,4 +18,3 @@ from .config import Config
 from .driver import Driver
 from .launcher import Launcher
 from .main import main
-from .system import System

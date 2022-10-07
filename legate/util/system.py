@@ -14,11 +14,14 @@
 #
 from __future__ import annotations
 
+import multiprocessing
 import os
 import platform
+import sys
 from functools import cached_property
 
-from .util import LegatePaths, LegionPaths, get_legate_paths, get_legion_paths
+from .fs import get_legate_paths, get_legion_paths
+from .types import CPUInfo, GPUInfo, LegatePaths, LegionPaths
 
 __all__ = ("System",)
 
@@ -78,3 +81,51 @@ class System:
 
         """
         return "LD_LIBRARY_PATH" if self.os == "Linux" else "DYLD_LIBRARY_PATH"
+
+    @cached_property
+    def cpus(self) -> tuple[CPUInfo, ...]:
+        """A list of CPUs on the system."""
+
+        N = multiprocessing.cpu_count()
+
+        if sys.platform == "darwin":
+            return tuple(CPUInfo((i,)) for i in range(N))
+
+        sibling_sets: set[tuple[int, ...]] = set()
+        for i in range(N):
+            line = open(
+                f"/sys/devices/system/cpu/cpu{i}/topology/thread_siblings_list"
+            ).read()
+            sibling_sets.add(
+                tuple(sorted(int(x) for x in line.strip().split(",")))
+            )
+        return tuple(CPUInfo(siblings) for siblings in sorted(sibling_sets))
+
+    @cached_property
+    def gpus(self) -> tuple[GPUInfo, ...]:
+        """A list of GPUs on the system, including total memory information."""
+
+        try:
+            # This pynvml import is protected inside this method so that in
+            # case pynvml is not installed, tests stages that don't need gpu
+            # info (e.g. cpus, eager) will proceed unaffected. Test stages
+            # that do require gpu info will fail here with an ImportError.
+            import pynvml  # type: ignore[import]
+
+            # Also a pynvml package is available on some platforms that won't
+            # have GPUs for some reason. In which case this init call will
+            # fail.
+            pynvml.nvmlInit()
+        except Exception:
+            return ()
+
+        num_gpus = pynvml.nvmlDeviceGetCount()
+
+        results = []
+        for i in range(num_gpus):
+            info = pynvml.nvmlDeviceGetMemoryInfo(
+                pynvml.nvmlDeviceGetHandleByIndex(i)
+            )
+            results.append(GPUInfo(i, info.total))
+
+        return tuple(results)

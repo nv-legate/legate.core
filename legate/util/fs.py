@@ -17,98 +17,16 @@ from __future__ import annotations
 import re
 import sys
 from pathlib import Path
-from shlex import quote
-from textwrap import indent
-from typing import TYPE_CHECKING, Type, TypeVar
 
-from .types import DataclassProtocol, LegatePaths, LegionPaths
-from .ui import kvtable, rule, section, value
-
-if TYPE_CHECKING:
-    from .driver import Driver
-    from .system import System
+from .types import LegatePaths, LegionPaths
 
 __all__ = (
     "get_legate_build_dir",
     "get_legate_paths",
     "get_legion_paths",
-    "object_to_dataclass",
-    "print_verbose",
     "read_c_define",
     "read_cmake_cache_value",
 )
-
-
-T = TypeVar("T", bound=DataclassProtocol)
-
-
-def object_to_dataclass(obj: object, typ: Type[T]) -> T:
-    """Automatically generate a dataclass from an object with appropriate
-    attributes.
-
-    Parameters
-    ----------
-    obj: object
-        An object to pull values from (e.g. an argparse Namespace)
-
-    typ:
-        A dataclass type to generate from ``obj``
-
-    Returns
-    -------
-        The generated dataclass instance
-
-    """
-    kws = {name: getattr(obj, name) for name in typ.__dataclass_fields__}
-    return typ(**kws)
-
-
-def print_verbose(
-    system: System,
-    driver: Driver | None = None,
-) -> None:
-    """Print system and driver configuration values.
-
-    Parameters
-    ----------
-    system : System
-        A System instance to obtain Legate and Legion paths from
-
-    driver : Driver or None, optional
-        If not None, a Driver instance to obtain command invocation and
-        environment from (default: None)
-
-    Returns
-    -------
-        None
-
-    """
-
-    print(f"\n{rule('Legion Python Configuration')}")
-
-    print(section("\nLegate paths:"))
-    print(indent(str(system.legate_paths), prefix="  "))
-
-    print(section("\nLegion paths:"))
-    print(indent(str(system.legion_paths), prefix="  "))
-
-    if driver:
-        print(section("\nCommand:"))
-        cmd = " ".join(quote(t) for t in driver.cmd)
-        print(f"  {value(cmd)}")
-
-        if keys := sorted(driver.custom_env_vars):
-            print(section("\nCustomized Environment:"))
-            print(
-                indent(
-                    kvtable(driver.env, delim="=", align=False, keys=keys),
-                    prefix="  ",
-                )
-            )
-
-    print(f"\n{rule()}")
-
-    print(flush=True)
 
 
 def read_c_define(header_path: Path, name: str) -> str | None:
@@ -321,15 +239,16 @@ def get_legion_paths(legate_paths: LegatePaths) -> LegionPaths:
     # local builds over global installations. This allows devs to work in the
     # source tree and re-run without overwriting existing installations.
 
-    def installed_legion_paths(
-        legion_dir: Path, legion_module: Path | None = None
-    ) -> LegionPaths:
-        if legion_module is None:
-            legion_lib_dir = legion_dir / "lib"
-            for f in legion_lib_dir.iterdir():
-                if f.joinpath("site-packages").exists():
-                    legion_module = f / "site-packages"
-                    break
+    def installed_legion_paths(legion_dir: Path) -> LegionPaths:
+        legion_lib_dir = legion_dir / "lib"
+        for f in legion_lib_dir.iterdir():
+            legion_module = f / "site-packages"
+            if legion_module.exists():
+                break
+
+        # NB: for-else clause! (executes if NO loop break)
+        else:
+            raise RuntimeError("could not determine legion module location")
 
         legion_bin_path = legion_dir / "bin"
         legion_include_path = legion_dir / "include"
