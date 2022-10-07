@@ -749,7 +749,8 @@ void BaseMapper::map_task(const MapperContext ctx,
   // Succeeded in mapping all stores, record it on map_task output.
   for (const auto& m2i : mapping_to_instance)
     for (auto req_idx : mappings[m2i.first].requirement_indices())
-      output.chosen_instances[req_idx].push_back(m2i.second);
+      if (task.regions[req_idx].region.exists())
+        output.chosen_instances[req_idx].push_back(m2i.second);
 }
 
 void BaseMapper::map_replicate_task(const MapperContext ctx,
