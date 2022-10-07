@@ -45,6 +45,7 @@ enum CollTag : int {
   GATHER_TAG    = 1,
   ALLTOALL_TAG  = 2,
   ALLTOALLV_TAG = 3,
+  P2P_TAG       = 4,
   MAX_TAG       = 10,
 };
 
@@ -109,9 +110,14 @@ int collCommCreate(CollComm global_comm,
       (const void**)malloc(sizeof(void*) * global_comm_size);
     thread_comms[global_comm->unique_id]->displs =
       (const int**)malloc(sizeof(int*) * global_comm_size);
+    thread_comms[global_comm->unique_id]->buffer_ready =
+      (int*)malloc(sizeof(int*) * global_comm_size * global_comm_size);
     for (int i = 0; i < global_comm_size; i++) {
       thread_comms[global_comm->unique_id]->buffers[i] = nullptr;
       thread_comms[global_comm->unique_id]->displs[i]  = nullptr;
+    }
+    for (int i = 0; i < global_comm_size * global_comm_size; i++) {
+      thread_comms[global_comm->unique_id]->buffer_ready[i] = 0;
     }
     __sync_synchronize();
     thread_comms[global_comm->unique_id]->ready_flag = true;
@@ -124,6 +130,7 @@ int collCommCreate(CollComm global_comm,
   assert(global_comm->comm->ready_flag == true);
   assert(global_comm->comm->buffers != nullptr);
   assert(global_comm->comm->displs != nullptr);
+  assert(global_comm->comm->buffer_ready != nullptr);
   global_comm->nb_threads = global_comm->global_comm_size;
 #endif
   return CollSuccess;
@@ -148,6 +155,8 @@ int collCommDestroy(CollComm global_comm)
     thread_comms[global_comm->unique_id]->buffers = nullptr;
     free(thread_comms[global_comm->unique_id]->displs);
     thread_comms[global_comm->unique_id]->displs = nullptr;
+    free(thread_comms[global_comm->unique_id]->buffer_ready);
+    thread_comms[global_comm->unique_id]->buffer_ready = nullptr;
     __sync_synchronize();
     thread_comms[global_comm->unique_id]->ready_flag = false;
   }
@@ -234,6 +243,57 @@ int collAllgather(
   return allgatherMPI(sendbuf, recvbuf, count, type, global_comm);
 #else
   return allgatherLocal(sendbuf, recvbuf, count, type, global_comm);
+#endif
+}
+
+int collSend(
+  const void* sendbuf, int count, CollDataType type, int dest, int tag, CollComm global_comm)
+{
+  if (dest == global_comm->global_rank) {
+    log_coll.error("Do not support sending to self");
+    LEGATE_ABORT;
+  }
+  log_coll.debug(
+    "Send: global_rank %d, mpi_rank %d, unique_id %d, comm_size %d, "
+    "mpi_comm_size %d %d, nb_threads %d, dst %d, tag %d",
+    global_comm->global_rank,
+    global_comm->mpi_rank,
+    global_comm->unique_id,
+    global_comm->global_comm_size,
+    global_comm->mpi_comm_size,
+    global_comm->mpi_comm_size_actual,
+    global_comm->nb_threads,
+    dest,
+    tag);
+#ifdef LEGATE_USE_GASNET
+  return sendMPI(sendbuf, count, type, dest, tag, global_comm);
+#else
+  return sendLocal(sendbuf, count, type, dest, tag, global_comm);
+#endif
+}
+
+int collRecv(void* recvbuf, int count, CollDataType type, int source, int tag, CollComm global_comm)
+{
+  if (source == global_comm->global_rank) {
+    log_coll.error("Do not support receiving to self");
+    LEGATE_ABORT;
+  }
+  log_coll.debug(
+    "Recv: global_rank %d, mpi_rank %d, unique_id %d, comm_size %d, "
+    "mpi_comm_size %d %d, nb_threads %d, src %d, tag %d",
+    global_comm->global_rank,
+    global_comm->mpi_rank,
+    global_comm->unique_id,
+    global_comm->global_comm_size,
+    global_comm->mpi_comm_size,
+    global_comm->mpi_comm_size_actual,
+    global_comm->nb_threads,
+    source,
+    tag);
+#ifdef LEGATE_USE_GASNET
+  return recvMPI(recvbuf, count, type, source, tag, global_comm);
+#else
+  return recvLocal(recvbuf, count, type, source, tag, global_comm);
 #endif
 }
 
@@ -447,6 +507,13 @@ int generateBcastTag(int rank, CollComm global_comm)
 int generateGatherTag(int rank, CollComm global_comm)
 {
   int tag = rank * CollTag::MAX_TAG + CollTag::GATHER_TAG;
+  assert(tag <= mpi_tag_ub && tag > 0);
+  return tag;
+}
+
+int generateP2PTag(int user_tag)
+{
+  int tag = user_tag * CollTag::MAX_TAG + CollTag::P2P_TAG;
   assert(tag <= mpi_tag_ub && tag > 0);
   return tag;
 }

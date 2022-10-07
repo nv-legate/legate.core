@@ -44,11 +44,13 @@ GEN_CPU_SRC	+= core/comm/alltoall_thread_mpi.cc  \
 							core/comm/alltoallv_thread_mpi.cc  \
 							core/comm/gather_thread_mpi.cc	   \
 							core/comm/allgather_thread_mpi.cc  \
-							core/comm/bcast_thread_mpi.cc
+							core/comm/bcast_thread_mpi.cc      \
+							core/comm/p2p_thread_mpi.cc
 else
 GEN_CPU_SRC	+= core/comm/alltoall_thread_local.cc  \
 							core/comm/alltoallv_thread_local.cc  \
-							core/comm/allgather_thread_local.cc
+							core/comm/allgather_thread_local.cc  \
+							core/comm/p2p_thread_local.cc
 endif
 
 # Source files for GPUs
