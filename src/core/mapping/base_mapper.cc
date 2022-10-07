@@ -839,13 +839,22 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
   // If we're making a reduction instance, we should just make it now
   if (redop != 0) {
     layout_constraints.add_constraint(SpecializedConstraint(REDUCTION_FOLD_SPECIALIZE, redop));
-    if (runtime->create_physical_instance(
-          ctx, target_memory, layout_constraints, regions, result, true /*acquire*/)) {
+    size_t footprint = 0;
+    if (runtime->create_physical_instance(ctx,
+                                          target_memory,
+                                          layout_constraints,
+                                          regions,
+                                          result,
+                                          true /*acquire*/,
+                                          LEGION_GC_DEFAULT_PRIORITY,
+                                          false /*tight bounds*/,
+                                          &footprint)) {
 #ifdef DEBUG_LEGATE
       Realm::LoggerMessage msg = logger.debug();
       msg << "Operation " << mappable.get_unique_id() << ": created reduction instance " << result
           << " for";
       for (LogicalRegion r : regions) msg << " " << r;
+      msg << " (size: " << footprint << " bytes, memory: " << target_memory << ")";
 #endif
       // We already did the acquire
       return false;
