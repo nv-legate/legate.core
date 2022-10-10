@@ -52,7 +52,7 @@ class CUDAConfig(SectionConfig):
             return ()
 
         return (
-            f"cudatoolkit=={self.ctk_version}",  # runtime
+            f"cudatoolkit={self.ctk_version}",  # runtime
             "cutensor",  # runtime
             "nccl",  # runtime
             "pynvml",  # tests
