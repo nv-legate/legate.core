@@ -15,19 +15,22 @@
 from __future__ import annotations
 
 import re
+from shlex import quote
 
 import pytest
 from pytest_mock import MockerFixture
-from util import Capsys, GenConfig
 
 import legate.driver.driver as m
 from legate.driver.args import LAUNCHERS
 from legate.driver.command import CMD_PARTS
-from legate.driver.launcher import Launcher
-from legate.driver.system import System
-from legate.driver.types import LauncherType
-from legate.driver.ui import scrub
-from legate.driver.util import print_verbose
+from legate.driver.config import Config
+from legate.driver.launcher import RANK_ENV_VARS, Launcher
+from legate.util.colors import scrub
+from legate.util.system import System
+from legate.util.types import LauncherType
+
+from ...util import Capsys
+from .util import GenConfig
 
 SYSTEM = System()
 
@@ -123,11 +126,40 @@ class TestDriver:
 
         run_out = scrub(capsys.readouterr()[0]).strip()
 
-        print_verbose(driver.system, driver)
+        m.print_verbose(driver.system, driver)
 
         pv_out = scrub(capsys.readouterr()[0]).strip()
 
         assert pv_out in run_out
+
+    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
+    def test_verbose_nonero_rank_id(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: Capsys,
+        genconfig: GenConfig,
+        rank_var: str,
+    ) -> None:
+        for name in RANK_ENV_VARS:
+            monkeypatch.delenv(name, raising=False)
+        monkeypatch.setenv(name, "1")
+
+        # set --dry-run to avoid needing to mock anything
+        config = genconfig(
+            ["--launcher", "none", "--verbose", "--dry-run"], multi_rank=(2, 2)
+        )
+        system = System()
+        driver = m.Driver(config, system)
+
+        driver.run()
+
+        run_out = scrub(capsys.readouterr()[0]).strip()
+
+        m.print_verbose(driver.system, driver)
+
+        pv_out = scrub(capsys.readouterr()[0]).strip()
+
+        assert pv_out not in run_out
 
     @pytest.mark.parametrize("launch", LAUNCHERS)
     def test_darwin_gdb_warning(
@@ -151,3 +183,48 @@ class TestDriver:
         out, _ = capsys.readouterr()
 
         assert re.search(DARWIN_GDB_WARN_EXPECTED_PAT, scrub(out))
+
+
+class Test_print_verbose:
+    def test_system_only(self, capsys: Capsys) -> None:
+        system = System()
+
+        m.print_verbose(system)
+
+        out = scrub(capsys.readouterr()[0]).strip()
+
+        assert out.startswith(f"{'--- Legion Python Configuration ':-<80}")
+        assert "Legate paths:" in out
+        for line in scrub(str(system.legate_paths)).split():
+            assert line in out
+
+        assert "Legion paths:" in out
+        for line in scrub(str(system.legion_paths)).split():
+            assert line in out
+
+    def test_system_and_driver(self, capsys: Capsys) -> None:
+        config = Config(["legate", "--no-replicate"])
+        system = System()
+        driver = m.Driver(config, system)
+
+        m.print_verbose(system, driver)
+
+        out = scrub(capsys.readouterr()[0]).strip()
+
+        assert out.startswith(f"{'--- Legion Python Configuration ':-<80}")
+        assert "Legate paths:" in out
+        for line in scrub(str(system.legate_paths)).split():
+            assert line in out
+
+        assert "Legion paths:" in out
+        for line in scrub(str(system.legion_paths)).split():
+            assert line in out
+
+        assert "Command:" in out
+        assert f"  {' '.join(quote(t) for t in driver.cmd)}" in out
+
+        assert "Customized Environment:" in out
+        for k in driver.custom_env_vars:
+            assert f"{k}={driver.env[k]}" in out
+
+        assert out.endswith(f"\n{'-':-<80}")

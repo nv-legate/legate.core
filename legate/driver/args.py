@@ -18,8 +18,8 @@ from __future__ import annotations
 
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 
+from ..util.types import LauncherType
 from . import defaults
-from .types import LauncherType
 
 __all__ = ("parser",)
 

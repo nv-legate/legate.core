@@ -24,8 +24,7 @@ from typing import TYPE_CHECKING, Any, Deque, List, Optional, TypeVar, Union
 
 from legion_top import add_cleanup_item, top_level
 
-from legate.rc import ArgSpec, Argument, parse_command_args
-
+from ..util.args import ArgSpec, Argument, parse_library_command_args
 from . import ffi  # Make sure we only have one ffi instance
 from . import (
     Fence,
@@ -264,14 +263,20 @@ class RegionManager:
         # unordered destructions
         self._region.destroy(unordered)
 
-    def increase_field_count(self) -> bool:
+    def increase_active_field_count(self) -> bool:
         revived = self._active_field_count == 0
         self._active_field_count += 1
         return revived
 
-    def decrease_field_count(self) -> bool:
+    def decrease_active_field_count(self) -> bool:
         self._active_field_count -= 1
         return self._active_field_count == 0
+
+    def increase_field_count(self) -> bool:
+        fresh = self._alloc_field_count == 0
+        self._alloc_field_count += 1
+        revived = self.increase_active_field_count()
+        return not fresh and revived
 
     @property
     def has_space(self) -> bool:
@@ -282,13 +287,12 @@ class RegionManager:
         self._next_field_id += 1
         return field_id
 
-    def allocate_field(self, field_size: Any) -> tuple[Region, int]:
+    def allocate_field(self, field_size: Any) -> tuple[Region, int, bool]:
         field_id = self._region.field_space.allocate_field(
             field_size, self.get_next_field_id()
         )
-        self._alloc_field_count += 1
-        self.increase_field_count()
-        return self._region, field_id
+        revived = self.increase_field_count()
+        return self._region, field_id, revived
 
 
 # This class manages the allocation and reuse of fields
@@ -316,18 +320,23 @@ class FieldManager:
     def allocate_field(self) -> tuple[Region, int]:
         if (result := self.try_reuse_field()) is not None:
             region_manager = self.runtime.find_region_manager(result[0])
-            if region_manager.increase_field_count():
+            if region_manager.increase_active_field_count():
                 self.runtime.revive_manager(region_manager)
             return result
         region_manager = self.runtime.find_or_create_region_manager(self.shape)
-        return region_manager.allocate_field(self.field_size)
+        region, field_id, revived = region_manager.allocate_field(
+            self.field_size
+        )
+        if revived:
+            self.runtime.revive_manager(region_manager)
+        return region, field_id
 
     def free_field(
         self, region: Region, field_id: int, ordered: bool = False
     ) -> None:
         self.free_fields.append((region, field_id))
         region_manager = self.runtime.find_region_manager(region)
-        if region_manager.decrease_field_count():
+        if region_manager.decrease_active_field_count():
             self.runtime.free_region_manager(
                 self.shape, region, unordered=not ordered
             )
@@ -855,7 +864,7 @@ class Runtime:
         focus on implementing their domain logic.
         """
 
-        self._args = parse_command_args("legate", ARGS)
+        self._args = parse_library_command_args("legate", ARGS)
 
         try:
             self._legion_context = top_level.context[0]
@@ -1362,7 +1371,9 @@ class Runtime:
             self.region_managers_by_region[region] = region_mgr
             self.find_or_create_field_manager(shape, dtype.size)
 
-        region_mgr.increase_field_count()
+        revived = region_mgr.increase_field_count()
+        if revived:
+            self.revive_manager(region_mgr)
         return RegionField.create(region, field_id, dtype.size, shape)
 
     def create_output_region(

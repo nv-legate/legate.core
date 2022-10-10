@@ -16,12 +16,14 @@ from __future__ import annotations
 
 import pytest
 from pytest_mock import MockerFixture
-from util import Capsys, GenObjs, powerset_nonempty
 
 import legate.driver.logs as m
 from legate.driver.config import Config
 from legate.driver.launcher import RANK_ENV_VARS
-from legate.driver.ui import scrub
+from legate.util.colors import scrub
+
+from ...util import Capsys, powerset_nonempty
+from .util import GenObjs
 
 
 class MockHandler(m.LogHandler):

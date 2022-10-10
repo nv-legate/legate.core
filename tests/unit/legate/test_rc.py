@@ -14,7 +14,6 @@
 #
 
 import sys
-from dataclasses import dataclass
 from unittest.mock import MagicMock
 
 import pytest
@@ -30,27 +29,28 @@ def mock_has_legion_context(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
 
 
 class Test_check_legion:
-    def test_True(self, mock_has_legion_context) -> None:
+    def test_True(self, mock_has_legion_context: MagicMock) -> None:
         mock_has_legion_context.return_value = True
-        assert m.check_legion() is None
+        assert m.check_legion() is None  # type: ignore[func-returns-value]
 
-    def test_True_with_msg(self, mock_has_legion_context) -> None:
+    def test_True_with_msg(self, mock_has_legion_context: MagicMock) -> None:
         mock_has_legion_context.return_value = True
-        assert m.check_legion(msg="custom") is None
+        assert m.check_legion(msg="custom") is None  # type: ignore[func-returns-value]  # noqa
 
-    def test_False(self, mock_has_legion_context) -> None:
+    def test_False(self, mock_has_legion_context: MagicMock) -> None:
         mock_has_legion_context.return_value = False
         with pytest.raises(RuntimeError) as e:
             m.check_legion()
             assert str(e) == m.LEGION_WARNING
 
-    def test_False_with_msg(self, mock_has_legion_context) -> None:
+    def test_False_with_msg(self, mock_has_legion_context: MagicMock) -> None:
         mock_has_legion_context.return_value = False
         with pytest.raises(RuntimeError) as e:
             m.check_legion(msg="custom")
             assert str(e) == "custom"
 
 
+@pytest.mark.skip
 class Test_has_legion_context:
     def test_True(self) -> None:
         assert m.has_legion_context() is True
@@ -60,114 +60,6 @@ class Test_has_legion_context:
     @pytest.mark.skip
     def test_False(self) -> None:
         pass
-
-
-@dataclass(frozen=True)
-class _TestObj:
-    a: int = 10
-    b: m.NotRequired[int] = m.Unset
-    c: m.NotRequired[str] = "foo"
-    d: m.NotRequired[str] = m.Unset
-
-
-def test_entries() -> None:
-    assert set(m.entries(_TestObj())) == {("a", 10), ("c", "foo")}
-
-
-class TestArgSpec:
-    def test_dest_required(self):
-        with pytest.raises(TypeError) as e:
-            m.ArgSpec()
-        assert (
-            str(e.value)
-            == "__init__() missing 1 required positional argument: 'dest'"
-        )
-
-    def test_default(self):
-        spec = m.ArgSpec("dest")
-        assert spec.dest == "dest"
-        assert spec.action == "store_true"
-
-        # all others are unset
-        assert set(m.entries(spec)) == {
-            ("dest", "dest"),
-            ("action", "store_true"),
-        }
-
-
-class Test_parse_command_args:
-    @pytest.mark.parametrize("name", ("1foo", "a.b", "a/b", "a[", "a("))
-    def test_bad_libname(self, name):
-        with pytest.raises(ValueError):
-            m.parse_command_args(name, [])
-
-    def test_default_help(self, monkeypatch, capsys):
-        monkeypatch.setattr("sys.argv", ["app", "-foo:help"])
-        with pytest.raises(SystemExit) as e:
-            m.parse_command_args("foo", [])
-        assert e.value.code is None
-        out, err = capsys.readouterr()
-        assert out.startswith("usage: <foo program>")
-
-    def test_default_help_precedence(self, monkeypatch, capsys):
-        monkeypatch.setattr("sys.argv", ["app", "-foo:help", "-foo:bar"])
-        args = [m.Argument("bar", m.ArgSpec(dest="help"))]
-        with pytest.raises(SystemExit) as e:
-            m.parse_command_args("foo", args)
-        assert e.value.code is None
-        out, err = capsys.readouterr()
-        assert out.startswith("usage: <foo program>")
-
-    def test_help_override(self, monkeypatch, capsys):
-        monkeypatch.setattr("sys.argv", ["app", "-foo:help"])
-        args = [m.Argument("help", m.ArgSpec(dest="help"))]
-        ns = m.parse_command_args("foo", args)
-        out, err = capsys.readouterr()
-        assert out == ""
-        assert vars(ns) == {"help": True}
-        assert sys.argv == ["app"]
-
-    def test_basic(self, monkeypatch, capsys):
-        monkeypatch.setattr("sys.argv", ["app", "-foo:bar", "-foo:quux", "1"])
-        args = [
-            m.Argument("bar", m.ArgSpec(dest="bar")),
-            m.Argument(
-                "quux", m.ArgSpec(dest="quux", action="store", type=int)
-            ),
-        ]
-        ns = m.parse_command_args("foo", args)
-        out, err = capsys.readouterr()
-        assert out == ""
-        assert vars(ns) == {"bar": True, "quux": 1}
-        assert sys.argv == ["app"]
-
-    def test_extra_args_passed_on(self, monkeypatch, capsys):
-        monkeypatch.setattr("sys.argv", ["app", "-foo:bar", "--extra", "1"])
-        args = [m.Argument("bar", m.ArgSpec(dest="bar"))]
-        ns = m.parse_command_args("foo", args)
-        out, err = capsys.readouterr()
-        assert out == ""
-        assert vars(ns) == {"bar": True}
-        assert sys.argv == ["app", "--extra", "1"]
-
-    def test_unrecognized_libname_arg(self, monkeypatch, capsys):
-        monkeypatch.setattr("sys.argv", ["app", "-foo:bar", "-foo:baz"])
-        with pytest.warns(UserWarning) as record:
-            ns = m.parse_command_args("foo", [])
-        out, err = capsys.readouterr()
-        assert out == ""
-        assert vars(ns) == {}
-        assert sys.argv == ["app", "-foo:bar", "-foo:baz"]
-
-        # issues one warning for the first encountered
-        assert len(record) == 1
-        assert (
-            record[0].message.args[0]
-            == "Unrecognized argument '-foo:bar' for foo (passed on as-is)"
-        )
-        assert out == ""
-        assert vars(ns) == {}
-        assert sys.argv == ["app", "-foo:bar", "-foo:baz"]
 
 
 if __name__ == "__main__":
