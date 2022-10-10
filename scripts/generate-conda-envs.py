@@ -91,7 +91,7 @@ class BuildConfig(SectionConfig):
 
     def __str__(self) -> str:
         val = "-compilers" if self.compilers else "-no-compilers"
-        val += "-with-openmpi" if self.openmpi else "-without-openmpi"
+        val += "-openmpi" if self.openmpi else "-no-openmpi"
         return val
 
 
