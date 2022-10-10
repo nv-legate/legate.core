@@ -13,7 +13,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal, Protocol
+from typing import Literal, Protocol, Tuple
 
 from jinja2 import Template
 from typing_extensions import TypeAlias
@@ -21,7 +21,7 @@ from typing_extensions import TypeAlias
 # --- Types -------------------------------------------------------------------
 
 Req: TypeAlias = str
-Reqs: TypeAlias = tuple[Req, ...]
+Reqs: TypeAlias = Tuple[Req, ...]
 OSType: TypeAlias = Literal["linux", "darwin"]
 
 
@@ -164,7 +164,7 @@ class EnvConfig:
     openmpi: bool
 
     @property
-    def sections(self) -> tuple[SectionConfig, ...]:
+    def sections(self) -> Tuple[SectionConfig, ...]:
         return (
             self.cuda,
             self.build,
@@ -216,7 +216,7 @@ CTK_VERSIONS = (
     "11.7",
 )
 
-OS_NAMES: tuple[OSType, ...] = ("linux", "osx")
+OS_NAMES: Tuple[OSType, ...] = ("linux", "osx")
 
 
 ENV_TEMPLATE = Template(
@@ -271,7 +271,7 @@ ALL_CONFIGS = [
 if __name__ == "__main__":
 
     import sys
-    from argparse import ArgumentParser, BooleanOptionalAction
+    from argparse import ArgumentParser
 
     parser = ArgumentParser()
     parser.add_argument(
@@ -295,13 +295,29 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--compilers",
-        action=BooleanOptionalAction,
+        action="store_true",
+        dest="compilers",
+        default=None,
+        help="Whether to include conda compilers or not (default: both)",
+    )
+    parser.add_argument(
+        "--no-compilers",
+        action="store_false",
+        dest="compilers",
         default=None,
         help="Whether to include conda compilers or not (default: both)",
     )
     parser.add_argument(
         "--openmpi",
-        action=BooleanOptionalAction,
+        action="store_true",
+        dest="openmpi",
+        default=None,
+        help="Whether to include openmpi or not (default: both)",
+    )
+    parser.add_argument(
+        "--no-openmpi",
+        action="store_false",
+        dest="openmpi",
         default=None,
         help="Whether to include openmpi or not (default: both)",
     )
