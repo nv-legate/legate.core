@@ -53,7 +53,7 @@ class CUDAConfig(SectionConfig):
 
         return (
             f"cudatoolkit={self.ctk_version}",  # runtime
-            "cutensor",  # runtime
+            "cutensor>=1.3.3",  # runtime
             "nccl",  # runtime
             "pynvml",  # tests
         )
@@ -104,6 +104,7 @@ class RuntimeConfig(SectionConfig):
             "cffi",
             "llvm-openmp",
             "numpy>=1.22",
+            "openblas=*=*openmp*",
             "opt_einsum",
             "pyarrow>=5",
             "scipy",
@@ -127,6 +128,7 @@ class TestsConfig(SectionConfig):
             "pre-commit",
             "pytest-cov",
             "pytest-lazy-fixture",
+            "pytest-mock",
             "pytest",
             "types-docutils",
         )
@@ -220,7 +222,7 @@ OS_NAMES: Tuple[OSType, ...] = ("linux", "osx")
 
 ENV_TEMPLATE = Template(
     """
-name: legate-core-test
+name: legate-{{ use }}
 channels:
   - conda-forge
 dependencies:
@@ -346,6 +348,7 @@ if __name__ == "__main__":
 
         print(f"--- generating: {config.filename}")
         out = ENV_TEMPLATE.render(
+            use=config.use,
             python=config.python,
             conda_sections=conda_sections,
             pip_sections=pip_sections,
