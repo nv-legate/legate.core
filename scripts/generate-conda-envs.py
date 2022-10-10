@@ -78,7 +78,6 @@ class BuildConfig(SectionConfig):
             "cmake>=3.24",
             "git",
             "make",
-            "ninja",
             "scikit-build>=0.13.1",
             "setuptools>=60",
             "zlib",
