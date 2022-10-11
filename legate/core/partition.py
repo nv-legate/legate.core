@@ -572,7 +572,7 @@ class ImagePartition(PartitionBase):
         return hash(
             (
                 self.__class__,
-                self._store,
+                self._store._storage,
                 # Importantly, we _cannot_ store the version of the store
                 # in the hash value. This is because the store's version may
                 # change after we've already put this functor into a table.
@@ -590,8 +590,12 @@ class ImagePartition(PartitionBase):
     def __eq__(self, other: object) -> bool:
         return (
             isinstance(other, ImagePartition)
-            # TODO (rohany): I think we can perform equality on the store.
-            and self._store == other._store
+            # Importantly, we check equality of Storage objects rather than
+            # Stores. This is because Stores can have equivalent storages but
+            # not be equal due to transformations on the store. By checking
+            # that the Storages are equal, we are basically checking whether
+            # we have the same RegionField object.
+            and self._store._storage == other._store._storage
             and self._store.version == other._store.version
             and self._part == other._part
             and self._range == other._range
@@ -707,7 +711,7 @@ class PreimagePartition(PartitionBase):
         return hash(
             (
                 self.__class__,
-                self._source,
+                self._source._storage,
                 # Importantly, we _cannot_ store the version of the store
                 # in the hash value. This is because the store's version may
                 # change after we've already put this functor into a table.
@@ -726,8 +730,9 @@ class PreimagePartition(PartitionBase):
     def __eq__(self, other: object) -> bool:
         return (
             isinstance(other, PreimagePartition)
-            # TODO (rohany): I think we can perform equality on the store.
-            and self._source == other._source
+            # See the comment on ImagePartition.__eq__ about why we use
+            # source._storage for equality.
+            and self._source._storage == other._source._storage
             and self._source._version == other._source._version
             and self._dest == other._dest
             and self._part == other._part
