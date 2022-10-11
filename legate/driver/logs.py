@@ -145,7 +145,7 @@ class DebuggingHandler(LogHandler):
         dflag = "d" if self.config.debugging.dataflow else ""
         eflag = "e" if self.config.debugging.event else ""
         if dflag or eflag:
-            cmd += ("-{dflag}{eflag}",)
+            cmd += (f"-{dflag}{eflag}",)
 
         cmd += tuple(f"legate_{n}.log" for n in range(ranks))
 

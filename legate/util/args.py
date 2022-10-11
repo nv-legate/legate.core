@@ -14,6 +14,7 @@
 #
 from __future__ import annotations
 
+import re
 import sys
 import warnings
 from argparse import Action, ArgumentParser, Namespace
@@ -73,12 +74,17 @@ class ArgSpec:
     choices: NotRequired[Sequence[Any]] = Unset
     help: NotRequired[str] = Unset
     metavar: NotRequired[str] = Unset
+    required: NotRequired[bool] = Unset
 
 
 @dataclass(frozen=True)
 class Argument:
     name: str
     spec: ArgSpec
+
+    @property
+    def kwargs(self) -> dict[str, Any]:
+        return dict(entries(self.spec))
 
 
 def entries(obj: Any) -> Iterable[tuple[str, Any]]:
@@ -153,25 +159,47 @@ def parse_library_command_args(
         prog=f"<{libname} program>", add_help=False, allow_abbrev=False
     )
 
-    lib_prefix = f"-{libname}:"
+    # Some explanation is in order. Argparse treats arguments with a single
+    # dash differently, e.g. "-xyz" is interpreted as "-x -y -z". This can
+    # cause confusion and clashes when there are multiple single-dash args
+    # with identical prefixes. TLDR; we want "-legate:foo" to behave just
+    # as if it was "--legate:foo". In order to do this, we configure a parser
+    # for "long argumens" and then munge the values in sys.argv to update
+    # any "short prefix" arguments to be "long prefix" arguments first, before
+    # parsing. We also take care to update any output. The alternative here
+    # would be to abandon argparse entirely, and parse sys.argv manually.
+    #
+    # ref: https://github.com/nv-legate/legate.core/issues/415
+
+    short_prefix = f"-{libname}:"
+    long_prefix = f"-{short_prefix}"
 
     argnames = [arg.name for arg in args]
 
     for arg in args:
-        argname = f"{lib_prefix}{arg.name}"
-        kwargs = dict(entries(arg.spec))
-        parser.add_argument(argname, **kwargs)
+        argname = f"{long_prefix}{arg.name}"
+        parser.add_argument(argname, **arg.kwargs)
 
     has_custom_help = "help" in argnames
 
-    if f"{lib_prefix}help" in sys.argv and not has_custom_help:
-        parser.print_help()
+    if f"{short_prefix}help" in sys.argv and not has_custom_help:
+        help_string = parser.format_help()
+
+        # this is a little sloppy but should suffice in practice
+        print(help_string.replace(long_prefix, short_prefix))
+
         sys.exit()
+
+    # convert any short-prefix args to be long-prefix
+    sys.argv = [re.sub(f"^{short_prefix}", long_prefix, x) for x in sys.argv]
 
     args, extra = parser.parse_known_args()
 
+    # put any unconsumed args back they way they were
+    extra = [re.sub(f"^{long_prefix}", short_prefix, x) for x in extra]
+
     for item in extra:
-        if item.startswith(lib_prefix):
+        if item.startswith(short_prefix):
             warnings.warn(
                 f"Unrecognized argument {item!r} for {libname} (passed on as-is)"  # noqa: E501
             )
