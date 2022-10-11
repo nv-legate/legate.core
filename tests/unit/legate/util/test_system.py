@@ -15,11 +15,12 @@
 from __future__ import annotations
 
 import os
+import sys
 
 import pytest
 from pytest_mock import MockerFixture
 
-import legate.driver.system as m
+import legate.util.system as m
 
 
 def test___all__() -> None:
@@ -73,7 +74,7 @@ class TestSystem:
 
     def test_legate_paths(self, mocker: MockerFixture) -> None:
         mocker.patch(
-            "legate.driver.system.get_legate_paths",
+            "legate.util.system.get_legate_paths",
             return_value="legate paths",
         )
 
@@ -83,10 +84,22 @@ class TestSystem:
 
     def test_legion_paths(self, mocker: MockerFixture) -> None:
         mocker.patch(
-            "legate.driver.system.get_legion_paths",
+            "legate.util.system.get_legion_paths",
             return_value="legion paths",
         )
 
         s = m.System()
 
         assert s.legion_paths == "legion paths"  # type: ignore
+
+    def test_cpus(self) -> None:
+        s = m.System()
+        cpus = s.cpus
+        assert len(cpus) > 0
+        assert all(len(cpu.ids) > 0 for cpu in cpus)
+
+    @pytest.mark.skipif(sys.platform != "linux", reason="pynvml required")
+    def test_gpus(self) -> None:
+        s = m.System()
+        # can't really assume / test much here
+        s.gpus

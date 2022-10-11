@@ -16,13 +16,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .ui import warn
+from ..util.ui import warn
 
 if TYPE_CHECKING:
+    from ..util.system import System
+    from ..util.types import CommandPart
     from .config import Config
     from .launcher import Launcher
-    from .system import System
-    from .types import CommandPart
 
 __all__ = ("CMD_PARTS",)
 

@@ -20,12 +20,13 @@ from unittest.mock import call
 
 import pytest
 from pytest_mock import MockerFixture
-from util import Capsys, powerset, powerset_nonempty
 
 import legate.driver.config as m
 import legate.driver.defaults as defaults
-from legate.driver.types import DataclassMixin
-from legate.driver.ui import scrub
+from legate.util.colors import scrub
+from legate.util.types import DataclassMixin
+
+from ...util import Capsys, powerset, powerset_nonempty
 
 DEFAULTS_ENV_VARS = (
     "LEGATE_EAGER_ALLOC_PERCENTAGE",
