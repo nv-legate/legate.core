@@ -374,7 +374,7 @@ def install(
     cmake_flags = []
 
     if cmake_generator:
-        cmake_flags += [f"-G{cmake_generator}"]
+        cmake_flags += [f"-G'{cmake_generator}'"]
 
     if debug or verbose:
         cmake_flags += ["--log-level=%s" % ("DEBUG" if debug else "VERBOSE")]
@@ -439,12 +439,6 @@ def install(
 
 
 def driver():
-    ninja_path = shutil.which("ninja")
-    if ninja_path is None:
-        cmake_generator_default = None
-    else:
-        cmake_generator_default = "Ninja"
-
     parser = argparse.ArgumentParser(description="Install Legate front end.")
     parser.add_argument(
         "--install-dir",
@@ -614,7 +608,7 @@ def driver():
         "--cmake-generator",
         dest="cmake_generator",
         required=False,
-        default=cmake_generator_default,
+        default=(None if shutil.which("ninja") is None else "Ninja"),
         choices=["Ninja", "Unix Makefiles", None],
         help="The CMake makefiles generator",
     )
