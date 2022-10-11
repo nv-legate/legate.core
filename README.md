@@ -296,20 +296,21 @@ flag. By default the script relies on CMake's auto-detection.
 ./install.py --cuda --with-cuda /usr/local/cuda/ --with-nccl "$CONDA_PREFIX" --arch ampere
 ```
 For multi-node support Legate uses [GASNet](https://gasnet.lbl.gov/) which can be
-requested using the the `--gasnet` flag. If you have an existing GASNet installation
-then you can inform the install script with the `--with-gasnet` flag. The
-`install.py` script also requires you to specify the interconnect network of
-the target machine using the `--conduit` flag (current choices are one of `ibv`
-for [Infiniband](http://www.infinibandta.org/), or `gemini` or `aries` for Cray
-interconnects). For example this would be an installation for a
+requested using the `--network gasnet1` or `--network gasnetex` flag. By default
+GASNet will be automatically downloaded and built, but if you have an existing
+installation then you can inform the install script using the `--with-gasnet` flag.
+You also need to specify the interconnect network of the target machine using the
+`--conduit` flag.
+
+For example this would be an installation for a
 [DGX SuperPOD](https://www.nvidia.com/en-us/data-center/dgx-superpod/):
 ```
-./install.py --gasnet --conduit ibv --cuda --arch ampere
+./install.py --network gasnet1 --conduit ibv --cuda --arch ampere
 ```
 Alternatively here is an install line for the
 [Piz-Daint](https://www.cscs.ch/computers/dismissed/piz-daint-piz-dora/) supercomputer:
 ```
-./install.py --gasnet --conduit aries --cuda --arch pascal
+./install.py --network gasnet1 --conduit aries --cuda --arch pascal
 ```
 To see all the options available for installing Legate, run with the `--help` flag:
 ```
@@ -411,7 +412,7 @@ line options, and their default values are as follows.
 
 ### Distributed Launch
 
-If legate is compiled with GASNet support ([see the installation section](#Installation)),
+If Legate is compiled with networking support ([see the installation section](#Installation)),
 it can be run in parallel by using the `--nodes` option followed by the number of nodes
 to be used.  Whenever the `--nodes` option is used, Legate will be launched
 using `mpirun`, even with `--nodes 1`.  Without the `--nodes` option, no launcher will
@@ -446,13 +447,87 @@ We recommend that you do not mix debugging and profiling in the same run as
 some of the logging for the debugging features requires significant file I/O
 that can adversely effect the performance of the application.
 
+## Running Legate programs with Jupyter Notebook
+
+Same as normal Python programs, Legate programs can be run
+using Jupyter Notebook. Currently we support single node execution with
+multiple CPUs and GPUs, and plan to support multi-node execution in the future.
+We leverage Legion's Jupyter support, so you may want to refer to the  
+[relevant section in Legion's README](https://github.com/StanfordLegion/legion/blob/master/jupyter_notebook/README.md).
+To simplify the installation, we provide a script specifically for Legate libraries. 
+
+### Installation of the Legate IPython Kernel
+
+Please install Legate, then run the following command to install the IPython
+kernel:
+```
+python -m legate.jupyter --json=legate_jupyter.json
+```
+If `--json=` is not provided, the installation script will look for a file
+named `legate_jupyter.json` in the current directory. A sample
+`legate_jupyter.json` file is provided in the legate.core source directory.
+
+If installation is successful, you will see some output like the following:
+```
+IPython kernel: legate_kernel_nocr(Legate_SM_GPU) has been installed
+```
+`Legate_SM_GPU` is the kernel name, and you will need to provide it
+when starting the Jupyter Notebook. `SM` means the kernel is only for
+shared memory execution; `GPU` means GPU support is enabled. 
+
+### Running with Jupyter Notebook
+
+You will need to start a Jupyter server, then you can use a Jupyter notebook
+from any browser. Please refer to the following two sections from the README of
+the Legion Jupyter Notebook extension:
+
+* [Start the Jupyter Notebook server](https://github.com/StanfordLegion/legion/tree/master/jupyter_notebook#start-the-jupyter-notebook-server)
+* [Use the Jupyter Notebook in the browser](https://github.com/StanfordLegion/legion/tree/master/jupyter_notebook#use-the-jupyter-notebook-in-the-browser)
+
+### Configuring the Jupyter Notebook
+
+The Legate IPython kernel is configured according to the json file provided at
+install time. Here is an example of an entry in the json file:
+```
+"cpus": {
+    "cmd": "--cpus",
+    "value": 1
+}
+```
+* `cpus` is the name of the field. 
+
+* `cmd` is used to tell Jupyter how to pass the value for that field to Legate through the
+CLI, in this case using `--cpus` to set the number of CPUs.
+
+* `value` is the value of the field. 
+
+Other configuration options can be added by using the `other_options` field of the json file. 
+
+### Magic Command
+
+We provide a Jupyter magic command to display the IPython kernel configuration.
+```
+%load_ext legate.jupyter
+%legate_info
+Number of CPUs to use per rank: 4
+Number of GPUs to use per rank: 1
+Number of OpenMP groups to use per rank: 0
+Number of threads per OpenMP group: 4
+Number of Utility processors per rank: 2
+Amount of DRAM memory per rank (in MBs): 4000
+Amount of DRAM memory per NUMA domain per rank (in MBs): 0
+Amount of framebuffer memory per GPU (in MBs): 4000
+Amount of zero-copy memory per rank (in MBs): 32
+Amount of registered CPU-side pinned memory per rank (in MBs): 0
+Number of nodes to use: 1
+```
+
 ## Other FAQs
 
 * *Does Legate only work on NVIDIA hardware?*
-  No, Legate will run on most kinds of hardware, anywhere that Legion and
-  GASNet will run. This includes x86, ARM, and PowerPC CPUs. GASNet (and therefore
-  Legate) also includes support for Infiniband, Cray, Omnipath, and
-  (ROC-)Ethernet based interconnects.
+  No, Legate will run on any processor supported by Legion (e.g. x86, ARM, and
+  PowerPC CPUs), and any network supported by GASNet (e.g. Infiniband,
+  Cray, Omnipath, and (ROC-)Ethernet based interconnects).
 
 * *What languages does the Legate Core API have bindings for?*
   Currently the Legate Core bindings are only available in Python. Watch

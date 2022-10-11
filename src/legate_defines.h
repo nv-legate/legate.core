@@ -45,8 +45,11 @@
 #endif
 #endif
 
-#ifndef LEGATE_USE_GASNET
-#ifdef REALM_USE_GASNET1
-#define LEGATE_USE_GASNET
+#ifndef LEGATE_USE_NETWORK
+#if defined(REALM_USE_GASNET1) || defined(REALM_USE_GASNETEX) || defined(REALM_USE_MPI)
+#define LEGATE_USE_NETWORK
 #endif
 #endif
+
+// TODO: 2022-10-04: Work around a Legion bug, by not instantiating futures on framebuffer.
+#define LEGATE_NO_FUTURES_ON_FB

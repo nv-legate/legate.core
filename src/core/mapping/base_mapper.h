@@ -256,7 +256,8 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
 
  protected:
   Legion::Memory get_target_memory(Legion::Processor proc, StoreTarget target);
-  bool find_existing_instance(Legion::LogicalRegion region,
+  bool find_existing_instance(const Legion::Mapping::MapperContext ctx,
+                              Legion::LogicalRegion region,
                               Legion::FieldID fid,
                               Legion::Memory target_memory,
                               Legion::Mapping::PhysicalInstance& result,
@@ -267,7 +268,8 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
                         const StoreMapping& mapping,
                         std::vector<std::reference_wrapper<const Legion::RegionRequirement>> reqs,
                         Legion::Processor target_proc,
-                        Legion::Mapping::PhysicalInstance& result);
+                        Legion::Mapping::PhysicalInstance& result,
+                        bool can_fail);
   bool map_raw_array(const Legion::Mapping::MapperContext ctx,
                      const Legion::Mappable& mappable,
                      unsigned index,
@@ -279,7 +281,8 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
                      Legion::Mapping::PhysicalInstance& result,
                      bool memoize,
                      Legion::ReductionOpID redop = 0);
-  void filter_failed_acquires(std::vector<Legion::Mapping::PhysicalInstance>& needed_acquires,
+  void filter_failed_acquires(const Legion::Mapping::MapperContext ctx,
+                              std::vector<Legion::Mapping::PhysicalInstance>& needed_acquires,
                               std::set<Legion::Mapping::PhysicalInstance>& failed_acquires);
   void report_failed_mapping(const Legion::Mappable& mappable,
                              unsigned index,

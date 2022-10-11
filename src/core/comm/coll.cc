@@ -23,7 +23,7 @@
 #include <cstdlib>
 #include <unordered_map>
 
-#ifndef LEGATE_USE_GASNET
+#ifndef LEGATE_USE_NETWORK
 #include <stdint.h>
 #endif
 
@@ -38,7 +38,7 @@ namespace coll {
 using namespace Legion;
 Logger log_coll("coll");
 
-#ifdef LEGATE_USE_GASNET
+#ifdef LEGATE_USE_NETWORK
 
 enum CollTag : int {
   BCAST_TAG     = 0,
@@ -51,7 +51,7 @@ enum CollTag : int {
 static int mpi_tag_ub = 0;
 
 static std::vector<MPI_Comm> mpi_comms;
-#else  // undef LEGATE_USE_GASNET
+#else  // undef LEGATE_USE_NETWORK
 static std::vector<ThreadComm*> thread_comms;
 #endif
 
@@ -60,7 +60,7 @@ static int current_unique_id = 0;
 static bool coll_inited = false;
 
 // functions start here
-#ifdef LEGATE_USE_GASNET
+#ifdef LEGATE_USE_NETWORK
 static inline std::pair<int, int> mostFrequent(const int* arr, int n);
 static inline int match2ranks(int rank1, int rank2, CollComm global_comm);
 #endif
@@ -75,7 +75,7 @@ int collCommCreate(CollComm global_comm,
   global_comm->global_rank      = global_rank;
   global_comm->status           = true;
   global_comm->unique_id        = unique_id;
-#ifdef LEGATE_USE_GASNET
+#ifdef LEGATE_USE_NETWORK
   int mpi_rank, mpi_comm_size;
   int *tag_ub, flag;
   int compare_result;
@@ -131,7 +131,7 @@ int collCommCreate(CollComm global_comm,
 
 int collCommDestroy(CollComm global_comm)
 {
-#ifdef LEGATE_USE_GASNET
+#ifdef LEGATE_USE_NETWORK
   if (global_comm->mapping_table.global_rank != nullptr) {
     free(global_comm->mapping_table.global_rank);
     global_comm->mapping_table.global_rank = nullptr;
@@ -183,7 +183,7 @@ int collAlltoallv(const void* sendbuf,
     global_comm->mpi_comm_size,
     global_comm->mpi_comm_size_actual,
     global_comm->nb_threads);
-#ifdef LEGATE_USE_GASNET
+#ifdef LEGATE_USE_NETWORK
   return alltoallvMPI(
     sendbuf, sendcounts, sdispls, recvbuf, recvcounts, rdispls, type, global_comm);
 #else
@@ -210,7 +210,7 @@ int collAlltoall(
     global_comm->mpi_comm_size,
     global_comm->mpi_comm_size_actual,
     global_comm->nb_threads);
-#ifdef LEGATE_USE_GASNET
+#ifdef LEGATE_USE_NETWORK
   return alltoallMPI(sendbuf, recvbuf, count, type, global_comm);
 #else
   return alltoallLocal(sendbuf, recvbuf, count, type, global_comm);
@@ -230,7 +230,7 @@ int collAllgather(
     global_comm->mpi_comm_size,
     global_comm->mpi_comm_size_actual,
     global_comm->nb_threads);
-#ifdef LEGATE_USE_GASNET
+#ifdef LEGATE_USE_NETWORK
   return allgatherMPI(sendbuf, recvbuf, count, type, global_comm);
 #else
   return allgatherLocal(sendbuf, recvbuf, count, type, global_comm);
@@ -241,13 +241,13 @@ int collAllgather(
 int collInit(int argc, char* argv[])
 {
   current_unique_id = 0;
-#ifdef LEGATE_USE_GASNET
+#ifdef LEGATE_USE_NETWORK
   int provided, init_flag = 0;
   CHECK_MPI(MPI_Initialized(&init_flag));
   if (!init_flag) {
     log_coll.fatal(
       "MPI has not been initialized, it should be initialized by "
-      "GASNet");
+      "the networking backend");
     LEGATE_ABORT;
   } else {
     int mpi_thread_model;
@@ -276,7 +276,7 @@ int collFinalize()
 {
   assert(coll_inited == true);
   coll_inited = false;
-#ifdef LEGATE_USE_GASNET
+#ifdef LEGATE_USE_NETWORK
   for (MPI_Comm& mpi_comm : mpi_comms) { CHECK_MPI(MPI_Comm_free(&mpi_comm)); }
   mpi_comms.clear();
   int fina_flag = 0;
@@ -306,7 +306,7 @@ int collInitComm()
 {
   int id = 0;
   collGetUniqueId(&id);
-#ifdef LEGATE_USE_GASNET
+#ifdef LEGATE_USE_NETWORK
 #ifdef DEBUG_LEGATE
   int mpi_rank;
   int send_id = id;
@@ -332,7 +332,7 @@ int collInitComm()
   return id;
 }
 
-#ifdef LEGATE_USE_GASNET
+#ifdef LEGATE_USE_NETWORK
 static inline std::pair<int, int> mostFrequent(const int* arr, int n)
 {
   std::unordered_map<int, int> hash;
@@ -451,7 +451,7 @@ int generateGatherTag(int rank, CollComm global_comm)
   return tag;
 }
 
-#else  // undef LEGATE_USE_GASNET
+#else  // undef LEGATE_USE_NETWORK
 size_t getDtypeSize(CollDataType dtype)
 {
   switch (dtype) {

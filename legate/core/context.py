@@ -14,7 +14,17 @@
 #
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union, cast
+import traceback
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Optional,
+    Protocol,
+    TypeVar,
+    Union,
+    cast,
+)
 
 import numpy as np
 
@@ -30,12 +40,30 @@ if TYPE_CHECKING:
     from ._legion.util import Dispatchable
     from .communicator import Communicator
     from .legate import Library
-    from .operation import AutoTask, Copy, ManualTask
+    from .operation import AutoTask, Copy, Fill, ManualTask
     from .runtime import Runtime
     from .shape import Shape
     from .store import RegionField, Store
 
 T = TypeVar("T")
+
+
+class AnyCallable(Protocol):
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        ...
+
+
+def find_last_user_frame(libname: str) -> str:
+    for (frame, _) in traceback.walk_stack(None):
+        if "__name__" not in frame.f_globals:
+            continue
+        if not any(
+            frame.f_globals["__name__"].startswith(prefix)
+            for prefix in (libname, "legate")
+        ):
+            break
+
+    return f"{frame.f_code.co_filename}:{frame.f_lineno}"
 
 
 class Context:
@@ -96,7 +124,8 @@ class Context:
             config.max_shardings,
         )
 
-        self._unique_op_id = 0
+        self._libname = library.get_name()
+        self._provenance: list[Union[str, None]] = [None]
 
     def destroy(self) -> None:
         self._library.destroy()
@@ -132,6 +161,10 @@ class Context:
     @property
     def type_system(self) -> TypeSystem:
         return self._type_system
+
+    @property
+    def provenance(self) -> Optional[str]:
+        return self._provenance[-1]
 
     def get_task_id(self, task_id: int) -> int:
         return self._task_scope.translate(task_id)
@@ -174,6 +207,44 @@ class Context:
 
     def get_unique_op_id(self) -> int:
         return self._runtime.get_unique_op_id()
+
+    def set_provenance(self, provenance: str) -> None:
+        self._provenance[-1] = provenance
+
+    def reset_provenance(self) -> None:
+        self._provenance[-1] = None
+
+    def push_provenance(self, provenance: str) -> None:
+        self._provenance.append(provenance)
+
+    def pop_provenance(self) -> None:
+        if len(self._provenance) == 1:
+            raise ValueError("Provenance stack underflow")
+        self._provenance.pop(-1)
+
+    def track_provenance(
+        self, func: AnyCallable, nested: bool = False
+    ) -> AnyCallable:
+        if nested:
+
+            def wrapper(*args: Any, **kwargs: Any) -> Any:
+                self.push_provenance(find_last_user_frame(self._libname))
+                result = func(*args, **kwargs)
+                self.pop_provenance()
+                return result
+
+        else:
+
+            def wrapper(*args: Any, **kwargs: Any) -> Any:
+                if self.provenance is None:
+                    self.set_provenance(find_last_user_frame(self._libname))
+                    result = func(*args, **kwargs)
+                    self.reset_provenance()
+                else:
+                    result = func(*args, **kwargs)
+                return result
+
+        return wrapper
 
     def create_task(
         self,
@@ -240,7 +311,14 @@ class Context:
     def create_copy(self, mapper_id: int = 0) -> Copy:
         from .operation import Copy
 
-        return Copy(self, mapper_id)
+        return Copy(self, mapper_id, self.get_unique_op_id())
+
+    def create_fill(
+        self, lhs: Store, value: Store, mapper_id: int = 0
+    ) -> Fill:
+        from .operation import Fill
+
+        return Fill(self, lhs, value, mapper_id, self.get_unique_op_id())
 
     def dispatch(self, op: Dispatchable[T]) -> T:
         return self._runtime.dispatch(op)
@@ -292,3 +370,13 @@ class Context:
         task.add_output(result)
         task.execute()
         return result
+
+
+def track_provenance(
+    context: Context,
+    nested: bool = False,
+) -> Callable[[AnyCallable], AnyCallable]:
+    def decorator(func: AnyCallable) -> AnyCallable:
+        return context.track_provenance(func, nested=nested)
+
+    return decorator

@@ -20,10 +20,10 @@
 #include <stddef.h>
 #include <vector>
 
-#ifdef LEGATE_USE_GASNET
+#ifdef LEGATE_USE_NETWORK
 #include <mpi.h>
 #else
-// If we aren't using GASNet, we'll use pthread_barrier to
+// If we aren't building with networking, we'll use pthread_barrier to
 // construct a communicator for thread-local communication. Mac OS
 // does not implement pthread barriers, so we need to include an
 // implementation in case they are not defined. We also need to
@@ -38,7 +38,7 @@ namespace legate {
 namespace comm {
 namespace coll {
 
-#ifdef LEGATE_USE_GASNET
+#ifdef LEGATE_USE_NETWORK
 
 #define CHECK_MPI(expr)                    \
   do {                                     \
@@ -79,7 +79,7 @@ enum CollStatus : int {
 };
 
 struct Coll_Comm {
-#ifdef LEGATE_USE_GASNET
+#ifdef LEGATE_USE_NETWORK
   MPI_Comm comm;
   RankMappingTable mapping_table;
 #else
@@ -129,7 +129,7 @@ int collGetUniqueId(int* id);
 int collInitComm();
 
 // The following functions should not be called by users
-#ifdef LEGATE_USE_GASNET
+#ifdef LEGATE_USE_NETWORK
 int alltoallvMPI(const void* sendbuf,
                  const int sendcounts[],
                  const int sdispls[],
@@ -184,7 +184,7 @@ void barrierLocal(CollComm global_comm);
 
 void* allocateInplaceBuffer(const void* recvbuf, size_t size);
 
-#ifdef LEGATE_USE_GASNET
+#ifdef LEGATE_USE_NETWORK
 inline void check_mpi(int error, const char* file, int line)
 {
   if (error != MPI_SUCCESS) {
