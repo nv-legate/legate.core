@@ -15,15 +15,9 @@ limitations under the License.
 
 -->
 
-# Overview
-
-The build system is designed to enable two different modes of use:
-1. Simple `install.py` helper script or `pip install` for users
-2. Highly customizable incremental builds for developers
-
-We review each of these modes with examples.
-
 # Dependencies
+
+## Getting dependencies through conda
 
 The primary method of retrieving dependencies for Legate Core and downstream
 libraries is through [conda](https://conda.io). You will need an installation of
@@ -52,7 +46,7 @@ conda. See the `install.py` section below for instructions on how to provide
 alternative locations for these dependencies to the build process.
 
 Note that this is likely to result in conflicts between conda-provided and
-system-provided libraries:
+system-provided libraries.
 
 Conda distributes its own version of certain common libraries (in particular the
 C++ standard library), which are also typically available system-wide. Any
@@ -93,7 +87,7 @@ Legate has been tested on Linux and MacOS, although only a few flavors of Linux
 such as Ubuntu have been thoroughly tested. There is currently no support for
 Windows.
 
-## Python >= 3.8 (`--python` option)
+### Python >= 3.8 (`--python` option)
 
 In terms of Python compatibility, Legate *roughly* follows the timeline outlined
 in [NEP 29](https://numpy.org/neps/nep-0029-deprecation_policy.html).
@@ -143,7 +137,7 @@ Required to support CPU and memory binding in the Legate launcher.
 Not available on conda; typically available through the system-level package
 manager.
 
-## MPI (`--openmpi` option)
+### MPI (`--openmpi` option)
 
 Only necessary if you wish to run on multiple nodes.
 
@@ -153,7 +147,7 @@ specialized build, e.g. the one distributed by
 or one provided by your HPC vendor. In that case you should use an environment
 file generated with `--no-openmpi`.
 
-## Networking libraries (e.g. Infiniband, RoCE, UCX; optional)
+### Networking libraries (e.g. Infiniband, RoCE, UCX; optional)
 
 Only necessary if you wish to run on multiple nodes.
 
