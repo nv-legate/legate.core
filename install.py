@@ -19,7 +19,6 @@ import argparse
 import multiprocessing
 import os
 import platform
-import re
 import shutil
 import subprocess
 import sys
@@ -247,7 +246,6 @@ def install(
     cmake_exe,
     cmake_generator,
     gasnet_dir,
-    pylib_name,
     cuda_dir,
     maxdim,
     maxfields,
@@ -291,7 +289,6 @@ def install(
         print("cmake_exe:", cmake_exe)
         print("cmake_generator:", cmake_generator)
         print("gasnet_dir:", gasnet_dir)
-        print("pylib_name:", pylib_name)
         print("cuda_dir:", cuda_dir)
         print("maxdim:", maxdim)
         print("maxfields:", maxfields)
@@ -317,14 +314,7 @@ def install(
 
     legate_core_dir = dirname(realpath(__file__))
 
-    if pylib_name is None:
-        pyversion, pylib_name = find_active_python_version_and_path()
-    else:
-        f_name = os.path.split(pylib_name)[-1]
-        match = re.match(r"^libpython(\d\d?\.\d\d?)", f_name)
-        e = "Unable to get version from library name {}".format(pylib_name)
-        assert match, e
-        pyversion = match.group(1)
+    pyversion, pylib_name = find_active_python_version_and_path()
     print("Using python lib and version: {}, {}".format(pylib_name, pyversion))
 
     def validate_path(path):
@@ -617,18 +607,6 @@ def driver():
         required=False,
         default=os.environ.get("NCCL_PATH"),
         help="Path to NCCL installation directory.",
-    )
-    parser.add_argument(
-        "--python-lib",
-        dest="pylib_name",
-        action="store",
-        required=False,
-        default=None,
-        help=(
-            "Build Legate against the specified Python shared library. "
-            "Default is to use the Python library currently executing this "
-            "install script."
-        ),
     )
     parser.add_argument(
         "--with-cmake",
