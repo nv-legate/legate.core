@@ -39,6 +39,7 @@ class InlineMapping(Dispatchable[PhysicalRegion]):
         tag: int = 0,
         parent: Optional[Region] = None,
         coherence: int = legion.LEGION_EXCLUSIVE,
+        provenance: Optional[str] = None,
     ) -> None:
         """
         An InlineMapping object provides a mechanism for creating a mapped
@@ -86,6 +87,10 @@ class InlineMapping(Dispatchable[PhysicalRegion]):
                 False,
                 mapper,
                 tag,
+            )
+        if provenance is not None:
+            legion.legion_inline_launcher_set_provenance(
+                self.launcher, provenance.encode()
             )
         self.region = region
         self._launcher = ffi.gc(
@@ -1091,6 +1096,7 @@ class Attach(Dispatchable[PhysicalRegion]):
         mapper: int = 0,
         tag: int = 0,
         read_only: bool = False,
+        provenance: Optional[str] = None,
     ) -> None:
         """
         An Attach object provides a mechanism for attaching external data to
@@ -1115,6 +1121,10 @@ class Attach(Dispatchable[PhysicalRegion]):
         self.launcher = legion.legion_attach_launcher_create(
             region.handle, region.handle, legion.LEGION_EXTERNAL_INSTANCE
         )
+        if provenance is not None:
+            legion.legion_attach_launcher_set_provenance(
+                self.launcher, provenance.encode()
+            )
         self.region = region
         self._launcher = ffi.gc(
             self.launcher, legion.legion_attach_launcher_destroy
@@ -1232,6 +1242,7 @@ class IndexAttach(Dispatchable[ExternalResources]):
         shard_local_data: dict[Region, Any],
         mapper: int = 0,
         tag: int = 0,
+        provenance: Optional[str] = None,
     ) -> None:
         """
         A variant of Attach that allows attaching multiple pieces of external
@@ -1260,6 +1271,10 @@ class IndexAttach(Dispatchable[ExternalResources]):
             legion.LEGION_EXTERNAL_INSTANCE,
             True,  # restricted
         )
+        if provenance is not None:
+            legion.legion_index_attach_launcher_set_provenance(
+                self.launcher, provenance.encode()
+            )
         self._launcher = ffi.gc(
             self.launcher, legion.legion_index_attach_launcher_destroy
         )
