@@ -31,10 +31,10 @@ from jupyter_client.kernelspec import (
     NoSuchKernel,
 )
 
-from ..driver import Driver
-from ..util.types import ArgList
-from ..util.ui import error
-from .config import Config
+from legate.driver import Driver
+from legate.jupyter.config import Config
+from legate.util.types import ArgList
+from legate.util.ui import error
 
 
 class LegateMetadata(TypedDict):

@@ -18,8 +18,8 @@ from __future__ import annotations
 
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 
-from ..driver import defaults
-from ..util import shared_args as sa
+from legate.driver import defaults
+from legate.util import shared_args as sa
 
 __all__ = ("parser",)
 

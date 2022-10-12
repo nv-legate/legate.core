@@ -21,13 +21,13 @@ from typing import TYPE_CHECKING
 from IPython.core.magic import Magics, line_magic, magics_class
 from jupyter_client.kernelspec import KernelSpecManager, NoSuchKernel
 
-from ..util.colors import scrub
-from ..util.ui import kvtable
-from .kernel import (
+from legate.jupyter.kernel import (
     LEGATE_JUPYTER_KERNEL_SPEC_KEY,
     LEGATE_JUPYTER_METADATA_KEY,
     LegateMetadata,
 )
+from legate.util.colors import scrub
+from legate.util.ui import kvtable
 
 if TYPE_CHECKING:
     from IPython import InteractiveShell

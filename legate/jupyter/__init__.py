@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .magic import LegateInfoMagics
+from legate.jupyter.magic import LegateInfoMagics
 
 if TYPE_CHECKING:
     from IPython import InteractiveShell

@@ -20,7 +20,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from ..driver.config import (
+from legate.driver.config import (
     Binding,
     Core,
     Debugging,
@@ -31,8 +31,8 @@ from ..driver.config import (
     Other,
     Profiling,
 )
-from ..util.types import ArgList, DataclassMixin, object_to_dataclass
-from .args import parser
+from legate.jupyter.args import parser
+from legate.util.types import ArgList, DataclassMixin, object_to_dataclass
 
 __all__ = ("Config",)
 

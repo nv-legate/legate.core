@@ -18,10 +18,10 @@ from __future__ import annotations
 
 import sys
 
-from ..driver import Driver
-from ..util.system import System
-from .config import Config
-from .kernel import generate_kernel_spec, install_kernel_spec
+from legate.driver import Driver
+from legate.jupyter.config import Config
+from legate.jupyter.kernel import generate_kernel_spec, install_kernel_spec
+from legate.util.system import System
 
 if __name__ == "__main__":
     config = Config(sys.argv)
