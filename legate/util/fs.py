@@ -281,50 +281,52 @@ def get_legion_paths(legate_paths: LegatePaths) -> LegionPaths:
     cmake_cache_txt = legate_build_dir / "CMakeCache.txt"
 
     try:
-        # Test whether Legion_DIR is set. If it isn't, then we built Legion as
-        # a side-effect of building legate_core
-        read_cmake_cache_value(
-            cmake_cache_txt, "Legion_DIR:PATH=Legion_DIR-NOTFOUND"
-        )
-    except Exception:
-        # If Legion_DIR is a valid path, check whether it's a
-        # Legion build dir, i.e. `-D Legion_ROOT=/legion/build`
-        legion_dir = Path(
-            read_cmake_cache_value(cmake_cache_txt, "Legion_DIR:PATH=")
-        )
-        if legion_dir.joinpath("CMakeCache.txt").exists():
-            cmake_cache_txt = legion_dir / "CMakeCache.txt"
-
-    try:
-        # If Legion_SOURCE_DIR and Legion_BINARY_DIR are in CMakeCache.txt,
-        # return the paths to Legion in the legate_core build dir.
-        legion_source_dir = Path(
+        try:
+            # Test whether Legion_DIR is set. If it isn't, then we built
+            # Legion as a side-effect of building legate_core
             read_cmake_cache_value(
-                cmake_cache_txt, "Legion_SOURCE_DIR:STATIC="
+                cmake_cache_txt, "Legion_DIR:PATH=Legion_DIR-NOTFOUND"
             )
-        )
-        legion_binary_dir = Path(
-            read_cmake_cache_value(
-                cmake_cache_txt, "Legion_BINARY_DIR:STATIC="
+        except Exception:
+            # If Legion_DIR is a valid path, check whether it's a
+            # Legion build dir, i.e. `-D Legion_ROOT=/legion/build`
+            legion_dir = Path(
+                read_cmake_cache_value(cmake_cache_txt, "Legion_DIR:PATH=")
             )
-        )
+            if legion_dir.joinpath("CMakeCache.txt").exists():
+                cmake_cache_txt = legion_dir / "CMakeCache.txt"
 
-        legion_runtime_dir = legion_binary_dir / "runtime"
-        legion_bindings_dir = legion_source_dir / "bindings"
-
-        return LegionPaths(
-            legion_bin_path=legion_binary_dir / "bin",
-            legion_lib_path=legion_binary_dir / "lib",
-            realm_defines_h=legion_runtime_dir / "realm_defines.h",
-            legion_defines_h=legion_runtime_dir / "legion_defines.h",
-            legion_spy_py=legion_source_dir / "tools" / "legion_spy.py",
-            legion_prof_py=legion_source_dir / "tools" / "legion_prof.py",
-            legion_python=legion_binary_dir / "bin" / "legion_python",
-            legion_module=legion_bindings_dir / "python" / "build" / "lib",
-            legion_jupyter_module=legion_source_dir / "jupyter_notebook",
-        )
     except Exception:
-        pass
+        try:
+            # If Legion_SOURCE_DIR and Legion_BINARY_DIR are in CMakeCache.txt,
+            # return the paths to Legion in the legate_core build dir.
+            legion_source_dir = Path(
+                read_cmake_cache_value(
+                    cmake_cache_txt, "Legion_SOURCE_DIR:STATIC="
+                )
+            )
+            legion_binary_dir = Path(
+                read_cmake_cache_value(
+                    cmake_cache_txt, "Legion_BINARY_DIR:STATIC="
+                )
+            )
+
+            legion_runtime_dir = legion_binary_dir / "runtime"
+            legion_bindings_dir = legion_source_dir / "bindings"
+
+            return LegionPaths(
+                legion_bin_path=legion_binary_dir / "bin",
+                legion_lib_path=legion_binary_dir / "lib",
+                realm_defines_h=legion_runtime_dir / "realm_defines.h",
+                legion_defines_h=legion_runtime_dir / "legion_defines.h",
+                legion_spy_py=legion_source_dir / "tools" / "legion_spy.py",
+                legion_prof_py=legion_source_dir / "tools" / "legion_prof.py",
+                legion_python=legion_binary_dir / "bin" / "legion_python",
+                legion_module=legion_bindings_dir / "python" / "build" / "lib",
+                legion_jupyter_module=legion_source_dir / "jupyter_notebook",
+            )
+        except Exception:
+            pass
 
     # Otherwise return the installation paths.
     return installed_legion_paths(Path(sys.argv[0]).parents[1])
