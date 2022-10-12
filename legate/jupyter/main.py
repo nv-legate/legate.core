@@ -23,7 +23,10 @@ from legate.jupyter.config import Config
 from legate.jupyter.kernel import generate_kernel_spec, install_kernel_spec
 from legate.util.system import System
 
-if __name__ == "__main__":
+__all__ = ("main",)
+
+
+def main(argv: list[str]) -> int:
     config = Config(sys.argv)
     system = System()
 
@@ -32,3 +35,5 @@ if __name__ == "__main__":
     spec = generate_kernel_spec(driver, config)
 
     install_kernel_spec(spec, config)
+
+    return 0

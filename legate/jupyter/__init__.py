@@ -24,3 +24,11 @@ if TYPE_CHECKING:
 
 def load_ipython_extension(ipython: InteractiveShell) -> None:
     ipython.register_magics(LegateInfoMagics(ipython))
+
+
+def main() -> int:
+    import sys
+
+    from .main import main as _main
+
+    return _main(sys.argv)
