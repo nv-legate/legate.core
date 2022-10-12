@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Generic, List, Optional, TypeVar
 from . import FieldSpace, Future, Rect
 from .constraints import Alignment, Broadcast, Containment, PartSym
 from .partition import REPLICATE
+from .runtime import runtime
 from .shape import Shape
 from .utils import OrderedSet
 
@@ -26,7 +27,6 @@ if TYPE_CHECKING:
     from .constraints import Expr, Lit
     from .operation import Operation
     from .partition import PartitionBase
-    from .runtime import Runtime
     from .store import Store
     from .transform import Restrictions
 
@@ -80,14 +80,14 @@ class EqClass(Generic[T]):
         found1 = var1 in self._class_ids
         found2 = var2 in self._class_ids
 
-        if not found1 and not found2:
-            self._add(var1, var2)
-        elif found1:
-            self._update(var1, var2)
-        elif found2:
-            self._update(var2, var1)
-        else:
+        if found1 and found2:  # both
             self._merge(var1, var2)
+        elif found1:  # first only
+            self._update(var1, var2)
+        elif found2:  # second only
+            self._update(var2, var1)
+        else:  # neither
+            self._add(var1, var2)
 
     def copy(self) -> EqClass[T]:
         new: EqClass[T] = EqClass()
@@ -116,6 +116,9 @@ class EqClass(Generic[T]):
         else:
             return self._classes[self._class_ids[var]]
 
+    def aligned(self, var1: T, var2: T) -> bool:
+        return self._class_ids[var1] == self._class_ids[var2]
+
 
 class Strategy:
     _launch_domain: Optional[Rect]
@@ -126,6 +129,7 @@ class Strategy:
         strategy: dict[PartSym, PartitionBase],
         fspaces: dict[PartSym, FieldSpace],
         key_parts: set[PartSym],
+        eq_classes: EqClass[PartSym],
     ) -> None:
         if launch_shape is not None:
             self._launch_domain = Rect(hi=launch_shape)
@@ -134,6 +138,7 @@ class Strategy:
         self._strategy = strategy
         self._fspaces = fspaces
         self._key_parts = key_parts
+        self._eq_classes = eq_classes
 
     @property
     def parallel(self) -> bool:
@@ -149,6 +154,9 @@ class Strategy:
             return 1
         else:
             return self._launch_domain.dim
+
+    def aligned(self, symb1: PartSym, symb2: PartSym) -> bool:
+        return self._eq_classes.aligned(symb1, symb2)
 
     def set_launch_domain(self, launch_domain: Rect) -> None:
         if self._launch_domain is not None:
@@ -173,6 +181,11 @@ class Strategy:
     def is_key_part(self, part: PartSym) -> bool:
         return part in self._key_parts
 
+    def unify_key_part(self, part1: PartSym, part2: PartSym) -> None:
+        non_members = {part1, part2} - self._key_parts
+        if len(non_members) == 1:
+            self._key_parts.update(non_members)
+
     def __str__(self) -> str:
         st = "[Strategy]"
         st += f"\nLaunch domain: {self._launch_domain}"
@@ -189,11 +202,9 @@ class Strategy:
 class Partitioner:
     def __init__(
         self,
-        runtime: Runtime,
         ops: List[Operation],
         must_be_single: bool = False,
     ):
-        self._runtime = runtime
         self._ops = ops
         self._must_be_single = must_be_single
 
@@ -244,10 +255,10 @@ class Partitioner:
             cls = constraints.find(unknown)
             assert all(to_align.store.unbound for to_align in cls)
 
-            fspace = self._runtime.create_field_space()
+            fspace = runtime.create_field_space()
             for to_align in cls:
-                partitions[unknown] = REPLICATE
-                fspaces[unknown] = fspace
+                partitions[to_align] = REPLICATE
+                fspaces[to_align] = fspace
 
         unbound_ndims = set(unknown.store.ndim for unknown in to_remove)
 
@@ -504,4 +515,6 @@ class Partitioner:
             partitions, all_outputs, unbound_ndim
         )
 
-        return Strategy(launch_shape, partitions, fspaces, key_parts)
+        return Strategy(
+            launch_shape, partitions, fspaces, key_parts, constraints
+        )

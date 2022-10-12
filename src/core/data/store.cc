@@ -15,9 +15,16 @@
  */
 
 #include "core/data/store.h"
+
+#include "core/data/buffer.h"
 #include "core/utilities/dispatch.h"
 #include "core/utilities/machine.h"
 #include "legate_defines.h"
+
+#ifdef LEGATE_USE_CUDA
+#include "core/cuda/cuda_help.h"
+#include "core/cuda/stream_pool.h"
+#endif
 
 namespace legate {
 
@@ -60,8 +67,7 @@ Domain RegionField::domain() const { return dim_dispatch(dim_, get_domain_fn{}, 
 OutputRegionField::OutputRegionField(const OutputRegion& out, FieldID fid)
   : out_(out),
     fid_(fid),
-    num_elements_(
-      DeferredBuffer<size_t, 1>(Rect<1>(0, 0), find_memory_kind_for_executing_processor()))
+    num_elements_(UntypedDeferredValue(sizeof(size_t), find_memory_kind_for_executing_processor()))
 {
 }
 
@@ -71,7 +77,7 @@ OutputRegionField::OutputRegionField(OutputRegionField&& other) noexcept
   other.bound_        = false;
   other.out_          = OutputRegion();
   other.fid_          = -1;
-  other.num_elements_ = DeferredBuffer<size_t, 1>();
+  other.num_elements_ = UntypedDeferredValue();
 }
 
 OutputRegionField& OutputRegionField::operator=(OutputRegionField&& other) noexcept
@@ -84,18 +90,19 @@ OutputRegionField& OutputRegionField::operator=(OutputRegionField&& other) noexc
   other.bound_        = false;
   other.out_          = OutputRegion();
   other.fid_          = -1;
-  other.num_elements_ = DeferredBuffer<size_t, 1>();
+  other.num_elements_ = UntypedDeferredValue();
 
   return *this;
 }
 
 void OutputRegionField::make_empty(int32_t ndim)
 {
-  num_elements_[0] = 0;
+  update_num_elements(0);
   DomainPoint extents;
   extents.dim = ndim;
   for (int32_t dim = 0; dim < ndim; ++dim) extents[dim] = 0;
-  out_.return_data(extents, fid_, nullptr);
+  auto empty_buffer = create_buffer<int8_t>(0);
+  out_.return_data(extents, fid_, empty_buffer.get_instance(), false);
   bound_ = true;
 }
 
@@ -109,19 +116,48 @@ ReturnValue OutputRegionField::pack_weight() const
     LEGATE_ABORT;
   }
 #endif
-  return ReturnValue(num_elements_.ptr(0), sizeof(size_t));
+  return ReturnValue(num_elements_, sizeof(size_t));
+}
+
+void OutputRegionField::update_num_elements(size_t num_elements)
+{
+  AccessorWO<size_t, 1> acc(num_elements_, sizeof(size_t), false);
+  acc[0] = num_elements;
 }
 
 FutureWrapper::FutureWrapper(
   bool read_only, int32_t field_size, Domain domain, Future future, bool initialize /*= false*/)
   : read_only_(read_only), field_size_(field_size), domain_(domain), future_(future)
 {
+#ifdef DEBUG_LEGATE
   assert(field_size > 0);
+#endif
   if (!read_only) {
-    auto mem_kind = find_memory_kind_for_executing_processor();
+#ifdef DEBUG_LEGATE
     assert(!initialize || future_.get_untyped_size() == field_size);
-    auto p_init_value = initialize ? future_.get_buffer(mem_kind) : nullptr;
-    buffer_           = UntypedDeferredValue(field_size, mem_kind, p_init_value);
+#endif
+    auto proc = Processor::get_executing_processor();
+#ifdef LEGATE_NO_FUTURES_ON_FB
+    auto mem_kind = find_memory_kind_for_executing_processor();
+#else
+    auto mem_kind = proc.kind() == Processor::Kind::TOC_PROC ? Memory::Kind::GPU_FB_MEM
+                                                             : Memory::Kind::SYSTEM_MEM;
+#endif
+    if (initialize) {
+      auto p_init_value = future_.get_buffer(mem_kind);
+#ifdef LEGATE_USE_CUDA
+      if (mem_kind == Memory::Kind::GPU_FB_MEM) {
+        // TODO: This should be done by Legion
+        buffer_ = UntypedDeferredValue(field_size, mem_kind);
+        AccessorWO<int8_t, 1> acc(buffer_, field_size, false);
+        auto stream = cuda::StreamPool::get_stream_pool().get_stream();
+        CHECK_CUDA(
+          cudaMemcpyAsync(acc.ptr(0), p_init_value, field_size, cudaMemcpyDeviceToDevice, stream));
+      } else
+#endif
+        buffer_ = UntypedDeferredValue(field_size, mem_kind, p_init_value);
+    } else
+      buffer_ = UntypedDeferredValue(field_size, mem_kind);
   }
 }
 
@@ -152,17 +188,20 @@ void FutureWrapper::initialize_with_identity(int32_t redop_id)
   auto ptr         = untyped_acc.ptr(0);
 
   auto redop = Runtime::get_reduction_op(redop_id);
+#ifdef DEBUG_LEGATE
   assert(redop->sizeof_lhs == field_size_);
+#endif
   auto identity = redop->identity;
-  memcpy(ptr, identity, field_size_);
+#ifdef LEGATE_USE_CUDA
+  if (buffer_.get_instance().get_location().kind() == Memory::Kind::GPU_FB_MEM) {
+    auto stream = cuda::StreamPool::get_stream_pool().get_stream();
+    CHECK_CUDA(cudaMemcpyAsync(ptr, identity, field_size_, cudaMemcpyHostToDevice, stream));
+  } else
+#endif
+    memcpy(ptr, identity, field_size_);
 }
 
-ReturnValue FutureWrapper::pack() const
-{
-  auto untyped_acc = AccessorRO<int8_t, 1>(buffer_, field_size_);
-  auto ptr         = untyped_acc.ptr(0);
-  return ReturnValue(ptr, field_size_);
-}
+ReturnValue FutureWrapper::pack() const { return ReturnValue(buffer_, field_size_); }
 
 Store::Store(int32_t dim,
              int32_t code,
@@ -252,25 +291,61 @@ bool Store::valid() const { return is_future_ || is_output_store_ || region_fiel
 
 Domain Store::domain() const
 {
+#ifdef DEBUG_LEGATE
   assert(!is_output_store_);
+#endif
   auto result = is_future_ ? future_.domain() : region_field_.domain();
-  if (nullptr != transform_) result = transform_->transform(result);
+  if (!transform_->identity()) result = transform_->transform(result);
+#ifdef DEBUG_LEGATE
   assert(result.dim == dim_ || dim_ == 0);
+#endif
   return result;
 }
 
 void Store::make_empty()
 {
-  assert(is_output_store_);
+#ifdef DEBUG_LEGATE
+  check_valid_return();
+#endif
   output_field_.make_empty(dim_);
 }
 
 void Store::remove_transform()
 {
-  assert(is_transformed());
-  auto result = transform_->pop();
-  if (transform_->empty()) transform_ = nullptr;
-  dim_ = result->target_ndim(dim_);
+#ifdef DEBUG_LEGATE
+  assert(transformed());
+#endif
+  dim_ = transform_->pop()->target_ndim(dim_);
+}
+
+void Store::check_valid_return() const
+{
+  if (!is_output_store_) {
+    log_legate.error("Invalid to return a buffer to a bound store");
+    LEGATE_ABORT;
+  }
+  if (output_field_.bound()) {
+    log_legate.error("Invalid to return more than one buffer to an unbound store");
+    LEGATE_ABORT;
+  }
+}
+
+void Store::check_buffer_dimension(const int32_t dim) const
+{
+  if (dim != dim_) {
+    log_legate.error(
+      "Dimension mismatch: invalid to bind a %d-D buffer to a %d-D store", dim, dim_);
+    LEGATE_ABORT;
+  }
+}
+
+void Store::check_accessor_dimension(const int32_t dim) const
+{
+  if (!(dim == dim_ || (dim_ == 0 && dim == 1))) {
+    log_legate.error(
+      "Dimension mismatch: invalid to create a %d-D accessor to a %d-D store", dim, dim_);
+    LEGATE_ABORT;
+  }
 }
 
 }  // namespace legate

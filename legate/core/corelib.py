@@ -17,7 +17,7 @@ from __future__ import annotations
 import os
 from typing import Any, Union
 
-from .install_info import header, libpath  # type: ignore
+from ..install_info import header, libpath  # type: ignore
 from .legate import Library
 from .resource import ResourceConfig
 
@@ -29,6 +29,7 @@ from .resource import ResourceConfig
 
 class CoreLib(Library):
     def __init__(self) -> None:
+        super().__init__()
         self._lib: Union[Any, None] = None
 
     def get_name(self) -> str:

@@ -22,6 +22,7 @@
 #ifdef LEGATE_USE_CUDA
 #include "core/comm/comm_nccl.h"
 #endif
+#include "core/task/task.h"
 
 namespace legate {
 
@@ -31,9 +32,9 @@ using namespace Legion::Mapping;
 uint32_t extract_env(const char* env_name, const uint32_t default_value, const uint32_t test_value)
 {
   const char* env_value = getenv(env_name);
-  if (env_value == NULL) {
+  if (nullptr == env_value) {
     const char* legate_test = getenv("LEGATE_TEST");
-    if (legate_test != NULL)
+    if (legate_test != nullptr)
       return test_value;
     else
       return default_value;
@@ -108,6 +109,8 @@ class CoreMapper : public Legion::Mapping::NullMapper {
   const bool precise_exception_trace;
   const uint32_t field_reuse_frac;
   const uint32_t field_reuse_freq;
+  const uint32_t max_lru_length;
+  bool has_socket_mem;
 
  protected:
   std::vector<Processor> local_cpus;
@@ -139,9 +142,11 @@ CoreMapper::CoreMapper(MapperRuntime* rt, Machine m, const LibraryContext& c)
                   64,
 #endif
                   1)),
-    precise_exception_trace(static_cast<bool>(extract_env("LEGATE_PRECISE_EXCEPTION_TRACE", 0, 1))),
+    precise_exception_trace(static_cast<bool>(extract_env("LEGATE_PRECISE_EXCEPTION_TRACE", 0, 0))),
     field_reuse_frac(extract_env("LEGATE_FIELD_REUSE_FRAC", 256, 256)),
-    field_reuse_freq(extract_env("LEGATE_FIELD_REUSE_FREQ", 32, 32))
+    field_reuse_freq(extract_env("LEGATE_FIELD_REUSE_FREQ", 32, 32)),
+    max_lru_length(extract_env("LEGATE_MAX_LRU_LENGTH", 5, 1)),
+    has_socket_mem(false)
 {
   // Query to find all our local processors
   Machine::ProcessorQuery local_procs(machine);
@@ -190,8 +195,10 @@ CoreMapper::CoreMapper(MapperRuntime* rt, Machine m, const LibraryContext& c)
     local_numa.only_kind(Memory::SOCKET_MEM);
     local_numa.best_affinity_to(local_omp);
     if (local_numa.count() > 0)  // if we have NUMA memories then use them
+    {
+      has_socket_mem                = true;
       local_numa_domains[local_omp] = local_numa.first();
-    else  // Otherwise we just use the local system memory
+    } else  // Otherwise we just use the local system memory
       local_numa_domains[local_omp] = local_system_memory;
   }
 }
@@ -234,6 +241,9 @@ void CoreMapper::select_task_options(const MapperContext ctx, const Task& task, 
   if (task.tag == LEGATE_CPU_VARIANT) {
     assert(!local_cpus.empty());
     output.initial_proc = local_cpus.front();
+  } else if (task.tag == LEGATE_OMP_VARIANT) {
+    assert(!local_omps.empty());
+    output.initial_proc = local_omps.front();
   } else {
     assert(task.tag == LEGATE_GPU_VARIANT);
     assert(!local_gpus.empty());
@@ -292,6 +302,18 @@ void CoreMapper::slice_task(const MapperContext ctx,
           assert(local_index < local_gpus.size());
           output.slices.push_back(TaskSlice(
             Domain(itr.p, itr.p), local_gpus[local_index], false /*recurse*/, false /*stealable*/));
+        }
+        break;
+      }
+      case Processor::OMP_PROC: {
+        for (Domain::DomainPointIterator itr(input.domain); itr; itr++) {
+          const Point<1> point = itr.p;
+          assert(point[0] >= start);
+          assert(point[0] < (start + chunk));
+          const unsigned local_index = point[0] - start;
+          assert(local_index < local_omps.size());
+          output.slices.push_back(TaskSlice(
+            Domain(itr.p, itr.p), local_omps[local_index], false /*recurse*/, false /*stealable*/));
         }
         break;
       }
@@ -357,6 +379,21 @@ void CoreMapper::map_future_map_reduction(const MapperContext ctx,
                                           const FutureMapReductionInput& input,
                                           FutureMapReductionOutput& output)
 {
+  output.serdez_upper_bound = LEGATE_MAX_SIZE_SCALAR_RETURN;
+
+#ifdef LEGATE_MAP_FUTURE_MAP_REDUCTIONS_TO_GPU
+  // TODO: It's been reported that blindly mapping target instances of future map reductions
+  // to framebuffers hurts performance. Until we find a better mapping policy, we guard
+  // the current policy with a macro.
+
+  // If this was joining exceptions, we don't want to put instances anywhere
+  // other than the system memory because they need serdez
+  if (input.tag == LEGATE_CORE_JOIN_EXCEPTION_TAG) return;
+  if (!local_gpus.empty())
+    for (auto& pair : local_frame_buffers) output.destination_memories.push_back(pair.second);
+  else if (has_socket_mem)
+    for (auto& pair : local_numa_domains) output.destination_memories.push_back(pair.second);
+#endif
 }
 
 void CoreMapper::select_tunable_value(const MapperContext ctx,
@@ -373,6 +410,10 @@ void CoreMapper::select_tunable_value(const MapperContext ctx,
       pack_tunable<int32_t>(local_gpus.size() * total_nodes, output);  // assume symmetry
       return;
     }
+    case LEGATE_CORE_TUNABLE_TOTAL_OMPS: {
+      pack_tunable<int32_t>(local_omps.size() * total_nodes, output);  // assume symmetry
+      return;
+    }
     case LEGATE_CORE_TUNABLE_NUM_PIECES: {
       if (!local_gpus.empty())  // If we have GPUs, use those
         pack_tunable<int32_t>(local_gpus.size() * total_nodes, output);
@@ -380,6 +421,10 @@ void CoreMapper::select_tunable_value(const MapperContext ctx,
         pack_tunable<int32_t>(local_omps.size() * total_nodes, output);
       else  // Otherwise use the CPUs
         pack_tunable<int32_t>(local_cpus.size() * total_nodes, output);
+      return;
+    }
+    case LEGATE_CORE_TUNABLE_NUM_NODES: {
+      pack_tunable<int32_t>(total_nodes, output);
       return;
     }
     case LEGATE_CORE_TUNABLE_MIN_SHARD_VOLUME: {
@@ -428,6 +473,10 @@ void CoreMapper::select_tunable_value(const MapperContext ctx,
     }
     case LEGATE_CORE_TUNABLE_FIELD_REUSE_FREQUENCY: {
       pack_tunable<uint32_t>(field_reuse_freq, output);
+      return;
+    }
+    case LEGATE_CORE_TUNABLE_MAX_LRU_LENGTH: {
+      pack_tunable<uint32_t>(max_lru_length, output);
       return;
     }
     case LEGATE_CORE_TUNABLE_NCCL_NEEDS_BARRIER: {

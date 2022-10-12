@@ -18,6 +18,7 @@
 #include <sstream>
 
 #include "legion/legion_mapping.h"
+#include "mappers/mapping_utilities.h"
 
 #include "core/data/store.h"
 #include "core/mapping/base_mapper.h"
@@ -45,7 +46,7 @@ BaseMapper::BaseMapper(Runtime* rt, Machine m, const LibraryContext& ctx)
     total_nodes(get_total_nodes(m)),
     mapper_name(std::move(create_name(local_node))),
     logger(create_logger_name().c_str()),
-    local_instances(std::make_unique<InstanceManager>())
+    local_instances(InstanceManager::get_instance_manager())
 {
   // Query to find all our local processors
   Machine::ProcessorQuery local_procs(machine);
@@ -113,7 +114,7 @@ BaseMapper::~BaseMapper(void)
 {
   // Compute the size of all our remaining instances in each memory
   const char* show_usage = getenv("LEGATE_SHOW_USAGE");
-  if (show_usage != NULL) {
+  if (show_usage != nullptr) {
     auto mem_sizes             = local_instances->aggregate_instance_sizes();
     const char* memory_kinds[] = {
 #define MEM_NAMES(name, desc) desc,
@@ -502,6 +503,10 @@ void BaseMapper::map_task(const MapperContext ctx,
                           const MapTaskInput& input,
                           MapTaskOutput& output)
 {
+#ifdef DEBUG_LEGATE
+  logger.debug() << "Entering map_task for " << Utilities::to_string(runtime, ctx, task);
+#endif
+
   // Should never be mapping the top-level task here
   assert(task.get_depth() > 0);
 
@@ -601,24 +606,69 @@ void BaseMapper::map_task(const MapperContext ctx,
 
   output.chosen_instances.resize(task.regions.size());
 
-  // Map each field separately for each of the logical regions
-  std::vector<PhysicalInstance> needed_acquires;
-  std::map<PhysicalInstance, std::set<uint32_t>> instances_to_mappings;
-  for (uint32_t mapping_idx = 0; mapping_idx < mappings.size(); ++mapping_idx) {
+  bool can_fail = true;
+  std::map<PhysicalInstance, std::set<int32_t>> instance_to_mappings;
+  std::map<int32_t, PhysicalInstance> mapping_to_instance;
+  std::vector<bool> handled(mappings.size(), false);
+
+  // See case of failed instance creation below
+  auto tighten_write_reqs = [&]() {
+    for (int32_t mapping_idx = 0; mapping_idx < mappings.size(); ++mapping_idx) {
+      auto& mapping      = mappings[mapping_idx];
+      PrivilegeMode priv = LEGION_NO_ACCESS;
+#ifdef DEBUG_LEGATE
+      std::stringstream reqs_ss;
+#endif
+      for (auto req_idx : mapping.requirement_indices()) {
+        const RegionRequirement& req = task.regions[req_idx];
+        if (!req.region.exists()) continue;
+        priv |= req.privilege;
+#ifdef DEBUG_LEGATE
+        reqs_ss << " " << req_idx;
+#endif
+      }
+      if (!(priv & LEGION_WRITE_PRIV) || mapping.policy.exact) continue;
+#ifdef DEBUG_LEGATE
+      logger.debug() << "Task " << task.get_unique_id()
+                     << ": tightened mapping policy for reqs:" << reqs_ss.str();
+#endif
+      mapping.policy.exact = true;
+      if (!handled[mapping_idx]) continue;
+      handled[mapping_idx] = false;
+      auto m2i_it          = mapping_to_instance.find(mapping_idx);
+      if (m2i_it == mapping_to_instance.end()) continue;
+      PhysicalInstance inst = m2i_it->second;
+      mapping_to_instance.erase(m2i_it);
+      auto i2m_it = instance_to_mappings.find(inst);
+      i2m_it->second.erase(mapping_idx);
+      if (i2m_it->second.empty()) {
+        runtime->release_instance(ctx, inst);
+        instance_to_mappings.erase(i2m_it);
+      }
+    }
+  };
+
+  // Mapping each field separately for each of the logical regions
+  for (int32_t mapping_idx = 0; mapping_idx < mappings.size(); ++mapping_idx) {
+    if (handled[mapping_idx]) continue;
     auto& mapping    = mappings[mapping_idx];
     auto req_indices = mapping.requirement_indices();
 
-    if (req_indices.empty()) continue;
-
     if (req_indices.empty()) {
       // This is a mapping for futures
-      output.future_locations.push_back(get_target_memory(task.target_proc, mapping.policy.target));
+      StoreTarget target = mapping.policy.target;
+#ifdef LEGATE_NO_FUTURES_ON_FB
+      if (target == StoreTarget::FBMEM) target = StoreTarget::ZCMEM;
+#endif
+      output.future_locations.push_back(get_target_memory(task.target_proc, target));
+      handled[mapping_idx] = true;
       continue;
-    } else if (mapping.for_unbound_stores()) {
+    }
+
+    if (mapping.for_unbound_stores()) {
       for (auto req_idx : req_indices) {
         output.output_targets[req_idx] = get_target_memory(task.target_proc, mapping.policy.target);
         auto ndim                      = mapping.stores.front().dim();
-
         // FIXME: Unbound stores can have more than one dimension later
         std::vector<DimensionKind> dimension_ordering;
         for (int32_t dim = ndim - 1; dim >= 0; --dim)
@@ -628,65 +678,79 @@ void BaseMapper::map_task(const MapperContext ctx,
         output.output_constraints[req_idx].ordering_constraint =
           OrderingConstraint(dimension_ordering, false);
       }
+      handled[mapping_idx] = true;
       continue;
     }
 
     std::vector<std::reference_wrapper<const RegionRequirement>> reqs;
+#ifdef DEBUG_LEGATE
+    std::stringstream reqs_ss;
+#endif
     for (auto req_idx : req_indices) {
       const auto& req = task.regions[req_idx];
       if (!req.region.exists()) continue;
       reqs.push_back(std::cref(req));
+#ifdef DEBUG_LEGATE
+      reqs_ss << " " << req_idx;
+#endif
+    }
+    if (reqs.empty()) {
+      handled[mapping_idx] = true;
+      continue;
     }
 
-    if (reqs.empty()) continue;
-
-    // Get the reference to our valid instances in case we decide to use them
+    // Get an instance and acquire it if necessary. If the acquire fails then prune it from the
+    // mapper's data structures and retry, until we succeed or map_legate_store fails with an out of
+    // memory error.
     PhysicalInstance result;
-    if (map_legate_store(ctx, task, mapping, reqs, task.target_proc, result))
-      needed_acquires.push_back(result);
-
-    for (auto req_idx : req_indices) output.chosen_instances[req_idx].push_back(result);
-    instances_to_mappings[result].insert(mapping_idx);
-  }
-
-  // Do an acquire on all the instances so we have our result
-  // Keep doing this until we succed or we get an out of memory error
-  while (!needed_acquires.empty() &&
-         !runtime->acquire_and_filter_instances(ctx, needed_acquires, true /*filter on acquire*/)) {
-    assert(!needed_acquires.empty());
-    // If we failed to acquire any of the instances we need to prune them
-    // out of the mapper's data structure so do that first
-    std::set<PhysicalInstance> failed_acquires;
-    filter_failed_acquires(needed_acquires, failed_acquires);
-
-    for (auto failed_acquire : failed_acquires) {
-      auto affected_mappings = instances_to_mappings[failed_acquire];
-      instances_to_mappings.erase(failed_acquire);
-
-      for (auto& mapping_idx : affected_mappings) {
-        auto& mapping    = mappings[mapping_idx];
-        auto req_indices = mapping.requirement_indices();
-
-        std::vector<std::reference_wrapper<const RegionRequirement>> reqs;
-        for (auto req_idx : req_indices) reqs.push_back(std::cref(task.regions[req_idx]));
-
-        for (auto req_idx : req_indices) {
-          auto& instances   = output.chosen_instances[req_idx];
-          uint32_t inst_idx = 0;
-          for (; inst_idx < instances.size(); ++inst_idx)
-            if (instances[inst_idx] == failed_acquire) break;
-          instances.erase(instances.begin() + inst_idx);
-        }
-
-        PhysicalInstance result;
-        if (map_legate_store(ctx, task, mapping, reqs, task.target_proc, result))
-          needed_acquires.push_back(result);
-
-        for (auto req_idx : req_indices) output.chosen_instances[req_idx].push_back(result);
-        instances_to_mappings[result].insert(mapping_idx);
+    while (map_legate_store(ctx, task, mapping, reqs, task.target_proc, result, can_fail)) {
+      if (result == PhysicalInstance()) break;
+      if (instance_to_mappings.count(result) > 0 || runtime->acquire_instance(ctx, result)) {
+#ifdef DEBUG_LEGATE
+        logger.debug() << "Task " << task.get_unique_id() << ": acquired instance " << result
+                       << " for reqs:" << reqs_ss.str();
+#endif
+        break;
       }
+#ifdef DEBUG_LEGATE
+      logger.debug() << "Task " << task.get_unique_id() << ": failed to acquire instance " << result
+                     << " for reqs:" << reqs_ss.str();
+#endif
+      AutoLock lock(ctx, local_instances->manager_lock());
+      local_instances->erase(result);
     }
+
+    // If instance creation failed we try mapping all stores again, but request tight instances for
+    // write requirements. The hope is that these write requirements cover the entire region (i.e.
+    // they use a complete partition), so the new tight instances will invalidate any pre-existing
+    // "bloated" instances for the same region, freeing up enough memory so that mapping can succeed
+    if (result == PhysicalInstance()) {
+#ifdef DEBUG_LEGATE
+      logger.debug() << "Task " << task.get_unique_id()
+                     << ": failed mapping for reqs:" << reqs_ss.str();
+#endif
+      assert(can_fail);
+      tighten_write_reqs();
+      mapping_idx = -1;
+      can_fail    = false;
+      continue;
+    }
+
+    // Success; record the instance for this mapping.
+#ifdef DEBUG_LEGATE
+    logger.debug() << "Task " << task.get_unique_id()
+                   << ": completed mapping for reqs:" << reqs_ss.str();
+#endif
+    instance_to_mappings[result].insert(mapping_idx);
+    mapping_to_instance[mapping_idx] = result;
+    handled[mapping_idx]             = true;
   }
+
+  // Succeeded in mapping all stores, record it on map_task output.
+  for (const auto& m2i : mapping_to_instance)
+    for (auto req_idx : mappings[m2i.first].requirement_indices())
+      if (task.regions[req_idx].region.exists())
+        output.chosen_instances[req_idx].push_back(m2i.second);
 }
 
 void BaseMapper::map_replicate_task(const MapperContext ctx,
@@ -698,12 +762,17 @@ void BaseMapper::map_replicate_task(const MapperContext ctx,
   LEGATE_ABORT;
 }
 
-bool BaseMapper::find_existing_instance(LogicalRegion region,
+bool BaseMapper::find_existing_instance(const MapperContext ctx,
+                                        LogicalRegion region,
                                         FieldID fid,
                                         Memory target_memory,
                                         PhysicalInstance& result,
-                                        Strictness strictness)
+                                        Strictness strictness,
+                                        bool acquire_instance_lock)
 {
+  std::unique_ptr<AutoLock> lock =
+    acquire_instance_lock ? std::make_unique<AutoLock>(ctx, local_instances->manager_lock())
+                          : nullptr;
   // See if we already have it in our local instances
   if (local_instances->find_instance(region, fid, target_memory, result))
     return true;
@@ -740,7 +809,8 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
                                   const StoreMapping& mapping,
                                   std::vector<std::reference_wrapper<const RegionRequirement>> reqs,
                                   Processor target_proc,
-                                  PhysicalInstance& result)
+                                  PhysicalInstance& result,
+                                  bool can_fail)
 {
   const auto& policy = mapping.policy;
   std::vector<LogicalRegion> regions;
@@ -769,25 +839,51 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
   // If we're making a reduction instance, we should just make it now
   if (redop != 0) {
     layout_constraints.add_constraint(SpecializedConstraint(REDUCTION_FOLD_SPECIALIZE, redop));
-
-    if (!runtime->create_physical_instance(
-          ctx, target_memory, layout_constraints, regions, result, true /*acquire*/))
+    size_t footprint = 0;
+    if (runtime->create_physical_instance(ctx,
+                                          target_memory,
+                                          layout_constraints,
+                                          regions,
+                                          result,
+                                          true /*acquire*/,
+                                          LEGION_GC_DEFAULT_PRIORITY,
+                                          false /*tight bounds*/,
+                                          &footprint)) {
+#ifdef DEBUG_LEGATE
+      Realm::LoggerMessage msg = logger.debug();
+      msg << "Operation " << mappable.get_unique_id() << ": created reduction instance " << result
+          << " for";
+      for (LogicalRegion r : regions) msg << " " << r;
+      msg << " (size: " << footprint << " bytes, memory: " << target_memory << ")";
+#endif
+      // We already did the acquire
+      return false;
+    }
+    if (!can_fail)
       report_failed_mapping(mappable, mapping.requirement_index(), target_memory, redop);
-    // We already did the acquire
-    return false;
+    return true;
   }
 
   auto& fields = layout_constraints.field_constraint.field_set;
 
-  // See if we already have it in our local instances
-  if (fields.size() == 1 && regions.size() == 1 &&
-      local_instances->find_instance(
-        regions.front(), fields.front(), target_memory, result, policy))
-    // Needs acquire to keep the runtime happy
-    return true;
+  // We need to hold the instance manager lock as we're about to try to find an instance
+  AutoLock lock(ctx, local_instances->manager_lock());
 
   // This whole process has to appear atomic
   runtime->disable_reentrant(ctx);
+
+  // See if we already have it in our local instances
+  if (fields.size() == 1 && regions.size() == 1 &&
+      local_instances->find_instance(
+        regions.front(), fields.front(), target_memory, result, policy)) {
+#ifdef DEBUG_LEGATE
+    logger.debug() << "Operation " << mappable.get_unique_id() << ": reused cached instance "
+                   << result << " for " << regions.front();
+#endif
+    runtime->enable_reentrant(ctx);
+    // Needs acquire to keep the runtime happy
+    return true;
+  }
 
   std::shared_ptr<RegionGroup> group{nullptr};
 
@@ -804,7 +900,7 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
     const Domain domain = runtime->get_index_space_domain(ctx, is);
     group =
       local_instances->find_region_group(regions.front(), domain, fid, target_memory, policy.exact);
-    regions = group->regions;
+    regions = group->get_regions();
   }
 
   bool created     = false;
@@ -843,28 +939,34 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
   if (success) {
     // We succeeded in making the instance where we want it
     assert(result.exists());
-    if (created)
-      logger.info("%s created instance %lx containing %zd bytes in memory " IDFMT,
-                  get_mapper_name(),
-                  result.get_instance_id(),
-                  footprint,
-                  target_memory.id);
+#ifdef DEBUG_LEGATE
+    if (created) {
+      logger.debug() << "Operation " << mappable.get_unique_id() << ": created instance " << result
+                     << " for " << *group << " (size: " << footprint
+                     << " bytes, memory: " << target_memory << ")";
+    } else {
+      logger.debug() << "Operation " << mappable.get_unique_id() << ": found instance " << result
+                     << " for " << *group;
+    }
+#endif
     // Only save the result for future use if it is not an external instance
     if (!result.is_external_instance() && group != nullptr) {
       assert(fields.size() == 1);
       auto fid = fields.front();
       local_instances->record_instance(group, fid, result, policy);
     }
-    // We made it so no need for an acquire
     runtime->enable_reentrant(ctx);
+    // We made it so no need for an acquire
     return false;
   }
   // Done with the atomic part
   runtime->enable_reentrant(ctx);
 
   // If we make it here then we failed entirely
-  auto req_indices = mapping.requirement_indices();
-  for (auto req_idx : req_indices) report_failed_mapping(mappable, req_idx, target_memory, redop);
+  if (!can_fail) {
+    auto req_indices = mapping.requirement_indices();
+    for (auto req_idx : req_indices) report_failed_mapping(mappable, req_idx, target_memory, redop);
+  }
   return true;
 }
 
@@ -906,6 +1008,9 @@ bool BaseMapper::map_raw_array(const MapperContext ctx,
     // We already did the acquire
     return false;
   }
+
+  AutoLock lock(ctx, local_instances->manager_lock());
+
   // See if we already have it in our local instances
   if (local_instances->find_instance(region, fid, target_memory, result))
     // Needs acquire to keep the runtime happy
@@ -963,7 +1068,7 @@ bool BaseMapper::map_raw_array(const MapperContext ctx,
   if (runtime->find_or_create_physical_instance(ctx,
                                                 target_memory,
                                                 layout_constraints,
-                                                group->regions,
+                                                group->get_regions(),
                                                 result,
                                                 created,
                                                 true /*acquire*/,
@@ -1016,17 +1121,19 @@ bool BaseMapper::map_raw_array(const MapperContext ctx,
       if (local_instances->find_instance(region, fid, mem, result))
         // Needs acquire to keep the runtime happy
         return true;
-  } else if (find_existing_instance(region, fid, target_memory, result)) {
+  } else if (find_existing_instance(
+               ctx, region, fid, target_memory, result, Strictness::strict, false))
     return true;
-  }
   // If we make it here then we failed entirely
   report_failed_mapping(mappable, index, target_memory, redop);
   return true;
 }
 
-void BaseMapper::filter_failed_acquires(std::vector<PhysicalInstance>& needed_acquires,
+void BaseMapper::filter_failed_acquires(const MapperContext ctx,
+                                        std::vector<PhysicalInstance>& needed_acquires,
                                         std::set<PhysicalInstance>& failed_acquires)
 {
+  AutoLock lock(ctx, local_instances->manager_lock());
   for (auto& instance : needed_acquires) {
     if (failed_acquires.find(instance) != failed_acquires.end()) continue;
     failed_acquires.insert(instance);
@@ -1277,7 +1384,7 @@ void BaseMapper::map_inline(const MapperContext ctx,
          !runtime->acquire_and_filter_instances(ctx, needed_acquires, true /*filter on acquire*/)) {
     assert(!needed_acquires.empty());
     std::set<PhysicalInstance> failed_instances;
-    filter_failed_acquires(needed_acquires, failed_instances);
+    filter_failed_acquires(ctx, needed_acquires, failed_instances);
     // Now go through all the fields for the instances and try and remap
     std::set<FieldID>::const_iterator fit = req.privilege_fields.begin();
     for (uint32_t idx = 0; idx < output.chosen_instances.size(); idx++, fit++) {
@@ -1361,7 +1468,7 @@ void BaseMapper::map_copy(const MapperContext ctx,
         ++fidx;
         continue;
       }
-      if (find_existing_instance(region, fid, target_memory, outputs[fidx]) ||
+      if (find_existing_instance(ctx, region, fid, target_memory, outputs[fidx]) ||
           map_raw_array(ctx,
                         copy,
                         idx,
@@ -1440,7 +1547,7 @@ void BaseMapper::map_copy(const MapperContext ctx,
     // If we failed to acquire any of the instances we need to prune them
     // out of the mapper's data structure so do that first
     std::set<PhysicalInstance> failed_acquires;
-    filter_failed_acquires(needed_acquires, failed_acquires);
+    filter_failed_acquires(ctx, needed_acquires, failed_acquires);
 
     // Now go through and try to remap region requirements with failed acquisitions
     for (uint32_t idx = 0; idx < copy.src_requirements.size(); idx++) {
@@ -1622,7 +1729,8 @@ void BaseMapper::map_partition(const MapperContext ctx,
   uint32_t fidx      = 0;
   const bool memoize = true;
   for (auto fid : req.privilege_fields) {
-    if (find_existing_instance(req.region,
+    if (find_existing_instance(ctx,
+                               req.region,
                                fid,
                                local_system_memory,
                                output.chosen_instances[fidx],
@@ -1645,7 +1753,7 @@ void BaseMapper::map_partition(const MapperContext ctx,
          !runtime->acquire_and_filter_instances(ctx, needed_acquires, true /*filter on acquire*/)) {
     assert(!needed_acquires.empty());
     std::set<PhysicalInstance> failed_instances;
-    filter_failed_acquires(needed_acquires, failed_instances);
+    filter_failed_acquires(ctx, needed_acquires, failed_instances);
     // Now go through all the fields for the instances and try and remap
     auto fit = req.privilege_fields.begin();
     for (uint32_t idx = 0; idx < output.chosen_instances.size(); idx++, fit++) {

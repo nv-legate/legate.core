@@ -21,13 +21,13 @@ import numpy as np
 from . import AffineTransform
 from .partition import Replicate, Restriction, Tiling
 from .projection import ProjExpr
+from .runtime import runtime
 from .shape import Shape
 
 if TYPE_CHECKING:
     from . import BufferBuilder
     from .partition import PartitionBase
     from .projection import SymbolicPoint
-    from .runtime import Runtime
 
 
 class NonInvertibleError(Exception):
@@ -93,8 +93,7 @@ class Transform(TransformProto, Protocol):
 
 
 class Shift(Transform):
-    def __init__(self, runtime: Runtime, dim: int, offset: int) -> None:
-        self._runtime = runtime
+    def __init__(self, dim: int, offset: int) -> None:
         self._dim = dim
         self._offset = offset
 
@@ -124,7 +123,6 @@ class Shift(Transform):
             offset = partition.offset[self._dim] - self._offset
             assert partition.color_shape is not None
             return Tiling(
-                self._runtime,
                 partition.tile_shape,
                 partition.color_shape,
                 partition.offset.update(self._dim, offset),
@@ -154,7 +152,6 @@ class Shift(Transform):
             offset = partition.offset[self._dim] + self._offset
             assert partition.color_shape is not None
             return Tiling(
-                self._runtime,
                 partition.tile_shape,
                 partition.color_shape,
                 partition.offset.update(self._dim, offset),
@@ -175,17 +172,14 @@ class Shift(Transform):
         return result
 
     def serialize(self, buf: BufferBuilder) -> None:
-        code = self._runtime.get_transform_code(self.__class__.__name__)
+        code = runtime.get_transform_code(self.__class__.__name__)
         buf.pack_32bit_int(code)
         buf.pack_32bit_int(self._dim)
         buf.pack_64bit_int(self._offset)
 
 
 class Promote(Transform):
-    def __init__(
-        self, runtime: Runtime, extra_dim: int, dim_size: int
-    ) -> None:
-        self._runtime = runtime
+    def __init__(self, extra_dim: int, dim_size: int) -> None:
         self._extra_dim = extra_dim
         self._dim_size = dim_size
 
@@ -217,7 +211,6 @@ class Promote(Transform):
         if isinstance(partition, Tiling):
             assert partition.color_shape is not None
             return Tiling(
-                self._runtime,
                 partition.tile_shape.drop(self._extra_dim),
                 partition.color_shape.drop(self._extra_dim),
                 partition.offset.drop(self._extra_dim),
@@ -248,7 +241,6 @@ class Promote(Transform):
         if isinstance(partition, Tiling):
             assert partition.color_shape is not None
             return Tiling(
-                self._runtime,
                 partition.tile_shape.insert(self._extra_dim, self._dim_size),
                 partition.color_shape.insert(self._extra_dim, 1),
                 partition.offset.insert(self._extra_dim, 0),
@@ -277,15 +269,14 @@ class Promote(Transform):
         return result
 
     def serialize(self, buf: BufferBuilder) -> None:
-        code = self._runtime.get_transform_code(self.__class__.__name__)
+        code = runtime.get_transform_code(self.__class__.__name__)
         buf.pack_32bit_int(code)
         buf.pack_32bit_int(self._extra_dim)
         buf.pack_64bit_int(self._dim_size)
 
 
 class Project(Transform):
-    def __init__(self, runtime: Runtime, dim: int, index: int) -> None:
-        self._runtime = runtime
+    def __init__(self, dim: int, index: int) -> None:
         self._dim = dim
         self._index = index
 
@@ -314,7 +305,6 @@ class Project(Transform):
         if isinstance(partition, Tiling):
             assert partition.color_shape is not None
             return Tiling(
-                self._runtime,
                 partition.tile_shape.insert(self._dim, 1),
                 partition.color_shape.insert(self._dim, 1),
                 partition.offset.insert(self._dim, self._index),
@@ -346,7 +336,6 @@ class Project(Transform):
         if isinstance(partition, Tiling):
             assert partition.color_shape is not None
             return Tiling(
-                self._runtime,
                 partition.tile_shape.drop(self._dim),
                 partition.color_shape.drop(self._dim),
                 partition.offset.drop(self._dim),
@@ -363,6 +352,8 @@ class Project(Transform):
 
     def get_inverse_transform(self, ndim: int) -> AffineTransform:
         parent_ndim = ndim + 1
+        if ndim == 0:
+            return AffineTransform(parent_ndim, parent_ndim, False)
         result = AffineTransform(parent_ndim, ndim, False)
         result.offset[self._dim] = self._index
         child_dim = 0
@@ -373,15 +364,14 @@ class Project(Transform):
         return result
 
     def serialize(self, buf: BufferBuilder) -> None:
-        code = self._runtime.get_transform_code(self.__class__.__name__)
+        code = runtime.get_transform_code(self.__class__.__name__)
         buf.pack_32bit_int(code)
         buf.pack_32bit_int(self._dim)
         buf.pack_64bit_int(self._index)
 
 
 class Transpose(Transform):
-    def __init__(self, runtime: Runtime, axes: tuple[int, ...]) -> None:
-        self._runtime = runtime
+    def __init__(self, axes: tuple[int, ...]) -> None:
         self._axes = axes
         self._inverse = tuple(np.argsort(self._axes))
 
@@ -411,7 +401,6 @@ class Transpose(Transform):
         if isinstance(partition, Tiling):
             assert partition.color_shape is not None
             return Tiling(
-                self._runtime,
                 partition.tile_shape.map(self._inverse),
                 partition.color_shape.map(self._inverse),
                 partition.offset.map(self._inverse),
@@ -440,7 +429,6 @@ class Transpose(Transform):
         if isinstance(partition, Tiling):
             assert partition.color_shape is not None
             return Tiling(
-                self._runtime,
                 partition.tile_shape.map(self._axes),
                 partition.color_shape.map(self._axes),
                 partition.offset.map(self._axes),
@@ -462,7 +450,7 @@ class Transpose(Transform):
         return result
 
     def serialize(self, buf: BufferBuilder) -> None:
-        code = self._runtime.get_transform_code(self.__class__.__name__)
+        code = runtime.get_transform_code(self.__class__.__name__)
         buf.pack_32bit_int(code)
         buf.pack_32bit_uint(len(self._axes))
         for axis in self._axes:
@@ -470,8 +458,7 @@ class Transpose(Transform):
 
 
 class Delinearize(Transform):
-    def __init__(self, runtime: Runtime, dim: int, shape: Shape) -> None:
-        self._runtime = runtime
+    def __init__(self, dim: int, shape: Shape) -> None:
         self._dim = dim
         self._shape = Shape(shape)
         self._strides = self._shape.strides()
@@ -529,7 +516,6 @@ class Delinearize(Transform):
                 new_offset = new_offset.insert(self._dim, dim_offset)
 
                 return Tiling(
-                    self._runtime,
                     new_tile_shape,
                     new_color_shape,
                     new_offset,
@@ -586,7 +572,7 @@ class Delinearize(Transform):
         return result
 
     def serialize(self, buf: BufferBuilder) -> None:
-        code = self._runtime.get_transform_code(self.__class__.__name__)
+        code = runtime.get_transform_code(self.__class__.__name__)
         buf.pack_32bit_int(code)
         buf.pack_32bit_int(self._dim)
         buf.pack_32bit_uint(self._shape.ndim)
@@ -738,3 +724,6 @@ class IdentityTransform(TransformStackBase):
 
     def serialize(self, buf: BufferBuilder) -> None:
         buf.pack_32bit_int(-1)
+
+
+identity = IdentityTransform()

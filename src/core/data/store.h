@@ -16,13 +16,13 @@
 
 #pragma once
 
-#include "legion.h"
-
 #include "core/data/buffer.h"
 #include "core/data/transform.h"
 #include "core/task/return.h"
 #include "core/utilities/machine.h"
 #include "core/utilities/typedefs.h"
+#include "legate_defines.h"
+#include "legion.h"
 
 namespace legate {
 
@@ -47,7 +47,7 @@ class RegionField {
 
  private:
   template <typename ACC, int32_t N>
-  struct trans_accesor_fn {
+  struct trans_accessor_fn {
     template <int32_t M>
     ACC operator()(const Legion::PhysicalRegion& pr,
                    Legion::FieldID fid,
@@ -173,6 +173,9 @@ class OutputRegionField {
   OutputRegionField& operator=(const OutputRegionField& other) = delete;
 
  public:
+  bool bound() const { return bound_; }
+
+ public:
   template <typename T, int32_t DIM>
   Buffer<T, DIM> create_output_buffer(const Legion::Point<DIM>& extents, bool return_buffer);
 
@@ -185,8 +188,11 @@ class OutputRegionField {
   ReturnValue pack_weight() const;
 
  private:
+  void update_num_elements(size_t num_elements);
+
+ private:
   bool bound_{false};
-  Legion::DeferredBuffer<size_t, 1> num_elements_;
+  Legion::UntypedDeferredValue num_elements_;
   Legion::OutputRegion out_{};
   Legion::FieldID fid_{-1U};
 };
@@ -279,7 +285,7 @@ class Store {
 
  public:
   bool valid() const;
-  bool transformed() const { return transform_ != nullptr; }
+  bool transformed() const { return !transform_->identity(); }
 
  public:
   int32_t dim() const { return dim_; }
@@ -340,11 +346,15 @@ class Store {
   ReturnValue pack_weight() const { return output_field_.pack_weight(); }
 
  public:
-  bool is_transformed() const { return transform_ != nullptr; }
   // TODO: It'd be btter to return a parent store from this method than permanently
   // losing the transform. This requires the backing storages to be referenced by multiple
   // stores, which isn't possible as they use move-only types.
   void remove_transform();
+
+ private:
+  void check_valid_return() const;
+  void check_buffer_dimension(const int32_t dim) const;
+  void check_accessor_dimension(const int32_t dim) const;
 
  private:
   bool is_future_{false};

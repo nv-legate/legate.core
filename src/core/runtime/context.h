@@ -23,6 +23,12 @@
 
 namespace legate {
 
+namespace mapping {
+
+class BaseMapper;
+
+}  // namespace mapping
+
 class Store;
 class Scalar;
 
@@ -95,7 +101,11 @@ class LibraryContext {
   bool valid_projection_id(Legion::ProjectionID proj_id) const;
   bool valid_sharding_id(Legion::ShardingID shard_id) const;
 
+ public:
+  void register_mapper(mapping::BaseMapper* mapper, int64_t local_mapper_id = 0) const;
+
  private:
+  Legion::Runtime* runtime_;
   const std::string library_name_;
   ResourceScope task_scope_;
   ResourceScope mapper_scope_;

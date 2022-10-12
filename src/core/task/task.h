@@ -86,33 +86,40 @@ class LegateTask {
 
   // Task wrappers so we can instrument all Legate tasks if we want
   template <LegateVariantImpl TASK_PTR>
-  static ReturnValues legate_task_wrapper(const Legion::Task* task,
-                                          const std::vector<Legion::PhysicalRegion>& regions,
-                                          Legion::Context legion_context,
-                                          Legion::Runtime* runtime)
+  static void legate_task_wrapper(
+    const void* args, size_t arglen, const void* userdata, size_t userlen, Legion::Processor p)
   {
+    // Legion preamble
+    const Legion::Task* task;
+    const std::vector<Legion::PhysicalRegion>* regions;
+    Legion::Context legion_context;
+    Legion::Runtime* runtime;
+    Legion::Runtime::legion_task_preamble(args, arglen, p, task, regions, legion_context, runtime);
+
 #ifdef LEGATE_USE_CUDA
     nvtx::Range auto_range(task_name());
 #endif
 
     Core::show_progress(task, legion_context, runtime, task_name());
 
-    TaskContext context(task, regions, legion_context, runtime);
+    TaskContext context(task, *regions, legion_context, runtime);
 
+    ReturnValues return_values{};
     try {
       if (!Core::use_empty_task) (*TASK_PTR)(context);
-      return context.pack_return_values();
+      return_values = context.pack_return_values();
     } catch (legate::TaskException& e) {
       if (context.can_raise_exception()) {
         context.make_all_unbound_stores_empty();
-        return context.pack_return_values_with_exception(e.index(), e.error_message());
+        return_values = context.pack_return_values_with_exception(e.index(), e.error_message());
       } else
         // If a Legate exception is thrown by a task that does not declare any exception,
         // this is a bug in the library that needs to be reported to the developer
         Core::report_unexpected_exception(task_name(), e);
     }
-    // This is unreachable but added to make compilers happy
-    return ReturnValues{};
+
+    // Legion postamble
+    return_values.finalize(legion_context);
   }
 
  public:
@@ -128,9 +135,7 @@ class LegateTask {
   {
     // Construct the code descriptor for this task so that the library
     // can register it later when it is ready
-    Legion::CodeDescriptor desc(
-      Legion::LegionTaskWrapper::
-        legion_task_wrapper<ReturnValues, LegateTask<T>::template legate_task_wrapper<TASK_PTR>>);
+    Legion::CodeDescriptor desc(legate_task_wrapper<TASK_PTR>);
     auto task_id = T::TASK_ID;
 
     T::Registrar::record_variant(task_id,
@@ -248,7 +253,7 @@ class LegateTaskRegistrar {
   struct PendingTaskVariant : public Legion::TaskVariantRegistrar {
    public:
     PendingTaskVariant(void)
-      : Legion::TaskVariantRegistrar(), task_name(NULL), var(LEGATE_NO_VARIANT)
+      : Legion::TaskVariantRegistrar(), task_name(nullptr), var(LEGATE_NO_VARIANT)
     {
     }
     PendingTaskVariant(Legion::TaskID tid,

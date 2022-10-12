@@ -17,7 +17,9 @@
 
 set -euo pipefail
 
-# Usage: bind.sh <launcher> <conduit> [--cpus <spec>] [--gpus <spec>] [--mems <spec>] [--nics <spec>] <app> ...
+# Usage: bind.sh <launcher> [--cpus <spec>] [--gpus <spec>] [--mems <spec>] [--nics <spec>] <app> ...
+# <spec> specifies the resources to bind each node-local rank to, with ranks
+# separated by /, e.g. 0,1/2,3/4,5/6,7 for 4 ranks per node.
 
 # Detect node-local rank based on launcher
 IDX=none
@@ -33,10 +35,6 @@ if [[ "$IDX" == "none" ]]; then
     echo "Error: Cannot detect node-local rank" 1>&2
     exit 1
 fi
-
-# Read conduit
-CONDUIT="$1"
-shift
 
 # Read binding specifications
 while [[ $# -gt 0 ]]; do
@@ -76,32 +74,31 @@ while [[ $# -gt 0 ]]; do
     shift 2
 done
 
-# Prepare command
-set -- -- "$@"
-if [[ -n "${CPUS+x}" ]]; then
-    set -- --physcpubind "${CPUS[$IDX]}" "$@"
-fi
+# Prepare environment
 if [[ -n "${GPUS+x}" ]]; then
     export CUDA_VISIBLE_DEVICES="${GPUS[$IDX]}"
 fi
-if [[ -n "${MEMS+x}" ]]; then
-    set -- --membind "${MEMS[$IDX]}" "$@"
-fi
 if [[ -n "${NICS+x}" ]]; then
+    # Set all potentially relevant variables, hopefully they are ignored if we
+    # are not using the corresponding network.
     NIC="${NICS[$IDX]}"
-    case "$CONDUIT" in
-        ibv)
-            NIC_ARR=(${NIC//,/ })
-            export GASNET_NUM_QPS="${#NIC_ARR[@]}"
-            export GASNET_IBV_PORTS="${NIC//,/+}"
-            ;;
-        ucx)
-            export UCX_NET_DEVICES="$NIC"
-            ;;
-        *)
-            echo "Error: NIC binding not supported for conduit $CONDUIT" 1>&2
-            exit 1
-            ;;
-    esac
+    export UCX_NET_DEVICES="${NIC//,/:1,}":1
+    export NCCL_IB_HCA="$NIC"
+    NIC_ARR=(${NIC//,/ })
+    export GASNET_NUM_QPS="${#NIC_ARR[@]}"
+    export GASNET_IBV_PORTS="${NIC//,/+}"
 fi
-numactl "$@"
+
+# Prepare command
+if command -v numactl &> /dev/null; then
+    if [[ -n "${CPUS+x}" ]]; then
+        set -- --physcpubind "${CPUS[$IDX]}" "$@"
+    fi
+    if [[ -n "${MEMS+x}" ]]; then
+        set -- --membind "${MEMS[$IDX]}" "$@"
+    fi
+    set -- numactl "$@"
+elif [[ -n "${CPUS+x}" || -n "${MEMS+x}" ]]; then
+    echo "Warning: numactl is not available, cannot bind to cores or memories" 1>&2
+fi
+exec "$@"

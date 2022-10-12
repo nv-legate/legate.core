@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 from enum import IntEnum, unique
-from typing import Any, Type, Union
+from typing import Any, Iterable, Type, Union
 
 import pyarrow as pa
 
@@ -34,7 +34,7 @@ class Complex64Dtype(pa.ExtensionType):
 
     @classmethod
     def __arrow_ext_deserialize__(
-        self, storage_type: pa.lib.DataType, serialized: str
+        cls, storage_type: pa.lib.DataType, serialized: str
     ) -> Complex64Dtype:
         return Complex64Dtype()
 
@@ -51,7 +51,7 @@ class Complex128Dtype(pa.ExtensionType):
 
     @classmethod
     def __arrow_ext_deserialize__(
-        self, storage_type: pa.lib.DataType, serialized: str
+        cls, storage_type: pa.lib.DataType, serialized: str
     ) -> Complex128Dtype:
         return Complex128Dtype()
 
@@ -180,14 +180,32 @@ _CORE_DTYPES = [
 
 _CORE_DTYPE_MAP = dict([(dtype.type, dtype) for dtype in _CORE_DTYPES])
 
-for dtype in _CORE_DTYPE_MAP.values():
-    for op in ReductionOp:
-        redop_id = (
-            legion.LEGION_REDOP_BASE
-            + op.value * legion.LEGION_TYPE_TOTAL
-            + dtype.code
-        )
-        dtype.register_reduction_op(op, redop_id)
+
+def _register_reduction_ops(
+    dtypes: list[_Dtype], ops: Iterable[ReductionOp]
+) -> None:
+    for dtype in dtypes:
+        for op in ops:
+            redop_id = (
+                legion.LEGION_REDOP_BASE
+                + op.value * legion.LEGION_TYPE_TOTAL
+                + dtype.code
+            )
+            dtype.register_reduction_op(op, redop_id)
+
+
+_redops_float = (
+    ReductionOp.ADD,
+    ReductionOp.SUB,
+    ReductionOp.MUL,
+    ReductionOp.DIV,
+    ReductionOp.MIN,
+    ReductionOp.MAX,
+)
+
+_register_reduction_ops(_CORE_DTYPES[:10], ReductionOp)
+_register_reduction_ops(_CORE_DTYPES[10:13], _redops_float)
+_register_reduction_ops(_CORE_DTYPES[13:-1], _redops_float[:4])
 
 
 class TypeSystem:
@@ -207,11 +225,11 @@ class TypeSystem:
         if ty in self._types:
             raise KeyError(f"{ty} is already in this type system")
         dtype = _Dtype(ty, size_in_bytes, code)
-        self._types[dtype] = dtype
+        self._types[ty] = dtype
         return dtype
 
     def make_alias(
-        self, alias: Any, src_type: _Dtype, copy_reduction_ops: bool = True
+        self, alias: Any, src_type: Any, copy_reduction_ops: bool = True
     ) -> _Dtype:
         dtype = self[src_type]
         copy = _Dtype(alias, dtype.size, dtype.code)
