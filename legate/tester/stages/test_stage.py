@@ -205,6 +205,21 @@ class TestStage(Protocol):
 
         return args
 
+    def cov_args(self, config: Config) -> ArgList:
+        """Coverage arguments.
+
+        Parameters
+        ----------
+        config: Config
+            Test runner configuration
+
+        """
+        args = config.cov_args.split()
+        if config.cov_src_path:
+            args += ["--source=%s" % config.cov_src_path]
+
+        return args
+
     def run(
         self, test_file: Path, config: Config, system: TestSystem
     ) -> ProcessResult:
@@ -230,7 +245,16 @@ class TestStage(Protocol):
         stage_args = self.args + self.shard_args(shard, config)
         file_args = self.file_args(test_file, config)
 
-        cmd = [str(config.legate_path), str(test_path)]
+        if config.cov_bin:
+            cmd = (
+                [str(config.legate_path)]
+                + [config.cov_bin]
+                + self.cov_args(config)
+                + [str(test_path)]
+            )
+        else:
+            cmd = [str(config.legate_path), str(test_path)]
+
         cmd += stage_args + file_args + config.extra_args
 
         self.delay(shard, config, system)
