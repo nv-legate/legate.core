@@ -115,11 +115,10 @@ def install_kernel_spec(spec: KernelSpec, config: Config) -> None:
                 user=config.kernel.user,
                 prefix=config.kernel.prefix,
             )
-            if config.verbose:
-                print(
-                    f"Jupyter kernel spec {spec_name} ({display_name}) "
-                    "has been installed"
-                )
+            print(
+                f"Jupyter kernel spec {spec_name} ({display_name}) "
+                "has been installed"
+            )
         except Exception as e:
             msg = error(
                 "Failed to install the Jupyter kernel spec "
