@@ -454,8 +454,10 @@ def install(
         cmake_flags += ["-DThrust_ROOT=%s" % thrust_dir]
     if legion_dir:
         cmake_flags += ["-DLegion_ROOT=%s" % legion_dir]
-    if legion_src_dir:
+    elif legion_src_dir:
         cmake_flags += ["-DCPM_Legion_SOURCE=%s" % legion_src_dir]
+    else:
+        cmake_flags += ["-DCPM_DOWNLOAD_Legion=ON"]
     if legion_url:
         cmake_flags += ["-Dlegate_core_LEGION_REPOSITORY=%s" % legion_url]
     if legion_branch:
