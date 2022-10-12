@@ -694,6 +694,7 @@ class ManualTask(Operation, Task):
                 )
             if arg.kind is Future:
                 self._scalar_outputs.append(len(self._outputs))
+                self._outputs.append(arg)
             self._output_parts.append(arg.partition(REPLICATE))
         else:
             self._output_parts.append(arg)
@@ -709,6 +710,7 @@ class ManualTask(Operation, Task):
         if isinstance(arg, Store):
             if arg.kind is Future:
                 self._scalar_reductions.append(len(self._reductions))
+                self._reductions.append((arg, redop))
             self._reduction_parts.append((arg.partition(REPLICATE), redop))
         else:
             self._reduction_parts.append((arg, redop))
