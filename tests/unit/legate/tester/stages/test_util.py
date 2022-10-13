@@ -17,9 +17,26 @@
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
+from legate.tester.config import Config
+from legate.tester.logger import LOG
 from legate.tester.stages import util as m
+from legate.tester.test_system import ProcessResult
+from legate.util.ui import failed, passed, shell, skipped
+
+
+def test_StageResult() -> None:
+    procs = [ProcessResult(f"run{i}", Path(f"test{i}")) for i in range(10)]
+    procs[2].returncode = 10
+    procs[7].returncode = -2
+
+    result = m.StageResult(procs=procs, time=0)
+
+    assert result.total == 10
+    assert result.passed == 8
 
 
 class Test_adjust_workers:
@@ -46,3 +63,95 @@ class Test_adjust_workers:
     def test_requested_too_large(self) -> None:
         with pytest.raises(RuntimeError):
             assert m.adjust_workers(10, 11)
+
+
+class Test_log_proc:
+    @pytest.mark.parametrize("returncode", (-23, -1, 0, 1, 17))
+    def test_skipped(self, returncode) -> None:
+        config = Config([])
+        proc = ProcessResult(
+            "proc", Path("proc"), skipped=True, returncode=returncode
+        )
+
+        LOG.clear()
+        m.log_proc("foo", proc, config, verbose=False)
+
+        assert LOG.lines == (skipped(f"(foo) {proc.test_file}"),)
+
+    def test_passed(self) -> None:
+        config = Config([])
+        proc = ProcessResult("proc", Path("proc"))
+
+        LOG.clear()
+        m.log_proc("foo", proc, config, verbose=False)
+
+        assert LOG.lines == (passed(f"(foo) {proc.test_file}"),)
+
+    def test_passed_verbose(self) -> None:
+        config = Config([])
+        proc = ProcessResult("proc", Path("proc"), output="foo\nbar")
+        details = proc.output.split("\n")
+
+        LOG.clear()
+        m.log_proc("foo", proc, config, verbose=True)
+
+        assert LOG.lines == tuple(
+            passed(f"(foo) {proc.test_file}", details=details).split("\n")
+        )
+
+    @pytest.mark.parametrize("returncode", (-23, -1, 1, 17))
+    def test_failed(self, returncode) -> None:
+        config = Config([])
+        proc = ProcessResult("proc", Path("proc"), returncode=returncode)
+
+        LOG.clear()
+        m.log_proc("foo", proc, config, verbose=False)
+
+        assert LOG.lines == (
+            failed(f"(foo) {proc.test_file}", exit_code=returncode),
+        )
+
+    @pytest.mark.parametrize("returncode", (-23, -1, 1, 17))
+    def test_failed_verbose(self, returncode) -> None:
+        config = Config([])
+        proc = ProcessResult(
+            "proc", Path("proc"), returncode=returncode, output="foo\nbar"
+        )
+        details = proc.output.split("\n")
+
+        LOG.clear()
+        m.log_proc("foo", proc, config, verbose=True)
+
+        assert LOG.lines == tuple(
+            failed(
+                f"(foo) {proc.test_file}",
+                details=details,
+                exit_code=returncode,
+            ).split("\n")
+        )
+
+    def test_dry_run(self) -> None:
+        config = Config([])
+        config.dry_run = True
+        proc = ProcessResult("proc", Path("proc"))
+
+        LOG.clear()
+        m.log_proc("foo", proc, config, verbose=False)
+
+        assert LOG.lines == (
+            shell(proc.invocation),
+            passed(f"(foo) {proc.test_file}"),
+        )
+
+    def test_debug(self) -> None:
+        config = Config([])
+        config.debug = True
+        proc = ProcessResult("proc", Path("proc"))
+
+        LOG.clear()
+        m.log_proc("foo", proc, config, verbose=False)
+
+        assert LOG.lines == (
+            shell(proc.invocation),
+            passed(f"(foo) {proc.test_file}"),
+        )
