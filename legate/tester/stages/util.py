@@ -112,4 +112,4 @@ def log_proc(
     elif proc.returncode == 0:
         LOG(passed(msg, details=details))
     else:
-        LOG(failed(msg, details=details))
+        LOG(failed(msg, details=details, exit_code=proc.returncode))
