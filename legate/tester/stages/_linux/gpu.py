@@ -69,7 +69,7 @@ class GPU(TestStage):
         N = len(system.gpus)
         degree = N // config.gpus
 
-        fbsize = min(gpu.total for gpu in system.gpus) / (2 << 20)  # MB
+        fbsize = min(gpu.total for gpu in system.gpus) / (1 << 20)  # MB
         oversub_factor = int(fbsize // (config.fbmem * BLOAT_FACTOR))
         workers = adjust_workers(
             degree * oversub_factor, config.requested_workers
