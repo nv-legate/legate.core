@@ -274,6 +274,9 @@ def install(
     if clean_first is None:
         clean_first = not editable
 
+    if legion_dir is not None and legion_src_dir is not None:
+        sys.exit("Cannot specify both --legion-dir and --legion-src-dir")
+
     print("Verbose build is ", "on" if verbose else "off")
     if verbose:
         print("networks:", networks)
