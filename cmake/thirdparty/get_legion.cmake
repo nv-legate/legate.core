@@ -167,14 +167,12 @@ function(find_or_configure_legion)
   set(Legion_USE_CUDA ${Legion_USE_CUDA} PARENT_SCOPE)
   set(Legion_USE_OpenMP ${Legion_USE_OpenMP} PARENT_SCOPE)
   set(Legion_USE_Python ${Legion_USE_Python} PARENT_SCOPE)
-  if("${Legion_NETWORKS}" MATCHES ".*gasnet(1|ex).*")
-    set(Legion_USE_GASNet ON PARENT_SCOPE)
-  endif()
+  set(Legion_NETWORKS ${Legion_NETWORKS} PARENT_SCOPE)
 
   message(VERBOSE "Legion_USE_CUDA=${Legion_USE_CUDA}")
   message(VERBOSE "Legion_USE_OpenMP=${Legion_USE_OpenMP}")
   message(VERBOSE "Legion_USE_Python=${Legion_USE_Python}")
-  message(VERBOSE "Legion_USE_GASNet=${Legion_USE_GASNet}")
+  message(VERBOSE "Legion_NETWORKS=${Legion_NETWORKS}")
 
 endfunction()
 

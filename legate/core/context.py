@@ -40,7 +40,7 @@ if TYPE_CHECKING:
     from ._legion.util import Dispatchable
     from .communicator import Communicator
     from .legate import Library
-    from .operation import AutoTask, Copy, ManualTask
+    from .operation import AutoTask, Copy, Fill, ManualTask
     from .runtime import Runtime
     from .shape import Shape
     from .store import RegionField, Store
@@ -125,7 +125,6 @@ class Context:
         )
 
         self._libname = library.get_name()
-        self._unique_op_id = 0
         self._provenance: list[Union[str, None]] = [None]
 
     def destroy(self) -> None:
@@ -312,7 +311,14 @@ class Context:
     def create_copy(self, mapper_id: int = 0) -> Copy:
         from .operation import Copy
 
-        return Copy(self, mapper_id)
+        return Copy(self, mapper_id, self.get_unique_op_id())
+
+    def create_fill(
+        self, lhs: Store, value: Store, mapper_id: int = 0
+    ) -> Fill:
+        from .operation import Fill
+
+        return Fill(self, lhs, value, mapper_id, self.get_unique_op_id())
 
     def dispatch(self, op: Dispatchable[T]) -> T:
         return self._runtime.dispatch(op)
