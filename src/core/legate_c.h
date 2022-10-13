@@ -105,6 +105,7 @@ typedef enum legate_core_mapping_tag_t {
   LEGATE_CORE_MANUAL_PARALLEL_LAUNCH_TAG = 2,
   LEGATE_CORE_TREE_REDUCE_TAG            = 3,
   LEGATE_CORE_JOIN_EXCEPTION_TAG         = 4,
+  LEGATE_CORE_FORCE_CPU_TAG              = 5,
 } legate_core_mapping_tag_t;
 
 typedef enum legate_core_reduction_op_id_t {

@@ -90,16 +90,18 @@ class System:
 
         if sys.platform == "darwin":
             return tuple(CPUInfo((i,)) for i in range(N))
-
-        sibling_sets: set[tuple[int, ...]] = set()
-        for i in range(N):
-            line = open(
-                f"/sys/devices/system/cpu/cpu{i}/topology/thread_siblings_list"
-            ).read()
-            sibling_sets.add(
-                tuple(sorted(int(x) for x in line.strip().split(",")))
+        else:
+            sibling_sets: set[tuple[int, ...]] = set()
+            for i in range(N):
+                line = open(
+                    f"/sys/devices/system/cpu/cpu{i}/topology/thread_siblings_list"  # noqa: E501
+                ).read()
+                sibling_sets.add(
+                    tuple(sorted(int(x) for x in line.strip().split(",")))
+                )
+            return tuple(
+                CPUInfo(siblings) for siblings in sorted(sibling_sets)
             )
-        return tuple(CPUInfo(siblings) for siblings in sorted(sibling_sets))
 
     @cached_property
     def gpus(self) -> tuple[GPUInfo, ...]:

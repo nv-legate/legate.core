@@ -177,7 +177,9 @@ void BaseMapper::select_task_options(const MapperContext ctx,
                                      TaskOptions& output)
 {
   std::vector<TaskTarget> options;
-  if (!local_gpus.empty() && has_variant(ctx, task, Processor::TOC_PROC))
+  // Add GPUs if we have some and the task is not restricted to CPUs.
+  if (!local_gpus.empty() && has_variant(ctx, task, Processor::TOC_PROC) &&
+      task.tag != LEGATE_CORE_FORCE_CPU_TAG)
     options.push_back(TaskTarget::GPU);
   if (!local_omps.empty() && has_variant(ctx, task, Processor::OMP_PROC))
     options.push_back(TaskTarget::OMP);

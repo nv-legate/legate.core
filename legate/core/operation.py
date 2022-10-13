@@ -142,6 +142,19 @@ class Operation(OperationProtocol):
         self._all_parts: list[PartSym] = []
         self._launch_domain: Union[Rect, None] = None
         self._error_on_interference = True
+        # If we've been requested to limit execution to GPUs,
+        # set the corresponding tag on launched tasks.
+        # TODO (rohany): For some reason, I can't do this on
+        #  the Task parent class as the context isn't defined
+        #  yet. I don't understand this error...
+        # TODO (rohany): I don't think a tag is necessarily
+        #  right for this (or we need to change the legate mapper
+        #  to using bit tags rather than integers so that we can
+        #  assign multiple tags to the same task (like manual launches).
+        if not self.context.runtime._use_gpus:
+            self._tag = 5
+        else:
+            self._tag = 0
 
     @property
     def provenance(self) -> Optional[str]:
@@ -558,6 +571,7 @@ class AutoTask(AutoOperation, Task):
             self._task_id,
             self.mapper_id,
             provenance=self.provenance,
+            tag=self._tag,
         )
 
         def get_requirement(

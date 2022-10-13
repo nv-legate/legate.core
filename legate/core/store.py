@@ -1249,6 +1249,21 @@ class Store:
         if (
             self._key_partition is not None
             and self._key_partition.satisfies_restriction(restrictions)
+            # Similiarly to below, if the color shape of the existing key
+            # partition no longer matches the number of processors available
+            # in the system, then we don't want to return the existing key
+            # partition.
+            and (
+                (
+                    self._key_partition.color_shape is None
+                    and runtime.num_procs == 1
+                )
+                or (
+                    self._key_partition.color_shape is not None
+                    and self._key_partition.color_shape.volume()
+                    == runtime.num_procs
+                )
+            )
         ):
             return self._key_partition
 
@@ -1257,7 +1272,22 @@ class Store:
     def has_key_partition(self, restrictions: tuple[Restriction, ...]) -> bool:
         restrictions = self._transform.invert_restrictions(restrictions)
         part = self._storage.find_key_partition(restrictions)
-        return (part is not None) and (part.even or self._transform.bottom)
+        if part is None:
+            return False
+        if part.even or self._transform.bottom:
+            # If the number of available processors has changed, the existing
+            # key partition of this store might be invalid. In that case, we'll
+            # return that the key partition is no longer valid, causing it to
+            # be recomputed.
+            if (part.color_shape is None and runtime.num_procs == 1) or (
+                part.color_shape is not None
+                and part.color_shape.volume() == runtime.num_procs
+            ):
+                return True
+            return False
+        return False
+
+        # return (part is not None) and (part.even or self._transform.bottom)
 
     def set_key_partition(self, partition: PartitionBase) -> None:
         self._key_partition = partition
@@ -1276,6 +1306,21 @@ class Store:
         if (
             self._key_partition is not None
             and self._key_partition.satisfies_restriction(restrictions)
+            # Similiarly to above, if the color shape of the existing key
+            # partition no longer matches the number of processors available
+            # in the system, then we don't want to return the existing key
+            # partition.
+            and (
+                (
+                    self._key_partition.color_shape is None
+                    and runtime.num_procs == 1
+                )
+                or (
+                    self._key_partition.color_shape is not None
+                    and self._key_partition.color_shape.volume()
+                    == runtime.num_procs
+                )
+            )
         ):
             return self._key_partition
 
@@ -1291,6 +1336,17 @@ class Store:
             )
         else:
             partition = None
+
+        # Don't use the key partition of the underlying storage if it doesn't
+        # match the number of processors available to the runtime.
+        if partition is not None:
+            if partition.color_shape is None and runtime.num_procs != 1:
+                partition = None
+            elif (
+                partition.color_shape is not None
+                and runtime.num_procs != partition.color_shape.volume()
+            ):
+                partition = None
 
         if partition is not None:
             partition = self._transform.convert_partition(partition)
