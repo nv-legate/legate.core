@@ -322,10 +322,9 @@ def test_failed_plain(use_plain_text: UsePlainTextFixture) -> None:
 
 @pytest.mark.skipif(colorama is None, reason="colorama required")
 def test_failed_with_exit_code() -> None:
-    assert (
-        m.failed("msg", exit_code=10)
-        == f"{colors.bright(colors.red('[FAIL]'))} msg{colors.bright(colors.white(' (exit: 10) '))}"  # noqa
-    )
+    fail = colors.bright(colors.red("[FAIL]"))
+    exit = colors.bright(colors.white(" (exit: 10) "))
+    assert m.failed("msg", exit_code=10) == f"{fail} msg{exit}"  # noqa
 
 
 def test_failed_with_exit_code_plain(
@@ -350,9 +349,11 @@ def test_failed_with_details_plain(
 
 @pytest.mark.skipif(colorama is None, reason="colorama required")
 def test_failed_with_details_and_exit_code() -> None:
+    fail = colors.bright(colors.red("[FAIL]"))
+    exit = colors.bright(colors.white(" (exit: 10) "))
     assert (
         m.failed("msg", details=["a", "b"], exit_code=10)
-        == f"{colors.bright(colors.red('[FAIL]'))} msg{colors.bright(colors.white(' (exit: 10) '))}\n   a\n   b"  # noqa
+        == f"{fail} msg{exit}\n   a\n   b"
     )
 
 
