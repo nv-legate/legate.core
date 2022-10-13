@@ -70,9 +70,6 @@ class Config:
         self.kernel = object_to_dataclass(args, Kernel)
         self.verbose = args.verbose
 
-        if args.config:
-            pass
-
         # these are the values we leave configurable for the kernel
         self.multi_node = object_to_dataclass(args, MultiNode)
         self.core = object_to_dataclass(args, Core)
@@ -82,7 +79,7 @@ class Config:
         self.user_opts: tuple[str, ...] = ()
         self.binding = Binding(None, None, None, None)
         self.profiling = Profiling(False, False, False, "", [])
-        self.logging = Logging("", Path(), False, False)
+        self.logging = Logging(None, Path(), False, False)
         self.debugging = Debugging(
             False, False, False, False, False, False, False
         )

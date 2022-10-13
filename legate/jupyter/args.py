@@ -30,14 +30,6 @@ parser = ArgumentParser(
     formatter_class=ArgumentDefaultsHelpFormatter,
 )
 
-parser.add_argument(
-    "--config",
-    default="legate_python.json",
-    dest="config",
-    help="Configuration file",
-)
-
-
 kernel = parser.add_argument_group("Kernel configuration")
 
 kernel.add_argument(

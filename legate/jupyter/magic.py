@@ -55,7 +55,7 @@ class LegateInfo(object):
 
     def __init__(self) -> None:
         if LEGATE_JUPYTER_KERNEL_SPEC_KEY not in os.environ:
-            raise RuntimeError()
+            raise RuntimeError("Cannot determine currently running kernel")
 
         spec_name = os.environ[LEGATE_JUPYTER_KERNEL_SPEC_KEY]
 

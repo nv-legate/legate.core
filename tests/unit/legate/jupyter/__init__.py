@@ -1,6 +1,4 @@
-#!/usr/bin/env python
-
-# Copyright 2021-2022 NVIDIA Corporation
+# Copyright 2022 NVIDIA Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,23 +13,3 @@
 # limitations under the License.
 #
 from __future__ import annotations
-
-from legate.driver import Driver
-from legate.jupyter.config import Config
-from legate.jupyter.kernel import generate_kernel_spec, install_kernel_spec
-from legate.util.system import System
-
-__all__ = ("main",)
-
-
-def main(argv: list[str]) -> int:
-    config = Config(argv)
-    system = System()
-
-    driver = Driver(config, system)
-
-    spec = generate_kernel_spec(driver, config)
-
-    install_kernel_spec(spec, config)
-
-    return 0
