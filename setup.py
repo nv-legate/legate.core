@@ -62,13 +62,11 @@ setup(
     include_package_data=True,
     entry_points={
         "console_scripts": [
+            "legate = legate.driver:main",
             "lgpatch = legate.lgpatch:main",
         ],
     },
-    scripts=[
-        "bind.sh",
-        "bin/legate",
-    ],
+    scripts=["bind.sh"],
     cmdclass=versioneer.get_cmdclass(),
     install_requires=["numpy>=1.22"],
     zip_safe=False,
