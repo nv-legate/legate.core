@@ -188,11 +188,10 @@ test_opts.add_argument(
 
 
 test_opts.add_argument(
-    "--cov_bin",
+    "--cov-bin",
     dest="cov_bin",
     action="store",
     default=None,
-    required=False,
     help=(
         "coverage binary location, "
         "e.g. /conda_path/envs/env_name/bin/coverage"
@@ -201,21 +200,19 @@ test_opts.add_argument(
 
 
 test_opts.add_argument(
-    "--cov_args",
+    "--cov-args",
     dest="cov_args",
     action="store",
     default="run -a --branch",
-    required=False,
     help="coverage run command arguments, e.g. run -a --branch",
 )
 
 
 test_opts.add_argument(
-    "--cov_src_path",
+    "--cov-src-path",
     dest="cov_src_path",
     action="store",
     default=None,
-    required=False,
     help=(
         "path value of --source in coverage run command, "
         "e.g. /project_path/cunumeric/cunumeric"
