@@ -110,7 +110,9 @@ def error(text: str) -> str:
     return red(f"ERROR: {text}")
 
 
-def failed(msg: str, *, details: Details | None = None) -> str:
+def failed(
+    msg: str, *, details: Details | None = None, exit_code: int | None = None
+) -> str:
     """Report a failed test result with a bright red [FAIL].
 
     Parameters
@@ -122,9 +124,11 @@ def failed(msg: str, *, details: Details | None = None) -> str:
         A sequenece of text lines to diplay below the ``msg`` line
 
     """
+    fail = f"{bright(red('[FAIL]'))}"
+    exit = f"{bright(white(f' (exit: {exit_code}) '))}" if exit_code else ""
     if details:
-        return f"{bright(red('[FAIL]'))} {msg}\n{_format_details(details)}"
-    return f"{bright(red('[FAIL]'))} {msg}"
+        return f"{fail} {msg}{exit}\n{_format_details(details)}"
+    return f"{fail} {msg}{exit}"
 
 
 def passed(msg: str, *, details: Details | None = None) -> str:
