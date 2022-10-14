@@ -189,8 +189,6 @@ test_opts.add_argument(
 
 test_opts.add_argument(
     "--cov-bin",
-    dest="cov_bin",
-    action="store",
     default=None,
     help=(
         "coverage binary location, "
@@ -201,8 +199,6 @@ test_opts.add_argument(
 
 test_opts.add_argument(
     "--cov-args",
-    dest="cov_args",
-    action="store",
     default="run -a --branch",
     help="coverage run command arguments, e.g. run -a --branch",
 )
@@ -210,8 +206,6 @@ test_opts.add_argument(
 
 test_opts.add_argument(
     "--cov-src-path",
-    dest="cov_src_path",
-    action="store",
     default=None,
     help=(
         "path value of --source in coverage run command, "

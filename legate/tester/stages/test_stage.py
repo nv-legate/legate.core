@@ -217,7 +217,7 @@ class TestStage(Protocol):
         if config.cov_bin:
             args = [str(config.cov_bin)] + config.cov_args.split()
             if config.cov_src_path:
-                args += ["--source=%s" % config.cov_src_path]
+                args += [f"--source={config.cov_src_path}"]
         else:
             args = []
 
