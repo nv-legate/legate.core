@@ -467,7 +467,7 @@ If installation is successful, you will see some output like the following:
 ```
 Jupyter kernel spec Legate_SM_GPU (Legate_SM_GPU) has been installed
 ```
-Legate_SM_GPU` is the default kernel name.
+`Legate_SM_GPU` is the default kernel name.
 
 ### Running with Jupyter Notebook
 
@@ -482,7 +482,7 @@ the Legion Jupyter Notebook extension:
 
 The Legate Jupyter kernel is configured according to the command line arguments
 provided at install time.  Standard `legate` options for Core, Memory, and
-Mult-node configuration may  provided, as well as a name for the kernel:
+Mult-node configuration may be  provided, as well as a name for the kernel:
 ```
 legate-jupyter --name legate_cpus_2 --cpus 2
 ```
