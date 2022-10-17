@@ -71,6 +71,10 @@ class TestConfig:
 
         assert c.legate_path == "legate"
 
+        assert c.cov_bin is None
+        assert c.cov_args == "run -a --branch"
+        assert c.cov_src_path is None
+
     @pytest.mark.parametrize("feature", FEATURES)
     def test_env_features(
         self, monkeypatch: pytest.MonkeyPatch, feature: str
@@ -180,3 +184,8 @@ class TestConfig:
         assert c.extra_args == extra
         c = m.Config(["test.py"] + extra + ["--files", "a", "b"])
         assert c.extra_args == extra
+
+    def test_cov_args(self) -> None:
+        cov_args = ["--cov-args", "run -a"]
+        c = m.Config(["test.py"] + cov_args)
+        assert c.cov_args == "run -a"
