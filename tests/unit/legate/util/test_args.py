@@ -82,12 +82,11 @@ class TestArgSpec:
     def test_default(self) -> None:
         spec = m.ArgSpec("dest")
         assert spec.dest == "dest"
-        assert spec.action == "store_true"
+        assert spec.action == m.Unset
 
         # all others are unset
         assert set(m.entries(spec)) == {
             ("dest", "dest"),
-            ("action", "store_true"),
         }
 
 
@@ -146,7 +145,9 @@ class Test_parse_library_command_args:
         self, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
     ) -> None:
         monkeypatch.setattr("sys.argv", ["app", "-foo:help"])
-        args = [m.Argument("help", m.ArgSpec(dest="help"))]
+        args = [
+            m.Argument("help", m.ArgSpec(action="store_true", dest="help"))
+        ]
         ns = m.parse_library_command_args("foo", args)
         out, err = capsys.readouterr()
         assert out == ""
@@ -158,7 +159,7 @@ class Test_parse_library_command_args:
     ) -> None:
         monkeypatch.setattr("sys.argv", ["app", "-foo:bar", "-foo:quux", "1"])
         args = [
-            m.Argument("bar", m.ArgSpec(dest="bar")),
+            m.Argument("bar", m.ArgSpec(action="store_true", dest="bar")),
             m.Argument(
                 "quux", m.ArgSpec(dest="quux", action="store", type=int)
             ),
@@ -173,7 +174,7 @@ class Test_parse_library_command_args:
         self, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
     ) -> None:
         monkeypatch.setattr("sys.argv", ["app", "-foo:bar", "--extra", "1"])
-        args = [m.Argument("bar", m.ArgSpec(dest="bar"))]
+        args = [m.Argument("bar", m.ArgSpec(action="store_true", dest="bar"))]
         ns = m.parse_library_command_args("foo", args)
         out, err = capsys.readouterr()
         assert out == ""
@@ -208,7 +209,7 @@ class Test_parse_library_command_args:
         monkeypatch.setattr(
             "sys.argv", ["app", "-foo:bar", "--foo", "-f", "1", "-ff"]
         )
-        args = [m.Argument("bar", m.ArgSpec(dest="bar"))]
+        args = [m.Argument("bar", m.ArgSpec(action="store_true", dest="bar"))]
         ns = m.parse_library_command_args("foo", args)
         out, err = capsys.readouterr()
         assert out == ""

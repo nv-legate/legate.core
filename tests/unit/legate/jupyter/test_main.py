@@ -18,7 +18,7 @@ import sys
 
 from pytest_mock import MockerFixture
 
-import legate.driver as m
+import legate.jupyter as m
 
 # main function shadows main module
 # def test___all__() -> None:
@@ -28,17 +28,18 @@ import legate.driver as m
 
 
 def test_main(mocker: MockerFixture) -> None:
-    import legate.driver.config
     import legate.driver.driver
+    import legate.jupyter.config
     import legate.util.system
 
-    config_spy = mocker.spy(legate.driver.config.Config, "__init__")
+    config_spy = mocker.spy(legate.jupyter.config.Config, "__init__")
     system_spy = mocker.spy(legate.util.system.System, "__init__")
     driver_spy = mocker.spy(legate.driver.driver.Driver, "__init__")
-    mocker.patch("legate.driver.driver.Driver.run", return_value=123)
-    mocker.patch.object(sys, "argv", ["foo", "bar"])
+    generate_spy = mocker.spy(legate.jupyter.kernel, "generate_kernel_spec")
+    install_mock = mocker.patch("legate.jupyter.kernel.install_kernel_spec")
+    mocker.patch.object(sys, "argv", ["legate-jupyter", "--name", "foo"])
 
-    result = m.main()
+    m.main()
 
     assert config_spy.call_count == 1
     assert config_spy.call_args[0][1] == sys.argv
@@ -50,8 +51,23 @@ def test_main(mocker: MockerFixture) -> None:
 
     assert driver_spy.call_count == 1
     assert len(driver_spy.call_args[0]) == 3
-    assert isinstance(driver_spy.call_args[0][1], legate.driver.config.Config)
+    assert isinstance(driver_spy.call_args[0][1], legate.jupyter.config.Config)
     assert isinstance(driver_spy.call_args[0][2], legate.util.system.System)
     assert driver_spy.call_args[1] == {}
 
-    assert result == 123
+    assert generate_spy.call_count == 1
+    assert len(generate_spy.call_args[0]) == 2
+    assert isinstance(
+        generate_spy.call_args[0][0], legate.driver.driver.Driver
+    )
+    assert isinstance(
+        generate_spy.call_args[0][1], legate.jupyter.config.Config
+    )
+    assert generate_spy.call_args[1] == {}
+
+    assert install_mock.call_count == 1
+    assert install_mock.call_args[0][0] == generate_spy.spy_return
+    assert isinstance(
+        install_mock.call_args[0][1], legate.jupyter.config.Config
+    )
+    assert install_mock.call_args[1] == {}

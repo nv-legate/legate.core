@@ -19,7 +19,7 @@ import os
 import pytest
 
 import legate.driver.launcher as m
-from legate.driver.args import LAUNCHERS
+from legate.util.shared_args import LAUNCHERS
 from legate.util.system import System
 from legate.util.types import LauncherType
 
