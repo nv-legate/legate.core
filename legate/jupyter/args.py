@@ -105,3 +105,11 @@ info.add_argument(
     default=0,
     help="Display verbose output. Use -vv for even more output (test stdout)",
 )
+
+info.add_argument(
+    "--color",
+    dest="color",
+    action="store_true",
+    required=False,
+    help="Whether to use color terminal output (if colorama is installed)",
+)

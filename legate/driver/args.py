@@ -330,3 +330,11 @@ other.add_argument(
     required=False,
     help="Whether to run with rlwrap to improve readline ability",
 )
+
+other.add_argument(
+    "--color",
+    dest="color",
+    action="store_true",
+    required=False,
+    help="Whether to use color terminal output (if colorama is installed)",
+)

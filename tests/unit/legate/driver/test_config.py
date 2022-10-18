@@ -23,6 +23,7 @@ from pytest_mock import MockerFixture
 
 import legate.driver.config as m
 import legate.driver.defaults as defaults
+from legate.util import colors
 from legate.util.colors import scrub
 from legate.util.types import DataclassMixin
 
@@ -208,6 +209,8 @@ class TestConfig:
 
         c = m.Config(["legate"])
 
+        assert colors.ENABLED is False
+
         assert c.multi_node == m.MultiNode(
             nodes=defaults.LEGATE_NODES,
             ranks_per_node=defaults.LEGATE_RANKS_PER_NODE,
@@ -266,6 +269,11 @@ class TestConfig:
         assert c.info == m.Info(progress=False, mem_usage=False, verbose=False)
 
         assert c.other == m.Other(module=None, dry_run=False, rlwrap=False)
+
+    def test_color_arg(self) -> None:
+        m.Config(["legate", "--color"])
+
+        assert colors.ENABLED is True
 
     def test_arg_conversions(self, mocker: MockerFixture) -> None:
 

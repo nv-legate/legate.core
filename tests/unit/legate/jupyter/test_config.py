@@ -22,6 +22,7 @@ from pytest_mock import MockerFixture
 import legate.driver.defaults as defaults
 import legate.jupyter.config as m
 from legate.driver.config import Core, Memory, MultiNode
+from legate.util import colors
 from legate.util.types import DataclassMixin
 
 
@@ -46,6 +47,8 @@ class TestConfig:
         # is that the generated config matches those values, whatever they are.
 
         c = m.Config(["legate-jupyter"])
+
+        assert colors.ENABLED is False
 
         assert c.multi_node == m.MultiNode(
             nodes=defaults.LEGATE_NODES,
@@ -107,6 +110,11 @@ class TestConfig:
         assert c.info == m.Info(progress=False, mem_usage=False, verbose=False)
 
         assert c.other == m.Other(module=None, dry_run=False, rlwrap=False)
+
+    def test_color_arg(self) -> None:
+        m.Config(["legate-jupyter", "--color"])
+
+        assert colors.ENABLED is True
 
     def test_arg_conversions(self, mocker: MockerFixture) -> None:
 
