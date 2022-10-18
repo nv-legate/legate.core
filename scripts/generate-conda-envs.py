@@ -233,8 +233,7 @@ dependencies:
 
   - python={python}
 
-{conda_sections}
-{pip}
+{conda_sections}{pip}
 """
 
 SECTION_TEMPLATE = """\
