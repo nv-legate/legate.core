@@ -13,9 +13,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from textwrap import indent
 from typing import Literal, Protocol, Tuple
-
-from jinja2 import Template
 
 # --- Types -------------------------------------------------------------------
 
@@ -25,7 +24,7 @@ OSType = Literal["linux", "darwin"]
 
 
 class SectionConfig(Protocol):
-    heading: str
+    header: str
 
     @property
     def conda(self) -> Reqs:
@@ -36,7 +35,14 @@ class SectionConfig(Protocol):
         return ()
 
     def __str__(self) -> str:
-        return self.heading
+        return self.header
+
+    def format(self, kind: str) -> str:
+        return SECTION_TEMPLATE.format(
+            header=self.header,
+            reqs="- "
+            + "\n- ".join(self.conda if kind == "conda" else self.pip),
+        )
 
 
 @dataclass(frozen=True)
@@ -219,39 +225,29 @@ CTK_VERSIONS = (
 OS_NAMES: Tuple[OSType, ...] = ("linux", "osx")
 
 
-ENV_TEMPLATE = Template(
-    """
-name: legate-{{ use }}
+ENV_TEMPLATE = """\
+name: legate-{use}
 channels:
   - conda-forge
 dependencies:
 
-  - python={{ python }}
-  {% if conda_sections %}
-  {% for section in conda_sections %}
+  - python={python}
 
-  # {{ section.header }}
-  {% for req in section.conda %}
-  - {{ req }}
-  {% endfor %}
-  {% endfor %}
-  {% endif %}
-  {% if pip_sections %}
+{conda_sections}
+{pip}
+"""
 
+SECTION_TEMPLATE = """\
+# {header}
+{reqs}
+
+"""
+
+PIP_TEMPLATE = """\
   - pip
   - pip:
-      {% for section in pip_sections %}
-
-      # {{ section.header }}
-      {% for req in section.pip %}
-      - {{ req }}
-      {% endfor %}
-      {% endfor %}
-  {% endif %}
-""",
-    trim_blocks=True,
-    lstrip_blocks=True,
-)
+{pip_sections}
+"""
 
 ALL_CONFIGS = [
     EnvConfig("test", python, "linux", ctk, compilers, openmpi)
@@ -340,17 +336,21 @@ if __name__ == "__main__":
         configs = (x for x in configs if x.build.openmpi == args.openmpi)
 
     for config in configs:
-        conda_sections = [
-            section for section in config.sections if section.conda
-        ]
-        pip_sections = [section for section in config.sections if section.pip]
+        conda_sections = indent(
+            "".join(s.format("conda") for s in config.sections if s.conda),
+            "  ",
+        )
+
+        pip_sections = indent(
+            "".join(s.format("pip") for s in config.sections if s.pip), "    "
+        )
 
         print(f"--- generating: {config.filename}")
-        out = ENV_TEMPLATE.render(
+        out = ENV_TEMPLATE.format(
             use=config.use,
             python=config.python,
             conda_sections=conda_sections,
-            pip_sections=pip_sections,
+            pip=PIP_TEMPLATE.format(pip_sections=pip_sections),
         )
         with open(f"{config.filename}", "w") as f:
             f.write(out)
