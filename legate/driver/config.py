@@ -43,6 +43,14 @@ class MultiNode(DataclassMixin):
     launcher: LauncherType
     launcher_extra: list[str]
 
+    def __post_init__(self, **kw: dict[str, Any]) -> None:
+        # fix up launcher_extra to automaticaly handle quoted strings with
+        # internal whitespace, have to use __setattr__ for frozen
+        # https://docs.python.org/3/library/dataclasses.html#frozen-instances
+        if self.launcher_extra:
+            ex: list[str] = sum((x.split() for x in self.launcher_extra), [])
+            object.__setattr__(self, "launcher_extra", ex)
+
     @property
     def ranks(self) -> int:
         return self.nodes * self.ranks_per_node

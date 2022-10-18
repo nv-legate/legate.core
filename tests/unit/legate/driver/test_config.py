@@ -54,6 +54,41 @@ class TestMultiNode:
     def test_mixin(self) -> None:
         assert issubclass(m.MultiNode, DataclassMixin)
 
+    @pytest.mark.parametrize(
+        "extra",
+        (["a"], ["a", "b c"], ["a", "b c", "d e"], ["a", "b c", "d e", "f"]),
+    )
+    def test_launcher_extra_fixup_basic(self, extra) -> None:
+        mn = m.MultiNode(
+            nodes=1,
+            ranks_per_node=1,
+            not_control_replicable=False,
+            launcher="launcher",
+            launcher_extra=extra,
+        )
+        assert mn.launcher_extra == sum((x.split() for x in extra), [])
+
+    def test_launcher_extra_fixup_complex(self) -> None:
+        mn = m.MultiNode(
+            nodes=1,
+            ranks_per_node=1,
+            not_control_replicable=False,
+            launcher="launcher",
+            launcher_extra=[
+                "-H g0002,g0002 -X SOMEENV --fork",
+                "-bind-to none",
+            ],
+        )
+        assert mn.launcher_extra == [
+            "-H",
+            "g0002,g0002",
+            "-X",
+            "SOMEENV",
+            "--fork",
+            "-bind-to",
+            "none",
+        ]
+
 
 class TestBinding:
     def test_fields(self) -> None:
