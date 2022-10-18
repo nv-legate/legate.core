@@ -51,7 +51,7 @@ class MultiNode(DataclassMixin):
         # https://docs.python.org/3/library/dataclasses.html#frozen-instances
         if self.launcher_extra:
             ex: list[str] = sum(
-                (shlex.split(x, posix=False) for x in self.launcher_extra), []
+                (shlex.split(x) for x in self.launcher_extra), []
             )
             object.__setattr__(self, "launcher_extra", ex)
 

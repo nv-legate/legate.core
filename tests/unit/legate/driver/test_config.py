@@ -102,7 +102,7 @@ class TestMultiNode:
         )
         assert mn.launcher_extra == [
             "-f",
-            "'some path with spaces/foo.txt'",
+            "some path with spaces/foo.txt",
         ]
 
 
