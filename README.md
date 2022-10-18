@@ -50,15 +50,23 @@ Pull requests are welcomed.
 
 If you have questions, please contact us at legate(at)nvidia.com.
 
-1. [Why Legate?](#why-legate)
-1. [What is the Legate Core?](#what-is-the-legate-core)
-1. [How Does Legate Work?](#how-does-legate-work)
-1. [How Do I Install Legate?](#installation)
-1. [How Do I Use Legate?](#how-do-i-use-legate)
-1. [Other FAQs](#other-faqs)
-1. [Contributing](#contributing)
-1. [Documentation](#documentation)
-1. [Next Steps](#next-steps)
+- [Legate](#legate)
+  - [Why Legate?](#why-legate)
+  - [What is the Legate Core?](#what-is-the-legate-core)
+  - [How Does Legate Work?](#how-does-legate-work)
+  - [How Do I Install Legate?](#how-do-i-install-legate)
+  - [How Do I Use Legate?](#how-do-i-use-legate)
+    - [Distributed Launch](#distributed-launch)
+    - [Debugging and Profiling](#debugging-and-profiling)
+  - [Running Legate programs with Jupyter Notebook](#running-legate-programs-with-jupyter-notebook)
+    - [Installation of the Legate IPython Kernel](#installation-of-the-legate-ipython-kernel)
+    - [Running with Jupyter Notebook](#running-with-jupyter-notebook)
+    - [Configuring the Jupyter Notebook](#configuring-the-jupyter-notebook)
+    - [Magic Command](#magic-command)
+  - [Other FAQs](#other-faqs)
+  - [Contributing](#contributing)
+  - [Documentation](#documentation)
+  - [Next Steps](#next-steps)
 
 ## Why Legate?
 
@@ -352,22 +360,16 @@ To simplify the installation, we provide a script specifically for Legate librar
 
 ### Installation of the Legate IPython Kernel
 
-Please install Legate, then run the following command to install the IPython
-kernel:
+Please install Legate, then run the following command to install a default
+Jupyter kernel:
 ```
-python -m legate.jupyter --json=legate_jupyter.json
+legate-jupyter
 ```
-If `--json=` is not provided, the installation script will look for a file
-named `legate_jupyter.json` in the current directory. A sample
-`legate_jupyter.json` file is provided in the legate.core source directory.
-
 If installation is successful, you will see some output like the following:
 ```
-IPython kernel: legate_kernel_nocr(Legate_SM_GPU) has been installed
+Jupyter kernel spec Legate_SM_GPU (Legate_SM_GPU) has been installed
 ```
-`Legate_SM_GPU` is the kernel name, and you will need to provide it
-when starting the Jupyter Notebook. `SM` means the kernel is only for
-shared memory execution; `GPU` means GPU support is enabled.
+`Legate_SM_GPU` is the default kernel name.
 
 ### Running with Jupyter Notebook
 
@@ -380,22 +382,13 @@ the Legion Jupyter Notebook extension:
 
 ### Configuring the Jupyter Notebook
 
-The Legate IPython kernel is configured according to the json file provided at
-install time. Here is an example of an entry in the json file:
+The Legate Jupyter kernel is configured according to the command line arguments
+provided at install time.  Standard `legate` options for Core, Memory, and
+Mult-node configuration may be provided, as well as a name for the kernel:
 ```
-"cpus": {
-    "cmd": "--cpus",
-    "value": 1
-}
+legate-jupyter --name legate_cpus_2 --cpus 2
 ```
-* `cpus` is the name of the field.
-
-* `cmd` is used to tell Jupyter how to pass the value for that field to Legate through the
-CLI, in this case using `--cpus` to set the number of CPUs.
-
-* `value` is the value of the field.
-
-Other configuration options can be added by using the `other_options` field of the json file.
+Other configuration options can be seen by using the `--help` command line option.
 
 ### Magic Command
 
@@ -403,17 +396,24 @@ We provide a Jupyter magic command to display the IPython kernel configuration.
 ```
 %load_ext legate.jupyter
 %legate_info
-Number of CPUs to use per rank: 4
-Number of GPUs to use per rank: 1
-Number of OpenMP groups to use per rank: 0
-Number of threads per OpenMP group: 4
-Number of Utility processors per rank: 2
-Amount of DRAM memory per rank (in MBs): 4000
-Amount of DRAM memory per NUMA domain per rank (in MBs): 0
-Amount of framebuffer memory per GPU (in MBs): 4000
-Amount of zero-copy memory per rank (in MBs): 32
-Amount of registered CPU-side pinned memory per rank (in MBs): 0
-Number of nodes to use: 1
+```
+results in output:
+```
+Kernel 'Legate_SM_GPU' configured for 1 node(s)
+
+Cores:
+  CPUs to use per rank : 4
+  GPUs to use per rank : 0
+  OpenMP groups to use per rank : 0
+  Threads per OpenMP group : 4
+  Utility processors per rank : 2
+
+Memory:
+  DRAM memory per rank (in MBs) : 4000
+  DRAM memory per NUMA domain per rank (in MBs) : 0
+  Framebuffer memory per GPU (in MBs) : 4000
+  Zero-copy memory per rank (in MBs) : 32
+  Registered CPU-side pinned memory per rank (in MBs) : 0
 ```
 
 ## Other FAQs

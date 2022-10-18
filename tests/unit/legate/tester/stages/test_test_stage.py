@@ -86,3 +86,32 @@ class TestTestStage:
         stage = MockTestStage(c, s)
         assert stage.file_args(Path("integration/foo"), c) == ["-v", "-s"]
         assert stage.file_args(Path("unit/foo"), c) == []
+
+    def test_cov_args_without_cov_bin(self) -> None:
+        c = m.Config(["test.py", "--cov-args", "run -a"])
+        stage = MockTestStage(c, s)
+        assert stage.cov_args(c) == []
+
+    def test_cov_args_with_cov_bin(self) -> None:
+        cov_bin = "conda/envs/legate/bin/coverage"
+        args = ["--cov-bin", cov_bin]
+        c = m.Config(["test.py"] + args)
+        expected_result = [cov_bin] + c.cov_args.split()
+        stage = MockTestStage(c, s)
+        assert stage.cov_args(c) == expected_result
+
+    def test_cov_args_with_cov_bin_args_and_src_path(self) -> None:
+        cov_bin = "conda/envs/legate/bin/coverage"
+        cov_args = "run -a"
+        cov_src_path = "source_path"
+        args = (
+            ["--cov-bin", cov_bin]
+            + ["--cov-args", cov_args]
+            + ["--cov-src-path", cov_src_path]
+        )
+        c = m.Config(["test.py"] + args)
+        expected_result = (
+            [cov_bin] + cov_args.split() + ["--source", cov_src_path]
+        )
+        stage = MockTestStage(c, s)
+        assert stage.cov_args(c) == expected_result

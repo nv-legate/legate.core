@@ -188,6 +188,33 @@ test_opts.add_argument(
 
 
 test_opts.add_argument(
+    "--cov-bin",
+    default=None,
+    help=(
+        "coverage binary location, "
+        "e.g. /conda_path/envs/env_name/bin/coverage"
+    ),
+)
+
+
+test_opts.add_argument(
+    "--cov-args",
+    default="run -a --branch",
+    help="coverage run command arguments, e.g. run -a --branch",
+)
+
+
+test_opts.add_argument(
+    "--cov-src-path",
+    default=None,
+    help=(
+        "path value of --source in coverage run command, "
+        "e.g. /project_path/cunumeric/cunumeric"
+    ),
+)
+
+
+test_opts.add_argument(
     "-j",
     "--workers",
     dest="workers",
@@ -220,4 +247,12 @@ test_opts.add_argument(
     dest="debug",
     action="store_true",
     help="Print out the commands that are to be executed",
+)
+
+parser.add_argument(
+    "--color",
+    dest="color",
+    action="store_true",
+    required=False,
+    help="Whether to use color terminal output (if colorama is installed)",
 )

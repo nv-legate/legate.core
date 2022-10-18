@@ -21,8 +21,9 @@ from argparse import Namespace
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
+from ..util import colors
 from ..util.types import (
     ArgList,
     DataclassMixin,
@@ -123,6 +124,24 @@ class Other(DataclassMixin):
     rlwrap: bool
 
 
+class ConfigProtocol(Protocol):
+
+    _args: Namespace
+
+    argv: ArgList
+
+    user_opts: tuple[str, ...]
+    multi_node: MultiNode
+    binding: Binding
+    core: Core
+    memory: Memory
+    profiling: Profiling
+    logging: Logging
+    debugging: Debugging
+    info: Info
+    other: Other
+
+
 class Config:
     """A centralized configuration object that provides the information
     needed by the Legate driver in order to run.
@@ -135,7 +154,11 @@ class Config:
     """
 
     def __init__(self, argv: ArgList) -> None:
-        args, extra = parser.parse_known_args(argv[1:])
+        self.argv = argv
+
+        args, extra = parser.parse_known_args(self.argv[1:])
+
+        colors.ENABLED = args.color
 
         # only saving this for help with testing
         self._args = args

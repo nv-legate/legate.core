@@ -29,7 +29,7 @@ from ..util.ui import warn
 if TYPE_CHECKING:
     from ..util.system import System
     from ..util.types import Command
-    from .config import Config
+    from .config import ConfigProtocol
     from .launcher import Launcher
 
 __all__ = (
@@ -53,10 +53,10 @@ class LogHandler(metaclass=ABCMeta):
 
     """
 
-    config: Config
+    config: ConfigProtocol
     system: System
 
-    def __init__(self, config: Config, system: System) -> None:
+    def __init__(self, config: ConfigProtocol, system: System) -> None:
         self.config = config
         self.system = system
 
@@ -164,7 +164,7 @@ class DebuggingHandler(LogHandler):
 
 @contextmanager
 def process_logs(
-    config: Config, system: System, launcher: Launcher
+    config: ConfigProtocol, system: System, launcher: Launcher
 ) -> Iterator[tuple[LogHandler, ...]]:
     """A context manager for log initializion and processing/cleanup, based
     on the user configuration.

@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING
 from ..util.system import System
 from ..util.ui import kvtable, rule, section, value, warn
 from .command import CMD_PARTS
-from .config import Config
+from .config import ConfigProtocol
 from .launcher import Launcher
 from .logs import process_logs
 
@@ -53,7 +53,7 @@ class Driver:
 
     """
 
-    def __init__(self, config: Config, system: System) -> None:
+    def __init__(self, config: ConfigProtocol, system: System) -> None:
         self.config = config
         self.system = system
         self.launcher = Launcher.create(config, system)

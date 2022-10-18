@@ -57,9 +57,17 @@ STYLE_FUNCS = (
 )
 
 
+def test_default_ENABLED() -> None:
+    assert m.ENABLED is False
+
+
 @pytest.mark.skipif(colorama is None, reason="colorama required")
 @pytest.mark.parametrize("color", COLOR_FUNCS)
-def test_color_functions(color: str) -> None:
+def test_color_functions_ENABLED_True(
+    mocker: MockerFixture, color: str
+) -> None:
+    mocker.patch.object(m, "ENABLED", True)
+
     cfunc = getattr(m, color)
     cprop = getattr(colorama.Fore, color.upper())
 
@@ -68,15 +76,45 @@ def test_color_functions(color: str) -> None:
     assert out == f"{cprop}some text{colorama.Style.RESET_ALL}"
 
 
+@pytest.mark.parametrize("color", COLOR_FUNCS)
+def test_color_functions_ENABLED_False(
+    mocker: MockerFixture, color: str
+) -> None:
+    mocker.patch.object(m, "ENABLED", False)
+
+    cfunc = getattr(m, color)
+
+    out = cfunc("some text")
+
+    assert out == "some text"
+
+
 @pytest.mark.skipif(colorama is None, reason="colorama required")
 @pytest.mark.parametrize("style", STYLE_FUNCS)
-def test_style_functions(style: str) -> None:
+def test_style_functions_ENABLED_True(
+    mocker: MockerFixture, style: str
+) -> None:
+    mocker.patch.object(m, "ENABLED", True)
+
     sfunc = getattr(m, style)
     sprop = getattr(colorama.Style, style.upper())
 
     out = sfunc("some text")
 
     assert out == f"{sprop}some text{colorama.Style.RESET_ALL}"
+
+
+@pytest.mark.parametrize("style", STYLE_FUNCS)
+def test_style_functions_ENABLED_False(
+    mocker: MockerFixture, style: str
+) -> None:
+    mocker.patch.object(m, "ENABLED", False)
+
+    sfunc = getattr(m, style)
+
+    out = sfunc("some text")
+
+    assert out == "some text"
 
 
 @pytest.mark.skipif(colorama is None, reason="colorama required")
