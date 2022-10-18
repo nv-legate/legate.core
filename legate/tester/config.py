@@ -38,7 +38,9 @@ class Config:
     """
 
     def __init__(self, argv: ArgList) -> None:
-        args, self._extra_args = parser.parse_known_args(argv[1:])
+        self.argv = argv
+
+        args, self._extra_args = parser.parse_known_args(self.argv[1:])
 
         # which tests to run
         self.examples = False if args.cov_bin else True

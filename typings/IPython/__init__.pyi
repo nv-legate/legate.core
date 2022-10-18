@@ -1,4 +1,4 @@
-# Copyright 2021-2022 NVIDIA Corporation
+# Copyright 2022 NVIDIA Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,21 +14,7 @@
 #
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from .core.magic import Magics
 
-from legate.jupyter.magic import LegateInfoMagics
-
-if TYPE_CHECKING:
-    from IPython import InteractiveShell
-
-
-def load_ipython_extension(ipython: InteractiveShell) -> None:
-    ipython.register_magics(LegateInfoMagics(ipython))
-
-
-def main() -> int:
-    import sys
-
-    from .main import main as _main
-
-    return _main(sys.argv)
+class InteractiveShell:
+    def register_magics(self, *objs: Magics) -> None: ...
