@@ -37,6 +37,9 @@ __all__ = (
 )
 
 
+# Color terminal output needs to be explicitly opt-in. Applications that want
+# to enable it should set this global flag to True, e.g based on a command line
+# argument or other user-supplied configuration
 ENABLED = False
 
 
