@@ -248,6 +248,13 @@ class Task(TaskProtocol):
         self._side_effect = False
 
     @property
+    def side_effect(self) -> bool:
+        return self._side_effect
+
+    def set_side_effect(self, side_effect: bool) -> None:
+        self._side_effect = side_effect
+
+    @property
     def uses_communicator(self) -> bool:
         return len(self._comm_args) > 0
 
