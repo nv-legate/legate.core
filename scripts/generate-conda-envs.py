@@ -16,13 +16,12 @@ from dataclasses import dataclass
 from typing import Literal, Protocol, Tuple
 
 from jinja2 import Template
-from typing_extensions import TypeAlias
 
 # --- Types -------------------------------------------------------------------
 
-Req: TypeAlias = str
-Reqs: TypeAlias = Tuple[Req, ...]
-OSType: TypeAlias = Literal["linux", "darwin"]
+Req = str
+Reqs = Tuple[Req, ...]
+OSType = Literal["linux", "darwin"]
 
 
 class SectionConfig(Protocol):
