@@ -248,3 +248,11 @@ test_opts.add_argument(
     action="store_true",
     help="Print out the commands that are to be executed",
 )
+
+parser.add_argument(
+    "--color",
+    dest="color",
+    action="store_true",
+    required=False,
+    help="Whether to use color terminal output (if colorama is installed)",
+)

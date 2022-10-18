@@ -20,6 +20,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+import legate.util.colors as colors
 from legate.driver.config import (
     Binding,
     Core,
@@ -63,6 +64,8 @@ class Config:
 
         # only saving these for help with testing
         self._args = args
+
+        colors.ENABLED = args.color
 
         if args.display_name is None:
             args.display_name = args.spec_name

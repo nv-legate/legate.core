@@ -21,6 +21,7 @@ import os
 from argparse import Namespace
 from pathlib import Path
 
+from ..util import colors
 from ..util.types import ArgList, EnvDict
 from . import DEFAULT_PROCESS_ENV, FEATURES, SKIPPED_EXAMPLES, FeatureType
 from .args import parser
@@ -41,6 +42,8 @@ class Config:
         self.argv = argv
 
         args, self._extra_args = parser.parse_known_args(self.argv[1:])
+
+        colors.ENABLED = args.color
 
         # which tests to run
         self.examples = False if args.cov_bin else True

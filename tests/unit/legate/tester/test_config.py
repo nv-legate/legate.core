@@ -32,11 +32,14 @@ from legate.tester import (
     config as m,
 )
 from legate.tester.args import PIN_OPTIONS, PinOptionsType
+from legate.util import colors
 
 
 class TestConfig:
     def test_default_init(self) -> None:
         c = m.Config([])
+
+        assert colors.ENABLED is False
 
         assert c.examples is True
         assert c.integration is True
@@ -74,6 +77,11 @@ class TestConfig:
         assert c.cov_bin is None
         assert c.cov_args == "run -a --branch"
         assert c.cov_src_path is None
+
+    def test_color_arg(self) -> None:
+        m.Config(["test.py", "--color"])
+
+        assert colors.ENABLED is True
 
     @pytest.mark.parametrize("feature", FEATURES)
     def test_env_features(
