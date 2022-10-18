@@ -17,6 +17,7 @@
 """
 from __future__ import annotations
 
+import shlex
 from argparse import Namespace
 from dataclasses import dataclass
 from functools import cached_property
@@ -49,7 +50,9 @@ class MultiNode(DataclassMixin):
         # internal whitespace, have to use __setattr__ for frozen
         # https://docs.python.org/3/library/dataclasses.html#frozen-instances
         if self.launcher_extra:
-            ex: list[str] = sum((x.split() for x in self.launcher_extra), [])
+            ex: list[str] = sum(
+                (shlex.split(x, posix=False) for x in self.launcher_extra), []
+            )
             object.__setattr__(self, "launcher_extra", ex)
 
     @property

@@ -90,6 +90,21 @@ class TestMultiNode:
             "none",
         ]
 
+    def test_launcher_extra_fixup_quoted(self) -> None:
+        mn = m.MultiNode(
+            nodes=1,
+            ranks_per_node=1,
+            not_control_replicable=False,
+            launcher="launcher",
+            launcher_extra=[
+                "-f 'some path with spaces/foo.txt'",
+            ],
+        )
+        assert mn.launcher_extra == [
+            "-f",
+            "'some path with spaces/foo.txt'",
+        ]
+
 
 class TestBinding:
     def test_fields(self) -> None:
