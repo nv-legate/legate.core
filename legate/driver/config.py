@@ -23,6 +23,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import Any, Protocol
 
+from ..util import colors
 from ..util.types import (
     ArgList,
     DataclassMixin,
@@ -156,6 +157,8 @@ class Config:
         self.argv = argv
 
         args, extra = parser.parse_known_args(self.argv[1:])
+
+        colors.ENABLED = args.color
 
         # only saving this for help with testing
         self._args = args

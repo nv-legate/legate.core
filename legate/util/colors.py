@@ -37,6 +37,9 @@ __all__ = (
 )
 
 
+ENABLED = False
+
+
 def _text(text: str) -> str:
     return text
 
@@ -45,27 +48,43 @@ try:
     import colorama  # type: ignore[import]
 
     def bright(text: str) -> str:
+        if not ENABLED:
+            return text
         return f"{colorama.Style.BRIGHT}{text}{colorama.Style.RESET_ALL}"
 
     def dim(text: str) -> str:
+        if not ENABLED:
+            return text
         return f"{colorama.Style.DIM}{text}{colorama.Style.RESET_ALL}"
 
     def white(text: str) -> str:
+        if not ENABLED:
+            return text
         return f"{colorama.Fore.WHITE}{text}{colorama.Style.RESET_ALL}"
 
     def cyan(text: str) -> str:
+        if not ENABLED:
+            return text
         return f"{colorama.Fore.CYAN}{text}{colorama.Style.RESET_ALL}"
 
     def red(text: str) -> str:
+        if not ENABLED:
+            return text
         return f"{colorama.Fore.RED}{text}{colorama.Style.RESET_ALL}"
 
     def magenta(text: str) -> str:
+        if not ENABLED:
+            return text
         return f"{colorama.Fore.MAGENTA}{text}{colorama.Style.RESET_ALL}"
 
     def green(text: str) -> str:
+        if not ENABLED:
+            return text
         return f"{colorama.Fore.GREEN}{text}{colorama.Style.RESET_ALL}"
 
     def yellow(text: str) -> str:
+        if not ENABLED:
+            return text
         return f"{colorama.Fore.YELLOW}{text}{colorama.Style.RESET_ALL}"
 
     if sys.platform == "win32":
