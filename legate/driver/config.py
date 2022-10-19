@@ -95,6 +95,14 @@ class Profiling(DataclassMixin):
     nsys_targets: str  # TODO: multi-choice
     nsys_extra: list[str]
 
+    def __post_init__(self, **kw: dict[str, Any]) -> None:
+        # fix up nsys_extra to automaticaly handle quoted strings with
+        # internal whitespace, have to use __setattr__ for frozen
+        # https://docs.python.org/3/library/dataclasses.html#frozen-instances
+        if self.nsys_extra:
+            ex: list[str] = sum((shlex.split(x) for x in self.nsys_extra), [])
+            object.__setattr__(self, "nsys_extra", ex)
+
 
 @dataclass(frozen=True)
 class Logging(DataclassMixin):

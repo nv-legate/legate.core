@@ -161,6 +161,56 @@ class TestProfiling:
     def test_mixin(self) -> None:
         assert issubclass(m.Profiling, DataclassMixin)
 
+    @pytest.mark.parametrize(
+        "extra",
+        (["a"], ["a", "b c"], ["a", "b c", "d e"], ["a", "b c", "d e", "f"]),
+    )
+    def test_nsys_extra_fixup_basic(self, extra) -> None:
+        p = m.Profiling(
+            profile=True,
+            nvprof=True,
+            nsys=True,
+            nsys_targets="foo,bar",
+            nsys_extra=extra,
+        )
+        assert p.nsys_extra == sum((x.split() for x in extra), [])
+
+    def test_nsys_extra_fixup_complex(self) -> None:
+        p = m.Profiling(
+            profile=True,
+            nvprof=True,
+            nsys=True,
+            nsys_targets="foo,bar",
+            nsys_extra=[
+                "-H g0002,g0002 -X SOMEENV --fork",
+                "-bind-to none",
+            ],
+        )
+        assert p.nsys_extra == [
+            "-H",
+            "g0002,g0002",
+            "-X",
+            "SOMEENV",
+            "--fork",
+            "-bind-to",
+            "none",
+        ]
+
+    def test_nsys_extra_fixup_quoted(self) -> None:
+        p = m.Profiling(
+            profile=True,
+            nvprof=True,
+            nsys=True,
+            nsys_targets="foo,bar",
+            nsys_extra=[
+                "-f 'some path with spaces/foo.txt'",
+            ],
+        )
+        assert p.nsys_extra == [
+            "-f",
+            "some path with spaces/foo.txt",
+        ]
+
 
 class TestLogging:
     def test_fields(self) -> None:
