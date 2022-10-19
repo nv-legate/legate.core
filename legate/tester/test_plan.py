@@ -79,9 +79,9 @@ class TestPlan:
 
         cpus = len(self._system.cpus)
         try:
-            gpus = len(self._system.gpus)
-        except ImportError:
-            gpus = 0
+            gpus: int | str = len(self._system.gpus)
+        except RuntimeError:
+            gpus = "N/A"
 
         details = (
             f"* Feature stages       : {', '.join(yellow(x) for x in self._config.features)}",  # noqa E501
