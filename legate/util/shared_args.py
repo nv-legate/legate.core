@@ -96,7 +96,8 @@ LAUNCHER_EXTRA = Argument(
         default=[],
         required=False,
         help="additional argument to pass to the launcher (can appear more "
-        "than once)",
+        "than once). Multiple arguments may be provided together in a quoted "
+        "string (arguments with spaces inside must be additionally quoted)",
     ),
 )
 
