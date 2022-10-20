@@ -162,7 +162,9 @@ profiling.add_argument(
     action="append",
     default=[],
     required=False,
-    help="Specify extra flags for Nsight Systems",
+    help="Specify extra flags for Nsight Systems (can appear more than once). "
+    "Multiple arguments may be provided together in a quoted string "
+    "(arguments with spaces inside must be additionally quoted)",
 )
 
 logging = parser.add_argument_group("Logging")
