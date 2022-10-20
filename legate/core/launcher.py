@@ -956,14 +956,35 @@ class TaskLauncher:
         return task
 
     def execute(self, launch_domain: Rect) -> FutureMap:
-        task = self.build_task(launch_domain, BufferBuilder())
+        ##############################################################
+        # NOTE: the BufferBuilder object created by the following line
+        # should be kept in a variable so that it stays alive until
+        # the task is dispatched. Passing it as a temporary object,
+        # however tempting that is, makes the code unsafe,
+        # because then the C allocation wrapped in the BufferBuilder
+        # can be deallocated by the Python GC before it is copied by
+        # the runtime, which happens as part of the dispatch call.
+        ##############################################################
+        argbuf = BufferBuilder()
+        ##############################################################
+        task = self.build_task(launch_domain, argbuf)
         result = self._context.dispatch(task)
         assert isinstance(result, FutureMap)
         self._out_analyzer.update_storages()
         return result
 
     def execute_single(self) -> Future:
+        ##############################################################
+        # NOTE: the BufferBuilder object created by the following line
+        # should be kept in a variable so that it stays alive until
+        # the task is dispatched. Passing it as a temporary object,
+        # however tempting that is, makes the code unsafe,
+        # because then the C allocation wrapped in the BufferBuilder
+        # can be deallocated by the Python GC before it is copied by
+        # the runtime, which happens as part of the dispatch call.
+        ##############################################################
         argbuf = BufferBuilder()
+        ##############################################################
         result = self._context.dispatch_single(self.build_single_task(argbuf))
         self._out_analyzer.update_storages()
         return result
