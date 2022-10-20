@@ -32,7 +32,7 @@ class RegionField {
 
  public:
   RegionField() {}
-  RegionField(const Legion::Task* task, int32_t dim, uint32_t idx, Legion::FieldID fid);
+  RegionField(const Legion::RegionRequirement* req, int32_t dim, uint32_t idx, Legion::FieldID fid);
 
  public:
   RegionField(const RegionField& other)            = default;
@@ -67,7 +67,7 @@ class RegionField {
   Legion::IndexSpace get_index_space() const;
 
  private:
-  const Legion::Task* task_{nullptr};
+  const Legion::RegionRequirement* req_{nullptr};
   int32_t dim_{-1};
   uint32_t idx_{-1U};
   Legion::FieldID fid_{-1U};

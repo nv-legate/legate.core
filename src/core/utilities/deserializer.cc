@@ -183,7 +183,8 @@ void MapperDeserializer::_unpack(RegionField& value, bool is_output_region)
   auto idx = unpack<uint32_t>();
   auto fid = unpack<int32_t>();
 
-  value = RegionField(task_, dim, idx, fid);
+  auto req = is_output_region ? &task_->output_regions[idx] : &task_->regions[idx];
+  value    = RegionField(req, dim, idx, fid);
 }
 
 }  // namespace mapping

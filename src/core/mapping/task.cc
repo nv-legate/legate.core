@@ -25,8 +25,8 @@ using LegionTask = Legion::Task;
 using namespace Legion;
 using namespace Legion::Mapping;
 
-RegionField::RegionField(const LegionTask* task, int32_t dim, uint32_t idx, FieldID fid)
-  : task_(task), dim_(dim), idx_(idx), fid_(fid)
+RegionField::RegionField(const RegionRequirement* req, int32_t dim, uint32_t idx, FieldID fid)
+  : req_(req), dim_(dim), idx_(idx), fid_(fid)
 {
 }
 
@@ -42,10 +42,7 @@ Domain RegionField::domain(MapperRuntime* runtime, const MapperContext context) 
   return runtime->get_index_space_domain(context, get_index_space());
 }
 
-const RegionRequirement& RegionField::get_requirement() const
-{
-  return dim_ > 0 ? task_->regions[idx_] : task_->output_regions[idx_];
-}
+const RegionRequirement& RegionField::get_requirement() const { return *req_; }
 
 IndexSpace RegionField::get_index_space() const
 {
