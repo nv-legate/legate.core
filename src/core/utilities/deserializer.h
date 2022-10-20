@@ -99,11 +99,11 @@ class TaskDeserializer : public BaseDeserializer<TaskDeserializer> {
 
 namespace mapping {
 
-class MapperDeserializer : public BaseDeserializer<MapperDeserializer> {
+class TaskDeserializer : public BaseDeserializer<TaskDeserializer> {
  public:
-  MapperDeserializer(const Legion::Task* task,
-                     Legion::Mapping::MapperRuntime* runtime,
-                     Legion::Mapping::MapperContext context);
+  TaskDeserializer(const Legion::Task* task,
+                   Legion::Mapping::MapperRuntime* runtime,
+                   Legion::Mapping::MapperContext context);
 
  public:
   using BaseDeserializer::_unpack;

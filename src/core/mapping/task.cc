@@ -123,7 +123,7 @@ Task::Task(const LegionTask* task,
            const MapperContext context)
   : task_(task), library_(library)
 {
-  MapperDeserializer dez(task, runtime, context);
+  TaskDeserializer dez(task, runtime, context);
   inputs_     = dez.unpack<std::vector<Store>>();
   outputs_    = dez.unpack<std::vector<Store>>();
   reductions_ = dez.unpack<std::vector<Store>>();

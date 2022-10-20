@@ -128,15 +128,15 @@ void TaskDeserializer::_unpack(Legion::PhaseBarrier& barrier)
 
 namespace mapping {
 
-MapperDeserializer::MapperDeserializer(const LegionTask* task,
-                                       MapperRuntime* runtime,
-                                       MapperContext context)
+TaskDeserializer::TaskDeserializer(const LegionTask* task,
+                                   MapperRuntime* runtime,
+                                   MapperContext context)
   : BaseDeserializer(task), runtime_(runtime), context_(context), future_index_(0)
 {
   first_task_ = false;
 }
 
-void MapperDeserializer::_unpack(Store& value)
+void TaskDeserializer::_unpack(Store& value)
 {
   auto is_future        = unpack<bool>();
   auto is_output_region = unpack<bool>();
@@ -159,7 +159,7 @@ void MapperDeserializer::_unpack(Store& value)
   }
 }
 
-void MapperDeserializer::_unpack(FutureWrapper& value)
+void TaskDeserializer::_unpack(FutureWrapper& value)
 {
   // We still need to deserialize these fields to get to the domain
   unpack<bool>();
@@ -177,7 +177,7 @@ void MapperDeserializer::_unpack(FutureWrapper& value)
   value = FutureWrapper(future_index_++, domain);
 }
 
-void MapperDeserializer::_unpack(RegionField& value, bool is_output_region)
+void TaskDeserializer::_unpack(RegionField& value, bool is_output_region)
 {
   auto dim = unpack<int32_t>();
   auto idx = unpack<uint32_t>();
