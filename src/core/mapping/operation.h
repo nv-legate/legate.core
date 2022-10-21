@@ -216,4 +216,4 @@ class Copy {
 }  // namespace mapping
 }  // namespace legate
 
-#include "core/mapping/task.inl"
+#include "core/mapping/operation.inl"

@@ -14,7 +14,7 @@
  *
  */
 
-#include "core/mapping/task.h"
+#include "core/mapping/operation.h"
 #include "core/utilities/deserializer.h"
 
 namespace legate {

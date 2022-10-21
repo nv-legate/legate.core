@@ -23,7 +23,7 @@
 #include "core/data/store.h"
 #include "core/mapping/base_mapper.h"
 #include "core/mapping/instance_manager.h"
-#include "core/mapping/task.h"
+#include "core/mapping/operation.h"
 #include "core/runtime/projection.h"
 #include "core/runtime/shard.h"
 #include "core/utilities/linearize.h"

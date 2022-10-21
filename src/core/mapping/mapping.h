@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "core/mapping/task.h"
+#include "core/mapping/operation.h"
 
 namespace legate {
 namespace mapping {

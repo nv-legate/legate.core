@@ -23,7 +23,7 @@
 #include "core/comm/communicator.h"
 #include "core/data/scalar.h"
 #include "core/data/store.h"
-#include "core/mapping/task.h"
+#include "core/mapping/operation.h"
 #include "core/utilities/span.h"
 #include "core/utilities/type_traits.h"
 #include "core/utilities/typedefs.h"

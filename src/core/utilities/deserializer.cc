@@ -17,7 +17,6 @@
 #include "core/utilities/deserializer.h"
 #include "core/data/scalar.h"
 #include "core/data/store.h"
-#include "core/mapping/task.h"
 #include "core/utilities/machine.h"
 
 #include "legion/legion_c.h"
