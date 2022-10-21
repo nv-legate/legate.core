@@ -12,6 +12,7 @@
 #
 from __future__ import annotations
 
+from argparse import Action, ArgumentParser
 from dataclasses import dataclass
 from textwrap import indent
 from typing import Literal, Protocol, Tuple
@@ -263,10 +264,50 @@ ALL_CONFIGS = [
 
 # --- Code --------------------------------------------------------------------
 
+
+class BooleanFlag(Action):
+    def __init__(
+        self,
+        option_strings,
+        dest,
+        default,
+        required=False,
+        help="",
+        metavar=None,
+    ):
+        assert all(not opt.startswith("--no") for opt in option_strings)
+
+        def flatten(list):
+            return [item for sublist in list for item in sublist]
+
+        option_strings = flatten(
+            [
+                [opt, "--no-" + opt[2:], "--no" + opt[2:]]
+                if opt.startswith("--")
+                else [opt]
+                for opt in option_strings
+            ]
+        )
+        super().__init__(
+            option_strings,
+            dest,
+            nargs=0,
+            const=None,
+            default=default,
+            type=bool,
+            choices=None,
+            required=required,
+            help=help,
+            metavar=metavar,
+        )
+
+    def __call__(self, parser, namespace, values, option_string):
+        setattr(namespace, self.dest, not option_string.startswith("--no"))
+
+
 if __name__ == "__main__":
 
     import sys
-    from argparse import ArgumentParser
 
     parser = ArgumentParser()
     parser.add_argument(
@@ -290,28 +331,14 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--compilers",
-        action="store_true",
-        dest="compilers",
-        default=None,
-        help="Whether to include conda compilers or not (default: both)",
-    )
-    parser.add_argument(
-        "--no-compilers",
-        action="store_false",
+        action=BooleanFlag,
         dest="compilers",
         default=None,
         help="Whether to include conda compilers or not (default: both)",
     )
     parser.add_argument(
         "--openmpi",
-        action="store_true",
-        dest="openmpi",
-        default=None,
-        help="Whether to include openmpi or not (default: both)",
-    )
-    parser.add_argument(
-        "--no-openmpi",
-        action="store_false",
+        action=BooleanFlag,
         dest="openmpi",
         default=None,
         help="Whether to include openmpi or not (default: both)",
