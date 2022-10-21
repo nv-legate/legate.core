@@ -15,7 +15,7 @@ limitations under the License.
 
 -->
 
-# Dependencies
+# Getting dependencies
 
 ## Getting dependencies through conda
 
@@ -25,8 +25,19 @@ conda to follow the instructions below.
 
 Please use the `scripts/generate-conda-envs.py` script to create a conda
 environment file listing all the packages that are required to build, run and
-test Legate Core and all downstream libraries. Once you have this file, you can
-install the required packages by creating a new conda environment:
+test Legate Core and all downstream libraries. For example:
+
+```
+$ ./scripts/generate-conda-envs.py --python 3.10 --ctk 11.7 --os linux --compilers --openmpi
+--- generating: environment-test-linux-py310-cuda-11.7-compilers-openmpi.yaml
+```
+
+Run this script with `-h` to see all available configuration options for the
+generated environment file (e.g. all the supported Python versions). See the
+[Notable Dependencies](#notable-dependencies) section for more details.
+
+Once you have this environment file, you can install the required packages by
+creating a new conda environment:
 
 ```
 conda env create -n legate -f <env-file>.yaml
@@ -37,47 +48,6 @@ or by updating an existing environment:
 ```
 conda env update -f <env-file>.yaml
 ```
-
-## Alternative sources for dependencies
-
-If you do not wish to use conda for some (or all) of the dependencies, you can
-remove the corresponding entries from the environment file before passing it to
-conda. See the `install.py` section below for instructions on how to provide
-alternative locations for these dependencies to the build process.
-
-Note that this is likely to result in conflicts between conda-provided and
-system-provided libraries.
-
-Conda distributes its own version of certain common libraries (in particular the
-C++ standard library), which are also typically available system-wide. Any
-system package you include will typically link to the system version, while
-conda packages link to the conda version. Often these two different versions,
-although incompatible, carry the same version number (`SONAME`), and are
-therefore indistinguishable to the dynamic linker. Then, the first component to
-specify a link location for this library will cause it to be loaded from there,
-and any subsequent link requests for the same library, even if suggesting a
-different link location, will get served using the previously linked version.
-
-This can cause link failures at runtime, e.g. when a system-level library
-happens to be the first to load GLIBC, causing any conda library that comes
-after to trip GLIBC's internal version checks, since the conda library expects
-to find symbols with more recent version numbers than what is available on the
-system-wide GLIBC:
-
-```
-/lib/x86_64-linux-gnu/libstdc++.so.6: version `GLIBCXX_3.4.30' not found (required by /opt/conda/envs/legate/lib/libarrow.so)
-```
-
-You can usually work around this issue by putting the conda library directory
-first in the dynamic library resolution path:
-
-```
-LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
-```
-
-This way you can make sure that the (typically more recent) conda version of any
-common library will be preferred over the system-wide one, no matter which
-component requests it first.
 
 ## Notable dependencies
 
@@ -154,6 +124,47 @@ Only necessary if you wish to run on multiple nodes.
 Not available on conda; typically available through MOFED or the system-level
 package manager.
 
+## Alternative sources for dependencies
+
+If you do not wish to use conda for some (or all) of the dependencies, you can
+remove the corresponding entries from the environment file before passing it to
+conda. See [the `install.py` section](#using-installpy) for instructions on how
+to provide alternative locations for these dependencies to the build process.
+
+Note that this is likely to result in conflicts between conda-provided and
+system-provided libraries.
+
+Conda distributes its own version of certain common libraries (in particular the
+C++ standard library), which are also typically available system-wide. Any
+system package you include will typically link to the system version, while
+conda packages link to the conda version. Often these two different versions,
+although incompatible, carry the same version number (`SONAME`), and are
+therefore indistinguishable to the dynamic linker. Then, the first component to
+specify a link location for this library will cause it to be loaded from there,
+and any subsequent link requests for the same library, even if suggesting a
+different link location, will get served using the previously linked version.
+
+This can cause link failures at runtime, e.g. when a system-level library
+happens to be the first to load GLIBC, causing any conda library that comes
+after to trip GLIBC's internal version checks, since the conda library expects
+to find symbols with more recent version numbers than what is available on the
+system-wide GLIBC:
+
+```
+/lib/x86_64-linux-gnu/libstdc++.so.6: version `GLIBCXX_3.4.30' not found (required by /opt/conda/envs/legate/lib/libarrow.so)
+```
+
+You can usually work around this issue by putting the conda library directory
+first in the dynamic library resolution path:
+
+```
+LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
+```
+
+This way you can make sure that the (typically more recent) conda version of any
+common library will be preferred over the system-wide one, no matter which
+component requests it first.
+
 # Building for Users
 
 ## Using install.py
@@ -176,6 +187,13 @@ target using the `--with-cuda` and `--arch` flags, e.g.:
 ```
 
 By default the script relies on CMake's auto-detection for these settings.
+CMake will first search the currently active Python/conda environment
+for dependencies, then any common system-wide installation directories (e.g.
+`/usr/lib`). If a dependency cannot be found but is publicly available in source
+form (e.g. OpenBLAS), cmake will fetch and build it automatically. You can
+override this search by providing an install location for any dependency
+explicitly, using a `--with-dep` flag, e.g. `--with-nccl` and
+`--with-openblas`.
 
 For multi-node execution Legate uses [GASNet](https://gasnet.lbl.gov/) which can be
 requested using the `--network gasnet1` or `--network gasnetex` flag. By default
@@ -194,14 +212,6 @@ Alternatively, here is an install line for the
 ```
 ./install.py --network gasnet1 --conduit aries --cuda --arch pascal
 ```
-
-In general, cmake will first search the currently active Python environment for
-dependencies, then any common system-wide installation directories (e.g.
-`/usr/lib`). If a dependency cannot be found but is publicly available in source
-form (e.g. OpenBLAS), cmake will fetch and build it automatically. You can
-override this search by providing an install location for any dependency
-explicitly, using a `--with-dep` flag, e.g. `--with-nccl` and
-`--with-openblas`.
 
 To see all available configuration options, run with the `--help` flag:
 
