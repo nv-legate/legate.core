@@ -21,6 +21,7 @@ namespace legate {
 namespace mapping {
 
 using LegionTask = Legion::Task;
+using LegionCopy = Legion::Copy;
 
 using namespace Legion;
 using namespace Legion::Mapping;
@@ -131,6 +132,32 @@ Task::Task(const LegionTask* task,
 }
 
 int64_t Task::task_id() const { return library_.get_local_task_id(task_->task_id); }
+
+Copy::Copy(const LegionCopy* copy, MapperRuntime* runtime, const MapperContext context)
+  : copy_(copy)
+{
+  CopyDeserializer dez(copy->mapper_data,
+                       copy->mapper_data_size,
+                       {copy->src_requirements,
+                        copy->dst_requirements,
+                        copy->src_indirect_requirements,
+                        copy->dst_indirect_requirements},
+                       runtime,
+                       context);
+  inputs_ = dez.unpack<std::vector<Store>>();
+  dez.next_requirement_list();
+  outputs_ = dez.unpack<std::vector<Store>>();
+  dez.next_requirement_list();
+  input_indirections_ = dez.unpack<std::vector<Store>>();
+  dez.next_requirement_list();
+  output_indirections_ = dez.unpack<std::vector<Store>>();
+#ifdef DEBUG_LEGATE
+  for (auto& input : inputs_) assert(!input.is_future());
+  for (auto& output : outputs_) assert(!output.is_future());
+  for (auto& input_indirection : input_indirections_) assert(!input_indirection.is_future());
+  for (auto& output_indirection : output_indirections_) assert(!output_indirection.is_future());
+#endif
+}
 
 }  // namespace mapping
 }  // namespace legate

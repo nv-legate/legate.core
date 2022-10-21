@@ -188,6 +188,31 @@ class Task {
   std::vector<Scalar> scalars_;
 };
 
+class Copy {
+ public:
+  Copy(const Legion::Copy* copy,
+       Legion::Mapping::MapperRuntime* runtime,
+       const Legion::Mapping::MapperContext context);
+
+ public:
+  const std::vector<Store>& inputs() const { return inputs_; }
+  const std::vector<Store>& outputs() const { return outputs_; }
+  const std::vector<Store>& input_indirections() const { return input_indirections_; }
+  const std::vector<Store>& output_indirections() const { return output_indirections_; }
+
+ public:
+  Legion::DomainPoint point() const { return copy_->index_point; }
+
+ private:
+  const Legion::Copy* copy_;
+
+ private:
+  std::vector<Store> inputs_;
+  std::vector<Store> outputs_;
+  std::vector<Store> input_indirections_;
+  std::vector<Store> output_indirections_;
+};
+
 }  // namespace mapping
 }  // namespace legate
 

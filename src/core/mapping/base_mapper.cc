@@ -30,6 +30,7 @@
 #include "legate_defines.h"
 
 using LegionTask = Legion::Task;
+using LegionCopy = Legion::Copy;
 
 using namespace Legion;
 using namespace Legion::Mapping;
@@ -1430,10 +1431,11 @@ void BaseMapper::report_profiling(const MapperContext ctx,
 }
 
 void BaseMapper::map_copy(const MapperContext ctx,
-                          const Copy& copy,
+                          const LegionCopy& copy,
                           const MapCopyInput& input,
                           MapCopyOutput& output)
 {
+  Copy legate_copy(&copy, runtime, ctx);
   // We should always be able to materialize instances of the things
   // we are copying so make concrete source instances
   std::vector<PhysicalInstance> needed_acquires;
@@ -1591,20 +1593,22 @@ void BaseMapper::map_copy(const MapperContext ctx,
 }
 
 void BaseMapper::select_copy_sources(const MapperContext ctx,
-                                     const Copy& copy,
+                                     const LegionCopy& copy,
                                      const SelectCopySrcInput& input,
                                      SelectCopySrcOutput& output)
 {
   legate_select_sources(ctx, input.target, input.source_instances, output.chosen_ranking);
 }
 
-void BaseMapper::speculate(const MapperContext ctx, const Copy& copy, SpeculativeOutput& output)
+void BaseMapper::speculate(const MapperContext ctx,
+                           const LegionCopy& copy,
+                           SpeculativeOutput& output)
 {
   output.speculate = false;
 }
 
 void BaseMapper::report_profiling(const MapperContext ctx,
-                                  const Copy& copy,
+                                  const LegionCopy& copy,
                                   const CopyProfilingInfo& input)
 {
   // No profiling for copies yet
@@ -1612,7 +1616,7 @@ void BaseMapper::report_profiling(const MapperContext ctx,
 }
 
 void BaseMapper::select_sharding_functor(const MapperContext ctx,
-                                         const Copy& copy,
+                                         const LegionCopy& copy,
                                          const SelectShardingFunctorInput& input,
                                          SelectShardingFunctorOutput& output)
 {

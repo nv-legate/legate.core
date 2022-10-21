@@ -32,7 +32,7 @@ namespace legate {
 
 TaskDeserializer::TaskDeserializer(const LegionTask* task,
                                    const std::vector<PhysicalRegion>& regions)
-  : BaseDeserializer(task),
+  : BaseDeserializer(static_cast<const int8_t*>(task->args), task->arglen),
     futures_{task->futures.data(), task->futures.size()},
     regions_{regions.data(), regions.size()},
     outputs_()
@@ -128,10 +128,14 @@ void TaskDeserializer::_unpack(Legion::PhaseBarrier& barrier)
 
 namespace mapping {
 
-TaskDeserializer::TaskDeserializer(const LegionTask* task,
+TaskDeserializer::TaskDeserializer(const Legion::Task* task,
                                    MapperRuntime* runtime,
                                    MapperContext context)
-  : BaseDeserializer(task), runtime_(runtime), context_(context), future_index_(0)
+  : BaseDeserializer(static_cast<const int8_t*>(task->args), task->arglen),
+    task_(task),
+    runtime_(runtime),
+    context_(context),
+    future_index_(0)
 {
   first_task_ = false;
 }
@@ -185,6 +189,58 @@ void TaskDeserializer::_unpack(RegionField& value, bool is_output_region)
 
   auto req = is_output_region ? &task_->output_regions[idx] : &task_->regions[idx];
   value    = RegionField(req, dim, idx, fid);
+}
+
+CopyDeserializer::CopyDeserializer(const void* args,
+                                   size_t arglen,
+                                   std::vector<ReqsRef>&& all_requirements,
+                                   MapperRuntime* runtime,
+                                   MapperContext context)
+  : BaseDeserializer(static_cast<const int8_t*>(args), arglen),
+    all_reqs_(std::forward<std::vector<ReqsRef>>(all_requirements)),
+    curr_reqs_(all_reqs_.begin()),
+    runtime_(runtime),
+    context_(context),
+    req_index_offset_(0)
+{
+}
+
+void CopyDeserializer::next_requirement_list()
+{
+#ifdef DEBUG_LEGATE
+  assert(curr_reqs_ != all_reqs_.end());
+#endif
+  req_index_offset_ += curr_reqs_->get().size();
+  ++curr_reqs_;
+}
+
+void CopyDeserializer::_unpack(Store& value)
+{
+  auto is_future        = unpack<bool>();
+  auto is_output_region = unpack<bool>();
+  auto dim              = unpack<int32_t>();
+  auto code             = unpack<LegateTypeCode>();
+
+  auto transform = unpack_transform();
+
+#ifdef DEBUG_LEGATE
+  assert(!is_future && !is_output_region);
+#endif
+  auto redop_id = unpack<int32_t>();
+  RegionField rf;
+  _unpack(rf);
+  value =
+    Store(runtime_, context_, dim, code, redop_id, rf, is_output_region, std::move(transform));
+}
+
+void CopyDeserializer::_unpack(RegionField& value)
+{
+  auto dim = unpack<int32_t>();
+  auto idx = unpack<uint32_t>();
+  auto fid = unpack<int32_t>();
+
+  auto req = &curr_reqs_->get()[idx];
+  value    = RegionField(req, dim, idx + req_index_offset_, fid);
 }
 
 }  // namespace mapping
