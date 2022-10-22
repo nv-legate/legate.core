@@ -16,6 +16,7 @@
 
 #include <cstdlib>
 #include <sstream>
+#include <unordered_map>
 
 #include "legion/legion_mapping.h"
 #include "mappers/mapping_utilities.h"
@@ -37,6 +38,23 @@ using namespace Legion::Mapping;
 
 namespace legate {
 namespace mapping {
+
+namespace {
+
+const std::vector<StoreTarget>& default_store_targets(Processor::Kind kind)
+{
+  static const std::map<Processor::Kind, std::vector<StoreTarget>> defaults = {
+    {Processor::LOC_PROC, {StoreTarget::SYSMEM}},
+    {Processor::TOC_PROC, {StoreTarget::FBMEM, StoreTarget::ZCMEM}},
+    {Processor::OMP_PROC, {StoreTarget::SOCKETMEM, StoreTarget::SYSMEM}},
+  };
+
+  auto finder = defaults.find(kind);
+  if (defaults.end() == finder) LEGATE_ABORT;
+  return finder->second;
+}
+
+}  // namespace
 
 BaseMapper::BaseMapper(Runtime* rt, Machine m, const LibraryContext& ctx)
   : Mapper(rt->get_mapper_runtime()),
@@ -518,22 +536,7 @@ void BaseMapper::map_task(const MapperContext ctx,
 
   Task legate_task(&task, context, runtime, ctx);
 
-  std::vector<StoreTarget> options;
-  switch (task.target_proc.kind()) {
-    case Processor::LOC_PROC: {
-      options = {StoreTarget::SYSMEM};
-      break;
-    }
-    case Processor::TOC_PROC: {
-      options = {StoreTarget::FBMEM, StoreTarget::ZCMEM};
-      break;
-    }
-    case Processor::OMP_PROC: {
-      options = {StoreTarget::SOCKETMEM, StoreTarget::SYSMEM};
-      break;
-    }
-    default: LEGATE_ABORT;
-  }
+  const auto& options = default_store_targets(task.target_proc.kind());
 
   output.chosen_instances.resize(task.regions.size());
   std::map<const RegionRequirement*, std::vector<PhysicalInstance>*> output_map;
@@ -1201,18 +1204,7 @@ void BaseMapper::map_inline(const MapperContext ctx,
   else
     target_proc = local_cpus.front();
 
-  StoreTarget store_target;
-  switch (target_proc.kind()) {
-    case Processor::LOC_PROC: {
-      store_target = StoreTarget::SYSMEM;
-      break;
-    }
-    case Processor::OMP_PROC: {
-      store_target = StoreTarget::SOCKETMEM;
-      break;
-    }
-    default: LEGATE_ABORT;
-  }
+  auto store_target = default_store_targets(target_proc.kind()).front();
 
 #ifdef DEBUG_LEGATE
   assert(inline_op.requirement.instance_fields.size() == 1);
@@ -1293,26 +1285,9 @@ void BaseMapper::map_copy(const MapperContext ctx,
   else
     target_proc = local_cpus[proc_id % local_cpus.size()];
 
-  StoreTarget default_store_target;
-  switch (target_proc.kind()) {
-    case Processor::LOC_PROC: {
-      default_store_target = StoreTarget::SYSMEM;
-      break;
-    }
-    case Processor::TOC_PROC: {
-      default_store_target = StoreTarget::FBMEM;
-      break;
-    }
-    case Processor::OMP_PROC: {
-      default_store_target = StoreTarget::SOCKETMEM;
-      break;
-    }
-    default: LEGATE_ABORT;
-  }
+  auto store_target = default_store_targets(target_proc.kind()).front();
 
   Copy legate_copy(&copy, runtime, ctx);
-
-  auto target_memory = get_target_memory(target_proc, default_store_target);
 
   std::map<const RegionRequirement*, std::vector<PhysicalInstance>*> output_map;
   auto add_to_output_map = [&output_map](auto& reqs, auto& instances) {
@@ -1340,13 +1315,13 @@ void BaseMapper::map_copy(const MapperContext ctx,
   std::vector<StoreMapping> mappings;
 
   for (auto& store : legate_copy.inputs())
-    mappings.push_back(StoreMapping::default_mapping(store, default_store_target, false));
+    mappings.push_back(StoreMapping::default_mapping(store, store_target, false));
   for (auto& store : legate_copy.outputs())
-    mappings.push_back(StoreMapping::default_mapping(store, default_store_target, false));
+    mappings.push_back(StoreMapping::default_mapping(store, store_target, false));
   for (auto& store : legate_copy.input_indirections())
-    mappings.push_back(StoreMapping::default_mapping(store, default_store_target, false));
+    mappings.push_back(StoreMapping::default_mapping(store, store_target, false));
   for (auto& store : legate_copy.output_indirections())
-    mappings.push_back(StoreMapping::default_mapping(store, default_store_target, false));
+    mappings.push_back(StoreMapping::default_mapping(store, store_target, false));
 
   bool can_fail = false;
 
@@ -1533,18 +1508,7 @@ void BaseMapper::map_partition(const MapperContext ctx,
   else
     target_proc = local_cpus.front();
 
-  StoreTarget store_target;
-  switch (target_proc.kind()) {
-    case Processor::LOC_PROC: {
-      store_target = StoreTarget::SYSMEM;
-      break;
-    }
-    case Processor::OMP_PROC: {
-      store_target = StoreTarget::SOCKETMEM;
-      break;
-    }
-    default: LEGATE_ABORT;
-  }
+  auto store_target = default_store_targets(target_proc.kind()).front();
 
 #ifdef DEBUG_LEGATE
   assert(partition.requirement.instance_fields.size() == 1);
