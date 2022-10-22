@@ -1686,55 +1686,51 @@ void BaseMapper::map_partition(const MapperContext ctx,
                                const MapPartitionInput& input,
                                MapPartitionOutput& output)
 {
-  const RegionRequirement& req = partition.requirement;
-  output.chosen_instances.resize(req.privilege_fields.size());
-  const std::vector<PhysicalInstance>& valid = input.valid_instances;
-  std::vector<PhysicalInstance> needed_acquires;
-  uint32_t fidx      = 0;
-  const bool memoize = true;
-  for (auto fid : req.privilege_fields) {
-    if (find_existing_instance(ctx,
-                               req.region,
-                               fid,
-                               local_system_memory,
-                               output.chosen_instances[fidx],
-                               Strictness::strict) ||
-        map_raw_array(ctx,
-                      partition,
-                      0,
-                      req.region,
-                      fid,
-                      local_system_memory,
-                      Processor::NO_PROC,
-                      valid,
-                      output.chosen_instances[fidx],
-                      memoize)) {
-      needed_acquires.push_back(output.chosen_instances[fidx]);
+  Processor target_proc{Processor::NO_PROC};
+  if (!local_omps.empty())
+    target_proc = local_omps.front();
+  else
+    target_proc = local_cpus.front();
+
+  StoreTarget store_target;
+  switch (target_proc.kind()) {
+    case Processor::LOC_PROC: {
+      store_target = StoreTarget::SYSMEM;
+      break;
     }
-    ++fidx;
+    case Processor::OMP_PROC: {
+      store_target = StoreTarget::SOCKETMEM;
+      break;
+    }
+    default: LEGATE_ABORT;
   }
-  while (!needed_acquires.empty() &&
-         !runtime->acquire_and_filter_instances(ctx, needed_acquires, true /*filter on acquire*/)) {
-    assert(!needed_acquires.empty());
-    std::set<PhysicalInstance> failed_instances;
-    filter_failed_acquires(ctx, needed_acquires, failed_instances);
-    // Now go through all the fields for the instances and try and remap
-    auto fit = req.privilege_fields.begin();
-    for (uint32_t idx = 0; idx < output.chosen_instances.size(); idx++, fit++) {
-      if (failed_instances.find(output.chosen_instances[idx]) == failed_instances.end()) continue;
-      // Now try to remap it
-      if (map_raw_array(ctx,
-                        partition,
-                        0 /*idx*/,
-                        req.region,
-                        *fit,
-                        local_system_memory,
-                        Processor::NO_PROC,
-                        valid,
-                        output.chosen_instances[idx],
-                        memoize))
-        needed_acquires.push_back(output.chosen_instances[idx]);
+
+#ifdef DEBUG_LEGATE
+  assert(partition.requirement.instance_fields.size() == 1);
+#endif
+
+  Store store(legion_runtime->get_mapper_runtime(), ctx, &partition.requirement);
+  StoreMapping mapping = StoreMapping::default_mapping(store, store_target, false);
+
+  auto reqs = mapping.requirements();
+  output.chosen_instances.resize(1);
+  PhysicalInstance& result = output.chosen_instances.front();
+  bool can_fail            = false;
+  while (map_legate_store(ctx, partition, mapping, reqs, target_proc, result, can_fail)) {
+    if (result == PhysicalInstance()) break;
+    if (runtime->acquire_instance(ctx, result)) {
+#ifdef DEBUG_LEGATE
+      logger.debug() << "Partition Op " << partition.get_unique_id() << ": acquired instance "
+                     << result << " for reqs: 0";
+#endif
+      break;
     }
+#ifdef DEBUG_LEGATE
+    logger.debug() << "Partition Op " << partition.get_unique_id()
+                   << ": failed to acquire instance " << result << " for reqs: 0";
+#endif
+    AutoLock lock(ctx, local_instances->manager_lock());
+    local_instances->erase(result);
   }
 }
 
