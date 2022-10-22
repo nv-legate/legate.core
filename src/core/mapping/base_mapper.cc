@@ -1435,38 +1435,57 @@ void BaseMapper::map_copy(const MapperContext ctx,
                           const MapCopyInput& input,
                           MapCopyOutput& output)
 {
-  Copy legate_copy(&copy, runtime, ctx);
-  // We should always be able to materialize instances of the things
-  // we are copying so make concrete source instances
-  std::vector<PhysicalInstance> needed_acquires;
-  Memory target_memory = local_system_memory;
-  /*
+  Processor target_proc{Processor::NO_PROC};
+
+  uint32_t proc_id = 0;
   if (copy.is_index_space) {
-    // If we've got GPUs, assume we're using them
-    if (!local_gpus.empty() || !local_omps.empty()) {
-      const ShardingID sid          = select_sharding_functor(copy);
-      NumPyShardingFunctor* functor = find_sharding_functor(sid);
-      Domain sharding_domain        = copy.index_domain;
-      if (copy.sharding_space.exists())
-        sharding_domain = runtime->get_index_space_domain(ctx, copy.sharding_space);
-      const uint32_t local_index =
-        functor->localize(copy.index_point, sharding_domain, total_nodes, local_node);
-      if (!local_gpus.empty()) {
-        const Processor proc = local_gpus[local_index % local_gpus.size()];
-        target_memory        = local_frame_buffers[proc];
-      } else {
-        const Processor proc = local_omps[local_index % local_omps.size()];
-        target_memory        = local_numa_domains[proc];
-      }
+    Domain sharding_domain = copy.index_domain;
+    if (copy.sharding_space.exists())
+      sharding_domain = runtime->get_index_space_domain(ctx, copy.sharding_space);
+
+    // FIXME: We might later have non-identity projections for copy requirements,
+    // in which case we should find the key store and use its projection functor
+    // for the linearization
+    auto* key_functor = find_legate_projection_functor(0);
+
+    if (key_functor != nullptr) {
+      auto lo = key_functor->project_point(sharding_domain.lo(), sharding_domain);
+      auto hi = key_functor->project_point(sharding_domain.hi(), sharding_domain);
+      auto p  = key_functor->project_point(copy.index_point, sharding_domain);
+      proc_id = linearize(lo, hi, p);
+    } else {
+      proc_id = linearize(sharding_domain.lo(), sharding_domain.hi(), copy.index_point);
     }
-  } else {
-  */
-  {
-    // If we have just one local GPU then let's use it, otherwise punt to CPU
-    // since it's not clear which one we should use
-    if (local_frame_buffers.size() == 1) target_memory = local_frame_buffers.begin()->second;
+  }
+  if (!local_gpus.empty())
+    target_proc = local_gpus[proc_id % local_gpus.size()];
+  else if (!local_omps.empty())
+    target_proc = local_omps[proc_id % local_omps.size()];
+  else
+    target_proc = local_cpus[proc_id % local_cpus.size()];
+
+  StoreTarget default_store_target;
+  switch (target_proc.kind()) {
+    case Processor::LOC_PROC: {
+      default_store_target = StoreTarget::SYSMEM;
+      break;
+    }
+    case Processor::TOC_PROC: {
+      default_store_target = StoreTarget::FBMEM;
+      break;
+    }
+    case Processor::OMP_PROC: {
+      default_store_target = StoreTarget::SOCKETMEM;
+      break;
+    }
+    default: LEGATE_ABORT;
   }
 
+  Copy legate_copy(&copy, runtime, ctx);
+
+  auto target_memory = get_target_memory(target_proc, default_store_target);
+
+  std::vector<PhysicalInstance> needed_acquires;
   auto map_stores = [&](auto idx, auto& req, auto& inputs, auto& outputs) {
     auto& region = req.region;
     outputs.resize(req.privilege_fields.size());
