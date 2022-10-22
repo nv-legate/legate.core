@@ -368,12 +368,11 @@ void BaseMapper::slice_task(const MapperContext ctx,
                             const SliceTaskInput& input,
                             SliceTaskOutput& output)
 {
-  if (task.tag == LEGATE_CORE_MANUAL_PARALLEL_LAUNCH_TAG) {
-    if (task.regions.size() == 0)
-      slice_round_robin_task(ctx, task, input, output);
-    else
-      slice_manual_task(ctx, task, input, output);
-  } else
+  if (task.tag == LEGATE_CORE_MANUAL_PARALLEL_LAUNCH_TAG)
+    slice_manual_task(ctx, task, input, output);
+  else if (task.regions.size() == 0)
+    slice_round_robin_task(ctx, task, input, output);
+  else
     slice_auto_task(ctx, task, input, output);
 }
 
