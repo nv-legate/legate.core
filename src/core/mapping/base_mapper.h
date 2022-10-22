@@ -296,6 +296,31 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
                              Legion::Processor::Kind kind);
 
  protected:
+  template <typename Functor>
+  decltype(auto) dispatch(TaskTarget target, Functor functor)
+  {
+    switch (target) {
+      case TaskTarget::CPU: return functor(local_cpus);
+      case TaskTarget::GPU: return functor(local_gpus);
+      case TaskTarget::OMP: return functor(local_omps);
+    }
+    assert(false);
+    return functor(local_cpus);
+  }
+  template <typename Functor>
+  decltype(auto) dispatch(Legion::Processor::Kind kind, Functor functor)
+  {
+    switch (kind) {
+      case Legion::Processor::LOC_PROC: return functor(local_cpus);
+      case Legion::Processor::TOC_PROC: return functor(local_gpus);
+      case Legion::Processor::OMP_PROC: return functor(local_omps);
+      default: LEGATE_ABORT;
+    }
+    assert(false);
+    return functor(local_cpus);
+  }
+
+ protected:
   const std::vector<int32_t> get_processor_grid(Legion::Processor::Kind kind, int32_t ndim);
   void slice_auto_task(const Legion::Mapping::MapperContext ctx,
                        const Legion::Task& task,
@@ -332,8 +357,6 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
   std::vector<Legion::Processor> local_cpus;
   std::vector<Legion::Processor> local_gpus;
   std::vector<Legion::Processor> local_omps;  // OpenMP processors
-  std::vector<Legion::Processor> local_ios;   // I/O processors
-  std::vector<Legion::Processor> local_pys;   // Python processors
  protected:
   Legion::Memory local_system_memory, local_zerocopy_memory;
   std::map<Legion::Processor, Legion::Memory> local_frame_buffers;

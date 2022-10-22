@@ -84,14 +84,6 @@ BaseMapper::BaseMapper(Runtime* rt, Machine m, const LibraryContext& ctx)
         local_omps.push_back(local_proc);
         break;
       }
-      case Processor::IO_PROC: {
-        local_ios.push_back(local_proc);
-        break;
-      }
-      case Processor::PY_PROC: {
-        local_pys.push_back(local_proc);
-        break;
-      }
       default: break;
     }
   }
@@ -206,21 +198,8 @@ void BaseMapper::select_task_options(const MapperContext ctx,
   Task legate_task(&task, context, runtime, ctx);
   auto target = task_target(legate_task, options);
 
+  dispatch(target, [&output](auto& procs) { output.initial_proc = procs.front(); });
   // We never want valid instances
-  switch (target) {
-    case TaskTarget::CPU: {
-      output.initial_proc = local_cpus.front();
-      break;
-    }
-    case TaskTarget::GPU: {
-      output.initial_proc = local_gpus.front();
-      break;
-    }
-    case TaskTarget::OMP: {
-      output.initial_proc = local_omps.front();
-      break;
-    }
-  }
   output.valid_instances = false;
 }
 
@@ -275,21 +254,7 @@ void BaseMapper::slice_auto_task(const MapperContext ctx,
     }
   };
 
-  switch (task.target_proc.kind()) {
-    case Processor::LOC_PROC: {
-      round_robin(local_cpus);
-      break;
-    }
-    case Processor::TOC_PROC: {
-      round_robin(local_gpus);
-      break;
-    }
-    case Processor::OMP_PROC: {
-      round_robin(local_omps);
-      break;
-    }
-    default: LEGATE_ABORT;
-  }
+  dispatch(task.target_proc.kind(), round_robin);
 }
 
 void BaseMapper::generate_prime_factor(const std::vector<Processor>& processors,
@@ -325,22 +290,7 @@ const std::vector<int32_t> BaseMapper::get_processor_grid(Legion::Processor::Kin
   auto finder = proc_grids.find(key);
   if (finder != proc_grids.end()) return finder->second;
 
-  int32_t num_procs = 1;
-  switch (kind) {
-    case Processor::LOC_PROC: {
-      num_procs = static_cast<int32_t>(local_cpus.size());
-      break;
-    }
-    case Processor::TOC_PROC: {
-      num_procs = static_cast<int32_t>(local_gpus.size());
-      break;
-    }
-    case Processor::OMP_PROC: {
-      num_procs = static_cast<int32_t>(local_omps.size());
-      break;
-    }
-    default: LEGATE_ABORT;
-  }
+  int32_t num_procs = dispatch(kind, [](auto& procs) { return procs.size(); });
 
   std::vector<int32_t> grid;
   auto factor_it = all_factors[kind].begin();
@@ -383,21 +333,7 @@ void BaseMapper::slice_manual_task(const MapperContext ctx,
     }
   };
 
-  switch (task.target_proc.kind()) {
-    case Processor::LOC_PROC: {
-      distribute(local_cpus);
-      break;
-    }
-    case Processor::TOC_PROC: {
-      distribute(local_gpus);
-      break;
-    }
-    case Processor::OMP_PROC: {
-      distribute(local_omps);
-      break;
-    }
-    default: LEGATE_ABORT;
-  }
+  dispatch(task.target_proc.kind(), distribute);
 }
 
 void BaseMapper::slice_round_robin_task(const MapperContext ctx,
@@ -424,21 +360,7 @@ void BaseMapper::slice_round_robin_task(const MapperContext ctx,
     }
   };
 
-  switch (task.target_proc.kind()) {
-    case Processor::LOC_PROC: {
-      distribute(local_cpus);
-      break;
-    }
-    case Processor::TOC_PROC: {
-      distribute(local_gpus);
-      break;
-    }
-    case Processor::OMP_PROC: {
-      distribute(local_omps);
-      break;
-    }
-    default: LEGATE_ABORT;
-  }
+  dispatch(task.target_proc.kind(), distribute);
 }
 
 void BaseMapper::slice_task(const MapperContext ctx,
