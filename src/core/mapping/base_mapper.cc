@@ -735,8 +735,8 @@ void BaseMapper::map_task(const MapperContext ctx,
 
   // Succeeded in mapping all stores, record it on map_task output.
   for (const auto& m2i : mapping_to_instance)
-    for (auto p_req : mappings[m2i.first].requirements())
-      if (p_req->region.exists()) output_map[p_req]->push_back(m2i.second);
+    for (auto req : mappings[m2i.first].requirements())
+      if (req->region.exists()) output_map[req]->push_back(m2i.second);
 }
 
 void BaseMapper::map_replicate_task(const MapperContext ctx,
@@ -1470,130 +1470,75 @@ void BaseMapper::map_copy(const MapperContext ctx,
 
   auto target_memory = get_target_memory(target_proc, default_store_target);
 
-  std::vector<PhysicalInstance> needed_acquires;
-  auto map_stores = [&](auto idx, auto& req, auto& inputs, auto& outputs) {
-    auto& region = req.region;
-    outputs.resize(req.privilege_fields.size());
-    const auto& valid  = inputs;
-    uint32_t fidx      = 0;
-    const bool memoize = req.privilege != LEGION_REDUCE;
-    for (auto fid : req.privilege_fields) {
-      if (req.redop != 0) {
-        ++fidx;
-        continue;
-      }
-      if (find_existing_instance(ctx, region, fid, target_memory, outputs[fidx]) ||
-          map_raw_array(ctx,
-                        copy,
-                        idx,
-                        region,
-                        fid,
-                        target_memory,
-                        Processor::NO_PROC,
-                        valid,
-                        outputs[fidx],
-                        memoize))
-        needed_acquires.push_back(outputs[fidx]);
-      ++fidx;
-    }
+  std::map<const RegionRequirement*, std::vector<PhysicalInstance>*> output_map;
+  auto add_to_output_map = [&output_map](auto& reqs, auto& instances) {
+    instances.resize(reqs.size());
+    for (uint32_t idx = 0; idx < reqs.size(); ++idx) output_map[&reqs[idx]] = &instances[idx];
   };
+  add_to_output_map(copy.src_requirements, output.src_instances);
+  add_to_output_map(copy.dst_requirements, output.dst_instances);
 
-  auto dst_offset          = copy.src_requirements.size();
-  auto src_indirect_offset = dst_offset + copy.dst_requirements.size();
-  auto dst_indirect_offset = src_indirect_offset + copy.src_indirect_requirements.size();
-
-  for (uint32_t idx = 0; idx < copy.src_requirements.size(); idx++) {
-    map_stores(
-      idx, copy.src_requirements[idx], input.src_instances[idx], output.src_instances[idx]);
-
-    map_stores(idx + dst_offset,
-               copy.dst_requirements[idx],
-               input.dst_instances[idx],
-               output.dst_instances[idx]);
-
-    if (idx < copy.src_indirect_requirements.size()) {
-      std::vector<PhysicalInstance> outputs;
-      map_stores(idx + src_indirect_offset,
-                 copy.src_indirect_requirements[idx],
-                 input.src_indirect_instances[idx],
-                 outputs);
-      output.src_indirect_instances[idx] = outputs[0];
-    }
-
-    if (idx < copy.dst_indirect_requirements.size()) {
-      std::vector<PhysicalInstance> outputs;
-      map_stores(idx + dst_indirect_offset,
-                 copy.dst_indirect_requirements[idx],
-                 input.dst_indirect_instances[idx],
-                 outputs);
-      output.dst_indirect_instances[idx] = outputs[0];
-    }
+#ifdef DEBUG_LEGATE
+  assert(copy.src_indirect_requirements.size() <= 1);
+  assert(copy.dst_indirect_requirements.size() <= 1);
+#endif
+  if (!copy.src_indirect_requirements.empty()) {
+    // This is to make the push_back call later add the isntance to the right place
+    output.src_indirect_instances.clear();
+    output_map[&copy.src_indirect_requirements.front()] = &output.src_indirect_instances;
+  }
+  if (!copy.dst_indirect_requirements.empty()) {
+    // This is to make the push_back call later add the isntance to the right place
+    output.dst_indirect_instances.clear();
+    output_map[&copy.dst_indirect_requirements.front()] = &output.dst_indirect_instances;
   }
 
-  auto remap_stores = [&](auto idx, auto& req, auto& inputs, auto& outputs, auto& failed_acquires) {
-    auto& region       = req.region;
-    const auto& valid  = inputs;
-    uint32_t fidx      = 0;
-    const bool memoize = req.privilege != LEGION_REDUCE;
-    for (auto fid : req.privilege_fields) {
-      if (failed_acquires.find(outputs[fidx]) == failed_acquires.end()) {
-        ++fidx;
-        continue;
+  std::vector<StoreMapping> mappings;
+
+  for (auto& store : legate_copy.inputs())
+    mappings.push_back(StoreMapping::default_mapping(store, default_store_target, false));
+  for (auto& store : legate_copy.outputs())
+    mappings.push_back(StoreMapping::default_mapping(store, default_store_target, false));
+  for (auto& store : legate_copy.input_indirections())
+    mappings.push_back(StoreMapping::default_mapping(store, default_store_target, false));
+  for (auto& store : legate_copy.output_indirections())
+    mappings.push_back(StoreMapping::default_mapping(store, default_store_target, false));
+
+  bool can_fail = false;
+
+  std::map<int32_t, PhysicalInstance> mapping_to_instance;
+  for (int32_t mapping_idx = 0; mapping_idx < mappings.size(); ++mapping_idx) {
+    auto& mapping = mappings[mapping_idx];
+    auto reqs     = mapping.requirements();
+#ifdef DEBUG_LEGATE
+    std::stringstream reqs_ss;
+    for (auto req_idx : mapping.requirement_indices()) reqs_ss << " " << req_idx;
+#endif
+
+    PhysicalInstance result;
+    while (map_legate_store(ctx, copy, mapping, reqs, target_proc, result, can_fail)) {
+      if (result == PhysicalInstance()) break;
+      if (runtime->acquire_instance(ctx, result)) {
+#ifdef DEBUG_LEGATE
+        logger.debug() << "Copy " << copy.get_unique_id() << ": acquired instance " << result
+                       << " for reqs:" << reqs_ss.str();
+#endif
+        break;
       }
-      if (map_raw_array(ctx,
-                        copy,
-                        idx,
-                        region,
-                        fid,
-                        target_memory,
-                        Processor::NO_PROC,
-                        valid,
-                        outputs[fidx],
-                        memoize))
-        needed_acquires.push_back(outputs[fidx]);
-      ++fidx;
+#ifdef DEBUG_LEGATE
+      logger.debug() << "Copy " << copy.get_unique_id() << ": failed to acquire instance " << result
+                     << " for reqs:" << reqs_ss.str();
+#endif
+      AutoLock lock(ctx, local_instances->manager_lock());
+      local_instances->erase(result);
     }
-  };
-
-  while (!needed_acquires.empty() &&
-         !runtime->acquire_and_filter_instances(ctx, needed_acquires, true /*filter on acquire*/)) {
-    assert(!needed_acquires.empty());
-    // If we failed to acquire any of the instances we need to prune them
-    // out of the mapper's data structure so do that first
-    std::set<PhysicalInstance> failed_acquires;
-    filter_failed_acquires(ctx, needed_acquires, failed_acquires);
-
-    // Now go through and try to remap region requirements with failed acquisitions
-    for (uint32_t idx = 0; idx < copy.src_requirements.size(); idx++) {
-      remap_stores(idx,
-                   copy.src_requirements[idx],
-                   input.src_instances[idx],
-                   output.src_instances[idx],
-                   failed_acquires);
-
-      remap_stores(idx + dst_offset,
-                   copy.dst_requirements[idx],
-                   input.dst_instances[idx],
-                   output.dst_instances[idx],
-                   failed_acquires);
-      if (idx < copy.src_indirect_requirements.size()) {
-        std::vector<PhysicalInstance> outputs(1, output.src_indirect_instances[idx]);
-        remap_stores(idx + src_indirect_offset,
-                     copy.src_indirect_requirements[idx],
-                     input.src_indirect_instances[idx],
-                     outputs,
-                     failed_acquires);
-      }
-      if (idx < copy.dst_indirect_requirements.size()) {
-        std::vector<PhysicalInstance> outputs(1, output.dst_indirect_instances[idx]);
-        remap_stores(idx + dst_indirect_offset,
-                     copy.dst_indirect_requirements[idx],
-                     input.dst_indirect_instances[idx],
-                     outputs,
-                     failed_acquires);
-      }
-    }
+    mapping_to_instance[mapping_idx] = result;
   }
+
+  // Succeeded in mapping all stores, record it on map_copy output.
+  for (const auto& m2i : mapping_to_instance)
+    for (auto req : mappings[m2i.first].requirements())
+      if (req->region.exists()) output_map[req]->push_back(m2i.second);
 }
 
 void BaseMapper::select_copy_sources(const MapperContext ctx,
