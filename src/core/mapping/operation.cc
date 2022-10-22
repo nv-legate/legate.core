@@ -101,8 +101,10 @@ bool Store::can_colocate_with(const Store& other) const
 {
   if (is_future() || other.is_future())
     return false;
-  else if (is_reduction() || other.is_reduction())
+  else if (unbound() || other.unbound())
     return false;
+  else if (is_reduction() || other.is_reduction())
+    return redop() == other.redop() && region_field_.can_colocate_with(other.region_field_);
   return region_field_.can_colocate_with(other.region_field_);
 }
 
