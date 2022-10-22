@@ -680,8 +680,8 @@ class CopyReqAnalyzer(RequirementIndexer):
 
     def insert(self, req: RegionReq, field_id: int) -> None:
         entry = (req, field_id)
-        self._requirements.append(entry)
         self._requirement_map[entry] = len(self._requirements)
+        self._requirements.append(entry)
 
     def get_requirement_index(
         self, req: Union[RegionReq, OutputReq], field_id: int
