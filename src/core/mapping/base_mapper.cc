@@ -378,63 +378,36 @@ void BaseMapper::slice_task(const MapperContext ctx,
 
 bool BaseMapper::has_variant(const MapperContext ctx, const LegionTask& task, Processor::Kind kind)
 {
-  const std::pair<TaskID, Processor::Kind> key(task.task_id, kind);
-  // Check to see if we already have it
-  auto finder = leaf_variants.find(key);
-  if ((finder != leaf_variants.end()) && (finder->second != 0)) return true;
-  std::vector<VariantID> variants;
-  runtime->find_valid_variants(ctx, key.first, variants, key.second);
-  // Process all the results, record if we found what we were looking for
-  bool has_leaf = false;
-  for (auto vid : variants) {
-    assert(vid > 0);
-    switch (vid) {
-      case LEGATE_CPU_VARIANT:
-      case LEGATE_OMP_VARIANT:
-      case LEGATE_GPU_VARIANT: {
-        has_leaf           = true;
-        leaf_variants[key] = vid;
-        break;
-      }
-      default:         // TODO: handle vectorized variants
-        LEGATE_ABORT;  // unhandled variant kind
-    }
-  }
-  if (!has_leaf) leaf_variants[key] = 0;
-  return has_leaf;
+  return find_variant(ctx, task, kind).has_value();
 }
 
-VariantID BaseMapper::find_variant(const MapperContext ctx,
-                                   const LegionTask& task,
-                                   Processor::Kind kind)
+std::optional<VariantID> BaseMapper::find_variant(const MapperContext ctx,
+                                                  const LegionTask& task,
+                                                  Processor::Kind kind)
 {
-  const std::pair<TaskID, Processor::Kind> key(task.task_id, kind);
+  const VariantCacheKey key(task.task_id, kind);
   auto finder = leaf_variants.find(key);
-  if ((finder != leaf_variants.end()) && (finder->second != 0)) return finder->second;
+  if (finder != leaf_variants.end()) return finder->second;
+
   // Haven't seen it before so let's look it up to make sure it exists
   std::vector<VariantID> variants;
   runtime->find_valid_variants(ctx, key.first, variants, key.second);
-  VariantID result = 0;  // 0 is reserved
-  bool has_leaf    = false;
-  // Process all the results, record if we found what we were looking for
+  std::optional<VariantID> result;
   for (auto vid : variants) {
+#ifdef DEBUG_LEGATE
     assert(vid > 0);
+#endif
     switch (vid) {
       case LEGATE_CPU_VARIANT:
       case LEGATE_OMP_VARIANT:
       case LEGATE_GPU_VARIANT: {
-        has_leaf           = true;
-        leaf_variants[key] = vid;
-        result             = vid;
+        result = vid;
         break;
       }
-      default:         // TODO: handle vectorized variants
-        LEGATE_ABORT;  // unhandled variant kind
+      default: LEGATE_ABORT;  // unhandled variant kind
     }
   }
-  if (!has_leaf) leaf_variants[key] = 0;
-  // We must always be able to find the variant;
-  assert(result != 0);
+  leaf_variants[key] = result;
   return result;
 }
 
@@ -451,7 +424,11 @@ void BaseMapper::map_task(const MapperContext ctx,
   assert(task.get_depth() > 0);
 
   // Let's populate easy outputs first
-  output.chosen_variant = find_variant(ctx, task, task.target_proc.kind());
+  auto variant = find_variant(ctx, task, task.target_proc.kind());
+#ifdef DEBUG_LEGATE
+  assert(variant.has_value());
+#endif
+  output.chosen_variant = *variant;
   // Just put our target proc in the target processors for now
   output.target_procs.push_back(task.target_proc);
 
@@ -1003,7 +980,11 @@ void BaseMapper::select_task_variant(const MapperContext ctx,
                                      const SelectVariantInput& input,
                                      SelectVariantOutput& output)
 {
-  output.chosen_variant = find_variant(ctx, task, input.processor.kind());
+  auto variant = find_variant(ctx, task, input.processor.kind());
+#ifdef DEBUG_LEGATE
+  assert(variant.has_value());
+#endif
+  output.chosen_variant = *variant;
 }
 
 void BaseMapper::postmap_task(const MapperContext ctx,

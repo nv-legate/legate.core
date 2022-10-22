@@ -286,9 +286,9 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
   bool has_variant(const Legion::Mapping::MapperContext ctx,
                    const Legion::Task& task,
                    Legion::Processor::Kind kind);
-  Legion::VariantID find_variant(const Legion::Mapping::MapperContext ctx,
-                                 const Legion::Task& task,
-                                 Legion::Processor::Kind kind);
+  std::optional<Legion::VariantID> find_variant(const Legion::Mapping::MapperContext ctx,
+                                                const Legion::Task& task,
+                                                Legion::Processor::Kind kind);
 
  private:
   void generate_prime_factors();
@@ -367,7 +367,8 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
   std::map<Legion::Processor, Legion::Memory> local_numa_domains;
 
  protected:
-  std::map<std::pair<Legion::TaskID, Legion::Processor::Kind>, Legion::VariantID> leaf_variants;
+  using VariantCacheKey = std::pair<Legion::TaskID, Legion::Processor::Kind>;
+  std::map<VariantCacheKey, std::optional<Legion::VariantID>> leaf_variants;
 
  protected:
   InstanceManager* local_instances;
