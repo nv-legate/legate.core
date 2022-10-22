@@ -83,6 +83,20 @@ Store::Store(Legion::Mapping::MapperRuntime* runtime,
 {
 }
 
+Store::Store(Legion::Mapping::MapperRuntime* runtime,
+             const Legion::Mapping::MapperContext context,
+             const Legion::RegionRequirement* requirement)
+  : is_future_(false),
+    is_output_store_(false),
+    dim_(requirement->region.get_dim()),
+    code_(LegateTypeCode::MAX_TYPE_NUMBER),
+    redop_id_(-1),
+    runtime_(runtime),
+    context_(context)
+{
+  region_field_ = RegionField(requirement, dim_, 0, requirement->instance_fields.front());
+}
+
 bool Store::can_colocate_with(const Store& other) const
 {
   if (is_future() || other.is_future())

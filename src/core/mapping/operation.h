@@ -111,6 +111,10 @@ class Store {
         const RegionField& region_field,
         bool is_output_store                        = false,
         std::shared_ptr<TransformStack>&& transform = nullptr);
+  // A special constructor to create a mapper view of a store from a region requirement
+  Store(Legion::Mapping::MapperRuntime* runtime,
+        const Legion::Mapping::MapperContext context,
+        const Legion::RegionRequirement* requirement);
 
  public:
   Store(const Store& other)            = default;
