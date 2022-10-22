@@ -266,7 +266,7 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
   bool map_legate_store(const Legion::Mapping::MapperContext ctx,
                         const Legion::Mappable& mappable,
                         const StoreMapping& mapping,
-                        std::vector<std::reference_wrapper<const Legion::RegionRequirement>> reqs,
+                        const std::set<const Legion::RegionRequirement*>& reqs,
                         Legion::Processor target_proc,
                         Legion::Mapping::PhysicalInstance& result,
                         bool can_fail);

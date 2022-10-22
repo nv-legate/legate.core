@@ -141,6 +141,18 @@ std::set<uint32_t> StoreMapping::requirement_indices() const
   return std::move(indices);
 }
 
+std::set<const RegionRequirement*> StoreMapping::requirements() const
+{
+  std::set<const RegionRequirement*> reqs;
+  for (auto& store : stores) {
+    if (store.is_future()) continue;
+    auto* req = store.region_field().get_requirement();
+    if (!req->region.exists()) continue;
+    reqs.insert(req);
+  }
+  return std::move(reqs);
+}
+
 void StoreMapping::populate_layout_constraints(
   Legion::LayoutConstraintSet& layout_constraints) const
 {

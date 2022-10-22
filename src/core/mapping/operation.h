@@ -62,8 +62,8 @@ class RegionField {
   Legion::FieldID field_id() const { return fid_; }
   bool unbound() const { return dim_ < 0; }
 
- private:
-  const Legion::RegionRequirement& get_requirement() const;
+ public:
+  const Legion::RegionRequirement* get_requirement() const { return req_; }
   Legion::IndexSpace get_index_space() const;
 
  private:

@@ -535,6 +535,11 @@ void BaseMapper::map_task(const MapperContext ctx,
     default: LEGATE_ABORT;
   }
 
+  output.chosen_instances.resize(task.regions.size());
+  std::map<const RegionRequirement*, std::vector<PhysicalInstance>*> output_map;
+  for (uint32_t idx = 0; idx < task.regions.size(); ++idx)
+    output_map[&task.regions[idx]] = &output.chosen_instances[idx];
+
   auto mappings = store_mappings(legate_task, options);
 
   std::map<RegionField::Id, uint32_t> client_mapped_regions;
@@ -605,8 +610,6 @@ void BaseMapper::map_task(const MapperContext ctx,
   generate_default_mappings(legate_task.outputs(), false);
   generate_default_mappings(legate_task.reductions(), false);
 
-  output.chosen_instances.resize(task.regions.size());
-
   bool can_fail = true;
   std::map<PhysicalInstance, std::set<int32_t>> instance_to_mappings;
   std::map<int32_t, PhysicalInstance> mapping_to_instance;
@@ -617,22 +620,16 @@ void BaseMapper::map_task(const MapperContext ctx,
     for (int32_t mapping_idx = 0; mapping_idx < mappings.size(); ++mapping_idx) {
       auto& mapping      = mappings[mapping_idx];
       PrivilegeMode priv = LEGION_NO_ACCESS;
+      for (auto* req : mapping.requirements()) priv |= req->privilege;
+      if (!(priv & LEGION_WRITE_PRIV) || mapping.policy.exact) continue;
+
 #ifdef DEBUG_LEGATE
       std::stringstream reqs_ss;
-#endif
-      for (auto req_idx : mapping.requirement_indices()) {
-        const RegionRequirement& req = task.regions[req_idx];
-        if (!req.region.exists()) continue;
-        priv |= req.privilege;
-#ifdef DEBUG_LEGATE
-        reqs_ss << " " << req_idx;
-#endif
-      }
-      if (!(priv & LEGION_WRITE_PRIV) || mapping.policy.exact) continue;
-#ifdef DEBUG_LEGATE
+      for (auto req_idx : mapping.requirement_indices()) reqs_ss << " " << req_idx;
       logger.debug() << "Task " << task.get_unique_id()
                      << ": tightened mapping policy for reqs:" << reqs_ss.str();
 #endif
+
       mapping.policy.exact = true;
       if (!handled[mapping_idx]) continue;
       handled[mapping_idx] = false;
@@ -652,21 +649,10 @@ void BaseMapper::map_task(const MapperContext ctx,
   // Mapping each field separately for each of the logical regions
   for (int32_t mapping_idx = 0; mapping_idx < mappings.size(); ++mapping_idx) {
     if (handled[mapping_idx]) continue;
-    auto& mapping    = mappings[mapping_idx];
-    auto req_indices = mapping.requirement_indices();
-
-    if (req_indices.empty()) {
-      // This is a mapping for futures
-      StoreTarget target = mapping.policy.target;
-#ifdef LEGATE_NO_FUTURES_ON_FB
-      if (target == StoreTarget::FBMEM) target = StoreTarget::ZCMEM;
-#endif
-      output.future_locations.push_back(get_target_memory(task.target_proc, target));
-      handled[mapping_idx] = true;
-      continue;
-    }
+    auto& mapping = mappings[mapping_idx];
 
     if (mapping.for_unbound_stores()) {
+      auto req_indices = mapping.requirement_indices();
       for (auto req_idx : req_indices) {
         output.output_targets[req_idx] = get_target_memory(task.target_proc, mapping.policy.target);
         auto ndim                      = mapping.stores.front().dim();
@@ -683,22 +669,22 @@ void BaseMapper::map_task(const MapperContext ctx,
       continue;
     }
 
-    std::vector<std::reference_wrapper<const RegionRequirement>> reqs;
-#ifdef DEBUG_LEGATE
-    std::stringstream reqs_ss;
-#endif
-    for (auto req_idx : req_indices) {
-      const auto& req = task.regions[req_idx];
-      if (!req.region.exists()) continue;
-      reqs.push_back(std::cref(req));
-#ifdef DEBUG_LEGATE
-      reqs_ss << " " << req_idx;
-#endif
-    }
+    auto reqs = mapping.requirements();
     if (reqs.empty()) {
+      // This is a mapping for futures
+      StoreTarget target = mapping.policy.target;
+#ifdef LEGATE_NO_FUTURES_ON_FB
+      if (target == StoreTarget::FBMEM) target = StoreTarget::ZCMEM;
+#endif
+      output.future_locations.push_back(get_target_memory(task.target_proc, target));
       handled[mapping_idx] = true;
       continue;
     }
+
+#ifdef DEBUG_LEGATE
+    std::stringstream reqs_ss;
+    for (auto req_idx : mapping.requirement_indices()) reqs_ss << " " << req_idx;
+#endif
 
     // Get an instance and acquire it if necessary. If the acquire fails then prune it from the
     // mapper's data structures and retry, until we succeed or map_legate_store fails with an out of
@@ -749,9 +735,8 @@ void BaseMapper::map_task(const MapperContext ctx,
 
   // Succeeded in mapping all stores, record it on map_task output.
   for (const auto& m2i : mapping_to_instance)
-    for (auto req_idx : mappings[m2i.first].requirement_indices())
-      if (task.regions[req_idx].region.exists())
-        output.chosen_instances[req_idx].push_back(m2i.second);
+    for (auto p_req : mappings[m2i.first].requirements())
+      if (p_req->region.exists()) output_map[p_req]->push_back(m2i.second);
 }
 
 void BaseMapper::map_replicate_task(const MapperContext ctx,
@@ -808,23 +793,23 @@ Memory BaseMapper::get_target_memory(Processor proc, StoreTarget target)
 bool BaseMapper::map_legate_store(const MapperContext ctx,
                                   const Mappable& mappable,
                                   const StoreMapping& mapping,
-                                  std::vector<std::reference_wrapper<const RegionRequirement>> reqs,
+                                  const std::set<const RegionRequirement*>& reqs,
                                   Processor target_proc,
                                   PhysicalInstance& result,
                                   bool can_fail)
 {
   const auto& policy = mapping.policy;
   std::vector<LogicalRegion> regions;
-  for (auto& req : reqs) regions.push_back(req.get().region);
+  for (auto* req : reqs) regions.push_back(req->region);
   auto target_memory = get_target_memory(target_proc, policy.target);
 
   ReductionOpID redop = 0;
   bool first          = true;
-  for (auto& req : reqs) {
+  for (auto* req : reqs) {
     if (first)
-      redop = req.get().redop;
+      redop = req->redop;
     else {
-      if (redop != req.get().redop) {
+      if (redop != req->redop) {
         logger.error(
           "Colocated stores should be either non-reduction arguments "
           "or reductions with the same reduction operator.");

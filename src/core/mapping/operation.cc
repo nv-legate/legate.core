@@ -33,9 +33,9 @@ RegionField::RegionField(const RegionRequirement* req, int32_t dim, uint32_t idx
 
 bool RegionField::can_colocate_with(const RegionField& other) const
 {
-  auto& my_req    = get_requirement();
-  auto& other_req = other.get_requirement();
-  return my_req.region.get_tree_id() == other_req.region.get_tree_id();
+  auto* my_req    = get_requirement();
+  auto* other_req = other.get_requirement();
+  return my_req->region.get_tree_id() == other_req->region.get_tree_id();
 }
 
 Domain RegionField::domain(MapperRuntime* runtime, const MapperContext context) const
@@ -43,12 +43,7 @@ Domain RegionField::domain(MapperRuntime* runtime, const MapperContext context) 
   return runtime->get_index_space_domain(context, get_index_space());
 }
 
-const RegionRequirement& RegionField::get_requirement() const { return *req_; }
-
-IndexSpace RegionField::get_index_space() const
-{
-  return get_requirement().region.get_index_space();
-}
+IndexSpace RegionField::get_index_space() const { return req_->region.get_index_space(); }
 
 FutureWrapper::FutureWrapper(uint32_t idx, const Domain& domain) : idx_(idx), domain_(domain) {}
 
