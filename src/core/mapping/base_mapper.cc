@@ -1101,18 +1101,26 @@ void BaseMapper::report_profiling(const MapperContext ctx,
   LEGATE_ABORT;
 }
 
+ShardingID BaseMapper::find_sharding_functor_by_key_store_projection(
+  const std::vector<RegionRequirement>& requirements)
+{
+  ProjectionID proj_id = 0;
+  for (auto& requirement : requirements)
+    if (LEGATE_CORE_KEY_STORE_TAG == requirement.tag) {
+      proj_id = requirement.projection;
+      break;
+    }
+  return find_sharding_functor_by_projection_functor(proj_id);
+}
+
 void BaseMapper::select_sharding_functor(const MapperContext ctx,
                                          const LegionTask& task,
                                          const SelectShardingFunctorInput& input,
                                          SelectShardingFunctorOutput& output)
 {
-  for (auto& req : task.regions)
-    if (req.tag == LEGATE_CORE_KEY_STORE_TAG) {
-      output.chosen_functor = find_sharding_functor_by_projection_functor(req.projection);
-      return;
-    }
-
-  output.chosen_functor = 0;
+  output.chosen_functor = task.is_index_space
+                            ? find_sharding_functor_by_key_store_projection(task.regions)
+                            : find_sharding_functor_by_projection_functor(0);
 }
 
 void BaseMapper::map_inline(const MapperContext ctx,
@@ -1310,7 +1318,8 @@ void BaseMapper::select_sharding_functor(const MapperContext ctx,
                                          const SelectShardingFunctorInput& input,
                                          SelectShardingFunctorOutput& output)
 {
-  output.chosen_functor = 0;
+  // TODO: Copies can have key stores in the future
+  output.chosen_functor = find_sharding_functor_by_projection_functor(0);
 }
 
 void BaseMapper::select_close_sources(const MapperContext ctx,
@@ -1482,7 +1491,7 @@ void BaseMapper::select_sharding_functor(const MapperContext ctx,
                                          const SelectShardingFunctorInput& input,
                                          SelectShardingFunctorOutput& output)
 {
-  output.chosen_functor = 0;
+  output.chosen_functor = find_sharding_functor_by_projection_functor(0);
 }
 
 void BaseMapper::select_sharding_functor(const MapperContext ctx,
@@ -1490,7 +1499,9 @@ void BaseMapper::select_sharding_functor(const MapperContext ctx,
                                          const SelectShardingFunctorInput& input,
                                          SelectShardingFunctorOutput& output)
 {
-  output.chosen_functor = 0;
+  output.chosen_functor = fill.is_index_space
+                            ? find_sharding_functor_by_key_store_projection({fill.requirement})
+                            : find_sharding_functor_by_projection_functor(0);
 }
 
 void BaseMapper::configure_context(const MapperContext ctx,

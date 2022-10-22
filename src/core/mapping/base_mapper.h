@@ -336,6 +336,10 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
                               SliceTaskOutput& output);
 
  protected:
+  Legion::ShardingID find_sharding_functor_by_key_store_projection(
+    const std::vector<Legion::RegionRequirement>& requirements);
+
+ protected:
   static inline bool physical_sort_func(
     const std::pair<Legion::Mapping::PhysicalInstance, unsigned>& left,
     const std::pair<Legion::Mapping::PhysicalInstance, unsigned>& right)
