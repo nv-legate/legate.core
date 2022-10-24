@@ -54,6 +54,23 @@ const std::vector<StoreTarget>& default_store_targets(Processor::Kind kind)
   return finder->second;
 }
 
+std::string log_mappable(const Mappable& mappable)
+{
+  static const std::map<MappableType, std::string> prefixes = {
+    {LEGION_TASK_MAPPABLE, "Task "},
+    {LEGION_COPY_MAPPABLE, "Copy "},
+    {LEGION_INLINE_MAPPABLE, "Inline mapping "},
+    {LEGION_PARTITION_MAPPABLE, "Partition "},
+  };
+  auto finder = prefixes.find(mappable.get_mappable_type());
+#ifdef DEBUG_LEGATE
+  assert(finder != prefixes.end());
+#endif
+  std::stringstream ss;
+  ss << finder->second << mappable.get_unique_id();
+  return ss.str();
+}
+
 }  // namespace
 
 BaseMapper::BaseMapper(Runtime* rt, Machine m, const LibraryContext& ctx)
@@ -521,6 +538,7 @@ void BaseMapper::map_task(const MapperContext ctx,
   generate_default_mappings(legate_task.outputs(), false);
   generate_default_mappings(legate_task.reductions(), false);
 
+  // Map future-backed stores
   auto map_futures = [&](auto& mappings) {
     for (auto& mapping : mappings) {
       StoreTarget target = mapping.policy.target;
@@ -532,6 +550,7 @@ void BaseMapper::map_task(const MapperContext ctx,
   };
   map_futures(for_futures);
 
+  // Map unbound stores
   auto map_unbound_stores = [&](auto& mappings) {
     for (auto& mapping : mappings) {
       auto req_idx                   = mapping.requirement_index();
@@ -549,93 +568,12 @@ void BaseMapper::map_task(const MapperContext ctx,
   };
   map_unbound_stores(for_unbound_stores);
 
-  auto map_stores = [&](auto& mappings, bool can_fail, auto& output_map) {
-    const PhysicalInstance NO_INST;
-    std::vector<PhysicalInstance> instances;
-    for (auto& mapping : mappings) {
-      PhysicalInstance result;
-      auto reqs = mapping.requirements();
-      while (map_legate_store(ctx, task, mapping, reqs, task.target_proc, result, can_fail)) {
-        if (NO_INST == result) {
-#ifdef DEBUG_LEGATE
-          assert(can_fail);
-#endif
-          for (auto& instance : instances) runtime->release_instance(ctx, instance);
-          return false;
-        }
-#ifdef DEBUG_LEGATE
-        std::stringstream reqs_ss;
-        for (auto req_idx : mapping.requirement_indices()) reqs_ss << " " << req_idx;
-#endif
-        if (runtime->acquire_instance(ctx, result)) {
-#ifdef DEBUG_LEGATE
-          logger.debug() << "Task " << task.get_unique_id() << ": acquired instance " << result
-                         << " for reqs:" << reqs_ss.str();
-#endif
-          break;
-        }
-#ifdef DEBUG_LEGATE
-        logger.debug() << "Task " << task.get_unique_id() << ": failed to acquire instance "
-                       << result << " for reqs:" << reqs_ss.str();
-#endif
-        AutoLock lock(ctx, local_instances->manager_lock());
-        local_instances->erase(result);
-      }
-      instances.push_back(result);
-    }
-
-    // If we're here, all stores are mapped and instances are all acquired
-    for (uint32_t idx = 0; idx < mappings.size(); ++idx) {
-      auto& mapping  = mappings[idx];
-      auto& instance = instances[idx];
-      for (auto& req : mapping.requirements()) output_map[req]->push_back(instance);
-    }
-    return true;
-  };
-
-  // See case of failed instance creation below
-  auto tighten_write_policies = [&](auto& mappings) {
-    for (auto& mapping : mappings) {
-      // If the policy is exact, there's nothing we can tighten
-      if (mapping.policy.exact) continue;
-
-      PrivilegeMode priv = LEGION_NO_ACCESS;
-      for (auto* req : mapping.requirements()) priv |= req->privilege;
-      // We only try to tighten
-      if (!(priv & LEGION_WRITE_PRIV)) continue;
-
-#ifdef DEBUG_LEGATE
-      std::stringstream reqs_ss;
-      for (auto req_idx : mapping.requirement_indices()) reqs_ss << " " << req_idx;
-      logger.debug() << "Task " << task.get_unique_id()
-                     << ": tightened mapping policy for reqs:" << reqs_ss.str();
-#endif
-      mapping.policy.exact = true;
-    }
-  };
-
-  // We can retry the mapping with tightened policies only if at least one of the policies
-  // is lenient
-  bool can_fail = false;
-  for (auto& mapping : for_stores) can_fail = can_fail || !mapping.policy.exact;
-
   output.chosen_instances.resize(task.regions.size());
   std::map<const RegionRequirement*, std::vector<PhysicalInstance>*> output_map;
   for (uint32_t idx = 0; idx < task.regions.size(); ++idx)
     output_map[&task.regions[idx]] = &output.chosen_instances[idx];
 
-  if (!map_stores(for_stores, can_fail, output_map)) {
-#ifdef DEBUG_LEGATE
-    logger.debug() << "Task " << task.get_unique_id() << " failed to map all stores, retrying with "
-                   << "tighter policies";
-#endif
-    // If instance creation failed we try mapping all stores again, but request tight instances for
-    // write requirements. The hope is that these write requirements cover the entire region (i.e.
-    // they use a complete partition), so the new tight instances will invalidate any pre-existing
-    // "bloated" instances for the same region, freeing up enough memory so that mapping can succeed
-    tighten_write_policies(for_stores);
-    map_stores(for_stores, false, output_map);
-  }
+  map_legate_stores(ctx, task, for_stores, task.target_proc, output_map);
 }
 
 void BaseMapper::map_replicate_task(const MapperContext ctx,
@@ -687,6 +625,97 @@ Memory BaseMapper::get_target_memory(Processor proc, StoreTarget target)
   }
   assert(false);
   return Memory::NO_MEMORY;
+}
+
+void BaseMapper::map_legate_stores(const MapperContext ctx,
+                                   const Mappable& mappable,
+                                   std::vector<StoreMapping>& mappings,
+                                   Processor target_proc,
+                                   OutputMap& output_map)
+{
+  auto try_mapping = [&](bool can_fail) {
+    const PhysicalInstance NO_INST;
+    std::vector<PhysicalInstance> instances;
+    for (auto& mapping : mappings) {
+      PhysicalInstance result;
+      auto reqs = mapping.requirements();
+      while (map_legate_store(ctx, mappable, mapping, reqs, target_proc, result, can_fail)) {
+        if (NO_INST == result) {
+#ifdef DEBUG_LEGATE
+          assert(can_fail);
+#endif
+          for (auto& instance : instances) runtime->release_instance(ctx, instance);
+          return false;
+        }
+#ifdef DEBUG_LEGATE
+        std::stringstream reqs_ss;
+        for (auto req_idx : mapping.requirement_indices()) reqs_ss << " " << req_idx;
+#endif
+        if (runtime->acquire_instance(ctx, result)) {
+#ifdef DEBUG_LEGATE
+          logger.debug() << log_mappable(mappable) << ": acquired instance " << result
+                         << " for reqs:" << reqs_ss.str();
+#endif
+          break;
+        }
+#ifdef DEBUG_LEGATE
+        logger.debug() << log_mappable(mappable) << ": failed to acquire instance " << result
+                       << " for reqs:" << reqs_ss.str();
+#endif
+        AutoLock lock(ctx, local_instances->manager_lock());
+        local_instances->erase(result);
+      }
+      instances.push_back(result);
+    }
+
+    // If we're here, all stores are mapped and instances are all acquired
+    for (uint32_t idx = 0; idx < mappings.size(); ++idx) {
+      auto& mapping  = mappings[idx];
+      auto& instance = instances[idx];
+      for (auto& req : mapping.requirements()) output_map[req]->push_back(instance);
+    }
+    return true;
+  };
+
+  // We can retry the mapping with tightened policies only if at least one of the policies
+  // is lenient
+  bool can_fail = false;
+  for (auto& mapping : mappings) can_fail = can_fail || !mapping.policy.exact;
+
+  if (!try_mapping(can_fail)) {
+#ifdef DEBUG_LEGATE
+    logger.debug() << log_mappable(mappable) << " failed to map all stores, retrying with "
+                   << "tighter policies";
+#endif
+    // If instance creation failed we try mapping all stores again, but request tight instances for
+    // write requirements. The hope is that these write requirements cover the entire region (i.e.
+    // they use a complete partition), so the new tight instances will invalidate any pre-existing
+    // "bloated" instances for the same region, freeing up enough memory so that mapping can succeed
+    tighten_write_policies(mappable, mappings);
+    try_mapping(false);
+  }
+}
+
+void BaseMapper::tighten_write_policies(const Mappable& mappable,
+                                        std::vector<StoreMapping>& mappings)
+{
+  for (auto& mapping : mappings) {
+    // If the policy is exact, there's nothing we can tighten
+    if (mapping.policy.exact) continue;
+
+    PrivilegeMode priv = LEGION_NO_ACCESS;
+    for (auto* req : mapping.requirements()) priv |= req->privilege;
+    // We only try to tighten
+    if (!(priv & LEGION_WRITE_PRIV)) continue;
+
+#ifdef DEBUG_LEGATE
+    std::stringstream reqs_ss;
+    for (auto req_idx : mapping.requirement_indices()) reqs_ss << " " << req_idx;
+    logger.debug() << log_mappable(mappable)
+                   << ": tightened mapping policy for reqs:" << reqs_ss.str();
+#endif
+    mapping.policy.exact = true;
+  }
 }
 
 bool BaseMapper::map_legate_store(const MapperContext ctx,
@@ -861,25 +890,12 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
   return true;
 }
 
-void BaseMapper::filter_failed_acquires(const MapperContext ctx,
-                                        std::vector<PhysicalInstance>& needed_acquires,
-                                        std::set<PhysicalInstance>& failed_acquires)
-{
-  AutoLock lock(ctx, local_instances->manager_lock());
-  for (auto& instance : needed_acquires) {
-    if (failed_acquires.find(instance) != failed_acquires.end()) continue;
-    failed_acquires.insert(instance);
-    local_instances->erase(instance);
-  }
-  needed_acquires.clear();
-}
-
 void BaseMapper::report_failed_mapping(const Mappable& mappable,
                                        uint32_t index,
                                        Memory target_memory,
                                        ReductionOpID redop)
 {
-  const char* memory_kinds[] = {
+  static const char* memory_kinds[] = {
 #define MEM_NAMES(name, desc) desc,
     REALM_MEMORY_KINDS(MEM_NAMES)
 #undef MEM_NAMES
@@ -1043,14 +1059,6 @@ void BaseMapper::legate_select_sources(const MapperContext ctx,
       if (!affinity.empty()) {
         assert(affinity.size() == 1);
         memory_bandwidth = affinity[0].bandwidth;
-#if 0
-          } else {
-            // TODO: More graceful way of dealing with multi-hop copies
-            logger.warning("Legate mapper is potentially "
-                              "requesting a multi-hop copy between memories "
-                              IDFMT " and " IDFMT "!", location.id,
-                              destination_memory.id);
-#endif
       }
       source_memories[location] = memory_bandwidth;
       band_ranking.push_back(std::pair<PhysicalInstance, uint32_t>(instance, memory_bandwidth));
@@ -1125,28 +1133,13 @@ void BaseMapper::map_inline(const MapperContext ctx,
 #endif
 
   Store store(legion_runtime->get_mapper_runtime(), ctx, &inline_op.requirement);
-  StoreMapping mapping = StoreMapping::default_mapping(store, store_target, false);
+  std::vector<StoreMapping> mappings;
+  mappings.push_back(StoreMapping::default_mapping(store, store_target, false));
 
-  auto reqs = mapping.requirements();
-  output.chosen_instances.resize(1);
-  PhysicalInstance& result = output.chosen_instances.front();
-  bool can_fail            = false;
-  while (map_legate_store(ctx, inline_op, mapping, reqs, target_proc, result, can_fail)) {
-    if (result == PhysicalInstance()) break;
-    if (runtime->acquire_instance(ctx, result)) {
-#ifdef DEBUG_LEGATE
-      logger.debug() << "Inline mapping " << inline_op.get_unique_id() << ": acquired instance "
-                     << result << " for reqs: 0";
-#endif
-      break;
-    }
-#ifdef DEBUG_LEGATE
-    logger.debug() << "Inline mapping " << inline_op.get_unique_id()
-                   << ": failed to acquire instance " << result << " for reqs: 0";
-#endif
-    AutoLock lock(ctx, local_instances->manager_lock());
-    local_instances->erase(result);
-  }
+  std::map<const RegionRequirement*, std::vector<PhysicalInstance>*> output_map;
+  for (auto* req : mappings.front().requirements()) output_map[req] = &output.chosen_instances;
+
+  map_legate_stores(ctx, inline_op, mappings, target_proc, output_map);
 }
 
 void BaseMapper::select_inline_sources(const MapperContext ctx,
@@ -1237,41 +1230,7 @@ void BaseMapper::map_copy(const MapperContext ctx,
   for (auto& store : legate_copy.output_indirections())
     mappings.push_back(StoreMapping::default_mapping(store, store_target, false));
 
-  bool can_fail = false;
-
-  std::map<int32_t, PhysicalInstance> mapping_to_instance;
-  for (int32_t mapping_idx = 0; mapping_idx < mappings.size(); ++mapping_idx) {
-    auto& mapping = mappings[mapping_idx];
-    auto reqs     = mapping.requirements();
-#ifdef DEBUG_LEGATE
-    std::stringstream reqs_ss;
-    for (auto req_idx : mapping.requirement_indices()) reqs_ss << " " << req_idx;
-#endif
-
-    PhysicalInstance result;
-    while (map_legate_store(ctx, copy, mapping, reqs, target_proc, result, can_fail)) {
-      if (result == PhysicalInstance()) break;
-      if (runtime->acquire_instance(ctx, result)) {
-#ifdef DEBUG_LEGATE
-        logger.debug() << "Copy " << copy.get_unique_id() << ": acquired instance " << result
-                       << " for reqs:" << reqs_ss.str();
-#endif
-        break;
-      }
-#ifdef DEBUG_LEGATE
-      logger.debug() << "Copy " << copy.get_unique_id() << ": failed to acquire instance " << result
-                     << " for reqs:" << reqs_ss.str();
-#endif
-      AutoLock lock(ctx, local_instances->manager_lock());
-      local_instances->erase(result);
-    }
-    mapping_to_instance[mapping_idx] = result;
-  }
-
-  // Succeeded in mapping all stores, record it on map_copy output.
-  for (const auto& m2i : mapping_to_instance)
-    for (auto req : mappings[m2i.first].requirements())
-      if (req->region.exists()) output_map[req]->push_back(m2i.second);
+  map_legate_stores(ctx, copy, mappings, target_proc, output_map);
 }
 
 void BaseMapper::select_copy_sources(const MapperContext ctx,
@@ -1430,28 +1389,13 @@ void BaseMapper::map_partition(const MapperContext ctx,
 #endif
 
   Store store(legion_runtime->get_mapper_runtime(), ctx, &partition.requirement);
-  StoreMapping mapping = StoreMapping::default_mapping(store, store_target, false);
+  std::vector<StoreMapping> mappings;
+  mappings.push_back(StoreMapping::default_mapping(store, store_target, false));
 
-  auto reqs = mapping.requirements();
-  output.chosen_instances.resize(1);
-  PhysicalInstance& result = output.chosen_instances.front();
-  bool can_fail            = false;
-  while (map_legate_store(ctx, partition, mapping, reqs, target_proc, result, can_fail)) {
-    if (result == PhysicalInstance()) break;
-    if (runtime->acquire_instance(ctx, result)) {
-#ifdef DEBUG_LEGATE
-      logger.debug() << "Partition Op " << partition.get_unique_id() << ": acquired instance "
-                     << result << " for reqs: 0";
-#endif
-      break;
-    }
-#ifdef DEBUG_LEGATE
-    logger.debug() << "Partition Op " << partition.get_unique_id()
-                   << ": failed to acquire instance " << result << " for reqs: 0";
-#endif
-    AutoLock lock(ctx, local_instances->manager_lock());
-    local_instances->erase(result);
-  }
+  std::map<const RegionRequirement*, std::vector<PhysicalInstance>*> output_map;
+  for (auto* req : mappings.front().requirements()) output_map[req] = &output.chosen_instances;
+
+  map_legate_stores(ctx, partition, mappings, target_proc, output_map);
 }
 
 void BaseMapper::select_partition_sources(const MapperContext ctx,
