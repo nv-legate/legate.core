@@ -15,6 +15,12 @@ limitations under the License.
 
 -->
 
+# TL;DR
+
+1) Check if there are specialized scripts available for your cluster at https://github.com/nv-legate/quickstart.
+2) [Install dependencies from conda](#getting-dependencies-through-conda)
+3) [Build using install.py](#using-installpy)
+
 # Getting dependencies
 
 ## Getting dependencies through conda
@@ -118,12 +124,16 @@ specialized build, e.g. the one distributed by
 or one provided by your HPC vendor. In that case you should use an environment
 file generated with `--no-openmpi`.
 
+Legate requires a build of MPI that supports `MPI_THREAD_MULTIPLE`.
+
 ### Networking libraries (e.g. Infiniband, RoCE, UCX; optional)
 
 Only necessary if you wish to run on multiple nodes.
 
 Not available on conda; typically available through MOFED or the system-level
 package manager.
+
+If using UCX, a build configured with `--enable-mt` is required.
 
 ## Alternative sources for dependencies
 
