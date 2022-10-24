@@ -70,8 +70,9 @@ pulled from conda.
 
 If you need/prefer to use the system-provided compilers (typical for HPC
 installations), please use a conda environment generated with `--no-compilers`.
-Note that this will likely result in a conda/system library conflict (as
-explained above), since the system compilers will typically produce executables
+Note that this will likely result in a
+[conda/system library conflict](#alternative-sources-for-dependencies),
+since the system compilers will typically produce executables
 that link against the system-provided libraries, which can shadow the
 conda-provided equivalents.
 
