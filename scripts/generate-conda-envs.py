@@ -68,7 +68,7 @@ class CUDAConfig(SectionConfig):
         if self.ctk_version == "none":
             return ""
 
-        return f"-cuda-{self.ctk_version}"
+        return f"-cuda{self.ctk_version}"
 
 
 @dataclass(frozen=True)
@@ -95,8 +95,8 @@ class BuildConfig(SectionConfig):
         return sorted(pkgs)
 
     def __str__(self) -> str:
-        val = "-compilers" if self.compilers else "-no-compilers"
-        val += "-openmpi" if self.openmpi else "-no-openmpi"
+        val = "-compilers" if self.compilers else ""
+        val += "-openmpi" if self.openmpi else ""
         return val
 
 
@@ -202,8 +202,7 @@ class EnvConfig:
 
     @property
     def filename(self) -> str:
-        python = f"py{self.python.replace('.', '')}"
-        return f"environment-{self.use}-{self.os}-{python}{self.cuda}{self.build}.yaml"  # noqa
+        return f"environment-{self.use}-{self.os}-py{self.python}{self.cuda}{self.build}.yaml"  # noqa
 
 
 # --- Setup -------------------------------------------------------------------
