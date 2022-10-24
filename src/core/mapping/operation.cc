@@ -110,15 +110,25 @@ bool Store::can_colocate_with(const Store& other) const
 
 const RegionField& Store::region_field() const
 {
+#ifdef DEBUG_LEGATE
   assert(!is_future());
+#endif
   return region_field_;
 }
 
 const FutureWrapper& Store::future() const
 {
+#ifdef DEBUG_LEGATE
   assert(is_future());
+#endif
   return future_;
 }
+
+RegionField::Id Store::unique_region_field_id() const { return region_field().unique_id(); }
+
+uint32_t Store::requirement_index() const { return region_field().index(); }
+
+uint32_t Store::future_index() const { return future().index(); }
 
 Domain Store::domain() const
 {

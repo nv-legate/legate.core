@@ -112,23 +112,42 @@ void InstanceMappingPolicy::populate_layout_constraints(
   return std::move(policy);
 }
 
-bool StoreMapping::for_unbound_stores() const
+bool StoreMapping::for_future() const
+{
+  for (auto& store : stores) return store.is_future();
+  assert(false);
+  return false;
+}
+
+bool StoreMapping::for_unbound_store() const
 {
   for (auto& store : stores) return store.unbound();
   assert(false);
   return false;
 }
 
+const Store& StoreMapping::store() const
+{
+#ifdef DEBUG_LEGATE
+  assert(stores.size() == 1);
+#endif
+  return stores.front();
+}
+
 uint32_t StoreMapping::requirement_index() const
 {
+#ifdef DEBUG_LEGATE
   assert(stores.size() > 0);
   uint32_t result = -1U;
   for (auto& store : stores) {
-    auto idx = store.region_field().index();
+    auto idx = store.requirement_index();
     assert(result == -1U || result == idx);
     result = idx;
   }
   return result;
+#else
+  return stores.front().requirement_index();
+#endif
 }
 
 std::set<uint32_t> StoreMapping::requirement_indices() const

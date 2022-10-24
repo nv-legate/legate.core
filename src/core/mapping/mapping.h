@@ -133,7 +133,11 @@ struct StoreMapping {
   StoreMapping& operator=(StoreMapping&&) = default;
 
  public:
-  bool for_unbound_stores() const;
+  bool for_future() const;
+  bool for_unbound_store() const;
+  const Store& store() const;
+
+ public:
   uint32_t requirement_index() const;
   std::set<uint32_t> requirement_indices() const;
   std::set<const Legion::RegionRequirement*> requirements() const;

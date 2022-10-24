@@ -139,6 +139,11 @@ class Store {
   const FutureWrapper& future() const;
 
  public:
+  RegionField::Id unique_region_field_id() const;
+  uint32_t requirement_index() const;
+  uint32_t future_index() const;
+
+ public:
   template <int32_t DIM>
   Legion::Rect<DIM> shape() const;
 
