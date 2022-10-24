@@ -54,7 +54,7 @@ const std::vector<StoreTarget>& default_store_targets(Processor::Kind kind)
   return finder->second;
 }
 
-std::string log_mappable(const Mappable& mappable)
+std::string log_mappable(const Mappable& mappable, bool prefix_only = false)
 {
   static const std::map<MappableType, std::string> prefixes = {
     {LEGION_TASK_MAPPABLE, "Task "},
@@ -66,6 +66,8 @@ std::string log_mappable(const Mappable& mappable)
 #ifdef DEBUG_LEGATE
   assert(finder != prefixes.end());
 #endif
+  if (prefix_only) return finder->second;
+
   std::stringstream ss;
   ss << finder->second << mappable.get_unique_id();
   return ss.str();
@@ -900,99 +902,31 @@ void BaseMapper::report_failed_mapping(const Mappable& mappable,
     REALM_MEMORY_KINDS(MEM_NAMES)
 #undef MEM_NAMES
   };
+
+  std::string opname = "";
+  if (mappable.get_mappable_type() == Mappable::TASK_MAPPABLE) {
+    const auto task = mappable.as_task();
+    opname          = task->get_task_name();
+  }
+
   std::string provenance = mappable.get_provenance_string();
   if (provenance.empty()) provenance = "unknown provenance";
-  switch (mappable.get_mappable_type()) {
-    case Mappable::TASK_MAPPABLE: {
-      const auto task = mappable.as_task();
-      if (redop > 0)
-        logger.error(
-          "Mapper %s failed to map reduction (%d) region "
-          "requirement %d of task %s [%s] (UID %lld) into %s memory " IDFMT,
-          get_mapper_name(),
-          redop,
-          index,
-          task->get_task_name(),
-          provenance.c_str(),
-          mappable.get_unique_id(),
-          memory_kinds[target_memory.kind()],
-          target_memory.id);
-      else
-        logger.error(
-          "Mapper %s failed to map region requirement %d of "
-          "task %s [%s] (UID %lld) into %s memory " IDFMT,
-          get_mapper_name(),
-          index,
-          task->get_task_name(),
-          provenance.c_str(),
-          mappable.get_unique_id(),
-          memory_kinds[target_memory.kind()],
-          target_memory.id);
-      break;
-    }
-    case Mappable::COPY_MAPPABLE: {
-      if (redop > 0)
-        logger.error(
-          "Mapper %s failed to map reduction (%d) region "
-          "requirement %d of copy [%s] (UID %lld) into %s memory " IDFMT,
-          get_mapper_name(),
-          redop,
-          index,
-          provenance.c_str(),
-          mappable.get_unique_id(),
-          memory_kinds[target_memory.kind()],
-          target_memory.id);
-      else
-        logger.error(
-          "Mapper %s failed to map region requirement %d of "
-          "copy [%s] (UID %lld) into %s memory " IDFMT,
-          get_mapper_name(),
-          index,
-          provenance.c_str(),
-          mappable.get_unique_id(),
-          memory_kinds[target_memory.kind()],
-          target_memory.id);
-      break;
-    }
-    case Mappable::INLINE_MAPPABLE: {
-      if (redop > 0)
-        logger.error(
-          "Mapper %s failed to map reduction (%d) region "
-          "requirement %d of inline mapping [%s] (UID %lld) into %s memory " IDFMT,
-          get_mapper_name(),
-          redop,
-          index,
-          provenance.c_str(),
-          mappable.get_unique_id(),
-          memory_kinds[target_memory.kind()],
-          target_memory.id);
-      else
-        logger.error(
-          "Mapper %s failed to map region requirement %d of "
-          "inline mapping [%s] (UID %lld) into %s memory " IDFMT,
-          get_mapper_name(),
-          index,
-          provenance.c_str(),
-          mappable.get_unique_id(),
-          memory_kinds[target_memory.kind()],
-          target_memory.id);
-      break;
-    }
-    case Mappable::PARTITION_MAPPABLE: {
-      assert(redop == 0);
-      logger.error(
-        "Mapper %s failed to map region requirement %d of "
-        "partition (UID %lld) into %s memory " IDFMT,
-        get_mapper_name(),
-        index,
-        mappable.get_unique_id(),
-        memory_kinds[target_memory.kind()],
-        target_memory.id);
-      break;
-    }
-    default: LEGATE_ABORT;  // should never get here
-  }
-  LEGATE_ABORT;
+
+  std::stringstream req_ss;
+  if (redop > 0)
+    req_ss << "reduction (" << redop << ") requirement " << index;
+  else
+    req_ss << "region requirement " << index;
+
+  logger.error("Mapper %s failed to map %s of %s%s[%s] (UID %lld) into %s memory " IDFMT,
+               get_mapper_name(),
+               req_ss.str().c_str(),
+               log_mappable(mappable, true /*prefix_only*/).c_str(),
+               opname.c_str(),
+               provenance.c_str(),
+               mappable.get_unique_id(),
+               memory_kinds[target_memory.kind()],
+               target_memory.id);
 }
 
 void BaseMapper::select_task_variant(const MapperContext ctx,
