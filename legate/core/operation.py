@@ -277,7 +277,7 @@ class Task(TaskProtocol):
         return len(self._exn_types) > 0
 
     def capture_traceback(self) -> None:
-        self._tb = capture_traceback_repr()
+        self._tb_repr = capture_traceback_repr()
 
     def _add_scalar_args_to_launcher(self, launcher: TaskLauncher) -> None:
         for (arg, dtype) in self._scalar_args:
