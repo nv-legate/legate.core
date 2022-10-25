@@ -114,7 +114,7 @@ Required to support CPU and memory binding in the Legate launcher.
 Not available on conda; typically available through the system-level package
 manager.
 
-### MPI (`--openmpi` option)
+### MPI (`--openmpi` option; optional)
 
 Only necessary if you wish to run on multiple nodes.
 
