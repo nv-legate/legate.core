@@ -117,7 +117,7 @@ if(Legion_USE_Python AND (NOT Python3_FOUND))
 endif()
 
 if(Legion_NETWORKS)
-  find_package(MPI REQUIRED)
+  find_package(MPI REQUIRED COMPONENTS CXX)
 endif()
 
 if(Legion_USE_CUDA)
@@ -266,8 +266,8 @@ target_link_libraries(legate_core
    PUBLIC Legion::Legion
           legate::Thrust
           $<TARGET_NAME_IF_EXISTS:CUDA::nvToolsExt>
-  PRIVATE $<TARGET_NAME_IF_EXISTS:MPI::MPI_CXX>
-          $<TARGET_NAME_IF_EXISTS:NCCL::NCCL>)
+          $<TARGET_NAME_IF_EXISTS:MPI::MPI_CXX>
+  PRIVATE $<TARGET_NAME_IF_EXISTS:NCCL::NCCL>)
 
 target_compile_options(legate_core
   PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${legate_core_CXX_OPTIONS}>"
@@ -394,6 +394,11 @@ endif()
   "set(Legion_USE_Python ${Legion_USE_Python})"
   "set(Legion_NETWORKS ${Legion_NETWORKS})"
   "set(Legion_BOUNDS_CHECKS ${Legion_BOUNDS_CHECKS})"
+[=[
+if(Legion_NETWORKS)
+  find_package(MPI REQUIRED COMPONENTS CXX)
+endif()
+]=]
 )
 
 rapids_export(
