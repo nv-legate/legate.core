@@ -85,4 +85,4 @@ def capture_traceback_repr(
             tb_lasti=frame.f_lasti,
             tb_lineno=frame.f_lineno,
         )
-    return repr(tb) if tb is not None else None
+    return "".join(traceback.format_tb(tb)) if tb is not None else None
