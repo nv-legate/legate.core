@@ -18,6 +18,7 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 
 #include "legion.h"
 
