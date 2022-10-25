@@ -1,6 +1,4 @@
-#!/usr/bin/env python
-
-# Copyright 2021-2022 NVIDIA Corporation
+# Copyright 2022 NVIDIA Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,11 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+"""Provide TestStage subclasses for running configured test files using
+specific features on linux platforms.
+
+"""
 from __future__ import annotations
 
-import sys
-
-from .driver import main
-
-if __name__ == "__main__":
-    sys.exit(main(sys.argv))
+from .cpu import CPU
+from .gpu import GPU
+from .eager import Eager
+from .omp import OMP

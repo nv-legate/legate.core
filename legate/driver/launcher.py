@@ -17,12 +17,15 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from .config import Config
-from .system import System
-from .types import Command, EnvDict, LauncherType
-from .ui import warn
-from .util import read_c_define
+from ..util.fs import read_c_define
+from ..util.ui import warn
+
+if TYPE_CHECKING:
+    from ..util.system import System
+    from ..util.types import Command, EnvDict, LauncherType
+    from .config import ConfigProtocol
 
 __all__ = ("Launcher",)
 
@@ -68,7 +71,7 @@ class Launcher:
 
     cmd: Command
 
-    _config: Config
+    _config: ConfigProtocol
 
     _system: System
 
@@ -76,7 +79,7 @@ class Launcher:
 
     _custom_env_vars: set[str] | None = None
 
-    def __init__(self, config: Config, system: System) -> None:
+    def __init__(self, config: ConfigProtocol, system: System) -> None:
         self._config = config
         self._system = system
 
@@ -92,7 +95,7 @@ class Launcher:
         )
 
     @classmethod
-    def create(cls, config: Config, system: System) -> Launcher:
+    def create(cls, config: ConfigProtocol, system: System) -> Launcher:
         """Factory method for creating appropriate Launcher subclass based on
         user configuration.
 
@@ -288,7 +291,7 @@ class SimpleLauncher(Launcher):
 
     kind: LauncherType = "none"
 
-    def __init__(self, config: Config, system: System) -> None:
+    def __init__(self, config: ConfigProtocol, system: System) -> None:
         super().__init__(config, system)
 
         if config.multi_node.ranks == 1:
@@ -316,7 +319,7 @@ class MPILauncher(Launcher):
 
     kind: LauncherType = "mpirun"
 
-    def __init__(self, config: Config, system: System) -> None:
+    def __init__(self, config: ConfigProtocol, system: System) -> None:
         super().__init__(config, system)
 
         self.rank_id = "%q{OMPI_COMM_WORLD_RANK}"
@@ -346,7 +349,7 @@ class JSRunLauncher(Launcher):
 
     kind: LauncherType = "jsrun"
 
-    def __init__(self, config: Config, system: System) -> None:
+    def __init__(self, config: ConfigProtocol, system: System) -> None:
         super().__init__(config, system)
 
         self.rank_id = "%q{OMPI_COMM_WORLD_RANK}"
@@ -374,7 +377,7 @@ class SRunLauncher(Launcher):
 
     kind: LauncherType = "srun"
 
-    def __init__(self, config: Config, system: System) -> None:
+    def __init__(self, config: ConfigProtocol, system: System) -> None:
         super().__init__(config, system)
 
         self.rank_id = "%q{SLURM_PROCID}"

@@ -17,16 +17,22 @@
 """
 from __future__ import annotations
 
+import shlex
 from argparse import Namespace
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
+from ..util import colors
+from ..util.types import (
+    ArgList,
+    DataclassMixin,
+    LauncherType,
+    object_to_dataclass,
+)
+from ..util.ui import warn
 from .args import parser
-from .types import ArgList, DataclassMixin, LauncherType
-from .ui import warn
-from .util import object_to_dataclass
 
 __all__ = ("Config",)
 
@@ -38,6 +44,16 @@ class MultiNode(DataclassMixin):
     not_control_replicable: bool
     launcher: LauncherType
     launcher_extra: list[str]
+
+    def __post_init__(self, **kw: dict[str, Any]) -> None:
+        # fix up launcher_extra to automaticaly handle quoted strings with
+        # internal whitespace, have to use __setattr__ for frozen
+        # https://docs.python.org/3/library/dataclasses.html#frozen-instances
+        if self.launcher_extra:
+            ex: list[str] = sum(
+                (shlex.split(x) for x in self.launcher_extra), []
+            )
+            object.__setattr__(self, "launcher_extra", ex)
 
     @property
     def ranks(self) -> int:
@@ -79,6 +95,14 @@ class Profiling(DataclassMixin):
     nsys_targets: str  # TODO: multi-choice
     nsys_extra: list[str]
 
+    def __post_init__(self, **kw: dict[str, Any]) -> None:
+        # fix up nsys_extra to automaticaly handle quoted strings with
+        # internal whitespace, have to use __setattr__ for frozen
+        # https://docs.python.org/3/library/dataclasses.html#frozen-instances
+        if self.nsys_extra:
+            ex: list[str] = sum((shlex.split(x) for x in self.nsys_extra), [])
+            object.__setattr__(self, "nsys_extra", ex)
+
 
 @dataclass(frozen=True)
 class Logging(DataclassMixin):
@@ -119,6 +143,24 @@ class Other(DataclassMixin):
     rlwrap: bool
 
 
+class ConfigProtocol(Protocol):
+
+    _args: Namespace
+
+    argv: ArgList
+
+    user_opts: tuple[str, ...]
+    multi_node: MultiNode
+    binding: Binding
+    core: Core
+    memory: Memory
+    profiling: Profiling
+    logging: Logging
+    debugging: Debugging
+    info: Info
+    other: Other
+
+
 class Config:
     """A centralized configuration object that provides the information
     needed by the Legate driver in order to run.
@@ -131,7 +173,11 @@ class Config:
     """
 
     def __init__(self, argv: ArgList) -> None:
-        args, extra = parser.parse_known_args(argv[1:])
+        self.argv = argv
+
+        args, extra = parser.parse_known_args(self.argv[1:])
+
+        colors.ENABLED = args.color
 
         # only saving this for help with testing
         self._args = args

@@ -245,6 +245,14 @@ class Task(TaskProtocol):
         self._comm_args: list[Communicator] = []
         self._exn_types: list[type] = []
         self._tb: Union[None, TracebackType] = None
+        self._side_effect = False
+
+    @property
+    def side_effect(self) -> bool:
+        return self._side_effect
+
+    def set_side_effect(self, side_effect: bool) -> None:
+        self._side_effect = side_effect
 
     @property
     def uses_communicator(self) -> bool:
@@ -557,6 +565,7 @@ class AutoTask(AutoOperation, Task):
             self.context,
             self._task_id,
             self.mapper_id,
+            side_effect=self._side_effect,
             provenance=self.provenance,
         )
 
@@ -694,6 +703,7 @@ class ManualTask(Operation, Task):
                 )
             if arg.kind is Future:
                 self._scalar_outputs.append(len(self._outputs))
+                self._outputs.append(arg)
             self._output_parts.append(arg.partition(REPLICATE))
         else:
             self._output_parts.append(arg)
@@ -709,6 +719,7 @@ class ManualTask(Operation, Task):
         if isinstance(arg, Store):
             if arg.kind is Future:
                 self._scalar_reductions.append(len(self._reductions))
+                self._reductions.append((arg, redop))
             self._reduction_parts.append((arg.partition(REPLICATE), redop))
         else:
             self._reduction_parts.append((arg, redop))
@@ -740,8 +751,9 @@ class ManualTask(Operation, Task):
             self.context,
             self._task_id,
             self.mapper_id,
-            error_on_interference=False,
             tag=tag,
+            error_on_interference=False,
+            side_effect=self._side_effect,
             provenance=self.provenance,
         )
 

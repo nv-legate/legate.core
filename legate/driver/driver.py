@@ -14,18 +14,22 @@
 #
 from __future__ import annotations
 
+from shlex import quote
 from subprocess import run
+from textwrap import indent
+from typing import TYPE_CHECKING
 
+from ..util.system import System
+from ..util.ui import kvtable, rule, section, value, warn
 from .command import CMD_PARTS
-from .config import Config
+from .config import ConfigProtocol
 from .launcher import Launcher
 from .logs import process_logs
-from .system import System
-from .types import Command, EnvDict
-from .ui import warn
-from .util import print_verbose
 
-__all__ = ("Driver",)
+if TYPE_CHECKING:
+    from ..util.types import Command, EnvDict
+
+__all__ = ("Driver", "print_verbose")
 
 _DARWIN_GDB_WARN = """\
 You must start the debugging session with the following command,
@@ -49,7 +53,7 @@ class Driver:
 
     """
 
-    def __init__(self, config: Config, system: System) -> None:
+    def __init__(self, config: ConfigProtocol, system: System) -> None:
         self.config = config
         self.system = system
         self.launcher = Launcher.create(config, system)
@@ -113,3 +117,51 @@ class Driver:
                     )
                 )
             )
+
+
+def print_verbose(
+    system: System,
+    driver: Driver | None = None,
+) -> None:
+    """Print system and driver configuration values.
+
+    Parameters
+    ----------
+    system : System
+        A System instance to obtain Legate and Legion paths from
+
+    driver : Driver or None, optional
+        If not None, a Driver instance to obtain command invocation and
+        environment from (default: None)
+
+    Returns
+    -------
+        None
+
+    """
+
+    print(f"\n{rule('Legion Python Configuration')}")
+
+    print(section("\nLegate paths:"))
+    print(indent(str(system.legate_paths), prefix="  "))
+
+    print(section("\nLegion paths:"))
+    print(indent(str(system.legion_paths), prefix="  "))
+
+    if driver:
+        print(section("\nCommand:"))
+        cmd = " ".join(quote(t) for t in driver.cmd)
+        print(f"  {value(cmd)}")
+
+        if keys := sorted(driver.custom_env_vars):
+            print(section("\nCustomized Environment:"))
+            print(
+                indent(
+                    kvtable(driver.env, delim="=", align=False, keys=keys),
+                    prefix="  ",
+                )
+            )
+
+    print(f"\n{rule()}")
+
+    print(flush=True)

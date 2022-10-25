@@ -17,12 +17,14 @@ from __future__ import annotations
 import os
 
 import pytest
-from util import GenConfig, GenObjs, powerset_nonempty
 
 import legate.driver.launcher as m
-from legate.driver.args import LAUNCHERS
-from legate.driver.system import System
-from legate.driver.types import LauncherType
+from legate.util.shared_args import LAUNCHERS
+from legate.util.system import System
+from legate.util.types import LauncherType
+
+from ...util import powerset_nonempty
+from .util import GenConfig, GenObjs
 
 SYSTEM = System()
 

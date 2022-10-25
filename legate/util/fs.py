@@ -17,98 +17,16 @@ from __future__ import annotations
 import re
 import sys
 from pathlib import Path
-from shlex import quote
-from textwrap import indent
-from typing import TYPE_CHECKING, Type, TypeVar
 
-from .types import DataclassProtocol, LegatePaths, LegionPaths
-from .ui import kvtable, rule, section, value
-
-if TYPE_CHECKING:
-    from .driver import Driver
-    from .system import System
+from .types import LegatePaths, LegionPaths
 
 __all__ = (
     "get_legate_build_dir",
     "get_legate_paths",
     "get_legion_paths",
-    "object_to_dataclass",
-    "print_verbose",
     "read_c_define",
     "read_cmake_cache_value",
 )
-
-
-T = TypeVar("T", bound=DataclassProtocol)
-
-
-def object_to_dataclass(obj: object, typ: Type[T]) -> T:
-    """Automatically generate a dataclass from an object with appropriate
-    attributes.
-
-    Parameters
-    ----------
-    obj: object
-        An object to pull values from (e.g. an argparse Namespace)
-
-    typ:
-        A dataclass type to generate from ``obj``
-
-    Returns
-    -------
-        The generated dataclass instance
-
-    """
-    kws = {name: getattr(obj, name) for name in typ.__dataclass_fields__}
-    return typ(**kws)
-
-
-def print_verbose(
-    system: System,
-    driver: Driver | None = None,
-) -> None:
-    """Print system and driver configuration values.
-
-    Parameters
-    ----------
-    system : System
-        A System instance to obtain Legate and Legion paths from
-
-    driver : Driver or None, optional
-        If not None, a Driver instance to obtain command invocation and
-        environment from (default: None)
-
-    Returns
-    -------
-        None
-
-    """
-
-    print(f"\n{rule('Legion Python Configuration')}")
-
-    print(section("\nLegate paths:"))
-    print(indent(str(system.legate_paths), prefix="  "))
-
-    print(section("\nLegion paths:"))
-    print(indent(str(system.legion_paths), prefix="  "))
-
-    if driver:
-        print(section("\nCommand:"))
-        cmd = " ".join(quote(t) for t in driver.cmd)
-        print(f"  {value(cmd)}")
-
-        if keys := sorted(driver.custom_env_vars):
-            print(section("\nCustomized Environment:"))
-            print(
-                indent(
-                    kvtable(driver.env, delim="=", align=False, keys=keys),
-                    prefix="  ",
-                )
-            )
-
-    print(f"\n{rule()}")
-
-    print(flush=True)
 
 
 def read_c_define(header_path: Path, name: str) -> str | None:
@@ -321,15 +239,16 @@ def get_legion_paths(legate_paths: LegatePaths) -> LegionPaths:
     # local builds over global installations. This allows devs to work in the
     # source tree and re-run without overwriting existing installations.
 
-    def installed_legion_paths(
-        legion_dir: Path, legion_module: Path | None = None
-    ) -> LegionPaths:
-        if legion_module is None:
-            legion_lib_dir = legion_dir / "lib"
-            for f in legion_lib_dir.iterdir():
-                if f.joinpath("site-packages").exists():
-                    legion_module = f / "site-packages"
-                    break
+    def installed_legion_paths(legion_dir: Path) -> LegionPaths:
+        legion_lib_dir = legion_dir / "lib"
+        for f in legion_lib_dir.iterdir():
+            legion_module = f / "site-packages"
+            if legion_module.exists():
+                break
+
+        # NB: for-else clause! (executes if NO loop break)
+        else:
+            raise RuntimeError("could not determine legion module location")
 
         legion_bin_path = legion_dir / "bin"
         legion_include_path = legion_dir / "include"
@@ -362,50 +281,52 @@ def get_legion_paths(legate_paths: LegatePaths) -> LegionPaths:
     cmake_cache_txt = legate_build_dir / "CMakeCache.txt"
 
     try:
-        # Test whether Legion_DIR is set. If it isn't, then we built Legion as
-        # a side-effect of building legate_core
-        read_cmake_cache_value(
-            cmake_cache_txt, "Legion_DIR:PATH=Legion_DIR-NOTFOUND"
-        )
-    except Exception:
-        # If Legion_DIR is a valid path, check whether it's a
-        # Legion build dir, i.e. `-D Legion_ROOT=/legion/build`
-        legion_dir = Path(
-            read_cmake_cache_value(cmake_cache_txt, "Legion_DIR:PATH=")
-        )
-        if legion_dir.joinpath("CMakeCache.txt").exists():
-            cmake_cache_txt = legion_dir / "CMakeCache.txt"
-
-    try:
-        # If Legion_SOURCE_DIR and Legion_BINARY_DIR are in CMakeCache.txt,
-        # return the paths to Legion in the legate_core build dir.
-        legion_source_dir = Path(
+        try:
+            # Test whether Legion_DIR is set. If it isn't, then we built
+            # Legion as a side-effect of building legate_core
             read_cmake_cache_value(
-                cmake_cache_txt, "Legion_SOURCE_DIR:STATIC="
+                cmake_cache_txt, "Legion_DIR:PATH=Legion_DIR-NOTFOUND"
             )
-        )
-        legion_binary_dir = Path(
-            read_cmake_cache_value(
-                cmake_cache_txt, "Legion_BINARY_DIR:STATIC="
+        except Exception:
+            # If Legion_DIR is a valid path, check whether it's a
+            # Legion build dir, i.e. `-D Legion_ROOT=/legion/build`
+            legion_dir = Path(
+                read_cmake_cache_value(cmake_cache_txt, "Legion_DIR:PATH=")
             )
-        )
+            if legion_dir.joinpath("CMakeCache.txt").exists():
+                cmake_cache_txt = legion_dir / "CMakeCache.txt"
 
-        legion_runtime_dir = legion_binary_dir / "runtime"
-        legion_bindings_dir = legion_source_dir / "bindings"
-
-        return LegionPaths(
-            legion_bin_path=legion_binary_dir / "bin",
-            legion_lib_path=legion_binary_dir / "lib",
-            realm_defines_h=legion_runtime_dir / "realm_defines.h",
-            legion_defines_h=legion_runtime_dir / "legion_defines.h",
-            legion_spy_py=legion_source_dir / "tools" / "legion_spy.py",
-            legion_prof_py=legion_source_dir / "tools" / "legion_prof.py",
-            legion_python=legion_binary_dir / "bin" / "legion_python",
-            legion_module=legion_bindings_dir / "python" / "build" / "lib",
-            legion_jupyter_module=legion_source_dir / "jupyter_notebook",
-        )
     except Exception:
-        pass
+        try:
+            # If Legion_SOURCE_DIR and Legion_BINARY_DIR are in CMakeCache.txt,
+            # return the paths to Legion in the legate_core build dir.
+            legion_source_dir = Path(
+                read_cmake_cache_value(
+                    cmake_cache_txt, "Legion_SOURCE_DIR:STATIC="
+                )
+            )
+            legion_binary_dir = Path(
+                read_cmake_cache_value(
+                    cmake_cache_txt, "Legion_BINARY_DIR:STATIC="
+                )
+            )
+
+            legion_runtime_dir = legion_binary_dir / "runtime"
+            legion_bindings_dir = legion_source_dir / "bindings"
+
+            return LegionPaths(
+                legion_bin_path=legion_binary_dir / "bin",
+                legion_lib_path=legion_binary_dir / "lib",
+                realm_defines_h=legion_runtime_dir / "realm_defines.h",
+                legion_defines_h=legion_runtime_dir / "legion_defines.h",
+                legion_spy_py=legion_source_dir / "tools" / "legion_spy.py",
+                legion_prof_py=legion_source_dir / "tools" / "legion_prof.py",
+                legion_python=legion_binary_dir / "bin" / "legion_python",
+                legion_module=legion_bindings_dir / "python" / "build" / "lib",
+                legion_jupyter_module=legion_source_dir / "jupyter_notebook",
+            )
+        except Exception:
+            pass
 
     # Otherwise return the installation paths.
     return installed_legion_paths(Path(sys.argv[0]).parents[1])

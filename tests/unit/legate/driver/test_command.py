@@ -18,12 +18,14 @@ import sys
 from pathlib import Path
 
 import pytest
-from util import Capsys, GenObjs, powerset_nonempty
 
 import legate.driver.command as m
 from legate.driver.launcher import RANK_ENV_VARS
-from legate.driver.types import LauncherType
-from legate.driver.ui import scrub
+from legate.util.colors import scrub
+from legate.util.types import LauncherType
+
+from ...util import Capsys, powerset_nonempty
+from .util import GenObjs
 
 
 def test___all__() -> None:

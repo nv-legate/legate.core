@@ -20,12 +20,14 @@ from unittest.mock import call
 
 import pytest
 from pytest_mock import MockerFixture
-from util import Capsys, powerset, powerset_nonempty
 
 import legate.driver.config as m
 import legate.driver.defaults as defaults
-from legate.driver.types import DataclassMixin
-from legate.driver.ui import scrub
+from legate.util import colors
+from legate.util.colors import scrub
+from legate.util.types import DataclassMixin
+
+from ...util import Capsys, powerset, powerset_nonempty
 
 DEFAULTS_ENV_VARS = (
     "LEGATE_EAGER_ALLOC_PERCENTAGE",
@@ -52,6 +54,56 @@ class TestMultiNode:
 
     def test_mixin(self) -> None:
         assert issubclass(m.MultiNode, DataclassMixin)
+
+    @pytest.mark.parametrize(
+        "extra",
+        (["a"], ["a", "b c"], ["a", "b c", "d e"], ["a", "b c", "d e", "f"]),
+    )
+    def test_launcher_extra_fixup_basic(self, extra) -> None:
+        mn = m.MultiNode(
+            nodes=1,
+            ranks_per_node=1,
+            not_control_replicable=False,
+            launcher="launcher",
+            launcher_extra=extra,
+        )
+        assert mn.launcher_extra == sum((x.split() for x in extra), [])
+
+    def test_launcher_extra_fixup_complex(self) -> None:
+        mn = m.MultiNode(
+            nodes=1,
+            ranks_per_node=1,
+            not_control_replicable=False,
+            launcher="launcher",
+            launcher_extra=[
+                "-H g0002,g0002 -X SOMEENV --fork",
+                "-bind-to none",
+            ],
+        )
+        assert mn.launcher_extra == [
+            "-H",
+            "g0002,g0002",
+            "-X",
+            "SOMEENV",
+            "--fork",
+            "-bind-to",
+            "none",
+        ]
+
+    def test_launcher_extra_fixup_quoted(self) -> None:
+        mn = m.MultiNode(
+            nodes=1,
+            ranks_per_node=1,
+            not_control_replicable=False,
+            launcher="launcher",
+            launcher_extra=[
+                "-f 'some path with spaces/foo.txt'",
+            ],
+        )
+        assert mn.launcher_extra == [
+            "-f",
+            "some path with spaces/foo.txt",
+        ]
 
 
 class TestBinding:
@@ -108,6 +160,56 @@ class TestProfiling:
 
     def test_mixin(self) -> None:
         assert issubclass(m.Profiling, DataclassMixin)
+
+    @pytest.mark.parametrize(
+        "extra",
+        (["a"], ["a", "b c"], ["a", "b c", "d e"], ["a", "b c", "d e", "f"]),
+    )
+    def test_nsys_extra_fixup_basic(self, extra) -> None:
+        p = m.Profiling(
+            profile=True,
+            nvprof=True,
+            nsys=True,
+            nsys_targets="foo,bar",
+            nsys_extra=extra,
+        )
+        assert p.nsys_extra == sum((x.split() for x in extra), [])
+
+    def test_nsys_extra_fixup_complex(self) -> None:
+        p = m.Profiling(
+            profile=True,
+            nvprof=True,
+            nsys=True,
+            nsys_targets="foo,bar",
+            nsys_extra=[
+                "-H g0002,g0002 -X SOMEENV --fork",
+                "-bind-to none",
+            ],
+        )
+        assert p.nsys_extra == [
+            "-H",
+            "g0002,g0002",
+            "-X",
+            "SOMEENV",
+            "--fork",
+            "-bind-to",
+            "none",
+        ]
+
+    def test_nsys_extra_fixup_quoted(self) -> None:
+        p = m.Profiling(
+            profile=True,
+            nvprof=True,
+            nsys=True,
+            nsys_targets="foo,bar",
+            nsys_extra=[
+                "-f 'some path with spaces/foo.txt'",
+            ],
+        )
+        assert p.nsys_extra == [
+            "-f",
+            "some path with spaces/foo.txt",
+        ]
 
 
 class TestLogging:
@@ -172,6 +274,8 @@ class TestConfig:
 
         c = m.Config(["legate"])
 
+        assert colors.ENABLED is False
+
         assert c.multi_node == m.MultiNode(
             nodes=defaults.LEGATE_NODES,
             ranks_per_node=defaults.LEGATE_RANKS_PER_NODE,
@@ -230,6 +334,11 @@ class TestConfig:
         assert c.info == m.Info(progress=False, mem_usage=False, verbose=False)
 
         assert c.other == m.Other(module=None, dry_run=False, rlwrap=False)
+
+    def test_color_arg(self) -> None:
+        m.Config(["legate", "--color"])
+
+        assert colors.ENABLED is True
 
     def test_arg_conversions(self, mocker: MockerFixture) -> None:
 

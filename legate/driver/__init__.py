@@ -17,5 +17,11 @@ from __future__ import annotations
 from .config import Config
 from .driver import Driver
 from .launcher import Launcher
-from .main import main
-from .system import System
+
+
+def main() -> int:
+    import sys
+
+    from .main import main as _main
+
+    return _main(sys.argv)
