@@ -26,15 +26,10 @@ if TYPE_CHECKING:
 ExtentLike: TypeAlias = Union["Shape", int, Iterable[int]]
 
 
-def _cast_tuple(value: ExtentLike, ndim: int) -> tuple[int, ...]:
-    if isinstance(value, Shape):
-        return value.extents
-    elif isinstance(value, Iterable):
-        return tuple(value)
-    elif isinstance(value, int):
+def _cast_tuple(value: int | Iterable[int], ndim: int) -> tuple[int, ...]:
+    if isinstance(value, int):
         return (value,) * ndim
-    else:
-        raise ValueError(f"Cannot cast {type(value).__name__} to tuple")
+    return tuple(value)
 
 
 class Shape:
@@ -46,8 +41,11 @@ class Shape:
         extents: Optional[ExtentLike] = None,
         ispace: Optional[IndexSpace] = None,
     ) -> None:
-        if extents is not None:
-            self._extents = _cast_tuple(extents, 1)
+        if isinstance(extents, int):
+            self._extents = (extents,)
+            self._ispace = None
+        elif extents is not None:
+            self._extents = tuple(extents)
             self._ispace = None
         else:
             assert ispace is not None
@@ -59,9 +57,7 @@ class Shape:
         if self._extents is None:
             assert self._ispace is not None
             bounds = self._ispace.get_bounds()
-            lo = bounds.lo
             hi = bounds.hi
-            assert all(lo[idx] == 0 for idx in range(lo.dim))
             self._extents = tuple(hi[idx] + 1 for idx in range(hi.dim))
         return self._extents
 
@@ -148,55 +144,95 @@ class Shape:
             else:
                 return self.extents == other.extents
         elif isinstance(other, (int, Iterable)):
-            lh = _cast_tuple(self, self.ndim)
-            rh = _cast_tuple(other, self.ndim)
+            lh = self.extents
+            rh = (
+                other.extents
+                if isinstance(other, Shape)
+                else _cast_tuple(other, self.ndim)
+            )
             return lh == rh
         else:
             return False
 
     def __le__(self, other: ExtentLike) -> bool:
-        lh = _cast_tuple(self, self.ndim)
-        rh = _cast_tuple(other, self.ndim)
+        lh = self.extents
+        rh = (
+            other.extents
+            if isinstance(other, Shape)
+            else _cast_tuple(other, self.ndim)
+        )
         return len(lh) == len(rh) and lh <= rh
 
     def __lt__(self, other: ExtentLike) -> bool:
-        lh = _cast_tuple(self, self.ndim)
-        rh = _cast_tuple(other, self.ndim)
+        lh = self.extents
+        rh = (
+            other.extents
+            if isinstance(other, Shape)
+            else _cast_tuple(other, self.ndim)
+        )
         return len(lh) == len(rh) and lh < rh
 
     def __ge__(self, other: ExtentLike) -> bool:
-        lh = _cast_tuple(self, self.ndim)
-        rh = _cast_tuple(other, self.ndim)
+        lh = self.extents
+        rh = (
+            other.extents
+            if isinstance(other, Shape)
+            else _cast_tuple(other, self.ndim)
+        )
         return len(lh) == len(rh) and lh >= rh
 
     def __gt__(self, other: ExtentLike) -> bool:
-        lh = _cast_tuple(self, self.ndim)
-        rh = _cast_tuple(other, self.ndim)
+        lh = self.extents
+        rh = (
+            other.extents
+            if isinstance(other, Shape)
+            else _cast_tuple(other, self.ndim)
+        )
         return len(lh) == len(rh) and lh > rh
 
     def __add__(self, other: ExtentLike) -> Shape:
-        lh = _cast_tuple(self, self.ndim)
-        rh = _cast_tuple(other, self.ndim)
+        lh = self.extents
+        rh = (
+            other.extents
+            if isinstance(other, Shape)
+            else _cast_tuple(other, self.ndim)
+        )
         return Shape(tuple(a + b for (a, b) in zip(lh, rh)))
 
     def __sub__(self, other: ExtentLike) -> Shape:
-        lh = _cast_tuple(self, self.ndim)
-        rh = _cast_tuple(other, self.ndim)
+        lh = self.extents
+        rh = (
+            other.extents
+            if isinstance(other, Shape)
+            else _cast_tuple(other, self.ndim)
+        )
         return Shape(tuple(a - b for (a, b) in zip(lh, rh)))
 
     def __mul__(self, other: ExtentLike) -> Shape:
-        lh = _cast_tuple(self, self.ndim)
-        rh = _cast_tuple(other, self.ndim)
+        lh = self.extents
+        rh = (
+            other.extents
+            if isinstance(other, Shape)
+            else _cast_tuple(other, self.ndim)
+        )
         return Shape(tuple(a * b for (a, b) in zip(lh, rh)))
 
     def __mod__(self, other: ExtentLike) -> Shape:
-        lh = _cast_tuple(self, self.ndim)
-        rh = _cast_tuple(other, self.ndim)
+        lh = self.extents
+        rh = (
+            other.extents
+            if isinstance(other, Shape)
+            else _cast_tuple(other, self.ndim)
+        )
         return Shape(tuple(a % b for (a, b) in zip(lh, rh)))
 
     def __floordiv__(self, other: ExtentLike) -> Shape:
-        lh = _cast_tuple(self, self.ndim)
-        rh = _cast_tuple(other, self.ndim)
+        lh = self.extents
+        rh = (
+            other.extents
+            if isinstance(other, Shape)
+            else _cast_tuple(other, self.ndim)
+        )
         return Shape(tuple(a // b for (a, b) in zip(lh, rh)))
 
     def drop(self, dim: int) -> Shape:
