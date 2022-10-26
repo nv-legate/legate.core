@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 # Copyright 2021-2022 NVIDIA Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,21 +16,22 @@
 #
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from legate.driver import Driver
+from legate.jupyter.config import Config
+from legate.jupyter.kernel import generate_kernel_spec, install_kernel_spec
+from legate.util.system import System
 
-from legate.jupyter.magic import LegateInfoMagics
-
-if TYPE_CHECKING:
-    from IPython import InteractiveShell
-
-
-def load_ipython_extension(ipython: InteractiveShell) -> None:
-    ipython.register_magics(LegateInfoMagics(ipython))
+__all__ = ("main",)
 
 
-def main() -> int:
-    import sys
+def main(argv: list[str]) -> int:
+    config = Config(argv)
+    system = System()
 
-    from .main import main as _main
+    driver = Driver(config, system)
 
-    return _main(sys.argv)
+    spec = generate_kernel_spec(driver, config)
+
+    install_kernel_spec(spec, config)
+
+    return 0

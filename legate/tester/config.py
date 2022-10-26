@@ -21,6 +21,7 @@ import os
 from argparse import Namespace
 from pathlib import Path
 
+from ..util import colors
 from ..util.types import ArgList, EnvDict
 from . import DEFAULT_PROCESS_ENV, FEATURES, SKIPPED_EXAMPLES, FeatureType
 from .args import parser
@@ -38,10 +39,14 @@ class Config:
     """
 
     def __init__(self, argv: ArgList) -> None:
-        args, self._extra_args = parser.parse_known_args(argv[1:])
+        self.argv = argv
+
+        args, self._extra_args = parser.parse_known_args(self.argv[1:])
+
+        colors.ENABLED = args.color
 
         # which tests to run
-        self.examples = True
+        self.examples = False if args.cov_bin else True
         self.integration = True
         self.unit = args.unit
         self.files = args.files
@@ -66,6 +71,9 @@ class Config:
         self.test_root = args.test_root
         self.requested_workers = args.workers
         self.legate_dir = self._compute_legate_dir(args)
+        self.cov_bin = args.cov_bin
+        self.cov_args = args.cov_args
+        self.cov_src_path = args.cov_src_path
 
     @property
     def env(self) -> EnvDict:
