@@ -53,11 +53,11 @@ class Test_generate_kernel_spec:
         ] = config.kernel.spec_name
 
         assert spec.display_name == config.kernel.display_name
-        assert spec.language == "python"
-        assert spec.argv[:-3] == list(driver.cmd)
-        assert spec.argv[-3].endswith("_legion_kernel.py")
-        assert spec.argv[-2:] == ["-f", "{connection_file}"]
-        assert spec.env == expected_env
+        assert spec.language == "python"  # type: ignore
+        assert spec.argv[:-3] == list(driver.cmd)  # type: ignore
+        assert spec.argv[-3].endswith("_legion_kernel.py")  # type: ignore
+        assert spec.argv[-2:] == ["-f", "{connection_file}"]  # type: ignore
+        assert spec.env == expected_env  # type: ignore
         assert m.LEGATE_JUPYTER_METADATA_KEY in spec.metadata
         metadata = spec.metadata[m.LEGATE_JUPYTER_METADATA_KEY]
         assert metadata == {

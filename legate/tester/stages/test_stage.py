@@ -92,7 +92,7 @@ class TestStage(Protocol):
             Process execution wrapper
 
         """
-        ...
+        return
 
     def shard_args(self, shard: Shard, config: Config) -> ArgList:
         """Generate the command line arguments necessary to launch
