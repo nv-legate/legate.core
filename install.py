@@ -309,6 +309,7 @@ def install(
         print("legion_src_dir:", legion_src_dir)
         print("legion_url:", legion_url)
         print("legion_branch:", legion_branch)
+        print("unknown:", str(unknown))
 
     join = os.path.join
     exists = os.path.exists
@@ -395,6 +396,9 @@ def install(
         if not build_isolation:
             pip_install_cmd += ["--no-deps", "--no-build-isolation"]
         pip_install_cmd += ["--upgrade"]
+
+    if unknown is not None:
+        pip_install_cmd += unknown
 
     pip_install_cmd += ["."]
 
