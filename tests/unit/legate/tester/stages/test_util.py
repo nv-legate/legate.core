@@ -17,6 +17,7 @@
 """
 from __future__ import annotations
 
+from datetime import timedelta
 from pathlib import Path
 
 import pytest
@@ -33,7 +34,7 @@ def test_StageResult() -> None:
     procs[2].returncode = 10
     procs[7].returncode = -2
 
-    result = m.StageResult(procs=procs, time=0)
+    result = m.StageResult(procs=procs, time=timedelta(0))
 
     assert result.total == 10
     assert result.passed == 8
@@ -67,7 +68,7 @@ class Test_adjust_workers:
 
 class Test_log_proc:
     @pytest.mark.parametrize("returncode", (-23, -1, 0, 1, 17))
-    def test_skipped(self, returncode) -> None:
+    def test_skipped(self, returncode: int) -> None:
         config = Config([])
         proc = ProcessResult(
             "proc", Path("proc"), skipped=True, returncode=returncode
@@ -100,7 +101,7 @@ class Test_log_proc:
         )
 
     @pytest.mark.parametrize("returncode", (-23, -1, 1, 17))
-    def test_failed(self, returncode) -> None:
+    def test_failed(self, returncode: int) -> None:
         config = Config([])
         proc = ProcessResult("proc", Path("proc"), returncode=returncode)
 
@@ -112,7 +113,7 @@ class Test_log_proc:
         )
 
     @pytest.mark.parametrize("returncode", (-23, -1, 1, 17))
-    def test_failed_verbose(self, returncode) -> None:
+    def test_failed_verbose(self, returncode: int) -> None:
         config = Config([])
         proc = ProcessResult(
             "proc", Path("proc"), returncode=returncode, output="foo\nbar"

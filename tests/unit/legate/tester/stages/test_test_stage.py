@@ -23,8 +23,9 @@ from pathlib import Path
 from legate.tester import FeatureType
 from legate.tester.config import Config
 from legate.tester.stages import test_stage as m
-from legate.tester.stages.util import StageResult, StageSpec
+from legate.tester.stages.util import Shard, StageResult, StageSpec
 from legate.tester.test_system import ProcessResult, TestSystem as _TestSystem
+from legate.util.types import ArgList, EnvDict
 
 from . import FakeSystem
 
@@ -44,6 +45,12 @@ class MockTestStage(m.TestStage):
 
     def compute_spec(self, config: Config, system: _TestSystem) -> StageSpec:
         return StageSpec(2, [(0,), (1,), (2,)])
+
+    def shard_args(self, shard: Shard, config: Config) -> ArgList:
+        return []
+
+    def env(self, config: Config, system: _TestSystem) -> EnvDict:
+        return {}
 
 
 class TestTestStage:
