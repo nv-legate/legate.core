@@ -46,6 +46,7 @@ from .allocation import Attachable
 from .communicator import CPUCommunicator, NCCLCommunicator
 from .corelib import core_library
 from .exception import PendingException
+from .machine import Machine
 from .projection import is_identity_projection, pack_symbolic_projection_repr
 from .restriction import Restriction
 from .shape import Shape
@@ -579,47 +580,16 @@ class AttachmentManager:
 class PartitionManager:
     def __init__(self, runtime: Runtime) -> None:
         self._runtime = runtime
-        self._num_pieces = runtime.core_context.get_tunable(
-            runtime.core_library.LEGATE_CORE_TUNABLE_NUM_PIECES,
-            ty.int32,
-        )
         self._min_shard_volume = runtime.core_context.get_tunable(
             runtime.core_library.LEGATE_CORE_TUNABLE_MIN_SHARD_VOLUME,
             ty.int64,
         )
 
-        if self._num_pieces == 0:
-            raise RuntimeError(
-                "No processors are available to run Legate tasks. Please "
-                "enable at least one processor of any kind. "
-            )
-
         self._launch_spaces: dict[
-            tuple[int, ...], Optional[tuple[int, ...]]
+            tuple[int, tuple[int, ...]], Optional[tuple[int, ...]]
         ] = {}
-        factors = list()
-        pieces = self._num_pieces
-        while pieces % 2 == 0:
-            factors.append(2)
-            pieces = pieces // 2
-        while pieces % 3 == 0:
-            factors.append(3)
-            pieces = pieces // 3
-        while pieces % 5 == 0:
-            factors.append(5)
-            pieces = pieces // 5
-        while pieces % 7 == 0:
-            factors.append(7)
-            pieces = pieces // 7
-        while pieces % 11 == 0:
-            factors.append(11)
-            pieces = pieces // 11
-        if pieces > 1:
-            raise ValueError(
-                "legate.numpy currently doesn't support processor "
-                + "counts with large prime factors greater than 11"
-            )
-        self._piece_factors = list(reversed(factors))
+        self._piece_factors: dict[int, list[int]] = {}
+
         self._index_partitions: dict[
             tuple[IndexSpace, PartitionBase], IndexPartition
         ] = {}
@@ -627,8 +597,41 @@ class PartitionManager:
         self._legion_partitions: dict[
             tuple[int, PartitionBase], Union[None, LegionPartition]
         ] = {}
-        self._storage_key_partitions: dict[int, PartitionBase] = {}
-        self._store_key_partitions: dict[int, PartitionBase] = {}
+        self._storage_key_partitions: dict[tuple[int, int], PartitionBase] = {}
+        self._store_key_partitions: dict[tuple[int, int], PartitionBase] = {}
+
+    def get_current_num_pieces(self) -> int:
+        return self._runtime.machine.num_procs
+
+    def get_piece_factors(self) -> list[int]:
+        num_pieces = self.get_current_num_pieces()
+        if num_pieces in self._piece_factors:
+            return self._piece_factors[num_pieces]
+
+        factors: list[int] = []
+
+        remaining = num_pieces
+
+        def factor_by(remaining: int, val: int) -> int:
+            while remaining % val == 0:
+                factors.append(val)
+                remaining = remaining // val
+            return remaining
+
+        remaining = factor_by(remaining, 2)
+        remaining = factor_by(remaining, 3)
+        remaining = factor_by(remaining, 5)
+        remaining = factor_by(remaining, 7)
+        remaining = factor_by(remaining, 11)
+        if remaining > 1:
+            raise ValueError(
+                "cuNumeric currently doesn't support processor "
+                + "counts with large prime factors greater than 11"
+            )
+
+        factors = list(reversed(factors))
+        self._piece_factors[num_pieces] = factors
+        return factors
 
     def compute_launch_shape(
         self, store: Store, restrictions: tuple[Restriction, ...]
@@ -663,9 +666,10 @@ class PartitionManager:
     def _compute_launch_shape(
         self, shape: tuple[int, ...]
     ) -> Optional[tuple[int, ...]]:
-        assert self._num_pieces > 0
+        num_pieces = self.get_current_num_pieces()
+        key = (num_pieces, shape)
         # Easy case if we only have one piece: no parallel launch space
-        if self._num_pieces == 1:
+        if num_pieces == 1:
             return None
         # If there is only one point or no points then we never do a parallel
         # launch
@@ -673,8 +677,8 @@ class PartitionManager:
         elif all(ext <= 1 for ext in shape):
             return None
         # Check to see if we already did the math
-        elif shape in self._launch_spaces:
-            return self._launch_spaces[shape]
+        elif key in self._launch_spaces:
+            return self._launch_spaces[key]
         # Prune out any dimensions that are 1
         temp_shape: tuple[int, ...] = ()
         temp_dims: tuple[int, ...] = ()
@@ -693,12 +697,12 @@ class PartitionManager:
         assert max_pieces > 0
         # If we can only make one piece return that now
         if max_pieces == 1:
-            self._launch_spaces[shape] = None
+            self._launch_spaces[key] = None
             return None
         else:
             # TODO: a better heuristic here For now if we can make at least two
             # pieces then we will make N pieces
-            max_pieces = self._num_pieces
+            max_pieces = num_pieces
         # Otherwise we need to compute it ourselves
         # First compute the N-th root of the number of pieces
         dims = len(temp_shape)
@@ -765,7 +769,8 @@ class PartitionManager:
             # last dimension >= 32 for good memory performance on the GPU
             local_result: List[int] = [1] * dims
             factor_prod = 1
-            for factor in self._piece_factors:
+            piece_factors = self.get_piece_factors()
+            for factor in piece_factors:
                 # Avoid exceeding the maximum number of pieces
                 if factor * factor_prod > max_pieces:
                     break
@@ -808,7 +813,7 @@ class PartitionManager:
             else:
                 result = result + (1,)
         # Save the result for later
-        self._launch_spaces[shape] = result
+        self._launch_spaces[key] = result
         return result
 
     def compute_tile_shape(self, shape: Shape, launch_space: Shape) -> Shape:
@@ -821,9 +826,10 @@ class PartitionManager:
     def use_complete_tiling(self, shape: Shape, tile_shape: Shape) -> bool:
         # If it would generate a very large number of elements then
         # we'll apply a heuristic for now and not actually tile it
-        # TODO: A better heurisitc for this in the future
+        # TODO: A better heuristic for this in the future
         num_tiles = (shape // tile_shape).volume()
-        return not (num_tiles > 256 and num_tiles > 16 * self._num_pieces)
+        num_pieces = self.get_current_num_pieces()
+        return not (num_tiles > 256 and num_tiles > 16 * num_pieces)
 
     def find_index_partition(
         self, index_space: IndexSpace, functor: PartitionBase
@@ -844,7 +850,8 @@ class PartitionManager:
     def find_store_key_partition(
         self, store_id: int, restrictions: tuple[Restriction, ...]
     ) -> Union[None, PartitionBase]:
-        partition = self._store_key_partitions.get(store_id)
+        key = (self.get_current_num_pieces(), store_id)
+        partition = self._store_key_partitions.get(key)
         if partition is not None and not partition.satisfies_restriction(
             restrictions
         ):
@@ -854,15 +861,18 @@ class PartitionManager:
     def record_store_key_partition(
         self, store_id: int, key_partition: PartitionBase
     ) -> None:
-        self._store_key_partitions[store_id] = key_partition
+        key = (self.get_current_num_pieces(), store_id)
+        self._store_key_partitions[key] = key_partition
 
     def reset_store_key_partition(self, store_id: int) -> None:
-        del self._store_key_partitions[store_id]
+        key = (self.get_current_num_pieces(), store_id)
+        del self._store_key_partitions[key]
 
     def find_storage_key_partition(
         self, storage_id: int, restrictions: tuple[Restriction, ...]
     ) -> Union[None, PartitionBase]:
-        partition = self._storage_key_partitions.get(storage_id)
+        key = (self.get_current_num_pieces(), storage_id)
+        partition = self._storage_key_partitions.get(key)
         if partition is not None and not partition.satisfies_restriction(
             restrictions
         ):
@@ -872,10 +882,12 @@ class PartitionManager:
     def record_storage_key_partition(
         self, storage_id: int, key_partition: PartitionBase
     ) -> None:
-        self._storage_key_partitions[storage_id] = key_partition
+        key = (self.get_current_num_pieces(), storage_id)
+        self._storage_key_partitions[key] = key_partition
 
     def reset_storage_key_partition(self, storage_id: int) -> None:
-        del self._storage_key_partitions[storage_id]
+        key = (self.get_current_num_pieces(), storage_id)
+        del self._storage_key_partitions[key]
 
     def find_legion_partition(
         self, storage_id: int, functor: PartitionBase
@@ -1027,6 +1039,7 @@ class Runtime:
         )
 
         # Now we initialize managers
+        self._machines = [Machine.create_toplevel_machine(self)]
         self._attachment_manager = AttachmentManager(self)
         self._partition_manager = PartitionManager(self)
         self._comm_manager = CommunicatorManager(self)
@@ -1101,15 +1114,27 @@ class Runtime:
 
     @property
     def num_cpus(self) -> int:
-        return self._num_cpus
+        return self.machine.count("CPU")
 
     @property
     def num_omps(self) -> int:
-        return self._num_omps
+        return self.machine.count("OMP")
 
     @property
     def num_gpus(self) -> int:
-        return self._num_gpus
+        return self.machine.count("GPU")
+
+    @property
+    def machine(self) -> Machine:
+        return self._machines[-1]
+
+    def push_machine(self, machine: Machine) -> None:
+        self._machines.append(machine)
+
+    def pop_machine(self) -> None:
+        if len(self._machines) <= 1:
+            raise RuntimeError("Machine stack underflow")
+        self._machines.pop()
 
     @property
     def core_task_variant_id(self) -> int:
@@ -1679,3 +1704,7 @@ def legate_add_library(library: Library) -> None:
 
 def get_legate_runtime() -> Runtime:
     return runtime
+
+
+def get_machine() -> Machine:
+    return runtime.machine
