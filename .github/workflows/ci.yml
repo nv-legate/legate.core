@@ -60,7 +60,7 @@ jobs:
         if: always()
       - name: Upload Build Log
         if: always()
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: build-log
           path: ./**/${{ env.COMMIT }}-build.log.gpg
