@@ -51,8 +51,6 @@ from .restriction import Restriction
 from .shape import Shape
 
 if TYPE_CHECKING:
-    from types import TracebackType
-
     from . import ArgumentMap, Detach, IndexDetach, IndexPartition, Library
     from ._legion import FieldListLike, PhysicalRegion
     from .communicator import Communicator
@@ -1551,9 +1549,9 @@ class Runtime:
         self,
         exn_types: list[type],
         future: Future,
-        tb: Optional[TracebackType] = None,
+        tb_repr: Optional[str] = None,
     ) -> None:
-        exn = PendingException(exn_types, future, tb)
+        exn = PendingException(exn_types, future, tb_repr)
         self._pending_exceptions.append(exn)
 
     def raise_exceptions(self) -> None:

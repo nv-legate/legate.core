@@ -32,11 +32,9 @@ from .launcher import CopyLauncher, FillLauncher, TaskLauncher
 from .partition import REPLICATE, Weighted
 from .shape import Shape
 from .store import Store, StorePartition
-from .utils import OrderedSet, capture_traceback
+from .utils import OrderedSet, capture_traceback_repr
 
 if TYPE_CHECKING:
-    from types import TracebackType
-
     from .communicator import Communicator
     from .constraints import Constraint
     from .context import Context
@@ -244,7 +242,7 @@ class Task(TaskProtocol):
         self._scalar_args: list[tuple[Any, Union[DTType, tuple[DTType]]]] = []
         self._comm_args: list[Communicator] = []
         self._exn_types: list[type] = []
-        self._tb: Union[None, TracebackType] = None
+        self._tb_repr: Union[None, str] = None
         self._side_effect = False
 
     @property
@@ -279,7 +277,7 @@ class Task(TaskProtocol):
         return len(self._exn_types) > 0
 
     def capture_traceback(self) -> None:
-        self._tb = capture_traceback()
+        self._tb_repr = capture_traceback_repr()
 
     def _add_scalar_args_to_launcher(self, launcher: TaskLauncher) -> None:
         for (arg, dtype) in self._scalar_args:
@@ -309,7 +307,7 @@ class Task(TaskProtocol):
                 output.set_storage(result)
             elif self.can_raise_exception:
                 runtime.record_pending_exception(
-                    self._exn_types, result, self._tb
+                    self._exn_types, result, self._tb_repr
                 )
             else:
                 assert num_unbound_outs == 1
@@ -327,7 +325,7 @@ class Task(TaskProtocol):
                 runtime.record_pending_exception(
                     self._exn_types,
                     runtime.extract_scalar(result, idx),
-                    self._tb,
+                    self._tb_repr,
                 )
 
     def _demux_scalar_stores_future_map(
@@ -366,7 +364,7 @@ class Task(TaskProtocol):
                 runtime.record_pending_exception(
                     self._exn_types,
                     runtime.reduce_exception_future_map(result),
-                    self._tb,
+                    self._tb_repr,
                 )
             else:
                 assert False
@@ -400,7 +398,7 @@ class Task(TaskProtocol):
                 runtime.record_pending_exception(
                     self._exn_types,
                     runtime.reduce_exception_future_map(exn_fut_map),
-                    self._tb,
+                    self._tb_repr,
                 )
 
     def _demux_scalar_stores(
