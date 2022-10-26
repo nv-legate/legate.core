@@ -52,7 +52,11 @@ from .shape import Shape
 
 if TYPE_CHECKING:
     from . import ArgumentMap, Detach, IndexDetach, IndexPartition, Library
-    from ._legion import FieldListLike, PhysicalRegion
+    from ._legion import (
+        FieldListLike,
+        PhysicalRegion,
+        Partition as LegionPartition,
+    )
     from .communicator import Communicator
     from .context import Context
     from .corelib import CoreLib
@@ -619,6 +623,12 @@ class PartitionManager:
         self._index_partitions: dict[
             tuple[IndexSpace, PartitionBase], IndexPartition
         ] = {}
+        # Maps storage id-partition pairs to Legion partitions
+        self._legion_partitions: dict[
+            tuple[int, PartitionBase], Union[None, LegionPartition]
+        ] = {}
+        self._storage_key_partitions: dict[int, PartitionBase] = {}
+        self._store_key_partitions: dict[int, PartitionBase] = {}
 
     def compute_launch_shape(
         self, store: Store, restrictions: tuple[Restriction, ...]
@@ -815,13 +825,13 @@ class PartitionManager:
         num_tiles = (shape // tile_shape).volume()
         return not (num_tiles > 256 and num_tiles > 16 * self._num_pieces)
 
-    def find_partition(
+    def find_index_partition(
         self, index_space: IndexSpace, functor: PartitionBase
     ) -> Union[IndexPartition, None]:
         key = (index_space, functor)
         return self._index_partitions.get(key)
 
-    def record_partition(
+    def record_index_partition(
         self,
         index_space: IndexSpace,
         functor: PartitionBase,
@@ -830,6 +840,59 @@ class PartitionManager:
         key = (index_space, functor)
         assert key not in self._index_partitions
         self._index_partitions[key] = index_partition
+
+    def find_store_key_partition(
+        self, store_id: int, restrictions: tuple[Restriction, ...]
+    ) -> Union[None, PartitionBase]:
+        partition = self._store_key_partitions.get(store_id)
+        if partition is not None and not partition.satisfies_restriction(
+            restrictions
+        ):
+            partition = None
+        return partition
+
+    def record_store_key_partition(
+        self, store_id: int, key_partition: PartitionBase
+    ) -> None:
+        self._store_key_partitions[store_id] = key_partition
+
+    def reset_store_key_partition(self, store_id: int) -> None:
+        del self._store_key_partitions[store_id]
+
+    def find_storage_key_partition(
+        self, storage_id: int, restrictions: tuple[Restriction, ...]
+    ) -> Union[None, PartitionBase]:
+        partition = self._storage_key_partitions.get(storage_id)
+        if partition is not None and not partition.satisfies_restriction(
+            restrictions
+        ):
+            partition = None
+        return partition
+
+    def record_storage_key_partition(
+        self, storage_id: int, key_partition: PartitionBase
+    ) -> None:
+        self._storage_key_partitions[storage_id] = key_partition
+
+    def reset_storage_key_partition(self, storage_id: int) -> None:
+        del self._storage_key_partitions[storage_id]
+
+    def find_legion_partition(
+        self, storage_id: int, functor: PartitionBase
+    ) -> tuple[Optional[LegionPartition], bool]:
+        key = (storage_id, functor)
+        found = key in self._legion_partitions
+        part = self._legion_partitions.get(key)
+        return part, found
+
+    def record_legion_partition(
+        self,
+        storage_id: int,
+        functor: PartitionBase,
+        legion_partition: Optional[LegionPartition],
+    ) -> None:
+        key = (storage_id, functor)
+        self._legion_partitions[key] = legion_partition
 
 
 class CommunicatorManager:
@@ -1464,21 +1527,6 @@ class Runtime:
             index_space,
             field_space,
             handle,
-        )
-
-    def find_partition(
-        self, index_space: IndexSpace, functor: PartitionBase
-    ) -> Union[IndexPartition, None]:
-        return self._partition_manager.find_partition(index_space, functor)
-
-    def record_partition(
-        self,
-        index_space: IndexSpace,
-        functor: PartitionBase,
-        index_partition: IndexPartition,
-    ) -> None:
-        self._partition_manager.record_partition(
-            index_space, functor, index_partition
         )
 
     def extract_scalar(self, future: Future, idx: int) -> Future:
