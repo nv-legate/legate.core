@@ -16,15 +16,19 @@
 
 #pragma once
 
-#include "core/mapping/operation.h"
+#include "core/data/scalar.h"
+#include "core/mapping/store.h"
 
 namespace legate {
 namespace mapping {
 
+class Task;
+
+// NOTE: codes are chosen to reflect the precendece between the processor kinds
 enum class TaskTarget : int32_t {
-  CPU = 1,
-  GPU = 2,
-  OMP = 3,
+  GPU = 1,
+  OMP = 2,
+  CPU = 3,
 };
 
 enum class StoreTarget : int32_t {

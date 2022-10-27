@@ -23,6 +23,7 @@
 #include "core/comm/communicator.h"
 #include "core/data/scalar.h"
 #include "core/data/store.h"
+#include "core/mapping/machine.h"
 #include "core/mapping/operation.h"
 #include "core/utilities/span.h"
 #include "core/utilities/type_traits.h"
@@ -60,10 +61,18 @@ class BaseDeserializer {
     auto size = unpack<uint32_t>();
     for (uint32_t idx = 0; idx < size; ++idx) values.push_back(unpack<T>());
   }
+  template <typename T1, typename T2>
+  void _unpack(std::pair<T1, T2>& values)
+  {
+    values.first  = unpack<T1>();
+    values.second = unpack<T2>();
+  }
 
  public:
   void _unpack(LegateTypeCode& value);
   void _unpack(Scalar& value);
+  void _unpack(mapping::TaskTarget& value);
+  void _unpack(mapping::MachineDesc& value);
 
  protected:
   std::shared_ptr<TransformStack> unpack_transform();

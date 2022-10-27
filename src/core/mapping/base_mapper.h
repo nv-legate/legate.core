@@ -285,7 +285,7 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
  protected:
   bool has_variant(const Legion::Mapping::MapperContext ctx,
                    const Legion::Task& task,
-                   Legion::Processor::Kind kind);
+                   TaskTarget target);
   std::optional<Legion::VariantID> find_variant(const Legion::Mapping::MapperContext ctx,
                                                 const Legion::Task& task,
                                                 Legion::Processor::Kind kind);
@@ -300,34 +300,40 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
   decltype(auto) dispatch(TaskTarget target, Functor functor)
   {
     switch (target) {
-      case TaskTarget::CPU: return functor(local_cpus);
-      case TaskTarget::GPU: return functor(local_gpus);
-      case TaskTarget::OMP: return functor(local_omps);
+      case TaskTarget::CPU: return functor(target, local_cpus);
+      case TaskTarget::GPU: return functor(target, local_gpus);
+      case TaskTarget::OMP: return functor(target, local_omps);
     }
     assert(false);
-    return functor(local_cpus);
+    return functor(target, local_cpus);
   }
   template <typename Functor>
   decltype(auto) dispatch(Legion::Processor::Kind kind, Functor functor)
   {
     switch (kind) {
-      case Legion::Processor::LOC_PROC: return functor(local_cpus);
-      case Legion::Processor::TOC_PROC: return functor(local_gpus);
-      case Legion::Processor::OMP_PROC: return functor(local_omps);
+      case Legion::Processor::LOC_PROC: return functor(kind, local_cpus);
+      case Legion::Processor::TOC_PROC: return functor(kind, local_gpus);
+      case Legion::Processor::OMP_PROC: return functor(kind, local_omps);
       default: LEGATE_ABORT;
     }
     assert(false);
-    return functor(local_cpus);
+    return functor(kind, local_cpus);
   }
 
  protected:
   const std::vector<int32_t> get_processor_grid(Legion::Processor::Kind kind, int32_t ndim);
   void slice_auto_task(const Legion::Mapping::MapperContext ctx,
                        const Legion::Task& task,
+                       const Span<Legion::Processor>& avail_procs,
+                       uint32_t size,
+                       uint32_t offset,
                        const SliceTaskInput& input,
                        SliceTaskOutput& output);
   void slice_manual_task(const Legion::Mapping::MapperContext ctx,
                          const Legion::Task& task,
+                         const Span<Legion::Processor>& avail_procs,
+                         uint32_t size,
+                         uint32_t offset,
                          const SliceTaskInput& input,
                          SliceTaskOutput& output);
 

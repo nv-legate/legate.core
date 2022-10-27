@@ -38,6 +38,24 @@ void BaseDeserializer<Deserializer>::_unpack(Scalar& value)
 }
 
 template <typename Deserializer>
+void BaseDeserializer<Deserializer>::_unpack(mapping::TaskTarget& value)
+{
+  value = static_cast<mapping::TaskTarget>(unpack<int32_t>());
+}
+
+template <typename Deserializer>
+void BaseDeserializer<Deserializer>::_unpack(mapping::MachineDesc& value)
+{
+  value.preferred_target = unpack<mapping::TaskTarget>();
+  auto num_ranges        = unpack<uint32_t>();
+  for (uint32_t idx = 0; idx < num_ranges; ++idx) {
+    auto kind  = unpack<mapping::TaskTarget>();
+    auto range = unpack<std::pair<uint32_t, uint32_t>>();
+    if (range.second - range.first + 1 > 0) value.processor_ranges.insert({kind, range});
+  }
+}
+
+template <typename Deserializer>
 std::shared_ptr<TransformStack> BaseDeserializer<Deserializer>::unpack_transform()
 {
   auto code = unpack<int32_t>();

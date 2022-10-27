@@ -20,14 +20,16 @@ from typing import TYPE_CHECKING, Any, Tuple, Union
 from . import legion, types as ty
 
 if TYPE_CHECKING:
+    from . import BufferBuilder
     from .runtime import Runtime
 
 
+# Make this consistent with TaskTarget in mapping.h
 @unique
 class ProcessorKind(IntEnum):
-    CPU = 0
     GPU = 1
     OMP = 2
+    CPU = 3
 
 
 def sanitize_kind(kind_str: Union[str, ProcessorKind]) -> ProcessorKind:
@@ -87,6 +89,10 @@ class ProcessorRange:
 
     def __repr__(self) -> str:
         return str(self)
+
+    def pack(self, buf: BufferBuilder) -> None:
+        buf.pack_32bit_uint(self.lo)
+        buf.pack_32bit_uint(self.hi)
 
 
 EMPTY_RANGE = ProcessorRange(1, 0)
@@ -205,9 +211,15 @@ class Machine:
     def __repr__(self) -> str:
         return str(self)
 
+    def pack(self, buf: BufferBuilder) -> None:
+        buf.pack_32bit_uint(self._preferred_kind)
+        buf.pack_32bit_uint(len(self._proc_ranges))
+        for kind, proc_range in self._proc_ranges.items():
+            buf.pack_32bit_uint(kind)
+            proc_range.pack(buf)
+
     def __enter__(self) -> None:
         new_machine = self._runtime.machine & self
-        print(new_machine)
         if new_machine.empty:
             raise ValueError(
                 "Empty machines cannot be used for resource scoping"

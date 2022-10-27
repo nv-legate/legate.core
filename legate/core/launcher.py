@@ -898,6 +898,7 @@ class TaskLauncher:
         argbuf.pack_bool(self._can_raise_exception)
         argbuf.pack_bool(self._insert_barrier)
         argbuf.pack_32bit_uint(len(self._comms))
+        self._context.runtime.machine.pack(argbuf)
 
         task = IndexTask(
             self.legion_task_id,
@@ -939,6 +940,9 @@ class TaskLauncher:
         pack_args(argbuf, self._reductions)
         pack_args(argbuf, self._scalars)
         argbuf.pack_bool(self._can_raise_exception)
+        argbuf.pack_bool(False)
+        argbuf.pack_32bit_uint(0)
+        self._context.runtime.machine.pack(argbuf)
 
         assert len(self._comms) == 0
 
@@ -1151,6 +1155,7 @@ class CopyLauncher:
         pack_args(argbuf, self._outputs + self._reductions)
         pack_args(argbuf, self._source_indirects)
         pack_args(argbuf, self._target_indirects)
+        self._context.runtime.machine.pack(argbuf)
 
         copy = IndexCopy(
             launch_domain,
@@ -1183,6 +1188,7 @@ class CopyLauncher:
         pack_args(argbuf, self._outputs + self._reductions)
         pack_args(argbuf, self._source_indirects)
         pack_args(argbuf, self._target_indirects)
+        self._context.runtime.machine.pack(argbuf)
 
         copy = SingleCopy(
             mapper=self.legion_mapper_id,
