@@ -121,12 +121,23 @@ class Machine:
     def num_procs(self) -> int:
         return self._num_procs
 
+    @property
+    def preferred_kind(self) -> ProcessorKind:
+        return self._preferred_kind
+
     def _get_range(self, kind: ProcessorKind) -> ProcessorRange:
         return self._proc_ranges.get(kind, EMPTY_RANGE)
 
     def only(self, kind: ProcKindLike) -> Machine:
         sanitized = sanitize_kind(kind)
         return Machine(self._runtime, {sanitized: self._get_range(sanitized)})
+
+    def exclude(self, kind: ProcKindLike) -> Machine:
+        sanitized = sanitize_kind(kind)
+        ranges = self._proc_ranges.copy()
+        if sanitized in ranges:
+            del ranges[sanitized]
+        return Machine(self._runtime, ranges)
 
     def count(self, kind: ProcKindLike) -> int:
         sanitized = sanitize_kind(kind)
