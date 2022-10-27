@@ -340,8 +340,6 @@ const std::vector<int32_t> BaseMapper::get_processor_grid(Legion::Processor::Kin
 void BaseMapper::slice_manual_task(const MapperContext ctx,
                                    const LegionTask& task,
                                    const Span<Processor>& avail_procs,
-                                   uint32_t size,
-                                   uint32_t offset,
                                    const SliceTaskInput& input,
                                    SliceTaskOutput& output)
 {
@@ -377,9 +375,31 @@ void BaseMapper::slice_task(const MapperContext ctx,
       machine_desc.slice(target, procs, total_nodes, local_node);
   });
 
-  if (task.tag == LEGATE_CORE_MANUAL_PARALLEL_LAUNCH_TAG)
-    slice_manual_task(ctx, task, avail_procs, size, offset, input, output);
-  else
+  if (task.tag == LEGATE_CORE_MANUAL_PARALLEL_LAUNCH_TAG) {
+    bool has_complete_machine = false;
+    switch (avail_procs[0].kind()) {
+      case Processor::Kind::TOC_PROC: {
+        has_complete_machine = size == total_nodes * local_gpus.size();
+        break;
+      }
+      case Processor::Kind::OMP_PROC: {
+        has_complete_machine = size == total_nodes * local_omps.size();
+        break;
+      }
+      case Processor::Kind::LOC_PROC: {
+        has_complete_machine = size == total_nodes * local_cpus.size();
+        break;
+      }
+      default: {
+        break;
+      }
+    }
+    // TODO: We should extend the processor grid support for resource scoping
+    if (has_complete_machine)
+      slice_manual_task(ctx, task, avail_procs, input, output);
+    else
+      slice_auto_task(ctx, task, avail_procs, size, offset, input, output);
+  } else
     slice_auto_task(ctx, task, avail_procs, size, offset, input, output);
 }
 

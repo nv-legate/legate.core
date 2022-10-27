@@ -332,8 +332,6 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
   void slice_manual_task(const Legion::Mapping::MapperContext ctx,
                          const Legion::Task& task,
                          const Span<Legion::Processor>& avail_procs,
-                         uint32_t size,
-                         uint32_t offset,
                          const SliceTaskInput& input,
                          SliceTaskOutput& output);
 
