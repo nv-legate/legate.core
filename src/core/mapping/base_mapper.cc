@@ -336,11 +336,6 @@ void BaseMapper::slice_manual_task(const MapperContext ctx,
 {
   output.slices.reserve(input.domain.get_volume());
 
-  // Get the domain for the sharding space also
-  Domain sharding_domain = task.index_domain;
-  if (task.sharding_space.exists())
-    sharding_domain = runtime->get_index_space_domain(ctx, task.sharding_space);
-
   auto distribute = [&](auto& procs) {
     auto ndim       = input.domain.dim;
     auto& proc_grid = get_processor_grid(task.target_proc.kind(), ndim);
@@ -405,14 +400,14 @@ std::optional<VariantID> BaseMapper::find_variant(const MapperContext ctx,
                                                   Processor::Kind kind)
 {
   const VariantCacheKey key(task.task_id, kind);
-  auto finder = leaf_variants.find(key);
-  if (finder != leaf_variants.end()) return finder->second;
+  auto finder = variants.find(key);
+  if (finder != variants.end()) return finder->second;
 
   // Haven't seen it before so let's look it up to make sure it exists
-  std::vector<VariantID> variants;
-  runtime->find_valid_variants(ctx, key.first, variants, key.second);
+  std::vector<VariantID> avail_variants;
+  runtime->find_valid_variants(ctx, key.first, avail_variants, key.second);
   std::optional<VariantID> result;
-  for (auto vid : variants) {
+  for (auto vid : avail_variants) {
 #ifdef DEBUG_LEGATE
     assert(vid > 0);
 #endif
@@ -426,7 +421,7 @@ std::optional<VariantID> BaseMapper::find_variant(const MapperContext ctx,
       default: LEGATE_ABORT;  // unhandled variant kind
     }
   }
-  leaf_variants[key] = result;
+  variants[key] = result;
   return result;
 }
 
@@ -587,35 +582,6 @@ void BaseMapper::map_replicate_task(const MapperContext ctx,
   LEGATE_ABORT;
 }
 
-bool BaseMapper::find_existing_instance(const MapperContext ctx,
-                                        LogicalRegion region,
-                                        FieldID fid,
-                                        Memory target_memory,
-                                        PhysicalInstance& result,
-                                        Strictness strictness,
-                                        bool acquire_instance_lock)
-{
-  std::unique_ptr<AutoLock> lock =
-    acquire_instance_lock ? std::make_unique<AutoLock>(ctx, local_instances->manager_lock())
-                          : nullptr;
-  // See if we already have it in our local instances
-  if (local_instances->find_instance(region, fid, target_memory, result))
-    return true;
-  else if (strictness == Strictness::strict)
-    return false;
-
-  // See if we can find an existing instance in any memory
-  if (local_instances->find_instance(region, fid, local_system_memory, result)) return true;
-
-  for (auto& pair : local_frame_buffers)
-    if (local_instances->find_instance(region, fid, pair.second, result)) return true;
-
-  for (auto& pair : local_numa_domains)
-    if (local_instances->find_instance(region, fid, pair.second, result)) return true;
-
-  return false;
-}
-
 Memory BaseMapper::get_target_memory(Processor proc, StoreTarget target)
 {
   switch (target) {
@@ -707,7 +673,7 @@ void BaseMapper::tighten_write_policies(const Mappable& mappable,
 
     PrivilegeMode priv = LEGION_NO_ACCESS;
     for (auto* req : mapping.requirements()) priv |= req->privilege;
-    // We only try to tighten
+    // We tighten only write requirements
     if (!(priv & LEGION_WRITE_PRIV)) continue;
 
 #ifdef DEBUG_LEGATE

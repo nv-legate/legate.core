@@ -257,13 +257,6 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
 
  protected:
   Legion::Memory get_target_memory(Legion::Processor proc, StoreTarget target);
-  bool find_existing_instance(const Legion::Mapping::MapperContext ctx,
-                              Legion::LogicalRegion region,
-                              Legion::FieldID fid,
-                              Legion::Memory target_memory,
-                              Legion::Mapping::PhysicalInstance& result,
-                              Strictness strictness      = Strictness::hint,
-                              bool acquire_instance_lock = true);
   using OutputMap =
     std::map<const Legion::RegionRequirement*, std::vector<Legion::Mapping::PhysicalInstance>*>;
   void map_legate_stores(const Legion::Mapping::MapperContext ctx,
@@ -280,9 +273,6 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
                         Legion::Processor target_proc,
                         Legion::Mapping::PhysicalInstance& result,
                         bool can_fail);
-  void filter_failed_acquires(const Legion::Mapping::MapperContext ctx,
-                              std::vector<Legion::Mapping::PhysicalInstance>& needed_acquires,
-                              std::set<Legion::Mapping::PhysicalInstance>& failed_acquires);
   void report_failed_mapping(const Legion::Mappable& mappable,
                              unsigned index,
                              Legion::Memory target_memory,
@@ -378,7 +368,7 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
 
  protected:
   using VariantCacheKey = std::pair<Legion::TaskID, Legion::Processor::Kind>;
-  std::map<VariantCacheKey, std::optional<Legion::VariantID>> leaf_variants;
+  std::map<VariantCacheKey, std::optional<Legion::VariantID>> variants;
 
  protected:
   InstanceManager* local_instances;
