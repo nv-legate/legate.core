@@ -837,6 +837,11 @@ class Copy(AutoOperation):
     def add_source_indirect(
         self, store: Store, partition: Optional[PartSym] = None
     ) -> None:
+        if len(self._source_indirects) != 0:
+            raise RuntimeError(
+                "There can be only up to one source indirection store for "
+                "a Copy operation"
+            )
         self._check_store(store)
         if partition is None:
             partition = self._get_unique_partition(store)
@@ -846,6 +851,11 @@ class Copy(AutoOperation):
     def add_target_indirect(
         self, store: Store, partition: Optional[PartSym] = None
     ) -> None:
+        if len(self._target_indirects) != 0:
+            raise RuntimeError(
+                "There can be only up to one target indirection store for "
+                "a Copy operation"
+            )
         self._check_store(store)
         if partition is None:
             partition = self._get_unique_partition(store)

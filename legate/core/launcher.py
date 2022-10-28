@@ -24,7 +24,6 @@ from typing import (
     Sequence,
     Tuple,
     Union,
-    overload,
 )
 
 from . import (
@@ -104,6 +103,13 @@ def _pack(buf: BufferBuilder, value: Any, dtype: Any, is_tuple: bool) -> None:
         serializer(buf, value)
 
 
+class RequirementIndexer(Protocol):
+    def get_requirement_index(
+        self, req: Union[RegionReq, OutputReq], field_id: int
+    ) -> int:
+        ...
+
+
 class LauncherArg(Protocol):
     def pack(self, buf: BufferBuilder) -> None:
         ...
@@ -164,40 +170,16 @@ class FutureStoreArg:
 
 
 class RegionFieldArg:
-    @overload
     def __init__(
         self,
-        analyzer: RequirementAnalyzer,
-        store: Store,
-        dim: int,
-        req: RegionReq,
-        field_id: int,
-        redop: int,
-    ) -> None:
-        ...
-
-    @overload
-    def __init__(
-        self,
-        analyzer: OutputAnalyzer,
-        store: Store,
-        dim: int,
-        req: OutputReq,
-        field_id: int,
-        redop: int,
-    ) -> None:
-        ...
-
-    def __init__(
-        self,
-        analyzer: Union[OutputAnalyzer, RequirementAnalyzer],
+        indexer: RequirementIndexer,
         store: Store,
         dim: int,
         req: Union[OutputReq, RegionReq],
         field_id: int,
         redop: int,
     ) -> None:
-        self._analyzer = analyzer
+        self._indexer = indexer
         self._store = store
         self._dim = dim
         self._req = req
@@ -210,14 +192,21 @@ class RegionFieldArg:
         buf.pack_32bit_int(self._dim)
 
         buf.pack_32bit_uint(
-            self._analyzer.get_requirement_index(
-                self._req, self._field_id  # type: ignore [arg-type]
-            )
+            self._indexer.get_requirement_index(self._req, self._field_id)
         )
         buf.pack_32bit_uint(self._field_id)
 
     def __str__(self) -> str:
         return f"RegionFieldArg({self._dim}, {self._req}, {self._field_id})"
+
+
+def pack_args(
+    argbuf: BufferBuilder,
+    args: Sequence[LauncherArg],
+) -> None:
+    argbuf.pack_32bit_uint(len(args))
+    for arg in args:
+        arg.pack(argbuf)
 
 
 AddReqMethod = Any
@@ -575,7 +564,7 @@ class FieldSet:
         return coalesced
 
 
-class RequirementAnalyzer:
+class RequirementAnalyzer(RequirementIndexer):
     def __init__(self, error_on_interference: bool = True) -> None:
         self._field_sets: dict[Region, FieldSet] = {}
         self._requirements: list[tuple[RegionReq, list[int]]] = []
@@ -614,7 +603,10 @@ class RequirementAnalyzer:
                     self._requirement_map[(req, field_id)] = req_idx
                 self._requirements.append((req, fields))
 
-    def get_requirement_index(self, req: RegionReq, field_id: int) -> int:
+    def get_requirement_index(
+        self, req: Union[RegionReq, OutputReq], field_id: int
+    ) -> int:
+        assert isinstance(req, RegionReq)
         try:
             return self._requirement_map[(req, field_id)]
         except KeyError:
@@ -622,7 +614,7 @@ class RequirementAnalyzer:
             return self._requirement_map[(req, field_id)]
 
 
-class OutputAnalyzer:
+class OutputAnalyzer(RequirementIndexer):
     def __init__(self) -> None:
         self._groups: dict[Any, OrderedSet[tuple[int, Store]]] = {}
         self._requirements: list[tuple[OutputReq, list[int]]] = []
@@ -664,13 +656,38 @@ class OutputAnalyzer:
 
             self._requirements.append((req, fields))
 
-    def get_requirement_index(self, req: OutputReq, field_id: int) -> int:
+    def get_requirement_index(
+        self, req: Union[RegionReq, OutputReq], field_id: int
+    ) -> int:
+        assert isinstance(req, OutputReq)
         return self._requirement_map[(req, field_id)]
 
     def update_storages(self) -> None:
         for req, group in self._groups.items():
             for field_id, store in group:
                 req.update_storage(store, field_id)
+
+
+# A simple analyzer that does not coalesce requirements
+class CopyReqAnalyzer(RequirementIndexer):
+    def __init__(self) -> None:
+        self._requirements: list[tuple[RegionReq, int]] = []
+        self._requirement_map: dict[tuple[RegionReq, int], int] = {}
+
+    @property
+    def requirements(self) -> list[tuple[RegionReq, int]]:
+        return self._requirements
+
+    def insert(self, req: RegionReq, field_id: int) -> None:
+        entry = (req, field_id)
+        self._requirement_map[entry] = len(self._requirements)
+        self._requirements.append(entry)
+
+    def get_requirement_index(
+        self, req: Union[RegionReq, OutputReq], field_id: int
+    ) -> int:
+        assert isinstance(req, RegionReq)
+        return self._requirement_map[(req, field_id)]
 
 
 class TaskLauncher:
@@ -864,25 +881,16 @@ class TaskLauncher:
     def set_point(self, point: Point) -> None:
         self._point = point
 
-    @staticmethod
-    def pack_args(
-        argbuf: BufferBuilder,
-        args: Sequence[LauncherArg],
-    ) -> None:
-        argbuf.pack_32bit_uint(len(args))
-        for arg in args:
-            arg.pack(argbuf)
-
     def build_task(
         self, launch_domain: Rect, argbuf: BufferBuilder
     ) -> IndexTask:
         self._req_analyzer.analyze_requirements()
         self._out_analyzer.analyze_requirements()
 
-        self.pack_args(argbuf, self._inputs)
-        self.pack_args(argbuf, self._outputs)
-        self.pack_args(argbuf, self._reductions)
-        self.pack_args(argbuf, self._scalars)
+        pack_args(argbuf, self._inputs)
+        pack_args(argbuf, self._outputs)
+        pack_args(argbuf, self._reductions)
+        pack_args(argbuf, self._scalars)
         argbuf.pack_bool(self._can_raise_exception)
         argbuf.pack_bool(self._insert_barrier)
         argbuf.pack_32bit_uint(len(self._comms))
@@ -921,10 +929,10 @@ class TaskLauncher:
         self._req_analyzer.analyze_requirements()
         self._out_analyzer.analyze_requirements()
 
-        self.pack_args(argbuf, self._inputs)
-        self.pack_args(argbuf, self._outputs)
-        self.pack_args(argbuf, self._reductions)
-        self.pack_args(argbuf, self._scalars)
+        pack_args(argbuf, self._inputs)
+        pack_args(argbuf, self._outputs)
+        pack_args(argbuf, self._reductions)
+        pack_args(argbuf, self._scalars)
         argbuf.pack_bool(self._can_raise_exception)
 
         assert len(self._comms) == 0
@@ -982,7 +990,15 @@ class CopyLauncher:
         assert type(tag) != bool
         self._context = context
         self._mapper_id = mapper_id
-        self._req_analyzer = RequirementAnalyzer()
+        self._inputs: list[LauncherArg] = []
+        self._outputs: list[LauncherArg] = []
+        self._reductions: list[LauncherArg] = []
+        self._source_indirects: list[LauncherArg] = []
+        self._target_indirects: list[LauncherArg] = []
+        self._input_reqs = CopyReqAnalyzer()
+        self._output_reqs = CopyReqAnalyzer()
+        self._source_indirect_reqs = CopyReqAnalyzer()
+        self._target_indirect_reqs = CopyReqAnalyzer()
         self._tag = tag
         self._sharding_space: Union[IndexSpace, None] = None
         self._point: Union[Point, None] = None
@@ -998,11 +1014,15 @@ class CopyLauncher:
     def legion_mapper_id(self) -> int:
         return self._context.get_mapper_id(self._mapper_id)
 
-    def __del__(self) -> None:
-        del self._req_analyzer
-
     def add_store(
-        self, store: Store, proj: Proj, perm: Permission, tag: int, flags: int
+        self,
+        args: list[LauncherArg],
+        req_analyzer: CopyReqAnalyzer,
+        store: Store,
+        proj: Proj,
+        perm: Permission,
+        tag: int,
+        flags: int,
     ) -> None:
         assert store.kind is not Future
         assert store._transform.bottom
@@ -1015,37 +1035,97 @@ class CopyLauncher:
 
         req = RegionReq(region, perm, proj, tag, flags)
 
-        self._req_analyzer.insert(req, field_id)
+        req_analyzer.insert(req, field_id)
+
+        redop = -1 if proj.redop is None else proj.redop
+        args.append(
+            RegionFieldArg(
+                req_analyzer,
+                store,
+                region.index_space.get_dim(),
+                req,
+                field_id,
+                redop,
+            )
+        )
 
     def add_input(
         self, store: Store, proj: Proj, tag: int = 0, flags: int = 0
     ) -> None:
-        self.add_store(store, proj, Permission.READ, tag, flags)
+        self.add_store(
+            self._inputs,
+            self._input_reqs,
+            store,
+            proj,
+            Permission.READ,
+            tag,
+            flags,
+        )
 
     def add_output(
         self, store: Store, proj: Proj, tag: int = 0, flags: int = 0
     ) -> None:
-        self.add_store(store, proj, Permission.WRITE, tag, flags)
+        self.add_store(
+            self._outputs,
+            self._output_reqs,
+            store,
+            proj,
+            Permission.WRITE,
+            tag,
+            flags,
+        )
 
     def add_inout(
         self, store: Store, proj: Proj, tag: int = 0, flags: int = 0
     ) -> None:
-        self.add_store(store, proj, Permission.READ_WRITE, tag, flags)
+        self.add_store(
+            self._outputs,
+            self._output_reqs,
+            store,
+            proj,
+            Permission.READ_WRITE,
+            tag,
+            flags,
+        )
 
     def add_reduction(
         self, store: Store, proj: Proj, tag: int = 0, flags: int = 0
     ) -> None:
-        self.add_store(store, proj, Permission.REDUCTION, tag, flags)
+        self.add_store(
+            self._reductions,
+            self._output_reqs,
+            store,
+            proj,
+            Permission.REDUCTION,
+            tag,
+            flags,
+        )
 
     def add_source_indirect(
         self, store: Store, proj: Proj, tag: int = 0, flags: int = 0
     ) -> None:
-        self.add_store(store, proj, Permission.SOURCE_INDIRECT, tag, flags)
+        self.add_store(
+            self._source_indirects,
+            self._source_indirect_reqs,
+            store,
+            proj,
+            Permission.SOURCE_INDIRECT,
+            tag,
+            flags,
+        )
 
     def add_target_indirect(
         self, store: Store, proj: Proj, tag: int = 0, flags: int = 0
     ) -> None:
-        self.add_store(store, proj, Permission.TARGET_INDIRECT, tag, flags)
+        self.add_store(
+            self._target_indirects,
+            self._target_indirect_reqs,
+            store,
+            proj,
+            Permission.TARGET_INDIRECT,
+            tag,
+            flags,
+        )
 
     def set_sharding_space(self, space: IndexSpace) -> None:
         self._sharding_space = space
@@ -1054,7 +1134,11 @@ class CopyLauncher:
         self._point = point
 
     def build_copy(self, launch_domain: Rect) -> IndexCopy:
-        self._req_analyzer.analyze_requirements()
+        argbuf = BufferBuilder()
+        pack_args(argbuf, self._inputs)
+        pack_args(argbuf, self._outputs + self._reductions)
+        pack_args(argbuf, self._source_indirects)
+        pack_args(argbuf, self._target_indirects)
 
         copy = IndexCopy(
             launch_domain,
@@ -1062,39 +1146,48 @@ class CopyLauncher:
             tag=self._tag,
             provenance=self._provenance,
         )
-        for (req, fields) in self._req_analyzer.requirements:
-            if req.permission in (
-                Permission.SOURCE_INDIRECT,
-                Permission.TARGET_INDIRECT,
-            ):
-                assert len(fields) == 1
-                req.proj.add(copy, req, fields[0], _index_copy_calls)
-            else:
-                req.proj.add(copy, req, fields, _index_copy_calls)
+
+        def add_requirements(
+            requirements: list[tuple[RegionReq, int]]
+        ) -> None:
+            for (req, field) in requirements:
+                req.proj.add(copy, req, field, _index_copy_calls)
+
+        add_requirements(self._input_reqs.requirements)
+        add_requirements(self._output_reqs.requirements)
+        add_requirements(self._source_indirect_reqs.requirements)
+        add_requirements(self._target_indirect_reqs.requirements)
 
         if self._sharding_space is not None:
             copy.set_sharding_space(self._sharding_space)
         copy.set_possible_src_indirect_out_of_range(self._source_oor)
         copy.set_possible_dst_indirect_out_of_range(self._target_oor)
+        copy.set_mapper_arg(argbuf.get_string(), argbuf.get_size())
         return copy
 
     def build_single_copy(self) -> SingleCopy:
-        self._req_analyzer.analyze_requirements()
+        argbuf = BufferBuilder()
+        pack_args(argbuf, self._inputs)
+        pack_args(argbuf, self._outputs + self._reductions)
+        pack_args(argbuf, self._source_indirects)
+        pack_args(argbuf, self._target_indirects)
 
         copy = SingleCopy(
             mapper=self.legion_mapper_id,
             tag=self._tag,
             provenance=self._provenance,
         )
-        for (req, fields) in self._req_analyzer.requirements:
-            if req.permission in (
-                Permission.SOURCE_INDIRECT,
-                Permission.TARGET_INDIRECT,
-            ):
-                assert len(fields) == 1
-                req.proj.add_single(copy, req, fields[0], _single_copy_calls)
-            else:
-                req.proj.add_single(copy, req, fields, _single_copy_calls)
+
+        def add_requirements(
+            requirements: list[tuple[RegionReq, int]]
+        ) -> None:
+            for (req, field) in requirements:
+                req.proj.add_single(copy, req, field, _single_copy_calls)
+
+        add_requirements(self._input_reqs.requirements)
+        add_requirements(self._output_reqs.requirements)
+        add_requirements(self._source_indirect_reqs.requirements)
+        add_requirements(self._target_indirect_reqs.requirements)
 
         if self._sharding_space is not None:
             copy.set_sharding_space(self._sharding_space)
@@ -1102,6 +1195,7 @@ class CopyLauncher:
             copy.set_point(self._point)
         copy.set_possible_src_indirect_out_of_range(self._source_oor)
         copy.set_possible_dst_indirect_out_of_range(self._target_oor)
+        copy.set_mapper_arg(argbuf.get_string(), argbuf.get_size())
         return copy
 
     def execute(
