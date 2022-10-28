@@ -18,9 +18,9 @@
 
 #include "legion.h"
 
-#include "core/runtime/context.h"
-
 namespace legate {
+
+class LibraryContext;
 
 // Interface for Legate projection functors
 class LegateProjectionFunctor : public Legion::ProjectionFunctor {

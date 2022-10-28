@@ -19,6 +19,7 @@
 #include "legion.h"
 
 #include "core/comm/communicator.h"
+#include "core/mapping/machine.h"
 #include "core/task/return.h"
 
 namespace legate {
@@ -137,6 +138,9 @@ class TaskContext {
   Legion::Domain get_launch_domain() const;
 
  public:
+  const mapping::MachineDesc& machine_desc() const { return machine_desc_; }
+
+ public:
   void make_all_unbound_stores_empty();
   ReturnValues pack_return_values() const;
   ReturnValues pack_return_values_with_exception(int32_t index,
@@ -156,6 +160,7 @@ class TaskContext {
   std::vector<Scalar> scalars_;
   std::vector<comm::Communicator> comms_;
   bool can_raise_exception_;
+  mapping::MachineDesc machine_desc_;
 };
 
 }  // namespace legate

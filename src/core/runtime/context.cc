@@ -181,6 +181,9 @@ TaskContext::TaskContext(const Legion::Task* task,
     }
     comms_ = dez.unpack<std::vector<comm::Communicator>>();
   }
+
+  machine_desc_ = dez.unpack<mapping::MachineDesc>();
+
   // For reduction tree cases, some input stores may be mapped to NO_REGION
   // when the number of subregions isn't a multiple of the chosen radix.
   // To simplify the programming mode, we filter out those "invalid" stores out.

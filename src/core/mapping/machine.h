@@ -30,6 +30,7 @@ struct MachineDesc {
   TaskTarget preferred_target;
   std::map<TaskTarget, std::pair<uint32_t, uint32_t>> processor_ranges;
 
+  std::pair<uint32_t, uint32_t> processor_range() const;
   std::vector<TaskTarget> valid_targets() const;
   std::tuple<Span<Legion::Processor>, uint32_t, uint32_t> slice(
     TaskTarget target,

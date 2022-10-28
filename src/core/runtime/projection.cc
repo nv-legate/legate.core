@@ -21,6 +21,8 @@
 #include <unordered_set>
 
 #include "core/runtime/projection.h"
+
+#include "core/runtime/context.h"
 #include "core/utilities/dispatch.h"
 
 using namespace Legion;
@@ -99,10 +101,10 @@ class AffineFunctor : public LegateProjectionFunctor {
   }
 
  public:
-  static Transform<TGT_DIM, SRC_DIM> create_transform(int32_t* dims, int32_t* weights);
+  static Legion::Transform<TGT_DIM, SRC_DIM> create_transform(int32_t* dims, int32_t* weights);
 
  private:
-  const Transform<TGT_DIM, SRC_DIM> transform_;
+  const Legion::Transform<TGT_DIM, SRC_DIM> transform_;
   Point<TGT_DIM> offsets_;
 };
 
@@ -117,10 +119,10 @@ AffineFunctor<SRC_DIM, TGT_DIM>::AffineFunctor(Runtime* runtime,
 }
 
 template <int32_t SRC_DIM, int32_t TGT_DIM>
-/*static*/ Transform<TGT_DIM, SRC_DIM> AffineFunctor<SRC_DIM, TGT_DIM>::create_transform(
+/*static*/ Legion::Transform<TGT_DIM, SRC_DIM> AffineFunctor<SRC_DIM, TGT_DIM>::create_transform(
   int32_t* dims, int32_t* weights)
 {
-  Transform<TGT_DIM, SRC_DIM> transform;
+  Legion::Transform<TGT_DIM, SRC_DIM> transform;
 
   for (int32_t tgt_dim = 0; tgt_dim < TGT_DIM; ++tgt_dim)
     for (int32_t src_dim = 0; src_dim < SRC_DIM; ++src_dim) transform[tgt_dim][src_dim] = 0;

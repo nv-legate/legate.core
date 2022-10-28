@@ -40,6 +40,15 @@ std::ostream& operator<<(std::ostream& stream, const TaskTarget& target)
   return stream;
 }
 
+std::pair<uint32_t, uint32_t> MachineDesc::processor_range() const
+{
+  auto finder = processor_ranges.find(preferred_target);
+#ifdef DEBUG_LEGATE
+  assert(finder != processor_ranges.end());
+#endif
+  return finder->second;
+}
+
 std::vector<TaskTarget> MachineDesc::valid_targets() const
 {
   std::vector<TaskTarget> result;
