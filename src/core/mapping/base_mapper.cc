@@ -602,11 +602,11 @@ void BaseMapper::map_legate_stores(const MapperContext ctx,
                                    OutputMap& output_map)
 {
   auto try_mapping = [&](bool can_fail) {
-    const PhysicalInstance NO_INST;
+    const PhysicalInstance NO_INST{};
     std::vector<PhysicalInstance> instances;
     for (auto& mapping : mappings) {
-      PhysicalInstance result;
-      auto reqs = mapping.requirements();
+      PhysicalInstance result = NO_INST;
+      auto reqs               = mapping.requirements();
       while (map_legate_store(ctx, mappable, mapping, reqs, target_proc, result, can_fail)) {
         if (NO_INST == result) {
 #ifdef DEBUG_LEGATE
@@ -632,6 +632,7 @@ void BaseMapper::map_legate_stores(const MapperContext ctx,
 #endif
         AutoLock lock(ctx, local_instances->manager_lock());
         local_instances->erase(result);
+        result = NO_INST;
       }
       instances.push_back(result);
     }
@@ -694,12 +695,8 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
                                   PhysicalInstance& result,
                                   bool can_fail)
 {
-  if (reqs.empty()) {
-#ifdef DEBUG_LEGATE
-    result = PhysicalInstance();
-#endif
-    return false;
-  }
+  if (reqs.empty()) return false;
+
   const auto& policy = mapping.policy;
   std::vector<LogicalRegion> regions;
   for (auto* req : reqs) regions.push_back(req->region);
