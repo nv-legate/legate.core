@@ -123,6 +123,19 @@ AffineFunctor<SRC_DIM, TGT_DIM>::AffineFunctor(Runtime* runtime,
   : LegateProjectionFunctor(runtime), transform_(create_transform(dims, weights))
 {
   for (int32_t dim = 0; dim < TGT_DIM; ++dim) offsets_[dim] = offsets[dim];
+
+  // find if there is `-1` in the dimensions
+  std::set<int32_t> unique;
+  for (int32_t dim = 0; dim < TGT_DIM; ++dim) {
+    if (dims[dim] == -1) {
+      set_collective();
+      break;
+    }
+    unique.insert(dim);
+  }
+  if (unique.size() != TGT_DIM) set_collective();
+
+  std::cout << "IRINA INSIFE Affine functor" << is_collective() << std::endl;
 }
 
 template <int32_t SRC_DIM, int32_t TGT_DIM>

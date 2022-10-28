@@ -203,6 +203,16 @@ void BaseMapper::select_task_options(const MapperContext ctx,
     }
   }
   output.valid_instances = false;
+
+  LegateProjectionFunctor* key_functor = nullptr;
+  size_t idx                           = 0;
+  for (auto& req : task.regions)
+    if (req.tag == LEGATE_CORE_KEY_STORE_TAG) {
+      key_functor = find_legate_projection_functor(req.projection);
+      if (key_functor != nullptr && key_functor->is_collective())
+        output.check_collective_regions.insert(idx);
+    }
+  idx++;
 }
 
 void BaseMapper::premap_task(const MapperContext ctx,

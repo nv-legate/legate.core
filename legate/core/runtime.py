@@ -1200,6 +1200,7 @@ class Runtime:
         self._next_projection_id += 1
         self._registered_projections[spec] = proj_id
 
+        print("IRINA DEBUG target_dim, len(dims_c) = ", tgt_ndim, len(dims_c))
         self.core_library.legate_register_affine_projection_functor(
             src_ndim,
             tgt_ndim,
