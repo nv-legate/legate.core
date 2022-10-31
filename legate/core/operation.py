@@ -244,6 +244,7 @@ class Task(TaskProtocol):
         self._exn_types: list[type] = []
         self._tb_repr: Union[None, str] = None
         self._side_effect = False
+        self._concurrent = False
 
     @property
     def side_effect(self) -> bool:
@@ -251,6 +252,13 @@ class Task(TaskProtocol):
 
     def set_side_effect(self, side_effect: bool) -> None:
         self._side_effect = side_effect
+
+    @property
+    def concurrent(self) -> bool:
+        return self._concurrent
+
+    def set_concurrent(self, concurrent: bool) -> None:
+        self._concurrent = concurrent
 
     @property
     def uses_communicator(self) -> bool:
@@ -615,6 +623,7 @@ class AutoTask(AutoOperation, Task):
         self._add_scalar_args_to_launcher(launcher)
 
         launcher.set_can_raise_exception(self.can_raise_exception)
+        launcher.set_concurrent(self.concurrent)
 
         launch_domain = strategy.launch_domain if strategy.parallel else None
         self._add_communicators(launcher, launch_domain)
@@ -776,6 +785,7 @@ class ManualTask(Operation, Task):
         self._add_scalar_args_to_launcher(launcher)
 
         launcher.set_can_raise_exception(self.can_raise_exception)
+        launcher.set_concurrent(self.concurrent)
 
         self._add_communicators(launcher, self._launch_domain)
 

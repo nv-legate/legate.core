@@ -724,6 +724,7 @@ class TaskLauncher:
         self._insert_barrier = False
         self._can_raise_exception = False
         self._provenance = provenance
+        self._concurrent = False
 
     @property
     def library_task_id(self) -> int:
@@ -875,6 +876,9 @@ class TaskLauncher:
     def set_can_raise_exception(self, can_raise_exception: bool) -> None:
         self._can_raise_exception = can_raise_exception
 
+    def set_concurrent(self, concurrent: bool) -> None:
+        self._concurrent = concurrent
+
     def set_sharding_space(self, space: IndexSpace) -> None:
         self._sharding_space = space
 
@@ -921,7 +925,7 @@ class TaskLauncher:
             out_req.add(task, fields)
         for comm in self._comms:
             task.add_point_future(ArgumentMap(future_map=comm))
-        task.set_concurrent(len(self._comms) > 0)
+        task.set_concurrent(len(self._comms) > 0 or self._concurrent)
         for future_map in self._future_map_args:
             task.add_point_future(ArgumentMap(future_map=future_map))
         return task
