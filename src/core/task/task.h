@@ -41,6 +41,27 @@ struct VariantOptions {
   bool idempotent{false};
   bool concurrent{false};
   size_t return_size{LEGATE_MAX_SIZE_SCALAR_RETURN};
+
+  VariantOptions& with_leaf(bool _leaf)
+  {
+    leaf = _leaf;
+    return *this;
+  }
+  VariantOptions& with_inner(bool _inner)
+  {
+    inner = _inner;
+    return *this;
+  }
+  VariantOptions& with_idempotent(bool _idempotent)
+  {
+    idempotent = _idempotent;
+    return *this;
+  }
+  VariantOptions& with_concurrent(bool _concurrent)
+  {
+    concurrent = _concurrent;
+    return *this;
+  }
 };
 
 using LegateVariantImpl = void (*)(TaskContext&);
