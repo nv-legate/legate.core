@@ -14,8 +14,9 @@
 #
 from __future__ import annotations
 
+from dataclasses import dataclass
 from enum import IntEnum, unique
-from typing import TYPE_CHECKING, Any, Tuple, Union
+from typing import TYPE_CHECKING, Any, Optional, Tuple, Union
 
 from . import legion, types as ty
 
@@ -48,19 +49,38 @@ PRECEDENCE = (
 
 
 # Inclusive range of processor ids
+@dataclass(frozen=True)
 class ProcessorRange:
-    def __init__(self, lo: int, hi: int) -> None:
+    # the kind is being used just in compatibility checks
+    kind: ProcessorKind
+    per_node_count: int
+    lo: int
+    hi: int
+
+    @staticmethod
+    def create(
+        kind: ProcessorKind, per_node_count: int, lo: int, hi: int
+    ) -> ProcessorRange:
         if hi < lo:
             lo = 1
             hi = 0
-        self.lo = lo
-        self.hi = hi
+        return ProcessorRange(kind, per_node_count, lo, hi)
 
     def __len__(self) -> int:
         return self.hi - self.lo + 1
 
     def __and__(self, other: ProcessorRange) -> ProcessorRange:
-        return ProcessorRange(max(self.lo, other.lo), min(self.hi, other.hi))
+        if self.kind != other.kind:
+            raise ValueError(
+                "Intersection between different processor kinds: "
+                f"{self} & {other}"
+            )
+        return ProcessorRange.create(
+            self.kind,
+            self.per_node_count,
+            max(self.lo, other.lo),
+            min(self.hi, other.hi),
+        )
 
     def slice(self, sl: slice) -> ProcessorRange:
         if sl.step is not None and sl.step != 1:
@@ -79,13 +99,15 @@ class ProcessorRange:
             else:
                 new_hi = self.lo + max(0, sl.stop + sz)
 
-        return ProcessorRange(new_lo, new_hi)
+        return ProcessorRange.create(
+            self.kind, self.per_node_count, new_lo, new_hi
+        )
 
     def __str__(self) -> str:
         if self.hi < self.lo:
             return "<empty>"
         else:
-            return f"[{self.lo}, {self.hi}]"
+            return f"[{self.lo}, {self.hi}] ({self.per_node_count} per node)"
 
     def __repr__(self) -> str:
         return str(self)
@@ -93,9 +115,6 @@ class ProcessorRange:
     def pack(self, buf: BufferBuilder) -> None:
         buf.pack_32bit_uint(self.lo)
         buf.pack_32bit_uint(self.hi)
-
-
-EMPTY_RANGE = ProcessorRange(1, 0)
 
 
 ProcKindLike = Union[str, ProcessorKind]
@@ -125,8 +144,19 @@ class Machine:
     def preferred_kind(self) -> ProcessorKind:
         return self._preferred_kind
 
+    def get_processor_range(
+        self, kind: Optional[ProcessorKind] = None
+    ) -> ProcessorRange:
+        if kind is None:
+            sanitized = self._preferred_kind
+        else:
+            sanitized = sanitize_kind(kind)
+        return self._get_range(sanitized)
+
     def _get_range(self, kind: ProcessorKind) -> ProcessorRange:
-        return self._proc_ranges.get(kind, EMPTY_RANGE)
+        if kind not in self._proc_ranges:
+            raise IndexError(f"{kind}")
+        return self._proc_ranges[kind]
 
     def only(self, kind: ProcKindLike) -> Machine:
         sanitized = sanitize_kind(kind)
@@ -153,13 +183,13 @@ class Machine:
                     "with more than one processor kind"
                 )
             k = key if isinstance(key, slice) else slice(key, key + 1)
-            kind = self._preferred_kind
             return Machine(
-                self._runtime, {kind: self._get_range(kind).slice(k)}
+                self._runtime,
+                {self._preferred_kind: self.get_processor_range().slice(k)},
             )
         elif isinstance(key, tuple) and len(key) == 2:
             kind = sanitize_kind(key[0])
-            new_ranges = self._proc_ranges.copy()
+            new_ranges: dict[ProcessorKind, ProcessorRange] = {}
             new_ranges[kind] = self._get_range(kind).slice(key[1])
             return Machine(self._runtime, new_ranges)
         else:
@@ -174,21 +204,23 @@ class Machine:
             )
         )
 
-        def create_range(tunable: int) -> ProcessorRange:
+        def create_range(kind: ProcessorKind, tunable: int) -> ProcessorRange:
             num_procs = int(
                 runtime.core_context.get_tunable(tunable, ty.int32)
             )
-            return ProcessorRange(0, num_nodes * num_procs - 1)
+            return ProcessorRange.create(
+                kind, num_procs // num_nodes, 0, num_procs - 1
+            )
 
         ranges = {
             ProcessorKind.GPU: create_range(
-                legion.LEGATE_CORE_TUNABLE_TOTAL_GPUS
+                ProcessorKind.GPU, legion.LEGATE_CORE_TUNABLE_TOTAL_GPUS
             ),
             ProcessorKind.OMP: create_range(
-                legion.LEGATE_CORE_TUNABLE_TOTAL_OMPS
+                ProcessorKind.OMP, legion.LEGATE_CORE_TUNABLE_TOTAL_OMPS
             ),
             ProcessorKind.CPU: create_range(
-                legion.LEGATE_CORE_TUNABLE_TOTAL_CPUS
+                ProcessorKind.CPU, legion.LEGATE_CORE_TUNABLE_TOTAL_CPUS
             ),
         }
 

@@ -49,6 +49,7 @@ class Task {
 
  public:
   const MachineDesc& machine_desc() const { return machine_desc_; }
+  uint32_t sharding_id() const { return sharding_id_; }
   TaskTarget target() const;
 
  private:
@@ -59,6 +60,7 @@ class Task {
   std::vector<Store> inputs_, outputs_, reductions_;
   std::vector<Scalar> scalars_;
   mapping::MachineDesc machine_desc_;
+  uint32_t sharding_id_;
 };
 
 class Copy {
@@ -88,6 +90,22 @@ class Copy {
   std::vector<Store> input_indirections_;
   std::vector<Store> output_indirections_;
   mapping::MachineDesc machine_desc_;
+};
+
+class Fill {
+ public:
+  Fill(const Legion::Fill* fill);
+
+ public:
+  const mapping::MachineDesc& machine_desc() const { return machine_desc_; }
+  uint32_t sharding_id() const { return sharding_id_; }
+
+ private:
+  const Legion::Fill* fill_;
+
+ private:
+  mapping::MachineDesc machine_desc_;
+  uint32_t sharding_id_;
 };
 
 }  // namespace mapping

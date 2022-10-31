@@ -20,7 +20,16 @@ import struct
 import weakref
 from collections import deque
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Deque, List, Optional, TypeVar, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Deque,
+    List,
+    Optional,
+    Tuple,
+    TypeVar,
+    Union,
+)
 
 from legion_top import add_cleanup_item, top_level
 
@@ -55,16 +64,20 @@ if TYPE_CHECKING:
     from . import ArgumentMap, Detach, IndexDetach, IndexPartition, Library
     from ._legion import (
         FieldListLike,
-        PhysicalRegion,
         Partition as LegionPartition,
+        PhysicalRegion,
     )
     from .communicator import Communicator
     from .context import Context
     from .corelib import CoreLib
+    from .machine import ProcessorRange
     from .operation import Operation
     from .partition import PartitionBase
-    from .projection import ProjExpr
+    from .projection import SymbolicPoint
     from .store import RegionField, Store
+
+    ProjSpec = Tuple[int, SymbolicPoint]
+    ShardSpec = Tuple[int, ProcessorRange]
 
 from math import prod
 
@@ -1065,12 +1078,8 @@ class Runtime:
         )
         self._next_projection_id = first_functor_id
         self._next_sharding_id = first_functor_id
-        self._registered_projections: dict[
-            tuple[int, tuple[ProjExpr, ...]], int
-        ] = {}
-        self._registered_shardings: dict[
-            tuple[int, tuple[ProjExpr, ...]], int
-        ] = {}
+        self._registered_projections: dict[ProjSpec, int] = {}
+        self._registered_shardings: dict[ShardSpec, int] = {}
 
         self._max_pending_exceptions: int = int(
             self._core_context.get_tunable(
@@ -1297,7 +1306,7 @@ class Runtime:
 
     def _register_projection_functor(
         self,
-        spec: tuple[int, tuple[ProjExpr, ...]],
+        spec: ProjSpec,
         src_ndim: int,
         tgt_ndim: int,
         dims_c: Any,
@@ -1317,29 +1326,47 @@ class Runtime:
             proj_id,
         )
 
-        shard_id = self.core_context.get_projection_id(self._next_sharding_id)
+        return proj_id
+
+    def get_sharding(self, proj_id: int) -> int:
+        proc_range = self.machine.get_processor_range()
+        shard_spec = (proj_id, proc_range)
+
+        if shard_spec in self._registered_shardings:
+            return self._registered_shardings[shard_spec]
+
+        shard_id = self.core_context.get_sharding_id(self._next_sharding_id)
         self._next_sharding_id += 1
-        self._registered_shardings[spec] = shard_id
+        self._registered_shardings[shard_spec] = shard_id
 
         self.core_library.legate_create_sharding_functor_using_projection(
             shard_id,
             proj_id,
+            proc_range.per_node_count,
+            proc_range.lo,
+            proc_range.hi,
         )
 
-        return proj_id
+        self._registered_shardings[shard_spec] = shard_id
 
-    def get_projection(self, src_ndim: int, dims: tuple[ProjExpr, ...]) -> int:
-        spec = (src_ndim, dims)
-        if spec in self._registered_projections:
-            return self._registered_projections[spec]
+        return shard_id
 
-        if is_identity_projection(src_ndim, dims):
-            self._registered_projections[spec] = 0
-            return 0
+    def get_projection(self, src_ndim: int, dims: SymbolicPoint) -> int:
+        proj_spec = (src_ndim, dims)
+
+        proj_id: int
+        if proj_spec in self._registered_projections:
+            proj_id = self._registered_projections[proj_spec]
         else:
-            return self._register_projection_functor(
-                spec, *pack_symbolic_projection_repr(src_ndim, dims)
-            )
+            if is_identity_projection(src_ndim, dims):
+                proj_id = 0
+            else:
+                proj_id = self._register_projection_functor(
+                    proj_spec, *pack_symbolic_projection_repr(src_ndim, dims)
+                )
+            self._registered_projections[proj_spec] = proj_id
+
+        return proj_id
 
     def get_transform_code(self, name: str) -> int:
         return getattr(

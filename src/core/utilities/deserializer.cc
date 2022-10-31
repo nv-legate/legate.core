@@ -242,6 +242,11 @@ void CopyDeserializer::_unpack(RegionField& value)
   value    = RegionField(req, dim, idx + req_index_offset_, fid);
 }
 
+FillDeserializer::FillDeserializer(const void* args, size_t arglen)
+  : BaseDeserializer(static_cast<const int8_t*>(args), arglen)
+{
+}
+
 }  // namespace mapping
 
 }  // namespace legate

@@ -158,6 +158,14 @@ class CopyDeserializer : public BaseDeserializer<CopyDeserializer> {
   uint32_t req_index_offset_;
 };
 
+class FillDeserializer : public BaseDeserializer<FillDeserializer> {
+ public:
+  FillDeserializer(const void* args, size_t arglen);
+
+ public:
+  using BaseDeserializer::_unpack;
+};
+
 }  // namespace mapping
 
 }  // namespace legate

@@ -32,6 +32,7 @@
 
 using LegionTask = Legion::Task;
 using LegionCopy = Legion::Copy;
+using LegionFill = Legion::Fill;
 
 using namespace Legion;
 using namespace Legion::Mapping;
@@ -1021,9 +1022,8 @@ void BaseMapper::select_sharding_functor(const MapperContext ctx,
                                          const SelectShardingFunctorInput& input,
                                          SelectShardingFunctorOutput& output)
 {
-  output.chosen_functor = task.is_index_space
-                            ? find_sharding_functor_by_key_store_projection(task.regions)
-                            : find_sharding_functor_by_projection_functor(0);
+  Task legate_task(&task, context, runtime, ctx);
+  output.chosen_functor = static_cast<ShardingID>(legate_task.sharding_id());
 }
 
 void BaseMapper::map_inline(const MapperContext ctx,
@@ -1336,13 +1336,12 @@ void BaseMapper::select_sharding_functor(const MapperContext ctx,
 }
 
 void BaseMapper::select_sharding_functor(const MapperContext ctx,
-                                         const Fill& fill,
+                                         const LegionFill& fill,
                                          const SelectShardingFunctorInput& input,
                                          SelectShardingFunctorOutput& output)
 {
-  output.chosen_functor = fill.is_index_space
-                            ? find_sharding_functor_by_key_store_projection({fill.requirement})
-                            : find_sharding_functor_by_projection_functor(0);
+  Fill legate_fill(&fill);
+  output.chosen_functor = static_cast<ShardingID>(legate_fill.sharding_id());
 }
 
 void BaseMapper::configure_context(const MapperContext ctx,

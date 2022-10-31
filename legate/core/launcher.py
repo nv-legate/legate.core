@@ -885,6 +885,14 @@ class TaskLauncher:
     def set_point(self, point: Point) -> None:
         self._point = point
 
+    def _get_sharding_id(self) -> int:
+        proj_id = 0
+        for (req, _) in self._req_analyzer.requirements:
+            if req.tag == 1:  # LEGATE_CORE_KEY_STORE_TAG
+                proj_id = req.proj.proj
+                break
+        return runtime.get_sharding(proj_id)
+
     def build_task(
         self, launch_domain: Rect, argbuf: BufferBuilder
     ) -> IndexTask:
@@ -898,7 +906,8 @@ class TaskLauncher:
         argbuf.pack_bool(self._can_raise_exception)
         argbuf.pack_bool(self._insert_barrier)
         argbuf.pack_32bit_uint(len(self._comms))
-        self._context.runtime.machine.pack(argbuf)
+        runtime.machine.pack(argbuf)
+        argbuf.pack_32bit_uint(self._get_sharding_id())
 
         task = IndexTask(
             self.legion_task_id,
@@ -942,7 +951,8 @@ class TaskLauncher:
         argbuf.pack_bool(self._can_raise_exception)
         argbuf.pack_bool(False)
         argbuf.pack_32bit_uint(0)
-        self._context.runtime.machine.pack(argbuf)
+        runtime.machine.pack(argbuf)
+        argbuf.pack_32bit_uint(self._get_sharding_id())
 
         assert len(self._comms) == 0
 
@@ -1155,7 +1165,7 @@ class CopyLauncher:
         pack_args(argbuf, self._outputs + self._reductions)
         pack_args(argbuf, self._source_indirects)
         pack_args(argbuf, self._target_indirects)
-        self._context.runtime.machine.pack(argbuf)
+        runtime.machine.pack(argbuf)
 
         copy = IndexCopy(
             launch_domain,
@@ -1188,7 +1198,7 @@ class CopyLauncher:
         pack_args(argbuf, self._outputs + self._reductions)
         pack_args(argbuf, self._source_indirects)
         pack_args(argbuf, self._target_indirects)
-        self._context.runtime.machine.pack(argbuf)
+        runtime.machine.pack(argbuf)
 
         copy = SingleCopy(
             mapper=self.legion_mapper_id,
@@ -1262,11 +1272,18 @@ class FillLauncher:
     def set_point(self, point: Point) -> None:
         self._point = point
 
+    def _get_sharding_id(self) -> int:
+        return runtime.get_sharding(self._lhs_proj.proj)
+
     def build_fill(self, launch_domain: Rect) -> IndexFill:
         if TYPE_CHECKING:
             assert isinstance(self._lhs.storage, RegionField)
             assert isinstance(self._value.storage, Future)
         assert self._lhs_proj.part is not None
+        argbuf = BufferBuilder()
+        runtime.machine.pack(argbuf)
+        argbuf.pack_32bit_uint(self._get_sharding_id())
+
         fill = IndexFill(
             self._lhs_proj.part,
             self._lhs_proj.proj,
@@ -1280,12 +1297,17 @@ class FillLauncher:
         )
         if self._sharding_space is not None:
             fill.set_sharding_space(self._sharding_space)
+        fill.set_mapper_arg(argbuf.get_string(), argbuf.get_size())
         return fill
 
     def build_single_fill(self) -> SingleFill:
         if TYPE_CHECKING:
             assert isinstance(self._lhs.storage, RegionField)
             assert isinstance(self._value.storage, Future)
+        argbuf = BufferBuilder()
+        runtime.machine.pack(argbuf)
+        argbuf.pack_32bit_uint(self._get_sharding_id())
+
         fill = SingleFill(
             self._lhs.storage.region,
             self._lhs.storage.region.get_root(),
@@ -1299,6 +1321,7 @@ class FillLauncher:
             fill.set_sharding_space(self._sharding_space)
         if self._point is not None:
             fill.set_point(self._point)
+        fill.set_mapper_arg(argbuf.get_string(), argbuf.get_size())
         return fill
 
     def execute(self, launch_domain: Rect) -> None:

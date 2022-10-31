@@ -22,6 +22,7 @@ namespace mapping {
 
 using LegionTask = Legion::Task;
 using LegionCopy = Legion::Copy;
+using LegionFill = Legion::Fill;
 
 using namespace Legion;
 using namespace Legion::Mapping;
@@ -41,6 +42,7 @@ Task::Task(const LegionTask* task,
   dez.unpack<bool>();      // insert_barrier
   dez.unpack<uint32_t>();  // # communicators
   machine_desc_ = dez.unpack<mapping::MachineDesc>();
+  sharding_id_  = dez.unpack<uint32_t>();
 }
 
 int64_t Task::task_id() const { return library_.get_local_task_id(task_->task_id); }
@@ -84,6 +86,13 @@ Copy::Copy(const LegionCopy* copy, MapperRuntime* runtime, const MapperContext c
   for (auto& input_indirection : input_indirections_) assert(!input_indirection.is_future());
   for (auto& output_indirection : output_indirections_) assert(!output_indirection.is_future());
 #endif
+}
+
+Fill::Fill(const LegionFill* fill) : fill_(fill)
+{
+  FillDeserializer dez(fill->mapper_data, fill->mapper_data_size);
+  machine_desc_ = dez.unpack<mapping::MachineDesc>();
+  sharding_id_  = dez.unpack<uint32_t>();
 }
 
 }  // namespace mapping
