@@ -921,6 +921,7 @@ class TaskLauncher:
             out_req.add(task, fields)
         for comm in self._comms:
             task.add_point_future(ArgumentMap(future_map=comm))
+        task.set_concurrent(len(self._comms) > 0)
         for future_map in self._future_map_args:
             task.add_point_future(ArgumentMap(future_map=future_map))
         return task
