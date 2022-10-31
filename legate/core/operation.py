@@ -260,10 +260,6 @@ class Task(TaskProtocol):
     def set_concurrent(self, concurrent: bool) -> None:
         self._concurrent = concurrent
 
-    @property
-    def uses_communicator(self) -> bool:
-        return len(self._comm_args) > 0
-
     def get_name(self) -> str:
         libname = self.context.library.get_name()
         return f"{libname}.Task(tid:{self._task_id}, uid:{self._op_id})"
@@ -628,20 +624,11 @@ class AutoTask(AutoOperation, Task):
         launch_domain = strategy.launch_domain if strategy.parallel else None
         self._add_communicators(launcher, launch_domain)
 
-        # TODO: For now we make sure no other operations are interleaved with
-        # the set of tasks that use a communicator. In the future, the
-        # communicator monad will do this for us.
-        if self.uses_communicator:
-            self._context.issue_execution_fence()
-
         result: Union[Future, FutureMap]
         if launch_domain is not None:
             result = launcher.execute(launch_domain)
         else:
             result = launcher.execute_single()
-
-        if self.uses_communicator:
-            self._context.issue_execution_fence()
 
         self._demux_scalar_stores(result, launch_domain)
 
@@ -789,16 +776,7 @@ class ManualTask(Operation, Task):
 
         self._add_communicators(launcher, self._launch_domain)
 
-        # TODO: For now we make sure no other operations are interleaved with
-        # the set of tasks that use a communicator. In the future, the
-        # communicator monad will do this for us.
-        if self.uses_communicator:
-            self._context.issue_execution_fence()
-
         result = launcher.execute(self._launch_domain)
-
-        if self.uses_communicator:
-            self._context.issue_execution_fence()
 
         self._demux_scalar_stores(result, self._launch_domain)
 
