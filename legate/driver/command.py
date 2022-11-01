@@ -30,18 +30,11 @@ __all__ = ("CMD_PARTS",)
 def cmd_bind(
     config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
-    cpu_bind = config.binding.cpu_bind
-    mem_bind = config.binding.mem_bind
-    gpu_bind = config.binding.gpu_bind
-    nic_bind = config.binding.nic_bind
-
-    if all(x is None for x in (cpu_bind, mem_bind, gpu_bind, nic_bind)):
-        return ()
-
     ranks = config.multi_node.ranks
 
     opts: CommandPart = (
         str(system.legate_paths.bind_sh_path),
+        "--launcher",
         "local"
         if launcher.kind == "none" and ranks == 1
         else str(launcher.kind),
@@ -56,17 +49,17 @@ def cmd_bind(
             raise RuntimeError(errmsg.format(name=name))
 
     bindings = (
-        ("cpu", cpu_bind),
-        ("gpu", gpu_bind),
-        ("mem", mem_bind),
-        ("nic", nic_bind),
+        ("cpu", config.binding.cpu_bind),
+        ("gpu", config.binding.gpu_bind),
+        ("mem", config.binding.mem_bind),
+        ("nic", config.binding.nic_bind),
     )
     for name, binding in bindings:
         if binding is not None:
             check_bind_ranks(name, binding)
             opts += (f"--{name}s", binding)
 
-    return opts
+    return opts + ("--",)
 
 
 def cmd_gdb(
