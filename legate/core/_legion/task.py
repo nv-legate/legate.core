@@ -1028,6 +1028,22 @@ class IndexTask(Dispatchable[Union[Future, FutureMap]]):
             self.launcher, space.handle
         )
 
+    def set_concurrent(self, concurrent: bool) -> None:
+        """
+        Set a flag indicating whether point tasks must execute
+        concurrently. Setting true to the flag directs the runtime
+        to make sure the tasks are using a concurrent variant and
+        also mapped to distinct processors with concurrent
+        execution guarantee (i.e., no subset of the processors execute
+        other tasks).
+
+        Parameters
+        ----------
+        concurrent : bool
+            Whether the point tasks must run concurrently
+        """
+        legion.legion_index_launcher_set_concurrent(self.launcher, concurrent)
+
     @dispatch
     def launch(
         self,
