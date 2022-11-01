@@ -13,18 +13,40 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-# Usage: bind.sh --launcher <launcher> [--cpus <spec>] [--gpus <spec>] [--mems <spec>] [--nics <spec>] -- <app> ...
-# <spec> specifies the resources to bind each node-local rank to, with ranks
-# separated by /, e.g. 0,1/2,3/4,5/6,7 for 4 ranks per node.
+#
 
 set -euo pipefail
 
 help() {
-  echo "Usage: bind.sh -l | --launcher <mpirun,srun,jrun,local> [ -c | --cpus ] [ -g | --gpus ] [ -m | --mems ] [ -n | --nics ] -- <app>"
+  cat <<EOM
+Usage: bind.sh [OPTIONS]... -- APP...
+
+Options:
+  --launcher={mpirun|srun|jrun|auto|local}
+                    Launcher type, used to set LEGATE_RANK
+                    If 'auto', attempt to find the launcher rank automatically
+                    If 'local', rank is set to "0".
+  --cpus=SPEC       CPU binding specification, passed to numactl
+  --gpus=SPEC       GPU binding specification, used to set CUDA_VISIBLE_DEVICES
+  --mems=SPEC       Memory binding specification, passed to numactl
+  --nics=SPEC       Network interface binding specification, used to set
+                    all of: UCX_NET_DEVICES, NCCL_IB_HCA, GASNET_NUM_QPS,
+                    and GASNET_IBV_PORTS
+
+SPEC specifies the resources to bind each node-local rank to, with ranks
+separated by /, e.g. '0,1/2,3/4,5/6,7' for 4 ranks per node.
+
+APP is the application that will be executed by bind.sh, as well as any
+arguments for it.
+
+If --cpus or --mems is specified, then APP will be invoked with numactl.
+
+An explicit '--' separator should always come after OPTIONS and before APP.
+EOM
   exit 2
 }
 
+launcher=auto
 while :
 do
   case "$1" in
@@ -46,20 +68,22 @@ do
   shift 2
 done
 
-if [ -z "$launcher" ]; then
-  echo "bind.sh: -l / --launcher is a required argument"
-fi
-
 case "$launcher" in
-  local) rank=0 ;;
-  mpirun) rank="$OMPI_COMM_WORLD_LOCAL_RANK" ;;
-  jsrun) rank="$OMPI_COMM_WORLD_LOCAL_RANK" ;;
-  srun) rank="$SLURM_LOCALID" ;;
+  mpirun) rank="${OMPI_COMM_WORLD_LOCAL_RANK:-unknown}" ;;
+  jsrun ) rank="${OMPI_COMM_WORLD_LOCAL_RANK:-unknown}" ;;
+  srun  ) rank="${SLURM_LOCALID:-unknown}" ;;
+  auto  ) rank="${SLURM_LOCALID:-${OMPI_COMM_WORLD_LOCAL_RANK:-${MV2_COMM_WORLD_LOCAL_RANK:-unknown}}}" ;;
+  local ) rank="0" ;;
   *)
     echo "Unexpected launcher value: $launcher"
     help
     ;;
 esac
+
+if [[ "$rank" == "unknown" ]]; then
+    echo "Error: Could not determine node-local rank" 1>&2
+    exit 1
+fi
 
 export LEGATE_RANK="$rank"
 
@@ -95,8 +119,8 @@ if [ -n "${nics+x}" ]; then
       exit 1
   fi
 
-  # Set all potentially relevant variables (hopefully they are ignored if we
-  # are not using the corresponding network).
+  # set all potentially relevant variables (hopefully they are ignored if we
+  # are not using the corresponding network)
   nic="${nics[$rank]}"
   nic_array=(${nic//,/ })
   export UCX_NET_DEVICES="${nic//,/:1,}":1
@@ -105,7 +129,8 @@ if [ -n "${nics+x}" ]; then
   export GASNET_IBV_PORTS="${nic//,/+}"
 fi
 
-if [ $launcher != "local" ]; then
+# numactl is only needed if cpu or memory pinning was requested
+if [[ -n "${cpus+x}" || -n "${mems+x}" ]]; then
   if command -v numactl &> /dev/null; then
       if [[ -n "${cpus+x}" ]]; then
           set -- --physcpubind "${cpus[$rank]}" "$@"
