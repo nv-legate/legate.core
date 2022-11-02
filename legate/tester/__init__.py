@@ -17,8 +17,10 @@
 """
 from __future__ import annotations
 
-from typing import Union
+from typing import TYPE_CHECKING, Union
 from typing_extensions import Literal, TypeAlias
+
+from ..util.types import ArgList
 
 #: Define the available feature types for tests
 FeatureType: TypeAlias = Union[
@@ -58,14 +60,9 @@ FEATURES: tuple[FeatureType, ...] = (
 )
 
 #: Paths to example files that should be skipped.
-SKIPPED_EXAMPLES = {
-    "examples/ingest.py",
-    "examples/kmeans_sort.py",
-    "examples/lstm_full.py",
-    "examples/wgrad.py",
-}
+#: Client test scripts should udpate this set witht their own customizations
+SKIPPED_EXAMPLES: set[str] = set()
 
 #: Extra arguments to supply when specific examples are executed.
-PER_FILE_ARGS = {
-    "examples/lstm_full.py": ["--file", "resources/lstm_input.txt"],
-}
+#: Client test scripts should udpate this dict witht their own customizations
+PER_FILE_ARGS: dict[str, ArgList] = {}
