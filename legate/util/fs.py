@@ -295,8 +295,9 @@ def get_legion_paths(legate_paths: LegatePaths) -> LegionPaths:
             )
             if legion_dir.joinpath("CMakeCache.txt").exists():
                 cmake_cache_txt = legion_dir / "CMakeCache.txt"
-
-    except Exception:
+    finally:
+        # Hopefully at this point we have a valid cmake_cache_txt with a
+        # valid Legion_SOURCE_DIR and Legion_BINARY_DIR
         try:
             # If Legion_SOURCE_DIR and Legion_BINARY_DIR are in CMakeCache.txt,
             # return the paths to Legion in the legate_core build dir.
