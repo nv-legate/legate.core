@@ -108,12 +108,6 @@ def execute_functor_symbolically(
                 "one of the input coordinates"
             )
 
-    print(
-        "IRINA DEBUG in execute_functor_symbolically, point = ",
-        point,
-        len(point),
-    )
-
     return point
 
 

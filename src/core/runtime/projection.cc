@@ -134,8 +134,6 @@ AffineFunctor<SRC_DIM, TGT_DIM>::AffineFunctor(Runtime* runtime,
     unique.insert(dim);
   }
   if (unique.size() != TGT_DIM) set_collective();
-
-  std::cout << "IRINA INSIFE Affine functor" << is_collective() << std::endl;
 }
 
 template <int32_t SRC_DIM, int32_t TGT_DIM>
