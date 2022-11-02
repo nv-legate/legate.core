@@ -134,7 +134,11 @@ class Machine:
             if kind in proc_ranges and len(proc_ranges[kind]) > 0:
                 self._preferred_kind = kind
                 break
-        self._num_procs = len(self._proc_ranges[self._preferred_kind])
+        self._num_procs = (
+            len(self._proc_ranges[self._preferred_kind])
+            if self._preferred_kind in self._proc_ranges
+            else 0
+        )
 
     @property
     def num_procs(self) -> int:

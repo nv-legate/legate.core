@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING
 from . import FutureMap, Point, Rect
 
 if TYPE_CHECKING:
+    from .machine import ProcessorRange
     from .runtime import Runtime
 
 
@@ -29,24 +30,28 @@ class Communicator(ABC):
         self._runtime = runtime
         self._context = runtime.core_context
 
-        self._handles: dict[int, FutureMap] = {}
+        self._handles: dict[tuple[int, ProcessorRange], FutureMap] = {}
         # From launch domains to communicator future maps transformed to N-D
-        self._nd_handles: dict[Rect, FutureMap] = {}
+        self._nd_handles: dict[tuple[Rect, ProcessorRange], FutureMap] = {}
 
     def _get_1d_handle(self, volume: int) -> FutureMap:
-        if volume in self._handles:
-            return self._handles[volume]
+        proc_range = self._runtime.machine.get_processor_range()
+        key = (volume, proc_range)
+        if key in self._handles:
+            return self._handles[key]
         comm = self._initialize(volume)
-        self._handles[volume] = comm
+        self._handles[key] = comm
         return comm
 
     def _transform_handle(
         self, comm: FutureMap, launch_domain: Rect
     ) -> FutureMap:
-        if launch_domain in self._nd_handles:
-            return self._nd_handles[launch_domain]
+        proc_range = self._runtime.machine.get_processor_range()
+        key = (launch_domain, proc_range)
+        if key in self._nd_handles:
+            return self._nd_handles[key]
         comm = self._runtime.delinearize_future_map(comm, launch_domain)
-        self._nd_handles[launch_domain] = comm
+        self._nd_handles[key] = comm
         return comm
 
     def get_handle(self, launch_domain: Rect) -> FutureMap:
@@ -59,7 +64,7 @@ class Communicator(ABC):
         self._get_1d_handle(volume)
 
     def destroy(self) -> None:
-        for volume, handle in self._handles.items():
+        for (volume, _), handle in self._handles.items():
             self._finalize(volume, handle)
 
     @abstractproperty

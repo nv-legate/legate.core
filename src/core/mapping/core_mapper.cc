@@ -19,6 +19,7 @@
 #include "legate.h"
 
 #include "core/mapping/core_mapper.h"
+#include "core/mapping/operation.h"
 #ifdef LEGATE_USE_CUDA
 #include "core/comm/comm_nccl.h"
 #endif
@@ -26,6 +27,8 @@
 #include "core/utilities/linearize.h"
 
 namespace legate {
+
+using LegionTask = Legion::Task;
 
 using namespace Legion;
 using namespace Legion::Mapping;
@@ -41,6 +44,18 @@ uint32_t extract_env(const char* env_name, const uint32_t default_value, const u
       return default_value;
   } else
     return atoi(env_value);
+}
+
+static mapping::TaskTarget to_target(Processor::Kind kind)
+{
+  switch (kind) {
+    case Processor::Kind::TOC_PROC: return mapping::TaskTarget::GPU;
+    case Processor::Kind::OMP_PROC: return mapping::TaskTarget::OMP;
+    case Processor::Kind::LOC_PROC: return mapping::TaskTarget::CPU;
+    default: LEGATE_ABORT;
+  }
+  assert(false);
+  return mapping::TaskTarget::CPU;
 }
 
 // This is a custom mapper implementation that only has to map
@@ -63,17 +78,19 @@ class CoreMapper : public Legion::Mapping::NullMapper {
   virtual bool request_valid_instances(void) const { return false; }
 
  public:  // Task mapping calls
-  virtual void select_task_options(const MapperContext ctx, const Task& task, TaskOptions& output);
+  virtual void select_task_options(const MapperContext ctx,
+                                   const LegionTask& task,
+                                   TaskOptions& output);
   virtual void slice_task(const MapperContext ctx,
-                          const Task& task,
+                          const LegionTask& task,
                           const SliceTaskInput& input,
                           SliceTaskOutput& output);
   virtual void map_task(const MapperContext ctx,
-                        const Task& task,
+                        const LegionTask& task,
                         const MapTaskInput& input,
                         MapTaskOutput& output);
   virtual void select_sharding_functor(const MapperContext ctx,
-                                       const Task& task,
+                                       const LegionTask& task,
                                        const SelectShardingFunctorInput& input,
                                        SelectShardingFunctorOutput& output);
   virtual void select_steal_targets(const MapperContext ctx,
@@ -85,13 +102,13 @@ class CoreMapper : public Legion::Mapping::NullMapper {
 
  public:
   virtual void configure_context(const MapperContext ctx,
-                                 const Task& task,
+                                 const LegionTask& task,
                                  ContextConfigOutput& output);
   void map_future_map_reduction(const MapperContext ctx,
                                 const FutureMapReductionInput& input,
                                 FutureMapReductionOutput& output);
   virtual void select_tunable_value(const MapperContext ctx,
-                                    const Task& task,
+                                    const LegionTask& task,
                                     const SelectTunableInput& input,
                                     SelectTunableOutput& output);
 
@@ -100,13 +117,13 @@ class CoreMapper : public Legion::Mapping::NullMapper {
   decltype(auto) dispatch(Legion::Processor::Kind kind, Functor functor)
   {
     switch (kind) {
-      case Legion::Processor::LOC_PROC: return functor(local_cpus);
-      case Legion::Processor::TOC_PROC: return functor(local_gpus);
-      case Legion::Processor::OMP_PROC: return functor(local_omps);
+      case Legion::Processor::LOC_PROC: return functor(kind, local_cpus);
+      case Legion::Processor::TOC_PROC: return functor(kind, local_gpus);
+      case Legion::Processor::OMP_PROC: return functor(kind, local_omps);
       default: LEGATE_ABORT;
     }
     assert(false);
-    return functor(local_cpus);
+    return functor(kind, local_cpus);
   }
 
  public:
@@ -250,49 +267,69 @@ Mapper::MapperSyncModel CoreMapper::get_mapper_sync_model(void) const
   return SERIALIZED_REENTRANT_MAPPER_MODEL;
 }
 
-void CoreMapper::select_task_options(const MapperContext ctx, const Task& task, TaskOptions& output)
+void CoreMapper::select_task_options(const MapperContext ctx,
+                                     const LegionTask& task,
+                                     TaskOptions& output)
 {
+  mapping::Task legate_task(&task, context, runtime, ctx);
+  auto& machine_desc = legate_task.machine_desc();
+
+  Span<Processor> avail_procs;
+  uint32_t size;
+  uint32_t offset;
+
   assert(context.valid_task_id(task.task_id));
   if (task.tag == LEGATE_CPU_VARIANT) {
-    assert(!local_cpus.empty());
-    output.initial_proc = local_cpus.front();
+    std::tie(avail_procs, size, offset) =
+      machine_desc.slice(mapping::TaskTarget::CPU, local_cpus, total_nodes, local_node);
   } else if (task.tag == LEGATE_OMP_VARIANT) {
-    assert(!local_omps.empty());
-    output.initial_proc = local_omps.front();
+    std::tie(avail_procs, size, offset) =
+      machine_desc.slice(mapping::TaskTarget::OMP, local_omps, total_nodes, local_node);
   } else {
     assert(task.tag == LEGATE_GPU_VARIANT);
-    assert(!local_gpus.empty());
-    output.initial_proc = local_gpus.front();
+    std::tie(avail_procs, size, offset) =
+      machine_desc.slice(mapping::TaskTarget::GPU, local_gpus, total_nodes, local_node);
   }
+  assert(avail_procs.size() > 0);
+  output.initial_proc = avail_procs[0];
 }
 
 void CoreMapper::slice_task(const MapperContext ctx,
-                            const Task& task,
+                            const LegionTask& task,
                             const SliceTaskInput& input,
                             SliceTaskOutput& output)
 {
   assert(context.valid_task_id(task.task_id));
   output.slices.reserve(input.domain.get_volume());
 
+  // Control-replicated because we've already been sharded
   Domain sharding_domain = task.index_domain;
   if (task.sharding_space.exists())
     sharding_domain = runtime->get_index_space_domain(ctx, task.sharding_space);
 
-  auto round_robin = [&](auto& procs) {
-    auto lo = sharding_domain.lo();
-    auto hi = sharding_domain.hi();
-    for (Domain::DomainPointIterator itr(input.domain); itr; itr++) {
-      auto idx = linearize(lo, hi, itr.p);
-      output.slices.push_back(TaskSlice(
-        Domain(itr.p, itr.p), procs[idx % procs.size()], false /*recurse*/, false /*stealable*/));
-    }
-  };
+  dispatch(task.target_proc.kind(), [&](auto kind, auto& procs) {
+    mapping::Task legate_task(&task, context, runtime, ctx);
+    auto& machine_desc = legate_task.machine_desc();
+    Span<Processor> avail_procs;
+    uint32_t size;
+    uint32_t offset;
+    std::tie(avail_procs, size, offset) =
+      machine_desc.slice(to_target(kind), procs, total_nodes, local_node);
 
-  dispatch(task.target_proc.kind(), round_robin);
+    for (Domain::DomainPointIterator itr(input.domain); itr; itr++) {
+      const Point<1> point       = itr.p;
+      const uint32_t local_index = point[0] % size;
+      assert(local_index - offset < avail_procs.size());
+      output.slices.push_back(TaskSlice(Domain(itr.p, itr.p),
+                                        avail_procs[local_index - offset],
+                                        false /*recurse*/,
+                                        false /*stealable*/));
+    }
+  });
 }
 
 void CoreMapper::map_task(const MapperContext ctx,
-                          const Task& task,
+                          const LegionTask& task,
                           const MapTaskInput& input,
                           MapTaskOutput& output)
 {
@@ -303,15 +340,12 @@ void CoreMapper::map_task(const MapperContext ctx,
 }
 
 void CoreMapper::select_sharding_functor(const MapperContext ctx,
-                                         const Task& task,
+                                         const LegionTask& task,
                                          const SelectShardingFunctorInput& input,
                                          SelectShardingFunctorOutput& output)
 {
-  assert(context.valid_task_id(task.task_id));
-  assert(task.regions.empty());
-  const int launch_dim = task.index_domain.get_dim();
-  assert(launch_dim == 1);
-  output.chosen_functor = context.get_sharding_id(LEGATE_CORE_TOPLEVEL_TASK_SHARD_ID);
+  mapping::Mappable legate_mappable(&task);
+  output.chosen_functor = static_cast<ShardingID>(legate_mappable.sharding_id());
 }
 
 void CoreMapper::select_steal_targets(const MapperContext ctx,
@@ -329,7 +363,7 @@ void CoreMapper::select_tasks_to_map(const MapperContext ctx,
 }
 
 void CoreMapper::configure_context(const MapperContext ctx,
-                                   const Task& task,
+                                   const LegionTask& task,
                                    ContextConfigOutput& output)
 {
   // Use the defaults currently
@@ -366,7 +400,7 @@ void CoreMapper::map_future_map_reduction(const MapperContext ctx,
 }
 
 void CoreMapper::select_tunable_value(const MapperContext ctx,
-                                      const Task& task,
+                                      const LegionTask& task,
                                       const SelectTunableInput& input,
                                       SelectTunableOutput& output)
 {
