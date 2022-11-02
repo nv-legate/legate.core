@@ -38,9 +38,11 @@ Task::Task(const LegionTask* task,
   outputs_    = dez.unpack<std::vector<Store>>();
   reductions_ = dez.unpack<std::vector<Store>>();
   scalars_    = dez.unpack<std::vector<Scalar>>();
-  dez.unpack<bool>();      // can_raise_exception
-  dez.unpack<bool>();      // insert_barrier
-  dez.unpack<uint32_t>();  // # communicators
+  dez.unpack<bool>();  // can_raise_exception
+  if (task->is_index_space) {
+    dez.unpack<bool>();      // insert_barrier
+    dez.unpack<uint32_t>();  // # communicators
+  }
   machine_desc_ = dez.unpack<mapping::MachineDesc>();
   sharding_id_  = dez.unpack<uint32_t>();
 }

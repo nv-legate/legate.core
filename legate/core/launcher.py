@@ -949,8 +949,6 @@ class TaskLauncher:
         pack_args(argbuf, self._reductions)
         pack_args(argbuf, self._scalars)
         argbuf.pack_bool(self._can_raise_exception)
-        argbuf.pack_bool(False)
-        argbuf.pack_32bit_uint(0)
         runtime.machine.pack(argbuf)
         argbuf.pack_32bit_uint(self._get_sharding_id())
 

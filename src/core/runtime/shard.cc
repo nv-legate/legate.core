@@ -52,7 +52,6 @@ class LinearizingShardingFunctor : public ShardingFunctor {
     return linearize(launch_space.lo(), launch_space.hi(), p) / chunk;
   }
 
-  /*
   virtual bool is_invertible(void) const { return true; }
 
   virtual void invert(ShardID shard,
@@ -79,7 +78,6 @@ class LinearizingShardingFunctor : public ShardingFunctor {
       }
     }
   }
-  */
 };
 
 void register_legate_core_sharding_functors(Legion::Runtime* runtime, const LibraryContext& context)
@@ -91,12 +89,6 @@ void register_legate_core_sharding_functors(Legion::Runtime* runtime, const Libr
   auto sharding_id = context.get_sharding_id(LEGATE_CORE_LINEARIZE_SHARD_ID);
   runtime->register_sharding_functor(
     sharding_id, new LinearizingShardingFunctor(), true /*silence warnings*/);
-  /*
-  // Use linearizing functor for identity projections
-  functor_id_table[0] = sharding_id;
-  // and for the delinearizing projection
-  functor_id_table[context.get_projection_id(LEGATE_CORE_DELINEARIZE_PROJ_ID)] = sharding_id;
-  */
 }
 
 class LegateShardingFunctor : public ShardingFunctor {
