@@ -139,7 +139,7 @@ if [[ -n "${cpus+x}" || -n "${mems+x}" ]]; then
           set -- --membind "${mems[$rank]}" "$@"
       fi
       set -- numactl "$@"
-  elif [[ -n "${cpus+x}" || -n "${mems+x}" ]]; then
+  else
       echo "Warning: numactl is not available, cannot bind to cores or memories" 1>&2
   fi
 fi

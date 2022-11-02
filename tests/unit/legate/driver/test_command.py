@@ -138,11 +138,13 @@ class Test_cmd_bind:
 
         result = m.cmd_bind(config, system, launcher)
 
+        launcher_arg = "auto" if launch == "none" else launch
+
         bind_sh = str(system.legate_paths.bind_sh_path)
         assert result == (
             bind_sh,
             "--launcher",
-            launch,
+            launcher_arg,
             f"--{kind}s",
             "1/2",
             "--",

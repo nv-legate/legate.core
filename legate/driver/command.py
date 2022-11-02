@@ -32,12 +32,15 @@ def cmd_bind(
 ) -> CommandPart:
     ranks = config.multi_node.ranks
 
+    if launcher.kind == "none":
+        bind_launcher_arg = "local" if ranks == 1 else "auto"
+    else:
+        bind_launcher_arg = launcher.kind
+
     opts: CommandPart = (
         str(system.legate_paths.bind_sh_path),
         "--launcher",
-        "local"
-        if launcher.kind == "none" and ranks == 1
-        else str(launcher.kind),
+        bind_launcher_arg,
     )
 
     ranks_per_node = config.multi_node.ranks_per_node
