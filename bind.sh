@@ -18,7 +18,7 @@
 set -euo pipefail
 
 help() {
-  cat <<EOM
+  cat 1>&2 <<EOM
 Usage: bind.sh [OPTIONS]... -- APP...
 
 Options:
@@ -61,7 +61,7 @@ do
       break
       ;;
     *)
-      echo "Unexpected option: $1"
+      echo "Unexpected option: $1" 1>&2
       help
       ;;
   esac
@@ -75,7 +75,7 @@ case "$launcher" in
   auto  ) rank="${SLURM_LOCALID:-${OMPI_COMM_WORLD_LOCAL_RANK:-${MV2_COMM_WORLD_LOCAL_RANK:-unknown}}}" ;;
   local ) rank="0" ;;
   *)
-    echo "Unexpected launcher value: $launcher"
+    echo "Unexpected launcher value: $launcher" 1>&2
     help
     ;;
 esac
