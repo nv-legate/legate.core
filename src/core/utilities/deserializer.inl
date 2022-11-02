@@ -17,8 +17,8 @@
 namespace legate {
 
 template <typename Deserializer>
-BaseDeserializer<Deserializer>::BaseDeserializer(const int8_t* args, size_t arglen)
-  : args_(Span<const int8_t>(args, arglen))
+BaseDeserializer<Deserializer>::BaseDeserializer(const void* args, size_t arglen)
+  : args_(Span<const int8_t>(static_cast<const int8_t*>(args), arglen))
 {
 }
 

@@ -35,7 +35,7 @@ namespace legate {
 template <typename Deserializer>
 class BaseDeserializer {
  public:
-  BaseDeserializer(const int8_t* args, size_t arglen);
+  BaseDeserializer(const void* args, size_t arglen);
 
  public:
   template <typename T>
@@ -74,13 +74,14 @@ class BaseDeserializer {
   void _unpack(mapping::TaskTarget& value);
   void _unpack(mapping::MachineDesc& value);
 
+ public:
+  Span<const int8_t> current_args() const { return args_; }
+
  protected:
   std::shared_ptr<TransformStack> unpack_transform();
 
  protected:
   bool first_task_;
-
- private:
   Span<const int8_t> args_;
 };
 
@@ -106,6 +107,14 @@ class TaskDeserializer : public BaseDeserializer<TaskDeserializer> {
 };
 
 namespace mapping {
+
+class MapperDataDeserializer : public BaseDeserializer<MapperDataDeserializer> {
+ public:
+  MapperDataDeserializer(const Legion::Mappable* mappable);
+
+ public:
+  using BaseDeserializer::_unpack;
+};
 
 class TaskDeserializer : public BaseDeserializer<TaskDeserializer> {
  public:
@@ -134,8 +143,7 @@ class CopyDeserializer : public BaseDeserializer<CopyDeserializer> {
   using ReqsRef      = std::reference_wrapper<const Requirements>;
 
  public:
-  CopyDeserializer(const void* args,
-                   size_t arglen,
+  CopyDeserializer(const Legion::Copy* copy,
                    std::vector<ReqsRef>&& all_requirements,
                    Legion::Mapping::MapperRuntime* runtime,
                    Legion::Mapping::MapperContext context);
@@ -156,14 +164,6 @@ class CopyDeserializer : public BaseDeserializer<CopyDeserializer> {
   Legion::Mapping::MapperRuntime* runtime_;
   Legion::Mapping::MapperContext context_;
   uint32_t req_index_offset_;
-};
-
-class FillDeserializer : public BaseDeserializer<FillDeserializer> {
- public:
-  FillDeserializer(const void* args, size_t arglen);
-
- public:
-  using BaseDeserializer::_unpack;
 };
 
 }  // namespace mapping

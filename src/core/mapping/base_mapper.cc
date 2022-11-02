@@ -30,9 +30,9 @@
 #include "core/utilities/linearize.h"
 #include "legate_defines.h"
 
-using LegionTask = Legion::Task;
-using LegionCopy = Legion::Copy;
-using LegionFill = Legion::Fill;
+using LegionTask     = Legion::Task;
+using LegionCopy     = Legion::Copy;
+using LegionMappable = Legion::Mappable;
 
 using namespace Legion;
 using namespace Legion::Mapping;
@@ -55,7 +55,7 @@ const std::vector<StoreTarget>& default_store_targets(Processor::Kind kind)
   return finder->second;
 }
 
-std::string log_mappable(const Mappable& mappable, bool prefix_only = false)
+std::string log_mappable(const LegionMappable& mappable, bool prefix_only = false)
 {
   static const std::map<MappableType, std::string> prefixes = {
     {LEGION_TASK_MAPPABLE, "Task "},
@@ -610,7 +610,7 @@ Memory BaseMapper::get_target_memory(Processor proc, StoreTarget target)
 }
 
 void BaseMapper::map_legate_stores(const MapperContext ctx,
-                                   const Mappable& mappable,
+                                   const LegionMappable& mappable,
                                    std::vector<StoreMapping>& mappings,
                                    Processor target_proc,
                                    OutputMap& output_map)
@@ -679,7 +679,7 @@ void BaseMapper::map_legate_stores(const MapperContext ctx,
   }
 }
 
-void BaseMapper::tighten_write_policies(const Mappable& mappable,
+void BaseMapper::tighten_write_policies(const LegionMappable& mappable,
                                         std::vector<StoreMapping>& mappings)
 {
   for (auto& mapping : mappings) {
@@ -702,7 +702,7 @@ void BaseMapper::tighten_write_policies(const Mappable& mappable,
 }
 
 bool BaseMapper::map_legate_store(const MapperContext ctx,
-                                  const Mappable& mappable,
+                                  const LegionMappable& mappable,
                                   const StoreMapping& mapping,
                                   const std::set<const RegionRequirement*>& reqs,
                                   Processor target_proc,
@@ -869,7 +869,7 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
   return true;
 }
 
-void BaseMapper::report_failed_mapping(const Mappable& mappable,
+void BaseMapper::report_failed_mapping(const LegionMappable& mappable,
                                        uint32_t index,
                                        Memory target_memory,
                                        ReductionOpID redop)
@@ -881,7 +881,7 @@ void BaseMapper::report_failed_mapping(const Mappable& mappable,
   };
 
   std::string opname = "";
-  if (mappable.get_mappable_type() == Mappable::TASK_MAPPABLE) {
+  if (mappable.get_mappable_type() == LegionMappable::TASK_MAPPABLE) {
     const auto task = mappable.as_task();
     opname          = task->get_task_name();
   }
@@ -1005,16 +1005,10 @@ void BaseMapper::report_profiling(const MapperContext ctx,
   LEGATE_ABORT;
 }
 
-ShardingID BaseMapper::find_sharding_functor_by_key_store_projection(
-  const std::vector<RegionRequirement>& requirements)
+ShardingID BaseMapper::find_mappable_sharding_functor_id(const Legion::Mappable& mappable)
 {
-  ProjectionID proj_id = 0;
-  for (auto& requirement : requirements)
-    if (LEGATE_CORE_KEY_STORE_TAG == requirement.tag) {
-      proj_id = requirement.projection;
-      break;
-    }
-  return find_sharding_functor_by_projection_functor(proj_id);
+  Mappable legate_mappable(&mappable);
+  return static_cast<ShardingID>(legate_mappable.sharding_id());
 }
 
 void BaseMapper::select_sharding_functor(const MapperContext ctx,
@@ -1022,8 +1016,7 @@ void BaseMapper::select_sharding_functor(const MapperContext ctx,
                                          const SelectShardingFunctorInput& input,
                                          SelectShardingFunctorOutput& output)
 {
-  Task legate_task(&task, context, runtime, ctx);
-  output.chosen_functor = static_cast<ShardingID>(legate_task.sharding_id());
+  output.chosen_functor = find_mappable_sharding_functor_id(task);
 }
 
 void BaseMapper::map_inline(const MapperContext ctx,
@@ -1175,7 +1168,7 @@ void BaseMapper::select_sharding_functor(const MapperContext ctx,
                                          SelectShardingFunctorOutput& output)
 {
   // TODO: Copies can have key stores in the future
-  output.chosen_functor = find_sharding_functor_by_projection_functor(0);
+  output.chosen_functor = find_mappable_sharding_functor_id(copy);
 }
 
 void BaseMapper::select_close_sources(const MapperContext ctx,
@@ -1332,16 +1325,15 @@ void BaseMapper::select_sharding_functor(const MapperContext ctx,
                                          const SelectShardingFunctorInput& input,
                                          SelectShardingFunctorOutput& output)
 {
-  output.chosen_functor = find_sharding_functor_by_projection_functor(0);
+  output.chosen_functor = find_mappable_sharding_functor_id(partition);
 }
 
 void BaseMapper::select_sharding_functor(const MapperContext ctx,
-                                         const LegionFill& fill,
+                                         const Fill& fill,
                                          const SelectShardingFunctorInput& input,
                                          SelectShardingFunctorOutput& output)
 {
-  Fill legate_fill(&fill);
-  output.chosen_functor = static_cast<ShardingID>(legate_fill.sharding_id());
+  output.chosen_functor = find_mappable_sharding_functor_id(fill);
 }
 
 void BaseMapper::configure_context(const MapperContext ctx,
@@ -1372,7 +1364,7 @@ void BaseMapper::select_sharding_functor(const MapperContext ctx,
 }
 
 void BaseMapper::memoize_operation(const MapperContext ctx,
-                                   const Mappable& mappable,
+                                   const LegionMappable& mappable,
                                    const MemoizeInput& input,
                                    MemoizeOutput& output)
 {

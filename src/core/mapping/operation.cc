@@ -20,31 +20,33 @@
 namespace legate {
 namespace mapping {
 
-using LegionTask = Legion::Task;
-using LegionCopy = Legion::Copy;
-using LegionFill = Legion::Fill;
+using LegionMappable = Legion::Mappable;
+using LegionTask     = Legion::Task;
+using LegionCopy     = Legion::Copy;
 
 using namespace Legion;
 using namespace Legion::Mapping;
+
+Mappable::Mappable() {}
+
+Mappable::Mappable(const LegionMappable* mappable)
+{
+  MapperDataDeserializer dez(mappable);
+  machine_desc_ = dez.unpack<mapping::MachineDesc>();
+  sharding_id_  = dez.unpack<uint32_t>();
+}
 
 Task::Task(const LegionTask* task,
            const LibraryContext& library,
            MapperRuntime* runtime,
            const MapperContext context)
-  : task_(task), library_(library)
+  : Mappable(task), task_(task), library_(library)
 {
   TaskDeserializer dez(task, runtime, context);
   inputs_     = dez.unpack<std::vector<Store>>();
   outputs_    = dez.unpack<std::vector<Store>>();
   reductions_ = dez.unpack<std::vector<Store>>();
   scalars_    = dez.unpack<std::vector<Scalar>>();
-  dez.unpack<bool>();  // can_raise_exception
-  if (task->is_index_space) {
-    dez.unpack<bool>();      // insert_barrier
-    dez.unpack<uint32_t>();  // # communicators
-  }
-  machine_desc_ = dez.unpack<mapping::MachineDesc>();
-  sharding_id_  = dez.unpack<uint32_t>();
 }
 
 int64_t Task::task_id() const { return library_.get_local_task_id(task_->task_id); }
@@ -64,37 +66,30 @@ TaskTarget Task::target() const
 }
 
 Copy::Copy(const LegionCopy* copy, MapperRuntime* runtime, const MapperContext context)
-  : copy_(copy)
+  : Mappable(), copy_(copy)
 {
-  CopyDeserializer dez(copy->mapper_data,
-                       copy->mapper_data_size,
+  CopyDeserializer dez(copy,
                        {copy->src_requirements,
                         copy->dst_requirements,
                         copy->src_indirect_requirements,
                         copy->dst_indirect_requirements},
                        runtime,
                        context);
-  inputs_ = dez.unpack<std::vector<Store>>();
+  machine_desc_ = dez.unpack<mapping::MachineDesc>();
+  sharding_id_  = dez.unpack<uint32_t>();
+  inputs_       = dez.unpack<std::vector<Store>>();
   dez.next_requirement_list();
   outputs_ = dez.unpack<std::vector<Store>>();
   dez.next_requirement_list();
   input_indirections_ = dez.unpack<std::vector<Store>>();
   dez.next_requirement_list();
   output_indirections_ = dez.unpack<std::vector<Store>>();
-  machine_desc_        = dez.unpack<mapping::MachineDesc>();
 #ifdef DEBUG_LEGATE
   for (auto& input : inputs_) assert(!input.is_future());
   for (auto& output : outputs_) assert(!output.is_future());
   for (auto& input_indirection : input_indirections_) assert(!input_indirection.is_future());
   for (auto& output_indirection : output_indirections_) assert(!output_indirection.is_future());
 #endif
-}
-
-Fill::Fill(const LegionFill* fill) : fill_(fill)
-{
-  FillDeserializer dez(fill->mapper_data, fill->mapper_data_size);
-  machine_desc_ = dez.unpack<mapping::MachineDesc>();
-  sharding_id_  = dez.unpack<uint32_t>();
 }
 
 }  // namespace mapping

@@ -168,6 +168,11 @@ class Dispatchable(Generic[T]):
         ...
 
 
+class Mappable:
+    def set_mapper_arg(self, data: Any, size: int) -> None:
+        ...
+
+
 # todo: (bev) use list[...] when feasible
 FieldListLike = Union[int, FieldID, List[int], List[FieldID]]
 

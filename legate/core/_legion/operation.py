@@ -23,7 +23,7 @@ from .partition import Partition
 from .pending import _pending_unordered
 from .region import PhysicalRegion, Region
 from .space import IndexSpace
-from .util import Dispatchable, ExternalResources, FieldID, dispatch
+from .util import Dispatchable, ExternalResources, FieldID, Mappable, dispatch
 
 if TYPE_CHECKING:
     from . import FieldListLike, Rect
@@ -129,7 +129,7 @@ class InlineMapping(Dispatchable[PhysicalRegion]):
         )
 
 
-class Fill(Dispatchable[None]):
+class Fill(Dispatchable[None], Mappable):
     def __init__(
         self,
         region: Region,
@@ -232,7 +232,7 @@ class Fill(Dispatchable[None]):
         legion.legion_fill_launcher_execute(runtime, context, self.launcher)
 
 
-class IndexFill(Dispatchable[None]):
+class IndexFill(Dispatchable[None], Mappable):
     def __init__(
         self,
         partition: Partition,
@@ -372,7 +372,7 @@ class IndexFill(Dispatchable[None]):
         )
 
 
-class Copy(Dispatchable[None]):
+class Copy(Dispatchable[None], Mappable):
     def __init__(
         self,
         mapper: int = 0,
@@ -690,7 +690,7 @@ class Copy(Dispatchable[None]):
         legion.legion_copy_launcher_execute(runtime, context, self.launcher)
 
 
-class IndexCopy(Dispatchable[None]):
+class IndexCopy(Dispatchable[None], Mappable):
     def __init__(
         self,
         domain: Rect,

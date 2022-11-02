@@ -28,7 +28,23 @@
 namespace legate {
 namespace mapping {
 
-class Task {
+class Mappable {
+ protected:
+  Mappable();
+
+ public:
+  Mappable(const Legion::Mappable* mappable);
+
+ public:
+  const mapping::MachineDesc& machine_desc() const { return machine_desc_; }
+  uint32_t sharding_id() const { return sharding_id_; }
+
+ protected:
+  mapping::MachineDesc machine_desc_;
+  uint32_t sharding_id_;
+};
+
+class Task : public Mappable {
  public:
   Task(const Legion::Task* task,
        const LibraryContext& library,
@@ -48,8 +64,6 @@ class Task {
   Legion::DomainPoint point() const { return task_->index_point; }
 
  public:
-  const MachineDesc& machine_desc() const { return machine_desc_; }
-  uint32_t sharding_id() const { return sharding_id_; }
   TaskTarget target() const;
 
  private:
@@ -59,11 +73,9 @@ class Task {
  private:
   std::vector<Store> inputs_, outputs_, reductions_;
   std::vector<Scalar> scalars_;
-  mapping::MachineDesc machine_desc_;
-  uint32_t sharding_id_;
 };
 
-class Copy {
+class Copy : public Mappable {
  public:
   Copy(const Legion::Copy* copy,
        Legion::Mapping::MapperRuntime* runtime,
@@ -78,9 +90,6 @@ class Copy {
  public:
   Legion::DomainPoint point() const { return copy_->index_point; }
 
- public:
-  const mapping::MachineDesc& machine_desc() const { return machine_desc_; }
-
  private:
   const Legion::Copy* copy_;
 
@@ -89,23 +98,6 @@ class Copy {
   std::vector<Store> outputs_;
   std::vector<Store> input_indirections_;
   std::vector<Store> output_indirections_;
-  mapping::MachineDesc machine_desc_;
-};
-
-class Fill {
- public:
-  Fill(const Legion::Fill* fill);
-
- public:
-  const mapping::MachineDesc& machine_desc() const { return machine_desc_; }
-  uint32_t sharding_id() const { return sharding_id_; }
-
- private:
-  const Legion::Fill* fill_;
-
- private:
-  mapping::MachineDesc machine_desc_;
-  uint32_t sharding_id_;
 };
 
 }  // namespace mapping
