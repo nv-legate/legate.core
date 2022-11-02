@@ -113,6 +113,7 @@ class ProcessorRange:
         return str(self)
 
     def pack(self, buf: BufferBuilder) -> None:
+        buf.pack_32bit_uint(self.per_node_count)
         buf.pack_32bit_uint(self.lo)
         buf.pack_32bit_uint(self.hi)
 

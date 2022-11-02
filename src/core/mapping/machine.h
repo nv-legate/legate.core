@@ -26,11 +26,21 @@
 namespace legate {
 namespace mapping {
 
+struct ProcessorRange {
+  uint32_t per_node_count{1};
+  uint32_t lo{0};
+  uint32_t hi{0};
+
+  int32_t count() const { return static_cast<int32_t>(hi) - static_cast<int32_t>(lo) + 1; }
+  bool empty() const { return hi < lo; }
+  std::string to_string() const;
+};
+
 struct MachineDesc {
   TaskTarget preferred_target;
-  std::map<TaskTarget, std::pair<uint32_t, uint32_t>> processor_ranges;
+  std::map<TaskTarget, ProcessorRange> processor_ranges;
 
-  std::pair<uint32_t, uint32_t> processor_range() const;
+  ProcessorRange processor_range() const;
   std::vector<TaskTarget> valid_targets() const;
   std::tuple<Span<Legion::Processor>, uint32_t, uint32_t> slice(
     TaskTarget target,

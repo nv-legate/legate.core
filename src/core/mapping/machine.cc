@@ -40,7 +40,14 @@ std::ostream& operator<<(std::ostream& stream, const TaskTarget& target)
   return stream;
 }
 
-std::pair<uint32_t, uint32_t> MachineDesc::processor_range() const
+std::string ProcessorRange::to_string() const
+{
+  std::stringstream ss;
+  ss << "Proc([" << lo << "," << hi << "], " << per_node_count << " per node)";
+  return ss.str();
+}
+
+ProcessorRange MachineDesc::processor_range() const
 {
   auto finder = processor_ranges.find(preferred_target);
 #ifdef DEBUG_LEGATE
@@ -74,11 +81,11 @@ std::tuple<Span<Processor>, uint32_t, uint32_t> MachineDesc::slice(
   uint32_t global_lo = num_procs * node_id;
   uint32_t global_hi = global_lo + num_procs - 1;
 
-  uint32_t my_lo = std::max(range.first, global_lo) - global_lo;
-  uint32_t my_hi = std::min(range.second, global_hi) - global_lo;
+  uint32_t my_lo = std::max(range.lo, global_lo) - global_lo;
+  uint32_t my_hi = std::min(range.hi, global_hi) - global_lo;
 
-  uint32_t size   = range.second - range.first + 1;
-  uint32_t offset = (my_lo + global_lo) - range.first;
+  uint32_t size   = range.hi - range.lo + 1;
+  uint32_t offset = (my_lo + global_lo) - range.lo;
 
   return std::make_tuple(
     Span<Processor>(local_procs.data() + my_lo, my_hi - my_lo + 1), size, offset);
@@ -88,8 +95,7 @@ std::string MachineDesc::to_string() const
 {
   std::stringstream ss;
   ss << "Machine(preferred_kind: " << preferred_target;
-  for (auto& [kind, range] : processor_ranges)
-    ss << ", " << kind << ": [" << range.first << ", " << range.second << "]";
+  for (auto& [kind, range] : processor_ranges) ss << ", " << kind << ": " << range.to_string();
   ss << ")";
   return ss.str();
 }

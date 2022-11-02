@@ -72,6 +72,7 @@ class BaseDeserializer {
   void _unpack(LegateTypeCode& value);
   void _unpack(Scalar& value);
   void _unpack(mapping::TaskTarget& value);
+  void _unpack(mapping::ProcessorRange& value);
   void _unpack(mapping::MachineDesc& value);
 
  public:
