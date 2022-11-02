@@ -70,14 +70,13 @@ if TYPE_CHECKING:
     from .communicator import Communicator
     from .context import Context
     from .corelib import CoreLib
-    from .machine import ProcessorRange
     from .operation import Operation
     from .partition import PartitionBase
     from .projection import SymbolicPoint
     from .store import RegionField, Store
 
     ProjSpec = Tuple[int, SymbolicPoint]
-    ShardSpec = Tuple[int, ProcessorRange]
+    ShardSpec = Tuple[int, tuple[int, int]]
 
 from math import prod
 
@@ -1329,8 +1328,8 @@ class Runtime:
         return proj_id
 
     def get_sharding(self, proj_id: int) -> int:
-        proc_range = self.machine.get_processor_range()
-        shard_spec = (proj_id, proc_range)
+        node_range = self.machine.get_node_range()
+        shard_spec = (proj_id, node_range)
 
         if shard_spec in self._registered_shardings:
             return self._registered_shardings[shard_spec]
@@ -1342,9 +1341,8 @@ class Runtime:
         self.core_library.legate_create_sharding_functor_using_projection(
             shard_id,
             proj_id,
-            proc_range.per_node_count,
-            proc_range.lo,
-            proc_range.hi,
+            node_range[0],
+            node_range[1],
         )
 
         self._registered_shardings[shard_spec] = shard_id

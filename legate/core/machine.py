@@ -157,6 +157,14 @@ class Machine:
             sanitized = sanitize_kind(kind)
         return self._get_range(sanitized)
 
+    def get_node_range(
+        self, kind: Optional[ProcessorKind] = None
+    ) -> tuple[int, int]:
+        proc_range = self.get_processor_range(kind)
+        start_node = proc_range.lo // proc_range.per_node_count
+        end_node = proc_range.lo // proc_range.per_node_count
+        return (start_node, end_node)
+
     def _get_range(self, kind: ProcessorKind) -> ProcessorRange:
         if kind not in self._proc_ranges:
             raise IndexError(f"{kind}")
