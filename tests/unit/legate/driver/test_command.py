@@ -67,7 +67,8 @@ class Test_cmd_bind:
 
         result = m.cmd_bind(config, system, launcher)
 
-        assert result == ()
+        bind_sh = str(system.legate_paths.bind_sh_path)
+        assert result == (bind_sh, "--launcher", "local", "--")
 
     @pytest.mark.parametrize("kind", ("cpu", "gpu", "mem", "nic"))
     def test_basic_local(self, genobjs: GenObjs, kind: str) -> None:
@@ -76,7 +77,14 @@ class Test_cmd_bind:
         result = m.cmd_bind(config, system, launcher)
 
         bind_sh = str(system.legate_paths.bind_sh_path)
-        assert result == (bind_sh, "local", f"--{kind}s", "1")
+        assert result == (
+            bind_sh,
+            "--launcher",
+            "local",
+            f"--{kind}s",
+            "1",
+            "--",
+        )
 
     @pytest.mark.parametrize("launch", ("none", "mpirun", "jsrun", "srun"))
     def test_combo_local(
@@ -101,13 +109,16 @@ class Test_cmd_bind:
         result = m.cmd_bind(config, system, launcher)
 
         bind_sh = str(system.legate_paths.bind_sh_path)
-        assert result[:2] == (
+        assert result[:3] == (
             bind_sh,
+            "--launcher",
             "local" if launch == "none" else launch,
         )
-        x = iter(result[2:])
+        x = iter(result[3:])
         for name, binding in zip(x, x):  # pairwise
             assert f"{name} {binding}" in "--cpus 1 --gpus 1 --nics 1 --mems 1"
+
+        assert result[-1] == "--"
 
     @pytest.mark.parametrize("launch", ("none", "mpirun", "jsrun", "srun"))
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
@@ -127,8 +138,17 @@ class Test_cmd_bind:
 
         result = m.cmd_bind(config, system, launcher)
 
+        launcher_arg = "auto" if launch == "none" else launch
+
         bind_sh = str(system.legate_paths.bind_sh_path)
-        assert result == (bind_sh, launch, f"--{kind}s", "1/2")
+        assert result == (
+            bind_sh,
+            "--launcher",
+            launcher_arg,
+            f"--{kind}s",
+            "1/2",
+            "--",
+        )
 
     @pytest.mark.parametrize("binding", ("1", "1/2/3"))
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
