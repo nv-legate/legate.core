@@ -66,6 +66,35 @@ def find_last_user_frame(libname: str) -> str:
     return f"{frame.f_code.co_filename}:{frame.f_lineno}"
 
 
+class LibraryAnnotations:
+    def __init__(self) -> None:
+        self._entries: dict[str, str] = {}
+
+    @property
+    def empty(self) -> bool:
+        return len(self._entries) == 0
+
+    def __getitem__(self, key: str) -> Optional[str]:
+        return self._entries[key] if key in self._entries else None
+
+    def __setitem__(self, key: str, value: str) -> None:
+        self._entries[key] = value
+
+    def remove(self, key: str) -> None:
+        del self._entries[key]
+
+    def __str__(self) -> str:
+        return "|".join(
+            f"{key},{value}" for key, value in self._entries.items()
+        )
+
+    def __repr__(self) -> str:
+        return str(self)
+
+
+PROVENANCE_KEY = "Provenance"
+
+
 class Context:
     def __init__(
         self,
@@ -125,7 +154,7 @@ class Context:
         )
 
         self._libname = library.get_name()
-        self._provenance: list[Union[str, None]] = [None]
+        self._annotations: list[LibraryAnnotations] = [LibraryAnnotations()]
 
     def destroy(self) -> None:
         self._library.destroy()
@@ -163,8 +192,15 @@ class Context:
         return self._type_system
 
     @property
+    def annotation(self) -> LibraryAnnotations:
+        return self._annotations[-1]
+
+    def get_all_annotations(self) -> str:
+        return str(self.annotation)
+
+    @property
     def provenance(self) -> Optional[str]:
-        return self._provenance[-1]
+        return self.annotation[PROVENANCE_KEY]
 
     def get_task_id(self, task_id: int) -> int:
         return self._task_scope.translate(task_id)
@@ -209,18 +245,19 @@ class Context:
         return self._runtime.get_unique_op_id()
 
     def set_provenance(self, provenance: str) -> None:
-        self._provenance[-1] = provenance
+        self._annotations[-1][PROVENANCE_KEY] = provenance
 
     def reset_provenance(self) -> None:
-        self._provenance[-1] = None
+        self._annotations[-1].remove(PROVENANCE_KEY)
 
     def push_provenance(self, provenance: str) -> None:
-        self._provenance.append(provenance)
+        self._annotations.append(LibraryAnnotations())
+        self.set_provenance(provenance)
 
     def pop_provenance(self) -> None:
-        if len(self._provenance) == 1:
+        if len(self._annotations) == 1:
             raise ValueError("Provenance stack underflow")
-        self._provenance.pop(-1)
+        self._annotations.pop(-1)
 
     def track_provenance(
         self, func: AnyCallable, nested: bool = False
@@ -380,3 +417,17 @@ def track_provenance(
         return context.track_provenance(func, nested=nested)
 
     return decorator
+
+
+class Annotation:
+    def __init__(self, context: Context, pairs: dict[str, str]) -> None:
+        self._annotation = context.annotation
+        self._pairs = pairs
+
+    def __enter__(self) -> None:
+        for key, value in self._pairs.items():
+            self._annotation[key] = value
+
+    def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
+        for key in self._pairs.keys():
+            self._annotation.remove(key)
