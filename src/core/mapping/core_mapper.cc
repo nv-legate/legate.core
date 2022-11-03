@@ -271,6 +271,21 @@ void CoreMapper::select_task_options(const MapperContext ctx,
                                      const LegionTask& task,
                                      TaskOptions& output)
 {
+  if (task.is_index_space) {
+    Processor proc = Processor::NO_PROC;
+    if (task.tag == LEGATE_CPU_VARIANT) {
+      proc = local_cpus.front();
+    } else if (task.tag == LEGATE_OMP_VARIANT) {
+      proc = local_omps.front();
+    } else {
+      assert(task.tag == LEGATE_GPU_VARIANT);
+      proc = local_gpus.front();
+    }
+    output.initial_proc = proc;
+    assert(output.initial_proc.exists());
+    return;
+  }
+
   mapping::Task legate_task(&task, context, runtime, ctx);
   auto& machine_desc = legate_task.machine_desc();
 
@@ -292,6 +307,7 @@ void CoreMapper::select_task_options(const MapperContext ctx,
   }
   assert(avail_procs.size() > 0);
   output.initial_proc = avail_procs[0];
+  assert(output.initial_proc.exists());
 }
 
 void CoreMapper::slice_task(const MapperContext ctx,
