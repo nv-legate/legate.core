@@ -900,6 +900,7 @@ void BaseMapper::report_failed_mapping(const Mappable& mappable,
                mappable.get_unique_id(),
                memory_kinds[target_memory.kind()],
                target_memory.id);
+  LEGATE_ABORT;
 }
 
 void BaseMapper::select_task_variant(const MapperContext ctx,
