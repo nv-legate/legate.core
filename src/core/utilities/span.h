@@ -16,7 +16,8 @@
 
 #pragma once
 
-#include "legion.h"
+#include <assert.h>
+#include <stddef.h>
 
 namespace legate {
 
