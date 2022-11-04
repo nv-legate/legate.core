@@ -82,11 +82,11 @@ int LocalNetwork::comm_create(CollComm global_comm,
   __sync_synchronize();
   volatile ThreadComm* data = thread_comms[global_comm->unique_id];
   while (data->ready_flag != true) { data = thread_comms[global_comm->unique_id]; }
-  global_comm->comm = thread_comms[global_comm->unique_id];
+  global_comm->local_comm = thread_comms[global_comm->unique_id];
   barrierLocal(global_comm);
-  assert(global_comm->comm->ready_flag == true);
-  assert(global_comm->comm->buffers != nullptr);
-  assert(global_comm->comm->displs != nullptr);
+  assert(global_comm->local_comm->ready_flag == true);
+  assert(global_comm->local_comm->buffers != nullptr);
+  assert(global_comm->local_comm->displs != nullptr);
   global_comm->nb_threads = global_comm->global_comm_size;
   return CollSuccess;
 }
@@ -141,8 +141,8 @@ int LocalNetwork::alltoallv(const void* sendbuf,
 
   int type_extent = getDtypeSize(type);
 
-  global_comm->comm->displs[global_rank]  = sdispls;
-  global_comm->comm->buffers[global_rank] = sendbuf;
+  global_comm->local_comm->displs[global_rank]  = sdispls;
+  global_comm->local_comm->buffers[global_rank] = sendbuf;
   __sync_synchronize();
 
   int recvfrom_global_rank;
@@ -152,11 +152,11 @@ int LocalNetwork::alltoallv(const void* sendbuf,
   for (int i = 1; i < total_size + 1; i++) {
     recvfrom_global_rank = (global_rank + total_size - i) % total_size;
     // wait for other threads to update the buffer address
-    while (global_comm->comm->buffers[recvfrom_global_rank] == nullptr ||
-           global_comm->comm->displs[recvfrom_global_rank] == nullptr)
+    while (global_comm->local_comm->buffers[recvfrom_global_rank] == nullptr ||
+           global_comm->local_comm->displs[recvfrom_global_rank] == nullptr)
       ;
-    src_base  = global_comm->comm->buffers[recvfrom_global_rank];
-    displs    = global_comm->comm->displs[recvfrom_global_rank];
+    src_base  = global_comm->local_comm->buffers[recvfrom_global_rank];
+    displs    = global_comm->local_comm->displs[recvfrom_global_rank];
     char* src = static_cast<char*>(const_cast<void*>(src_base)) +
                 static_cast<ptrdiff_t>(displs[recvfrom_seg_id]) * type_extent;
     char* dst = static_cast<char*>(recvbuf) +
@@ -201,7 +201,7 @@ int LocalNetwork::alltoall(
 
   int type_extent = getDtypeSize(type);
 
-  global_comm->comm->buffers[global_rank] = sendbuf;
+  global_comm->local_comm->buffers[global_rank] = sendbuf;
   __sync_synchronize();
 
   int recvfrom_global_rank;
@@ -210,9 +210,9 @@ int LocalNetwork::alltoall(
   for (int i = 1; i < total_size + 1; i++) {
     recvfrom_global_rank = (global_rank + total_size - i) % total_size;
     // wait for other threads to update the buffer address
-    while (global_comm->comm->buffers[recvfrom_global_rank] == nullptr)
+    while (global_comm->local_comm->buffers[recvfrom_global_rank] == nullptr)
       ;
-    src_base  = global_comm->comm->buffers[recvfrom_global_rank];
+    src_base  = global_comm->local_comm->buffers[recvfrom_global_rank];
     char* src = static_cast<char*>(const_cast<void*>(src_base)) +
                 static_cast<ptrdiff_t>(recvfrom_seg_id) * type_extent * count;
     char* dst = static_cast<char*>(recvbuf) +
@@ -257,14 +257,14 @@ int LocalNetwork::allgather(
   // MPI_IN_PLACE
   if (sendbuf == recvbuf) { sendbuf_tmp = allocateInplaceBuffer(recvbuf, type_extent * count); }
 
-  global_comm->comm->buffers[global_rank] = sendbuf_tmp;
+  global_comm->local_comm->buffers[global_rank] = sendbuf_tmp;
   __sync_synchronize();
 
   for (int recvfrom_global_rank = 0; recvfrom_global_rank < total_size; recvfrom_global_rank++) {
     // wait for other threads to update the buffer address
-    while (global_comm->comm->buffers[recvfrom_global_rank] == nullptr)
+    while (global_comm->local_comm->buffers[recvfrom_global_rank] == nullptr)
       ;
-    const void* src = global_comm->comm->buffers[recvfrom_global_rank];
+    const void* src = global_comm->local_comm->buffers[recvfrom_global_rank];
     char* dst       = static_cast<char*>(recvbuf) +
                 static_cast<ptrdiff_t>(recvfrom_global_rank) * type_extent * count;
 #ifdef DEBUG_LEGATE
@@ -334,14 +334,14 @@ size_t LocalNetwork::getDtypeSize(CollDataType dtype)
 void LocalNetwork::resetLocalBuffer(CollComm global_comm)
 {
   int global_rank                         = global_comm->global_rank;
-  global_comm->comm->buffers[global_rank] = nullptr;
-  global_comm->comm->displs[global_rank]  = nullptr;
+  global_comm->local_comm->buffers[global_rank] = nullptr;
+  global_comm->local_comm->displs[global_rank]  = nullptr;
 }
 
 void LocalNetwork::barrierLocal(CollComm global_comm)
 {
   assert(BackendNetwork::coll_inited == true);
-  pthread_barrier_wait(const_cast<pthread_barrier_t*>(&(global_comm->comm->barrier)));
+  pthread_barrier_wait(const_cast<pthread_barrier_t*>(&(global_comm->local_comm->barrier)));
 }
 
 }  // namespace coll

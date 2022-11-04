@@ -22,7 +22,8 @@
 
 #ifdef LEGATE_USE_NETWORK
 #include <mpi.h>
-#else
+#endif
+
 // If we aren't building with networking, we'll use pthread_barrier to
 // construct a communicator for thread-local communication. Mac OS
 // does not implement pthread barriers, so we need to include an
@@ -32,20 +33,17 @@
 #if !defined(_POSIX_BARRIERS) || (_POSIX_BARRIERS < 0)
 #include "core/comm/pthread_barrier.h"
 #endif
-#endif
 
 namespace legate {
 namespace comm {
 namespace coll {
 
 #ifdef LEGATE_USE_NETWORK
-
 struct RankMappingTable {
   int* mpi_rank;
   int* global_rank;
 };
-
-#else
+#endif
 
 struct ThreadComm {
   pthread_barrier_t barrier;
@@ -53,7 +51,6 @@ struct ThreadComm {
   const void** buffers;
   const int** displs;
 };
-#endif
 
 enum class CollDataType : int {
   CollInt8   = 0,
@@ -76,9 +73,8 @@ struct Coll_Comm {
 #ifdef LEGATE_USE_NETWORK
   MPI_Comm comm;
   RankMappingTable mapping_table;
-#else
-  volatile ThreadComm* comm;
 #endif
+  volatile ThreadComm* local_comm;
   int mpi_rank;
   int mpi_comm_size;
   int mpi_comm_size_actual;
@@ -180,7 +176,7 @@ class MPINetwork : public BackendNetwork {
   bool self_init_mpi;
   std::vector<MPI_Comm> mpi_comms;
 };
-#else
+#endif
 
 class LocalNetwork : public BackendNetwork {
  public:
@@ -223,7 +219,6 @@ class LocalNetwork : public BackendNetwork {
  private:
   std::vector<ThreadComm*> thread_comms;
 };
-#endif
 
 extern BackendNetwork* backend_network;
 
