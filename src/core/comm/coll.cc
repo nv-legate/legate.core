@@ -245,19 +245,21 @@ int collInit(int argc, char* argv[])
   int provided, init_flag = 0;
   CHECK_MPI(MPI_Initialized(&init_flag));
   if (!init_flag) {
-    log_coll.fatal(
+    // TODO: check if -ll:networks none is enabled
+    log_coll.warning(
       "MPI has not been initialized, it should be initialized by "
-      "the networking backend");
+      "the networking backend, if -ll:networks none is passed, "
+      "then this warning can be safely ignored.");
+    int provided;
+    MPI_Init_thread(0, 0, MPI_THREAD_MULTIPLE, &provided);
+  }
+  int mpi_thread_model;
+  MPI_Query_thread(&mpi_thread_model);
+  if (mpi_thread_model != MPI_THREAD_MULTIPLE) {
+    log_coll.fatal(
+      "MPI has been initialized by others, but is not initialized with "
+      "MPI_THREAD_MULTIPLE");
     LEGATE_ABORT;
-  } else {
-    int mpi_thread_model;
-    MPI_Query_thread(&mpi_thread_model);
-    if (mpi_thread_model != MPI_THREAD_MULTIPLE) {
-      log_coll.fatal(
-        "MPI has been initialized by others, but is not initialized with "
-        "MPI_THREAD_MULTIPLE");
-      LEGATE_ABORT;
-    }
   }
   // check
   int *tag_ub, flag;
