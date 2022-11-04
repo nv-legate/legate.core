@@ -40,12 +40,6 @@ namespace coll {
 
 #ifdef LEGATE_USE_NETWORK
 
-#define CHECK_MPI(expr)                    \
-  do {                                     \
-    int result = (expr);                   \
-    check_mpi(result, __FILE__, __LINE__); \
-  } while (false)
-
 struct RankMappingTable {
   int* mpi_rank;
   int* global_rank;
@@ -99,7 +93,9 @@ typedef Coll_Comm* CollComm;
 
 class BackendNetwork {
  public:
+  BackendNetwork();
   virtual int init_comm()                           = 0;
+
   virtual int comm_create(CollComm global_comm,
                           int global_comm_size,
                           int global_rank,
@@ -122,6 +118,9 @@ class BackendNetwork {
 
   virtual int allgather(
     const void* sendbuf, void* recvbuf, int count, CollDataType type, CollComm global_comm) = 0;
+
+ protected:
+  bool coll_inited;
 };
 
 #ifdef LEGATE_USE_NETWORK
@@ -181,6 +180,49 @@ class MPINetwork : public BackendNetwork {
   bool self_init_mpi;
   std::vector<MPI_Comm> mpi_comms;
 };
+#else
+
+class LocalNetwork : public BackendNetwork {
+ public:
+  LocalNetwork(int argc, char* argv[]);
+
+  ~LocalNetwork();
+
+  int init_comm();
+
+  int comm_create(CollComm global_comm,
+                  int global_comm_size,
+                  int global_rank,
+                  int unique_id,
+                  const int* mapping_table);
+
+  int comm_destroy(CollComm global_comm);
+
+  int alltoallv(const void* sendbuf,
+                const int sendcounts[],
+                const int sdispls[],
+                void* recvbuf,
+                const int recvcounts[],
+                const int rdispls[],
+                CollDataType type,
+                CollComm global_comm);
+
+  int alltoall(
+    const void* sendbuf, void* recvbuf, int count, CollDataType type, CollComm global_comm);
+
+  int allgather(
+    const void* sendbuf, void* recvbuf, int count, CollDataType type, CollComm global_comm);
+
+ protected:
+  size_t getDtypeSize(CollDataType dtype);
+  
+  void resetLocalBuffer(CollComm global_comm);
+
+  void barrierLocal(CollComm global_comm);
+
+ private:
+  std::vector<ThreadComm*> thread_comms;
+};
 #endif
 
 extern BackendNetwork* backend_network;
@@ -216,48 +258,7 @@ int collGetUniqueId(int* id);
 
 int collInitComm();
 
-// The following functions should not be called by users
-#ifdef LEGATE_USE_NETWORK
-
-#else
-size_t getDtypeSize(CollDataType dtype);
-
-int alltoallvLocal(const void* sendbuf,
-                   const int sendcounts[],
-                   const int sdispls[],
-                   void* recvbuf,
-                   const int recvcounts[],
-                   const int rdispls[],
-                   CollDataType type,
-                   CollComm global_comm);
-
-int alltoallLocal(
-  const void* sendbuf, void* recvbuf, int count, CollDataType type, CollComm global_comm);
-
-int allgatherLocal(
-  const void* sendbuf, void* recvbuf, int count, CollDataType type, CollComm global_comm);
-
-void resetLocalBuffer(CollComm global_comm);
-
-void barrierLocal(CollComm global_comm);
-#endif
-
 void* allocateInplaceBuffer(const void* recvbuf, size_t size);
-
-#ifdef LEGATE_USE_NETWORK
-inline void check_mpi(int error, const char* file, int line)
-{
-  if (error != MPI_SUCCESS) {
-    fprintf(
-      stderr, "Internal MPI failure with error code %d in file %s at line %d\n", error, file, line);
-#ifdef DEBUG_LEGATE
-    assert(false);
-#else
-    exit(error);
-#endif
-  }
-}
-#endif
 
 }  // namespace coll
 }  // namespace comm

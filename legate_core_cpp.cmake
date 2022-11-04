@@ -214,9 +214,7 @@ if(Legion_NETWORKS)
     src/core/comm/mpi_comm.cc)
 else()
   list(APPEND legate_core_SOURCES
-    src/core/comm/alltoall_thread_local.cc
-    src/core/comm/alltoallv_thread_local.cc
-    src/core/comm/allgather_thread_local.cc)
+    src/core/comm/local_comm.cc)
 endif()
 
 if(Legion_USE_CUDA)

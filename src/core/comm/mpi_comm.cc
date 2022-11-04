@@ -41,7 +41,28 @@ enum CollTag : int {
 static inline std::pair<int, int> mostFrequent(const int* arr, int n);
 static inline int match2ranks(int rank1, int rank2, CollComm global_comm);
 
-MPINetwork::MPINetwork(int argc, char* argv[]) : mpi_tag_ub(0), self_init_mpi(false)
+inline void check_mpi(int error, const char* file, int line)
+{
+  if (error != MPI_SUCCESS) {
+    fprintf(
+      stderr, "Internal MPI failure with error code %d in file %s at line %d\n", error, file, line);
+#ifdef DEBUG_LEGATE
+    assert(false);
+#else
+    exit(error);
+#endif
+  }
+}
+
+#define CHECK_MPI(expr)                    \
+  do {                                     \
+    int result = (expr);                   \
+    check_mpi(result, __FILE__, __LINE__); \
+  } while (false)
+
+// public functions start from here
+
+MPINetwork::MPINetwork(int argc, char* argv[]) :BackendNetwork(), mpi_tag_ub(0), self_init_mpi(false)
 {
   int provided, init_flag = 0;
   CHECK_MPI(MPI_Initialized(&init_flag));
@@ -69,10 +90,12 @@ MPINetwork::MPINetwork(int argc, char* argv[]) : mpi_tag_ub(0), self_init_mpi(fa
   assert(flag);
   mpi_tag_ub = *tag_ub;
   assert(mpi_comms.empty());
+  BackendNetwork::coll_inited = true;
 }
 
 MPINetwork::~MPINetwork()
 {
+  assert(BackendNetwork::coll_inited == true);
   for (MPI_Comm& mpi_comm : mpi_comms) { CHECK_MPI(MPI_Comm_free(&mpi_comm)); }
   mpi_comms.clear();
   int fina_flag = 0;
@@ -85,6 +108,7 @@ MPINetwork::~MPINetwork()
     MPI_Finalize();
     printf("finalize mpi\n");
   }
+  BackendNetwork::coll_inited = false;
 }
 
 int MPINetwork::init_comm()
@@ -475,6 +499,8 @@ static inline int match2ranks(int rank1, int rank2, CollComm global_comm)
 
   return tag;
 }
+
+// protected functions start from here
 
 MPI_Datatype MPINetwork::dtypeToMPIDtype(CollDataType dtype)
 {
