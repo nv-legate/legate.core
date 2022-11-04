@@ -97,6 +97,94 @@ struct Coll_Comm {
 
 typedef Coll_Comm* CollComm;
 
+class BackendNetwork {
+ public:
+  virtual int init_comm()                           = 0;
+  virtual int comm_create(CollComm global_comm,
+                          int global_comm_size,
+                          int global_rank,
+                          int unique_id,
+                          const int* mapping_table) = 0;
+
+  virtual int comm_destroy(CollComm global_comm) = 0;
+
+  virtual int alltoallv(const void* sendbuf,
+                        const int sendcounts[],
+                        const int sdispls[],
+                        void* recvbuf,
+                        const int recvcounts[],
+                        const int rdispls[],
+                        CollDataType type,
+                        CollComm global_comm) = 0;
+
+  virtual int alltoall(
+    const void* sendbuf, void* recvbuf, int count, CollDataType type, CollComm global_comm) = 0;
+
+  virtual int allgather(
+    const void* sendbuf, void* recvbuf, int count, CollDataType type, CollComm global_comm) = 0;
+};
+
+#ifdef LEGATE_USE_NETWORK
+class MPINetwork : public BackendNetwork {
+ public:
+  MPINetwork(int argc, char* argv[]);
+
+  ~MPINetwork();
+
+  int init_comm();
+
+  int comm_create(CollComm global_comm,
+                  int global_comm_size,
+                  int global_rank,
+                  int unique_id,
+                  const int* mapping_table);
+
+  int comm_destroy(CollComm global_comm);
+
+  int alltoallv(const void* sendbuf,
+                const int sendcounts[],
+                const int sdispls[],
+                void* recvbuf,
+                const int recvcounts[],
+                const int rdispls[],
+                CollDataType type,
+                CollComm global_comm);
+
+  int alltoall(
+    const void* sendbuf, void* recvbuf, int count, CollDataType type, CollComm global_comm);
+
+  int allgather(
+    const void* sendbuf, void* recvbuf, int count, CollDataType type, CollComm global_comm);
+
+ protected:
+  int gather(const void* sendbuf,
+             void* recvbuf,
+             int count,
+             CollDataType type,
+             int root,
+             CollComm global_comm);
+
+  int bcast(void* buf, int count, CollDataType type, int root, CollComm global_comm);
+
+  MPI_Datatype dtypeToMPIDtype(CollDataType dtype);
+
+  int generateAlltoallTag(int rank1, int rank2, CollComm global_comm);
+
+  int generateAlltoallvTag(int rank1, int rank2, CollComm global_comm);
+
+  int generateBcastTag(int rank, CollComm global_comm);
+
+  int generateGatherTag(int rank, CollComm global_comm);
+
+ private:
+  int mpi_tag_ub;
+  bool self_init_mpi;
+  std::vector<MPI_Comm> mpi_comms;
+};
+#endif
+
+extern BackendNetwork* backend_network;
+
 int collCommCreate(CollComm global_comm,
                    int global_comm_size,
                    int global_rank,
@@ -130,35 +218,7 @@ int collInitComm();
 
 // The following functions should not be called by users
 #ifdef LEGATE_USE_NETWORK
-int alltoallvMPI(const void* sendbuf,
-                 const int sendcounts[],
-                 const int sdispls[],
-                 void* recvbuf,
-                 const int recvcounts[],
-                 const int rdispls[],
-                 CollDataType type,
-                 CollComm global_comm);
 
-int alltoallMPI(
-  const void* sendbuf, void* recvbuf, int count, CollDataType type, CollComm global_comm);
-
-int gatherMPI(
-  const void* sendbuf, void* recvbuf, int count, CollDataType type, int root, CollComm global_comm);
-
-int allgatherMPI(
-  const void* sendbuf, void* recvbuf, int count, CollDataType type, CollComm global_comm);
-
-int bcastMPI(void* buf, int count, CollDataType type, int root, CollComm global_comm);
-
-MPI_Datatype dtypeToMPIDtype(CollDataType dtype);
-
-int generateAlltoallTag(int rank1, int rank2, CollComm global_comm);
-
-int generateAlltoallvTag(int rank1, int rank2, CollComm global_comm);
-
-int generateBcastTag(int rank, CollComm global_comm);
-
-int generateGatherTag(int rank, CollComm global_comm);
 #else
 size_t getDtypeSize(CollDataType dtype);
 
