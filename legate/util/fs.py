@@ -220,13 +220,13 @@ def get_legion_paths(legate_paths: LegatePaths) -> LegionPaths:
     # 1. Legion was found in a standard system location (/usr, $CONDA_PREFIX)
     # 2. Legion was built as a side-effect of building legate_core:
     #    ```
-    #    SKBUILD_CONFIGURE_OPTIONS="" python -m pip install .
+    #    CMAKE_ARGS="" python -m pip install .
     #    ```
     # 3. Legion was built in a separate directory independent of legate_core
     #    and the path to its build directory was given when configuring
     #    legate_core:
     #    ```
-    #    SKBUILD_CONFIGURE_OPTIONS="-D Legion_ROOT=/legion/build" \
+    #    CMAKE_ARGS="-D Legion_ROOT=/legion/build" \
     #        python -m pip install .
     #    ```
     #
