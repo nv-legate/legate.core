@@ -59,6 +59,8 @@ static int current_unique_id = 0;
 
 static bool coll_inited = false;
 
+static bool self_mpi_init = false;
+
 // functions start here
 #ifdef LEGATE_USE_NETWORK
 static inline std::pair<int, int> mostFrequent(const int* arr, int n);
@@ -245,13 +247,19 @@ int collInit(int argc, char* argv[])
   int provided, init_flag = 0;
   CHECK_MPI(MPI_Initialized(&init_flag));
   if (!init_flag) {
-    // TODO: check if -ll:networks none is enabled
-    log_coll.warning(
-      "MPI has not been initialized, it should be initialized by "
-      "the networking backend, if -ll:networks none is passed, "
-      "then this warning can be safely ignored.");
-    int provided;
-    MPI_Init_thread(0, 0, MPI_THREAD_MULTIPLE, &provided);
+    char* network = getenv("LEGATE_NEED_NETWORK");
+    int num_nodes = 0;
+    if (network != nullptr) { num_nodes = atoi(network); }
+    if (num_nodes > 1) {
+      log_coll.fatal(
+        "MPI has not been initialized, it should be initialized by "
+        "the networking backend.");
+      LEGATE_ABORT;
+    } else {
+      int provided;
+      MPI_Init_thread(0, 0, MPI_THREAD_MULTIPLE, &provided);
+      self_mpi_init = true;
+    }
   }
   int mpi_thread_model;
   MPI_Query_thread(&mpi_thread_model);
@@ -287,6 +295,7 @@ int collFinalize()
     log_coll.fatal("MPI should not have been finalized");
     LEGATE_ABORT;
   }
+  if (self_mpi_init) { CHECK_MPI(MPI_Finalize()); }
 #else
   for (ThreadComm* thread_comm : thread_comms) {
     assert(!thread_comm->ready_flag);
