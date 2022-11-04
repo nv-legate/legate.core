@@ -69,9 +69,14 @@ enum CollStatus : int {
   CollError   = 1,
 };
 
+enum CollCommType : int {
+  CollMPI   = 0,
+  CollLocal = 1,
+};
+
 struct Coll_Comm {
 #ifdef LEGATE_USE_NETWORK
-  MPI_Comm comm;
+  MPI_Comm mpi_comm;
   RankMappingTable mapping_table;
 #endif
   volatile ThreadComm* local_comm;
@@ -90,7 +95,7 @@ typedef Coll_Comm* CollComm;
 class BackendNetwork {
  public:
   BackendNetwork();
-  virtual int init_comm()                           = 0;
+  virtual int init_comm() = 0;
 
   virtual int comm_create(CollComm global_comm,
                           int global_comm_size,
@@ -114,6 +119,9 @@ class BackendNetwork {
 
   virtual int allgather(
     const void* sendbuf, void* recvbuf, int count, CollDataType type, CollComm global_comm) = 0;
+
+ public:
+  CollCommType comm_type;
 
  protected:
   bool coll_inited;
@@ -211,7 +219,7 @@ class LocalNetwork : public BackendNetwork {
 
  protected:
   size_t getDtypeSize(CollDataType dtype);
-  
+
   void resetLocalBuffer(CollComm global_comm);
 
   void barrierLocal(CollComm global_comm);

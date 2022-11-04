@@ -62,12 +62,13 @@ inline void check_mpi(int error, const char* file, int line)
 
 // public functions start from here
 
-MPINetwork::MPINetwork(int argc, char* argv[]) :BackendNetwork(), mpi_tag_ub(0), self_init_mpi(false)
+MPINetwork::MPINetwork(int argc, char* argv[])
+  : BackendNetwork(), mpi_tag_ub(0), self_init_mpi(false)
 {
+  log_coll.print("Enable MPINetwork");
   int provided, init_flag = 0;
   CHECK_MPI(MPI_Initialized(&init_flag));
   if (!init_flag) {
-    // TODO: check if -ll:networks none is enabled
     log_coll.warning(
       "MPI has not been initialized, it should be initialized by "
       "the networking backend, if -ll:networks none is passed, "
@@ -91,6 +92,7 @@ MPINetwork::MPINetwork(int argc, char* argv[]) :BackendNetwork(), mpi_tag_ub(0),
   mpi_tag_ub = *tag_ub;
   assert(mpi_comms.empty());
   BackendNetwork::coll_inited = true;
+  BackendNetwork::comm_type   = CollCommType::CollMPI;
 }
 
 MPINetwork::~MPINetwork()
@@ -152,7 +154,7 @@ int MPINetwork::comm_create(CollComm global_comm,
   CHECK_MPI(MPI_Comm_size(comm, &mpi_comm_size));
   global_comm->mpi_comm_size = mpi_comm_size;
   global_comm->mpi_rank      = mpi_rank;
-  global_comm->comm          = comm;
+  global_comm->mpi_comm      = comm;
   assert(mapping_table != nullptr);
   global_comm->mapping_table.global_rank = (int*)malloc(sizeof(int) * global_comm_size);
   global_comm->mapping_table.mpi_rank    = (int*)malloc(sizeof(int) * global_comm_size);
@@ -239,7 +241,7 @@ int MPINetwork::alltoallv(const void* sendbuf,
                            mpi_type,
                            recvfrom_mpi_rank,
                            recv_tag,
-                           global_comm->comm,
+                           global_comm->mpi_comm,
                            &status));
   }
 
@@ -299,7 +301,7 @@ int MPINetwork::alltoall(
                            mpi_type,
                            recvfrom_mpi_rank,
                            recv_tag,
-                           global_comm->comm,
+                           global_comm->mpi_comm,
                            &status));
   }
 
@@ -360,7 +362,7 @@ int MPINetwork::gather(
                    root_mpi_rank,
                    tag);
 #endif
-    CHECK_MPI(MPI_Send(sendbuf, count, mpi_type, root_mpi_rank, tag, global_comm->comm));
+    CHECK_MPI(MPI_Send(sendbuf, count, mpi_type, root_mpi_rank, tag, global_comm->mpi_comm));
     return CollSuccess;
   }
 
@@ -389,7 +391,8 @@ int MPINetwork::gather(
     if (global_rank == i) {
       memcpy(dst, sendbuf, incr);
     } else {
-      CHECK_MPI(MPI_Recv(dst, count, mpi_type, recvfrom_mpi_rank, tag, global_comm->comm, &status));
+      CHECK_MPI(
+        MPI_Recv(dst, count, mpi_type, recvfrom_mpi_rank, tag, global_comm->mpi_comm, &status));
     }
     dst += incr;
   }
@@ -421,7 +424,7 @@ int MPINetwork::bcast(void* buf, int count, CollDataType type, int root, CollCom
                    root_mpi_rank,
                    tag);
 #endif
-    CHECK_MPI(MPI_Recv(buf, count, mpi_type, root_mpi_rank, tag, global_comm->comm, &status));
+    CHECK_MPI(MPI_Recv(buf, count, mpi_type, root_mpi_rank, tag, global_comm->mpi_comm, &status));
     return CollSuccess;
   }
 
@@ -441,7 +444,7 @@ int MPINetwork::bcast(void* buf, int count, CollDataType type, int root, CollCom
                    tag);
 #endif
     if (global_rank != i) {
-      CHECK_MPI(MPI_Send(buf, count, mpi_type, sendto_mpi_rank, tag, global_comm->comm));
+      CHECK_MPI(MPI_Send(buf, count, mpi_type, sendto_mpi_rank, tag, global_comm->mpi_comm));
     }
   }
 

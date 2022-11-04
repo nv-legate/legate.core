@@ -211,7 +211,8 @@ list(APPEND legate_core_SOURCES
 
 if(Legion_NETWORKS)
   list(APPEND legate_core_SOURCES
-    src/core/comm/mpi_comm.cc)
+    src/core/comm/mpi_comm.cc
+    src/core/comm/local_comm.cc)
 else()
   list(APPEND legate_core_SOURCES
     src/core/comm/local_comm.cc)

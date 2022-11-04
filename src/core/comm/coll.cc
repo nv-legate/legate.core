@@ -53,10 +53,7 @@ int collCommCreate(CollComm global_comm,
     global_comm, global_comm_size, global_rank, unique_id, mapping_table);
 }
 
-int collCommDestroy(CollComm global_comm)
-{
-  return backend_network->comm_destroy(global_comm);
-}
+int collCommDestroy(CollComm global_comm) { return backend_network->comm_destroy(global_comm); }
 
 int collAlltoallv(const void* sendbuf,
                   const int sendcounts[],
@@ -129,6 +126,7 @@ int collInit(int argc, char* argv[])
   current_unique_id = 0;
 #ifdef LEGATE_USE_NETWORK
   backend_network = new MPINetwork(argc, argv);
+  // backend_network = new LocalNetwork(argc, argv);
 #else
   backend_network = new LocalNetwork(argc, argv);
 #endif
@@ -141,10 +139,7 @@ int collFinalize()
   return CollSuccess;
 }
 
-int collInitComm()
-{
-  return backend_network->init_comm();
-}
+int collInitComm() { return backend_network->init_comm(); }
 
 int collGetUniqueId(int* id)
 {
@@ -161,8 +156,7 @@ void* allocateInplaceBuffer(const void* recvbuf, size_t size)
   return sendbuf_tmp;
 }
 
-BackendNetwork::BackendNetwork() :coll_inited(false)
-{}
+BackendNetwork::BackendNetwork() : coll_inited(false) {}
 
 }  // namespace coll
 }  // namespace comm

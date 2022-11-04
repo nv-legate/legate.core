@@ -32,11 +32,12 @@ extern Logger log_coll;
 
 // public functions start from here
 
-LocalNetwork::LocalNetwork(int argc, char* argv[])
- : BackendNetwork()
+LocalNetwork::LocalNetwork(int argc, char* argv[]) : BackendNetwork()
 {
+  log_coll.print("Enable LocalNetwork");
   assert(thread_comms.empty());
   BackendNetwork::coll_inited = true;
+  BackendNetwork::comm_type   = CollCommType::CollLocal;
 }
 
 LocalNetwork::~LocalNetwork()
@@ -292,7 +293,6 @@ int LocalNetwork::allgather(
   return CollSuccess;
 }
 
-
 // protected functions start from here
 
 size_t LocalNetwork::getDtypeSize(CollDataType dtype)
@@ -333,7 +333,7 @@ size_t LocalNetwork::getDtypeSize(CollDataType dtype)
 
 void LocalNetwork::resetLocalBuffer(CollComm global_comm)
 {
-  int global_rank                         = global_comm->global_rank;
+  int global_rank                               = global_comm->global_rank;
   global_comm->local_comm->buffers[global_rank] = nullptr;
   global_comm->local_comm->displs[global_rank]  = nullptr;
 }
