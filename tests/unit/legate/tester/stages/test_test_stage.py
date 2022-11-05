@@ -23,8 +23,9 @@ from pathlib import Path
 from legate.tester import FeatureType
 from legate.tester.config import Config
 from legate.tester.stages import test_stage as m
-from legate.tester.stages.util import StageResult, StageSpec
+from legate.tester.stages.util import Shard, StageResult, StageSpec
 from legate.tester.test_system import ProcessResult, TestSystem as _TestSystem
+from legate.util.types import ArgList, EnvDict
 
 from . import FakeSystem
 
@@ -44,6 +45,12 @@ class MockTestStage(m.TestStage):
 
     def compute_spec(self, config: Config, system: _TestSystem) -> StageSpec:
         return StageSpec(2, [(0,), (1,), (2,)])
+
+    def shard_args(self, shard: Shard, config: Config) -> ArgList:
+        return []
+
+    def env(self, config: Config, system: _TestSystem) -> EnvDict:
+        return {}
 
 
 class TestTestStage:
@@ -86,3 +93,32 @@ class TestTestStage:
         stage = MockTestStage(c, s)
         assert stage.file_args(Path("integration/foo"), c) == ["-v", "-s"]
         assert stage.file_args(Path("unit/foo"), c) == []
+
+    def test_cov_args_without_cov_bin(self) -> None:
+        c = m.Config(["test.py", "--cov-args", "run -a"])
+        stage = MockTestStage(c, s)
+        assert stage.cov_args(c) == []
+
+    def test_cov_args_with_cov_bin(self) -> None:
+        cov_bin = "conda/envs/legate/bin/coverage"
+        args = ["--cov-bin", cov_bin]
+        c = m.Config(["test.py"] + args)
+        expected_result = [cov_bin] + c.cov_args.split()
+        stage = MockTestStage(c, s)
+        assert stage.cov_args(c) == expected_result
+
+    def test_cov_args_with_cov_bin_args_and_src_path(self) -> None:
+        cov_bin = "conda/envs/legate/bin/coverage"
+        cov_args = "run -a"
+        cov_src_path = "source_path"
+        args = (
+            ["--cov-bin", cov_bin]
+            + ["--cov-args", cov_args]
+            + ["--cov-src-path", cov_src_path]
+        )
+        c = m.Config(["test.py"] + args)
+        expected_result = (
+            [cov_bin] + cov_args.split() + ["--source", cov_src_path]
+        )
+        stage = MockTestStage(c, s)
+        assert stage.cov_args(c) == expected_result

@@ -12,11 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from __future__ import annotations
 
-# mypy: ignore-errors
-from ._magic_cmd import LegateInfoMagics
+from typing import TYPE_CHECKING
+
+from legate.jupyter.magic import LegateInfoMagics
+
+if TYPE_CHECKING:
+    from IPython import InteractiveShell
 
 
-def load_ipython_extension(ipython) -> None:
-    legate_info_magic = LegateInfoMagics(ipython)
-    ipython.register_magics(legate_info_magic)
+def load_ipython_extension(ipython: InteractiveShell) -> None:
+    ipython.register_magics(LegateInfoMagics(ipython))
+
+
+def main() -> int:
+    import sys
+
+    from .main import main as _main
+
+    return _main(sys.argv)

@@ -32,11 +32,9 @@ from .launcher import CopyLauncher, FillLauncher, TaskLauncher
 from .partition import REPLICATE, ImagePartition, Weighted
 from .shape import Shape
 from .store import Store, StorePartition
-from .utils import OrderedSet, capture_traceback
+from .utils import OrderedSet, capture_traceback_repr
 
 if TYPE_CHECKING:
-    from types import TracebackType
-
     from .communicator import Communicator
     from .constraints import Constraint
     from .context import Context
@@ -280,11 +278,23 @@ class Task(TaskProtocol):
         self._scalar_args: list[tuple[Any, Union[DTType, tuple[DTType]]]] = []
         self._comm_args: list[Communicator] = []
         self._exn_types: list[type] = []
-        self._tb: Union[None, TracebackType] = None
+        self._tb_repr: Union[None, str] = None
+        self._side_effect = False
+        self._concurrent = False
 
     @property
-    def uses_communicator(self) -> bool:
-        return len(self._comm_args) > 0
+    def side_effect(self) -> bool:
+        return self._side_effect
+
+    def set_side_effect(self, side_effect: bool) -> None:
+        self._side_effect = side_effect
+
+    @property
+    def concurrent(self) -> bool:
+        return self._concurrent
+
+    def set_concurrent(self, concurrent: bool) -> None:
+        self._concurrent = concurrent
 
     def get_name(self) -> str:
         libname = self.context.library.get_name()
@@ -307,7 +317,7 @@ class Task(TaskProtocol):
         return len(self._exn_types) > 0
 
     def capture_traceback(self) -> None:
-        self._tb = capture_traceback()
+        self._tb_repr = capture_traceback_repr()
 
     def _add_scalar_args_to_launcher(self, launcher: TaskLauncher) -> None:
         for (arg, dtype) in self._scalar_args:
@@ -337,7 +347,7 @@ class Task(TaskProtocol):
                 output.set_storage(result)
             elif self.can_raise_exception:
                 runtime.record_pending_exception(
-                    self._exn_types, result, self._tb
+                    self._exn_types, result, self._tb_repr
                 )
             else:
                 assert num_unbound_outs == 1
@@ -355,7 +365,7 @@ class Task(TaskProtocol):
                 runtime.record_pending_exception(
                     self._exn_types,
                     runtime.extract_scalar(result, idx),
-                    self._tb,
+                    self._tb_repr,
                 )
 
     def _demux_scalar_stores_future_map(
@@ -394,7 +404,7 @@ class Task(TaskProtocol):
                 runtime.record_pending_exception(
                     self._exn_types,
                     runtime.reduce_exception_future_map(result),
-                    self._tb,
+                    self._tb_repr,
                 )
             else:
                 assert False
@@ -428,7 +438,7 @@ class Task(TaskProtocol):
                 runtime.record_pending_exception(
                     self._exn_types,
                     runtime.reduce_exception_future_map(exn_fut_map),
-                    self._tb,
+                    self._tb_repr,
                 )
 
     def _demux_scalar_stores(
@@ -593,6 +603,7 @@ class AutoTask(AutoOperation, Task):
             self.context,
             self._task_id,
             self.mapper_id,
+            side_effect=self._side_effect,
             provenance=self.provenance,
         )
 
@@ -644,24 +655,16 @@ class AutoTask(AutoOperation, Task):
         self._add_scalar_args_to_launcher(launcher)
 
         launcher.set_can_raise_exception(self.can_raise_exception)
+        launcher.set_concurrent(self.concurrent)
 
         launch_domain = strategy.launch_domain if strategy.parallel else None
         self._add_communicators(launcher, launch_domain)
-
-        # TODO: For now we make sure no other operations are interleaved with
-        # the set of tasks that use a communicator. In the future, the
-        # communicator monad will do this for us.
-        if self.uses_communicator:
-            self._context.issue_execution_fence()
 
         result: Union[Future, FutureMap]
         if launch_domain is not None:
             result = launcher.execute(launch_domain)
         else:
             result = launcher.execute_single()
-
-        if self.uses_communicator:
-            self._context.issue_execution_fence()
 
         self._demux_scalar_stores(result, launch_domain)
 
@@ -732,6 +735,7 @@ class ManualTask(Operation, Task):
                 return
             if arg.kind is Future:
                 self._scalar_outputs.append(len(self._outputs))
+                self._outputs.append(arg)
             self._output_parts.append(arg.partition(REPLICATE))
         else:
             self._output_parts.append(arg)
@@ -747,6 +751,7 @@ class ManualTask(Operation, Task):
         if isinstance(arg, Store):
             if arg.kind is Future:
                 self._scalar_reductions.append(len(self._reductions))
+                self._reductions.append((arg, redop))
             self._reduction_parts.append((arg.partition(REPLICATE), redop))
         else:
             self._reduction_parts.append((arg, redop))
@@ -778,8 +783,9 @@ class ManualTask(Operation, Task):
             self.context,
             self._task_id,
             self.mapper_id,
-            error_on_interference=False,
             tag=tag,
+            error_on_interference=False,
+            side_effect=self._side_effect,
             provenance=self.provenance,
         )
 
@@ -814,19 +820,11 @@ class ManualTask(Operation, Task):
         self._add_scalar_args_to_launcher(launcher)
 
         launcher.set_can_raise_exception(self.can_raise_exception)
+        launcher.set_concurrent(self.concurrent)
 
         self._add_communicators(launcher, self._launch_domain)
 
-        # TODO: For now we make sure no other operations are interleaved with
-        # the set of tasks that use a communicator. In the future, the
-        # communicator monad will do this for us.
-        if self.uses_communicator:
-            self._context.issue_execution_fence()
-
         result = launcher.execute(self._launch_domain)
-
-        if self.uses_communicator:
-            self._context.issue_execution_fence()
 
         self._demux_scalar_stores(result, self._launch_domain)
 
@@ -875,6 +873,11 @@ class Copy(AutoOperation):
     def add_source_indirect(
         self, store: Store, partition: Optional[PartSym] = None
     ) -> None:
+        if len(self._source_indirects) != 0:
+            raise RuntimeError(
+                "There can be only up to one source indirection store for "
+                "a Copy operation"
+            )
         self._check_store(store)
         if partition is None:
             partition = self._get_unique_partition(store)
@@ -884,6 +887,11 @@ class Copy(AutoOperation):
     def add_target_indirect(
         self, store: Store, partition: Optional[PartSym] = None
     ) -> None:
+        if len(self._target_indirects) != 0:
+            raise RuntimeError(
+                "There can be only up to one target indirection store for "
+                "a Copy operation"
+            )
         self._check_store(store)
         if partition is None:
             partition = self._get_unique_partition(store)

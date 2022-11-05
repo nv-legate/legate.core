@@ -66,7 +66,7 @@ NargsType: TypeAlias = Literal["?", "*", "+", "..."]
 @dataclass(frozen=True)
 class ArgSpec:
     dest: str
-    action: NotRequired[ActionType] = "store_true"
+    action: NotRequired[ActionType] = Unset
     nargs: NotRequired[Union[int, NargsType]] = Unset
     const: NotRequired[Any] = Unset
     default: NotRequired[Any] = Unset

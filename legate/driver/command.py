@@ -21,30 +21,26 @@ from ..util.ui import warn
 if TYPE_CHECKING:
     from ..util.system import System
     from ..util.types import CommandPart
-    from .config import Config
+    from .config import ConfigProtocol
     from .launcher import Launcher
 
 __all__ = ("CMD_PARTS",)
 
 
 def cmd_bind(
-    config: Config, system: System, launcher: Launcher
+    config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
-    cpu_bind = config.binding.cpu_bind
-    mem_bind = config.binding.mem_bind
-    gpu_bind = config.binding.gpu_bind
-    nic_bind = config.binding.nic_bind
-
-    if all(x is None for x in (cpu_bind, mem_bind, gpu_bind, nic_bind)):
-        return ()
-
     ranks = config.multi_node.ranks
+
+    if launcher.kind == "none":
+        bind_launcher_arg = "local" if ranks == 1 else "auto"
+    else:
+        bind_launcher_arg = launcher.kind
 
     opts: CommandPart = (
         str(system.legate_paths.bind_sh_path),
-        "local"
-        if launcher.kind == "none" and ranks == 1
-        else str(launcher.kind),
+        "--launcher",
+        bind_launcher_arg,
     )
 
     ranks_per_node = config.multi_node.ranks_per_node
@@ -56,20 +52,22 @@ def cmd_bind(
             raise RuntimeError(errmsg.format(name=name))
 
     bindings = (
-        ("cpu", cpu_bind),
-        ("gpu", gpu_bind),
-        ("mem", mem_bind),
-        ("nic", nic_bind),
+        ("cpu", config.binding.cpu_bind),
+        ("gpu", config.binding.gpu_bind),
+        ("mem", config.binding.mem_bind),
+        ("nic", config.binding.nic_bind),
     )
     for name, binding in bindings:
         if binding is not None:
             check_bind_ranks(name, binding)
             opts += (f"--{name}s", binding)
 
-    return opts
+    return opts + ("--",)
 
 
-def cmd_gdb(config: Config, system: System, launcher: Launcher) -> CommandPart:
+def cmd_gdb(
+    config: ConfigProtocol, system: System, launcher: Launcher
+) -> CommandPart:
     if not config.debugging.gdb:
         return ()
 
@@ -81,7 +79,7 @@ def cmd_gdb(config: Config, system: System, launcher: Launcher) -> CommandPart:
 
 
 def cmd_cuda_gdb(
-    config: Config, system: System, launcher: Launcher
+    config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
     if not config.debugging.cuda_gdb:
         return ()
@@ -94,7 +92,7 @@ def cmd_cuda_gdb(
 
 
 def cmd_nvprof(
-    config: Config, system: System, launcher: Launcher
+    config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
     if not config.profiling.nvprof:
         return ()
@@ -105,7 +103,7 @@ def cmd_nvprof(
 
 
 def cmd_nsys(
-    config: Config, system: System, launcher: Launcher
+    config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
     if not config.profiling.nsys:
         return ()
@@ -123,7 +121,7 @@ def cmd_nsys(
 
 
 def cmd_memcheck(
-    config: Config, system: System, launcher: Launcher
+    config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
     memcheck = config.debugging.memcheck
 
@@ -131,7 +129,7 @@ def cmd_memcheck(
 
 
 def cmd_nocr(
-    config: Config, system: System, launcher: Launcher
+    config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
     control_replicable = not config.multi_node.not_control_replicable
 
@@ -139,7 +137,7 @@ def cmd_nocr(
 
 
 def cmd_module(
-    config: Config, system: System, launcher: Launcher
+    config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
     module = config.other.module
 
@@ -147,26 +145,26 @@ def cmd_module(
 
 
 def cmd_rlwrap(
-    config: Config, system: System, launcher: Launcher
+    config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
     return ("rlwrap",) if config.other.rlwrap else ()
 
 
 def cmd_legion(
-    config: Config, system: System, launcher: Launcher
+    config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
     return (str(system.legion_paths.legion_python),)
 
 
 def cmd_processor(
-    config: Config, system: System, launcher: Launcher
+    config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
     # We always need one python processor per rank and no local fields
     return ("-ll:py", "1", "-lg:local", "0")
 
 
 def cmd_kthreads(
-    config: Config, system: System, launcher: Launcher
+    config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
     freeze_on_error = config.debugging.freeze_on_error
     gdb = config.debugging.gdb
@@ -181,7 +179,7 @@ def cmd_kthreads(
 
 
 def cmd_cpus(
-    config: Config, system: System, launcher: Launcher
+    config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
     cpus = config.core.cpus
 
@@ -189,7 +187,7 @@ def cmd_cpus(
 
 
 def cmd_gpus(
-    config: Config, system: System, launcher: Launcher
+    config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
     gpus = config.core.gpus
 
@@ -198,7 +196,7 @@ def cmd_gpus(
 
 
 def cmd_openmp(
-    config: Config, system: System, launcher: Launcher
+    config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
     openmp = config.core.openmp
     ompthreads = config.core.ompthreads
@@ -228,7 +226,7 @@ def cmd_openmp(
 
 
 def cmd_utility(
-    config: Config, system: System, launcher: Launcher
+    config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
     utility = config.core.utility
     ranks = config.multi_node.ranks
@@ -247,20 +245,22 @@ def cmd_utility(
     return opts
 
 
-def cmd_mem(config: Config, system: System, launcher: Launcher) -> CommandPart:
+def cmd_mem(
+    config: ConfigProtocol, system: System, launcher: Launcher
+) -> CommandPart:
     # Always specify the csize
     return ("-ll:csize", str(config.memory.sysmem))
 
 
 def cmd_numamem(
-    config: Config, system: System, launcher: Launcher
+    config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
     numamem = config.memory.numamem
     return () if numamem == 0 else ("-ll:nsize", str(numamem))
 
 
 def cmd_fbmem(
-    config: Config, system: System, launcher: Launcher
+    config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
     if config.core.gpus == 0:
         return ()
@@ -270,14 +270,14 @@ def cmd_fbmem(
 
 
 def cmd_regmem(
-    config: Config, system: System, launcher: Launcher
+    config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
     regmem = config.memory.regmem
     return () if regmem == 0 else ("-ll:rsize", str(regmem))
 
 
 def cmd_log_levels(
-    config: Config, system: System, launcher: Launcher
+    config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
     log_dir = config.logging.logdir
 
@@ -308,7 +308,7 @@ def cmd_log_levels(
 
 
 def cmd_log_file(
-    config: Config, system: System, launcher: Launcher
+    config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
     log_dir = config.logging.logdir
     log_to_file = config.logging.log_to_file
@@ -320,7 +320,7 @@ def cmd_log_file(
 
 
 def cmd_eager_alloc(
-    config: Config, system: System, launcher: Launcher
+    config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
     eager_alloc = config.memory.eager_alloc
 
@@ -328,7 +328,7 @@ def cmd_eager_alloc(
 
 
 def cmd_user_opts(
-    config: Config, system: System, launcher: Launcher
+    config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
     return config.user_opts
 

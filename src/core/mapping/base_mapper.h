@@ -18,6 +18,7 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 
 #include "legion.h"
 
@@ -256,33 +257,22 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
 
  protected:
   Legion::Memory get_target_memory(Legion::Processor proc, StoreTarget target);
-  bool find_existing_instance(const Legion::Mapping::MapperContext ctx,
-                              Legion::LogicalRegion region,
-                              Legion::FieldID fid,
-                              Legion::Memory target_memory,
-                              Legion::Mapping::PhysicalInstance& result,
-                              Strictness strictness      = Strictness::hint,
-                              bool acquire_instance_lock = true);
+  using OutputMap =
+    std::map<const Legion::RegionRequirement*, std::vector<Legion::Mapping::PhysicalInstance>*>;
+  void map_legate_stores(const Legion::Mapping::MapperContext ctx,
+                         const Legion::Mappable& mappable,
+                         std::vector<StoreMapping>& mappings,
+                         Legion::Processor target_proc,
+                         OutputMap& output_map);
+  void tighten_write_policies(const Legion::Mappable& mappable,
+                              std::vector<StoreMapping>& mappings);
   bool map_legate_store(const Legion::Mapping::MapperContext ctx,
                         const Legion::Mappable& mappable,
                         const StoreMapping& mapping,
-                        std::vector<std::reference_wrapper<const Legion::RegionRequirement>> reqs,
+                        const std::set<const Legion::RegionRequirement*>& reqs,
                         Legion::Processor target_proc,
-                        Legion::Mapping::PhysicalInstance& result);
-  bool map_raw_array(const Legion::Mapping::MapperContext ctx,
-                     const Legion::Mappable& mappable,
-                     unsigned index,
-                     Legion::LogicalRegion region,
-                     Legion::FieldID fid,
-                     Legion::Memory target_memory,
-                     Legion::Processor target_proc,
-                     const std::vector<Legion::Mapping::PhysicalInstance>& valid,
-                     Legion::Mapping::PhysicalInstance& result,
-                     bool memoize,
-                     Legion::ReductionOpID redop = 0);
-  void filter_failed_acquires(const Legion::Mapping::MapperContext ctx,
-                              std::vector<Legion::Mapping::PhysicalInstance>& needed_acquires,
-                              std::set<Legion::Mapping::PhysicalInstance>& failed_acquires);
+                        Legion::Mapping::PhysicalInstance& result,
+                        bool can_fail);
   void report_failed_mapping(const Legion::Mappable& mappable,
                              unsigned index,
                              Legion::Memory target_memory,
@@ -296,14 +286,39 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
   bool has_variant(const Legion::Mapping::MapperContext ctx,
                    const Legion::Task& task,
                    Legion::Processor::Kind kind);
-  Legion::VariantID find_variant(const Legion::Mapping::MapperContext ctx,
-                                 const Legion::Task& task,
-                                 Legion::Processor::Kind kind);
+  std::optional<Legion::VariantID> find_variant(const Legion::Mapping::MapperContext ctx,
+                                                const Legion::Task& task,
+                                                Legion::Processor::Kind kind);
 
  private:
   void generate_prime_factors();
   void generate_prime_factor(const std::vector<Legion::Processor>& processors,
                              Legion::Processor::Kind kind);
+
+ protected:
+  template <typename Functor>
+  decltype(auto) dispatch(TaskTarget target, Functor functor)
+  {
+    switch (target) {
+      case TaskTarget::CPU: return functor(local_cpus);
+      case TaskTarget::GPU: return functor(local_gpus);
+      case TaskTarget::OMP: return functor(local_omps);
+    }
+    assert(false);
+    return functor(local_cpus);
+  }
+  template <typename Functor>
+  decltype(auto) dispatch(Legion::Processor::Kind kind, Functor functor)
+  {
+    switch (kind) {
+      case Legion::Processor::LOC_PROC: return functor(local_cpus);
+      case Legion::Processor::TOC_PROC: return functor(local_gpus);
+      case Legion::Processor::OMP_PROC: return functor(local_omps);
+      default: LEGATE_ABORT;
+    }
+    assert(false);
+    return functor(local_cpus);
+  }
 
  protected:
   const std::vector<int32_t> get_processor_grid(Legion::Processor::Kind kind, int32_t ndim);
@@ -319,6 +334,10 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
                               const Legion::Task& task,
                               const SliceTaskInput& input,
                               SliceTaskOutput& output);
+
+ protected:
+  Legion::ShardingID find_sharding_functor_by_key_store_projection(
+    const std::vector<Legion::RegionRequirement>& requirements);
 
  protected:
   static inline bool physical_sort_func(
@@ -342,15 +361,14 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
   std::vector<Legion::Processor> local_cpus;
   std::vector<Legion::Processor> local_gpus;
   std::vector<Legion::Processor> local_omps;  // OpenMP processors
-  std::vector<Legion::Processor> local_ios;   // I/O processors
-  std::vector<Legion::Processor> local_pys;   // Python processors
  protected:
   Legion::Memory local_system_memory, local_zerocopy_memory;
   std::map<Legion::Processor, Legion::Memory> local_frame_buffers;
   std::map<Legion::Processor, Legion::Memory> local_numa_domains;
 
  protected:
-  std::map<std::pair<Legion::TaskID, Legion::Processor::Kind>, Legion::VariantID> leaf_variants;
+  using VariantCacheKey = std::pair<Legion::TaskID, Legion::Processor::Kind>;
+  std::map<VariantCacheKey, std::optional<Legion::VariantID>> variants;
 
  protected:
   InstanceManager* local_instances;

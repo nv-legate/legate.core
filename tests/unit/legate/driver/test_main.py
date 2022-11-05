@@ -14,6 +14,8 @@
 #
 from __future__ import annotations
 
+import sys
+
 from pytest_mock import MockerFixture
 
 import legate.driver as m
@@ -34,11 +36,12 @@ def test_main(mocker: MockerFixture) -> None:
     system_spy = mocker.spy(legate.util.system.System, "__init__")
     driver_spy = mocker.spy(legate.driver.driver.Driver, "__init__")
     mocker.patch("legate.driver.driver.Driver.run", return_value=123)
+    mocker.patch.object(sys, "argv", ["foo", "bar"])
 
-    result = m.main(["foo", "bar"])
+    result = m.main()
 
     assert config_spy.call_count == 1
-    assert config_spy.call_args[0][1:] == (["foo", "bar"],)
+    assert config_spy.call_args[0][1] == sys.argv
     assert config_spy.call_args[1] == {}
 
     assert system_spy.call_count == 1

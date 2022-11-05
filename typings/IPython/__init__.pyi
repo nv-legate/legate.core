@@ -1,6 +1,4 @@
-#!/usr/bin/env python
-
-# Copyright 2021-2022 NVIDIA Corporation
+# Copyright 2022 NVIDIA Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,9 +14,7 @@
 #
 from __future__ import annotations
 
-import sys
+from .core.magic import Magics
 
-from .driver import main
-
-if __name__ == "__main__":
-    sys.exit(main(sys.argv))
+class InteractiveShell:
+    def register_magics(self, *objs: Magics) -> None: ...

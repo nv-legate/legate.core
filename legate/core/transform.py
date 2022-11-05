@@ -66,21 +66,6 @@ class TransformProto(Protocol):
     def invert_point(self, point: Shape) -> Shape:
         ...
 
-    def invert(self, partition: PartitionBase) -> PartitionBase:
-        ...
-
-    def convert(self, partition: PartitionBase) -> PartitionBase:
-        ...
-
-    def convert_partition(self, partition: PartitionBase) -> PartitionBase:
-        ...
-
-    def _invert_partition(self, partition: PartitionBase) -> PartitionBase:
-        ...
-
-    def invert_partition(self, partition: PartitionBase) -> PartitionBase:
-        ...
-
     def invert_symbolic_point(self, dims: SymbolicPoint) -> SymbolicPoint:
         ...
 
@@ -98,7 +83,11 @@ class TransformProto(Protocol):
 
 
 class Transform(TransformProto, Protocol):
-    pass
+    def invert(self, partition: PartitionBase) -> PartitionBase:
+        ...
+
+    def convert(self, partition: PartitionBase) -> PartitionBase:
+        ...
 
 
 class Shift(Transform):
@@ -232,8 +221,8 @@ class Promote(Transform):
             all_axes = list(range(0, len(partition._shape)))
             shape = partition._shape.drop(self._extra_dim)
             axes: list[Optional[int]] = (
-                all_axes[: self._extra_dim]  # type: ignore
-                + [None]  # type: ignore
+                all_axes[: self._extra_dim]
+                + [None]
                 + [x - 1 for x in all_axes[self._extra_dim + 1 :]]
             )
 
@@ -616,6 +605,9 @@ class Delinearize(Transform):
         right = restrictions[self._dim + self._shape.ndim :]
         return left + right
 
+    def convert(self, partition: PartitionBase) -> PartitionBase:
+        raise NonInvertibleError()
+
     def convert_restrictions(self, restrictions: Restrictions) -> Restrictions:
         left = restrictions[: self._dim]
         right = restrictions[self._dim + 1 :]
@@ -656,6 +648,18 @@ class Delinearize(Transform):
 class TransformStackBase(TransformProto, Protocol):
     @property
     def bottom(self) -> bool:
+        ...
+
+    def stack(self, transform: Transform) -> TransformStack:
+        ...
+
+    def convert_partition(self, partition: PartitionBase) -> PartitionBase:
+        ...
+
+    def _invert_partition(self, partition: PartitionBase) -> PartitionBase:
+        ...
+
+    def invert_partition(self, partition: PartitionBase) -> PartitionBase:
         ...
 
 

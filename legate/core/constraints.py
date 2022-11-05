@@ -250,6 +250,9 @@ class Image(Expr):
             complete=self._complete,
         )
 
+    def ndim(self) -> int:
+        return self._src_part_sym.ndim
+
     def reduce(self) -> Lit:
         expr = self._src_part_sym.reduce()
         assert isinstance(expr, Lit)
