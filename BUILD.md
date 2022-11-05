@@ -17,7 +17,7 @@ limitations under the License.
 
 # TL;DR
 
-1) Check if there are specialized scripts available for your cluster at https://github.com/nv-legate/quickstart.
+1) Check if there are specialized scripts available for your cluster at [nv-legate/quickstart](https://github.com/nv-legate/quickstart).
 2) [Install dependencies from conda](#getting-dependencies-through-conda)
 3) [Build using install.py](#using-installpy)
 
@@ -33,7 +33,7 @@ Please use the `scripts/generate-conda-envs.py` script to create a conda
 environment file listing all the packages that are required to build, run and
 test Legate Core and all downstream libraries. For example:
 
-```
+```shell
 $ ./scripts/generate-conda-envs.py --python 3.10 --ctk 11.7 --os linux --compilers --openmpi
 --- generating: environment-test-linux-py310-cuda-11.7-compilers-openmpi.yaml
 ```
@@ -45,13 +45,13 @@ generated environment file (e.g. all the supported Python versions). See the
 Once you have this environment file, you can install the required packages by
 creating a new conda environment:
 
-```
+```shell
 conda env create -n legate -f <env-file>.yaml
 ```
 
 or by updating an existing environment:
 
-```
+```shell
 conda env update -f <env-file>.yaml
 ```
 
@@ -161,14 +161,14 @@ after to trip GLIBC's internal version checks, since the conda library expects
 to find symbols with more recent version numbers than what is available on the
 system-wide GLIBC:
 
-```
+```shell
 /lib/x86_64-linux-gnu/libstdc++.so.6: version `GLIBCXX_3.4.30' not found (required by /opt/conda/envs/legate/lib/libarrow.so)
 ```
 
 You can usually work around this issue by putting the conda library directory
 first in the dynamic library resolution path:
 
-```
+```shell
 LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
 ```
 
@@ -186,14 +186,14 @@ the C++ and Python components under the currently active Python environment.
 
 To add GPU support, use the `--cuda` flag:
 
-```
+```shell
 ./install.py --cuda
 ```
 
 You can specify the CUDA toolkit directory and the CUDA architecture you want to
 target using the `--with-cuda` and `--arch` flags, e.g.:
 
-```
+```shell
 ./install.py --cuda --with-cuda /usr/local/cuda/ --arch ampere
 ```
 
@@ -215,18 +215,21 @@ You also need to specify the interconnect network of the target machine using th
 
 For example this would be an installation for a
 [DGX SuperPOD](https://www.nvidia.com/en-us/data-center/dgx-superpod/):
-```
+
+```shell
 ./install.py --network gasnet1 --conduit ibv --cuda --arch ampere
 ```
+
 Alternatively, here is an install line for the
 [Piz-Daint](https://www.cscs.ch/computers/dismissed/piz-daint-piz-dora/) supercomputer:
-```
+
+```shell
 ./install.py --network gasnet1 --conduit aries --cuda --arch pascal
 ```
 
 To see all available configuration options, run with the `--help` flag:
 
-```
+```shell
 ./install.py --help
 ```
 
@@ -237,11 +240,13 @@ can still use the pip installer to build and install Legate Core. The following
 command will trigger a single-node, CPU-only build of Legate Core, then install
 it into the currently active Python environment:
 
-```
+```shell
 $ pip install .
 ```
+
 or
-```
+
+```shell
 $ python3 -m pip install .
 ```
 
@@ -249,17 +254,20 @@ $ python3 -m pip install .
 
 Legate relies on CMake to select its toolchain and build flags. Users can set
 the environment variables `CXX` or `CXXFLAGS` prior to building to override the
-CMake defaults. Alternatively, CMake values can be overridden through the
-`SKBUILD_CONFIGURE_OPTIONS` variable:
+CMake defaults.
 
-```
-$ SKBUILD_CONFIGURE_OPTIONS="-D Legion_USE_CUDA:BOOL=ON" \
+Alternatively, CMake and build tool arguments can be passed via the
+`CMAKE_ARGS`/`SKBUILD_CONFIGURE_OPTIONS` and `SKBUILD_BUILD_OPTIONS`
+[environment variables](https://scikit-build.readthedocs.io/en/latest/usage.html#environment-variable-configuration):
+
+```shell
+$ CMAKE_ARGS="${CMAKE_ARGS:-} -D Legion_USE_CUDA:BOOL=ON" \
   pip install .
 ```
 
 An alternative syntax using `setup.py` with `scikit-build` is
 
-```
+```shell
 $ python setup.py install -- -DLegion_USE_CUDA:BOOL=ON
 ```
 
@@ -287,20 +295,20 @@ There are several examples in the `scripts` folder. We walk through the steps in
 
 First, the CMake build needs to be configured:
 
-```
+```shell
 $ cmake -S . -B build -GNinja -D Legion_USE_CUDA=ON
 ```
 
 Once configured, we can build the C++ libraries:
 
-```
+```shell
 $ cmake --build build
 ```
 
 This will invoke Ninja (or make) to execute the build.
 Once the C++ libraries are available, we can do an editable (development) pip installation.
 
-```
+```shell
 $ SKBUILD_BUILD_OPTIONS="-D FIND_LEGATE_CORE_CPP=ON -D legate_core_ROOT=$(pwd)/build" \
   python3 -m pip install \
   --root / --no-deps --no-build-isolation
