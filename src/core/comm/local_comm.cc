@@ -35,6 +35,7 @@ extern Logger log_coll;
 LocalNetwork::LocalNetwork(int argc, char* argv[]) : BackendNetwork()
 {
   log_coll.print("Enable LocalNetwork");
+  assert(current_unique_id == 0);
   assert(thread_comms.empty());
   BackendNetwork::coll_inited = true;
   BackendNetwork::comm_type   = CollCommType::CollLocal;

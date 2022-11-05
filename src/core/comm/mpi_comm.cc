@@ -66,6 +66,7 @@ MPINetwork::MPINetwork(int argc, char* argv[])
   : BackendNetwork(), mpi_tag_ub(0), self_init_mpi(false)
 {
   log_coll.print("Enable MPINetwork");
+  assert(current_unique_id == 0);
   int provided, init_flag = 0;
   CHECK_MPI(MPI_Initialized(&init_flag));
   if (!init_flag) {

@@ -38,8 +38,6 @@ namespace coll {
 using namespace Legion;
 Logger log_coll("coll");
 
-static int current_unique_id = 0;
-
 BackendNetwork* backend_network = nullptr;
 
 // functions start here
@@ -123,7 +121,6 @@ int collAllgather(
 // called from main thread
 int collInit(int argc, char* argv[])
 {
-  current_unique_id = 0;
 #ifdef LEGATE_USE_NETWORK
   backend_network = new MPINetwork(argc, argv);
   // backend_network = new LocalNetwork(argc, argv);
@@ -141,22 +138,22 @@ int collFinalize()
 
 int collInitComm() { return backend_network->init_comm(); }
 
-int collGetUniqueId(int* id)
+BackendNetwork::BackendNetwork() : coll_inited(false), current_unique_id(0) {}
+
+int BackendNetwork::collGetUniqueId(int* id)
 {
   *id = current_unique_id;
   current_unique_id++;
   return CollSuccess;
 }
 
-void* allocateInplaceBuffer(const void* recvbuf, size_t size)
+void* BackendNetwork::allocateInplaceBuffer(const void* recvbuf, size_t size)
 {
   void* sendbuf_tmp = malloc(size);
   assert(sendbuf_tmp != nullptr);
   memcpy(sendbuf_tmp, recvbuf, size);
   return sendbuf_tmp;
 }
-
-BackendNetwork::BackendNetwork() : coll_inited(false) {}
 
 }  // namespace coll
 }  // namespace comm

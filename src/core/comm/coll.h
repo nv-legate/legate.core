@@ -120,11 +120,17 @@ class BackendNetwork {
   virtual int allgather(
     const void* sendbuf, void* recvbuf, int count, CollDataType type, CollComm global_comm) = 0;
 
+ protected:
+  int collGetUniqueId(int* id);
+
+  void* allocateInplaceBuffer(const void* recvbuf, size_t size);
+
  public:
   CollCommType comm_type;
 
  protected:
   bool coll_inited;
+  int current_unique_id;
 };
 
 #ifdef LEGATE_USE_NETWORK
@@ -257,11 +263,7 @@ int collInit(int argc, char* argv[]);
 
 int collFinalize();
 
-int collGetUniqueId(int* id);
-
 int collInitComm();
-
-void* allocateInplaceBuffer(const void* recvbuf, size_t size);
 
 }  // namespace coll
 }  // namespace comm
