@@ -226,8 +226,10 @@ void BaseMapper::select_task_options(const MapperContext ctx,
   for (auto& req : task.regions)
     if (req.tag == LEGATE_CORE_KEY_STORE_TAG) {
       key_functor = find_legate_projection_functor(req.projection);
-      if (key_functor != nullptr && key_functor->is_collective())
+      if (key_functor != nullptr && key_functor->is_collective()) {
         output.check_collective_regions.insert(idx);
+        // std::cout <<"IRINA DEBUG is collective in mapper "<< task.get_task_name()<<std::endl;
+      }
     }
   idx++;
 }
