@@ -74,6 +74,7 @@ from .legate import (
     Array,
     Library,
 )
+from .machine import Machine
 from .resource import ResourceConfig
 from .runtime import (
     get_legate_runtime,
