@@ -27,10 +27,7 @@ void LegateTaskRegistrar::record_variant(TaskID tid,
                                          TaskLayoutConstraintSet& layout_constraints,
                                          LegateVariantCode var,
                                          Processor::Kind kind,
-                                         bool leaf,
-                                         bool inner,
-                                         bool idempotent,
-                                         size_t ret_size)
+                                         const VariantOptions& options)
 {
   assert((kind == Processor::LOC_PROC) || (kind == Processor::TOC_PROC) ||
          (kind == Processor::OMP_PROC));
@@ -44,15 +41,16 @@ void LegateTaskRegistrar::record_variant(TaskID tid,
                                                       task_name,
                                                       descriptor,
                                                       var,
-                                                      ret_size));
+                                                      options.return_size));
 
   auto& registrar = pending_task_variants_.back();
   registrar.execution_constraints.swap(execution_constraints);
   registrar.layout_constraints.swap(layout_constraints);
   registrar.add_constraint(ProcessorConstraint(kind));
-  registrar.set_leaf(leaf);
-  registrar.set_inner(inner);
-  registrar.set_idempotent(idempotent);
+  registrar.set_leaf(options.leaf);
+  registrar.set_inner(options.inner);
+  registrar.set_idempotent(options.idempotent);
+  registrar.set_concurrent(options.concurrent);
 }
 
 void LegateTaskRegistrar::register_all_tasks(Runtime* runtime, LibraryContext& context)

@@ -17,6 +17,7 @@ from __future__ import annotations
 from enum import IntEnum, unique
 from typing import Any, Iterable, Type, Union
 
+import numpy as np
 import pyarrow as pa
 
 from . import legion
@@ -41,6 +42,9 @@ class Complex64Dtype(pa.ExtensionType):
     def __hash__(self) -> int:
         return hash(self.__class__)
 
+    def to_pandas_dtype(self) -> np.dtype[Any]:
+        return np.dtype(np.complex64)
+
 
 class Complex128Dtype(pa.ExtensionType):
     def __init__(self) -> None:
@@ -57,6 +61,9 @@ class Complex128Dtype(pa.ExtensionType):
 
     def __hash__(self) -> int:
         return hash(self.__class__)
+
+    def to_pandas_dtype(self) -> np.dtype[Any]:
+        return np.dtype(np.complex128)
 
 
 bool_ = pa.bool_()
