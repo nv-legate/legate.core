@@ -95,6 +95,7 @@ typedef Coll_Comm* CollComm;
 class BackendNetwork {
  public:
   BackendNetwork();
+  virtual ~BackendNetwork();
   virtual int init_comm() = 0;
 
   virtual int comm_create(CollComm global_comm,

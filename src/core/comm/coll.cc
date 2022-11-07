@@ -140,6 +140,8 @@ int collInitComm() { return backend_network->init_comm(); }
 
 BackendNetwork::BackendNetwork() : coll_inited(false), current_unique_id(0) {}
 
+BackendNetwork::~BackendNetwork() {}
+
 int BackendNetwork::collGetUniqueId(int* id)
 {
   *id = current_unique_id;

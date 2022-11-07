@@ -43,6 +43,7 @@ LocalNetwork::LocalNetwork(int argc, char* argv[]) : BackendNetwork()
 
 LocalNetwork::~LocalNetwork()
 {
+  log_coll.print("Finalize LocalNetwork");
   assert(BackendNetwork::coll_inited == true);
   for (ThreadComm* thread_comm : thread_comms) {
     assert(!thread_comm->ready_flag);

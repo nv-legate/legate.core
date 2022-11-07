@@ -98,6 +98,7 @@ MPINetwork::MPINetwork(int argc, char* argv[])
 
 MPINetwork::~MPINetwork()
 {
+  log_coll.print("Finalize MPINetwork");
   assert(BackendNetwork::coll_inited == true);
   for (MPI_Comm& mpi_comm : mpi_comms) { CHECK_MPI(MPI_Comm_free(&mpi_comm)); }
   mpi_comms.clear();
