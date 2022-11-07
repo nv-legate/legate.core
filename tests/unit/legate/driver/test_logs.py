@@ -19,7 +19,6 @@ from pytest_mock import MockerFixture
 
 import legate.driver.logs as m
 from legate.driver.config import Config
-from legate.driver.launcher import RANK_ENV_VARS
 from legate.util.colors import scrub
 
 from ...util import Capsys, powerset_nonempty
@@ -86,14 +85,15 @@ class TestLogHandler:
             ("foo", "bar"), check=True, cwd=config.logging.logdir
         )
 
-    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     def test_run_processing_command_mulit_rank_no_launcher_no_warning(
-        self, mocker: MockerFixture, genobjs: GenObjs, rank_var: str
+        self,
+        mocker: MockerFixture,
+        genobjs: GenObjs,
     ) -> None:
         config, system, launcher = genobjs(
             [],
             multi_rank=(2, 2),
-            rank_env={rank_var: "1"},
+            rank_id="1",
         )
         mock_run = mocker.patch.object(m, "run")
 
@@ -106,12 +106,13 @@ class TestLogHandler:
             ("foo", "bar"), check=True, cwd=config.logging.logdir
         )
 
+    @pytest.mark.parametrize("rank", ("0", "1", "2"))
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     def test_run_processing_command_mulit_rank_with_launcher_no_warning(
-        self, mocker: MockerFixture, genobjs: GenObjs, launch: str
+        self, mocker: MockerFixture, genobjs: GenObjs, rank: str, launch: str
     ) -> None:
         config, system, launcher = genobjs(
-            ["--launcher", launch], multi_rank=(2, 2)
+            ["--launcher", launch], multi_rank=(2, 2), rank_id=rank
         )
         mock_run = mocker.patch.object(m, "run")
 
@@ -124,18 +125,16 @@ class TestLogHandler:
             ("foo", "bar"), check=True, cwd=config.logging.logdir
         )
 
-    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     def test_run_processing_command_mulit_rank_no_launcher_with_warning(
         self,
         capsys: Capsys,
         mocker: MockerFixture,
         genobjs: GenObjs,
-        rank_var: str,
     ) -> None:
         config, system, launcher = genobjs(
             [],
             multi_rank=(5, 2),
-            rank_env={rank_var: "1"},
+            rank_id="1",
         )
         mock_run = mocker.patch.object(m, "run")
 
@@ -149,16 +148,18 @@ class TestLogHandler:
         assert keep_logs is True
         mock_run.assert_not_called()
 
+    @pytest.mark.parametrize("rank", ("0", "1", "2"))
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     def test_run_processing_command_mulit_rank_with_launcher_with_warning(
         self,
         capsys: Capsys,
         mocker: MockerFixture,
         genobjs: GenObjs,
+        rank: str,
         launch: str,
     ) -> None:
         config, system, launcher = genobjs(
-            ["--launcher", launch], multi_rank=(5, 2)
+            ["--launcher", launch], multi_rank=(5, 2), rank_id=rank
         )
         mock_run = mocker.patch.object(m, "run")
 
@@ -283,13 +284,10 @@ class TestDebuggingHandler:
     @pytest.mark.parametrize(
         "args", powerset_nonempty(("--event", "--dataflow"))
     )
-    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     def test_process_multi_rank_no_launcher(
-        self, genobjs: GenObjs, mocker: MockerFixture, rank_var: str, args: str
+        self, genobjs: GenObjs, mocker: MockerFixture, args: str
     ) -> None:
-        config, system, launcher = genobjs(
-            [], multi_rank=(3, 2), rank_env={rank_var: "1"}
-        )
+        config, system, launcher = genobjs([], multi_rank=(3, 2), rank_id="1")
 
         handler = m.DebuggingHandler(config, system)
         mock_run = mocker.patch.object(handler, "run_processing_cmd")
@@ -307,12 +305,18 @@ class TestDebuggingHandler:
     @pytest.mark.parametrize(
         "args", powerset_nonempty(("--event", "--dataflow"))
     )
+    @pytest.mark.parametrize("rank", ("0", "1", "2"))
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     def test_process_multi_rank_with_launcher(
-        self, genobjs: GenObjs, mocker: MockerFixture, launch: str, args: str
+        self,
+        genobjs: GenObjs,
+        mocker: MockerFixture,
+        rank: str,
+        launch: str,
+        args: str,
     ) -> None:
         config, system, launcher = genobjs(
-            ["--launcher", launch], multi_rank=(3, 2)
+            ["--launcher", launch], multi_rank=(3, 2), rank_id=rank
         )
 
         handler = m.DebuggingHandler(config, system)
@@ -396,13 +400,10 @@ class TestProcessingHandler:
         expected = (legion_prof_py, "-o", "legate_prof", "legate_0.prof")
         mock_run.assert_called_once_with(expected, "profiler")
 
-    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     def test_process_multi_rank_no_launcher(
-        self, genobjs: GenObjs, mocker: MockerFixture, rank_var: str
+        self, genobjs: GenObjs, mocker: MockerFixture
     ) -> None:
-        config, system, launcher = genobjs(
-            [], multi_rank=(3, 2), rank_env={rank_var: "1"}
-        )
+        config, system, launcher = genobjs([], multi_rank=(3, 2), rank_id="1")
 
         handler = m.ProfilingHandler(config, system)
         mock_run = mocker.patch.object(handler, "run_processing_cmd")
@@ -415,12 +416,13 @@ class TestProcessingHandler:
         )
         mock_run.assert_called_once_with(expected, "profiler")
 
+    @pytest.mark.parametrize("rank", ("0", "1", "2"))
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     def test_process_multi_rank_with_launcher(
-        self, genobjs: GenObjs, mocker: MockerFixture, launch: str
+        self, genobjs: GenObjs, mocker: MockerFixture, rank: str, launch: str
     ) -> None:
         config, system, launcher = genobjs(
-            ["--launcher", launch], multi_rank=(3, 2)
+            ["--launcher", launch], multi_rank=(3, 2), rank_id=rank
         )
 
         handler = m.ProfilingHandler(config, system)

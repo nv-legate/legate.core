@@ -29,15 +29,6 @@ from .util import GenConfig, GenObjs
 SYSTEM = System()
 
 
-def test_RANK_ENV_VARS() -> None:
-    assert m.RANK_ENV_VARS == (
-        "OMPI_COMM_WORLD_RANK",
-        "PMI_RANK",
-        "MV2_COMM_WORLD_RANK",
-        "SLURM_PROCID",
-    )
-
-
 def test_LAUNCHER_VAR_PREFIXES() -> None:
     assert m.LAUNCHER_VAR_PREFIXES == (
         "CONDA_",
@@ -250,16 +241,15 @@ class TestLauncherEnv:
 
         assert "LEGATE_NEED_NETWORK" not in env
 
-    @pytest.mark.parametrize("rank_var", m.RANK_ENV_VARS)
     @pytest.mark.parametrize("rank", ("0", "1", "2"))
     def test_need_gasnet_true(  # iff multi rank
-        self, genobjs: GenObjs, launch: LauncherType, rank_var: str, rank: str
+        self, genobjs: GenObjs, launch: LauncherType, rank: str
     ) -> None:
         # need to use full genobjs to simulate multi-rank for all cases
         config, system, launcher = genobjs(
             ["--launcher", launch],
             multi_rank=(2, 2),
-            rank_env={rank_var: rank},
+            rank_id=rank,
         )
 
         env = launcher.env
@@ -373,16 +363,13 @@ class TestSimpleLauncher:
         assert launcher.rank_id == "0"
         assert launcher.cmd == ()
 
-    @pytest.mark.parametrize("rank_var", m.RANK_ENV_VARS)
     def test_multi_rank(
         self,
         monkeypatch: pytest.MonkeyPatch,
         genconfig: GenConfig,
-        rank_var: str,
     ) -> None:
-        for name in m.RANK_ENV_VARS:
-            monkeypatch.delenv(name, raising=False)
-        monkeypatch.setenv(name, "123")
+        monkeypatch.delenv("LEGATE_RANK", raising=False)
+        monkeypatch.setenv("LEGATE_RANK", "123")
 
         config = genconfig(multi_rank=(100, 2))
         system = System()
@@ -398,16 +385,13 @@ class TestSimpleLauncher:
         with pytest.raises(RuntimeError, match=msg):
             m.Launcher.create(config, SYSTEM)
 
-    @pytest.mark.parametrize("rank_var", m.RANK_ENV_VARS)
     def test_multi_rank_launcher_extra_ignored(
         self,
         monkeypatch: pytest.MonkeyPatch,
         genconfig: GenConfig,
-        rank_var: str,
     ) -> None:
-        for name in m.RANK_ENV_VARS:
-            monkeypatch.delenv(name, raising=False)
-        monkeypatch.setenv(name, "123")
+        monkeypatch.delenv("LEGATE_RANK", raising=False)
+        monkeypatch.setenv("LEGATE_RANK", "123")
 
         config = genconfig(
             ["--launcher-extra", "foo", "--launcher-extra", "bar"],
@@ -465,7 +449,7 @@ class TestMPILauncher:
 
         launcher = m.Launcher.create(config, SYSTEM)
 
-        assert launcher.rank_id == "%q{OMPI_COMM_WORLD_RANK}"
+        assert launcher.rank_id == "0"
 
         # TODO (bv) -x env args currnetly too fragile to test
         assert launcher.cmd[:10] == (
@@ -490,7 +474,7 @@ class TestMPILauncher:
 
         launcher = m.Launcher.create(config, SYSTEM)
 
-        assert launcher.rank_id == "%q{OMPI_COMM_WORLD_RANK}"
+        assert launcher.rank_id == "0"
 
         # TODO (bv) -x env args currnetly too fragile to test
         assert launcher.cmd[:10] == (
@@ -502,22 +486,19 @@ class TestMPILauncher:
             # + ("foo", "bar")
         )
 
-    @pytest.mark.parametrize("rank_var", m.RANK_ENV_VARS)
     def test_multi_rank(
         self,
         monkeypatch: pytest.MonkeyPatch,
         genconfig: GenConfig,
-        rank_var: str,
     ) -> None:
-        for name in m.RANK_ENV_VARS:
-            monkeypatch.delenv(name, raising=False)
-        monkeypatch.setenv(name, "123")
+        monkeypatch.delenv("LEGATE_RANK", raising=False)
+        monkeypatch.setenv("LEGATE_RANK", "123")
 
         config = genconfig(["--launcher", "mpirun"], multi_rank=(100, 2))
         system = System()
         launcher = m.Launcher.create(config, system)
 
-        assert launcher.rank_id == "%q{OMPI_COMM_WORLD_RANK}"
+        assert launcher.rank_id == "123"
 
         # TODO (bv) -x env args currnetly too fragile to test
         assert launcher.cmd[:10] == (
@@ -529,17 +510,14 @@ class TestMPILauncher:
             # + self.XARGS2
         )
 
-    @pytest.mark.parametrize("rank_var", m.RANK_ENV_VARS)
     def test_multi_rank_launcher_extra(
         self,
         monkeypatch: pytest.MonkeyPatch,
         genconfig: GenConfig,
-        rank_var: str,
     ) -> None:
 
-        for name in m.RANK_ENV_VARS:
-            monkeypatch.delenv(name, raising=False)
-        monkeypatch.setenv(name, "123")
+        monkeypatch.delenv("LEGATE_RANK", raising=False)
+        monkeypatch.setenv("LEGATE_RANK", "123")
 
         config = genconfig(
             [
@@ -555,7 +533,7 @@ class TestMPILauncher:
         system = System()
         launcher = m.Launcher.create(config, system)
 
-        assert launcher.rank_id == "%q{OMPI_COMM_WORLD_RANK}"
+        assert launcher.rank_id == "123"
 
         # TODO (bv) -x env args currnetly too fragile to test
         assert launcher.cmd[:10] == (
@@ -575,7 +553,7 @@ class TestJSRunLauncher:
 
         launcher = m.Launcher.create(config, SYSTEM)
 
-        assert launcher.rank_id == "%q{OMPI_COMM_WORLD_RANK}"
+        assert launcher.rank_id == "0"
         assert launcher.cmd == (
             ("jsrun",)
             + ("-n", "1", "-r", "1", "-a", "1")
@@ -596,7 +574,7 @@ class TestJSRunLauncher:
 
         launcher = m.Launcher.create(config, SYSTEM)
 
-        assert launcher.rank_id == "%q{OMPI_COMM_WORLD_RANK}"
+        assert launcher.rank_id == "0"
         assert launcher.cmd == (
             ("jsrun",)
             + ("-n", "1", "-r", "1", "-a", "1")
@@ -604,39 +582,33 @@ class TestJSRunLauncher:
             + ("foo", "bar")
         )
 
-    @pytest.mark.parametrize("rank_var", m.RANK_ENV_VARS)
     def test_multi_rank(
         self,
         monkeypatch: pytest.MonkeyPatch,
         genconfig: GenConfig,
-        rank_var: str,
     ) -> None:
-        for name in m.RANK_ENV_VARS:
-            monkeypatch.delenv(name, raising=False)
-        monkeypatch.setenv(name, "123")
+        monkeypatch.delenv("LEGATE_RANK", raising=False)
+        monkeypatch.setenv("LEGATE_RANK", "123")
 
         config = genconfig(["--launcher", "jsrun"], multi_rank=(100, 2))
         system = System()
         launcher = m.Launcher.create(config, system)
 
-        assert launcher.rank_id == "%q{OMPI_COMM_WORLD_RANK}"
+        assert launcher.rank_id == "123"
         assert launcher.cmd == (
             ("jsrun",)
             + ("-n", "100", "-r", "1", "-a", "2")
             + ("-c", "ALL_CPUS", "-g", "ALL_GPUS", "-b", "none")
         )
 
-    @pytest.mark.parametrize("rank_var", m.RANK_ENV_VARS)
     def test_multi_rank_launcher_extra(
         self,
         monkeypatch: pytest.MonkeyPatch,
         genconfig: GenConfig,
-        rank_var: str,
     ) -> None:
 
-        for name in m.RANK_ENV_VARS:
-            monkeypatch.delenv(name, raising=False)
-        monkeypatch.setenv(name, "123")
+        monkeypatch.delenv("LEGATE_RANK", raising=False)
+        monkeypatch.setenv("LEGATE_RANK", "123")
 
         config = genconfig(
             [
@@ -652,7 +624,7 @@ class TestJSRunLauncher:
         system = System()
         launcher = m.Launcher.create(config, system)
 
-        assert launcher.rank_id == "%q{OMPI_COMM_WORLD_RANK}"
+        assert launcher.rank_id == "123"
         assert launcher.cmd == (
             ("jsrun",)
             + ("-n", "100", "-r", "1", "-a", "2")
@@ -667,7 +639,7 @@ class TestSRunLauncher:
 
         launcher = m.Launcher.create(config, SYSTEM)
 
-        assert launcher.rank_id == "%q{SLURM_PROCID}"
+        assert launcher.rank_id == "0"
         assert launcher.cmd == ("srun", "-n", "1", "--ntasks-per-node", "1")
 
     def test_single_rank_launcher_extra(self, genconfig: GenConfig) -> None:
@@ -684,7 +656,7 @@ class TestSRunLauncher:
 
         launcher = m.Launcher.create(config, SYSTEM)
 
-        assert launcher.rank_id == "%q{SLURM_PROCID}"
+        assert launcher.rank_id == "0"
         assert launcher.cmd == (
             "srun",
             "-n",
@@ -705,7 +677,7 @@ class TestSRunLauncher:
 
         launcher = m.Launcher.create(config, SYSTEM)
 
-        assert launcher.rank_id == "%q{SLURM_PROCID}"
+        assert launcher.rank_id == "0"
         assert launcher.cmd == (
             "srun",
             "-n",
@@ -715,34 +687,28 @@ class TestSRunLauncher:
             "--pty",
         )
 
-    @pytest.mark.parametrize("rank_var", m.RANK_ENV_VARS)
     def test_multi_rank(
         self,
         monkeypatch: pytest.MonkeyPatch,
         genconfig: GenConfig,
-        rank_var: str,
     ) -> None:
-        for name in m.RANK_ENV_VARS:
-            monkeypatch.delenv(name, raising=False)
-        monkeypatch.setenv(name, "123")
+        monkeypatch.delenv("LEGATE_RANK", raising=False)
+        monkeypatch.setenv("LEGATE_RANK", "123")
 
         config = genconfig(["--launcher", "srun"], multi_rank=(100, 2))
         system = System()
         launcher = m.Launcher.create(config, system)
 
-        assert launcher.rank_id == "%q{SLURM_PROCID}"
+        assert launcher.rank_id == "123"
         assert launcher.cmd == ("srun", "-n", "200", "--ntasks-per-node", "2")
 
-    @pytest.mark.parametrize("rank_var", m.RANK_ENV_VARS)
     def test_multi_rank_launcher_extra(
         self,
         monkeypatch: pytest.MonkeyPatch,
         genconfig: GenConfig,
-        rank_var: str,
     ) -> None:
-        for name in m.RANK_ENV_VARS:
-            monkeypatch.delenv(name, raising=False)
-        monkeypatch.setenv(name, "123")
+        monkeypatch.delenv("LEGATE_RANK", raising=False)
+        monkeypatch.setenv("LEGATE_RANK", "123")
 
         config = genconfig(
             [
@@ -758,7 +724,7 @@ class TestSRunLauncher:
         system = System()
         launcher = m.Launcher.create(config, system)
 
-        assert launcher.rank_id == "%q{SLURM_PROCID}"
+        assert launcher.rank_id == "123"
         assert launcher.cmd == (
             "srun",
             "-n",
@@ -769,7 +735,6 @@ class TestSRunLauncher:
             "bar",
         )
 
-    @pytest.mark.parametrize("rank_var", m.RANK_ENV_VARS)
     @pytest.mark.parametrize(
         "debugger", powerset_nonempty(("--gdb", "--cuda-gdb")), ids=str
     )
@@ -778,11 +743,9 @@ class TestSRunLauncher:
         monkeypatch: pytest.MonkeyPatch,
         genconfig: GenConfig,
         debugger: str,
-        rank_var: str,
     ) -> None:
-        for name in m.RANK_ENV_VARS:
-            monkeypatch.delenv(name, raising=False)
-        monkeypatch.setenv(name, "123")
+        monkeypatch.delenv("LEGATE_RANK", raising=False)
+        monkeypatch.setenv("LEGATE_RANK", "123")
 
         config = genconfig(
             ["--launcher", "srun"] + list(debugger), multi_rank=(100, 2)
@@ -790,7 +753,7 @@ class TestSRunLauncher:
         system = System()
         launcher = m.Launcher.create(config, system)
 
-        assert launcher.rank_id == "%q{SLURM_PROCID}"
+        assert launcher.rank_id == "123"
         assert launcher.cmd == (
             "srun",
             "-n",

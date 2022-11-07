@@ -84,12 +84,9 @@ def genconfig() -> Any:
 
 @pytest.fixture
 def gensystem(monkeypatch: pytest.MonkeyPatch) -> Any:
-    def _system(
-        rank_env: dict[str, str] | None = None, os: str | None = None
-    ) -> System:
-        if rank_env:
-            for k, v in rank_env.items():
-                monkeypatch.setenv(k, v)
+    def _system(rank_id: str | None = None, os: str | None = None) -> System:
+        if rank_id:
+            monkeypatch.setenv("LEGATE_RANK", rank_id)
         system = System()
         if os:
             monkeypatch.setattr(system, "os", os)
@@ -107,13 +104,13 @@ def genobjs(
         *,
         fake_module: str | None = "foo.py",
         multi_rank: tuple[int, int] | None = None,
-        rank_env: dict[str, str] | None = None,
+        rank_id: str | None = None,
         os: str | None = None,
     ) -> tuple[Config, System, Launcher]:
         config = genconfig(
             args, fake_module=fake_module, multi_rank=multi_rank
         )
-        system = gensystem(rank_env, os)
+        system = gensystem(rank_id, os)
         launcher = Launcher.create(config, system)
         return config, system, launcher
 

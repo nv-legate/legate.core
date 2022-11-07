@@ -23,7 +23,7 @@ from pytest_mock import MockerFixture
 import legate.driver.driver as m
 from legate.driver.command import CMD_PARTS
 from legate.driver.config import Config
-from legate.driver.launcher import RANK_ENV_VARS, Launcher
+from legate.driver.launcher import Launcher
 from legate.util.colors import scrub
 from legate.util.shared_args import LAUNCHERS
 from legate.util.system import System
@@ -132,17 +132,14 @@ class TestDriver:
 
         assert pv_out in run_out
 
-    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     def test_verbose_nonero_rank_id(
         self,
         monkeypatch: pytest.MonkeyPatch,
         capsys: Capsys,
         genconfig: GenConfig,
-        rank_var: str,
     ) -> None:
-        for name in RANK_ENV_VARS:
-            monkeypatch.delenv(name, raising=False)
-        monkeypatch.setenv(name, "1")
+        monkeypatch.delenv("LEGATE_RANK", raising=False)
+        monkeypatch.setenv("LEGATE_RANK", "1")
 
         # set --dry-run to avoid needing to mock anything
         config = genconfig(

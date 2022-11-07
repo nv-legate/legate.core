@@ -29,13 +29,6 @@ if TYPE_CHECKING:
 
 __all__ = ("Launcher",)
 
-RANK_ENV_VARS = (
-    "OMPI_COMM_WORLD_RANK",
-    "PMI_RANK",
-    "MV2_COMM_WORLD_RANK",
-    "SLURM_PROCID",
-)
-
 LAUNCHER_VAR_PREFIXES = (
     "CONDA_",
     "LEGATE_",
@@ -49,6 +42,14 @@ LAUNCHER_VAR_PREFIXES = (
     "CUNUMERIC_",
     "NVIDIA_",
 )
+
+
+RANK_ERR_MSG = """\
+Could not detect rank ID on multi-rank run with no --launcher provided. If you
+want Legate to use a launcher, e.g. mpirun, internally (recommended), then you
+need to specify which one to use by passing --launcher. Otherwise you need to
+invoke the legate script itself through a launcher.
+"""
 
 
 class Launcher:
@@ -82,6 +83,15 @@ class Launcher:
     def __init__(self, config: ConfigProtocol, system: System) -> None:
         self._config = config
         self._system = system
+
+        if config.multi_node.ranks == 1:
+            self.rank_id = "0"
+
+        elif "LEGATE_RANK" in system.env:
+            self.rank_id = system.env["LEGATE_RANK"]
+
+        else:
+            raise RuntimeError(RANK_ERR_MSG)
 
         self._check_realm_python()
 
@@ -278,14 +288,6 @@ class Launcher:
         return full_env, custom_env_vars
 
 
-RANK_ERR_MSG = """\
-Could not detect rank ID on multi-rank run with no --launcher provided. If you
-want Legate to use a launcher, e.g. mpirun, internally (recommended), then you
-need to specify which one to use by passing --launcher. Otherwise you need to
-invoke the legate script itself through a launcher.
-"""
-
-
 class SimpleLauncher(Launcher):
     """A Launcher subclass for the "no launcher" case."""
 
@@ -293,19 +295,6 @@ class SimpleLauncher(Launcher):
 
     def __init__(self, config: ConfigProtocol, system: System) -> None:
         super().__init__(config, system)
-
-        if config.multi_node.ranks == 1:
-            self.rank_id = "0"
-
-        else:
-            for var in RANK_ENV_VARS:
-                if var in system.env:
-                    self.rank_id = system.env[var]
-                    break
-
-            # NB: for-else clause! (executes if NO loop break)
-            else:
-                raise RuntimeError(RANK_ERR_MSG)
 
         self.cmd = ()
 
@@ -321,8 +310,6 @@ class MPILauncher(Launcher):
 
     def __init__(self, config: ConfigProtocol, system: System) -> None:
         super().__init__(config, system)
-
-        self.rank_id = "%q{OMPI_COMM_WORLD_RANK}"
 
         ranks = config.multi_node.ranks
         ranks_per_node = config.multi_node.ranks_per_node
@@ -352,8 +339,6 @@ class JSRunLauncher(Launcher):
     def __init__(self, config: ConfigProtocol, system: System) -> None:
         super().__init__(config, system)
 
-        self.rank_id = "%q{OMPI_COMM_WORLD_RANK}"
-
         ranks = config.multi_node.ranks
         ranks_per_node = config.multi_node.ranks_per_node
 
@@ -379,8 +364,6 @@ class SRunLauncher(Launcher):
 
     def __init__(self, config: ConfigProtocol, system: System) -> None:
         super().__init__(config, system)
-
-        self.rank_id = "%q{SLURM_PROCID}"
 
         ranks = config.multi_node.ranks
         ranks_per_node = config.multi_node.ranks_per_node

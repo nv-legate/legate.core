@@ -20,7 +20,6 @@ from pathlib import Path
 import pytest
 
 import legate.driver.command as m
-from legate.driver.launcher import RANK_ENV_VARS
 from legate.util.colors import scrub
 from legate.util.types import LauncherType
 
@@ -121,19 +120,17 @@ class Test_cmd_bind:
         assert result[-1] == "--"
 
     @pytest.mark.parametrize("launch", ("none", "mpirun", "jsrun", "srun"))
-    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("kind", ("cpu", "gpu", "mem", "nic"))
     def test_ranks_good(
         self,
         genobjs: GenObjs,
         launch: LauncherType,
         kind: str,
-        rank_var: dict[str, str],
     ) -> None:
         config, system, launcher = genobjs(
             [f"--{kind}-bind", "1/2", "--launcher", launch],
             multi_rank=(2, 2),
-            rank_env={rank_var: "1"},
+            rank_id="1",
         )
 
         result = m.cmd_bind(config, system, launcher)
@@ -151,19 +148,15 @@ class Test_cmd_bind:
         )
 
     @pytest.mark.parametrize("binding", ("1", "1/2/3"))
-    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("kind", ("cpu", "gpu", "mem", "nic"))
     def test_ranks_bad(
         self,
         genobjs: GenObjs,
         binding: str,
         kind: str,
-        rank_var: dict[str, str],
     ) -> None:
         config, system, launcher = genobjs(
-            [f"--{kind}-bind", binding],
-            multi_rank=(2, 2),
-            rank_env={rank_var: "1"},
+            [f"--{kind}-bind", binding], multi_rank=(2, 2), rank_id="1"
         )
 
         msg = (
@@ -195,13 +188,12 @@ class Test_cmd_gdb:
         debugger = ("lldb", "--") if os == "Darwin" else ("gdb", "--args")
         assert result == debugger
 
-    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("os", ("Darwin", "Linux"))
     def test_with_option_multi_rank(
-        self, genobjs: GenObjs, capsys: Capsys, os: str, rank_var: str
+        self, genobjs: GenObjs, capsys: Capsys, os: str
     ) -> None:
         config, system, launcher = genobjs(
-            ["--gdb"], multi_rank=(2, 2), rank_env={rank_var: "1"}, os=os
+            ["--gdb"], multi_rank=(2, 2), rank_id="1", os=os
         )
 
         result = m.cmd_gdb(config, system, launcher)
@@ -232,13 +224,12 @@ class Test_cmd_cuda_gdb:
 
         assert result == ("cuda-gdb", "--args")
 
-    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("os", ("Darwin", "Linux"))
     def test_with_option_multi_rank(
-        self, genobjs: GenObjs, capsys: Capsys, os: str, rank_var: str
+        self, genobjs: GenObjs, capsys: Capsys, os: str
     ) -> None:
         config, system, launcher = genobjs(
-            ["--cuda-gdb"], multi_rank=(2, 2), rank_env={rank_var: "1"}, os=os
+            ["--cuda-gdb"], multi_rank=(2, 2), rank_id="1", os=os
         )
 
         result = m.cmd_cuda_gdb(config, system, launcher)
@@ -264,15 +255,10 @@ class Test_cmd_nvprof:
         log_path = str(config.logging.logdir / "legate_0.nvvp")
         assert result == ("nvprof", "-o", log_path)
 
-    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("rank", ("0", "1", "2"))
-    def test_multi_rank_no_launcher(
-        self, genobjs: GenObjs, rank_var: str, rank: str
-    ) -> None:
+    def test_multi_rank_no_launcher(self, genobjs: GenObjs, rank: str) -> None:
         config, system, launcher = genobjs(
-            ["--nvprof", "--logdir", "foo"],
-            multi_rank=(2, 2),
-            rank_env={rank_var: rank},
+            ["--nvprof", "--logdir", "foo"], multi_rank=(2, 2), rank_id=rank
         )
 
         result = m.cmd_nvprof(config, system, launcher)
@@ -280,15 +266,18 @@ class Test_cmd_nvprof:
         log_path = str(config.logging.logdir / f"legate_{rank}.nvvp")
         assert result == ("nvprof", "-o", log_path)
 
+    @pytest.mark.parametrize("rank", ("0", "1", "2"))
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     def test_multi_rank_with_launcher(
         self,
         genobjs: GenObjs,
+        rank: str,
         launch: str,
     ) -> None:
         config, system, launcher = genobjs(
             ["--nvprof", "--logdir", "foo", "--launcher", launch],
             multi_rank=(2, 2),
+            rank_id=rank,
         )
 
         result = m.cmd_nvprof(config, system, launcher)
@@ -307,15 +296,10 @@ class Test_cmd_nsys:
 
         assert result == ()
 
-    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("rank", ("0", "1", "2"))
-    def test_multi_rank_no_launcher(
-        self, genobjs: GenObjs, rank_var: str, rank: str
-    ) -> None:
+    def test_multi_rank_no_launcher(self, genobjs: GenObjs, rank: str) -> None:
         config, system, launcher = genobjs(
-            ["--nsys", "--logdir", "foo"],
-            multi_rank=(2, 2),
-            rank_env={rank_var: rank},
+            ["--nsys", "--logdir", "foo"], multi_rank=(2, 2), rank_id=rank
         )
 
         result = m.cmd_nsys(config, system, launcher)
@@ -332,13 +316,15 @@ class Test_cmd_nsys:
             "none",
         )
 
+    @pytest.mark.parametrize("rank", ("0", "1", "2"))
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     def test_multi_rank_with_launcher(
-        self, genobjs: GenObjs, launch: str
+        self, genobjs: GenObjs, rank: str, launch: str
     ) -> None:
         config, system, launcher = genobjs(
             ["--nsys", "--logdir", "foo", "--launcher", launch],
             multi_rank=(2, 2),
+            rank_id=rank,
         )
 
         result = m.cmd_nsys(config, system, launcher)
@@ -355,11 +341,8 @@ class Test_cmd_nsys:
             "none",
         )
 
-    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("rank", ("0", "1", "2"))
-    def test_multi_rank_extra_no_s(
-        self, genobjs: GenObjs, rank_var: str, rank: str
-    ) -> None:
+    def test_multi_rank_extra_no_s(self, genobjs: GenObjs, rank: str) -> None:
         config, system, launcher = genobjs(
             [
                 "--nsys",
@@ -371,7 +354,7 @@ class Test_cmd_nsys:
                 "b",
             ],
             multi_rank=(2, 2),
-            rank_env={rank_var: rank},
+            rank_id=rank,
         )
 
         result = m.cmd_nsys(config, system, launcher)
@@ -390,10 +373,9 @@ class Test_cmd_nsys:
             "none",
         )
 
-    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("rank", ("0", "1", "2"))
     def test_multi_rank_extra_with_s(
-        self, genobjs: GenObjs, rank_var: str, rank: str
+        self, genobjs: GenObjs, rank: str
     ) -> None:
         config, system, launcher = genobjs(
             [
@@ -409,7 +391,7 @@ class Test_cmd_nsys:
                 "foo",
             ],
             multi_rank=(2, 2),
-            rank_env={rank_var: rank},
+            rank_id=rank,
         )
 
         result = m.cmd_nsys(config, system, launcher)
@@ -428,11 +410,8 @@ class Test_cmd_nsys:
             "foo",
         )
 
-    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("rank", ("0", "1", "2"))
-    def test_multi_rank_targets(
-        self, genobjs: GenObjs, rank_var: str, rank: str
-    ) -> None:
+    def test_multi_rank_targets(self, genobjs: GenObjs, rank: str) -> None:
         config, system, launcher = genobjs(
             [
                 "--nsys",
@@ -442,7 +421,7 @@ class Test_cmd_nsys:
                 "foo,bar",
             ],
             multi_rank=(2, 2),
-            rank_env={rank_var: rank},
+            rank_id=rank,
         )
 
         result = m.cmd_nsys(config, system, launcher)
@@ -715,65 +694,64 @@ class Test_cmd_utility:
 
         assert result == ("-ll:util", value)
 
-    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("rank", ("0", "1", "2"))
-    def test_default_multi_rank(
-        self, genobjs: GenObjs, rank: str, rank_var: dict[str, str]
-    ) -> None:
-        config, system, launcher = genobjs(
-            [], multi_rank=(2, 2), rank_env={rank_var: rank}
-        )
+    def test_default_multi_rank(self, genobjs: GenObjs, rank: str) -> None:
+        config, system, launcher = genobjs([], multi_rank=(2, 2), rank_id=rank)
 
         result = m.cmd_utility(config, system, launcher)
 
         assert result == ("-ll:util", "2", "-ll:bgwork", "2")
 
-    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("rank", ("0", "1", "2"))
     def test_utility_1_multi_rank_no_launcher(
-        self, genobjs: GenObjs, rank: str, rank_var: dict[str, str]
+        self, genobjs: GenObjs, rank: str
     ) -> None:
         config, system, launcher = genobjs(
-            ["--utility", "1"], multi_rank=(2, 2), rank_env={rank_var: rank}
+            ["--utility", "1"], multi_rank=(2, 2), rank_id=rank
         )
 
         result = m.cmd_utility(config, system, launcher)
 
         assert result == ()
 
+    @pytest.mark.parametrize("rank", ("0", "1", "2"))
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     def test_utility_1_multi_rank_with_launcher(
-        self, genobjs: GenObjs, launch: str
+        self, genobjs: GenObjs, rank: str, launch: str
     ) -> None:
         config, system, launcher = genobjs(
-            ["--utility", "1", "--launcher", launch], multi_rank=(2, 2)
+            ["--utility", "1", "--launcher", launch],
+            multi_rank=(2, 2),
+            rank_id=rank,
         )
 
         result = m.cmd_utility(config, system, launcher)
 
         assert result == ()
 
-    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("rank", ("0", "1", "2"))
     @pytest.mark.parametrize("value", ("2", "3", "10"))
     def test_utility_n_multi_rank_no_launcher(
-        self, genobjs: GenObjs, value: str, rank: str, rank_var: dict[str, str]
+        self, genobjs: GenObjs, value: str, rank: str
     ) -> None:
         config, system, launcher = genobjs(
-            ["--utility", value], multi_rank=(2, 2), rank_env={rank_var: rank}
+            ["--utility", value], multi_rank=(2, 2), rank_id=rank
         )
 
         result = m.cmd_utility(config, system, launcher)
 
         assert result == ("-ll:util", value, "-ll:bgwork", value)
 
+    @pytest.mark.parametrize("rank", ("0", "1", "2"))
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     @pytest.mark.parametrize("value", ("2", "3", "10"))
     def test_utility_n_multi_rank_with_launcher(
-        self, genobjs: GenObjs, value: str, launch: str
+        self, genobjs: GenObjs, rank: str, value: str, launch: str
     ) -> None:
         config, system, launcher = genobjs(
-            ["--utility", value, "--launcher", launch], multi_rank=(2, 2)
+            ["--utility", value, "--launcher", launch],
+            multi_rank=(2, 2),
+            rank_id=rank,
         )
 
         result = m.cmd_utility(config, system, launcher)
@@ -936,12 +914,9 @@ class Test_cmd_log_levels:
             + ("-level", "openmp=5,legion_prof=2")
         )
 
-    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
-    def test_profile_multi_rank_no_launcher(
-        self, genobjs: GenObjs, rank_var: str
-    ) -> None:
+    def test_profile_multi_rank_no_launcher(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs(
-            ["--profile"], multi_rank=(2, 2), rank_env={rank_var: "2"}
+            ["--profile"], multi_rank=(2, 2), rank_id="2"
         )
 
         result = m.cmd_log_levels(config, system, launcher)
@@ -953,12 +928,15 @@ class Test_cmd_log_levels:
             + ("-level", "openmp=5,legion_prof=2")
         )
 
+    @pytest.mark.parametrize("rank", ("0", "1", "2"))
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     def test_profile_multi_rank_with_launcher(
-        self, genobjs: GenObjs, launch: str
+        self, genobjs: GenObjs, rank: str, launch: str
     ) -> None:
         config, system, launcher = genobjs(
-            ["--profile", "--launcher", launch], multi_rank=(2, 2)
+            ["--profile", "--launcher", launch],
+            multi_rank=(2, 2),
+            rank_id=rank,
         )
 
         result = m.cmd_log_levels(config, system, launcher)
@@ -988,10 +966,7 @@ class Test_cmd_log_levels:
         assert result == ("-lg:spy", "-level", "openmp=5,legion_spy=2")
 
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
-    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
-    def test_combined(
-        self, genobjs: GenObjs, launch: str, rank_var: str
-    ) -> None:
+    def test_combined(self, genobjs: GenObjs, launch: str) -> None:
         config, system, launcher = genobjs(
             [
                 "--profile",
@@ -1004,7 +979,7 @@ class Test_cmd_log_levels:
                 "foo",
             ],
             multi_rank=(2, 2),
-            rank_env={rank_var: "2"},
+            rank_id="2",
         )
 
         result = m.cmd_log_levels(config, system, launcher)
