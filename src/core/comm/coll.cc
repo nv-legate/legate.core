@@ -244,13 +244,13 @@ int collInit(int argc, char* argv[])
 {
   current_unique_id = 0;
 #ifdef LEGATE_USE_NETWORK
-  int provided, init_flag = 0;
+  int init_flag = 0;
   CHECK_MPI(MPI_Initialized(&init_flag));
   if (!init_flag) {
-    char* network = getenv("LEGATE_NEED_NETWORK");
-    int num_nodes = 0;
-    if (network != nullptr) { num_nodes = atoi(network); }
-    if (num_nodes > 1) {
+    char* network    = getenv("LEGATE_NEED_NETWORK");
+    int need_network = 0;
+    if (network != nullptr) { need_network = atoi(network); }
+    if (need_network) {
       log_coll.fatal(
         "MPI has not been initialized, it should be initialized by "
         "the networking backend.");
