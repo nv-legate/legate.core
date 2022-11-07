@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod, abstractproperty
+from functools import lru_cache
 from typing import TYPE_CHECKING, Optional, Sequence, Type, Union
 
 from . import (
@@ -237,6 +238,7 @@ class Tiling(PartitionBase):
     def has_color(self, color: Shape) -> bool:
         return color >= 0 and color < self._color_shape
 
+    @lru_cache
     def get_subregion_size(self, extents: Shape, color: Shape) -> Shape:
         lo = self._tile_shape * color + self._offset
         hi = self._tile_shape * (color + 1) + self._offset
