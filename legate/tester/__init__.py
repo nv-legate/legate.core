@@ -84,8 +84,4 @@ class CustomTest:
 #: files are run serially, after the sharded, parallelized tests.
 #:
 #: Client test scripts should udpate this set with their own customizations.
-CUSTOM_FILES: list[CustomTest] = [
-    CustomTest(
-        "tests/integration/test_swapaxes.py", "cuda", ["--fbmem", "8192"]
-    )
-]
+CUSTOM_FILES: list[CustomTest] = []
