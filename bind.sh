@@ -32,6 +32,7 @@ Options:
   --nics=SPEC       Network interface binding specification, used to set
                     all of: UCX_NET_DEVICES, NCCL_IB_HCA, GASNET_NUM_QPS,
                     and GASNET_IBV_PORTS
+  --debug           print out the final computed invocation before exectuting
 
 SPEC specifies the resources to bind each node-local rank to, with ranks
 separated by /, e.g. '0,1/2,3/4,5/6,7' for 4 ranks per node.
@@ -46,15 +47,17 @@ EOM
   exit 2
 }
 
+debug="0"
 launcher=auto
 while :
 do
   case "$1" in
-    --launcher) launcher="$2" ;;
-    --cpus) cpus="$2" ;;
-    --gpus) gpus="$2" ;;
-    --mems) mems="$2" ;;
-    --nics) nics="$2" ;;
+    --launcher) launcher="$2"; shift 2 ;;
+    --cpus) cpus="$2"; shift 2 ;;
+    --gpus) gpus="$2"; shift 2 ;;
+    --mems) mems="$2"; shift 2 ;;
+    --nics) nics="$2"; shift 2 ;;
+    --debug) debug="1"; shift ;;
     --help) help ;;
     --)
       shift;
@@ -65,7 +68,6 @@ do
       help
       ;;
   esac
-  shift 2
 done
 
 case "$launcher" in
@@ -175,5 +177,10 @@ for arg in $@; do
 done
 
 set -- "${updated[@]}"
+
+if [ "$debug" == "1" ]; then
+  echo "bind.sh: $@" 1>&2
+  echo
+fi
 
 exec "$@"

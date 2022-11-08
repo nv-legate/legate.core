@@ -62,6 +62,9 @@ def cmd_bind(
             check_bind_ranks(name, binding)
             opts += (f"--{name}s", binding)
 
+    if config.info.bind_detail:
+        opts += ("--debug",)
+
     return opts + ("--",)
 
 

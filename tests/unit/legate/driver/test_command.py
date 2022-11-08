@@ -73,6 +73,14 @@ class Test_cmd_bind:
         bind_sh = str(system.legate_paths.bind_sh_path)
         assert result == (bind_sh, "--launcher", "local", "--")
 
+    def test_bind_detail(self, genobjs: GenObjs) -> None:
+        config, system, launcher = genobjs(["--bind-detail"])
+
+        result = m.cmd_bind(config, system, launcher)
+
+        bind_sh = str(system.legate_paths.bind_sh_path)
+        assert result == (bind_sh, "--launcher", "local", "--debug", "--")
+
     @pytest.mark.parametrize("kind", ("cpu", "gpu", "mem", "nic"))
     def test_basic_local(self, genobjs: GenObjs, kind: str) -> None:
         config, system, launcher = genobjs([f"--{kind}-bind", "1"])
