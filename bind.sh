@@ -176,6 +176,6 @@ done
 
 set -- "${updated[@]}"
 
-echo "bind.sh: $@" 1>&2
+# echo "bind.sh: $@" 1>&2
 
 exec "$@"
