@@ -171,9 +171,11 @@ count=0
 updated=()
 for arg in $@; do
   updated+=("${arg/\%\%LEGATE_GLOBAL_RANK\%\%/$LEGATE_GLOBAL_RANK}")
-  count=$((count++))
+  count=$((count+1))
 done
 
 set -- "${updated[@]}"
+
+echo "bind.sh: $@" 1>&2
 
 exec "$@"
