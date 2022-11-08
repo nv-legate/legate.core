@@ -54,6 +54,10 @@ def test_LAUNCHER_VAR_PREFIXES() -> None:
     )
 
 
+def test_LEGATE_GLOBAL_RANK_SUBSTITUTION() -> None:
+    assert m.LEGATE_GLOBAL_RANK_SUBSTITUTION == "%%LEGATE_GLOBAL_RANK%%"
+
+
 class TestLauncher:
     @pytest.mark.parametrize("prefix", m.LAUNCHER_VAR_PREFIXES)
     def test_is_launcher_var_good_prefix(self, prefix: str) -> None:
@@ -358,7 +362,7 @@ class TestSimpleLauncher:
 
         launcher = m.Launcher.create(config, SYSTEM)
 
-        assert launcher.rank_id == "0"
+        assert launcher.rank_id == m.LEGATE_GLOBAL_RANK_SUBSTITUTION
         assert launcher.cmd == ()
 
     def test_single_rank_launcher_extra_ignored(
@@ -370,7 +374,7 @@ class TestSimpleLauncher:
 
         launcher = m.Launcher.create(config, SYSTEM)
 
-        assert launcher.rank_id == "0"
+        assert launcher.rank_id == m.LEGATE_GLOBAL_RANK_SUBSTITUTION
         assert launcher.cmd == ()
 
     @pytest.mark.parametrize("rank_var", m.RANK_ENV_VARS)
@@ -388,7 +392,7 @@ class TestSimpleLauncher:
         system = System()
         launcher = m.Launcher.create(config, system)
 
-        assert launcher.rank_id == "123"
+        assert launcher.rank_id == m.LEGATE_GLOBAL_RANK_SUBSTITUTION
         assert launcher.cmd == ()
 
     def test_multi_rank_bad(self, genconfig: GenConfig) -> None:
@@ -416,7 +420,7 @@ class TestSimpleLauncher:
         system = System()
         launcher = m.Launcher.create(config, system)
 
-        assert launcher.rank_id == "123"
+        assert launcher.rank_id == m.LEGATE_GLOBAL_RANK_SUBSTITUTION
         assert launcher.cmd == ()
 
 
@@ -465,7 +469,7 @@ class TestMPILauncher:
 
         launcher = m.Launcher.create(config, SYSTEM)
 
-        assert launcher.rank_id == "%q{OMPI_COMM_WORLD_RANK}"
+        assert launcher.rank_id == m.LEGATE_GLOBAL_RANK_SUBSTITUTION
 
         # TODO (bv) -x env args currnetly too fragile to test
         assert launcher.cmd[:10] == (
@@ -490,7 +494,7 @@ class TestMPILauncher:
 
         launcher = m.Launcher.create(config, SYSTEM)
 
-        assert launcher.rank_id == "%q{OMPI_COMM_WORLD_RANK}"
+        assert launcher.rank_id == m.LEGATE_GLOBAL_RANK_SUBSTITUTION
 
         # TODO (bv) -x env args currnetly too fragile to test
         assert launcher.cmd[:10] == (
@@ -517,7 +521,7 @@ class TestMPILauncher:
         system = System()
         launcher = m.Launcher.create(config, system)
 
-        assert launcher.rank_id == "%q{OMPI_COMM_WORLD_RANK}"
+        assert launcher.rank_id == m.LEGATE_GLOBAL_RANK_SUBSTITUTION
 
         # TODO (bv) -x env args currnetly too fragile to test
         assert launcher.cmd[:10] == (
@@ -555,7 +559,7 @@ class TestMPILauncher:
         system = System()
         launcher = m.Launcher.create(config, system)
 
-        assert launcher.rank_id == "%q{OMPI_COMM_WORLD_RANK}"
+        assert launcher.rank_id == m.LEGATE_GLOBAL_RANK_SUBSTITUTION
 
         # TODO (bv) -x env args currnetly too fragile to test
         assert launcher.cmd[:10] == (
@@ -575,7 +579,7 @@ class TestJSRunLauncher:
 
         launcher = m.Launcher.create(config, SYSTEM)
 
-        assert launcher.rank_id == "%q{OMPI_COMM_WORLD_RANK}"
+        assert launcher.rank_id == m.LEGATE_GLOBAL_RANK_SUBSTITUTION
         assert launcher.cmd == (
             ("jsrun",)
             + ("-n", "1", "-r", "1", "-a", "1")
@@ -596,7 +600,7 @@ class TestJSRunLauncher:
 
         launcher = m.Launcher.create(config, SYSTEM)
 
-        assert launcher.rank_id == "%q{OMPI_COMM_WORLD_RANK}"
+        assert launcher.rank_id == m.LEGATE_GLOBAL_RANK_SUBSTITUTION
         assert launcher.cmd == (
             ("jsrun",)
             + ("-n", "1", "-r", "1", "-a", "1")
@@ -619,7 +623,7 @@ class TestJSRunLauncher:
         system = System()
         launcher = m.Launcher.create(config, system)
 
-        assert launcher.rank_id == "%q{OMPI_COMM_WORLD_RANK}"
+        assert launcher.rank_id == m.LEGATE_GLOBAL_RANK_SUBSTITUTION
         assert launcher.cmd == (
             ("jsrun",)
             + ("-n", "100", "-r", "1", "-a", "2")
@@ -652,7 +656,7 @@ class TestJSRunLauncher:
         system = System()
         launcher = m.Launcher.create(config, system)
 
-        assert launcher.rank_id == "%q{OMPI_COMM_WORLD_RANK}"
+        assert launcher.rank_id == m.LEGATE_GLOBAL_RANK_SUBSTITUTION
         assert launcher.cmd == (
             ("jsrun",)
             + ("-n", "100", "-r", "1", "-a", "2")
@@ -667,7 +671,7 @@ class TestSRunLauncher:
 
         launcher = m.Launcher.create(config, SYSTEM)
 
-        assert launcher.rank_id == "%q{SLURM_PROCID}"
+        assert launcher.rank_id == m.LEGATE_GLOBAL_RANK_SUBSTITUTION
         assert launcher.cmd == ("srun", "-n", "1", "--ntasks-per-node", "1")
 
     def test_single_rank_launcher_extra(self, genconfig: GenConfig) -> None:
@@ -684,7 +688,7 @@ class TestSRunLauncher:
 
         launcher = m.Launcher.create(config, SYSTEM)
 
-        assert launcher.rank_id == "%q{SLURM_PROCID}"
+        assert launcher.rank_id == m.LEGATE_GLOBAL_RANK_SUBSTITUTION
         assert launcher.cmd == (
             "srun",
             "-n",
@@ -705,7 +709,7 @@ class TestSRunLauncher:
 
         launcher = m.Launcher.create(config, SYSTEM)
 
-        assert launcher.rank_id == "%q{SLURM_PROCID}"
+        assert launcher.rank_id == m.LEGATE_GLOBAL_RANK_SUBSTITUTION
         assert launcher.cmd == (
             "srun",
             "-n",
@@ -730,7 +734,7 @@ class TestSRunLauncher:
         system = System()
         launcher = m.Launcher.create(config, system)
 
-        assert launcher.rank_id == "%q{SLURM_PROCID}"
+        assert launcher.rank_id == m.LEGATE_GLOBAL_RANK_SUBSTITUTION
         assert launcher.cmd == ("srun", "-n", "200", "--ntasks-per-node", "2")
 
     @pytest.mark.parametrize("rank_var", m.RANK_ENV_VARS)
@@ -758,7 +762,7 @@ class TestSRunLauncher:
         system = System()
         launcher = m.Launcher.create(config, system)
 
-        assert launcher.rank_id == "%q{SLURM_PROCID}"
+        assert launcher.rank_id == m.LEGATE_GLOBAL_RANK_SUBSTITUTION
         assert launcher.cmd == (
             "srun",
             "-n",
@@ -790,7 +794,7 @@ class TestSRunLauncher:
         system = System()
         launcher = m.Launcher.create(config, system)
 
-        assert launcher.rank_id == "%q{SLURM_PROCID}"
+        assert launcher.rank_id == m.LEGATE_GLOBAL_RANK_SUBSTITUTION
         assert launcher.cmd == (
             "srun",
             "-n",

@@ -185,7 +185,7 @@ def process_logs(
 
     handlers: list[LogHandler] = []
 
-    if launcher.kind != "none" or launcher.rank_id == "0":
+    if launcher.kind != "none" or launcher.detected_rank_id == "0":
         if config.profiling.profile:
             handlers.append(ProfilingHandler(config, system))
 

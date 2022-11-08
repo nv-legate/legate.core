@@ -50,6 +50,9 @@ LAUNCHER_VAR_PREFIXES = (
     "NVIDIA_",
 )
 
+# this will be replaced by bind.sh with the actual computed rank at runtime
+LEGATE_GLOBAL_RANK_SUBSTITUTION = "%%LEGATE_GLOBAL_RANK%%"
+
 
 class Launcher:
     """A base class for custom launch handlers for Legate.
@@ -71,6 +74,9 @@ class Launcher:
 
     cmd: Command
 
+    # base class will attempt to set this
+    detected_rank_id: str | None = None
+
     _config: ConfigProtocol
 
     _system: System
@@ -82,6 +88,14 @@ class Launcher:
     def __init__(self, config: ConfigProtocol, system: System) -> None:
         self._config = config
         self._system = system
+
+        if config.multi_node.ranks == 1:
+            self.detected_rank_id = "0"
+        else:
+            for var in RANK_ENV_VARS:
+                if var in system.env:
+                    self.detected_rank_id = system.env[var]
+                    break
 
         self._check_realm_python()
 
@@ -294,18 +308,13 @@ class SimpleLauncher(Launcher):
     def __init__(self, config: ConfigProtocol, system: System) -> None:
         super().__init__(config, system)
 
-        if config.multi_node.ranks == 1:
-            self.rank_id = "0"
+        # we still want to let bind.sh handle this, even in the simple
+        # case, just for consistency. But we do still check the known
+        # rank env vars below in order to issue RANK_ERR_MSG if needed
+        self.rank_id = LEGATE_GLOBAL_RANK_SUBSTITUTION
 
-        else:
-            for var in RANK_ENV_VARS:
-                if var in system.env:
-                    self.rank_id = system.env[var]
-                    break
-
-            # NB: for-else clause! (executes if NO loop break)
-            else:
-                raise RuntimeError(RANK_ERR_MSG)
+        if config.multi_node.ranks > 1 and self.detected_rank_id is None:
+            raise RuntimeError(RANK_ERR_MSG)
 
         self.cmd = ()
 
@@ -322,7 +331,7 @@ class MPILauncher(Launcher):
     def __init__(self, config: ConfigProtocol, system: System) -> None:
         super().__init__(config, system)
 
-        self.rank_id = "%q{OMPI_COMM_WORLD_RANK}"
+        self.rank_id = LEGATE_GLOBAL_RANK_SUBSTITUTION
 
         ranks = config.multi_node.ranks
         ranks_per_node = config.multi_node.ranks_per_node
@@ -352,7 +361,7 @@ class JSRunLauncher(Launcher):
     def __init__(self, config: ConfigProtocol, system: System) -> None:
         super().__init__(config, system)
 
-        self.rank_id = "%q{OMPI_COMM_WORLD_RANK}"
+        self.rank_id = LEGATE_GLOBAL_RANK_SUBSTITUTION
 
         ranks = config.multi_node.ranks
         ranks_per_node = config.multi_node.ranks_per_node
@@ -380,7 +389,7 @@ class SRunLauncher(Launcher):
     def __init__(self, config: ConfigProtocol, system: System) -> None:
         super().__init__(config, system)
 
-        self.rank_id = "%q{SLURM_PROCID}"
+        self.rank_id = LEGATE_GLOBAL_RANK_SUBSTITUTION
 
         ranks = config.multi_node.ranks
         ranks_per_node = config.multi_node.ranks_per_node

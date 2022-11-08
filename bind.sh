@@ -69,27 +69,48 @@ do
 done
 
 case "$launcher" in
-  mpirun) rank="${OMPI_COMM_WORLD_LOCAL_RANK:-unknown}" ;;
-  jsrun ) rank="${OMPI_COMM_WORLD_LOCAL_RANK:-unknown}" ;;
-  srun  ) rank="${SLURM_LOCALID:-unknown}" ;;
-  auto  ) rank="${SLURM_LOCALID:-${OMPI_COMM_WORLD_LOCAL_RANK:-${MV2_COMM_WORLD_LOCAL_RANK:-unknown}}}" ;;
-  local ) rank="0" ;;
+  mpirun)
+    local_rank="${OMPI_COMM_WORLD_LOCAL_RANK:-unknown}"
+    global_rank="${OMPI_COMM_WORLD_RANK:-unknown}"
+    ;;
+  jsrun )
+    local_rank="${OMPI_COMM_WORLD_LOCAL_RANK:-unknown}"
+    gloabl_rank="${OMPI_COMM_WORLD_RANK:-unknown}"
+    ;;
+  srun  )
+    local_rank="${SLURM_LOCALID:-unknown}"
+    global_rank="${SLURM_PROCID:-unknown}"
+    ;;
+  auto  )
+    local_rank="${SLURM_LOCALID:-${OMPI_COMM_WORLD_LOCAL_RANK:-${MV2_COMM_WORLD_LOCAL_RANK:-unknown}}}"
+    global_rank="${OMPI_COMM_WORLD_RANK:-${PMI_RANK:-${MV2_COMM_WORLD_RANK:-${SLURM_PROCID:-unknown}}}}"
+    ;;
+  local )
+    local_rank="0"
+    global_rank="0"
+    ;;
   *)
     echo "Unexpected launcher value: $launcher" 1>&2
     help
     ;;
 esac
 
-if [[ "$rank" == "unknown" ]]; then
+if [[ "$local_rank" == "unknown" ]]; then
     echo "Error: Could not determine node-local rank" 1>&2
     exit 1
 fi
 
-export LEGATE_RANK="$rank"
+if [[ "$global_rank" == "unknown" ]]; then
+    echo "Error: Could not determine global rank" 1>&2
+    exit 1
+fi
+
+export LEGATE_LOCAL_RANK="$local_rank"
+export LEGATE_GLOBAL_RANK="$global_rank"
 
 if [ -n "${cpus+x}" ]; then
   cpus=(${cpus//\// })
-  if [[ "$rank" -ge "${#cpus[@]}" ]]; then
+  if [[ "$local_rank" -ge "${#cpus[@]}" ]]; then
       echo "Error: Incomplete CPU binding specification" 1>&2
       exit 1
   fi
@@ -97,16 +118,16 @@ fi
 
 if [ -n "${gpus+x}" ]; then
   gpus=(${gpus//\// })
-  if [[ "$rank" -ge "${#gpus[@]}" ]]; then
+  if [[ "$local_rank" -ge "${#gpus[@]}" ]]; then
       echo "Error: Incomplete GPU binding specification" 1>&2
       exit 1
   fi
-  export CUDA_VISIBLE_DEVICES="${gpus[$rank]}"
+  export CUDA_VISIBLE_DEVICES="${gpus[$local_rank]}"
 fi
 
 if [ -n "${mems+x}" ]; then
   mems=(${mems//\// })
-  if [[ "$rank" -ge "${#mems[@]}" ]]; then
+  if [[ "$local_rank" -ge "${#mems[@]}" ]]; then
       echo "Error: Incomplete MEM binding specification" 1>&2
       exit 1
   fi
@@ -114,14 +135,14 @@ fi
 
 if [ -n "${nics+x}" ]; then
   nics=(${nics//\// })
-  if [[ "$rank" -ge "${#nics[@]}" ]]; then
+  if [[ "$local_rank" -ge "${#nics[@]}" ]]; then
       echo "Error: Incomplete NIC binding specification" 1>&2
       exit 1
   fi
 
   # set all potentially relevant variables (hopefully they are ignored if we
   # are not using the corresponding network)
-  nic="${nics[$rank]}"
+  nic="${nics[$local_rank]}"
   nic_array=(${nic//,/ })
   export UCX_NET_DEVICES="${nic//,/:1,}":1
   export NCCL_IB_HCA="$nic"
@@ -133,15 +154,26 @@ fi
 if [[ -n "${cpus+x}" || -n "${mems+x}" ]]; then
   if command -v numactl &> /dev/null; then
       if [[ -n "${cpus+x}" ]]; then
-          set -- --physcpubind "${cpus[$rank]}" "$@"
+          set -- --physcpubind "${cpus[$local_rank]}" "$@"
       fi
       if [[ -n "${mems+x}" ]]; then
-          set -- --membind "${mems[$rank]}" "$@"
+          set -- --membind "${mems[$local_rank]}" "$@"
       fi
       set -- numactl "$@"
   else
       echo "Warning: numactl is not available, cannot bind to cores or memories" 1>&2
   fi
 fi
+
+# arguments may contain the substring %%LEGATE_GLOBAL_RANK%% which needs to be
+# be replaced with the actual computed rank for downstream processes to use
+count=0
+updated=()
+for arg in $@; do
+  updated+=("${arg/\%\%LEGATE_GLOBAL_RANK\%\%/$LEGATE_GLOBAL_RANK}")
+  count=$((count+1))
+done
+
+set -- "${updated[@]}"
 
 exec "$@"
