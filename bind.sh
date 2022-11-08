@@ -165,4 +165,15 @@ if [[ -n "${cpus+x}" || -n "${mems+x}" ]]; then
   fi
 fi
 
+# arguments may contain the substring %%LEGATE_GLOBAL_RANK%% which needs to be
+# be replaced with the actual computed rank for downstream processes to use
+count=0
+updated=()
+for arg in $@; do
+  updated+=("${arg/\%\%LEGATE_GLOBAL_RANK\%\%/$LEGATE_GLOBAL_RANK}")
+  count=$((count++))
+done
+
+set -- "${updated[@]}"
+
 exec "$@"

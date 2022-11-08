@@ -44,19 +44,11 @@ LAUNCHER_VAR_PREFIXES = (
 )
 
 
-RANK_ERR_MSG = """\
-Could not detect rank ID on multi-rank run with no --launcher provided. If you
-want Legate to use a launcher, e.g. mpirun, internally (recommended), then you
-need to specify which one to use by passing --launcher. Otherwise you need to
-invoke the legate script itself through a launcher.
-"""
-
-
 class Launcher:
     """A base class for custom launch handlers for Legate.
 
-    Subclasses should set ``kind``, ``rank_id``, and ``cmd`` properties during
-    their initialization.
+    Subclasses should set ``kind`` and ``cmd`` properties during their
+    initialization.
 
     Parameters
     ----------
@@ -68,8 +60,6 @@ class Launcher:
 
     kind: LauncherType
 
-    rank_id: str
-
     cmd: Command
 
     _config: ConfigProtocol
@@ -80,18 +70,12 @@ class Launcher:
 
     _custom_env_vars: set[str] | None = None
 
+    # this will be replaced by bind.sh, even in the simplest (single rank) case
+    _rank_id: str = "%%LEGATE_GLOBAL_RANK%%"
+
     def __init__(self, config: ConfigProtocol, system: System) -> None:
         self._config = config
         self._system = system
-
-        if config.multi_node.ranks == 1:
-            self.rank_id = "0"
-
-        elif "LEGATE_RANK" in system.env:
-            self.rank_id = system.env["LEGATE_RANK"]
-
-        else:
-            raise RuntimeError(RANK_ERR_MSG)
 
         self._check_realm_python()
 
@@ -130,6 +114,10 @@ class Launcher:
             return SRunLauncher(config, system)
 
         raise RuntimeError(f"Unsupported launcher: {kind}")
+
+    @property
+    def rank_id(self) -> str:
+        return self._rank_id
 
     # Slightly annoying, but it is helpful for testing to avoid importing
     # legate unless necessary, so defined these two as properties since the
