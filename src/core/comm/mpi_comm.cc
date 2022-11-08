@@ -70,13 +70,10 @@ MPINetwork::MPINetwork(int argc, char* argv[])
   int provided, init_flag = 0;
   CHECK_MPI(MPI_Initialized(&init_flag));
   if (!init_flag) {
-    log_coll.warning(
+    log_coll.fatal(
       "MPI has not been initialized, it should be initialized by "
-      "the networking backend, if -ll:networks none is passed, "
-      "then this warning can be safely ignored.");
-    int provided;
-    MPI_Init_thread(0, 0, MPI_THREAD_MULTIPLE, &provided);
-    self_init_mpi = true;
+      "the networking backend.");
+    LEGATE_ABORT;
   }
   int mpi_thread_model;
   MPI_Query_thread(&mpi_thread_model);
