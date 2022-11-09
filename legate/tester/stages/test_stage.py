@@ -23,7 +23,7 @@ from typing_extensions import Protocol
 from ...util.colors import yellow
 from ...util.types import ArgList, EnvDict
 from ...util.ui import banner, summary
-from .. import PER_FILE_ARGS, FeatureType
+from .. import CUSTOM_FILES, PER_FILE_ARGS, FeatureType
 from ..config import Config
 from ..test_system import ProcessResult, TestSystem
 from .util import Shard, StageResult, StageSpec, log_proc
@@ -92,7 +92,7 @@ class TestStage(Protocol):
             Process execution wrapper
 
         """
-        ...
+        return
 
     def shard_args(self, shard: Shard, config: Config) -> ArgList:
         """Generate the command line arguments necessary to launch
@@ -224,7 +224,12 @@ class TestStage(Protocol):
         return args
 
     def run(
-        self, test_file: Path, config: Config, system: TestSystem
+        self,
+        test_file: Path,
+        config: Config,
+        system: TestSystem,
+        *,
+        custom_args: ArgList | None = None,
     ) -> ProcessResult:
         """Execute a single test files with appropriate environment and
         command-line options for a feature test stage.
@@ -253,6 +258,9 @@ class TestStage(Protocol):
         file_args = self.file_args(test_file, config)
 
         cmd += stage_args + file_args + config.extra_args
+
+        if custom_args:
+            cmd += custom_args
 
         self.delay(shard, config, system)
 
@@ -286,4 +294,13 @@ class TestStage(Protocol):
         ]
         pool.close()
 
-        return [job.get() for job in jobs]
+        sharded_results = [job.get() for job in jobs]
+
+        custom = (x for x in CUSTOM_FILES if x.kind == self.kind)
+
+        custom_results = [
+            self.run(Path(x.file), config, system, custom_args=x.args)
+            for x in custom
+        ]
+
+        return sharded_results + custom_results

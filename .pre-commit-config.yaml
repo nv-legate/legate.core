@@ -22,7 +22,7 @@ repos:
       hooks:
         - id: mypy
           pass_filenames: false
-          args: ['legate']
-          additional_dependencies: [numpy]
+          args: ['legate', 'tests']
+          additional_dependencies: [numpy,pytest,pytest_mock]
 default_language_version:
     python: python3

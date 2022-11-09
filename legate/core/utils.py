@@ -72,9 +72,9 @@ def cast_tuple(value: Any) -> tuple[Any, ...]:
     return value if isinstance(value, tuple) else tuple(value)
 
 
-def capture_traceback(
+def capture_traceback_repr(
     skip_core_frames: bool = True,
-) -> Optional[TracebackType]:
+) -> Optional[str]:
     tb = None
     for frame, _ in traceback.walk_stack(None):
         if frame.f_globals["__name__"].startswith("legate.core"):
@@ -85,4 +85,4 @@ def capture_traceback(
             tb_lasti=frame.f_lasti,
             tb_lineno=frame.f_lineno,
         )
-    return tb
+    return "".join(traceback.format_tb(tb)) if tb is not None else None

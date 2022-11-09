@@ -59,6 +59,8 @@ static int current_unique_id = 0;
 
 static bool coll_inited = false;
 
+static bool self_mpi_init = false;
+
 // functions start here
 #ifdef LEGATE_USE_NETWORK
 static inline std::pair<int, int> mostFrequent(const int* arr, int n);
@@ -242,22 +244,30 @@ int collInit(int argc, char* argv[])
 {
   current_unique_id = 0;
 #ifdef LEGATE_USE_NETWORK
-  int provided, init_flag = 0;
+  int init_flag = 0;
   CHECK_MPI(MPI_Initialized(&init_flag));
   if (!init_flag) {
-    log_coll.fatal(
-      "MPI has not been initialized, it should be initialized by "
-      "the networking backend");
-    LEGATE_ABORT;
-  } else {
-    int mpi_thread_model;
-    MPI_Query_thread(&mpi_thread_model);
-    if (mpi_thread_model != MPI_THREAD_MULTIPLE) {
+    char* network    = getenv("LEGATE_NEED_NETWORK");
+    int need_network = 0;
+    if (network != nullptr) { need_network = atoi(network); }
+    if (need_network) {
       log_coll.fatal(
-        "MPI has been initialized by others, but is not initialized with "
-        "MPI_THREAD_MULTIPLE");
+        "MPI has not been initialized, it should be initialized by "
+        "the networking backend.");
       LEGATE_ABORT;
+    } else {
+      int provided;
+      MPI_Init_thread(0, 0, MPI_THREAD_MULTIPLE, &provided);
+      self_mpi_init = true;
     }
+  }
+  int mpi_thread_model;
+  MPI_Query_thread(&mpi_thread_model);
+  if (mpi_thread_model != MPI_THREAD_MULTIPLE) {
+    log_coll.fatal(
+      "MPI has been initialized by others, but is not initialized with "
+      "MPI_THREAD_MULTIPLE");
+    LEGATE_ABORT;
   }
   // check
   int *tag_ub, flag;
@@ -285,6 +295,7 @@ int collFinalize()
     log_coll.fatal("MPI should not have been finalized");
     LEGATE_ABORT;
   }
+  if (self_mpi_init) { CHECK_MPI(MPI_Finalize()); }
 #else
   for (ThreadComm* thread_comm : thread_comms) {
     assert(!thread_comm->ready_flag);
