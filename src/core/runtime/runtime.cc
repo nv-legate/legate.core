@@ -123,9 +123,10 @@ static void extract_scalar_task(
   point_str << point[0];
   for (int32_t dim = 1; dim < task->index_point.dim; ++dim) point_str << "," << point[dim];
 
-  log_legate.print("%s %s task, pt = (%s), proc = " IDFMT,
+  log_legate.print("%s %s task [%s], pt = (%s), proc = " IDFMT,
                    task_name,
                    proc_kind_str,
+                   task->get_provenance_string().c_str(),
                    point_str.str().c_str(),
                    exec_proc.id);
 }
