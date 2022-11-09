@@ -207,6 +207,28 @@ void BaseMapper::select_task_options(const MapperContext ctx,
                                      const LegionTask& task,
                                      TaskOptions& output)
 {
+  LegateProjectionFunctor* key_functor = nullptr;
+  size_t idx                           = 0;
+  for (auto& req : task.regions) {
+    // read-only broadcasted instances should be collective instances without tags
+    bool ro_broadcasted = (req.projection == 0 && req.privilege == LEGION_READ_ONLY);
+    bool is_reduction   = (req.privilege == LEGION_REDUCE) && (req.projection != 0);
+    bool is_collective  = (is_reduction || ro_broadcasted);
+
+    std::cout << "IRINA DEBUG inside of the select_task_options) task = " << task.get_task_name()
+              << " col = ? " << is_collective << ", reduction = ?" << is_reduction << std::endl;
+    if (is_collective) {
+      output.check_collective_regions.insert(idx);
+    } else if (req.tag == LEGATE_CORE_KEY_STORE_TAG) {
+      key_functor = find_legate_projection_functor(req.projection);
+      if (key_functor != nullptr && key_functor->is_collective()) {
+        output.check_collective_regions.insert(idx);
+        // std::cout <<"IRINA DEBUG is collective in mapper "<< task.get_task_name()<<std::endl;
+      }
+    }
+    idx++;
+  }
+
   std::vector<TaskTarget> options;
   if (!local_gpus.empty() && has_variant(ctx, task, Processor::TOC_PROC))
     options.push_back(TaskTarget::GPU);
@@ -221,10 +243,21 @@ void BaseMapper::select_task_options(const MapperContext ctx,
   // We never want valid instances
   output.valid_instances = false;
 
+#if 0
   LegateProjectionFunctor* key_functor = nullptr;
   size_t idx                           = 0;
-  for (auto& req : task.regions)
-    if (req.tag == LEGATE_CORE_KEY_STORE_TAG) {
+  for (auto& req : task.regions){
+    // read-only broadcasted instances should be collective instances without tags
+    bool ro_broadcasted =
+        (req.projection == 0 && req.privilege == LEGION_READ_ONLY);
+    bool is_reduction = (req.privilege == LEGION_REDUCE) && (req.projection != 0);
+    bool is_collective = (is_reduction || ro_broadcasted);
+
+    std::cout <<"IRINA DEBUG inside of the select_task_options) task = "<< task.get_task_name()<< " col = ? "<<is_collective<<", reduction = ?"<<is_reduction<<std::endl;
+    if (is_collective){
+       output.check_collective_regions.insert(idx);
+    }
+    else if (req.tag == LEGATE_CORE_KEY_STORE_TAG) {
       key_functor = find_legate_projection_functor(req.projection);
       if (key_functor != nullptr && key_functor->is_collective()) {
         output.check_collective_regions.insert(idx);
@@ -232,6 +265,8 @@ void BaseMapper::select_task_options(const MapperContext ctx,
       }
     }
   idx++;
+  }
+#endif
 }
 
 void BaseMapper::premap_task(const MapperContext ctx,
@@ -975,8 +1010,8 @@ void BaseMapper::legate_select_sources(const MapperContext ctx,
     } else
       band_ranking.push_back(std::pair<PhysicalInstance, uint32_t>(instance, finder->second));
   }
-  assert(!band_ranking.empty());
-  // Easy case of only one instance
+  // assert(!band_ranking.empty());
+  //  Easy case of only one instance
   if (band_ranking.size() == 1) {
     ranking.push_back(band_ranking.begin()->first);
     return;
