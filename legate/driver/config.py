@@ -134,6 +134,7 @@ class Info(DataclassMixin):
     progress: bool
     mem_usage: bool
     verbose: bool
+    bind_detail: bool
 
 
 @dataclass(frozen=True)

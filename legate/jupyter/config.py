@@ -86,5 +86,5 @@ class Config:
         self.debugging = Debugging(
             False, False, False, False, False, False, False
         )
-        self.info = Info(False, False, self.verbose > 0)
+        self.info = Info(False, False, self.verbose > 0, False)
         self.other = Other(None, False, False)
