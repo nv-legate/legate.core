@@ -1030,7 +1030,14 @@ class CopyLauncher:
         flags: int,
     ) -> None:
         assert store.kind is not Future
-        assert store._transform.bottom
+        assert (
+            store._transform.bottom
+            # Although we should not allow any transformed stores for copies,
+            # as affine transformations in copies are not yet supported,
+            # the 0D-to-1D case is benign and the backing region is guaranteed
+            # to be singleton, so we can accept (i.e., ignore) it.
+            or (store.ndim == 0 and store._storage.ndim == 1)
+        )
 
         if TYPE_CHECKING:
             assert isinstance(store.storage, RegionField)
