@@ -62,6 +62,11 @@ struct VariantOptions {
     concurrent = _concurrent;
     return *this;
   }
+  VariantOptions& with_return_size(size_t _return_size)
+  {
+    return_size = _return_size;
+    return *this;
+  }
 };
 
 using LegateVariantImpl = void (*)(TaskContext&);

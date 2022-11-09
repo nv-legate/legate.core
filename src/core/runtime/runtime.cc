@@ -22,6 +22,7 @@
 #include "core/task/exception.h"
 #include "core/task/task.h"
 #include "core/utilities/deserializer.h"
+#include "core/utilities/machine.h"
 #include "legate.h"
 
 namespace legate {
@@ -95,11 +96,11 @@ static void extract_scalar_task(
   Core::show_progress(task, legion_context, runtime, task->get_task_name());
 
   TaskContext context(task, *regions, legion_context, runtime);
-  auto values = task->futures[0].get_result<ReturnValues>();
-  auto idx    = context.scalars()[0].value<int32_t>();
+  auto idx            = context.scalars()[0].value<int32_t>();
+  auto value_and_size = ReturnValues::extract(task->futures[0], idx);
 
   // Legion postamble
-  ReturnValues({values[idx]}).finalize(legion_context);
+  value_and_size.finalize(legion_context);
 }
 
 /*static*/ void Core::shutdown(void)
@@ -158,13 +159,19 @@ void register_legate_core_tasks(Machine machine, Runtime* runtime, const Library
   };
 
   // Register the task variants
-  {
-    auto registrar =
-      make_registrar(extract_scalar_task_id, extract_scalar_task_name, Processor::LOC_PROC);
+  auto register_extract_scalar = [&](auto proc_kind, auto variant_id) {
+    auto registrar = make_registrar(extract_scalar_task_id, extract_scalar_task_name, proc_kind);
     Legion::CodeDescriptor desc(extract_scalar_task);
     runtime->register_task_variant(
-      registrar, desc, nullptr, 0, LEGATE_MAX_SIZE_SCALAR_RETURN, LEGATE_CPU_VARIANT);
-  }
+      registrar, desc, nullptr, 0, LEGATE_MAX_SIZE_SCALAR_RETURN, variant_id);
+  };
+  register_extract_scalar(Processor::LOC_PROC, LEGATE_CPU_VARIANT);
+#ifdef LEGATE_USE_CUDA
+  register_extract_scalar(Processor::TOC_PROC, LEGATE_GPU_VARIANT);
+#endif
+#ifdef LEGATE_USE_OPENMP
+  register_extract_scalar(Processor::OMP_PROC, LEGATE_OMP_VARIANT);
+#endif
   comm::register_tasks(machine, runtime, context);
 }
 
