@@ -84,6 +84,7 @@ class TestConfig:
 
         c.profiling == m.Profiling(
             profile=False,
+            cprofile=False,
             nvprof=False,
             nsys=False,
             nsys_targets="",

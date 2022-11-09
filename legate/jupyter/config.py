@@ -81,7 +81,7 @@ class Config:
         # turn everything else off
         self.user_opts: tuple[str, ...] = ()
         self.binding = Binding(None, None, None, None)
-        self.profiling = Profiling(False, False, False, "", [])
+        self.profiling = Profiling(False, False, False, False, "", [])
         self.logging = Logging(None, Path(), False, False)
         self.debugging = Debugging(
             False, False, False, False, False, False, False

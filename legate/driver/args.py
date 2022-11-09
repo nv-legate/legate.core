@@ -130,6 +130,15 @@ profiling.add_argument(
 
 
 profiling.add_argument(
+    "--cprofile",
+    dest="cprofile",
+    action="store_true",
+    required=False,
+    help="profile Python execution with the cprofile module",
+)
+
+
+profiling.add_argument(
     "--nvprof",
     dest="nvprof",
     action="store_true",

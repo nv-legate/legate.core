@@ -152,8 +152,22 @@ def cmd_module(
     config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
     module = config.other.module
+    cprofile = config.profiling.cprofile
 
-    return () if module is None else ("-m", module)
+    if cprofile and module is not None:
+        raise ValueError("Only one of --module or --cprofile may be used")
+
+    if module is not None:
+        return ("-m", module)
+
+    if cprofile:
+        log_path = str(
+            config.logging.logdir
+            / f"legate_{LEGATE_GLOBAL_RANK_SUBSTITUTION}.cprof"
+        )
+        return ("-m", "cProfile", "-o", log_path)
+
+    return ()
 
 
 def cmd_rlwrap(
