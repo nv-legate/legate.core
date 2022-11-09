@@ -130,15 +130,16 @@ AffineFunctor<SRC_DIM, TGT_DIM>::AffineFunctor(Runtime* runtime,
   // find if there is `-1` in the dimensions
   std::set<int32_t> unique;
   for (int32_t dim = 0; dim < SRC_DIM; ++dim) {
-    //    std::cout <<"IRINA DEBUG dims = "<<dims[dim]<<std::endl;
+    // std::cout <<"IRINA DEBUG dims = "<<dims[dim]<< " weights = "<< weights[dim]<<", offsets =
+    // "<<offsets[dim]<<std::endl;
     if (dims[dim] == -1) { set_collective(); }
     unique.insert(dims[dim]);
   }
   // if there are repeated dimensions
   if (unique.size() != SRC_DIM) set_collective();
-  //  std::cout <<"IRINA DEBUG unique size"<<unique.size() << " src_dim = "<<
-  //    SRC_DIM<<std::endl;
-  //  std::cout << "IRINA INSIFE Affine functor" << is_collective() << std::endl;
+  // std::cout <<"IRINA DEBUG unique size"<<unique.size() << " src_dim = "<<
+  //   SRC_DIM<<std::endl;
+  // std::cout << "IRINA INSIFE Affine functor" << is_collective() << std::endl;
 }
 
 template <int32_t SRC_DIM, int32_t TGT_DIM>

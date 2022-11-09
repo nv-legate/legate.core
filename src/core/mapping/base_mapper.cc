@@ -215,8 +215,8 @@ void BaseMapper::select_task_options(const MapperContext ctx,
     bool is_reduction   = (req.privilege == LEGION_REDUCE) && (req.projection != 0);
     bool is_collective  = (is_reduction || ro_broadcasted);
 
-    std::cout << "IRINA DEBUG inside of the select_task_options) task = " << task.get_task_name()
-              << " col = ? " << is_collective << ", reduction = ?" << is_reduction << std::endl;
+    // std::cout << "IRINA DEBUG inside of the select_task_options) task = " << task.get_task_name()
+    //           << " col = ? " << is_collective << ", reduction = ?" << is_reduction << std::endl;
     if (is_collective) {
       output.check_collective_regions.insert(idx);
     } else if (req.tag == LEGATE_CORE_KEY_STORE_TAG) {
@@ -242,31 +242,6 @@ void BaseMapper::select_task_options(const MapperContext ctx,
   dispatch(target, [&output](auto& procs) { output.initial_proc = procs.front(); });
   // We never want valid instances
   output.valid_instances = false;
-
-#if 0
-  LegateProjectionFunctor* key_functor = nullptr;
-  size_t idx                           = 0;
-  for (auto& req : task.regions){
-    // read-only broadcasted instances should be collective instances without tags
-    bool ro_broadcasted =
-        (req.projection == 0 && req.privilege == LEGION_READ_ONLY);
-    bool is_reduction = (req.privilege == LEGION_REDUCE) && (req.projection != 0);
-    bool is_collective = (is_reduction || ro_broadcasted);
-
-    std::cout <<"IRINA DEBUG inside of the select_task_options) task = "<< task.get_task_name()<< " col = ? "<<is_collective<<", reduction = ?"<<is_reduction<<std::endl;
-    if (is_collective){
-       output.check_collective_regions.insert(idx);
-    }
-    else if (req.tag == LEGATE_CORE_KEY_STORE_TAG) {
-      key_functor = find_legate_projection_functor(req.projection);
-      if (key_functor != nullptr && key_functor->is_collective()) {
-        output.check_collective_regions.insert(idx);
-        // std::cout <<"IRINA DEBUG is collective in mapper "<< task.get_task_name()<<std::endl;
-      }
-    }
-  idx++;
-  }
-#endif
 }
 
 void BaseMapper::premap_task(const MapperContext ctx,
