@@ -54,8 +54,8 @@ LAUNCHER_VAR_PREFIXES = (
 class Launcher:
     """A base class for custom launch handlers for Legate.
 
-    Subclasses should set ``kind``, ``rank_id``, and ``cmd`` properties during
-    their initialization.
+    Subclasses should set ``kind`` and ``cmd`` properties during their
+    initialization.
 
     Parameters
     ----------
@@ -66,8 +66,6 @@ class Launcher:
     """
 
     kind: LauncherType
-
-    rank_id: str
 
     cmd: Command
 
