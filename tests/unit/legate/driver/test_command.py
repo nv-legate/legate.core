@@ -20,10 +20,7 @@ from pathlib import Path
 import pytest
 
 import legate.driver.command as m
-from legate.driver.launcher import (
-    LEGATE_GLOBAL_RANK_SUBSTITUTION,
-    RANK_ENV_VARS,
-)
+from legate.driver.launcher import RANK_ENV_VARS
 from legate.util.colors import scrub
 from legate.util.types import LauncherType
 
@@ -33,6 +30,10 @@ from .util import GenObjs
 
 def test___all__() -> None:
     assert m.__all__ == ("CMD_PARTS",)
+
+
+def test_LEGATE_GLOBAL_RANK_SUBSTITUTION() -> None:
+    assert m.LEGATE_GLOBAL_RANK_SUBSTITUTION == "%%LEGATE_GLOBAL_RANK%%"
 
 
 def test_CMD_PARTS() -> None:
@@ -274,7 +275,7 @@ class Test_cmd_nvprof:
 
         log_path = str(
             config.logging.logdir
-            / f"legate_{LEGATE_GLOBAL_RANK_SUBSTITUTION}.nvvp"
+            / f"legate_{m.LEGATE_GLOBAL_RANK_SUBSTITUTION}.nvvp"
         )
         assert result == ("nvprof", "-o", log_path)
 
@@ -293,7 +294,7 @@ class Test_cmd_nvprof:
 
         log_path = str(
             config.logging.logdir
-            / f"legate_{LEGATE_GLOBAL_RANK_SUBSTITUTION}.nvvp"
+            / f"legate_{m.LEGATE_GLOBAL_RANK_SUBSTITUTION}.nvvp"
         )
         assert result == ("nvprof", "-o", log_path)
 
@@ -311,7 +312,8 @@ class Test_cmd_nvprof:
         result = m.cmd_nvprof(config, system, launcher)
 
         log_path = str(
-            config.logging.logdir / f"legate_{launcher.rank_id}.nvvp"
+            config.logging.logdir
+            / f"legate_{m.LEGATE_GLOBAL_RANK_SUBSTITUTION}.nvvp"
         )
         assert result == ("nvprof", "-o", log_path)
 
@@ -338,7 +340,8 @@ class Test_cmd_nsys:
         result = m.cmd_nsys(config, system, launcher)
 
         log_path = str(
-            config.logging.logdir / f"legate_{LEGATE_GLOBAL_RANK_SUBSTITUTION}"
+            config.logging.logdir
+            / f"legate_{m.LEGATE_GLOBAL_RANK_SUBSTITUTION}"
         )
         assert result == (
             "nsys",
@@ -362,7 +365,10 @@ class Test_cmd_nsys:
 
         result = m.cmd_nsys(config, system, launcher)
 
-        log_path = str(config.logging.logdir / f"legate_{launcher.rank_id}")
+        log_path = str(
+            config.logging.logdir
+            / f"legate_{m.LEGATE_GLOBAL_RANK_SUBSTITUTION}"
+        )
         assert result == (
             "nsys",
             "profile",
@@ -396,7 +402,8 @@ class Test_cmd_nsys:
         result = m.cmd_nsys(config, system, launcher)
 
         log_path = str(
-            config.logging.logdir / f"legate_{LEGATE_GLOBAL_RANK_SUBSTITUTION}"
+            config.logging.logdir
+            / f"legate_{m.LEGATE_GLOBAL_RANK_SUBSTITUTION}"
         )
         assert result == (
             "nsys",
@@ -436,7 +443,8 @@ class Test_cmd_nsys:
         result = m.cmd_nsys(config, system, launcher)
 
         log_path = str(
-            config.logging.logdir / f"legate_{LEGATE_GLOBAL_RANK_SUBSTITUTION}"
+            config.logging.logdir
+            / f"legate_{m.LEGATE_GLOBAL_RANK_SUBSTITUTION}"
         )
         assert result == (
             "nsys",
@@ -471,7 +479,8 @@ class Test_cmd_nsys:
         result = m.cmd_nsys(config, system, launcher)
 
         log_path = str(
-            config.logging.logdir / f"legate_{LEGATE_GLOBAL_RANK_SUBSTITUTION}"
+            config.logging.logdir
+            / f"legate_{m.LEGATE_GLOBAL_RANK_SUBSTITUTION}"
         )
         assert result == (
             "nsys",

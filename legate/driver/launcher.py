@@ -50,9 +50,6 @@ LAUNCHER_VAR_PREFIXES = (
     "NVIDIA_",
 )
 
-# this will be replaced by bind.sh with the actual computed rank at runtime
-LEGATE_GLOBAL_RANK_SUBSTITUTION = "%%LEGATE_GLOBAL_RANK%%"
-
 
 class Launcher:
     """A base class for custom launch handlers for Legate.
@@ -103,7 +100,6 @@ class Launcher:
         return (
             isinstance(other, type(self))
             and self.kind == other.kind
-            and self.rank_id == other.rank_id
             and self.cmd == other.cmd
             and self.env == other.env
         )
@@ -308,11 +304,9 @@ class SimpleLauncher(Launcher):
     def __init__(self, config: ConfigProtocol, system: System) -> None:
         super().__init__(config, system)
 
-        # we still want to let bind.sh handle this, even in the simple
-        # case, just for consistency. But we do still check the known
+        # bind.sh handles computing local and global rank id, even in the
+        # simple case, just for consistency. But we do still check the known
         # rank env vars below in order to issue RANK_ERR_MSG if needed
-        self.rank_id = LEGATE_GLOBAL_RANK_SUBSTITUTION
-
         if config.multi_node.ranks > 1 and self.detected_rank_id is None:
             raise RuntimeError(RANK_ERR_MSG)
 
@@ -330,8 +324,6 @@ class MPILauncher(Launcher):
 
     def __init__(self, config: ConfigProtocol, system: System) -> None:
         super().__init__(config, system)
-
-        self.rank_id = LEGATE_GLOBAL_RANK_SUBSTITUTION
 
         ranks = config.multi_node.ranks
         ranks_per_node = config.multi_node.ranks_per_node
@@ -361,8 +353,6 @@ class JSRunLauncher(Launcher):
     def __init__(self, config: ConfigProtocol, system: System) -> None:
         super().__init__(config, system)
 
-        self.rank_id = LEGATE_GLOBAL_RANK_SUBSTITUTION
-
         ranks = config.multi_node.ranks
         ranks_per_node = config.multi_node.ranks_per_node
 
@@ -388,8 +378,6 @@ class SRunLauncher(Launcher):
 
     def __init__(self, config: ConfigProtocol, system: System) -> None:
         super().__init__(config, system)
-
-        self.rank_id = LEGATE_GLOBAL_RANK_SUBSTITUTION
 
         ranks = config.multi_node.ranks
         ranks_per_node = config.multi_node.ranks_per_node

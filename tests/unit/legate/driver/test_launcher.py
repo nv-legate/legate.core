@@ -54,10 +54,6 @@ def test_LAUNCHER_VAR_PREFIXES() -> None:
     )
 
 
-def test_LEGATE_GLOBAL_RANK_SUBSTITUTION() -> None:
-    assert m.LEGATE_GLOBAL_RANK_SUBSTITUTION == "%%LEGATE_GLOBAL_RANK%%"
-
-
 class TestLauncher:
     @pytest.mark.parametrize("prefix", m.LAUNCHER_VAR_PREFIXES)
     def test_is_launcher_var_good_prefix(self, prefix: str) -> None:
@@ -130,7 +126,7 @@ class TestLauncher__eq__:
 
         assert launcher1 == launcher2
         assert launcher1.kind == launcher2.kind
-        assert launcher1.rank_id == launcher2.rank_id
+        assert launcher1.detected_rank_id == launcher2.detected_rank_id
         assert launcher1.cmd == launcher2.cmd
         assert launcher1.env == launcher2.env
 
@@ -362,7 +358,6 @@ class TestSimpleLauncher:
 
         launcher = m.Launcher.create(config, SYSTEM)
 
-        assert launcher.rank_id == m.LEGATE_GLOBAL_RANK_SUBSTITUTION
         assert launcher.detected_rank_id == "0"
         assert launcher.cmd == ()
 
@@ -375,7 +370,6 @@ class TestSimpleLauncher:
 
         launcher = m.Launcher.create(config, SYSTEM)
 
-        assert launcher.rank_id == m.LEGATE_GLOBAL_RANK_SUBSTITUTION
         assert launcher.detected_rank_id == "0"
         assert launcher.cmd == ()
 
@@ -394,7 +388,6 @@ class TestSimpleLauncher:
         system = System()
         launcher = m.Launcher.create(config, system)
 
-        assert launcher.rank_id == m.LEGATE_GLOBAL_RANK_SUBSTITUTION
         assert launcher.detected_rank_id == "123"
         assert launcher.cmd == ()
 
@@ -423,7 +416,6 @@ class TestSimpleLauncher:
         system = System()
         launcher = m.Launcher.create(config, system)
 
-        assert launcher.rank_id == m.LEGATE_GLOBAL_RANK_SUBSTITUTION
         assert launcher.detected_rank_id == "123"
         assert launcher.cmd == ()
 
@@ -473,7 +465,6 @@ class TestMPILauncher:
 
         launcher = m.Launcher.create(config, SYSTEM)
 
-        assert launcher.rank_id == m.LEGATE_GLOBAL_RANK_SUBSTITUTION
         assert launcher.detected_rank_id == "0"
 
         # TODO (bv) -x env args currnetly too fragile to test
@@ -499,7 +490,6 @@ class TestMPILauncher:
 
         launcher = m.Launcher.create(config, SYSTEM)
 
-        assert launcher.rank_id == m.LEGATE_GLOBAL_RANK_SUBSTITUTION
         assert launcher.detected_rank_id == "0"
 
         # TODO (bv) -x env args currently too fragile to test
@@ -527,7 +517,6 @@ class TestMPILauncher:
         system = System()
         launcher = m.Launcher.create(config, system)
 
-        assert launcher.rank_id == m.LEGATE_GLOBAL_RANK_SUBSTITUTION
         assert launcher.detected_rank_id == "123"
 
         # TODO (bv) -x env args currnetly too fragile to test
@@ -566,7 +555,6 @@ class TestMPILauncher:
         system = System()
         launcher = m.Launcher.create(config, system)
 
-        assert launcher.rank_id == m.LEGATE_GLOBAL_RANK_SUBSTITUTION
         assert launcher.detected_rank_id == "123"
 
         # TODO (bv) -x env args currnetly too fragile to test
@@ -587,7 +575,6 @@ class TestJSRunLauncher:
 
         launcher = m.Launcher.create(config, SYSTEM)
 
-        assert launcher.rank_id == m.LEGATE_GLOBAL_RANK_SUBSTITUTION
         assert launcher.detected_rank_id == "0"
         assert launcher.cmd == (
             ("jsrun",)
@@ -609,7 +596,6 @@ class TestJSRunLauncher:
 
         launcher = m.Launcher.create(config, SYSTEM)
 
-        assert launcher.rank_id == m.LEGATE_GLOBAL_RANK_SUBSTITUTION
         assert launcher.detected_rank_id == "0"
         assert launcher.cmd == (
             ("jsrun",)
@@ -633,7 +619,6 @@ class TestJSRunLauncher:
         system = System()
         launcher = m.Launcher.create(config, system)
 
-        assert launcher.rank_id == m.LEGATE_GLOBAL_RANK_SUBSTITUTION
         assert launcher.detected_rank_id == "123"
         assert launcher.cmd == (
             ("jsrun",)
@@ -667,7 +652,6 @@ class TestJSRunLauncher:
         system = System()
         launcher = m.Launcher.create(config, system)
 
-        assert launcher.rank_id == m.LEGATE_GLOBAL_RANK_SUBSTITUTION
         assert launcher.detected_rank_id == "123"
         assert launcher.cmd == (
             ("jsrun",)
@@ -683,7 +667,6 @@ class TestSRunLauncher:
 
         launcher = m.Launcher.create(config, SYSTEM)
 
-        assert launcher.rank_id == m.LEGATE_GLOBAL_RANK_SUBSTITUTION
         assert launcher.detected_rank_id == "0"
         assert launcher.cmd == ("srun", "-n", "1", "--ntasks-per-node", "1")
 
@@ -701,7 +684,6 @@ class TestSRunLauncher:
 
         launcher = m.Launcher.create(config, SYSTEM)
 
-        assert launcher.rank_id == m.LEGATE_GLOBAL_RANK_SUBSTITUTION
         assert launcher.detected_rank_id == "0"
         assert launcher.cmd == (
             "srun",
@@ -723,7 +705,6 @@ class TestSRunLauncher:
 
         launcher = m.Launcher.create(config, SYSTEM)
 
-        assert launcher.rank_id == m.LEGATE_GLOBAL_RANK_SUBSTITUTION
         assert launcher.detected_rank_id == "0"
         assert launcher.cmd == (
             "srun",
@@ -749,7 +730,6 @@ class TestSRunLauncher:
         system = System()
         launcher = m.Launcher.create(config, system)
 
-        assert launcher.rank_id == m.LEGATE_GLOBAL_RANK_SUBSTITUTION
         assert launcher.detected_rank_id == "123"
         assert launcher.cmd == ("srun", "-n", "200", "--ntasks-per-node", "2")
 
@@ -778,7 +758,6 @@ class TestSRunLauncher:
         system = System()
         launcher = m.Launcher.create(config, system)
 
-        assert launcher.rank_id == m.LEGATE_GLOBAL_RANK_SUBSTITUTION
         assert launcher.detected_rank_id == "123"
         assert launcher.cmd == (
             "srun",
@@ -811,7 +790,6 @@ class TestSRunLauncher:
         system = System()
         launcher = m.Launcher.create(config, system)
 
-        assert launcher.rank_id == m.LEGATE_GLOBAL_RANK_SUBSTITUTION
         assert launcher.detected_rank_id == "123"
         assert launcher.cmd == (
             "srun",
