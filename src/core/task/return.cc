@@ -197,6 +197,17 @@ size_t ReturnValues::legion_buffer_size() const { return buffer_size_; }
 
 void ReturnValues::legion_serialize(void* buffer) const
 {
+  // We pack N return values into the buffer in the following format:
+  //
+  // +--------+-----------+-----+------------+-------+-------+-------+-----
+  // |   #    | offset to |     | offset to  | total | value | value | ...
+  // | values | scalar 1  | ... | scalar N-1 | value |   1   |   2   |
+  // |        |           |     |            | size  |       |       |
+  // +--------+-----------+-----+------------+-------+-------+-------+-----
+  //           <============ offsets ===============> <==== values =======>
+  //
+  // the size of value i is computed by offsets[i] - (i == 0 ? 0 : offsets[i-1])
+
 #ifdef LEGATE_USE_CUDA
   auto stream = cuda::StreamPool::get_stream_pool().get_stream();
 #endif
