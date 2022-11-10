@@ -973,7 +973,9 @@ void BaseMapper::legate_select_sources(const MapperContext ctx,
     } else
       band_ranking.push_back(std::pair<PhysicalInstance, uint32_t>(instance, finder->second));
   }
-  // assert(!band_ranking.empty());
+  // in case all instances were marked as collective
+  if (band_ranking.size() == 0) return;
+
   //  Easy case of only one instance
   if (band_ranking.size() == 1) {
     ranking.push_back(band_ranking.begin()->first);
