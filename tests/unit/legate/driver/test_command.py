@@ -32,6 +32,10 @@ def test___all__() -> None:
     assert m.__all__ == ("CMD_PARTS",)
 
 
+def test_LEGATE_GLOBAL_RANK_SUBSTITUTION() -> None:
+    assert m.LEGATE_GLOBAL_RANK_SUBSTITUTION == "%%LEGATE_GLOBAL_RANK%%"
+
+
 def test_CMD_PARTS() -> None:
     assert m.CMD_PARTS == (
         m.cmd_bind,
@@ -67,7 +71,16 @@ class Test_cmd_bind:
 
         result = m.cmd_bind(config, system, launcher)
 
-        assert result == ()
+        bind_sh = str(system.legate_paths.bind_sh_path)
+        assert result == (bind_sh, "--launcher", "local", "--")
+
+    def test_bind_detail(self, genobjs: GenObjs) -> None:
+        config, system, launcher = genobjs(["--bind-detail"])
+
+        result = m.cmd_bind(config, system, launcher)
+
+        bind_sh = str(system.legate_paths.bind_sh_path)
+        assert result == (bind_sh, "--launcher", "local", "--debug", "--")
 
     @pytest.mark.parametrize("kind", ("cpu", "gpu", "mem", "nic"))
     def test_basic_local(self, genobjs: GenObjs, kind: str) -> None:
@@ -76,7 +89,14 @@ class Test_cmd_bind:
         result = m.cmd_bind(config, system, launcher)
 
         bind_sh = str(system.legate_paths.bind_sh_path)
-        assert result == (bind_sh, "local", f"--{kind}s", "1")
+        assert result == (
+            bind_sh,
+            "--launcher",
+            "local",
+            f"--{kind}s",
+            "1",
+            "--",
+        )
 
     @pytest.mark.parametrize("launch", ("none", "mpirun", "jsrun", "srun"))
     def test_combo_local(
@@ -101,13 +121,16 @@ class Test_cmd_bind:
         result = m.cmd_bind(config, system, launcher)
 
         bind_sh = str(system.legate_paths.bind_sh_path)
-        assert result[:2] == (
+        assert result[:3] == (
             bind_sh,
+            "--launcher",
             "local" if launch == "none" else launch,
         )
-        x = iter(result[2:])
+        x = iter(result[3:])
         for name, binding in zip(x, x):  # pairwise
             assert f"{name} {binding}" in "--cpus 1 --gpus 1 --nics 1 --mems 1"
+
+        assert result[-1] == "--"
 
     @pytest.mark.parametrize("launch", ("none", "mpirun", "jsrun", "srun"))
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
@@ -127,8 +150,17 @@ class Test_cmd_bind:
 
         result = m.cmd_bind(config, system, launcher)
 
+        launcher_arg = "auto" if launch == "none" else launch
+
         bind_sh = str(system.legate_paths.bind_sh_path)
-        assert result == (bind_sh, launch, f"--{kind}s", "1/2")
+        assert result == (
+            bind_sh,
+            "--launcher",
+            launcher_arg,
+            f"--{kind}s",
+            "1/2",
+            "--",
+        )
 
     @pytest.mark.parametrize("binding", ("1", "1/2/3"))
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
@@ -241,7 +273,10 @@ class Test_cmd_nvprof:
 
         result = m.cmd_nvprof(config, system, launcher)
 
-        log_path = str(config.logging.logdir / "legate_0.nvvp")
+        log_path = str(
+            config.logging.logdir
+            / f"legate_{m.LEGATE_GLOBAL_RANK_SUBSTITUTION}.nvvp"
+        )
         assert result == ("nvprof", "-o", log_path)
 
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
@@ -257,7 +292,10 @@ class Test_cmd_nvprof:
 
         result = m.cmd_nvprof(config, system, launcher)
 
-        log_path = str(config.logging.logdir / f"legate_{rank}.nvvp")
+        log_path = str(
+            config.logging.logdir
+            / f"legate_{m.LEGATE_GLOBAL_RANK_SUBSTITUTION}.nvvp"
+        )
         assert result == ("nvprof", "-o", log_path)
 
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
@@ -274,7 +312,8 @@ class Test_cmd_nvprof:
         result = m.cmd_nvprof(config, system, launcher)
 
         log_path = str(
-            config.logging.logdir / f"legate_{launcher.rank_id}.nvvp"
+            config.logging.logdir
+            / f"legate_{m.LEGATE_GLOBAL_RANK_SUBSTITUTION}.nvvp"
         )
         assert result == ("nvprof", "-o", log_path)
 
@@ -300,7 +339,10 @@ class Test_cmd_nsys:
 
         result = m.cmd_nsys(config, system, launcher)
 
-        log_path = str(config.logging.logdir / f"legate_{rank}")
+        log_path = str(
+            config.logging.logdir
+            / f"legate_{m.LEGATE_GLOBAL_RANK_SUBSTITUTION}"
+        )
         assert result == (
             "nsys",
             "profile",
@@ -323,7 +365,10 @@ class Test_cmd_nsys:
 
         result = m.cmd_nsys(config, system, launcher)
 
-        log_path = str(config.logging.logdir / f"legate_{launcher.rank_id}")
+        log_path = str(
+            config.logging.logdir
+            / f"legate_{m.LEGATE_GLOBAL_RANK_SUBSTITUTION}"
+        )
         assert result == (
             "nsys",
             "profile",
@@ -356,7 +401,10 @@ class Test_cmd_nsys:
 
         result = m.cmd_nsys(config, system, launcher)
 
-        log_path = str(config.logging.logdir / f"legate_{rank}")
+        log_path = str(
+            config.logging.logdir
+            / f"legate_{m.LEGATE_GLOBAL_RANK_SUBSTITUTION}"
+        )
         assert result == (
             "nsys",
             "profile",
@@ -394,7 +442,10 @@ class Test_cmd_nsys:
 
         result = m.cmd_nsys(config, system, launcher)
 
-        log_path = str(config.logging.logdir / f"legate_{rank}")
+        log_path = str(
+            config.logging.logdir
+            / f"legate_{m.LEGATE_GLOBAL_RANK_SUBSTITUTION}"
+        )
         assert result == (
             "nsys",
             "profile",
@@ -427,7 +478,10 @@ class Test_cmd_nsys:
 
         result = m.cmd_nsys(config, system, launcher)
 
-        log_path = str(config.logging.logdir / f"legate_{rank}")
+        log_path = str(
+            config.logging.logdir
+            / f"legate_{m.LEGATE_GLOBAL_RANK_SUBSTITUTION}"
+        )
         assert result == (
             "nsys",
             "profile",

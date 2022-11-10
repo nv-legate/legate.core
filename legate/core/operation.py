@@ -32,11 +32,9 @@ from .launcher import CopyLauncher, FillLauncher, TaskLauncher
 from .partition import REPLICATE, Weighted
 from .shape import Shape
 from .store import Store, StorePartition
-from .utils import OrderedSet, capture_traceback
+from .utils import OrderedSet, capture_traceback_repr
 
 if TYPE_CHECKING:
-    from types import TracebackType
-
     from .communicator import Communicator
     from .constraints import Constraint
     from .context import Context
@@ -248,8 +246,9 @@ class Task(TaskProtocol):
         self._scalar_args: list[tuple[Any, Union[DTType, tuple[DTType]]]] = []
         self._comm_args: list[Communicator] = []
         self._exn_types: list[type] = []
-        self._tb: Union[None, TracebackType] = None
+        self._tb_repr: Union[None, str] = None
         self._side_effect = False
+        self._concurrent = False
 
     @property
     def side_effect(self) -> bool:
@@ -259,8 +258,11 @@ class Task(TaskProtocol):
         self._side_effect = side_effect
 
     @property
-    def uses_communicator(self) -> bool:
-        return len(self._comm_args) > 0
+    def concurrent(self) -> bool:
+        return self._concurrent
+
+    def set_concurrent(self, concurrent: bool) -> None:
+        self._concurrent = concurrent
 
     def get_name(self) -> str:
         libname = self.context.library.get_name()
@@ -283,7 +285,7 @@ class Task(TaskProtocol):
         return len(self._exn_types) > 0
 
     def capture_traceback(self) -> None:
-        self._tb = capture_traceback()
+        self._tb_repr = capture_traceback_repr()
 
     def _add_scalar_args_to_launcher(self, launcher: TaskLauncher) -> None:
         for (arg, dtype) in self._scalar_args:
@@ -313,7 +315,7 @@ class Task(TaskProtocol):
                 output.set_storage(result)
             elif self.can_raise_exception:
                 runtime.record_pending_exception(
-                    self._exn_types, result, self._tb
+                    self._exn_types, result, self._tb_repr
                 )
             else:
                 assert num_unbound_outs == 1
@@ -331,7 +333,7 @@ class Task(TaskProtocol):
                 runtime.record_pending_exception(
                     self._exn_types,
                     runtime.extract_scalar(result, idx),
-                    self._tb,
+                    self._tb_repr,
                 )
 
     def _demux_scalar_stores_future_map(
@@ -370,7 +372,7 @@ class Task(TaskProtocol):
                 runtime.record_pending_exception(
                     self._exn_types,
                     runtime.reduce_exception_future_map(result),
-                    self._tb,
+                    self._tb_repr,
                 )
             else:
                 assert False
@@ -404,7 +406,7 @@ class Task(TaskProtocol):
                 runtime.record_pending_exception(
                     self._exn_types,
                     runtime.reduce_exception_future_map(exn_fut_map),
-                    self._tb,
+                    self._tb_repr,
                 )
 
     def _demux_scalar_stores(
@@ -458,6 +460,14 @@ class AutoOperation(Operation):
         self._input_parts: list[PartSym] = []
         self._output_parts: list[PartSym] = []
         self._reduction_parts: list[PartSym] = []
+
+    def get_requirement(
+        self, store: Store, part_symb: PartSym, strategy: Strategy
+    ) -> tuple[Proj, int, StorePartition]:
+        store_part = store.partition(strategy.get_partition(part_symb))
+        req = store_part.get_requirement(strategy.launch_ndim)
+        tag = self.get_tag(strategy, part_symb)
+        return req, tag, store_part
 
     def add_input(
         self, store: Store, partition: Optional[PartSym] = None
@@ -573,18 +583,10 @@ class AutoTask(AutoOperation, Task):
             provenance=self.provenance,
         )
 
-        def get_requirement(
-            store: Store, part_symb: PartSym
-        ) -> tuple[Proj, int, StorePartition]:
-            store_part = store.partition(strategy.get_partition(part_symb))
-            req = store_part.get_requirement(strategy.launch_ndim)
-            tag = self.get_tag(strategy, part_symb)
-            return req, tag, store_part
-
         self.find_all_reusable_store_pairs(strategy)
 
         for store, part_symb in zip(self._inputs, self._input_parts):
-            req, tag, _ = get_requirement(store, part_symb)
+            req, tag, _ = self.get_requirement(store, part_symb, strategy)
             launcher.add_input(store, req, tag=tag)
 
         for idx, (store, part_symb) in enumerate(
@@ -594,7 +596,9 @@ class AutoTask(AutoOperation, Task):
                 continue
             if idx in self._reuse_map:
                 store.move_data(self._reuse_map[idx])
-            req, tag, store_part = get_requirement(store, part_symb)
+            req, tag, store_part = self.get_requirement(
+                store, part_symb, strategy
+            )
             launcher.add_output(store, req, tag=tag)
             # We update the key partition of a store only when it gets updated
             store.set_key_partition(store_part.partition)
@@ -602,7 +606,9 @@ class AutoTask(AutoOperation, Task):
         for ((store, redop), part_symb) in zip(
             self._reductions, self._reduction_parts
         ):
-            req, tag, store_part = get_requirement(store, part_symb)
+            req, tag, store_part = self.get_requirement(
+                store, part_symb, strategy
+            )
 
             can_read_write = store_part.is_disjoint_for(strategy.launch_domain)
             req.redop = store.type.reduction_op_id(redop)
@@ -621,24 +627,16 @@ class AutoTask(AutoOperation, Task):
         self._add_scalar_args_to_launcher(launcher)
 
         launcher.set_can_raise_exception(self.can_raise_exception)
+        launcher.set_concurrent(self.concurrent)
 
         launch_domain = strategy.launch_domain if strategy.parallel else None
         self._add_communicators(launcher, launch_domain)
-
-        # TODO: For now we make sure no other operations are interleaved with
-        # the set of tasks that use a communicator. In the future, the
-        # communicator monad will do this for us.
-        if self.uses_communicator:
-            self._context.issue_execution_fence()
 
         result: Union[Future, FutureMap]
         if launch_domain is not None:
             result = launcher.execute(launch_domain)
         else:
             result = launcher.execute_single()
-
-        if self.uses_communicator:
-            self._context.issue_execution_fence()
 
         self._demux_scalar_stores(result, launch_domain)
 
@@ -782,19 +780,11 @@ class ManualTask(Operation, Task):
         self._add_scalar_args_to_launcher(launcher)
 
         launcher.set_can_raise_exception(self.can_raise_exception)
+        launcher.set_concurrent(self.concurrent)
 
         self._add_communicators(launcher, self._launch_domain)
 
-        # TODO: For now we make sure no other operations are interleaved with
-        # the set of tasks that use a communicator. In the future, the
-        # communicator monad will do this for us.
-        if self.uses_communicator:
-            self._context.issue_execution_fence()
-
         result = launcher.execute(self._launch_domain)
-
-        if self.uses_communicator:
-            self._context.issue_execution_fence()
 
         self._demux_scalar_stores(result, self._launch_domain)
 
@@ -843,6 +833,11 @@ class Copy(AutoOperation):
     def add_source_indirect(
         self, store: Store, partition: Optional[PartSym] = None
     ) -> None:
+        if len(self._source_indirects) != 0:
+            raise RuntimeError(
+                "There can be only up to one source indirection store for "
+                "a Copy operation"
+            )
         self._check_store(store)
         if partition is None:
             partition = self._get_unique_partition(store)
@@ -852,6 +847,11 @@ class Copy(AutoOperation):
     def add_target_indirect(
         self, store: Store, partition: Optional[PartSym] = None
     ) -> None:
+        if len(self._target_indirects) != 0:
+            raise RuntimeError(
+                "There can be only up to one target indirection store for "
+                "a Copy operation"
+            )
         self._check_store(store)
         if partition is None:
             partition = self._get_unique_partition(store)
@@ -949,21 +949,15 @@ class Copy(AutoOperation):
         # will need to be extended accordingly.
         scatter = len(self._target_indirects) > 0
 
-        def get_requirement(
-            store: Store, part_symb: PartSym
-        ) -> tuple[Proj, int, StorePartition]:
-            store_part = store.partition(strategy.get_partition(part_symb))
-            req = store_part.get_requirement(strategy.launch_ndim)
-            tag = self.get_tag(strategy, part_symb)
-            return req, tag, store_part
-
         for store, part_symb in zip(self._inputs, self._input_parts):
-            req, tag, _ = get_requirement(store, part_symb)
+            req, tag, _ = self.get_requirement(store, part_symb, strategy)
             launcher.add_input(store, req, tag=tag)
 
         for store, part_symb in zip(self._outputs, self._output_parts):
             assert not store.unbound
-            req, tag, store_part = get_requirement(store, part_symb)
+            req, tag, store_part = self.get_requirement(
+                store, part_symb, strategy
+            )
             if scatter:
                 launcher.add_inout(store, req, tag=tag)
             else:
@@ -972,18 +966,24 @@ class Copy(AutoOperation):
         for ((store, redop), part_symb) in zip(
             self._reductions, self._reduction_parts
         ):
-            req, tag, store_part = get_requirement(store, part_symb)
+            req, tag, store_part = self.get_requirement(
+                store, part_symb, strategy
+            )
             req.redop = store.type.reduction_op_id(redop)
             launcher.add_reduction(store, req, tag=tag)
         for store, part_symb in zip(
             self._source_indirects, self._source_indirect_parts
         ):
-            req, tag, store_part = get_requirement(store, part_symb)
+            req, tag, store_part = self.get_requirement(
+                store, part_symb, strategy
+            )
             launcher.add_source_indirect(store, req, tag=tag)
         for store, part_symb in zip(
             self._target_indirects, self._target_indirect_parts
         ):
-            req, tag, store_part = get_requirement(store, part_symb)
+            req, tag, store_part = self.get_requirement(
+                store, part_symb, strategy
+            )
             launcher.add_target_indirect(store, req, tag=tag)
 
         if strategy.launch_domain is not None:
@@ -1048,17 +1048,11 @@ class Fill(AutoOperation):
         raise TypeError("No reductions can be added to fills")
 
     def launch(self, strategy: Strategy) -> None:
-        def get_requirement(
-            store: Store, part_symb: PartSym
-        ) -> tuple[Proj, int, StorePartition]:
-            store_part = store.partition(strategy.get_partition(part_symb))
-            req = store_part.get_requirement(strategy.launch_ndim)
-            tag = self.get_tag(strategy, part_symb)
-            return req, tag, store_part
-
         lhs = self._outputs[0]
         lhs_part_sym = self._output_parts[0]
-        lhs_proj, _, lhs_part = get_requirement(lhs, lhs_part_sym)
+        lhs_proj, _, lhs_part = self.get_requirement(
+            lhs, lhs_part_sym, strategy
+        )
         lhs.set_key_partition(lhs_part.partition)
         launcher = FillLauncher(
             self.context,

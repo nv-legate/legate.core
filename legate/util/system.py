@@ -121,7 +121,13 @@ class System:
             # fail.
             pynvml.nvmlInit()
         except Exception:
-            return ()
+            if platform.system() == "Darwin":
+                raise RuntimeError("GPU execution is not available on OSX.")
+            else:
+                raise RuntimeError(
+                    "GPU detection failed. Make sure nvml and pynvml are "
+                    "both installed."
+                )
 
         num_gpus = pynvml.nvmlDeviceGetCount()
 

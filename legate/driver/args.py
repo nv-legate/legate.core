@@ -304,6 +304,15 @@ info.add_argument(
 )
 
 
+info.add_argument(
+    "--bind-detail",
+    dest="bind_detail",
+    action="store_true",
+    required=False,
+    help="print out the final invocation run by bind.sh",
+)
+
+
 other = parser.add_argument_group("Other options")
 
 

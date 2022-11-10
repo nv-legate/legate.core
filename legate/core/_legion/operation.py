@@ -648,6 +648,14 @@ class Copy(Dispatchable[None]):
             self.launcher, space.handle
         )
 
+    def set_mapper_arg(self, data: Any, size: int) -> None:
+        legion.legion_copy_launcher_set_mapper_arg(
+            self.launcher,
+            (ffi.from_buffer(data), size),
+        )
+        # Hold a reference to the data to prevent collection
+        self.data = data
+
     @dispatch
     def launch(
         self,
@@ -1069,6 +1077,14 @@ class IndexCopy(Dispatchable[None]):
         legion.legion_index_copy_launcher_set_sharding_space(
             self.launcher, space.handle
         )
+
+    def set_mapper_arg(self, data: Any, size: int) -> None:
+        legion.legion_index_copy_launcher_set_mapper_arg(
+            self.launcher,
+            (ffi.from_buffer(data), size),
+        )
+        # Hold a reference to the data to prevent collection
+        self.data = data
 
     @dispatch
     def launch(

@@ -23,7 +23,7 @@
 #include "core/comm/communicator.h"
 #include "core/data/scalar.h"
 #include "core/data/store.h"
-#include "core/mapping/task.h"
+#include "core/mapping/operation.h"
 #include "core/utilities/span.h"
 #include "core/utilities/type_traits.h"
 #include "core/utilities/typedefs.h"
@@ -34,7 +34,7 @@ namespace legate {
 template <typename Deserializer>
 class BaseDeserializer {
  public:
-  BaseDeserializer(const Legion::Task* task);
+  BaseDeserializer(const int8_t* args, size_t arglen);
 
  public:
   template <typename T>
@@ -49,8 +49,8 @@ class BaseDeserializer {
   template <typename T, std::enable_if_t<legate_type_code_of<T> != MAX_TYPE_NUMBER>* = nullptr>
   void _unpack(T& value)
   {
-    value      = *reinterpret_cast<const T*>(task_args_.ptr());
-    task_args_ = task_args_.subspan(sizeof(T));
+    value = *reinterpret_cast<const T*>(args_.ptr());
+    args_ = args_.subspan(sizeof(T));
   }
 
  public:
@@ -69,11 +69,10 @@ class BaseDeserializer {
   std::shared_ptr<TransformStack> unpack_transform();
 
  protected:
-  const Legion::Task* task_;
   bool first_task_;
 
  private:
-  Span<const int8_t> task_args_;
+  Span<const int8_t> args_;
 };
 
 class TaskDeserializer : public BaseDeserializer<TaskDeserializer> {
@@ -99,11 +98,11 @@ class TaskDeserializer : public BaseDeserializer<TaskDeserializer> {
 
 namespace mapping {
 
-class MapperDeserializer : public BaseDeserializer<MapperDeserializer> {
+class TaskDeserializer : public BaseDeserializer<TaskDeserializer> {
  public:
-  MapperDeserializer(const Legion::Task* task,
-                     Legion::Mapping::MapperRuntime* runtime,
-                     Legion::Mapping::MapperContext context);
+  TaskDeserializer(const Legion::Task* task,
+                   Legion::Mapping::MapperRuntime* runtime,
+                   Legion::Mapping::MapperContext context);
 
  public:
   using BaseDeserializer::_unpack;
@@ -114,9 +113,40 @@ class MapperDeserializer : public BaseDeserializer<MapperDeserializer> {
   void _unpack(RegionField& value, bool is_output_region);
 
  private:
+  const Legion::Task* task_;
   Legion::Mapping::MapperRuntime* runtime_;
   Legion::Mapping::MapperContext context_;
   uint32_t future_index_;
+};
+
+class CopyDeserializer : public BaseDeserializer<CopyDeserializer> {
+ private:
+  using Requirements = std::vector<Legion::RegionRequirement>;
+  using ReqsRef      = std::reference_wrapper<const Requirements>;
+
+ public:
+  CopyDeserializer(const void* args,
+                   size_t arglen,
+                   std::vector<ReqsRef>&& all_requirements,
+                   Legion::Mapping::MapperRuntime* runtime,
+                   Legion::Mapping::MapperContext context);
+
+ public:
+  using BaseDeserializer::_unpack;
+
+ public:
+  void next_requirement_list();
+
+ public:
+  void _unpack(Store& value);
+  void _unpack(RegionField& value);
+
+ private:
+  std::vector<ReqsRef> all_reqs_;
+  std::vector<ReqsRef>::iterator curr_reqs_;
+  Legion::Mapping::MapperRuntime* runtime_;
+  Legion::Mapping::MapperContext context_;
+  uint32_t req_index_offset_;
 };
 
 }  // namespace mapping

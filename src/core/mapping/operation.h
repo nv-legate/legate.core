@@ -32,7 +32,7 @@ class RegionField {
 
  public:
   RegionField() {}
-  RegionField(const Legion::Task* task, int32_t dim, uint32_t idx, Legion::FieldID fid);
+  RegionField(const Legion::RegionRequirement* req, int32_t dim, uint32_t idx, Legion::FieldID fid);
 
  public:
   RegionField(const RegionField& other)            = default;
@@ -62,12 +62,12 @@ class RegionField {
   Legion::FieldID field_id() const { return fid_; }
   bool unbound() const { return dim_ < 0; }
 
- private:
-  const Legion::RegionRequirement& get_requirement() const;
+ public:
+  const Legion::RegionRequirement* get_requirement() const { return req_; }
   Legion::IndexSpace get_index_space() const;
 
  private:
-  const Legion::Task* task_{nullptr};
+  const Legion::RegionRequirement* req_{nullptr};
   int32_t dim_{-1};
   uint32_t idx_{-1U};
   Legion::FieldID fid_{-1U};
@@ -111,6 +111,10 @@ class Store {
         const RegionField& region_field,
         bool is_output_store                        = false,
         std::shared_ptr<TransformStack>&& transform = nullptr);
+  // A special constructor to create a mapper view of a store from a region requirement
+  Store(Legion::Mapping::MapperRuntime* runtime,
+        const Legion::Mapping::MapperContext context,
+        const Legion::RegionRequirement* requirement);
 
  public:
   Store(const Store& other)            = default;
@@ -133,6 +137,11 @@ class Store {
   bool can_colocate_with(const Store& other) const;
   const RegionField& region_field() const;
   const FutureWrapper& future() const;
+
+ public:
+  RegionField::Id unique_region_field_id() const;
+  uint32_t requirement_index() const;
+  uint32_t future_index() const;
 
  public:
   template <int32_t DIM>
@@ -188,7 +197,32 @@ class Task {
   std::vector<Scalar> scalars_;
 };
 
+class Copy {
+ public:
+  Copy(const Legion::Copy* copy,
+       Legion::Mapping::MapperRuntime* runtime,
+       const Legion::Mapping::MapperContext context);
+
+ public:
+  const std::vector<Store>& inputs() const { return inputs_; }
+  const std::vector<Store>& outputs() const { return outputs_; }
+  const std::vector<Store>& input_indirections() const { return input_indirections_; }
+  const std::vector<Store>& output_indirections() const { return output_indirections_; }
+
+ public:
+  Legion::DomainPoint point() const { return copy_->index_point; }
+
+ private:
+  const Legion::Copy* copy_;
+
+ private:
+  std::vector<Store> inputs_;
+  std::vector<Store> outputs_;
+  std::vector<Store> input_indirections_;
+  std::vector<Store> output_indirections_;
+};
+
 }  // namespace mapping
 }  // namespace legate
 
-#include "core/mapping/task.inl"
+#include "core/mapping/operation.inl"

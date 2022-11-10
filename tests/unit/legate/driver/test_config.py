@@ -59,12 +59,12 @@ class TestMultiNode:
         "extra",
         (["a"], ["a", "b c"], ["a", "b c", "d e"], ["a", "b c", "d e", "f"]),
     )
-    def test_launcher_extra_fixup_basic(self, extra) -> None:
+    def test_launcher_extra_fixup_basic(self, extra: list[str]) -> None:
         mn = m.MultiNode(
             nodes=1,
             ranks_per_node=1,
             not_control_replicable=False,
-            launcher="launcher",
+            launcher="mpirun",
             launcher_extra=extra,
         )
         assert mn.launcher_extra == sum((x.split() for x in extra), [])
@@ -74,7 +74,7 @@ class TestMultiNode:
             nodes=1,
             ranks_per_node=1,
             not_control_replicable=False,
-            launcher="launcher",
+            launcher="mpirun",
             launcher_extra=[
                 "-H g0002,g0002 -X SOMEENV --fork",
                 "-bind-to none",
@@ -95,7 +95,7 @@ class TestMultiNode:
             nodes=1,
             ranks_per_node=1,
             not_control_replicable=False,
-            launcher="launcher",
+            launcher="mpirun",
             launcher_extra=[
                 "-f 'some path with spaces/foo.txt'",
             ],
@@ -165,7 +165,7 @@ class TestProfiling:
         "extra",
         (["a"], ["a", "b c"], ["a", "b c", "d e"], ["a", "b c", "d e", "f"]),
     )
-    def test_nsys_extra_fixup_basic(self, extra) -> None:
+    def test_nsys_extra_fixup_basic(self, extra: list[str]) -> None:
         p = m.Profiling(
             profile=True,
             nvprof=True,
@@ -247,6 +247,7 @@ class TestInfo:
             "progress",
             "mem_usage",
             "verbose",
+            "bind_detail",
         }
 
     def test_mixin(self) -> None:
@@ -331,7 +332,9 @@ class TestConfig:
             event=False,
         )
 
-        assert c.info == m.Info(progress=False, mem_usage=False, verbose=False)
+        assert c.info == m.Info(
+            progress=False, mem_usage=False, verbose=False, bind_detail=False
+        )
 
         assert c.other == m.Other(module=None, dry_run=False, rlwrap=False)
 

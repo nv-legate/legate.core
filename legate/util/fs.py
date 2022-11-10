@@ -220,13 +220,13 @@ def get_legion_paths(legate_paths: LegatePaths) -> LegionPaths:
     # 1. Legion was found in a standard system location (/usr, $CONDA_PREFIX)
     # 2. Legion was built as a side-effect of building legate_core:
     #    ```
-    #    SKBUILD_CONFIGURE_OPTIONS="" python -m pip install .
+    #    CMAKE_ARGS="" python -m pip install .
     #    ```
     # 3. Legion was built in a separate directory independent of legate_core
     #    and the path to its build directory was given when configuring
     #    legate_core:
     #    ```
-    #    SKBUILD_CONFIGURE_OPTIONS="-D Legion_ROOT=/legion/build" \
+    #    CMAKE_ARGS="-D Legion_ROOT=/legion/build" \
     #        python -m pip install .
     #    ```
     #
@@ -295,8 +295,9 @@ def get_legion_paths(legate_paths: LegatePaths) -> LegionPaths:
             )
             if legion_dir.joinpath("CMakeCache.txt").exists():
                 cmake_cache_txt = legion_dir / "CMakeCache.txt"
-
-    except Exception:
+    finally:
+        # Hopefully at this point we have a valid cmake_cache_txt with a
+        # valid Legion_SOURCE_DIR and Legion_BINARY_DIR
         try:
             # If Legion_SOURCE_DIR and Legion_BINARY_DIR are in CMakeCache.txt,
             # return the paths to Legion in the legate_core build dir.
