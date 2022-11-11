@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import traceback
+from itertools import chain
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -69,30 +70,31 @@ def find_last_user_frame(libname: str) -> str:
 class LibraryAnnotations:
     def __init__(self) -> None:
         self._entries: dict[str, str] = {}
+        self._provenance: Union[str, None] = None
 
     @property
-    def empty(self) -> bool:
-        return len(self._entries) == 0
+    def provenance(self) -> Optional[str]:
+        return self._provenance
 
-    def __getitem__(self, key: str) -> Optional[str]:
-        return self._entries[key] if key in self._entries else None
+    def set_provenance(self, provenance: str) -> None:
+        self._provenance = provenance
 
-    def __setitem__(self, key: str, value: str) -> None:
-        self._entries[key] = value
+    def reset_provenance(self) -> None:
+        self._provenance = None
+
+    def update(self, **kwargs: Any) -> None:
+        self._entries.update(**kwargs)
 
     def remove(self, key: str) -> None:
         del self._entries[key]
 
-    def __str__(self) -> str:
-        return "|".join(
-            f"{key},{value}" for key, value in self._entries.items()
-        )
-
     def __repr__(self) -> str:
-        return str(self)
-
-
-PROVENANCE_KEY = "Provenance"
+        pairs = (f"{key},{value}" for key, value in self._entries.items())
+        return "|".join(
+            pairs
+            if self._provenance is None
+            else chain(pairs, (f"Provenance,{self._provenance}",))
+        )
 
 
 class Context:
@@ -200,7 +202,7 @@ class Context:
 
     @property
     def provenance(self) -> Optional[str]:
-        return self.annotation[PROVENANCE_KEY]
+        return self.annotation.provenance
 
     def get_task_id(self, task_id: int) -> int:
         return self._task_scope.translate(task_id)
@@ -245,10 +247,10 @@ class Context:
         return self._runtime.get_unique_op_id()
 
     def set_provenance(self, provenance: str) -> None:
-        self._annotations[-1][PROVENANCE_KEY] = provenance
+        self._annotations[-1].set_provenance(provenance)
 
     def reset_provenance(self) -> None:
-        self._annotations[-1].remove(PROVENANCE_KEY)
+        self._annotations[-1].reset_provenance()
 
     def push_provenance(self, provenance: str) -> None:
         self._annotations.append(LibraryAnnotations())
@@ -425,8 +427,7 @@ class Annotation:
         self._pairs = pairs
 
     def __enter__(self) -> None:
-        for key, value in self._pairs.items():
-            self._annotation[key] = value
+        self._annotation.update(**self._pairs)
 
     def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
         for key in self._pairs.keys():

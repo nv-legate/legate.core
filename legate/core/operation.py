@@ -141,8 +141,9 @@ class Operation(OperationProtocol):
         self._launch_domain: Union[Rect, None] = None
         self._error_on_interference = True
         self._provenance = (
-            f"{self._context.provenance}$"
-            f"{self._context.get_all_annotations()}"
+            None
+            if context.provenance is None
+            else (f"{context.provenance}$" f"{context.get_all_annotations()}")
         )
 
     @property
