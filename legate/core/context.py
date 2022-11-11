@@ -15,7 +15,6 @@
 from __future__ import annotations
 
 import traceback
-from itertools import chain
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -89,12 +88,10 @@ class LibraryAnnotations:
         del self._entries[key]
 
     def __repr__(self) -> str:
-        pairs = (f"{key},{value}" for key, value in self._entries.items())
-        return "|".join(
-            pairs
-            if self._provenance is None
-            else chain(pairs, (f"Provenance,{self._provenance}",))
-        )
+        pairs = [f"{key},{value}" for key, value in self._entries.items()]
+        if self._provenance is not None:
+            pairs.append(f"Provenance,{self._provenance}")
+        return "|".join(pairs)
 
 
 class Context:
