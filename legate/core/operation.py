@@ -140,10 +140,15 @@ class Operation(OperationProtocol):
         self._all_parts: list[PartSym] = []
         self._launch_domain: Union[Rect, None] = None
         self._error_on_interference = True
+        self._provenance = (
+            None
+            if context.provenance is None
+            else (f"{context.provenance}$" f"{context.get_all_annotations()}")
+        )
 
     @property
     def provenance(self) -> Optional[str]:
-        return self._context.provenance
+        return self._provenance
 
     def get_all_stores(self) -> OrderedSet[Store]:
         result: OrderedSet[Store] = OrderedSet()
