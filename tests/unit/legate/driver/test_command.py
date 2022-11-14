@@ -548,6 +548,24 @@ class Test_cmd_module:
 
         assert result == ("-m", "foo")
 
+    def test_with_cprofile(self, genobjs: GenObjs) -> None:
+        config, system, launcher = genobjs(["--cprofile"])
+
+        result = m.cmd_module(config, system, launcher)
+
+        log_path = str(
+            config.logging.logdir
+            / f"legate_{m.LEGATE_GLOBAL_RANK_SUBSTITUTION}.cprof"
+        )
+        assert result == ("-m", "cProfile", "-o", log_path)
+
+    def test_module_and_cprofile_error(self, genobjs: GenObjs) -> None:
+        config, system, launcher = genobjs(["--module", "foo", "--cprofile"])
+
+        err = "Only one of --module or --cprofile may be used"
+        with pytest.raises(ValueError, match=err):
+            m.cmd_module(config, system, launcher)
+
 
 class Test_cmd_rlwrap:
     def test_default(self, genobjs: GenObjs) -> None:
