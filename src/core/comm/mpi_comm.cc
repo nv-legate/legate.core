@@ -65,7 +65,7 @@ inline void check_mpi(int error, const char* file, int line)
 MPINetwork::MPINetwork(int argc, char* argv[])
   : BackendNetwork(), mpi_tag_ub(0), self_init_mpi(false)
 {
-  log_coll.print("Enable MPINetwork");
+  log_coll.info("Enable MPINetwork");
   assert(current_unique_id == 0);
   int provided, init_flag = 0;
   CHECK_MPI(MPI_Initialized(&init_flag));
@@ -95,7 +95,7 @@ MPINetwork::MPINetwork(int argc, char* argv[])
 
 MPINetwork::~MPINetwork()
 {
-  log_coll.print("Finalize MPINetwork");
+  log_coll.info("Finalize MPINetwork");
   assert(BackendNetwork::coll_inited == true);
   for (MPI_Comm& mpi_comm : mpi_comms) { CHECK_MPI(MPI_Comm_free(&mpi_comm)); }
   mpi_comms.clear();

@@ -34,7 +34,7 @@ extern Logger log_coll;
 
 LocalNetwork::LocalNetwork(int argc, char* argv[]) : BackendNetwork()
 {
-  log_coll.print("Enable LocalNetwork");
+  log_coll.info("Enable LocalNetwork");
   assert(current_unique_id == 0);
   assert(thread_comms.empty());
   BackendNetwork::coll_inited = true;
@@ -43,7 +43,7 @@ LocalNetwork::LocalNetwork(int argc, char* argv[]) : BackendNetwork()
 
 LocalNetwork::~LocalNetwork()
 {
-  log_coll.print("Finalize LocalNetwork");
+  log_coll.info("Finalize LocalNetwork");
   assert(BackendNetwork::coll_inited == true);
   for (ThreadComm* thread_comm : thread_comms) {
     assert(!thread_comm->ready_flag);
