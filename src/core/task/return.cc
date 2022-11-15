@@ -59,7 +59,7 @@ void ReturnValue::finalize(Legion::Context legion_context) const
 
 void* ReturnValue::ptr()
 {
-  AccessorWO<int8_t, 1> acc(value_, size_, false);
+  AccessorRW<int8_t, 1> acc(value_, size_, false);
   return acc.ptr(0);
 }
 
