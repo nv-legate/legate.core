@@ -166,6 +166,9 @@ class TestParserDefaults:
     def test_verbose(self) -> None:
         assert m.parser.get_default("verbose") is False
 
+    def test_bind_detail(self) -> None:
+        assert m.parser.get_default("bind_detail") is False
+
     # other
 
     def test_module(self) -> None:

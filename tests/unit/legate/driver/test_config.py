@@ -152,6 +152,7 @@ class TestProfiling:
     def test_fields(self) -> None:
         assert set(m.Profiling.__dataclass_fields__) == {
             "profile",
+            "cprofile",
             "nvprof",
             "nsys",
             "nsys_targets",
@@ -168,6 +169,7 @@ class TestProfiling:
     def test_nsys_extra_fixup_basic(self, extra: list[str]) -> None:
         p = m.Profiling(
             profile=True,
+            cprofile=True,
             nvprof=True,
             nsys=True,
             nsys_targets="foo,bar",
@@ -178,6 +180,7 @@ class TestProfiling:
     def test_nsys_extra_fixup_complex(self) -> None:
         p = m.Profiling(
             profile=True,
+            cprofile=True,
             nvprof=True,
             nsys=True,
             nsys_targets="foo,bar",
@@ -199,6 +202,7 @@ class TestProfiling:
     def test_nsys_extra_fixup_quoted(self) -> None:
         p = m.Profiling(
             profile=True,
+            cprofile=True,
             nvprof=True,
             nsys=True,
             nsys_targets="foo,bar",
@@ -247,6 +251,7 @@ class TestInfo:
             "progress",
             "mem_usage",
             "verbose",
+            "bind_detail",
         }
 
     def test_mixin(self) -> None:
@@ -308,6 +313,7 @@ class TestConfig:
 
         c.profiling == m.Profiling(
             profile=False,
+            cprofile=False,
             nvprof=False,
             nsys=False,
             nsys_targets="",
@@ -331,7 +337,9 @@ class TestConfig:
             event=False,
         )
 
-        assert c.info == m.Info(progress=False, mem_usage=False, verbose=False)
+        assert c.info == m.Info(
+            progress=False, mem_usage=False, verbose=False, bind_detail=False
+        )
 
         assert c.other == m.Other(module=None, dry_run=False, rlwrap=False)
 
@@ -411,6 +419,7 @@ class TestConfig:
                 "--gdb",
                 "--keep-logs",
                 "--profile",
+                "--cprofile",
             )
         ),
     )
