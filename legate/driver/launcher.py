@@ -54,8 +54,8 @@ LAUNCHER_VAR_PREFIXES = (
 class Launcher:
     """A base class for custom launch handlers for Legate.
 
-    Subclasses should set ``kind``, ``rank_id``, and ``cmd`` properties during
-    their initialization.
+    Subclasses should set ``kind`` and ``cmd`` properties during their
+    initialization.
 
     Parameters
     ----------
@@ -67,9 +67,10 @@ class Launcher:
 
     kind: LauncherType
 
-    rank_id: str
-
     cmd: Command
+
+    # base class will attempt to set this
+    detected_rank_id: str | None = None
 
     _config: ConfigProtocol
 
@@ -83,13 +84,20 @@ class Launcher:
         self._config = config
         self._system = system
 
+        if config.multi_node.ranks == 1:
+            self.detected_rank_id = "0"
+        else:
+            for var in RANK_ENV_VARS:
+                if var in system.env:
+                    self.detected_rank_id = system.env[var]
+                    break
+
         self._check_realm_python()
 
     def __eq__(self, other: object) -> bool:
         return (
             isinstance(other, type(self))
             and self.kind == other.kind
-            and self.rank_id == other.rank_id
             and self.cmd == other.cmd
             and self.env == other.env
         )
@@ -294,18 +302,11 @@ class SimpleLauncher(Launcher):
     def __init__(self, config: ConfigProtocol, system: System) -> None:
         super().__init__(config, system)
 
-        if config.multi_node.ranks == 1:
-            self.rank_id = "0"
-
-        else:
-            for var in RANK_ENV_VARS:
-                if var in system.env:
-                    self.rank_id = system.env[var]
-                    break
-
-            # NB: for-else clause! (executes if NO loop break)
-            else:
-                raise RuntimeError(RANK_ERR_MSG)
+        # bind.sh handles computing local and global rank id, even in the
+        # simple case, just for consistency. But we do still check the known
+        # rank env vars below in order to issue RANK_ERR_MSG if needed
+        if config.multi_node.ranks > 1 and self.detected_rank_id is None:
+            raise RuntimeError(RANK_ERR_MSG)
 
         self.cmd = ()
 
@@ -321,8 +322,6 @@ class MPILauncher(Launcher):
 
     def __init__(self, config: ConfigProtocol, system: System) -> None:
         super().__init__(config, system)
-
-        self.rank_id = "%q{OMPI_COMM_WORLD_RANK}"
 
         ranks = config.multi_node.ranks
         ranks_per_node = config.multi_node.ranks_per_node
@@ -352,8 +351,6 @@ class JSRunLauncher(Launcher):
     def __init__(self, config: ConfigProtocol, system: System) -> None:
         super().__init__(config, system)
 
-        self.rank_id = "%q{OMPI_COMM_WORLD_RANK}"
-
         ranks = config.multi_node.ranks
         ranks_per_node = config.multi_node.ranks_per_node
 
@@ -379,8 +376,6 @@ class SRunLauncher(Launcher):
 
     def __init__(self, config: ConfigProtocol, system: System) -> None:
         super().__init__(config, system)
-
-        self.rank_id = "%q{SLURM_PROCID}"
 
         ranks = config.multi_node.ranks
         ranks_per_node = config.multi_node.ranks_per_node

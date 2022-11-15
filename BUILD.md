@@ -133,7 +133,7 @@ Only necessary if you wish to run on multiple nodes.
 Not available on conda; typically available through MOFED or the system-level
 package manager.
 
-If using UCX, a build configured with `--enable-mt` is required.
+If using UCX, a build of UCX configured with `--enable-mt` is required.
 
 ## Alternative sources for dependencies
 

@@ -84,6 +84,7 @@ class TestConfig:
 
         c.profiling == m.Profiling(
             profile=False,
+            cprofile=False,
             nvprof=False,
             nsys=False,
             nsys_targets="",
@@ -107,7 +108,9 @@ class TestConfig:
             event=False,
         )
 
-        assert c.info == m.Info(progress=False, mem_usage=False, verbose=False)
+        assert c.info == m.Info(
+            progress=False, mem_usage=False, verbose=False, bind_detail=False
+        )
 
         assert c.other == m.Other(module=None, dry_run=False, rlwrap=False)
 
