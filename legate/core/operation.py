@@ -140,10 +140,15 @@ class Operation(OperationProtocol):
         self._all_parts: list[PartSym] = []
         self._launch_domain: Union[Rect, None] = None
         self._error_on_interference = True
+        self._provenance = (
+            None
+            if context.provenance is None
+            else (f"{context.provenance}$" f"{context.get_all_annotations()}")
+        )
 
     @property
     def provenance(self) -> Optional[str]:
-        return self._context.provenance
+        return self._provenance
 
     def get_all_stores(self) -> OrderedSet[Store]:
         result: OrderedSet[Store] = OrderedSet()
@@ -457,6 +462,14 @@ class AutoOperation(Operation):
         self._output_parts: list[PartSym] = []
         self._reduction_parts: list[PartSym] = []
 
+    def get_requirement(
+        self, store: Store, part_symb: PartSym, strategy: Strategy
+    ) -> tuple[Proj, int, StorePartition]:
+        store_part = store.partition(strategy.get_partition(part_symb))
+        req = store_part.get_requirement(strategy.launch_ndim)
+        tag = self.get_tag(strategy, part_symb)
+        return req, tag, store_part
+
     def add_input(
         self, store: Store, partition: Optional[PartSym] = None
     ) -> None:
@@ -571,18 +584,10 @@ class AutoTask(AutoOperation, Task):
             provenance=self.provenance,
         )
 
-        def get_requirement(
-            store: Store, part_symb: PartSym
-        ) -> tuple[Proj, int, StorePartition]:
-            store_part = store.partition(strategy.get_partition(part_symb))
-            req = store_part.get_requirement(strategy.launch_ndim)
-            tag = self.get_tag(strategy, part_symb)
-            return req, tag, store_part
-
         self.find_all_reusable_store_pairs(strategy)
 
         for store, part_symb in zip(self._inputs, self._input_parts):
-            req, tag, _ = get_requirement(store, part_symb)
+            req, tag, _ = self.get_requirement(store, part_symb, strategy)
             launcher.add_input(store, req, tag=tag)
 
         for idx, (store, part_symb) in enumerate(
@@ -592,7 +597,9 @@ class AutoTask(AutoOperation, Task):
                 continue
             if idx in self._reuse_map:
                 store.move_data(self._reuse_map[idx])
-            req, tag, store_part = get_requirement(store, part_symb)
+            req, tag, store_part = self.get_requirement(
+                store, part_symb, strategy
+            )
             launcher.add_output(store, req, tag=tag)
             # We update the key partition of a store only when it gets updated
             store.set_key_partition(store_part.partition)
@@ -600,7 +607,9 @@ class AutoTask(AutoOperation, Task):
         for ((store, redop), part_symb) in zip(
             self._reductions, self._reduction_parts
         ):
-            req, tag, store_part = get_requirement(store, part_symb)
+            req, tag, store_part = self.get_requirement(
+                store, part_symb, strategy
+            )
 
             can_read_write = store_part.is_disjoint_for(strategy.launch_domain)
             req.redop = store.type.reduction_op_id(redop)
@@ -941,21 +950,15 @@ class Copy(AutoOperation):
         # will need to be extended accordingly.
         scatter = len(self._target_indirects) > 0
 
-        def get_requirement(
-            store: Store, part_symb: PartSym
-        ) -> tuple[Proj, int, StorePartition]:
-            store_part = store.partition(strategy.get_partition(part_symb))
-            req = store_part.get_requirement(strategy.launch_ndim)
-            tag = self.get_tag(strategy, part_symb)
-            return req, tag, store_part
-
         for store, part_symb in zip(self._inputs, self._input_parts):
-            req, tag, _ = get_requirement(store, part_symb)
+            req, tag, _ = self.get_requirement(store, part_symb, strategy)
             launcher.add_input(store, req, tag=tag)
 
         for store, part_symb in zip(self._outputs, self._output_parts):
             assert not store.unbound
-            req, tag, store_part = get_requirement(store, part_symb)
+            req, tag, store_part = self.get_requirement(
+                store, part_symb, strategy
+            )
             if scatter:
                 launcher.add_inout(store, req, tag=tag)
             else:
@@ -964,18 +967,24 @@ class Copy(AutoOperation):
         for ((store, redop), part_symb) in zip(
             self._reductions, self._reduction_parts
         ):
-            req, tag, store_part = get_requirement(store, part_symb)
+            req, tag, store_part = self.get_requirement(
+                store, part_symb, strategy
+            )
             req.redop = store.type.reduction_op_id(redop)
             launcher.add_reduction(store, req, tag=tag)
         for store, part_symb in zip(
             self._source_indirects, self._source_indirect_parts
         ):
-            req, tag, store_part = get_requirement(store, part_symb)
+            req, tag, store_part = self.get_requirement(
+                store, part_symb, strategy
+            )
             launcher.add_source_indirect(store, req, tag=tag)
         for store, part_symb in zip(
             self._target_indirects, self._target_indirect_parts
         ):
-            req, tag, store_part = get_requirement(store, part_symb)
+            req, tag, store_part = self.get_requirement(
+                store, part_symb, strategy
+            )
             launcher.add_target_indirect(store, req, tag=tag)
 
         if strategy.launch_domain is not None:
@@ -1040,17 +1049,11 @@ class Fill(AutoOperation):
         raise TypeError("No reductions can be added to fills")
 
     def launch(self, strategy: Strategy) -> None:
-        def get_requirement(
-            store: Store, part_symb: PartSym
-        ) -> tuple[Proj, int, StorePartition]:
-            store_part = store.partition(strategy.get_partition(part_symb))
-            req = store_part.get_requirement(strategy.launch_ndim)
-            tag = self.get_tag(strategy, part_symb)
-            return req, tag, store_part
-
         lhs = self._outputs[0]
         lhs_part_sym = self._output_parts[0]
-        lhs_proj, _, lhs_part = get_requirement(lhs, lhs_part_sym)
+        lhs_proj, _, lhs_part = self.get_requirement(
+            lhs, lhs_part_sym, strategy
+        )
         lhs.set_key_partition(lhs_part.partition)
         launcher = FillLauncher(
             self.context,

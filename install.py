@@ -439,6 +439,7 @@ def install(
 -DLegion_REDOP_HALF=ON
 -DLegion_BUILD_BINDINGS=ON
 -DLegion_BUILD_JUPYTER=ON
+-DLegion_EMBED_GASNet_CONFIGURE_ARGS="--with-ibv-max-hcas=8"
 """.splitlines()
 
     if nccl_dir:

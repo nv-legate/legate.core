@@ -17,8 +17,11 @@
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Union
 from typing_extensions import Literal, TypeAlias
+
+from ..util.types import ArgList
 
 #: Define the available feature types for tests
 FeatureType: TypeAlias = Union[
@@ -57,15 +60,28 @@ FEATURES: tuple[FeatureType, ...] = (
     "openmp",
 )
 
-#: Paths to example files that should be skipped.
-SKIPPED_EXAMPLES = {
-    "examples/ingest.py",
-    "examples/kmeans_sort.py",
-    "examples/lstm_full.py",
-    "examples/wgrad.py",
-}
+#: Paths to test files that should be skipped entirely in all stages.
+#:
+#: Client test scripts should udpate this set with their own customizations.
+SKIPPED_EXAMPLES: set[str] = set()
 
-#: Extra arguments to supply when specific examples are executed.
-PER_FILE_ARGS = {
-    "examples/lstm_full.py": ["--file", "resources/lstm_input.txt"],
-}
+#: Extra arguments to add when specific test files are executed (in any stage).
+#:
+#: Client test scripts should udpate this dict with their own customizations.
+PER_FILE_ARGS: dict[str, ArgList] = {}
+
+
+@dataclass
+class CustomTest:
+    file: str
+    kind: FeatureType
+    args: ArgList
+
+
+#: Customized configurations for specific test files. Each entry will result
+#: in the specified test file being run in the specified stage, with the given
+#: command line arguments appended (overriding default stage arguments). These
+#: files are run serially, after the sharded, parallelized tests.
+#:
+#: Client test scripts should udpate this set with their own customizations.
+CUSTOM_FILES: list[CustomTest] = []
