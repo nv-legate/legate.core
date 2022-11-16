@@ -1112,6 +1112,15 @@ class Runtime:
         return self._num_gpus
 
     @property
+    def core_task_variant_id(self) -> int:
+        if self.num_gpus > 0:
+            return self.core_library.LEGATE_GPU_VARIANT
+        elif self.num_omps > 0:
+            return self.core_library.LEGATE_OMP_VARIANT
+        else:
+            return self.core_library.LEGATE_CPU_VARIANT
+
+    @property
     def attachment_manager(self) -> AttachmentManager:
         return self._attachment_manager
 
@@ -1535,7 +1544,7 @@ class Runtime:
         launcher = TaskLauncher(
             self.core_context,
             self.core_library.LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,
-            tag=self.core_library.LEGATE_CPU_VARIANT,
+            tag=self.core_task_variant_id,
         )
         launcher.add_future(future)
         launcher.add_scalar_arg(idx, ty.int32)
@@ -1549,7 +1558,7 @@ class Runtime:
         launcher = TaskLauncher(
             self.core_context,
             self.core_library.LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,
-            tag=self.core_library.LEGATE_CPU_VARIANT,
+            tag=self.core_task_variant_id,
         )
         launcher.add_future_map(future)
         launcher.add_scalar_arg(idx, ty.int32)

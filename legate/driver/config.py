@@ -90,6 +90,7 @@ class Memory(DataclassMixin):
 @dataclass(frozen=True)
 class Profiling(DataclassMixin):
     profile: bool
+    cprofile: bool
     nvprof: bool
     nsys: bool
     nsys_targets: str  # TODO: multi-choice

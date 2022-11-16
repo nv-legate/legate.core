@@ -211,16 +211,11 @@ list(APPEND legate_core_SOURCES
 
 if(Legion_NETWORKS)
   list(APPEND legate_core_SOURCES
-    src/core/comm/alltoall_thread_mpi.cc
-    src/core/comm/alltoallv_thread_mpi.cc
-    src/core/comm/gather_thread_mpi.cc
-    src/core/comm/allgather_thread_mpi.cc
-    src/core/comm/bcast_thread_mpi.cc)
+    src/core/comm/mpi_comm.cc
+    src/core/comm/local_comm.cc)
 else()
   list(APPEND legate_core_SOURCES
-    src/core/comm/alltoall_thread_local.cc
-    src/core/comm/alltoallv_thread_local.cc
-    src/core/comm/allgather_thread_local.cc)
+    src/core/comm/local_comm.cc)
 endif()
 
 if(Legion_USE_CUDA)
