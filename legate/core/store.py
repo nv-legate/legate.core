@@ -434,7 +434,6 @@ class StoragePartition:
         extents = self.get_child_size(color)
         offsets = self.get_child_offsets(color)
         return Storage(
-            runtime.get_next_storage_id(),
             extents,
             self._level + 1,
             self._parent.dtype,
@@ -496,7 +495,6 @@ class StoragePartition:
 class Storage:
     def __init__(
         self,
-        storage_id: int,
         extents: Optional[Shape],
         level: int,
         dtype: Any,
@@ -513,7 +511,7 @@ class Storage:
         )
         assert not isinstance(data, Future) or parent is None
         assert parent is None or color is not None
-        self._unique_id = storage_id
+        self._unique_id = runtime.get_next_storage_id()
         self._extents = extents
         self._offsets = offsets
         self._level = level
@@ -803,7 +801,6 @@ class StorePartition:
         for dim, offset in enumerate(child_storage.offsets):
             child_transform = child_transform.stack(Shift(dim, -offset))
         return Store(
-            runtime.get_next_store_id(),
             self._store.type,
             child_storage,
             child_transform,
@@ -832,7 +829,6 @@ class StorePartition:
 class Store:
     def __init__(
         self,
-        store_id: int,
         dtype: _Dtype,
         storage: Storage,
         transform: Optional[TransformStackBase] = None,
@@ -866,7 +862,7 @@ class Store:
         else:
             sanitized_transform = identity
         assert isinstance(shape, Shape) or shape is None
-        self._unique_id = store_id
+        self._unique_id = runtime.get_next_store_id()
         self._shape = shape
         self._ndim = ndim
         self._dtype = dtype
@@ -1053,7 +1049,6 @@ class Store:
         if old_shape == shape:
             return self
         return Store(
-            runtime.get_next_store_id(),
             self._dtype,
             self._storage,
             self._transform.stack(transform),
@@ -1093,7 +1088,6 @@ class Store:
                 self._transform.invert_point(offsets),
             )
         return Store(
-            runtime.get_next_store_id(),
             self._dtype,
             storage,
             self._transform.stack(transform),
@@ -1143,7 +1137,6 @@ class Store:
             else self._transform.stack(Shift(dim, -start))
         )
         return Store(
-            runtime.get_next_store_id(),
             self._dtype,
             storage,
             transform,
@@ -1171,7 +1164,6 @@ class Store:
         transform = Transpose(axes)
         shape = transform.compute_shape(self.shape)
         return Store(
-            runtime.get_next_store_id(),
             self._dtype,
             self._storage,
             self._transform.stack(transform),
@@ -1198,7 +1190,6 @@ class Store:
             )
         new_shape = transform.compute_shape(old_shape)
         return Store(
-            runtime.get_next_store_id(),
             self._dtype,
             self._storage,
             self._transform.stack(transform),

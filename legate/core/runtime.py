@@ -1366,7 +1366,6 @@ class Runtime:
             transform = None
 
         storage = Storage(
-            self.get_next_storage_id(),
             sanitized_shape,
             0,
             dtype,
@@ -1374,7 +1373,6 @@ class Runtime:
             kind=kind,
         )
         return Store(
-            self.get_next_store_id(),
             dtype,
             storage,
             transform=transform,
