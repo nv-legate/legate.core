@@ -81,7 +81,8 @@ class BuildConfig(SectionConfig):
     @property
     def conda(self) -> Reqs:
         pkgs = (
-            "cmake>=3.24",
+            # 3.25.0 triggers gitlab.kitware.com/cmake/cmake/-/issues/24119
+            "cmake>=3.24,!=3.25.0",
             "git",
             "make",
             "scikit-build>=0.13.1",
