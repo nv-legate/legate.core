@@ -511,6 +511,7 @@ class Storage:
         )
         assert not isinstance(data, Future) or parent is None
         assert parent is None or color is not None
+        self._unique_id = runtime.get_next_storage_id()
         self._extents = extents
         self._offsets = offsets
         self._level = level
@@ -519,8 +520,6 @@ class Storage:
         self._kind = kind
         self._parent = parent
         self._color = color
-        self._partitions: dict[PartitionBase, Optional[LegionPartition]] = {}
-        self._key_partition: Union[None, PartitionBase] = None
 
         if self._offsets is None and self._extents is not None:
             self._offsets = Shape((0,) * self._extents.ndim)
@@ -738,21 +737,20 @@ class Storage:
     def find_key_partition(
         self, restrictions: tuple[Restriction, ...]
     ) -> Optional[PartitionBase]:
-        if (
-            self._key_partition is not None
-            and self._key_partition.satisfies_restriction(restrictions)
-        ):
-            return self._key_partition
-        elif self._parent is not None:
-            return self._parent.find_key_partition(restrictions)
-        else:
-            return None
+        partition = partition_manager.find_storage_key_partition(
+            self._unique_id, restrictions
+        )
+        if partition is None and self._parent is not None:
+            partition = self._parent.find_key_partition(restrictions)
+        return partition
 
     def set_key_partition(self, partition: PartitionBase) -> None:
-        self._key_partition = partition
+        partition_manager.record_storage_key_partition(
+            self._unique_id, partition
+        )
 
     def reset_key_partition(self) -> None:
-        self._key_partition = None
+        partition_manager.reset_storage_key_partition(self._unique_id)
 
     def find_or_create_legion_partition(
         self, functor: PartitionBase, complete: bool
@@ -762,12 +760,14 @@ class Storage:
 
         assert isinstance(self.data, RegionField)
 
-        if functor in self._partitions:
-            return self._partitions[functor]
-
-        part = functor.construct(self.data.region, complete=complete)
-        self._partitions[functor] = part
-
+        part, found = partition_manager.find_legion_partition(
+            self._unique_id, functor
+        )
+        if not found:
+            part = functor.construct(self.data.region, complete=complete)
+            partition_manager.record_legion_partition(
+                self._unique_id, functor, part
+            )
         return part
 
 
@@ -862,12 +862,12 @@ class Store:
         else:
             sanitized_transform = identity
         assert isinstance(shape, Shape) or shape is None
+        self._unique_id = runtime.get_next_store_id()
         self._shape = shape
         self._ndim = ndim
         self._dtype = dtype
         self._storage = storage
         self._transform: TransformStackBase = sanitized_transform
-        self._key_partition: Union[None, PartitionBase] = None
         # This is a cache for the projection functor id
         # when no custom functor is given
         self._projection: Union[None, int] = None
@@ -1022,6 +1022,7 @@ class Store:
     def __str__(self) -> str:
         return (
             f"Store("
+            f"id: {self._unique_id}, "
             f"shape: {self._shape}, "
             f"ndim: {self._ndim}, "
             f"type: {self._dtype}, "
@@ -1220,23 +1221,24 @@ class Store:
         # registered correctly
         runtime.flush_scheduling_window()
 
-        restrictions = self.find_restrictions()
-
-        if (
-            self._key_partition is not None
-            and self._key_partition.satisfies_restriction(restrictions)
-        ):
-            return self._key_partition
-
-        return None
+        return partition_manager.find_store_key_partition(
+            self._unique_id, self.find_restrictions()
+        )
 
     def has_key_partition(self, restrictions: tuple[Restriction, ...]) -> bool:
+        key_partition = partition_manager.find_store_key_partition(
+            self._unique_id, restrictions
+        )
+        if key_partition is not None:
+            return True
         restrictions = self._transform.invert_restrictions(restrictions)
         part = self._storage.find_key_partition(restrictions)
         return (part is not None) and (part.even or self._transform.bottom)
 
     def set_key_partition(self, partition: PartitionBase) -> None:
-        self._key_partition = partition
+        partition_manager.record_store_key_partition(
+            self._unique_id, partition
+        )
         # We also update the storage's key partition for other stores
         # sharing the same storage
         self._storage.set_key_partition(
@@ -1244,16 +1246,16 @@ class Store:
         )
 
     def reset_key_partition(self) -> None:
-        self._storage.reset_key_partition()
+        partition_manager.reset_store_key_partition(self._unique_id)
 
     def compute_key_partition(
         self, restrictions: tuple[Restriction, ...]
     ) -> PartitionBase:
-        if (
-            self._key_partition is not None
-            and self._key_partition.satisfies_restriction(restrictions)
-        ):
-            return self._key_partition
+        key_partition = partition_manager.find_store_key_partition(
+            self._unique_id, restrictions
+        )
+        if key_partition is not None:
+            return key_partition
 
         # If this is effectively a scalar store, we don't need to partition it
         if self.kind is Future or self.ndim == 0:

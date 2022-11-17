@@ -38,6 +38,9 @@ if TYPE_CHECKING:
 RequirementType = Union[Type[Broadcast], Type[Partition]]
 
 
+part_mgr = runtime.partition_manager
+
+
 class PartitionBase(ABC):
     @abstractproperty
     def color_shape(self) -> Optional[Shape]:
@@ -295,7 +298,7 @@ class Tiling(PartitionBase):
         self, region: Region, complete: bool = False
     ) -> Optional[LegionPartition]:
         index_space = region.index_space
-        index_partition = runtime.find_partition(index_space, self)
+        index_partition = part_mgr.find_index_partition(index_space, self)
         if index_partition is None:
             tile_shape = self._tile_shape
             transform = Transform(tile_shape.ndim, tile_shape.ndim)
@@ -322,7 +325,7 @@ class Tiling(PartitionBase):
                 kind=kind,
                 keep=True,  # export this partition functor to other libraries
             )
-            runtime.record_partition(index_space, self, index_partition)
+            part_mgr.record_index_partition(index_space, self, index_partition)
         return region.get_child(index_partition)
 
 
@@ -406,7 +409,7 @@ class Weighted(PartitionBase):
         assert complete
 
         index_space = region.index_space
-        index_partition = runtime.find_partition(index_space, self)
+        index_partition = part_mgr.find_index_partition(index_space, self)
         if index_partition is None:
             color_space = runtime.find_or_create_index_space(self._color_shape)
             functor = PartitionByWeights(self._weights)
@@ -420,5 +423,5 @@ class Weighted(PartitionBase):
                 kind=kind,
                 keep=True,  # export this partition functor to other libraries
             )
-            runtime.record_partition(index_space, self, index_partition)
+            part_mgr.record_index_partition(index_space, self, index_partition)
         return region.get_child(index_partition)

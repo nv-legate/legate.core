@@ -74,14 +74,6 @@ LogicalRegion DelinearizationFunctor::project(LogicalPartition upper_bound,
     return LogicalRegion::NO_REGION;
 }
 
-void register_legate_core_projection_functors(Legion::Runtime* runtime,
-                                              const LibraryContext& context)
-{
-  auto proj_id = context.get_projection_id(LEGATE_CORE_DELINEARIZE_PROJ_ID);
-  auto functor = new DelinearizationFunctor(runtime);
-  runtime->register_projection_functor(proj_id, functor, true /*silence warnings*/);
-}
-
 LegateProjectionFunctor::LegateProjectionFunctor(Runtime* rt) : ProjectionFunctor(rt) {}
 
 LogicalRegion LegateProjectionFunctor::project(LogicalPartition upper_bound,
@@ -101,8 +93,7 @@ class AffineFunctor : public LegateProjectionFunctor {
   AffineFunctor(Runtime* runtime, int32_t* dims, int32_t* weights, int32_t* offsets);
 
  public:
-  virtual DomainPoint project_point(const DomainPoint& point,
-                                    const Domain& launch_domain) const override
+  DomainPoint project_point(const DomainPoint& point, const Domain& launch_domain) const override
   {
     return DomainPoint(transform_ * Point<SRC_DIM>(point) + offsets_);
   }
@@ -142,8 +133,17 @@ template <int32_t SRC_DIM, int32_t TGT_DIM>
   return transform;
 }
 
-static std::unordered_map<ProjectionID, LegateProjectionFunctor*> functor_table;
-static std::mutex functor_table_lock;
+struct IdentityFunctor : public LegateProjectionFunctor {
+  IdentityFunctor(Runtime* runtime) : LegateProjectionFunctor(runtime) {}
+  DomainPoint project_point(const DomainPoint& point, const Domain&) const override
+  {
+    return point;
+  }
+};
+
+static LegateProjectionFunctor* identity_functor{nullptr};
+static std::unordered_map<ProjectionID, LegateProjectionFunctor*> functor_table{};
+static std::mutex functor_table_lock{};
 
 struct create_affine_functor_fn {
   template <int32_t SRC_DIM, int32_t TGT_DIM>
@@ -158,9 +158,19 @@ struct create_affine_functor_fn {
   }
 };
 
+void register_legate_core_projection_functors(Legion::Runtime* runtime,
+                                              const LibraryContext& context)
+{
+  auto proj_id = context.get_projection_id(LEGATE_CORE_DELINEARIZE_PROJ_ID);
+  auto functor = new DelinearizationFunctor(runtime);
+  runtime->register_projection_functor(proj_id, functor, true /*silence warnings*/);
+
+  identity_functor = new IdentityFunctor(runtime);
+}
+
 LegateProjectionFunctor* find_legate_projection_functor(ProjectionID proj_id)
 {
-  if (0 == proj_id) return nullptr;
+  if (0 == proj_id) return identity_functor;
   const std::lock_guard<std::mutex> lock(functor_table_lock);
   return functor_table[proj_id];
 }
