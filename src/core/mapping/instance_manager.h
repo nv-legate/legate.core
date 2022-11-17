@@ -52,12 +52,11 @@ struct RegionGroup {
 
 std::ostream& operator<<(std::ostream& os, const RegionGroup& region_group);
 
-struct InstanceSet {
+class BaseInstanceSet {
  public:
-  using Region       = Legion::LogicalRegion;
-  using Instance     = Legion::Mapping::PhysicalInstance;
-  using Domain       = Legion::Domain;
-  using RegionGroupP = std::shared_ptr<RegionGroup>;
+  using Region   = Legion::LogicalRegion;
+  using Instance = Legion::Mapping::PhysicalInstance;
+  using Domain   = Legion::Domain;
 
  public:
   struct InstanceSpec {
@@ -69,6 +68,11 @@ struct InstanceSet {
     Instance instance{};
     InstanceMappingPolicy policy{};
   };
+};
+
+struct InstanceSet : public BaseInstanceSet {
+ public:
+  using RegionGroupP = std::shared_ptr<RegionGroup>;
 
  public:
   bool find_instance(Region region, Instance& result, const InstanceMappingPolicy& policy) const;
@@ -95,7 +99,26 @@ struct InstanceSet {
   std::map<Legion::LogicalRegion, RegionGroupP> groups_;
 };
 
-class InstanceManager {
+class ReductionInstanceSet : public BaseInstanceSet {
+ public:
+  bool find_instance(Region& region, Instance& result, const InstanceMappingPolicy& policy) const;
+
+ public:
+  void record_instance(Region& region, Instance& instance, const InstanceMappingPolicy& policy);
+  // public:
+  // bool erase(Instance inst);
+
+  // public:
+  //  size_t get_instance_size() const;
+
+  // private:
+  //  void dump_and_sanity_check() const;
+
+ private:
+  std::map<Region, InstanceSpec> instances_;
+};
+
+class BaseInstanceManager {
  public:
   using Region       = Legion::LogicalRegion;
   using RegionTreeID = Legion::RegionTreeID;
@@ -103,7 +126,6 @@ class InstanceManager {
   using Domain       = Legion::Domain;
   using FieldID      = Legion::FieldID;
   using Memory       = Legion::Memory;
-  using RegionGroupP = std::shared_ptr<RegionGroup>;
 
  public:
   struct FieldMemInfo {
@@ -133,6 +155,17 @@ class InstanceManager {
   };
 
  public:
+  Legion::Mapping::LocalLock& manager_lock() { return manager_lock_; }
+
+ private:
+  Legion::Mapping::LocalLock manager_lock_{};
+};
+
+class InstanceManager : public BaseInstanceManager {
+ public:
+  using RegionGroupP = std::shared_ptr<RegionGroup>;
+
+ public:
   bool find_instance(Region region,
                      FieldID field_id,
                      Memory memory,
@@ -152,9 +185,6 @@ class InstanceManager {
   void erase(Instance inst);
 
  public:
-  Legion::Mapping::LocalLock& manager_lock() { return manager_lock_; }
-
- public:
   static InstanceManager* get_instance_manager();
 
  public:
@@ -162,7 +192,32 @@ class InstanceManager {
 
  private:
   std::map<FieldMemInfo, InstanceSet> instance_sets_{};
-  Legion::Mapping::LocalLock manager_lock_{};
+};
+
+class ReductionInstanceManager : public BaseInstanceManager {
+ public:
+  bool find_instance(Region region,
+                     FieldID field_id,
+                     Memory memory,
+                     Instance& result,
+                     const InstanceMappingPolicy& policy = {});
+
+  void record_instance(Region region,
+                       FieldID field_id,
+                       Instance instance,
+                       const InstanceMappingPolicy& policy = {});
+
+ public:
+  static ReductionInstanceManager* get_instance_manager();
+
+  //  public:
+  //   void erase(Instance inst);
+
+  // public:
+  //  std::map<Legion::Memory, size_t> aggregate_instance_sizes() const;
+
+ private:
+  std::map<FieldMemInfo, ReductionInstanceSet> instance_sets_{};
 };
 
 }  // namespace mapping
