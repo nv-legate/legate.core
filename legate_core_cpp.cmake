@@ -117,7 +117,7 @@ if(Legion_USE_Python AND (NOT Python3_FOUND))
 endif()
 
 if(Legion_NETWORKS)
-  find_package(MPI REQUIRED)
+  find_package(MPI REQUIRED COMPONENTS CXX)
 endif()
 
 if(Legion_USE_CUDA)
@@ -196,7 +196,7 @@ list(APPEND legate_core_SOURCES
   src/core/mapping/core_mapper.cc
   src/core/mapping/instance_manager.cc
   src/core/mapping/mapping.cc
-  src/core/mapping/task.cc
+  src/core/mapping/operation.cc
   src/core/runtime/context.cc
   src/core/runtime/projection.cc
   src/core/runtime/runtime.cc
@@ -211,16 +211,11 @@ list(APPEND legate_core_SOURCES
 
 if(Legion_NETWORKS)
   list(APPEND legate_core_SOURCES
-    src/core/comm/alltoall_thread_mpi.cc
-    src/core/comm/alltoallv_thread_mpi.cc
-    src/core/comm/gather_thread_mpi.cc
-    src/core/comm/allgather_thread_mpi.cc
-    src/core/comm/bcast_thread_mpi.cc)
+    src/core/comm/mpi_comm.cc
+    src/core/comm/local_comm.cc)
 else()
   list(APPEND legate_core_SOURCES
-    src/core/comm/alltoall_thread_local.cc
-    src/core/comm/alltoallv_thread_local.cc
-    src/core/comm/allgather_thread_local.cc)
+    src/core/comm/local_comm.cc)
 endif()
 
 if(Legion_USE_CUDA)
@@ -266,8 +261,8 @@ target_link_libraries(legate_core
    PUBLIC Legion::Legion
           legate::Thrust
           $<TARGET_NAME_IF_EXISTS:CUDA::nvToolsExt>
-  PRIVATE $<TARGET_NAME_IF_EXISTS:MPI::MPI_CXX>
-          $<TARGET_NAME_IF_EXISTS:NCCL::NCCL>)
+          $<TARGET_NAME_IF_EXISTS:MPI::MPI_CXX>
+  PRIVATE $<TARGET_NAME_IF_EXISTS:NCCL::NCCL>)
 
 target_compile_options(legate_core
   PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${legate_core_CXX_OPTIONS}>"
@@ -344,8 +339,8 @@ install(
 install(
   FILES src/core/mapping/base_mapper.h
         src/core/mapping/mapping.h
-        src/core/mapping/task.h
-        src/core/mapping/task.inl
+        src/core/mapping/operation.h
+        src/core/mapping/operation.inl
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/legate/core/mapping)
 
 install(
@@ -394,6 +389,11 @@ endif()
   "set(Legion_USE_Python ${Legion_USE_Python})"
   "set(Legion_NETWORKS ${Legion_NETWORKS})"
   "set(Legion_BOUNDS_CHECKS ${Legion_BOUNDS_CHECKS})"
+[=[
+if(Legion_NETWORKS)
+  find_package(MPI REQUIRED COMPONENTS CXX)
+endif()
+]=]
 )
 
 rapids_export(

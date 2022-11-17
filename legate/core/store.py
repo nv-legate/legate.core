@@ -18,6 +18,7 @@ import weakref
 from typing import TYPE_CHECKING, Any, Optional, Sequence, Type, Union
 
 from . import (
+    AffineTransform,
     Attach,
     Detach,
     Future,
@@ -42,7 +43,6 @@ from .transform import (
     Project,
     Promote,
     Shift,
-    TransformStack,
     Transpose,
     identity,
 )
@@ -50,7 +50,6 @@ from .types import _Dtype
 
 if TYPE_CHECKING:
     from . import (
-        AffineTransform,
         BufferBuilder,
         Partition as LegionPartition,
         PhysicalRegion,
@@ -656,42 +655,18 @@ class Storage:
         lhs = self
         rhs = other
 
-        lhs_root = lhs.get_root()
-        rhs_root = rhs.get_root()
-
-        if lhs_root is not rhs_root:
+        if lhs.get_root() is not rhs.get_root():
             return False
 
-        lhs_lvl = lhs.level
-        rhs_lvl = rhs.level
+        if lhs.volume() == 0 or rhs.volume() == 0:
+            return False
 
-        if lhs_lvl > rhs_lvl:
-            lhs, rhs = rhs, lhs
-            lhs_lvl, rhs_lvl = rhs_lvl, lhs_lvl
-
-        while lhs_lvl < rhs_lvl:
-            rhs_parent = rhs.parent
-            assert rhs_parent is not None
-            rhs = rhs_parent.parent
-            rhs_lvl -= 2
-
-        if lhs is rhs:
-            return True
-        else:
-            assert lhs.has_parent and rhs.has_parent
-            assert self.parent is not None
-            # Legion doesn't allow passing aliased partitions to a task
-            if lhs.parent is not rhs.parent:
-                return True
-            else:
-                # TODO: This check is incorrect if the partition is aliased.
-                #       Since we only have a tiling, which is a disjoint
-                #       partition, we put this assertion here to remember
-                #       that we need to exdtend this logic if we have other
-                #       partitions. (We need to carry around the disjointness
-                #       of each partition.)
-                assert isinstance(self.parent._partition, Tiling)
-                return lhs.color == rhs.color
+        return all(
+            roff < loff + lext if loff <= roff else loff < roff + rext
+            for (loff, lext, roff, rext) in zip(
+                lhs.offsets, lhs.extents, rhs.offsets, rhs.extents
+            )
+        )
 
     def attach_external_allocation(
         self, context: Context, alloc: Attachable, share: bool
@@ -824,9 +799,7 @@ class StorePartition:
         child_storage = self._storage_partition.get_child(color)
         child_transform = self.transform
         for dim, offset in enumerate(child_storage.offsets):
-            child_transform = TransformStack(
-                Shift(dim, -offset), child_transform
-            )
+            child_transform = child_transform.stack(Shift(dim, -offset))
         return Store(
             self._store.type,
             child_storage,
@@ -1077,7 +1050,7 @@ class Store:
         return Store(
             self._dtype,
             self._storage,
-            TransformStack(transform, self._transform),
+            self._transform.stack(transform),
             shape=shape,
         )
 
@@ -1116,7 +1089,7 @@ class Store:
         return Store(
             self._dtype,
             storage,
-            TransformStack(transform, self._transform),
+            self._transform.stack(transform),
             shape=shape,
         )
 
@@ -1160,7 +1133,7 @@ class Store:
         transform = (
             self._transform
             if start == 0
-            else TransformStack(Shift(dim, -start), self._transform)
+            else self._transform.stack(Shift(dim, -start))
         )
         return Store(
             self._dtype,
@@ -1192,7 +1165,7 @@ class Store:
         return Store(
             self._dtype,
             self._storage,
-            TransformStack(transform, self._transform),
+            self._transform.stack(transform),
             shape=shape,
         )
 
@@ -1218,7 +1191,7 @@ class Store:
         return Store(
             self._dtype,
             self._storage,
-            TransformStack(transform, self._transform),
+            self._transform.stack(transform),
             shape=new_shape,
         )
 

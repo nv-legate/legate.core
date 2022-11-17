@@ -27,24 +27,24 @@ if TYPE_CHECKING:
 __all__ = ("CMD_PARTS",)
 
 
+# this will be replaced by bind.sh with the actual computed rank at runtime
+LEGATE_GLOBAL_RANK_SUBSTITUTION = "%%LEGATE_GLOBAL_RANK%%"
+
+
 def cmd_bind(
     config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
-    cpu_bind = config.binding.cpu_bind
-    mem_bind = config.binding.mem_bind
-    gpu_bind = config.binding.gpu_bind
-    nic_bind = config.binding.nic_bind
-
-    if all(x is None for x in (cpu_bind, mem_bind, gpu_bind, nic_bind)):
-        return ()
-
     ranks = config.multi_node.ranks
+
+    if launcher.kind == "none":
+        bind_launcher_arg = "local" if ranks == 1 else "auto"
+    else:
+        bind_launcher_arg = launcher.kind
 
     opts: CommandPart = (
         str(system.legate_paths.bind_sh_path),
-        "local"
-        if launcher.kind == "none" and ranks == 1
-        else str(launcher.kind),
+        "--launcher",
+        bind_launcher_arg,
     )
 
     ranks_per_node = config.multi_node.ranks_per_node
@@ -56,17 +56,20 @@ def cmd_bind(
             raise RuntimeError(errmsg.format(name=name))
 
     bindings = (
-        ("cpu", cpu_bind),
-        ("gpu", gpu_bind),
-        ("mem", mem_bind),
-        ("nic", nic_bind),
+        ("cpu", config.binding.cpu_bind),
+        ("gpu", config.binding.gpu_bind),
+        ("mem", config.binding.mem_bind),
+        ("nic", config.binding.nic_bind),
     )
     for name, binding in bindings:
         if binding is not None:
             check_bind_ranks(name, binding)
             opts += (f"--{name}s", binding)
 
-    return opts
+    if config.info.bind_detail:
+        opts += ("--debug",)
+
+    return opts + ("--",)
 
 
 def cmd_gdb(
@@ -101,7 +104,10 @@ def cmd_nvprof(
     if not config.profiling.nvprof:
         return ()
 
-    log_path = str(config.logging.logdir / f"legate_{launcher.rank_id}.nvvp")
+    log_path = str(
+        config.logging.logdir
+        / f"legate_{LEGATE_GLOBAL_RANK_SUBSTITUTION}.nvvp"
+    )
 
     return ("nvprof", "-o", log_path)
 
@@ -112,7 +118,9 @@ def cmd_nsys(
     if not config.profiling.nsys:
         return ()
 
-    log_path = str(config.logging.logdir / f"legate_{launcher.rank_id}")
+    log_path = str(
+        config.logging.logdir / f"legate_{LEGATE_GLOBAL_RANK_SUBSTITUTION}"
+    )
     targets = config.profiling.nsys_targets
     extra = config.profiling.nsys_extra
 
@@ -144,8 +152,22 @@ def cmd_module(
     config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
     module = config.other.module
+    cprofile = config.profiling.cprofile
 
-    return () if module is None else ("-m", module)
+    if cprofile and module is not None:
+        raise ValueError("Only one of --module or --cprofile may be used")
+
+    if module is not None:
+        return ("-m", module)
+
+    if cprofile:
+        log_path = str(
+            config.logging.logdir
+            / f"legate_{LEGATE_GLOBAL_RANK_SUBSTITUTION}.cprof"
+        )
+        return ("-m", "cProfile", "-o", log_path)
+
+    return ()
 
 
 def cmd_rlwrap(

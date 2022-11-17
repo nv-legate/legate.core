@@ -54,8 +54,6 @@ from .restriction import Restriction
 from .shape import Shape
 
 if TYPE_CHECKING:
-    from types import TracebackType
-
     from . import ArgumentMap, Detach, IndexDetach, IndexPartition, Library
     from ._legion import FieldListLike, PhysicalRegion
     from .communicator import Communicator
@@ -1060,6 +1058,15 @@ class Runtime:
         return self._num_gpus
 
     @property
+    def core_task_variant_id(self) -> int:
+        if self.num_gpus > 0:
+            return self.core_library.LEGATE_GPU_VARIANT
+        elif self.num_omps > 0:
+            return self.core_library.LEGATE_OMP_VARIANT
+        else:
+            return self.core_library.LEGATE_CPU_VARIANT
+
+    @property
     def attachment_manager(self) -> AttachmentManager:
         return self._attachment_manager
 
@@ -1280,10 +1287,27 @@ class Runtime:
             if optimize_scalar and shape is not None and shape.volume() == 1
             else RegionField
         )
-        storage = Storage(shape, 0, dtype, data=data, kind=kind)
+
+        sanitized_shape: Optional[Shape]
+        if kind is RegionField and shape is not None and shape.ndim == 0:
+            from .transform import Project, identity
+
+            # If the client requested a 0D region-backed store, we need to
+            # promote the shape to 1D to create the storage, as Legion
+            # doesn't allow 0D regions. And we also need to set up a transform
+            # to map "0D" points back to 1D so that the store looks like 0D
+            # to the client.
+            sanitized_shape = Shape([1])
+            transform = identity.stack(Project(0, 0))
+        else:
+            sanitized_shape = shape
+            transform = None
+
+        storage = Storage(sanitized_shape, 0, dtype, data=data, kind=kind)
         return Store(
             dtype,
             storage,
+            transform=transform,
             shape=shape,
             ndim=ndim,
         )
@@ -1465,7 +1489,7 @@ class Runtime:
         launcher = TaskLauncher(
             self.core_context,
             self.core_library.LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,
-            tag=self.core_library.LEGATE_CPU_VARIANT,
+            tag=self.core_task_variant_id,
         )
         launcher.add_future(future)
         launcher.add_scalar_arg(idx, ty.int32)
@@ -1479,7 +1503,7 @@ class Runtime:
         launcher = TaskLauncher(
             self.core_context,
             self.core_library.LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,
-            tag=self.core_library.LEGATE_CPU_VARIANT,
+            tag=self.core_task_variant_id,
         )
         launcher.add_future_map(future)
         launcher.add_scalar_arg(idx, ty.int32)
@@ -1563,9 +1587,9 @@ class Runtime:
         self,
         exn_types: list[type],
         future: Future,
-        tb: Optional[TracebackType] = None,
+        tb_repr: Optional[str] = None,
     ) -> None:
-        exn = PendingException(exn_types, future, tb)
+        exn = PendingException(exn_types, future, tb_repr)
         self._pending_exceptions.append(exn)
 
     def raise_exceptions(self) -> None:
