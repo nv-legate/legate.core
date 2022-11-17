@@ -48,13 +48,13 @@ class SectionConfig(Protocol):
 
 @dataclass(frozen=True)
 class CUDAConfig(SectionConfig):
-    ctk_version: str | None
+    ctk_version: str
 
     header = "cuda"
 
     @property
     def conda(self) -> Reqs:
-        if self.ctk_version is None:
+        if self.ctk_version == "none":
             return ()
 
         return (
@@ -167,7 +167,7 @@ class EnvConfig:
     use: str
     python: str
     os: OSType
-    ctk: str | None
+    ctk: str
     compilers: bool
     openmpi: bool
 
