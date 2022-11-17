@@ -254,12 +254,11 @@ void BaseMapper::slice_auto_task(const MapperContext ctx,
     sharding_domain = runtime->get_index_space_domain(ctx, task.sharding_space);
 
   auto round_robin = [&](auto& procs) {
-    auto lo     = key_functor->project_point(sharding_domain.lo(), sharding_domain);
-    auto hi     = key_functor->project_point(sharding_domain.hi(), sharding_domain);
-    auto offset = linearize(lo, hi, key_functor->project_point(input.domain.lo(), sharding_domain));
+    auto lo = key_functor->project_point(sharding_domain.lo(), sharding_domain);
+    auto hi = key_functor->project_point(sharding_domain.hi(), sharding_domain);
     for (Domain::DomainPointIterator itr(input.domain); itr; itr++) {
       auto p   = key_functor->project_point(itr.p, sharding_domain);
-      auto idx = linearize(lo, hi, p) - offset;
+      auto idx = linearize(lo, hi, p);
       output.slices.push_back(TaskSlice(
         Domain(itr.p, itr.p), procs[idx % procs.size()], false /*recurse*/, false /*stealable*/));
     }
@@ -1039,9 +1038,7 @@ void BaseMapper::map_copy(const MapperContext ctx,
     auto lo           = key_functor->project_point(sharding_domain.lo(), sharding_domain);
     auto hi           = key_functor->project_point(sharding_domain.hi(), sharding_domain);
     auto p            = key_functor->project_point(copy.index_point, sharding_domain);
-    auto offset =
-      linearize(lo, hi, key_functor->project_point(copy.index_domain.lo(), sharding_domain));
-    proc_id = linearize(lo, hi, p) - offset;
+    proc_id           = linearize(lo, hi, p);
   }
   if (!local_gpus.empty())
     target_proc = local_gpus[proc_id % local_gpus.size()];

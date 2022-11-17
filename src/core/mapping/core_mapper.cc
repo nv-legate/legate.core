@@ -279,11 +279,10 @@ void CoreMapper::slice_task(const MapperContext ctx,
     sharding_domain = runtime->get_index_space_domain(ctx, task.sharding_space);
 
   auto round_robin = [&](auto& procs) {
-    auto lo     = sharding_domain.lo();
-    auto hi     = sharding_domain.hi();
-    auto offset = linearize(lo, hi, input.domain.lo());
+    auto lo = sharding_domain.lo();
+    auto hi = sharding_domain.hi();
     for (Domain::DomainPointIterator itr(input.domain); itr; itr++) {
-      auto idx = linearize(lo, hi, itr.p) - offset;
+      auto idx = linearize(lo, hi, itr.p);
       output.slices.push_back(TaskSlice(
         Domain(itr.p, itr.p), procs[idx % procs.size()], false /*recurse*/, false /*stealable*/));
     }
