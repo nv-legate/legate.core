@@ -32,11 +32,6 @@ namespace mapping {
 
 class InstanceManager;
 
-enum class Strictness : bool {
-  strict = true,
-  hint   = false,
-};
-
 class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
  public:
   BaseMapper(Legion::Runtime* rt, Legion::Machine machine, const LibraryContext& context);
@@ -291,11 +286,6 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
                                                 const Legion::Task& task,
                                                 Legion::Processor::Kind kind);
 
- private:
-  void generate_prime_factors();
-  void generate_prime_factor(const std::vector<Legion::Processor>& processors,
-                             Legion::Processor::Kind kind);
-
  protected:
   template <typename Functor>
   decltype(auto) dispatch(TaskTarget target, Functor functor)
@@ -322,7 +312,6 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
   }
 
  protected:
-  const std::vector<int32_t> get_processor_grid(Legion::Processor::Kind kind, int32_t ndim);
   void slice_auto_task(const Legion::Mapping::MapperContext ctx,
                        const Legion::Task& task,
                        const Span<Legion::Processor>& avail_procs,
@@ -330,11 +319,6 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
                        uint32_t offset,
                        const SliceTaskInput& input,
                        SliceTaskOutput& output);
-  void slice_manual_task(const Legion::Mapping::MapperContext ctx,
-                         const Legion::Task& task,
-                         const Span<Legion::Processor>& avail_procs,
-                         const SliceTaskInput& input,
-                         SliceTaskOutput& output);
 
  protected:
   Legion::ShardingID find_sharding_functor_by_key_store_projection(
@@ -373,11 +357,6 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
 
  protected:
   InstanceManager* local_instances;
-
- protected:
-  // Used for n-D cyclic distribution
-  std::map<Legion::Processor::Kind, std::vector<int32_t>> all_factors;
-  std::map<std::pair<Legion::Processor::Kind, int32_t>, std::vector<int32_t>> proc_grids;
 
  protected:
   // These are used for computing sharding functions
