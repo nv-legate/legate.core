@@ -74,82 +74,20 @@ std::string log_mappable(const LegionMappable& mappable, bool prefix_only = fals
   return ss.str();
 }
 
-Processor::Kind to_kind(TaskTarget target)
-{
-  switch (target) {
-    case TaskTarget::GPU: return Processor::Kind::TOC_PROC;
-    case TaskTarget::OMP: return Processor::Kind::OMP_PROC;
-    case TaskTarget::CPU: return Processor::Kind::LOC_PROC;
-    default: LEGATE_ABORT;
-  }
-  assert(false);
-  return Processor::Kind::LOC_PROC;
-}
-
 }  // namespace
 
-BaseMapper::BaseMapper(Runtime* rt, Machine m, const LibraryContext& ctx)
+BaseMapper::BaseMapper(Runtime* rt, Legion::Machine m, const LibraryContext& ctx)
   : Mapper(rt->get_mapper_runtime()),
     legion_runtime(rt),
-    machine(m),
+    legion_machine(m),
     context(ctx),
-    local_node(get_local_node()),
-    total_nodes(get_total_nodes(m)),
-    mapper_name(std::move(create_name(local_node))),
     logger(create_logger_name().c_str()),
-    local_instances(InstanceManager::get_instance_manager())
+    local_instances(InstanceManager::get_instance_manager()),
+    machine(std::make_unique<Machine>(m))
 {
-  // Query to find all our local processors
-  Machine::ProcessorQuery local_procs(machine);
-  local_procs.local_address_space();
-  for (auto local_proc : local_procs) {
-    switch (local_proc.kind()) {
-      case Processor::LOC_PROC: {
-        local_cpus.push_back(local_proc);
-        break;
-      }
-      case Processor::TOC_PROC: {
-        local_gpus.push_back(local_proc);
-        break;
-      }
-      case Processor::OMP_PROC: {
-        local_omps.push_back(local_proc);
-        break;
-      }
-      default: break;
-    }
-  }
-  // Now do queries to find all our local memories
-  Machine::MemoryQuery local_sysmem(machine);
-  local_sysmem.local_address_space();
-  local_sysmem.only_kind(Memory::SYSTEM_MEM);
-  assert(local_sysmem.count() > 0);
-  local_system_memory = local_sysmem.first();
-  if (!local_gpus.empty()) {
-    Machine::MemoryQuery local_zcmem(machine);
-    local_zcmem.local_address_space();
-    local_zcmem.only_kind(Memory::Z_COPY_MEM);
-    assert(local_zcmem.count() > 0);
-    local_zerocopy_memory = local_zcmem.first();
-  }
-  for (auto& local_gpu : local_gpus) {
-    Machine::MemoryQuery local_framebuffer(machine);
-    local_framebuffer.local_address_space();
-    local_framebuffer.only_kind(Memory::GPU_FB_MEM);
-    local_framebuffer.best_affinity_to(local_gpu);
-    assert(local_framebuffer.count() > 0);
-    local_frame_buffers[local_gpu] = local_framebuffer.first();
-  }
-  for (auto& local_omp : local_omps) {
-    Machine::MemoryQuery local_numa(machine);
-    local_numa.local_address_space();
-    local_numa.only_kind(Memory::SOCKET_MEM);
-    local_numa.best_affinity_to(local_omp);
-    if (local_numa.count() > 0)  // if we have NUMA memories then use them
-      local_numa_domains[local_omp] = local_numa.first();
-    else  // Otherwise we just use the local system memory
-      local_numa_domains[local_omp] = local_system_memory;
-  }
+  std::stringstream ss;
+  ss << context.get_library_name() << " on Node " << machine->local_node;
+  mapper_name = ss.str();
 }
 
 BaseMapper::~BaseMapper(void)
@@ -177,28 +115,6 @@ BaseMapper::~BaseMapper(void)
         100.0 * double(pair.second) / capacity);
     }
   }
-}
-
-/*static*/ AddressSpace BaseMapper::get_local_node(void)
-{
-  Processor p = Processor::get_executing_processor();
-  return p.address_space();
-}
-
-/*static*/ size_t BaseMapper::get_total_nodes(Machine m)
-{
-  Machine::ProcessorQuery query(m);
-  query.only_kind(Processor::LOC_PROC);
-  std::set<AddressSpace> spaces;
-  for (auto proc : query) spaces.insert(proc.address_space());
-  return spaces.size();
-}
-
-std::string BaseMapper::create_name(AddressSpace node) const
-{
-  std::stringstream ss;
-  ss << context.get_library_name() << " on Node " << node;
-  return ss.str();
 }
 
 std::string BaseMapper::create_logger_name() const
@@ -234,7 +150,8 @@ void BaseMapper::select_task_options(const MapperContext ctx,
   }
 
   auto target = task_target(legate_task, options);
-  dispatch(target, [&output](auto target, auto& procs) { output.initial_proc = procs.front(); });
+  machine->dispatch(target,
+                    [&output](auto target, auto& procs) { output.initial_proc = procs.front(); });
 
   // We never want valid instances
   output.valid_instances = false;
@@ -250,7 +167,7 @@ void BaseMapper::premap_task(const MapperContext ctx,
 
 void BaseMapper::slice_auto_task(const MapperContext ctx,
                                  const LegionTask& task,
-                                 const Span<Processor>& avail_procs,
+                                 const Span<const Processor>& avail_procs,
                                  uint32_t size,
                                  uint32_t offset,
                                  const SliceTaskInput& input,
@@ -292,12 +209,12 @@ void BaseMapper::slice_task(const MapperContext ctx,
   Task legate_task(&task, context, runtime, ctx);
 
   auto& machine_desc = legate_task.machine_desc();
-  Span<Processor> avail_procs;
+  Span<const Processor> avail_procs;
   uint32_t size;
   uint32_t offset;
-  dispatch(legate_task.target(), [&](auto target, auto& procs) {
+  machine->dispatch(legate_task.target(), [&](auto target, auto& procs) {
     std::tie(avail_procs, size, offset) =
-      machine_desc.slice(target, procs, total_nodes, local_node);
+      machine_desc.slice(target, procs, machine->total_nodes, machine->local_node);
   });
 
   slice_auto_task(ctx, task, avail_procs, size, offset, input, output);
@@ -455,7 +372,7 @@ void BaseMapper::map_task(const MapperContext ctx,
 #ifdef LEGATE_NO_FUTURES_ON_FB
       if (target == StoreTarget::FBMEM) target = StoreTarget::ZCMEM;
 #endif
-      output.future_locations.push_back(get_target_memory(task.target_proc, target));
+      output.future_locations.push_back(machine->get_memory(task.target_proc, target));
     }
   };
   map_futures(for_futures);
@@ -464,7 +381,7 @@ void BaseMapper::map_task(const MapperContext ctx,
   auto map_unbound_stores = [&](auto& mappings) {
     for (auto& mapping : mappings) {
       auto req_idx                   = mapping.requirement_index();
-      output.output_targets[req_idx] = get_target_memory(task.target_proc, mapping.policy.target);
+      output.output_targets[req_idx] = machine->get_memory(task.target_proc, mapping.policy.target);
       auto ndim                      = mapping.store().dim();
       // FIXME: Unbound stores can have more than one dimension later
       std::vector<DimensionKind> dimension_ordering;
@@ -493,19 +410,6 @@ void BaseMapper::map_replicate_task(const MapperContext ctx,
                                     MapReplicateTaskOutput& output)
 {
   LEGATE_ABORT;
-}
-
-Memory BaseMapper::get_target_memory(Processor proc, StoreTarget target)
-{
-  switch (target) {
-    case StoreTarget::SYSMEM: return local_system_memory;
-    case StoreTarget::FBMEM: return local_frame_buffers[proc];
-    case StoreTarget::ZCMEM: return local_zerocopy_memory;
-    case StoreTarget::SOCKETMEM: return local_numa_domains[proc];
-    default: LEGATE_ABORT;
-  }
-  assert(false);
-  return Memory::NO_MEMORY;
 }
 
 void BaseMapper::map_legate_stores(const MapperContext ctx,
@@ -613,7 +517,7 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
   const auto& policy = mapping.policy;
   std::vector<LogicalRegion> regions;
   for (auto* req : reqs) regions.push_back(req->region);
-  auto target_memory = get_target_memory(target_proc, policy.target);
+  auto target_memory = machine->get_memory(target_proc, policy.target);
 
   ReductionOpID redop = 0;
   bool first          = true;
@@ -853,7 +757,7 @@ void BaseMapper::legate_select_sources(const MapperContext ctx,
   for (uint32_t idx = 0; idx < sources.size(); idx++) {
     const PhysicalInstance& instance = sources[idx];
     Memory location                  = instance.get_location();
-    if (location.address_space() == local_node) {
+    if (location.address_space() == machine->local_node) {
       if (!all_local) {
         source_memories.clear();
         band_ranking.clear();
@@ -864,7 +768,7 @@ void BaseMapper::legate_select_sources(const MapperContext ctx,
     auto finder = source_memories.find(location);
     if (finder == source_memories.end()) {
       affinity.clear();
-      machine.get_mem_mem_affinity(
+      legion_machine.get_mem_mem_affinity(
         affinity, location, destination_memory, false /*not just local affinities*/);
       uint32_t memory_bandwidth = 0;
       if (!affinity.empty()) {
@@ -924,10 +828,10 @@ void BaseMapper::map_inline(const MapperContext ctx,
                             MapInlineOutput& output)
 {
   Processor target_proc{Processor::NO_PROC};
-  if (!local_omps.empty())
-    target_proc = local_omps.front();
+  if (machine->has_omps())
+    target_proc = machine->omps().front();
   else
-    target_proc = local_cpus.front();
+    target_proc = machine->cpus().front();
 
   auto store_target = default_store_targets(target_proc.kind()).front();
 
@@ -970,12 +874,12 @@ void BaseMapper::map_copy(const MapperContext ctx,
   auto& machine_desc = legate_copy.machine_desc();
   auto copy_target   = machine_desc.valid_targets().front();
 
-  Span<Processor> avail_procs;
+  Span<const Processor> avail_procs;
   uint32_t size;
   uint32_t offset;
-  dispatch(copy_target, [&](auto target, auto& procs) {
+  machine->dispatch(copy_target, [&](auto target, auto& procs) {
     std::tie(avail_procs, size, offset) =
-      machine_desc.slice(target, procs, total_nodes, local_node);
+      machine_desc.slice(target, procs, machine->total_nodes, machine->local_node);
   });
 
 #ifdef DEBUG_LEGATE
@@ -1182,10 +1086,10 @@ void BaseMapper::map_partition(const MapperContext ctx,
                                MapPartitionOutput& output)
 {
   Processor target_proc{Processor::NO_PROC};
-  if (!local_omps.empty())
-    target_proc = local_omps.front();
+  if (machine->has_omps())
+    target_proc = machine->omps().front();
   else
-    target_proc = local_cpus.front();
+    target_proc = machine->cpus().front();
 
   auto store_target = default_store_targets(target_proc.kind()).front();
 
