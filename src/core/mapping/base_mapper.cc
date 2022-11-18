@@ -84,7 +84,8 @@ BaseMapper::BaseMapper(Runtime* rt, Machine m, const LibraryContext& ctx)
     total_nodes(get_total_nodes(m)),
     mapper_name(std::move(create_name(local_node))),
     logger(create_logger_name().c_str()),
-    local_instances(InstanceManager::get_instance_manager())
+    local_instances(InstanceManager::get_instance_manager()),
+    reduction_instances(ReductionInstanceManager::get_instance_manager())
 {
   // Query to find all our local processors
   Machine::ProcessorQuery local_procs(machine);
@@ -730,9 +731,31 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
   // Generate layout constraints from the store mapping
   LayoutConstraintSet layout_constraints;
   mapping.populate_layout_constraints(layout_constraints);
+  auto& fields = layout_constraints.field_constraint.field_set;
 
-  // If we're making a reduction instance, we should just make it now
+  // We need to hold the instance manager lock as we're about to try to find an instance
+  AutoLock lock(ctx, local_instances->manager_lock());
+
+  // This whole process has to appear atomic
+  runtime->disable_reentrant(ctx);
+
+  // If we're making a reduction instance:
   if (redop != 0) {
+    // See if we already have it in our local instances
+    if (fields.size() == 1 && regions.size() == 1 &&
+        reduction_instances->find_instance(
+          redop, regions.front(), fields.front(), target_memory, result, policy)) {
+#ifdef DEBUG_LEGATE
+      logger.debug() << "Operation " << mappable.get_unique_id()
+                     << ": reused cached reduction instance " << result << " for "
+                     << regions.front();
+#endif
+      runtime->enable_reentrant(ctx);
+      // Needs acquire to keep the runtime happy
+      return true;
+    }
+
+    // if we didn't find it, create one
     layout_constraints.add_constraint(SpecializedConstraint(REDUCTION_FOLD_SPECIALIZE, redop));
     size_t footprint = 0;
     if (runtime->create_physical_instance(ctx,
@@ -751,6 +774,12 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
       for (LogicalRegion r : regions) msg << " " << r;
       msg << " (size: " << footprint << " bytes, memory: " << target_memory << ")";
 #endif
+      // store reduction instance
+      if (fields.size() == 1 && regions.size() == 1) {
+        auto fid = fields.front();
+        reduction_instances->record_instance(redop, regions.front(), fid, result, policy);
+      }
+      runtime->enable_reentrant(ctx);
       // We already did the acquire
       return false;
     }
@@ -758,14 +787,6 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
       report_failed_mapping(mappable, mapping.requirement_index(), target_memory, redop);
     return true;
   }
-
-  auto& fields = layout_constraints.field_constraint.field_set;
-
-  // We need to hold the instance manager lock as we're about to try to find an instance
-  AutoLock lock(ctx, local_instances->manager_lock());
-
-  // This whole process has to appear atomic
-  runtime->disable_reentrant(ctx);
 
   // See if we already have it in our local instances
   if (fields.size() == 1 && regions.size() == 1 &&

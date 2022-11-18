@@ -31,6 +31,7 @@ namespace legate {
 namespace mapping {
 
 class InstanceManager;
+class ReductionInstanceManager;
 
 enum class Strictness : bool {
   strict = true,
@@ -372,6 +373,7 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
 
  protected:
   InstanceManager* local_instances;
+  ReductionInstanceManager* reduction_instances;
 
  protected:
   // Used for n-D cyclic distribution
