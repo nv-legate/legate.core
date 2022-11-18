@@ -82,7 +82,7 @@ ARGS = [
             action="store_true",
             default=False,
             dest="consensus",
-            help="Turn on consensus match on single node. (for testing)",
+            help="Turn on consensus match on single node (for testing).",
         ),
     ),
     Argument(
@@ -93,9 +93,12 @@ ARGS = [
             dest="cycle_check",
             help=(
                 "Check for reference cycles involving RegionField objects on "
-                "program exit; such cycles have the effect of stopping used "
-                "RegionFields from being repurposed for other Stores, thus "
-                "increasing memory pressure (developer option)."
+                "program exit (developer option). Such cycles have the effect "
+                "of stopping used RegionFields from being repurposed for "
+                "other Stores, thus increasing memory pressure. By default "
+                "this mode will miss any cycles already collected by the "
+                "garbage collector; run gc.disable() at the beginning of the "
+                "program to avoid this."
             ),
         ),
     ),
