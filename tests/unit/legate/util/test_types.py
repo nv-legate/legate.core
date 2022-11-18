@@ -41,7 +41,7 @@ class Source:
 
 
 @dataclass(frozen=True)
-class Target:
+class Target(m.DataclassMixin):
     foo: int
     bar: float
     baz: str
