@@ -41,7 +41,7 @@ class Source:
 
 
 @dataclass(frozen=True)
-class Target:
+class Target(m.DataclassMixin):
     foo: int
     bar: float
     baz: str
@@ -50,7 +50,7 @@ class Target:
 
 def test_object_to_dataclass() -> None:
     source = Source()
-    target = m.object_to_dataclass(source, Target)  # type:  ignore[type-var]
+    target = m.object_to_dataclass(source, Target)
 
     assert set(target.__dict__) == set(Target.__dataclass_fields__)
     for k, v in target.__dict__.items():
