@@ -52,11 +52,12 @@ struct RegionGroup {
 
 std::ostream& operator<<(std::ostream& os, const RegionGroup& region_group);
 
-class BaseInstanceSet {
+struct InstanceSet {
  public:
-  using Region   = Legion::LogicalRegion;
-  using Instance = Legion::Mapping::PhysicalInstance;
-  using Domain   = Legion::Domain;
+  using RegionGroupP = std::shared_ptr<RegionGroup>;
+  using Region       = Legion::LogicalRegion;
+  using Instance     = Legion::Mapping::PhysicalInstance;
+  using Domain       = Legion::Domain;
 
  public:
   struct InstanceSpec {
@@ -68,11 +69,6 @@ class BaseInstanceSet {
     Instance instance{};
     InstanceMappingPolicy policy{};
   };
-};
-
-struct InstanceSet : public BaseInstanceSet {
- public:
-  using RegionGroupP = std::shared_ptr<RegionGroup>;
 
  public:
   bool find_instance(Region region, Instance& result, const InstanceMappingPolicy& policy) const;
@@ -99,12 +95,39 @@ struct InstanceSet : public BaseInstanceSet {
   std::map<Legion::LogicalRegion, RegionGroupP> groups_;
 };
 
-class ReductionInstanceSet : public BaseInstanceSet {
+class ReductionInstanceSet {
  public:
-  bool find_instance(Region& region, Instance& result, const InstanceMappingPolicy& policy) const;
+  using Region        = Legion::LogicalRegion;
+  using Instance      = Legion::Mapping::PhysicalInstance;
+  using Domain        = Legion::Domain;
+  using ReductionOpID = Legion::ReductionOpID;
 
  public:
-  void record_instance(Region& region, Instance& instance, const InstanceMappingPolicy& policy);
+  struct ReductionInstanceSpec {
+    ReductionInstanceSpec() {}
+    ReductionInstanceSpec(const ReductionOpID& op,
+                          const Instance& inst,
+                          const InstanceMappingPolicy& po)
+      : redop(op), instance(inst), policy(po)
+    {
+    }
+
+    ReductionOpID redop = 0;
+    Instance instance{};
+    InstanceMappingPolicy policy{};
+  };
+
+ public:
+  bool find_instance(ReductionOpID& redop,
+                     Region& region,
+                     Instance& result,
+                     const InstanceMappingPolicy& policy) const;
+
+ public:
+  void record_instance(ReductionOpID& redop,
+                       Region& region,
+                       Instance& instance,
+                       const InstanceMappingPolicy& policy);
   // public:
   // bool erase(Instance inst);
 
@@ -115,7 +138,7 @@ class ReductionInstanceSet : public BaseInstanceSet {
   //  void dump_and_sanity_check() const;
 
  private:
-  std::map<Region, InstanceSpec> instances_;
+  std::map<Region, ReductionInstanceSpec> instances_;
 };
 
 class BaseInstanceManager {
@@ -196,13 +219,18 @@ class InstanceManager : public BaseInstanceManager {
 
 class ReductionInstanceManager : public BaseInstanceManager {
  public:
-  bool find_instance(Region region,
+  using ReductionOpID = Legion::ReductionOpID;
+
+ public:
+  bool find_instance(ReductionOpID& redop,
+                     Region region,
                      FieldID field_id,
                      Memory memory,
                      Instance& result,
                      const InstanceMappingPolicy& policy = {});
 
-  void record_instance(Region region,
+  void record_instance(ReductionOpID& redop,
+                       Region region,
                        FieldID field_id,
                        Instance instance,
                        const InstanceMappingPolicy& policy = {});

@@ -302,32 +302,34 @@ void InstanceSet::dump_and_sanity_check() const
   for (auto& entry : instances_) assert(found_groups.count(entry.first) > 0);
 }
 
-bool ReductionInstanceSet::find_instance(Region& region,
+bool ReductionInstanceSet::find_instance(ReductionOpID& redop,
+                                         Region& region,
                                          Instance& result,
                                          const InstanceMappingPolicy& policy) const
 {
   auto finder = instances_.find(region);
   if (finder == instances_.end()) return false;
   auto& spec = finder->second;
-  if (spec.policy == policy) {
+  if (spec.policy == policy && spec.redop == redop) {
     result = spec.instance;
     return true;
   } else
     return false;
 }
 
-void ReductionInstanceSet::record_instance(Region& region,
+void ReductionInstanceSet::record_instance(ReductionOpID& redop,
+                                           Region& region,
                                            Instance& instance,
                                            const InstanceMappingPolicy& policy)
 {
   auto finder = instances_.find(region);
   if (finder != instances_.end()) {
     auto& spec = finder->second;
-    if (spec.policy != policy) {
-      instances_.insert_or_assign(region, InstanceSpec(instance, policy));
+    if (spec.policy != policy || spec.redop != redop) {
+      instances_.insert_or_assign(region, ReductionInstanceSpec(redop, instance, policy));
     }
   } else {
-    instances_[region] = InstanceSpec(instance, policy);
+    instances_[region] = ReductionInstanceSpec(redop, instance, policy);
   }
 }
 
@@ -413,7 +415,8 @@ std::map<Legion::Memory, size_t> InstanceManager::aggregate_instance_sizes() con
   return manager;
 }
 
-bool ReductionInstanceManager::find_instance(Region region,
+bool ReductionInstanceManager::find_instance(ReductionOpID& redop,
+                                             Region region,
                                              FieldID field_id,
                                              Memory memory,
                                              Instance& result,
@@ -421,10 +424,11 @@ bool ReductionInstanceManager::find_instance(Region region,
 {
   auto finder = instance_sets_.find(FieldMemInfo(region.get_tree_id(), field_id, memory));
   return policy.allocation != AllocPolicy::MUST_ALLOC && finder != instance_sets_.end() &&
-         finder->second.find_instance(region, result, policy);
+         finder->second.find_instance(redop, region, result, policy);
 }
 
-void ReductionInstanceManager::record_instance(Region region,
+void ReductionInstanceManager::record_instance(ReductionOpID& redop,
+                                               Region region,
                                                FieldID fid,
                                                Instance instance,
                                                const InstanceMappingPolicy& policy)
@@ -433,7 +437,14 @@ void ReductionInstanceManager::record_instance(Region region,
   const auto tid = instance.get_tree_id();
 
   FieldMemInfo key(tid, fid, mem);
-  return instance_sets_[key].record_instance(region, instance, policy);
+  auto finder = instance_sets_.find(key);
+  if (finder != instance_sets_.end())
+    instance_sets_[key].record_instance(redop, region, instance, policy);
+  else {
+    ReductionInstanceSet set;
+    set.record_instance(redop, region, instance, policy);
+    instance_sets_[key] = set;
+  }
 }
 
 /*static*/ ReductionInstanceManager* ReductionInstanceManager::get_instance_manager()
