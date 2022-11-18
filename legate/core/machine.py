@@ -41,13 +41,6 @@ def sanitize_kind(kind_str: Union[str, ProcessorKind]) -> ProcessorKind:
     )
 
 
-PRECEDENCE = (
-    ProcessorKind.GPU,
-    ProcessorKind.OMP,
-    ProcessorKind.CPU,
-)
-
-
 # Inclusive range of processor ids
 @dataclass(frozen=True)
 class ProcessorRange:
@@ -131,7 +124,7 @@ class Machine:
         self._runtime = runtime
         self._proc_ranges = proc_ranges
         self._preferred_kind = ProcessorKind.CPU
-        for kind in PRECEDENCE:
+        for kind in ProcessorKind:
             if kind in proc_ranges and len(proc_ranges[kind]) > 0:
                 self._preferred_kind = kind
                 break
