@@ -82,7 +82,7 @@ class Lit(Expr):
         return self
 
     def unknowns(self) -> Iterator[PartSym]:
-        pass
+        return iter([])
 
 
 class PartSym(Expr):
