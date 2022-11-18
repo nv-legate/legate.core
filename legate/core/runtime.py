@@ -17,9 +17,11 @@ from __future__ import annotations
 import gc
 import math
 import struct
+import sys
 import weakref
 from collections import deque
 from dataclasses import dataclass
+from types import ModuleType
 from typing import TYPE_CHECKING, Any, Deque, List, Optional, TypeVar, Union
 
 from legion_top import add_cleanup_item, top_level
@@ -45,6 +47,7 @@ from ._legion.util import Dispatchable
 from .allocation import Attachable
 from .communicator import CPUCommunicator, NCCLCommunicator
 from .corelib import core_library
+from .cycle_detector import find_cycles
 from .exception import PendingException
 from .projection import is_identity_projection, pack_symbolic_projection_repr
 from .restriction import Restriction
@@ -83,7 +86,24 @@ ARGS = [
             action="store_true",
             default=False,
             dest="consensus",
-            help="Turn on consensus match on single node. (for testing)",
+            help="Turn on consensus match on single node (for testing).",
+        ),
+    ),
+    Argument(
+        "cycle-check",
+        ArgSpec(
+            action="store_true",
+            default=False,
+            dest="cycle_check",
+            help=(
+                "Check for reference cycles involving RegionField objects on "
+                "program exit (developer option). Such cycles have the effect "
+                "of stopping used RegionFields from being repurposed for "
+                "other Stores, thus increasing memory pressure. By default "
+                "this mode will miss any cycles already collected by the "
+                "garbage collector; run gc.disable() at the beginning of the "
+                "program to avoid this."
+            ),
         ),
     ),
 ]
@@ -927,11 +947,6 @@ class Runtime:
 
         self._args = parse_library_command_args("legate", ARGS)
 
-        try:
-            self._legion_context = top_level.context[0]
-        except AttributeError:
-            pass
-
         # Record whether we need to run finalize tasks
         # Key off whether we are being loaded in a context or not
         try:
@@ -1663,6 +1678,24 @@ def _cleanup_legate_runtime() -> None:
 
 
 add_cleanup_item(_cleanup_legate_runtime)
+
+
+class _CycleCheckWrapper(ModuleType):
+    def __init__(self, wrapped_mod: ModuleType):
+        self._wrapped_mod = wrapped_mod
+
+    def __getattr__(self, attr: str) -> Any:
+        return getattr(self._wrapped_mod, attr)
+
+    def __del__(self) -> None:
+        find_cycles()
+
+
+if runtime._args.cycle_check:
+    # The first thing that legion_top does after executing the user script
+    # is to remove the newly created "__main__" module. We intercept this
+    # deletion operation to perform our check.
+    sys.modules["__main__"] = _CycleCheckWrapper(sys.modules["__main__"])
 
 
 def get_legion_runtime() -> legion.legion_runtime_t:
