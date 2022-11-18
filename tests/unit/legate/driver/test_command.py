@@ -58,6 +58,7 @@ def test_CMD_PARTS() -> None:
         m.cmd_numamem,
         m.cmd_fbmem,
         m.cmd_regmem,
+        m.cmd_network,
         m.cmd_log_levels,
         m.cmd_log_file,
         m.cmd_eager_alloc,
