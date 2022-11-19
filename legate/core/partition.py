@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod, abstractproperty
+from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Optional, Sequence, Type, Union
 
 from . import (
@@ -43,6 +44,9 @@ if TYPE_CHECKING:
 
 
 RequirementType = Union[Type[Broadcast], Type[Partition]]
+
+
+part_mgr = runtime.partition_manager
 
 
 class PartitionBase(ABC):
@@ -253,6 +257,7 @@ class Tiling(PartitionBase):
     def has_color(self, color: Shape) -> bool:
         return color >= 0 and color < self._color_shape
 
+    @lru_cache
     def get_subregion_size(self, extents: Shape, color: Shape) -> Shape:
         lo = self._tile_shape * color + self._offset
         hi = self._tile_shape * (color + 1) + self._offset
@@ -314,7 +319,7 @@ class Tiling(PartitionBase):
     ) -> Optional[LegionPartition]:
         assert color_shape is None or color_transform is not None
         index_space = region.index_space
-        index_partition = runtime.find_partition(
+        index_partition = part_mgr.find_index_partition(
             index_space, self, color_shape=color_shape
         )
         if index_partition is None:
@@ -357,7 +362,7 @@ class Tiling(PartitionBase):
                 kind=kind,
                 keep=True,  # export this partition functor to other libraries
             )
-            runtime.record_partition(
+            part_mgr.record_index_partition(
                 index_space, self, index_partition, color_shape=color_shape
             )
         return region.get_child(index_partition)
@@ -447,7 +452,7 @@ class Weighted(PartitionBase):
         assert complete
 
         index_space = region.index_space
-        index_partition = runtime.find_partition(index_space, self)
+        index_partition = part_mgr.find_index_partition(index_space, self)
         if index_partition is None:
             color_space = runtime.find_or_create_index_space(self._color_shape)
             functor = PartitionByWeights(self._weights)
@@ -461,7 +466,7 @@ class Weighted(PartitionBase):
                 kind=kind,
                 keep=True,  # export this partition functor to other libraries
             )
-            runtime.record_partition(index_space, self, index_partition)
+            part_mgr.record_index_partition(index_space, self, index_partition)
         return region.get_child(index_partition)
 
 
@@ -522,7 +527,9 @@ class ImagePartition(PartitionBase):
                 source_field.field_id,
                 mapper=self._mapper,
             )
-        index_partition = runtime.find_partition(region.index_space, self)
+        index_partition = part_mgr.find_index_partition(
+            region.index_space, self
+        )
         if index_partition is None:
             if self._disjoint and self._complete:
                 kind = legion.LEGION_DISJOINT_COMPLETE_KIND
@@ -541,7 +548,9 @@ class ImagePartition(PartitionBase):
                 kind=kind,
                 keep=True,
             )
-            runtime.record_partition(region.index_space, self, index_partition)
+            part_mgr.record_index_partition(
+                region.index_space, self, index_partition
+            )
         return region.get_child(index_partition)
 
     def is_complete_for(self, extents: Shape, offsets: Shape) -> bool:
@@ -661,7 +670,9 @@ class PreimagePartition(PartitionBase):
             source_field,
             mapper=self._mapper,
         )
-        index_partition = runtime.find_partition(region.index_space, self)
+        index_partition = part_mgr.find_index_partition(
+            region.index_space, self
+        )
         if index_partition is None:
             if self._disjoint and self._complete:
                 kind = legion.LEGION_DISJOINT_COMPLETE_KIND
@@ -682,7 +693,9 @@ class PreimagePartition(PartitionBase):
                 kind=kind,
                 keep=True,
             )
-            runtime.record_partition(region.index_space, self, index_partition)
+            part_mgr.record_index_partition(
+                region.index_space, self, index_partition
+            )
         return region.get_child(index_partition)
 
     def is_complete_for(self, extents: Shape, offsets: Shape) -> bool:
@@ -776,7 +789,7 @@ class DomainPartition(PartitionBase):
         color_transform: Optional[Transform] = None,
     ) -> Optional[LegionPartition]:
         index_space = region.index_space
-        index_partition = runtime.find_partition(index_space, self)
+        index_partition = part_mgr.find_index_partition(index_space, self)
         if index_partition is None:
             functor = PartitionByDomain(self._domains)
             index_partition = IndexPartition(
@@ -787,7 +800,7 @@ class DomainPartition(PartitionBase):
                 functor=functor,
                 keep=True,
             )
-            runtime.record_partition(index_space, self, index_partition)
+            part_mgr.record_index_partition(index_space, self, index_partition)
         return region.get_child(index_partition)
 
     # TODO (rohany): We could figure this out by staring at the domain map.

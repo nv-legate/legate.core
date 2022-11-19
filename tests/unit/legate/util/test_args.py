@@ -114,7 +114,7 @@ class Test_parse_library_command_args:
         with pytest.raises(SystemExit) as e:
             m.parse_library_command_args("foo", [])
         assert e.value.code is None
-        out, err = capsys.readouterr()  # type: ignore[unreachable]
+        out, err = capsys.readouterr()
         assert out.startswith("usage: <foo program>")
 
     def test_default_help_precedence(
@@ -125,7 +125,7 @@ class Test_parse_library_command_args:
         with pytest.raises(SystemExit) as e:
             m.parse_library_command_args("foo", args)
         assert e.value.code is None
-        out, err = capsys.readouterr()  # type: ignore[unreachable]
+        out, err = capsys.readouterr()
         assert out.startswith("usage: <foo program>")
 
     def test_default_help_patches_short_args(
@@ -136,7 +136,7 @@ class Test_parse_library_command_args:
         with pytest.raises(SystemExit) as e:
             m.parse_library_command_args("foo", args)
         assert e.value.code is None
-        out, err = capsys.readouterr()  # type: ignore[unreachable]
+        out, err = capsys.readouterr()
         assert out.startswith("usage: <foo program>")
         assert "-foo:bar" in out
         assert "--foo:bar" not in out

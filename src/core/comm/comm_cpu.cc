@@ -33,7 +33,9 @@ static int init_cpucoll_mapping(const Legion::Task* task,
   Core::show_progress(task, context, runtime, task->get_task_name());
   int mpi_rank = 0;
 #if defined(LEGATE_USE_NETWORK)
-  MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+  if (coll::backend_network->comm_type == coll::CollCommType::CollMPI) {
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+  }
 #endif
 
   return mpi_rank;
@@ -55,17 +57,20 @@ static coll::CollComm init_cpucoll(const Legion::Task* task,
   coll::CollComm comm = (coll::CollComm)malloc(sizeof(coll::Coll_Comm));
 
 #ifdef LEGATE_USE_NETWORK
-  int* mapping_table = (int*)malloc(sizeof(int) * num_ranks);
-  for (int i = 0; i < num_ranks; i++) {
-    const int mapping_table_element = task->futures[i + 1].get_result<int>();
-    mapping_table[i]                = mapping_table_element;
-  }
-  coll::collCommCreate(comm, num_ranks, point, unique_id, mapping_table);
-  assert(mapping_table[point] == comm->mpi_rank);
-  free(mapping_table);
-#else
-  coll::collCommCreate(comm, num_ranks, point, unique_id, nullptr);
+  if (coll::backend_network->comm_type == coll::CollCommType::CollMPI) {
+    int* mapping_table = (int*)malloc(sizeof(int) * num_ranks);
+    for (int i = 0; i < num_ranks; i++) {
+      const int mapping_table_element = task->futures[i + 1].get_result<int>();
+      mapping_table[i]                = mapping_table_element;
+    }
+    coll::collCommCreate(comm, num_ranks, point, unique_id, mapping_table);
+    assert(mapping_table[point] == comm->mpi_rank);
+    free(mapping_table);
+  } else
 #endif
+  {
+    coll::collCommCreate(comm, num_ranks, point, unique_id, nullptr);
+  }
 
   return comm;
 }

@@ -130,6 +130,15 @@ profiling.add_argument(
 
 
 profiling.add_argument(
+    "--cprofile",
+    dest="cprofile",
+    action="store_true",
+    required=False,
+    help="profile Python execution with the cprofile module",
+)
+
+
+profiling.add_argument(
     "--nvprof",
     dest="nvprof",
     action="store_true",
@@ -301,6 +310,15 @@ info.add_argument(
     action="store_true",
     required=False,
     help="print out each shell command before running it",
+)
+
+
+info.add_argument(
+    "--bind-detail",
+    dest="bind_detail",
+    action="store_true",
+    required=False,
+    help="print out the final invocation run by bind.sh",
 )
 
 
