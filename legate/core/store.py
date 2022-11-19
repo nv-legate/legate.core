@@ -18,6 +18,7 @@ import weakref
 from typing import TYPE_CHECKING, Any, Optional, Sequence, Type, Union
 
 from . import (
+    AffineTransform,
     Attach,
     Detach,
     Future,
@@ -42,7 +43,6 @@ from .transform import (
     Project,
     Promote,
     Shift,
-    TransformStack,
     Transpose,
     identity,
 )
@@ -50,7 +50,6 @@ from .types import _Dtype
 
 if TYPE_CHECKING:
     from . import (
-        AffineTransform,
         BufferBuilder,
         Partition as LegionPartition,
         PhysicalRegion,
@@ -512,6 +511,7 @@ class Storage:
         )
         assert not isinstance(data, Future) or parent is None
         assert parent is None or color is not None
+        self._unique_id = runtime.get_next_storage_id()
         self._extents = extents
         self._offsets = offsets
         self._level = level
@@ -520,8 +520,6 @@ class Storage:
         self._kind = kind
         self._parent = parent
         self._color = color
-        self._partitions: dict[PartitionBase, Optional[LegionPartition]] = {}
-        self._key_partition: Union[None, PartitionBase] = None
 
         if self._offsets is None and self._extents is not None:
             self._offsets = Shape((0,) * self._extents.ndim)
@@ -656,42 +654,18 @@ class Storage:
         lhs = self
         rhs = other
 
-        lhs_root = lhs.get_root()
-        rhs_root = rhs.get_root()
-
-        if lhs_root is not rhs_root:
+        if lhs.get_root() is not rhs.get_root():
             return False
 
-        lhs_lvl = lhs.level
-        rhs_lvl = rhs.level
+        if lhs.volume() == 0 or rhs.volume() == 0:
+            return False
 
-        if lhs_lvl > rhs_lvl:
-            lhs, rhs = rhs, lhs
-            lhs_lvl, rhs_lvl = rhs_lvl, lhs_lvl
-
-        while lhs_lvl < rhs_lvl:
-            rhs_parent = rhs.parent
-            assert rhs_parent is not None
-            rhs = rhs_parent.parent
-            rhs_lvl -= 2
-
-        if lhs is rhs:
-            return True
-        else:
-            assert lhs.has_parent and rhs.has_parent
-            assert self.parent is not None
-            # Legion doesn't allow passing aliased partitions to a task
-            if lhs.parent is not rhs.parent:
-                return True
-            else:
-                # TODO: This check is incorrect if the partition is aliased.
-                #       Since we only have a tiling, which is a disjoint
-                #       partition, we put this assertion here to remember
-                #       that we need to exdtend this logic if we have other
-                #       partitions. (We need to carry around the disjointness
-                #       of each partition.)
-                assert isinstance(self.parent._partition, Tiling)
-                return lhs.color == rhs.color
+        return all(
+            roff < loff + lext if loff <= roff else loff < roff + rext
+            for (loff, lext, roff, rext) in zip(
+                lhs.offsets, lhs.extents, rhs.offsets, rhs.extents
+            )
+        )
 
     def attach_external_allocation(
         self, context: Context, alloc: Attachable, share: bool
@@ -763,21 +737,20 @@ class Storage:
     def find_key_partition(
         self, restrictions: tuple[Restriction, ...]
     ) -> Optional[PartitionBase]:
-        if (
-            self._key_partition is not None
-            and self._key_partition.satisfies_restriction(restrictions)
-        ):
-            return self._key_partition
-        elif self._parent is not None:
-            return self._parent.find_key_partition(restrictions)
-        else:
-            return None
+        partition = partition_manager.find_storage_key_partition(
+            self._unique_id, restrictions
+        )
+        if partition is None and self._parent is not None:
+            partition = self._parent.find_key_partition(restrictions)
+        return partition
 
     def set_key_partition(self, partition: PartitionBase) -> None:
-        self._key_partition = partition
+        partition_manager.record_storage_key_partition(
+            self._unique_id, partition
+        )
 
     def reset_key_partition(self) -> None:
-        self._key_partition = None
+        partition_manager.reset_storage_key_partition(self._unique_id)
 
     def find_or_create_legion_partition(
         self,
@@ -792,18 +765,19 @@ class Storage:
         assert isinstance(self.data, RegionField)
         assert color_shape is None or color_transform is not None
 
-        if functor in self._partitions and color_shape is None:
-            return self._partitions[functor]
-
-        part = functor.construct(
-            self.data.region,
-            complete=complete,
-            color_shape=color_shape,
-            color_transform=color_transform,  # type: ignore
+        part, found = partition_manager.find_legion_partition(
+            self._unique_id, functor
         )
-        if color_shape is None:
-            self._partitions[functor] = part
-
+        if not found or color_shape is None:
+            part = functor.construct(
+                self.data.region,
+                complete=complete,
+                color_shape=color_shape,
+                color_transform=color_transform,  # type: ignore
+            )
+            partition_manager.record_legion_partition(
+                self._unique_id, functor, part
+            )
         return part
 
 
@@ -835,9 +809,7 @@ class StorePartition:
         child_storage = self._storage_partition.get_child(color)
         child_transform = self.transform
         for dim, offset in enumerate(child_storage.offsets):
-            child_transform = TransformStack(
-                Shift(dim, -offset), child_transform
-            )
+            child_transform = child_transform.stack(Shift(dim, -offset))
         return Store(
             self._store.type,
             child_storage,
@@ -903,12 +875,12 @@ class Store:
         else:
             sanitized_transform = identity
         assert isinstance(shape, Shape) or shape is None
+        self._unique_id = runtime.get_next_store_id()
         self._shape = shape
         self._ndim = ndim
         self._dtype = dtype
         self._storage = storage
         self._transform: TransformStackBase = sanitized_transform
-        self._key_partition: Union[None, PartitionBase] = None
         # This is a cache for the projection functor id
         # when no custom functor is given
         self._projection: Union[None, int] = None
@@ -1075,6 +1047,7 @@ class Store:
     def __str__(self) -> str:
         return (
             f"Store("
+            f"id: {self._unique_id}, "
             f"shape: {self._shape}, "
             f"ndim: {self._ndim}, "
             f"type: {self._dtype}, "
@@ -1103,7 +1076,7 @@ class Store:
         return Store(
             self._dtype,
             self._storage,
-            TransformStack(transform, self._transform),
+            self._transform.stack(transform),
             shape=shape,
         )
 
@@ -1142,7 +1115,7 @@ class Store:
         return Store(
             self._dtype,
             storage,
-            TransformStack(transform, self._transform),
+            self._transform.stack(transform),
             shape=shape,
         )
 
@@ -1186,7 +1159,7 @@ class Store:
         transform = (
             self._transform
             if start == 0
-            else TransformStack(Shift(dim, -start), self._transform)
+            else self._transform.stack(Shift(dim, -start))
         )
         return Store(
             self._dtype,
@@ -1218,7 +1191,7 @@ class Store:
         return Store(
             self._dtype,
             self._storage,
-            TransformStack(transform, self._transform),
+            self._transform.stack(transform),
             shape=shape,
         )
 
@@ -1244,7 +1217,7 @@ class Store:
         return Store(
             self._dtype,
             self._storage,
-            TransformStack(transform, self._transform),
+            self._transform.stack(transform),
             shape=new_shape,
         )
 
@@ -1273,23 +1246,24 @@ class Store:
         # registered correctly
         runtime.flush_scheduling_window()
 
-        restrictions = self.find_restrictions()
-
-        if (
-            self._key_partition is not None
-            and self._key_partition.satisfies_restriction(restrictions)
-        ):
-            return self._key_partition
-
-        return None
+        return partition_manager.find_store_key_partition(
+            self._unique_id, self.find_restrictions()
+        )
 
     def has_key_partition(self, restrictions: tuple[Restriction, ...]) -> bool:
+        key_partition = partition_manager.find_store_key_partition(
+            self._unique_id, restrictions
+        )
+        if key_partition is not None:
+            return True
         restrictions = self._transform.invert_restrictions(restrictions)
         part = self._storage.find_key_partition(restrictions)
         return (part is not None) and (part.even or self._transform.bottom)
 
     def set_key_partition(self, partition: PartitionBase) -> None:
-        self._key_partition = partition
+        partition_manager.record_store_key_partition(
+            self._unique_id, partition
+        )
         # We also update the storage's key partition for other stores
         # sharing the same storage
         self._storage.set_key_partition(
@@ -1297,16 +1271,16 @@ class Store:
         )
 
     def reset_key_partition(self) -> None:
-        self._storage.reset_key_partition()
+        partition_manager.reset_store_key_partition(self._unique_id)
 
     def compute_key_partition(
         self, restrictions: tuple[Restriction, ...]
     ) -> PartitionBase:
-        if (
-            self._key_partition is not None
-            and self._key_partition.satisfies_restriction(restrictions)
-        ):
-            return self._key_partition
+        key_partition = partition_manager.find_store_key_partition(
+            self._unique_id, restrictions
+        )
+        if key_partition is not None:
+            return key_partition
 
         # If this is effectively a scalar store, we don't need to partition it
         if self.kind is Future or self.ndim == 0:

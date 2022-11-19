@@ -17,9 +17,11 @@ from __future__ import annotations
 import gc
 import math
 import struct
+import sys
 import weakref
 from collections import deque
 from dataclasses import dataclass
+from types import ModuleType
 from typing import TYPE_CHECKING, Any, Deque, List, Optional, TypeVar, Union
 
 from legion_top import add_cleanup_item, top_level
@@ -46,6 +48,7 @@ from ._legion.util import Dispatchable
 from .allocation import Attachable
 from .communicator import CPUCommunicator, NCCLCommunicator
 from .corelib import core_library
+from .cycle_detector import find_cycles
 from .exception import PendingException
 from .projection import is_identity_projection, pack_symbolic_projection_repr
 from .restriction import Restriction
@@ -53,7 +56,11 @@ from .shape import Shape
 
 if TYPE_CHECKING:
     from . import ArgumentMap, Detach, IndexDetach, IndexPartition, Library
-    from ._legion import FieldListLike, PhysicalRegion
+    from ._legion import (
+        FieldListLike,
+        PhysicalRegion,
+        Partition as LegionPartition,
+    )
     from .communicator import Communicator
     from .context import Context
     from .corelib import CoreLib
@@ -80,7 +87,24 @@ ARGS = [
             action="store_true",
             default=False,
             dest="consensus",
-            help="Turn on consensus match on single node. (for testing)",
+            help="Turn on consensus match on single node (for testing).",
+        ),
+    ),
+    Argument(
+        "cycle-check",
+        ArgSpec(
+            action="store_true",
+            default=False,
+            dest="cycle_check",
+            help=(
+                "Check for reference cycles involving RegionField objects on "
+                "program exit (developer option). Such cycles have the effect "
+                "of stopping used RegionFields from being repurposed for "
+                "other Stores, thus increasing memory pressure. By default "
+                "this mode will miss any cycles already collected by the "
+                "garbage collector; run gc.disable() at the beginning of the "
+                "program to avoid this."
+            ),
         ),
     ),
 ]
@@ -634,6 +658,12 @@ class PartitionManager:
         self._index_partitions: dict[
             tuple[IndexSpace, PartitionBase, Optional[Shape]], IndexPartition
         ] = {}
+        # Maps storage id-partition pairs to Legion partitions
+        self._legion_partitions: dict[
+            tuple[int, PartitionBase], Union[None, LegionPartition]
+        ] = {}
+        self._storage_key_partitions: dict[int, PartitionBase] = {}
+        self._store_key_partitions: dict[int, PartitionBase] = {}
 
     def compute_launch_shape(
         self, store: Store, restrictions: tuple[Restriction, ...]
@@ -830,7 +860,7 @@ class PartitionManager:
         num_tiles = (shape // tile_shape).volume()
         return not (num_tiles > 256 and num_tiles > 16 * self._num_pieces)
 
-    def find_partition(
+    def find_index_partition(
         self,
         index_space: IndexSpace,
         functor: PartitionBase,
@@ -839,7 +869,7 @@ class PartitionManager:
         key = (index_space, functor, color_shape)
         return self._index_partitions.get(key)
 
-    def record_partition(
+    def record_index_partition(
         self,
         index_space: IndexSpace,
         functor: PartitionBase,
@@ -849,6 +879,59 @@ class PartitionManager:
         key = (index_space, functor, color_shape)
         assert key not in self._index_partitions
         self._index_partitions[key] = index_partition
+
+    def find_store_key_partition(
+        self, store_id: int, restrictions: tuple[Restriction, ...]
+    ) -> Union[None, PartitionBase]:
+        partition = self._store_key_partitions.get(store_id)
+        if partition is not None and not partition.satisfies_restriction(
+            restrictions
+        ):
+            partition = None
+        return partition
+
+    def record_store_key_partition(
+        self, store_id: int, key_partition: PartitionBase
+    ) -> None:
+        self._store_key_partitions[store_id] = key_partition
+
+    def reset_store_key_partition(self, store_id: int) -> None:
+        del self._store_key_partitions[store_id]
+
+    def find_storage_key_partition(
+        self, storage_id: int, restrictions: tuple[Restriction, ...]
+    ) -> Union[None, PartitionBase]:
+        partition = self._storage_key_partitions.get(storage_id)
+        if partition is not None and not partition.satisfies_restriction(
+            restrictions
+        ):
+            partition = None
+        return partition
+
+    def record_storage_key_partition(
+        self, storage_id: int, key_partition: PartitionBase
+    ) -> None:
+        self._storage_key_partitions[storage_id] = key_partition
+
+    def reset_storage_key_partition(self, storage_id: int) -> None:
+        del self._storage_key_partitions[storage_id]
+
+    def find_legion_partition(
+        self, storage_id: int, functor: PartitionBase
+    ) -> tuple[Optional[LegionPartition], bool]:
+        key = (storage_id, functor)
+        found = key in self._legion_partitions
+        part = self._legion_partitions.get(key)
+        return part, found
+
+    def record_legion_partition(
+        self,
+        storage_id: int,
+        functor: PartitionBase,
+        legion_partition: Optional[LegionPartition],
+    ) -> None:
+        key = (storage_id, functor)
+        self._legion_partitions[key] = legion_partition
 
 
 class CommunicatorManager:
@@ -882,11 +965,6 @@ class Runtime:
         """
 
         self._args = parse_library_command_args("legate", ARGS)
-
-        try:
-            self._legion_context = top_level.context[0]
-        except AttributeError:
-            pass
 
         # Record whether we need to run finalize tasks
         # Key off whether we are being loaded in a context or not
@@ -922,6 +1000,9 @@ class Runtime:
             legion.LEGATE_CORE_TUNABLE_WINDOW_SIZE,
             ty.uint32,
         )
+
+        self._next_store_id = 0
+        self._next_storage_id = 0
 
         self._barriers: List[legion.legion_phase_barrier_t] = []
         self.nccl_needs_barrier = bool(
@@ -1065,6 +1146,15 @@ class Runtime:
         return self._num_gpus
 
     @property
+    def core_task_variant_id(self) -> int:
+        if self.num_gpus > 0:
+            return self.core_library.LEGATE_GPU_VARIANT
+        elif self.num_omps > 0:
+            return self.core_library.LEGATE_OMP_VARIANT
+        else:
+            return self.core_library.LEGATE_CPU_VARIANT
+
+    @property
     def attachment_manager(self) -> AttachmentManager:
         return self._attachment_manager
 
@@ -1147,6 +1237,14 @@ class Runtime:
         op_id = self._unique_op_id
         self._unique_op_id += 1
         return op_id
+
+    def get_next_store_id(self) -> int:
+        self._next_store_id += 1
+        return self._next_store_id
+
+    def get_next_storage_id(self) -> int:
+        self._next_storage_id += 1
+        return self._next_storage_id
 
     def dispatch(self, op: Dispatchable[T]) -> T:
         self._attachment_manager.perform_detachments()
@@ -1289,10 +1387,33 @@ class Runtime:
             if optimize_scalar and shape is not None and shape.volume() == 1
             else RegionField
         )
-        storage = Storage(shape, 0, dtype, data=data, kind=kind)
+
+        sanitized_shape: Optional[Shape]
+        if kind is RegionField and shape is not None and shape.ndim == 0:
+            from .transform import Project, identity
+
+            # If the client requested a 0D region-backed store, we need to
+            # promote the shape to 1D to create the storage, as Legion
+            # doesn't allow 0D regions. And we also need to set up a transform
+            # to map "0D" points back to 1D so that the store looks like 0D
+            # to the client.
+            sanitized_shape = Shape([1])
+            transform = identity.stack(Project(0, 0))
+        else:
+            sanitized_shape = shape
+            transform = None
+
+        storage = Storage(
+            sanitized_shape,
+            0,
+            dtype,
+            data=data,
+            kind=kind,
+        )
         return Store(
             dtype,
             storage,
+            transform=transform,
             shape=shape,
             ndim=ndim,
         )
@@ -1453,37 +1574,13 @@ class Runtime:
             handle,
         )
 
-    def find_partition(
-        self,
-        index_space: IndexSpace,
-        functor: PartitionBase,
-        color_shape: Optional[Shape] = None,
-    ) -> Union[IndexPartition, None]:
-        return self._partition_manager.find_partition(
-            index_space, functor, color_shape=color_shape
-        )
-
-    def record_partition(
-        self,
-        index_space: IndexSpace,
-        functor: PartitionBase,
-        index_partition: IndexPartition,
-        color_shape: Optional[Shape] = None,
-    ) -> None:
-        self._partition_manager.record_partition(
-            index_space,
-            functor,
-            index_partition,
-            color_shape=color_shape,
-        )
-
     def extract_scalar(self, future: Future, idx: int) -> Future:
         from .launcher import TaskLauncher
 
         launcher = TaskLauncher(
             self.core_context,
             self.core_library.LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,
-            tag=self.core_library.LEGATE_CPU_VARIANT,
+            tag=self.core_task_variant_id,
         )
         launcher.add_future(future)
         launcher.add_scalar_arg(idx, ty.int32)
@@ -1497,7 +1594,7 @@ class Runtime:
         launcher = TaskLauncher(
             self.core_context,
             self.core_library.LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,
-            tag=self.core_library.LEGATE_CPU_VARIANT,
+            tag=self.core_task_variant_id,
         )
         launcher.add_future_map(future)
         launcher.add_scalar_arg(idx, ty.int32)
@@ -1604,6 +1701,24 @@ def _cleanup_legate_runtime() -> None:
 
 
 add_cleanup_item(_cleanup_legate_runtime)
+
+
+class _CycleCheckWrapper(ModuleType):
+    def __init__(self, wrapped_mod: ModuleType):
+        self._wrapped_mod = wrapped_mod
+
+    def __getattr__(self, attr: str) -> Any:
+        return getattr(self._wrapped_mod, attr)
+
+    def __del__(self) -> None:
+        find_cycles()
+
+
+if runtime._args.cycle_check:
+    # The first thing that legion_top does after executing the user script
+    # is to remove the newly created "__main__" module. We intercept this
+    # deletion operation to perform our check.
+    sys.modules["__main__"] = _CycleCheckWrapper(sys.modules["__main__"])
 
 
 def get_legion_runtime() -> legion.legion_runtime_t:

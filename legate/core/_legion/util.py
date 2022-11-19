@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import struct
+from abc import abstractmethod
 from typing import TYPE_CHECKING, Any, Generic, List, Optional, TypeVar, Union
 
 import numpy as np
@@ -159,6 +160,7 @@ T = TypeVar("T")
 
 
 class Dispatchable(Generic[T]):
+    @abstractmethod
     def launch(
         self,
         runtime: legion.legion_runtime_t,
