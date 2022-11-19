@@ -947,6 +947,52 @@ class Test_cmd_regmem:
         assert result == ("-ll:rsize", value)
 
 
+class Test_cmd_network:
+    def test_no_launcher_single_rank(
+        self,
+        genobjs: GenObjs,
+    ) -> None:
+        config, system, launcher = genobjs()
+        result = m.cmd_network(config, system, launcher)
+        assert result == ("-ll:networks", "none")
+
+    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
+    def test_no_launcher_multi_rank(
+        self,
+        genobjs: GenObjs,
+        rank_var: dict[str, str],
+    ) -> None:
+        config, system, launcher = genobjs(
+            multi_rank=(2, 2),
+            rank_env={rank_var: "1"},
+        )
+        result = m.cmd_network(config, system, launcher)
+        assert result == ()
+
+    @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
+    def test_launcher_single_rank(
+        self,
+        genobjs: GenObjs,
+        launch: LauncherType,
+    ) -> None:
+        config, system, launcher = genobjs(["--launcher", launch])
+        result = m.cmd_network(config, system, launcher)
+        assert result == ("-ll:networks", "none")
+
+    @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
+    def test_launcher_multi_rank(
+        self,
+        genobjs: GenObjs,
+        launch: LauncherType,
+    ) -> None:
+        config, system, launcher = genobjs(
+            ["--launcher", launch],
+            multi_rank=(2, 2),
+        )
+        result = m.cmd_network(config, system, launcher)
+        assert result == ()
+
+
 class Test_cmd_log_levels:
     def test_default(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs([])
