@@ -43,6 +43,8 @@ static const char* const core_library_name = "legate.core";
 
 /*static*/ bool Core::log_mapping_decisions = false;
 
+/*static*/ bool Core::has_socket_mem = false;
+
 /*static*/ void Core::parse_config(void)
 {
 #ifndef LEGATE_USE_CUDA
@@ -199,6 +201,10 @@ extern void register_exception_reduction_op(Runtime* runtime, const LibraryConte
   register_legate_core_projection_functors(runtime, context);
 
   register_legate_core_sharding_functors(runtime, context);
+
+  auto fut = runtime->select_tunable_value(
+    Runtime::get_context(), LEGATE_CORE_TUNABLE_HAS_SOCKET_MEM, context.get_mapper_id(0));
+  Core::has_socket_mem = fut.get_result<bool>();
 }
 
 }  // namespace legate
