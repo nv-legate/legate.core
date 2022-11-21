@@ -43,21 +43,13 @@ if(NOT legate_core_FOUND)
   set(SKBUILD ON)
 endif()
 
-execute_process(
-  COMMAND ${CMAKE_C_COMPILER}
-    -E -DLEGATE_USE_PYTHON_CFFI
-    -I "${CMAKE_CURRENT_SOURCE_DIR}/core/src"
-    -P "${CMAKE_CURRENT_SOURCE_DIR}/src/core/legate_c.h"
-  ECHO_ERROR_VARIABLE
-  OUTPUT_VARIABLE header
-  COMMAND_ERROR_IS_FATAL ANY
+add_custom_target("generate_install_info_py" ALL
+  COMMAND ${CMAKE_COMMAND}
+          -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+          -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/generate_install_info_py.cmake"
+  COMMENT "Generate install_info.py"
+  VERBATIM
 )
-
-set(libpath "")
-configure_file(
-  "${CMAKE_CURRENT_SOURCE_DIR}/legate/install_info.py.in"
-  "${CMAKE_CURRENT_SOURCE_DIR}/legate/install_info.py"
-@ONLY)
 
 add_library(legate_core_python INTERFACE)
 add_library(legate::core_python ALIAS legate_core_python)
