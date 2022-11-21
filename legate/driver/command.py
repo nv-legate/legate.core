@@ -302,6 +302,13 @@ def cmd_regmem(
     return () if regmem == 0 else ("-ll:rsize", str(regmem))
 
 
+def cmd_network(
+    config: ConfigProtocol, system: System, launcher: Launcher
+) -> CommandPart:
+    # Don't initialize a Realm network module if running on a single rank
+    return () if config.multi_node.ranks > 1 else ("-ll:networks", "none")
+
+
 def cmd_log_levels(
     config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
@@ -384,6 +391,7 @@ CMD_PARTS = (
     cmd_numamem,
     cmd_fbmem,
     cmd_regmem,
+    cmd_network,
     cmd_log_levels,
     cmd_log_file,
     cmd_eager_alloc,
