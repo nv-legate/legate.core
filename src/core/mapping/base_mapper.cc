@@ -150,8 +150,14 @@ void BaseMapper::select_task_options(const MapperContext ctx,
   }
 
   auto target = task_target(legate_task, options);
-  machine->dispatch(target,
-                    [&output](auto target, auto& procs) { output.initial_proc = procs.front(); });
+  machine->dispatch(target, [&](auto target, auto& procs) {
+    Span<const Processor> avail_procs;
+    uint32_t size;
+    uint32_t offset;
+    std::tie(avail_procs, size, offset) =
+      machine_desc.slice(target, procs, machine->total_nodes, machine->local_node);
+    output.initial_proc = *avail_procs.begin();
+  });
 
   // We never want valid instances
   output.valid_instances = false;
