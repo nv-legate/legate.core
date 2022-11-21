@@ -46,9 +46,6 @@ if TYPE_CHECKING:
 RequirementType = Union[Type[Broadcast], Type[Partition]]
 
 
-part_mgr = runtime.partition_manager
-
-
 class PartitionBase(ABC):
     @abstractproperty
     def color_shape(self) -> Optional[Shape]:
@@ -319,7 +316,7 @@ class Tiling(PartitionBase):
     ) -> Optional[LegionPartition]:
         assert color_shape is None or color_transform is not None
         index_space = region.index_space
-        index_partition = part_mgr.find_index_partition(
+        index_partition = runtime.partition_manager.find_index_partition(
             index_space, self, color_shape=color_shape
         )
         if index_partition is None:
@@ -362,7 +359,7 @@ class Tiling(PartitionBase):
                 kind=kind,
                 keep=True,  # export this partition functor to other libraries
             )
-            part_mgr.record_index_partition(
+            runtime.partition_manager.record_index_partition(
                 index_space, self, index_partition, color_shape=color_shape
             )
         return region.get_child(index_partition)
@@ -452,7 +449,9 @@ class Weighted(PartitionBase):
         assert complete
 
         index_space = region.index_space
-        index_partition = part_mgr.find_index_partition(index_space, self)
+        index_partition = runtime.partition_manager.find_index_partition(
+            index_space, self
+        )
         if index_partition is None:
             color_space = runtime.find_or_create_index_space(self._color_shape)
             functor = PartitionByWeights(self._weights)
@@ -466,7 +465,9 @@ class Weighted(PartitionBase):
                 kind=kind,
                 keep=True,  # export this partition functor to other libraries
             )
-            part_mgr.record_index_partition(index_space, self, index_partition)
+            runtime.partition_manager.record_index_partition(
+                index_space, self, index_partition
+            )
         return region.get_child(index_partition)
 
 
@@ -527,7 +528,7 @@ class ImagePartition(PartitionBase):
                 source_field.field_id,
                 mapper=self._mapper,
             )
-        index_partition = part_mgr.find_index_partition(
+        index_partition = runtime.partition_manager.find_index_partition(
             region.index_space, self
         )
         if index_partition is None:
@@ -548,7 +549,7 @@ class ImagePartition(PartitionBase):
                 kind=kind,
                 keep=True,
             )
-            part_mgr.record_index_partition(
+            runtime.partition_manager.record_index_partition(
                 region.index_space, self, index_partition
             )
         return region.get_child(index_partition)
@@ -670,7 +671,7 @@ class PreimagePartition(PartitionBase):
             source_field,
             mapper=self._mapper,
         )
-        index_partition = part_mgr.find_index_partition(
+        index_partition = runtime.partition_manager.find_index_partition(
             region.index_space, self
         )
         if index_partition is None:
@@ -693,7 +694,7 @@ class PreimagePartition(PartitionBase):
                 kind=kind,
                 keep=True,
             )
-            part_mgr.record_index_partition(
+            runtime.partition_manager.record_index_partition(
                 region.index_space, self, index_partition
             )
         return region.get_child(index_partition)
@@ -789,7 +790,9 @@ class DomainPartition(PartitionBase):
         color_transform: Optional[Transform] = None,
     ) -> Optional[LegionPartition]:
         index_space = region.index_space
-        index_partition = part_mgr.find_index_partition(index_space, self)
+        index_partition = runtime.partition_manager.find_index_partition(
+            index_space, self
+        )
         if index_partition is None:
             functor = PartitionByDomain(self._domains)
             index_partition = IndexPartition(
@@ -800,7 +803,9 @@ class DomainPartition(PartitionBase):
                 functor=functor,
                 keep=True,
             )
-            part_mgr.record_index_partition(index_space, self, index_partition)
+            runtime.partition_manager.record_index_partition(
+                index_space, self, index_partition
+            )
         return region.get_child(index_partition)
 
     # TODO (rohany): We could figure this out by staring at the domain map.

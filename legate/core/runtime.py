@@ -1225,6 +1225,9 @@ class Runtime:
         self.region_managers_by_region = {}
         self.field_managers = {}
         self.index_spaces = {}
+        # Explicitly release the reference to the partition manager so that
+        # it may be collected, releasing references to Futures and FutureMaps.
+        self._partition_manager = None  # type: ignore
 
         if self._finalize_tasks:
             # Run a gc and then end the legate task
