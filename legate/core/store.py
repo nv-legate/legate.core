@@ -374,7 +374,7 @@ class RegionField:
         # so that we don't create reference cycles.
 
         def callback() -> None:
-            self.decrement_inline_mapped_ref_count()
+            self.decrement_inline_mapped_ref_count(unordered=True)
 
         weakref.finalize(consumer, callback)
 
