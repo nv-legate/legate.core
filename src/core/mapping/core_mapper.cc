@@ -346,7 +346,7 @@ void CoreMapper::select_tunable_value(const MapperContext ctx,
       return;
     }
     case LEGATE_CORE_TUNABLE_HAS_SOCKET_MEM: {
-      pack_tunable<bool>(has_socket_mem, output);
+      pack_tunable<bool>(machine->has_socket_memory(), output);
       return;
     }
     case LEGATE_CORE_TUNABLE_WINDOW_SIZE: {
