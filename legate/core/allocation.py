@@ -40,6 +40,10 @@ class InlineMappedAllocation:
         self._strides = strides
         self._consumed = False
 
+    def __del__(self) -> None:
+        if not self._consumed:
+            raise RuntimeError("Inline mapping was not consumed")
+
     def consume(
         self, ctor: Callable[[tuple[int, ...], int, tuple[int, ...]], Any]
     ) -> Any:
