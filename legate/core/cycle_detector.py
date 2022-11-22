@@ -16,18 +16,12 @@
 import gc
 import inspect
 from collections import deque
-from types import FunctionType, ModuleType
+from types import ModuleType
 from typing import Any, Set, Union
 
 
 def _skip(src: Any, dst: Any) -> bool:
-    return (
-        isinstance(src, type)
-        or isinstance(src, ModuleType)
-        or isinstance(src, FunctionType)
-        and hasattr(src, "__globals__")
-        and src.__globals__ is dst
-    )
+    return isinstance(src, type) or isinstance(src, ModuleType)
 
 
 def _find_cycles(root: Any, all_ids: Set[int]) -> bool:
