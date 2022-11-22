@@ -34,8 +34,8 @@ struct ReturnValue {
  public:
   void* ptr();
   const void* ptr() const;
-  const size_t size() const { return size_; }
-  const bool is_device_value() const { return is_device_value_; }
+  size_t size() const { return size_; }
+  bool is_device_value() const { return is_device_value_; }
 
  public:
   // Calls the Legion postamble with an instance

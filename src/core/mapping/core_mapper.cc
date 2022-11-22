@@ -345,6 +345,10 @@ void CoreMapper::select_tunable_value(const MapperContext ctx,
         pack_tunable<int64_t>(min_cpu_chunk, output);
       return;
     }
+    case LEGATE_CORE_TUNABLE_HAS_SOCKET_MEM: {
+      pack_tunable<bool>(has_socket_mem, output);
+      return;
+    }
     case LEGATE_CORE_TUNABLE_WINDOW_SIZE: {
       pack_tunable<uint32_t>(window_size, output);
       return;

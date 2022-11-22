@@ -64,7 +64,6 @@ if TYPE_CHECKING:
 from math import prod
 
 attachment_manager = runtime.attachment_manager
-partition_manager = runtime.partition_manager
 
 
 # A Field holds a reference to a field in a region tree
@@ -374,7 +373,7 @@ class RegionField:
         # so that we don't create reference cycles.
 
         def callback() -> None:
-            self.decrement_inline_mapped_ref_count()
+            self.decrement_inline_mapped_ref_count(unordered=True)
 
         weakref.finalize(consumer, callback)
 
@@ -695,8 +694,11 @@ class Storage:
             shape % tile_shape
         ).sum() == 0
 
-        if can_tile_completely and partition_manager.use_complete_tiling(
-            shape, tile_shape
+        if (
+            can_tile_completely
+            and runtime.partition_manager.use_complete_tiling(
+                shape, tile_shape
+            )
         ):
             color_shape = shape // tile_shape
             color = offsets // tile_shape
@@ -737,7 +739,7 @@ class Storage:
     def find_key_partition(
         self, restrictions: tuple[Restriction, ...]
     ) -> Optional[PartitionBase]:
-        partition = partition_manager.find_storage_key_partition(
+        partition = runtime.partition_manager.find_storage_key_partition(
             self._unique_id, restrictions
         )
         if partition is None and self._parent is not None:
@@ -745,12 +747,12 @@ class Storage:
         return partition
 
     def set_key_partition(self, partition: PartitionBase) -> None:
-        partition_manager.record_storage_key_partition(
+        runtime.partition_manager.record_storage_key_partition(
             self._unique_id, partition
         )
 
     def reset_key_partition(self) -> None:
-        partition_manager.reset_storage_key_partition(self._unique_id)
+        runtime.partition_manager.reset_storage_key_partition(self._unique_id)
 
     def find_or_create_legion_partition(
         self, functor: PartitionBase, complete: bool
@@ -760,12 +762,12 @@ class Storage:
 
         assert isinstance(self.data, RegionField)
 
-        part, found = partition_manager.find_legion_partition(
+        part, found = runtime.partition_manager.find_legion_partition(
             self._unique_id, functor
         )
         if not found:
             part = functor.construct(self.data.region, complete=complete)
-            partition_manager.record_legion_partition(
+            runtime.partition_manager.record_legion_partition(
                 self._unique_id, functor, part
             )
         return part
@@ -1221,12 +1223,12 @@ class Store:
         # registered correctly
         runtime.flush_scheduling_window()
 
-        return partition_manager.find_store_key_partition(
+        return runtime.partition_manager.find_store_key_partition(
             self._unique_id, self.find_restrictions()
         )
 
     def has_key_partition(self, restrictions: tuple[Restriction, ...]) -> bool:
-        key_partition = partition_manager.find_store_key_partition(
+        key_partition = runtime.partition_manager.find_store_key_partition(
             self._unique_id, restrictions
         )
         if key_partition is not None:
@@ -1236,7 +1238,7 @@ class Store:
         return (part is not None) and (part.even or self._transform.bottom)
 
     def set_key_partition(self, partition: PartitionBase) -> None:
-        partition_manager.record_store_key_partition(
+        runtime.partition_manager.record_store_key_partition(
             self._unique_id, partition
         )
         # We also update the storage's key partition for other stores
@@ -1246,12 +1248,12 @@ class Store:
         )
 
     def reset_key_partition(self) -> None:
-        partition_manager.reset_store_key_partition(self._unique_id)
+        runtime.partition_manager.reset_store_key_partition(self._unique_id)
 
     def compute_key_partition(
         self, restrictions: tuple[Restriction, ...]
     ) -> PartitionBase:
-        key_partition = partition_manager.find_store_key_partition(
+        key_partition = runtime.partition_manager.find_store_key_partition(
             self._unique_id, restrictions
         )
         if key_partition is not None:
@@ -1274,14 +1276,14 @@ class Store:
             partition = self._transform.convert_partition(partition)
             return partition
         else:
-            launch_shape = partition_manager.compute_launch_shape(
+            launch_shape = runtime.partition_manager.compute_launch_shape(
                 self,
                 restrictions,
             )
             if launch_shape is None:
                 partition = REPLICATE
             else:
-                tile_shape = partition_manager.compute_tile_shape(
+                tile_shape = runtime.partition_manager.compute_tile_shape(
                     self.shape, launch_shape
                 )
                 partition = Tiling(tile_shape, launch_shape)
