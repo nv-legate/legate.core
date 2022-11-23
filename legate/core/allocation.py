@@ -42,7 +42,7 @@ class InlineMappedAllocation:
 
     def __del__(self) -> None:
         if not self._consumed:
-            self._region_field.decrement_inline_mapped_ref_count()
+            self._region_field.decrement_inline_mapped_ref_count(ordered=False)
 
     def consume(
         self, ctor: Callable[[tuple[int, ...], int, tuple[int, ...]], Any]
