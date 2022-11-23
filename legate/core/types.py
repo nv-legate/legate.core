@@ -15,30 +15,15 @@
 from __future__ import annotations
 
 from enum import IntEnum, unique
-from typing import TYPE_CHECKING, Any, Iterable, Type, TypedDict, Union
+from typing import Any, Iterable, Type, Union
 
 import numpy as np
 import pyarrow as pa
-from typing_extensions import Protocol
 
 from . import legion
 from .corelib import core_library
 
-if TYPE_CHECKING:
-    from .legate import Array
-
 DTType = Union[Type[bool], pa.lib.DataType]
-
-
-class LegateDataInterfaceItem(TypedDict):
-    version: int
-    data: dict[pa.Field, Array]
-
-
-class LegateDataInterface(Protocol):
-    @property
-    def __legate_data_interface__(self) -> LegateDataInterfaceItem:
-        ...
 
 
 class Complex64Dtype(pa.ExtensionType):

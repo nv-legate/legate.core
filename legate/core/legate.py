@@ -15,15 +15,26 @@
 from __future__ import annotations
 
 import platform
-from typing import TYPE_CHECKING, Any, Iterator, Optional, Union
+from typing import TYPE_CHECKING, Any, Iterator, Optional, TypedDict, Union
 
 import pyarrow
+from typing_extensions import Protocol
 
 from .resource import ResourceConfig
 
 if TYPE_CHECKING:
     from .store import Store
-    from .types import LegateDataInterface, LegateDataInterfaceItem
+
+
+class LegateDataInterfaceItem(TypedDict):
+    version: int
+    data: dict[pyarrow.Field, Array]
+
+
+class LegateDataInterface(Protocol):
+    @property
+    def __legate_data_interface__(self) -> LegateDataInterfaceItem:
+        ...
 
 
 class Array:
