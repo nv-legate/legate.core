@@ -23,6 +23,7 @@ from .resource import ResourceConfig
 
 if TYPE_CHECKING:
     from .store import Store
+    from .types import LegateDataInterface
 
 
 class Array:
@@ -109,7 +110,7 @@ class Array:
         raise NotImplementedError("Array.__len__")
 
 
-class Table:
+class Table(LegateDataInterface):
     def __init__(self, schema: pyarrow.Schema, columns: list[Array]) -> None:
         """
         A Table is a collection of top-level, equal-length Array

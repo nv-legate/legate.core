@@ -24,8 +24,10 @@ from ..core import Future, get_legion_context, get_legion_runtime, legion
 if TYPE_CHECKING:
     import pyarrow
 
+    from ..core.types import LegateDataInterface
 
-class TimingRuntime(object):
+
+class TimingRuntime:
     def __init__(self) -> None:
         self.runtime = get_legion_runtime()
         self.context = get_legion_context()
@@ -53,7 +55,7 @@ class TimingRuntime(object):
         )
 
 
-class Time(object):
+class Time(LegateDataInterface):
     def __init__(self, future: Future, dtype: Any) -> None:
         self.future = future
         self.dtype = dtype

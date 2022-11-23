@@ -19,11 +19,18 @@ from typing import Any, Iterable, Type, Union
 
 import numpy as np
 import pyarrow as pa
+from typing_extensions import Protocol
 
 from . import legion
 from .corelib import core_library
 
 DTType = Union[Type[bool], pa.lib.DataType]
+
+
+class LegateDataInterface(Protocol):
+    @property
+    def __legate_data_interface__(self) -> dict[str, Any]:
+        ...
 
 
 class Complex64Dtype(pa.ExtensionType):
