@@ -96,13 +96,18 @@ ARGS = [
             default=False,
             dest="cycle_check",
             help=(
-                "Check for reference cycles involving RegionField objects on "
-                "program exit (developer option). Such cycles have the effect "
-                "of stopping used RegionFields from being repurposed for "
-                "other Stores, thus increasing memory pressure. By default "
-                "this mode will miss any cycles already collected by the "
-                "garbage collector; run gc.disable() at the beginning of the "
-                "program to avoid this."
+                "Check for reference cycles involving Legion-backed objects "
+                "on program exit (developer option). Right after the user "
+                "code finishes, we check for cycles involving RegionFields. "
+                "When such cycles arise during execution, they stop used "
+                "RegionFields from being repurposed for new Stores, thus "
+                "increasing memory pressure. By default this check will miss "
+                "any RegionField cycles the garbage collector collected "
+                "during execution; run gc.disable() at the beginning of the "
+                "program to avoid this. Additionaly, after the legate runtime "
+                "is destroyed we check for cycles involving Future and "
+                "FutureMap objects, which cause such objects to remain "
+                "undeleted, and potentially resulting in shutdown hangs."
             ),
         ),
     ),
@@ -1675,9 +1680,14 @@ runtime: Runtime = Runtime(core_library)
 
 def _cleanup_legate_runtime() -> None:
     global runtime
+    cycle_check = runtime._args.cycle_check
     runtime.destroy()
     del runtime
     gc.collect()
+    # Look for cycles keeping Future(Map) objects alive, that can cause
+    # shutdown hangs.
+    if cycle_check:
+        find_cycles(True)
 
 
 add_cleanup_item(_cleanup_legate_runtime)
@@ -1691,13 +1701,13 @@ class _CycleCheckWrapper(ModuleType):
         return getattr(self._wrapped_mod, attr)
 
     def __del__(self) -> None:
-        find_cycles()
+        find_cycles(False)
 
 
 if runtime._args.cycle_check:
     # The first thing that legion_top does after executing the user script
     # is to remove the newly created "__main__" module. We intercept this
-    # deletion operation to perform our check.
+    # deletion operation to perform our RegionField cycle check.
     sys.modules["__main__"] = _CycleCheckWrapper(sys.modules["__main__"])
 
 
