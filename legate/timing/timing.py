@@ -24,7 +24,7 @@ from ..core import Future, get_legion_context, get_legion_runtime, legion
 if TYPE_CHECKING:
     import pyarrow
 
-    from ..core.types import LegateDataInterface
+    from ..core.types import LegateDataInterface, LegateDataInterfaceItem
 
 
 class TimingRuntime:
@@ -62,10 +62,8 @@ class Time(LegateDataInterface):
         self.value: Union[int, float, None] = None
 
     @property
-    def __legate_data_interface__(self) -> dict[str, Any]:
-        result: dict[str, Any] = {"version": 1, "data": dict()}
-        result["data"]["Legate Timestamp"] = self
-        return result
+    def __legate_data_interface__(self) -> LegateDataInterfaceItem:
+        return {"version": 1, "data": dict()}
 
     @property
     def type(self) -> Any:

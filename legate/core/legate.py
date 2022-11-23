@@ -23,7 +23,7 @@ from .resource import ResourceConfig
 
 if TYPE_CHECKING:
     from .store import Store
-    from .types import LegateDataInterface
+    from .types import LegateDataInterface, LegateDataInterfaceItem
 
 
 class Array:
@@ -128,30 +128,30 @@ class Table(LegateDataInterface):
         self._columns = columns
 
     @property
-    def __legate_data_interface__(self) -> dict[str, Any]:
+    def __legate_data_interface__(self) -> LegateDataInterfaceItem:
         """
         The Legate data interface allows for different Legate libraries to get
         access to the base Legion primitives that back objects from different
         Legate libraries. It currently requires objects that implement it to
-        return a dictionary that contains two integer members:
+        return a dictionary that contains two members:
 
         Returns
         -------
         A dictionary with the following entries:
+
         'version' (required) : int
             An integer showing the version number of this implementation of
             the interface (i.e. 1 for this version)
-        'data' (required) : OrderedDict[Field,Array]
-            An ordered dictionary mapping 'Field' objects that represent the
-            names and types of the field data to 'Array' objects containing
+
+        'data' (required) : dict[Field, Array]
+            An dictionary mapping ``pyarrow.Field`` objects that represent the
+            names and types of the field data to ``Array`` objects containing
             Store objects
+
         """
-        result: dict[str, Any] = dict()
-        result["version"] = 1
-        data = {}
+        result: LegateDataInterfaceItem = {"version": 1, "data": {}}
         for index, column in enumerate(self._columns):
-            data[self._schema.field(index)] = column
-        result["data"] = data
+            result["data"][self._schema.field(index)] = column
         return result
 
     def add_column(
