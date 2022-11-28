@@ -20,7 +20,7 @@ from ..util.args import parse_library_command_args
 check_legion()
 
 #from legion_cffi import ffi, lib as legion
-from legion_native_cffi import ffi, lib as legion
+from legion_canonical_top import ffi, lib as legion
 
 from ._legion import (
     LEGATE_MAX_DIM,
