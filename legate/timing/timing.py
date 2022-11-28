@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     import pyarrow
 
 
-class TimingRuntime(object):
+class TimingRuntime:
     def __init__(self) -> None:
         self.runtime = get_legion_runtime()
         self.context = get_legion_context()
@@ -53,17 +53,11 @@ class TimingRuntime(object):
         )
 
 
-class Time(object):
+class Time:
     def __init__(self, future: Future, dtype: Any) -> None:
         self.future = future
         self.dtype = dtype
         self.value: Union[int, float, None] = None
-
-    @property
-    def __legate_data_interface__(self) -> dict[str, Any]:
-        result: dict[str, Any] = {"version": 1, "data": dict()}
-        result["data"]["Legate Timestamp"] = self
-        return result
 
     @property
     def type(self) -> Any:

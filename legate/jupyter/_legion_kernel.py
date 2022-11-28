@@ -20,7 +20,7 @@ import sys
 from contextlib import contextmanager
 from typing import Any, Iterator, TextIO
 
-from ipykernel.ipkernel import IPythonKernel  # type: ignore
+from ipykernel.ipkernel import IPythonKernel  # type: ignore [import]
 
 __version__ = "0.1"
 
@@ -33,7 +33,7 @@ def reset_stdout(stdout: TextIO) -> Iterator[None]:
     sys.stdout = _stdout
 
 
-class LegionKernel(IPythonKernel):  # type: ignore
+class LegionKernel(IPythonKernel):  # type: ignore [misc,no-any-unimported]
     implementation = "legion_kernel"
     implementation_version = __version__
     banner = "Legion IPython Kernel for SM"
@@ -55,6 +55,6 @@ class LegionKernel(IPythonKernel):  # type: ignore
 
 
 if __name__ == "__main__":
-    from ipykernel.kernelapp import IPKernelApp  # type: ignore
+    from ipykernel.kernelapp import IPKernelApp  # type: ignore [import]
 
     IPKernelApp.launch_instance(kernel_class=LegionKernel)

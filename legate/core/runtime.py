@@ -1215,7 +1215,7 @@ class Runtime:
         self.index_spaces = {}
         # Explicitly release the reference to the partition manager so that
         # it may be collected, releasing references to Futures and FutureMaps.
-        self._partition_manager = None  # type: ignore
+        del self._partition_manager
 
         print("before _finalize_tasks")
         if self._finalize_tasks:
