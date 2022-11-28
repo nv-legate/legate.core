@@ -1199,8 +1199,8 @@ class Runtime:
         # Destroy all libraries. Note that we should do this
         # from the lastly added one to the first one
         for context in reversed(self._context_list):
+            print(context.library.get_name())
             context.destroy()
-            print("done context")
         print("done with context list")
         del self._contexts
         del self._context_list
