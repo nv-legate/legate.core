@@ -130,14 +130,26 @@ def _bfs(begin: Any, end: Any, all_ids: Set[int]) -> None:
     print(f"    {_obj_str(begin)}")
 
 
-def find_cycles() -> bool:
-    from .store import RegionField
+def find_cycles(for_futures: bool) -> bool:
+    # Avoid importing RegionField when looking for cycles after Runtime
+    # deletion, because at that point it is impossible to import store.py.
+    if for_futures:
+        from ._legion import Future, FutureMap
+
+        def is_interesting(obj: Any) -> bool:
+            return isinstance(obj, (Future, FutureMap))
+
+    else:
+        from .store import RegionField
+
+        def is_interesting(obj: Any) -> bool:
+            return isinstance(obj, RegionField)
 
     found_cycles = False
     all_objs = gc.get_objects()
     all_ids = set(id(obj) for obj in all_objs)
     for obj in all_objs:
-        if isinstance(obj, RegionField):
+        if is_interesting(obj):
             print(
                 f"looking for cycles involving {hex(id(obj))}, "
                 f"of type {type(obj)}"
