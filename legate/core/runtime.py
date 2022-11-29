@@ -24,8 +24,7 @@ from dataclasses import dataclass
 from types import ModuleType
 from typing import TYPE_CHECKING, Any, Deque, List, Optional, TypeVar, Union
 
-#from legion_top import add_cleanup_item, top_level
-from legion_canonical_top import add_cleanup_item, top_level
+from legion_top import add_cleanup_item, top_level
 
 from ..util.args import ArgSpec, Argument, parse_library_command_args
 from . import ffi  # Make sure we only have one ffi instance
