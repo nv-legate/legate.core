@@ -98,12 +98,26 @@ ARGS = [
             dest="cycle_check",
             help=(
                 "Check for reference cycles involving RegionField objects on "
-                "program exit (developer option). Such cycles have the effect "
-                "of stopping used RegionFields from being repurposed for "
-                "other Stores, thus increasing memory pressure. By default "
-                "this mode will miss any cycles already collected by the "
-                "garbage collector; run gc.disable() at the beginning of the "
-                "program to avoid this."
+                "script exit (developer option). When such cycles arise "
+                "during execution, they stop used RegionFields from getting "
+                "collected and reused for new Stores, thus increasing memory "
+                "pressure. By default this check will miss any RegionField "
+                "cycles the garbage collector collected during execution; "
+                "run gc.disable() at the beginning of the program to avoid "
+                "this."
+            ),
+        ),
+    ),
+    Argument(
+        "future-leak-check",
+        ArgSpec(
+            action="store_true",
+            default=False,
+            dest="future_leak_check",
+            help=(
+                "Check for reference cycles keeping Future/FutureMap objects "
+                "alive after Legate runtime exit (developer option). Such "
+                "leaks can result in Legion runtime shutdown hangs."
             ),
         ),
     ),
@@ -896,7 +910,8 @@ class PartitionManager:
         self._store_key_partitions[store_id] = key_partition
 
     def reset_store_key_partition(self, store_id: int) -> None:
-        del self._store_key_partitions[store_id]
+        if store_id in self._store_key_partitions:
+            del self._store_key_partitions[store_id]
 
     def find_storage_key_partition(
         self, storage_id: int, restrictions: tuple[Restriction, ...]
@@ -914,7 +929,8 @@ class PartitionManager:
         self._storage_key_partitions[storage_id] = key_partition
 
     def reset_storage_key_partition(self, storage_id: int) -> None:
-        del self._storage_key_partitions[storage_id]
+        if storage_id in self._storage_key_partitions:
+            del self._storage_key_partitions[storage_id]
 
     def find_legion_partition(
         self, storage_id: int, functor: PartitionBase
@@ -1227,7 +1243,7 @@ class Runtime:
         self.index_spaces = {}
         # Explicitly release the reference to the partition manager so that
         # it may be collected, releasing references to Futures and FutureMaps.
-        self._partition_manager = None  # type: ignore
+        del self._partition_manager
 
         if self._finalize_tasks:
             # Run a gc and then end the legate task
@@ -1698,9 +1714,16 @@ runtime: Runtime = Runtime(core_library)
 
 def _cleanup_legate_runtime() -> None:
     global runtime
+    future_leak_check = runtime._args.future_leak_check
     runtime.destroy()
     del runtime
     gc.collect()
+    if future_leak_check:
+        print(
+            "Looking for cycles that are keeping Future/FutureMap objects "
+            "alive after Legate runtime exit."
+        )
+        find_cycles(True)
 
 
 add_cleanup_item(_cleanup_legate_runtime)
@@ -1714,7 +1737,11 @@ class _CycleCheckWrapper(ModuleType):
         return getattr(self._wrapped_mod, attr)
 
     def __del__(self) -> None:
-        find_cycles()
+        print(
+            "Looking for cycles that are stopping RegionFields from getting "
+            "collected and reused."
+        )
+        find_cycles(False)
 
 
 if runtime._args.cycle_check:

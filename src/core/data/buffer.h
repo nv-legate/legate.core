@@ -18,6 +18,8 @@
 
 #include "legion.h"
 
+#include "core/utilities/machine.h"
+
 namespace legate {
 
 template <typename VAL, int32_t DIM = 1>
@@ -29,11 +31,7 @@ Buffer<VAL, DIM> create_buffer(const Legion::Point<DIM>& extents,
                                size_t alignment          = 16)
 {
   using namespace Legion;
-  if (Memory::Kind::NO_MEMKIND == kind) {
-    auto proc = Processor::get_executing_processor();
-    kind      = proc.kind() == Processor::Kind::TOC_PROC ? Memory::Kind::GPU_FB_MEM
-                                                         : Memory::Kind::SYSTEM_MEM;
-  }
+  if (Memory::Kind::NO_MEMKIND == kind) kind = find_memory_kind_for_executing_processor(false);
   auto hi = extents - Point<DIM>::ONES();
   // We just avoid creating empty buffers, as they cause all sorts of headaches.
   for (int32_t idx = 0; idx < DIM; ++idx) hi[idx] = std::max<int64_t>(hi[idx], 0);

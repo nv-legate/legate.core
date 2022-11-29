@@ -50,7 +50,7 @@ memory = {
 }
 
 
-class LegateInfo(object):
+class LegateInfo:
     config: LegateMetadata
 
     def __init__(self) -> None:

@@ -17,7 +17,7 @@ from __future__ import annotations
 import os
 from typing import Any, Union
 
-from ..install_info import header, libpath  # type: ignore
+from ..install_info import header, libpath  # type: ignore [import]
 from .legate import Library
 from .resource import ResourceConfig
 
