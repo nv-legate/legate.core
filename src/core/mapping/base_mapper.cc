@@ -1049,6 +1049,16 @@ void BaseMapper::map_copy(const MapperContext ctx,
 
   auto store_target = default_store_targets(target_proc.kind()).front();
 
+  // If we're mapping an indirect copy and have data resident in GPU memory,
+  // map everything to CPU memory, as indirect copies on GPUs are currently
+  // extremely slow.
+  auto indirect =
+    !copy.src_indirect_requirements.empty() || !copy.dst_indirect_requirements.empty();
+  if (indirect && target_proc.kind() == Processor::TOC_PROC) {
+    target_proc  = local_cpus.front();
+    store_target = StoreTarget::SYSMEM;
+  }
+
   Copy legate_copy(&copy, runtime, ctx);
 
   std::map<const RegionRequirement*, std::vector<PhysicalInstance>*> output_map;
