@@ -891,7 +891,8 @@ class PartitionManager:
         self._store_key_partitions[store_id] = key_partition
 
     def reset_store_key_partition(self, store_id: int) -> None:
-        del self._store_key_partitions[store_id]
+        if store_id in self._store_key_partitions:
+            del self._store_key_partitions[store_id]
 
     def find_storage_key_partition(
         self, storage_id: int, restrictions: tuple[Restriction, ...]
@@ -909,7 +910,8 @@ class PartitionManager:
         self._storage_key_partitions[storage_id] = key_partition
 
     def reset_storage_key_partition(self, storage_id: int) -> None:
-        del self._storage_key_partitions[storage_id]
+        if storage_id in self._storage_key_partitions:
+            del self._storage_key_partitions[storage_id]
 
     def find_legion_partition(
         self, storage_id: int, functor: PartitionBase
