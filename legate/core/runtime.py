@@ -96,18 +96,27 @@ ARGS = [
             default=False,
             dest="cycle_check",
             help=(
-                "Check for reference cycles involving Legion-backed objects "
-                "on program exit (developer option). Right after the user "
-                "code finishes, we check for cycles involving RegionFields. "
-                "When such cycles arise during execution, they stop used "
-                "RegionFields from being repurposed for new Stores, thus "
-                "increasing memory pressure. By default this check will miss "
-                "any RegionField cycles the garbage collector collected "
-                "during execution; run gc.disable() at the beginning of the "
-                "program to avoid this. Additionaly, after the legate runtime "
-                "is destroyed we check for cycles involving Future and "
-                "FutureMap objects, which cause such objects to remain "
-                "undeleted, and potentially resulting in shutdown hangs."
+                "Check for reference cycles involving RegionField objects on "
+                "script exit (developer option). When such cycles arise "
+                "during execution, they stop used RegionFields from getting "
+                "collected and reused for new Stores, thus increasing memory "
+                "pressure. By default this check will miss any RegionField "
+                "cycles the garbage collector collected during execution; "
+                "run gc.disable() at the beginning of the program to avoid "
+                "this."
+            ),
+        ),
+    ),
+    Argument(
+        "future-leak-check",
+        ArgSpec(
+            action="store_true",
+            default=False,
+            dest="future_leak_check",
+            help=(
+                "Check for reference cycles keeping Future/FutureMap objects "
+                "alive after Legate runtime exit (developer option). Such "
+                "leaks can result in Legion runtime shutdown hangs."
             ),
         ),
     ),
@@ -1680,13 +1689,15 @@ runtime: Runtime = Runtime(core_library)
 
 def _cleanup_legate_runtime() -> None:
     global runtime
-    cycle_check = runtime._args.cycle_check
+    future_leak_check = runtime._args.future_leak_check
     runtime.destroy()
     del runtime
     gc.collect()
-    # Look for cycles keeping Future(Map) objects alive, that can cause
-    # shutdown hangs.
-    if cycle_check:
+    if future_leak_check:
+        print(
+            "Looking for cycles that are keeping Future/FutureMap objects "
+            "alive after Legate runtime exit."
+        )
         find_cycles(True)
 
 
@@ -1701,13 +1712,17 @@ class _CycleCheckWrapper(ModuleType):
         return getattr(self._wrapped_mod, attr)
 
     def __del__(self) -> None:
+        print(
+            "Looking for cycles that are stopping RegionFields from getting "
+            "collected and reused."
+        )
         find_cycles(False)
 
 
 if runtime._args.cycle_check:
     # The first thing that legion_top does after executing the user script
     # is to remove the newly created "__main__" module. We intercept this
-    # deletion operation to perform our RegionField cycle check.
+    # deletion operation to perform our check.
     sys.modules["__main__"] = _CycleCheckWrapper(sys.modules["__main__"])
 
 
