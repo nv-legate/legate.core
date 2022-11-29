@@ -925,7 +925,10 @@ void BaseMapper::legate_select_sources(const MapperContext ctx,
     } else
       band_ranking.push_back(std::pair<PhysicalInstance, uint32_t>(instance, finder->second));
   }
-  assert(!band_ranking.empty());
+  // If there aren't any sources (for example if there are some collective views
+  // to choose from, not yet in this branch), just return nothing and let the
+  // runtime pick something for us.
+  if (band_ranking.empty()) { return; }
   // Easy case of only one instance
   if (band_ranking.size() == 1) {
     ranking.push_back(band_ranking.begin()->first);
