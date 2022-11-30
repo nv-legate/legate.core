@@ -208,17 +208,19 @@ void ReturnValues::legion_serialize(void* buffer) const
   //
   // the size of value i is computed by offsets[i] - (i == 0 ? 0 : offsets[i-1])
 
-#ifdef LEGATE_USE_CUDA
-  auto stream = cuda::StreamPool::get_stream_pool().get_stream();
-#endif
-
+  // Special case with a single scalar
   if (return_values_.size() == 1) {
     auto& ret = return_values_.front();
-#ifdef LEGATE_USE_CUDA
-    if (ret.is_device_value())
-      CHECK_CUDA(cudaMemcpyAsync(buffer, ret.ptr(), ret.size(), cudaMemcpyDeviceToHost, stream));
-    else
+    if (ret.is_device_value()) {
+#ifdef DEBUG_LEGATE
+      assert(Processor::get_executing_processor().kind() == Processor::Kind::TOC_PROC);
 #endif
+      CHECK_CUDA(cudaMemcpyAsync(buffer,
+                                 ret.ptr(),
+                                 ret.size(),
+                                 cudaMemcpyDeviceToHost,
+                                 cuda::StreamPool::get_stream_pool().get_stream()));
+    } else
       memcpy(buffer, ret.ptr(), ret.size());
     return;
   }
@@ -233,15 +235,25 @@ void ReturnValues::legion_serialize(void* buffer) const
     ptr                               = ptr + sizeof(uint32_t);
   }
 
-  for (auto ret : return_values_) {
-    uint32_t size = ret.size();
 #ifdef LEGATE_USE_CUDA
-    if (ret.is_device_value())
-      CHECK_CUDA(cudaMemcpyAsync(ptr, ret.ptr(), size, cudaMemcpyDeviceToHost, stream));
-    else
+  if (Processor::get_executing_processor().kind() == Processor::Kind::TOC_PROC) {
+    auto stream = cuda::StreamPool::get_stream_pool().get_stream();
+    for (auto ret : return_values_) {
+      uint32_t size = ret.size();
+      if (ret.is_device_value())
+        CHECK_CUDA(cudaMemcpyAsync(ptr, ret.ptr(), size, cudaMemcpyDeviceToHost, stream));
+      else
+        memcpy(ptr, ret.ptr(), size);
+      ptr += size;
+    }
+  } else
 #endif
+  {
+    for (auto ret : return_values_) {
+      uint32_t size = ret.size();
       memcpy(ptr, ret.ptr(), size);
-    ptr += size;
+      ptr += size;
+    }
   }
 }
 
