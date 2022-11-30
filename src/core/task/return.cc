@@ -246,9 +246,9 @@ void ReturnValues::legion_serialize(void* buffer) const
         memcpy(ptr, ret.ptr(), size);
       ptr += size;
     }
-  }
+  } else
 #endif
-  else {
+  {
     for (auto ret : return_values_) {
       uint32_t size = ret.size();
       memcpy(ptr, ret.ptr(), size);
