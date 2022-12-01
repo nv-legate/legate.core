@@ -786,7 +786,10 @@ void BaseMapper::legate_select_sources(const MapperContext ctx,
     } else
       band_ranking.push_back(std::pair<PhysicalInstance, uint32_t>(instance, finder->second));
   }
-  assert(!band_ranking.empty());
+  // If there aren't any sources (for example if there are some collective views
+  // to choose from, not yet in this branch), just return nothing and let the
+  // runtime pick something for us.
+  if (band_ranking.empty()) { return; }
   // Easy case of only one instance
   if (band_ranking.size() == 1) {
     ranking.push_back(band_ranking.begin()->first);
@@ -910,6 +913,18 @@ void BaseMapper::map_copy(const MapperContext ctx,
   }
 
   auto store_target = default_store_targets(target_proc.kind()).front();
+
+  // If we're mapping an indirect copy and have data resident in GPU memory,
+  // map everything to CPU memory, as indirect copies on GPUs are currently
+  // extremely slow.
+  auto indirect =
+    !copy.src_indirect_requirements.empty() || !copy.dst_indirect_requirements.empty();
+  if (indirect && target_proc.kind() == Processor::TOC_PROC) {
+    target_proc  = local_cpus.front();
+    store_target = StoreTarget::SYSMEM;
+  }
+
+  Copy legate_copy(&copy, runtime, ctx);
 
   std::map<const RegionRequirement*, std::vector<PhysicalInstance>*> output_map;
   auto add_to_output_map = [&output_map](auto& reqs, auto& instances) {

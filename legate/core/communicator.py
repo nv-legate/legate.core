@@ -66,6 +66,10 @@ class Communicator(ABC):
     def destroy(self) -> None:
         for (volume, _), handle in self._handles.items():
             self._finalize(volume, handle)
+        # Drop the references to the handles dict after
+        # all handles have been finalized to ensure that
+        # no references to FutureMaps are kept.
+        self._handles = {}
 
     @abstractproperty
     def needs_barrier(self) -> bool:

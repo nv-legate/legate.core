@@ -172,27 +172,21 @@ struct is_floating_point {
 };
 
 template <LegateTypeCode CODE>
-struct is_complex : std::false_type {
-};
+struct is_complex : std::false_type {};
 
 template <>
-struct is_complex<LegateTypeCode::COMPLEX64_LT> : std::true_type {
-};
+struct is_complex<LegateTypeCode::COMPLEX64_LT> : std::true_type {};
 
 template <>
-struct is_complex<LegateTypeCode::COMPLEX128_LT> : std::true_type {
-};
+struct is_complex<LegateTypeCode::COMPLEX128_LT> : std::true_type {};
 
 template <typename T>
-struct is_complex_type : std::false_type {
-};
+struct is_complex_type : std::false_type {};
 
 template <>
-struct is_complex_type<complex<float>> : std::true_type {
-};
+struct is_complex_type<complex<float>> : std::true_type {};
 
 template <>
-struct is_complex_type<complex<double>> : std::true_type {
-};
+struct is_complex_type<complex<double>> : std::true_type {};
 
 }  // namespace legate
