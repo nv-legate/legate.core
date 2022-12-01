@@ -519,8 +519,24 @@ class Test_cmd_nocr:
 
         assert result == ()
 
-    def test_console(self, genobjs: GenObjs) -> None:
+    def test_console_single_node(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs([], fake_module=None)
+
+        result = m.cmd_nocr(config, system, launcher)
+
+        assert result == ()
+
+    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
+    @pytest.mark.parametrize("rank", ("0", "1", "2"))
+    def test_console_multi_node(
+        self, genobjs: GenObjs, rank: str, rank_var: dict[str, str]
+    ) -> None:
+        config, system, launcher = genobjs(
+            ["--nodes", "2"],
+            multi_rank=(2, 2),
+            rank_env={rank_var: rank},
+            fake_module=None,
+        )
 
         result = m.cmd_nocr(config, system, launcher)
 

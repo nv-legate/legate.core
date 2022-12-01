@@ -206,7 +206,7 @@ class Config:
         return not any(opt.endswith(".py") for opt in self.user_opts)
 
     def _fixup_nocr(self, args: Namespace) -> None:
-        if self.console and not args.not_control_replicable:
+        if self.console and not args.not_control_replicable and args.nodes > 1:
             print(warn("Disabling control replication for interactive run"))
             args.not_control_replicable = True
 

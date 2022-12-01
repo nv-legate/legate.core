@@ -284,7 +284,7 @@ class TestConfig:
         assert c.multi_node == m.MultiNode(
             nodes=defaults.LEGATE_NODES,
             ranks_per_node=defaults.LEGATE_RANKS_PER_NODE,
-            not_control_replicable=True,
+            not_control_replicable=False,
             launcher="none",
             launcher_extra=[],
         )
@@ -373,8 +373,17 @@ class TestConfig:
             ]
         )
 
-    def test_nocr_fixup(self, capsys: Capsys) -> None:
+    def test_nocr_fixup_default_single_node(self, capsys: Capsys) -> None:
         c = m.Config(["legate"])
+
+        assert c.console
+        assert not c.multi_node.not_control_replicable
+
+        out, _ = capsys.readouterr()
+        assert scrub(out).strip() == ""
+
+    def test_nocr_fixup_multi_node(self, capsys: Capsys) -> None:
+        c = m.Config(["legate", "--nodes", "2"])
 
         assert c.console
         assert c.multi_node.not_control_replicable
