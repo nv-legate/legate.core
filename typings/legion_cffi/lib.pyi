@@ -33,6 +33,7 @@ LEGION_TYPE_TOTAL: int
 LEGION_READ_ONLY: int
 LEGION_READ_WRITE: int
 LEGION_EXCLUSIVE: int
+LEGION_SIMULTANEOUS: int
 LEGION_NO_ACCESS: int
 LEGION_WRITE_DISCARD: int
 
@@ -350,6 +351,7 @@ def legion_runtime_total_shards(*args: Any) -> Any: ...
 def legion_sharding_functor_invert(*args: Any) -> Any: ...
 
 __all__ = (
+    "LEGION_SIMULTANEOUS",
     "LEGION_EXTERNAL_INSTANCE",
     "LEGION_COMPUTE_KIND",
     "SYSTEM_MEM",
