@@ -211,6 +211,7 @@ void ReturnValues::legion_serialize(void* buffer) const
   // Special case with a single scalar
   if (return_values_.size() == 1) {
     auto& ret = return_values_.front();
+#ifdef LEGATE_USE_CUDA
     if (ret.is_device_value()) {
 #ifdef DEBUG_LEGATE
       assert(Processor::get_executing_processor().kind() == Processor::Kind::TOC_PROC);
@@ -221,6 +222,7 @@ void ReturnValues::legion_serialize(void* buffer) const
                                  cudaMemcpyDeviceToHost,
                                  cuda::StreamPool::get_stream_pool().get_stream()));
     } else
+#endif
       memcpy(buffer, ret.ptr(), ret.size());
     return;
   }
