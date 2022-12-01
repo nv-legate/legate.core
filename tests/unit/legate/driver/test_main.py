@@ -36,7 +36,7 @@ def test_main(mocker: MockerFixture) -> None:
     system_spy = mocker.spy(legate.util.system.System, "__init__")
     driver_spy = mocker.spy(legate.driver.driver.Driver, "__init__")
     mocker.patch("legate.driver.driver.Driver.run", return_value=123)
-    mocker.patch.object(sys, "argv", ["foo", "bar"])
+    mocker.patch.object(sys, "argv", ["/some/path/foo", "bar"])
 
     result = m.main()
 
