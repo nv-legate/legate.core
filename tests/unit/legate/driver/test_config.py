@@ -394,6 +394,18 @@ class TestConfig:
             == "WARNING: Disabling control replication for interactive run"
         )
 
+    def test_nocr_fixup_multi_rank(self, capsys: Capsys) -> None:
+        c = m.Config(["legate", "--ranks-per-node", "2"])
+
+        assert c.console
+        assert c.multi_node.not_control_replicable
+
+        out, _ = capsys.readouterr()
+        assert (
+            scrub(out).strip()
+            == "WARNING: Disabling control replication for interactive run"
+        )
+
     @pytest.mark.parametrize(
         "args", powerset_nonempty(("--event", "--dataflow"))
     )
