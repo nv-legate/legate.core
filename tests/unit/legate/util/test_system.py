@@ -98,12 +98,6 @@ class TestSystem:
         assert len(cpus) > 0
         assert all(len(cpu.ids) > 0 for cpu in cpus)
 
-    @pytest.mark.skipif(platform.system() != "Linux", reason="Linux test")
-    def test_gpus_linux(self) -> None:
-        s = m.System()
-        # can't really assume / test much here
-        s.gpus
-
     @pytest.mark.skipif(platform.system() != "Darwin", reason="OSX test")
     def test_gpus_osx(self) -> None:
         s = m.System()
