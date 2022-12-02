@@ -1249,6 +1249,8 @@ class Store:
 
     def reset_key_partition(self) -> None:
         runtime.partition_manager.reset_store_key_partition(self._unique_id)
+        # Also reset the storage's key partition.
+        self._storage.reset_key_partition()
 
     def compute_key_partition(
         self, restrictions: tuple[Restriction, ...]
