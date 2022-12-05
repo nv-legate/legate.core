@@ -85,6 +85,14 @@ std::vector<TaskTarget> MachineDesc::valid_targets() const
   return std::move(result);
 }
 
+std::vector<TaskTarget> MachineDesc::valid_targets(std::set<TaskTarget>&& to_exclude) const
+{
+  std::vector<TaskTarget> result;
+  for (auto& [target, _] : processor_ranges)
+    if (to_exclude.find(target) == to_exclude.end()) result.push_back(target);
+  return std::move(result);
+}
+
 std::tuple<Span<const Legion::Processor>, uint32_t, uint32_t> MachineDesc::slice(
   TaskTarget target,
   const std::vector<Legion::Processor>& local_procs,

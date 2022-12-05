@@ -46,6 +46,7 @@ struct MachineDesc {
 
   ProcessorRange processor_range() const;
   std::vector<TaskTarget> valid_targets() const;
+  std::vector<TaskTarget> valid_targets(std::set<TaskTarget>&& to_exclude) const;
   std::tuple<Span<const Legion::Processor>, uint32_t, uint32_t> slice(
     TaskTarget target,
     const std::vector<Legion::Processor>& local_procs,
