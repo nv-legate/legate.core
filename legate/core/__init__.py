@@ -20,8 +20,11 @@ from ..util.args import parse_library_command_args
 from legion_top import ffi, lib as legion, is_legion_python
 if is_legion_python == False:
     from legion_canonical_top import legion_python_main, legion_python_cleanup
-    import atexit
-    legion_python_main()
+    import atexit, sys
+    argv = []
+    for arg in sys.argv:
+        argv.append(ffi.new("char[]", arg.encode('ascii')))
+    legion_python_main(argv)
     atexit.register(legion_python_cleanup)
 else:
     print("check legion")
