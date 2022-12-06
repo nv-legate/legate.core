@@ -17,6 +17,7 @@
 """
 from __future__ import annotations
 
+import os
 from pathlib import Path, PurePath
 
 import pytest
@@ -64,7 +65,7 @@ class TestConfig:
         assert c.legate_dir is None
 
         assert c.extra_args == []
-        assert c.root_dir == PurePath(m.__file__).parents[2]
+        assert c.root_dir == PurePath(os.getcwd())
 
         # TODO (bv) restore when generalized
         # assert len(c.test_files) > 0

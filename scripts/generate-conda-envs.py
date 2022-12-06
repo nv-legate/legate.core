@@ -221,6 +221,7 @@ CTK_VERSIONS = (
     "11.5",
     "11.6",
     "11.7",
+    "11.8",
 )
 
 OS_NAMES: Tuple[OSType, ...] = ("linux", "osx")
