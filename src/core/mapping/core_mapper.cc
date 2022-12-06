@@ -23,6 +23,7 @@
 #include "core/comm/comm_nccl.h"
 #endif
 #include "core/task/task.h"
+#include "core/utilities/linearize.h"
 
 namespace legate {
 
@@ -93,6 +94,20 @@ class CoreMapper : public Legion::Mapping::NullMapper {
                                     const Task& task,
                                     const SelectTunableInput& input,
                                     SelectTunableOutput& output);
+
+ protected:
+  template <typename Functor>
+  decltype(auto) dispatch(Legion::Processor::Kind kind, Functor functor)
+  {
+    switch (kind) {
+      case Legion::Processor::LOC_PROC: return functor(local_cpus);
+      case Legion::Processor::TOC_PROC: return functor(local_gpus);
+      case Legion::Processor::OMP_PROC: return functor(local_omps);
+      default: LEGATE_ABORT;
+    }
+    assert(false);
+    return functor(local_cpus);
+  }
 
  public:
   const AddressSpace local_node;
@@ -258,68 +273,22 @@ void CoreMapper::slice_task(const MapperContext ctx,
 {
   assert(context.valid_task_id(task.task_id));
   output.slices.reserve(input.domain.get_volume());
-  // Check to see if we're control replicated or not. If we are then
-  // we'll already have been sharded.
-  Machine::ProcessorQuery all_procs(machine);
-  all_procs.only_kind(task.target_proc.kind());
-  if (all_procs.count() == input.domain.get_volume()) {
-    Machine::ProcessorQuery::iterator pit = all_procs.begin();
-    for (Domain::DomainPointIterator itr(input.domain); itr; itr++, pit++)
-      output.slices.push_back(
-        TaskSlice(Domain(itr.p, itr.p), *pit, false /*recurse*/, false /*stealable*/));
-  } else {
-    // Control-replicated because we've already been sharded
-    Domain sharding_domain = task.index_domain;
-    if (task.sharding_space.exists())
-      sharding_domain = runtime->get_index_space_domain(ctx, task.sharding_space);
-    assert(sharding_domain.get_dim() == 1);
-    assert(input.domain.get_dim() == 1);
-    const Rect<1> space = sharding_domain;
-    const Rect<1> local = input.domain;
-    const size_t size   = (space.hi[0] - space.lo[0]) + 1;
-    // Assume that if we're control replicated there is one shard per space
-    const coord_t chunk = (size + total_nodes - 1) / total_nodes;
-    const coord_t start = local_node * chunk + space.lo[0];
-    switch (task.target_proc.kind()) {
-      case Processor::LOC_PROC: {
-        for (Domain::DomainPointIterator itr(input.domain); itr; itr++) {
-          const Point<1> point = itr.p;
-          assert(point[0] >= start);
-          assert(point[0] < (start + chunk));
-          const unsigned local_index = point[0] - start;
-          assert(local_index < local_cpus.size());
-          output.slices.push_back(TaskSlice(
-            Domain(itr.p, itr.p), local_cpus[local_index], false /*recurse*/, false /*stealable*/));
-        }
-        break;
-      }
-      case Processor::TOC_PROC: {
-        for (Domain::DomainPointIterator itr(input.domain); itr; itr++) {
-          const Point<1> point = itr.p;
-          assert(point[0] >= start);
-          assert(point[0] < (start + chunk));
-          const unsigned local_index = point[0] - start;
-          assert(local_index < local_gpus.size());
-          output.slices.push_back(TaskSlice(
-            Domain(itr.p, itr.p), local_gpus[local_index], false /*recurse*/, false /*stealable*/));
-        }
-        break;
-      }
-      case Processor::OMP_PROC: {
-        for (Domain::DomainPointIterator itr(input.domain); itr; itr++) {
-          const Point<1> point = itr.p;
-          assert(point[0] >= start);
-          assert(point[0] < (start + chunk));
-          const unsigned local_index = point[0] - start;
-          assert(local_index < local_omps.size());
-          output.slices.push_back(TaskSlice(
-            Domain(itr.p, itr.p), local_omps[local_index], false /*recurse*/, false /*stealable*/));
-        }
-        break;
-      }
-      default: LEGATE_ABORT;
+
+  Domain sharding_domain = task.index_domain;
+  if (task.sharding_space.exists())
+    sharding_domain = runtime->get_index_space_domain(ctx, task.sharding_space);
+
+  auto round_robin = [&](auto& procs) {
+    auto lo = sharding_domain.lo();
+    auto hi = sharding_domain.hi();
+    for (Domain::DomainPointIterator itr(input.domain); itr; itr++) {
+      auto idx = linearize(lo, hi, itr.p);
+      output.slices.push_back(TaskSlice(
+        Domain(itr.p, itr.p), procs[idx % procs.size()], false /*recurse*/, false /*stealable*/));
     }
-  }
+  };
+
+  dispatch(task.target_proc.kind(), round_robin);
 }
 
 void CoreMapper::map_task(const MapperContext ctx,
@@ -438,6 +407,10 @@ void CoreMapper::select_tunable_value(const MapperContext ctx,
       else
         // Make sure we can get at least 8KB elements on each CPU
         pack_tunable<int64_t>(min_cpu_chunk, output);
+      return;
+    }
+    case LEGATE_CORE_TUNABLE_HAS_SOCKET_MEM: {
+      pack_tunable<bool>(has_socket_mem, output);
       return;
     }
     case LEGATE_CORE_TUNABLE_WINDOW_SIZE: {

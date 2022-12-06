@@ -58,6 +58,7 @@ def test_CMD_PARTS() -> None:
         m.cmd_numamem,
         m.cmd_fbmem,
         m.cmd_regmem,
+        m.cmd_network,
         m.cmd_log_levels,
         m.cmd_log_file,
         m.cmd_eager_alloc,
@@ -518,8 +519,43 @@ class Test_cmd_nocr:
 
         assert result == ()
 
-    def test_console(self, genobjs: GenObjs) -> None:
+    def test_console_single_node(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs([], fake_module=None)
+
+        result = m.cmd_nocr(config, system, launcher)
+
+        assert result == ()
+
+    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
+    @pytest.mark.parametrize("rank", ("0", "1", "2"))
+    def test_console_multi_node(
+        self, genobjs: GenObjs, rank: str, rank_var: dict[str, str]
+    ) -> None:
+        config, system, launcher = genobjs(
+            # passing --nodes is not usually necessary for genobjs but we
+            # are probing a "fixup" check that inspect args directly
+            ["--nodes", "2"],
+            multi_rank=(2, 1),
+            rank_env={rank_var: rank},
+            fake_module=None,
+        )
+
+        result = m.cmd_nocr(config, system, launcher)
+
+        assert result == ("--nocr",)
+
+    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
+    def test_console_multi_rank(
+        self, genobjs: GenObjs, rank_var: dict[str, str]
+    ) -> None:
+        config, system, launcher = genobjs(
+            # passing --ranks-per-node is not usually necessary for genobjs
+            # but we are probing a "fixup" check that inspect args directly
+            ["--ranks-per-node", "2"],
+            multi_rank=(1, 2),
+            rank_env={rank_var: "0"},
+            fake_module=None,
+        )
 
         result = m.cmd_nocr(config, system, launcher)
 
@@ -944,6 +980,52 @@ class Test_cmd_regmem:
         result = m.cmd_regmem(config, system, launcher)
 
         assert result == ("-ll:rsize", value)
+
+
+class Test_cmd_network:
+    def test_no_launcher_single_rank(
+        self,
+        genobjs: GenObjs,
+    ) -> None:
+        config, system, launcher = genobjs()
+        result = m.cmd_network(config, system, launcher)
+        assert result == ("-ll:networks", "none")
+
+    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
+    def test_no_launcher_multi_rank(
+        self,
+        genobjs: GenObjs,
+        rank_var: dict[str, str],
+    ) -> None:
+        config, system, launcher = genobjs(
+            multi_rank=(2, 2),
+            rank_env={rank_var: "1"},
+        )
+        result = m.cmd_network(config, system, launcher)
+        assert result == ()
+
+    @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
+    def test_launcher_single_rank(
+        self,
+        genobjs: GenObjs,
+        launch: LauncherType,
+    ) -> None:
+        config, system, launcher = genobjs(["--launcher", launch])
+        result = m.cmd_network(config, system, launcher)
+        assert result == ("-ll:networks", "none")
+
+    @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
+    def test_launcher_multi_rank(
+        self,
+        genobjs: GenObjs,
+        launch: LauncherType,
+    ) -> None:
+        config, system, launcher = genobjs(
+            ["--launcher", launch],
+            multi_rank=(2, 2),
+        )
+        result = m.cmd_network(config, system, launcher)
+        assert result == ()
 
 
 class Test_cmd_log_levels:

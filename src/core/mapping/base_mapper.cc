@@ -246,12 +246,13 @@ void BaseMapper::slice_auto_task(const MapperContext ctx,
                                  const SliceTaskInput& input,
                                  SliceTaskOutput& output)
 {
-  LegateProjectionFunctor* key_functor = nullptr;
+  ProjectionID projection = 0;
   for (auto& req : task.regions)
     if (req.tag == LEGATE_CORE_KEY_STORE_TAG) {
-      key_functor = find_legate_projection_functor(req.projection);
+      projection = req.projection;
       break;
     }
+  auto key_functor = find_legate_projection_functor(projection);
 
   // For multi-node cases we should already have been sharded so we
   // should just have one or a few points here on this node, so iterate
@@ -264,23 +265,13 @@ void BaseMapper::slice_auto_task(const MapperContext ctx,
     sharding_domain = runtime->get_index_space_domain(ctx, task.sharding_space);
 
   auto round_robin = [&](auto& procs) {
-    if (nullptr != key_functor) {
-      auto lo = key_functor->project_point(sharding_domain.lo(), sharding_domain);
-      auto hi = key_functor->project_point(sharding_domain.hi(), sharding_domain);
-      for (Domain::DomainPointIterator itr(input.domain); itr; itr++) {
-        auto p   = key_functor->project_point(itr.p, sharding_domain);
-        auto idx = linearize(lo, hi, p);
-        output.slices.push_back(TaskSlice(
-          Domain(itr.p, itr.p), procs[idx % procs.size()], false /*recurse*/, false /*stealable*/));
-      }
-    } else {
-      auto lo = sharding_domain.lo();
-      auto hi = sharding_domain.hi();
-      for (Domain::DomainPointIterator itr(input.domain); itr; itr++) {
-        auto idx = linearize(lo, hi, itr.p);
-        output.slices.push_back(TaskSlice(
-          Domain(itr.p, itr.p), procs[idx % procs.size()], false /*recurse*/, false /*stealable*/));
-      }
+    auto lo = key_functor->project_point(sharding_domain.lo(), sharding_domain);
+    auto hi = key_functor->project_point(sharding_domain.hi(), sharding_domain);
+    for (Domain::DomainPointIterator itr(input.domain); itr; itr++) {
+      auto p   = key_functor->project_point(itr.p, sharding_domain);
+      auto idx = linearize(lo, hi, p);
+      output.slices.push_back(TaskSlice(
+        Domain(itr.p, itr.p), procs[idx % procs.size()], false /*recurse*/, false /*stealable*/));
     }
   };
 
@@ -361,33 +352,6 @@ void BaseMapper::slice_manual_task(const MapperContext ctx,
   dispatch(task.target_proc.kind(), distribute);
 }
 
-void BaseMapper::slice_round_robin_task(const MapperContext ctx,
-                                        const LegionTask& task,
-                                        const SliceTaskInput& input,
-                                        SliceTaskOutput& output)
-{
-  // If we're here, that means that the task has no region that we can key off
-  // to distribute them reasonably. In this case, we just do a round-robin
-  // assignment.
-
-  output.slices.reserve(input.domain.get_volume());
-
-  // Get the domain for the sharding space also
-  Domain sharding_domain = task.index_domain;
-  if (task.sharding_space.exists())
-    sharding_domain = runtime->get_index_space_domain(ctx, task.sharding_space);
-
-  auto distribute = [&](auto& procs) {
-    size_t idx = 0;
-    for (Domain::DomainPointIterator itr(input.domain); itr; itr++) {
-      output.slices.push_back(TaskSlice(
-        Domain(itr.p, itr.p), procs[idx++ % procs.size()], false /*recurse*/, false /*stealable*/));
-    }
-  };
-
-  dispatch(task.target_proc.kind(), distribute);
-}
-
 void BaseMapper::slice_task(const MapperContext ctx,
                             const LegionTask& task,
                             const SliceTaskInput& input,
@@ -395,8 +359,6 @@ void BaseMapper::slice_task(const MapperContext ctx,
 {
   if (task.tag == LEGATE_CORE_MANUAL_PARALLEL_LAUNCH_TAG)
     slice_manual_task(ctx, task, input, output);
-  else if (task.regions.size() == 0)
-    slice_round_robin_task(ctx, task, input, output);
   else
     slice_auto_task(ctx, task, input, output);
 }
@@ -994,10 +956,11 @@ void BaseMapper::legate_select_sources(const MapperContext ctx,
     } else
       band_ranking.push_back(std::pair<PhysicalInstance, uint32_t>(instance, finder->second));
   }
-  // in case all instances were marked as collective
-  if (band_ranking.size() == 0) return;
-
-  //  Easy case of only one instance
+  // If there aren't any sources (for example if there are some collective views
+  // to choose from, not yet in this branch), just return nothing and let the
+  // runtime pick something for us.
+  if (band_ranking.empty()) { return; }
+  // Easy case of only one instance
   if (band_ranking.size() == 1) {
     ranking.push_back(band_ranking.begin()->first);
     return;
@@ -1106,15 +1069,10 @@ void BaseMapper::map_copy(const MapperContext ctx,
     // in which case we should find the key store and use its projection functor
     // for the linearization
     auto* key_functor = find_legate_projection_functor(0);
-
-    if (key_functor != nullptr) {
-      auto lo = key_functor->project_point(sharding_domain.lo(), sharding_domain);
-      auto hi = key_functor->project_point(sharding_domain.hi(), sharding_domain);
-      auto p  = key_functor->project_point(copy.index_point, sharding_domain);
-      proc_id = linearize(lo, hi, p);
-    } else {
-      proc_id = linearize(sharding_domain.lo(), sharding_domain.hi(), copy.index_point);
-    }
+    auto lo           = key_functor->project_point(sharding_domain.lo(), sharding_domain);
+    auto hi           = key_functor->project_point(sharding_domain.hi(), sharding_domain);
+    auto p            = key_functor->project_point(copy.index_point, sharding_domain);
+    proc_id           = linearize(lo, hi, p);
   }
   if (!local_gpus.empty())
     target_proc = local_gpus[proc_id % local_gpus.size()];
@@ -1124,6 +1082,16 @@ void BaseMapper::map_copy(const MapperContext ctx,
     target_proc = local_cpus[proc_id % local_cpus.size()];
 
   auto store_target = default_store_targets(target_proc.kind()).front();
+
+  // If we're mapping an indirect copy and have data resident in GPU memory,
+  // map everything to CPU memory, as indirect copies on GPUs are currently
+  // extremely slow.
+  auto indirect =
+    !copy.src_indirect_requirements.empty() || !copy.dst_indirect_requirements.empty();
+  if (indirect && target_proc.kind() == Processor::TOC_PROC) {
+    target_proc  = local_cpus.front();
+    store_target = StoreTarget::SYSMEM;
+  }
 
   Copy legate_copy(&copy, runtime, ctx);
 

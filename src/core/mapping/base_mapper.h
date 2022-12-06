@@ -331,10 +331,6 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
                          const Legion::Task& task,
                          const SliceTaskInput& input,
                          SliceTaskOutput& output);
-  void slice_round_robin_task(const Legion::Mapping::MapperContext ctx,
-                              const Legion::Task& task,
-                              const SliceTaskInput& input,
-                              SliceTaskOutput& output);
 
  protected:
   Legion::ShardingID find_sharding_functor_by_key_store_projection(

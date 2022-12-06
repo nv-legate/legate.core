@@ -17,9 +17,11 @@ from __future__ import annotations
 import gc
 import math
 import struct
+import sys
 import weakref
 from collections import deque
 from dataclasses import dataclass
+from types import ModuleType
 from typing import TYPE_CHECKING, Any, Deque, List, Optional, TypeVar, Union
 
 from legion_top import add_cleanup_item, top_level
@@ -45,6 +47,7 @@ from ._legion.util import Dispatchable
 from .allocation import Attachable
 from .communicator import CPUCommunicator, NCCLCommunicator
 from .corelib import core_library
+from .cycle_detector import find_cycles
 from .exception import PendingException
 from .projection import is_identity_projection, pack_symbolic_projection_repr
 from .restriction import Restriction
@@ -52,7 +55,11 @@ from .shape import Shape
 
 if TYPE_CHECKING:
     from . import ArgumentMap, Detach, IndexDetach, IndexPartition, Library
-    from ._legion import FieldListLike, PhysicalRegion
+    from ._legion import (
+        FieldListLike,
+        PhysicalRegion,
+        Partition as LegionPartition,
+    )
     from .communicator import Communicator
     from .context import Context
     from .corelib import CoreLib
@@ -79,7 +86,38 @@ ARGS = [
             action="store_true",
             default=False,
             dest="consensus",
-            help="Turn on consensus match on single node. (for testing)",
+            help="Turn on consensus match on single node (for testing).",
+        ),
+    ),
+    Argument(
+        "cycle-check",
+        ArgSpec(
+            action="store_true",
+            default=False,
+            dest="cycle_check",
+            help=(
+                "Check for reference cycles involving RegionField objects on "
+                "script exit (developer option). When such cycles arise "
+                "during execution, they stop used RegionFields from getting "
+                "collected and reused for new Stores, thus increasing memory "
+                "pressure. By default this check will miss any RegionField "
+                "cycles the garbage collector collected during execution; "
+                "run gc.disable() at the beginning of the program to avoid "
+                "this."
+            ),
+        ),
+    ),
+    Argument(
+        "future-leak-check",
+        ArgSpec(
+            action="store_true",
+            default=False,
+            dest="future_leak_check",
+            help=(
+                "Check for reference cycles keeping Future/FutureMap objects "
+                "alive after Legate runtime exit (developer option). Such "
+                "leaks can result in Legion runtime shutdown hangs."
+            ),
         ),
     ),
 ]
@@ -619,6 +657,12 @@ class PartitionManager:
         self._index_partitions: dict[
             tuple[IndexSpace, PartitionBase], IndexPartition
         ] = {}
+        # Maps storage id-partition pairs to Legion partitions
+        self._legion_partitions: dict[
+            tuple[int, PartitionBase], Union[None, LegionPartition]
+        ] = {}
+        self._storage_key_partitions: dict[int, PartitionBase] = {}
+        self._store_key_partitions: dict[int, PartitionBase] = {}
 
     def compute_launch_shape(
         self, store: Store, restrictions: tuple[Restriction, ...]
@@ -815,13 +859,13 @@ class PartitionManager:
         num_tiles = (shape // tile_shape).volume()
         return not (num_tiles > 256 and num_tiles > 16 * self._num_pieces)
 
-    def find_partition(
+    def find_index_partition(
         self, index_space: IndexSpace, functor: PartitionBase
     ) -> Union[IndexPartition, None]:
         key = (index_space, functor)
         return self._index_partitions.get(key)
 
-    def record_partition(
+    def record_index_partition(
         self,
         index_space: IndexSpace,
         functor: PartitionBase,
@@ -830,6 +874,61 @@ class PartitionManager:
         key = (index_space, functor)
         assert key not in self._index_partitions
         self._index_partitions[key] = index_partition
+
+    def find_store_key_partition(
+        self, store_id: int, restrictions: tuple[Restriction, ...]
+    ) -> Union[None, PartitionBase]:
+        partition = self._store_key_partitions.get(store_id)
+        if partition is not None and not partition.satisfies_restriction(
+            restrictions
+        ):
+            partition = None
+        return partition
+
+    def record_store_key_partition(
+        self, store_id: int, key_partition: PartitionBase
+    ) -> None:
+        self._store_key_partitions[store_id] = key_partition
+
+    def reset_store_key_partition(self, store_id: int) -> None:
+        if store_id in self._store_key_partitions:
+            del self._store_key_partitions[store_id]
+
+    def find_storage_key_partition(
+        self, storage_id: int, restrictions: tuple[Restriction, ...]
+    ) -> Union[None, PartitionBase]:
+        partition = self._storage_key_partitions.get(storage_id)
+        if partition is not None and not partition.satisfies_restriction(
+            restrictions
+        ):
+            partition = None
+        return partition
+
+    def record_storage_key_partition(
+        self, storage_id: int, key_partition: PartitionBase
+    ) -> None:
+        self._storage_key_partitions[storage_id] = key_partition
+
+    def reset_storage_key_partition(self, storage_id: int) -> None:
+        if storage_id in self._storage_key_partitions:
+            del self._storage_key_partitions[storage_id]
+
+    def find_legion_partition(
+        self, storage_id: int, functor: PartitionBase
+    ) -> tuple[Optional[LegionPartition], bool]:
+        key = (storage_id, functor)
+        found = key in self._legion_partitions
+        part = self._legion_partitions.get(key)
+        return part, found
+
+    def record_legion_partition(
+        self,
+        storage_id: int,
+        functor: PartitionBase,
+        legion_partition: Optional[LegionPartition],
+    ) -> None:
+        key = (storage_id, functor)
+        self._legion_partitions[key] = legion_partition
 
 
 class CommunicatorManager:
@@ -863,11 +962,6 @@ class Runtime:
         """
 
         self._args = parse_library_command_args("legate", ARGS)
-
-        try:
-            self._legion_context = top_level.context[0]
-        except AttributeError:
-            pass
 
         # Record whether we need to run finalize tasks
         # Key off whether we are being loaded in a context or not
@@ -903,6 +997,9 @@ class Runtime:
             legion.LEGATE_CORE_TUNABLE_WINDOW_SIZE,
             ty.uint32,
         )
+
+        self._next_store_id = 0
+        self._next_storage_id = 0
 
         self._barriers: List[legion.legion_phase_barrier_t] = []
         self.nccl_needs_barrier = bool(
@@ -1125,6 +1222,9 @@ class Runtime:
         self.region_managers_by_region = {}
         self.field_managers = {}
         self.index_spaces = {}
+        # Explicitly release the reference to the partition manager so that
+        # it may be collected, releasing references to Futures and FutureMaps.
+        del self._partition_manager
 
         if self._finalize_tasks:
             # Run a gc and then end the legate task
@@ -1137,6 +1237,14 @@ class Runtime:
         op_id = self._unique_op_id
         self._unique_op_id += 1
         return op_id
+
+    def get_next_store_id(self) -> int:
+        self._next_store_id += 1
+        return self._next_store_id
+
+    def get_next_storage_id(self) -> int:
+        self._next_storage_id += 1
+        return self._next_storage_id
 
     def dispatch(self, op: Dispatchable[T]) -> T:
         self._attachment_manager.perform_detachments()
@@ -1291,7 +1399,13 @@ class Runtime:
             sanitized_shape = shape
             transform = None
 
-        storage = Storage(sanitized_shape, 0, dtype, data=data, kind=kind)
+        storage = Storage(
+            sanitized_shape,
+            0,
+            dtype,
+            data=data,
+            kind=kind,
+        )
         return Store(
             dtype,
             storage,
@@ -1456,21 +1570,6 @@ class Runtime:
             handle,
         )
 
-    def find_partition(
-        self, index_space: IndexSpace, functor: PartitionBase
-    ) -> Union[IndexPartition, None]:
-        return self._partition_manager.find_partition(index_space, functor)
-
-    def record_partition(
-        self,
-        index_space: IndexSpace,
-        functor: PartitionBase,
-        index_partition: IndexPartition,
-    ) -> None:
-        self._partition_manager.record_partition(
-            index_space, functor, index_partition
-        )
-
     def extract_scalar(self, future: Future, idx: int) -> Future:
         from .launcher import TaskLauncher
 
@@ -1592,12 +1691,41 @@ runtime: Runtime = Runtime(core_library)
 
 def _cleanup_legate_runtime() -> None:
     global runtime
+    future_leak_check = runtime._args.future_leak_check
     runtime.destroy()
     del runtime
     gc.collect()
+    if future_leak_check:
+        print(
+            "Looking for cycles that are keeping Future/FutureMap objects "
+            "alive after Legate runtime exit."
+        )
+        find_cycles(True)
 
 
 add_cleanup_item(_cleanup_legate_runtime)
+
+
+class _CycleCheckWrapper(ModuleType):
+    def __init__(self, wrapped_mod: ModuleType):
+        self._wrapped_mod = wrapped_mod
+
+    def __getattr__(self, attr: str) -> Any:
+        return getattr(self._wrapped_mod, attr)
+
+    def __del__(self) -> None:
+        print(
+            "Looking for cycles that are stopping RegionFields from getting "
+            "collected and reused."
+        )
+        find_cycles(False)
+
+
+if runtime._args.cycle_check:
+    # The first thing that legion_top does after executing the user script
+    # is to remove the newly created "__main__" module. We intercept this
+    # deletion operation to perform our check.
+    sys.modules["__main__"] = _CycleCheckWrapper(sys.modules["__main__"])
 
 
 def get_legion_runtime() -> legion.legion_runtime_t:

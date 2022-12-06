@@ -48,13 +48,13 @@ class SectionConfig(Protocol):
 
 @dataclass(frozen=True)
 class CUDAConfig(SectionConfig):
-    ctk_version: str | None
+    ctk_version: str
 
     header = "cuda"
 
     @property
     def conda(self) -> Reqs:
-        if self.ctk_version is None:
+        if self.ctk_version == "none":
             return ()
 
         return (
@@ -81,7 +81,8 @@ class BuildConfig(SectionConfig):
     @property
     def conda(self) -> Reqs:
         pkgs = (
-            "cmake>=3.24",
+            # 3.25.0 triggers gitlab.kitware.com/cmake/cmake/-/issues/24119
+            "cmake>=3.24,!=3.25.0",
             "git",
             "make",
             "scikit-build>=0.13.1",
@@ -166,7 +167,7 @@ class EnvConfig:
     use: str
     python: str
     os: OSType
-    ctk: str | None
+    ctk: str
     compilers: bool
     openmpi: bool
 
@@ -220,6 +221,7 @@ CTK_VERSIONS = (
     "11.5",
     "11.6",
     "11.7",
+    "11.8",
 )
 
 OS_NAMES: Tuple[OSType, ...] = ("linux", "osx")

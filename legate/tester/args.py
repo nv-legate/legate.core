@@ -61,7 +61,7 @@ stages.add_argument(
     dest="features",
     action=ExtendAction,
     choices=MultipleChoices(sorted(FEATURES)),
-    type=lambda s: s.split(","),  # type: ignore
+    type=lambda s: s.split(","),  # type: ignore [arg-type,return-value]
     help="Test Legate with features (also via USE_*)",
 )
 

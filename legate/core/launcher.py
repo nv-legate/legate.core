@@ -277,7 +277,15 @@ class Broadcast:
             parent_partition = parent.parent
             parent = parent_partition.parent
         if req.permission != Permission.REDUCTION:
-            f(task, req.region, fields, 0, parent=parent, tag=req.tag)
+            f(
+                task,
+                req.region,
+                fields,
+                0,
+                parent=parent,
+                tag=req.tag,
+                flags=req.flags,
+            )
         else:
             f(
                 task,
@@ -287,6 +295,7 @@ class Broadcast:
                 0,
                 parent=parent,
                 tag=req.tag,
+                flags=req.flags,
             )
 
     def add_single(
@@ -355,9 +364,16 @@ class Partition:
     ) -> None:
         f = methods[req.permission]
         if req.permission != Permission.REDUCTION:
-            f(task, req.region, fields, tag=req.tag)
+            f(task, req.region, fields, tag=req.tag, flags=req.flags)
         else:
-            f(task, req.region, fields, self.redop, tag=req.tag)
+            f(
+                task,
+                req.region,
+                fields,
+                self.redop,
+                tag=req.tag,
+                flags=req.flags,
+            )
 
     def __hash__(self) -> int:
         return hash((self.part, self.proj, self.redop))

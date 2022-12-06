@@ -77,7 +77,7 @@ case "$launcher" in
     ;;
   jsrun )
     local_rank="${OMPI_COMM_WORLD_LOCAL_RANK:-unknown}"
-    gloabl_rank="${OMPI_COMM_WORLD_RANK:-unknown}"
+    global_rank="${OMPI_COMM_WORLD_RANK:-unknown}"
     ;;
   srun  )
     local_rank="${SLURM_LOCALID:-unknown}"
