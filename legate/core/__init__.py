@@ -22,12 +22,12 @@ if is_legion_python == False:
     from legion_canonical_top import legion_python_main, legion_python_cleanup
     from ..driver.main import canonical_main
     import atexit, sys
-    legate_argv, legate_env = canonical_main(sys.argv)
-    sys_argv = (sys.argv[0],) + legate_argv
+    sys_argv = ["python",] + sys.argv
+    legate_argv, legate_env = canonical_main(sys_argv)
     # sys_argv = sys.argv[0:]
-    print(sys_argv)
+    print(legate_argv)
     # print(driver.env)
-    legion_python_main(sys_argv)
+    legion_python_main(legate_argv)
     atexit.register(legion_python_cleanup)
 else:
     print("check legion")

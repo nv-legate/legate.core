@@ -360,6 +360,11 @@ def cmd_eager_alloc(
     return ("-lg:eager_alloc_percentage", str(eager_alloc))
 
 
+def cmd_user_script(
+    config: ConfigProtocol, system: System, launcher: Launcher
+) -> CommandPart:
+    return (config.user_script,)
+
 def cmd_user_opts(
     config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
@@ -395,11 +400,15 @@ CMD_PARTS = (
     cmd_log_levels,
     cmd_log_file,
     cmd_eager_alloc,
+    # User script
+    cmd_user_script,
     # Append user flags so they can override whatever we provided
     cmd_user_opts,
 )
 
 CMD_PARTS_STANDALONE = (
+    # User script
+    cmd_user_script,
     # Translate the requests to Realm command line parameters
     cmd_cpus,
     cmd_gpus,
