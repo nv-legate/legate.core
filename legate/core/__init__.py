@@ -27,10 +27,7 @@ if is_legion_python == False:
     # sys_argv = sys.argv[0:]
     print(sys_argv)
     # print(driver.env)
-    argv = []
-    for arg in sys_argv:
-        argv.append(ffi.new("char[]", arg.encode('ascii')))
-    legion_python_main(argv)
+    legion_python_main(sys_argv)
     atexit.register(legion_python_cleanup)
 else:
     print("check legion")
