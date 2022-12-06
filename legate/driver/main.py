@@ -17,7 +17,7 @@
 """
 from __future__ import annotations
 
-__all__ = ("main",)
+__all__ = ("main", "canonical_main")
 
 
 def main(argv: list[str]) -> int:
@@ -60,3 +60,44 @@ def main(argv: list[str]) -> int:
         raise e
 
     return driver.run()
+
+def canonical_main(argv: list[str]) -> int:
+    """A main function for the canonical driver that can be used programmatically
+    or by entry-points.
+
+    Parameters
+    ----------
+        argv : list[str]
+            Command-line arguments to start the canonical driver with
+
+    Returns
+    -------
+        int, a process return code
+
+    """
+    from ..util.system import System
+    from ..util.ui import error
+    from . import Config, CanonicalDriver
+    from .driver import print_verbose
+
+    try:
+        config = Config(argv)
+    except Exception as e:
+        print(error("Could not configure canonical driver:\n"))
+        raise e
+
+    try:
+        system = System()
+    except Exception as e:
+        print(error("Could not determine System settings: \n"))
+        raise e
+
+    try:
+        driver = CanonicalDriver(config, system)
+    except Exception as e:
+        msg = "Could not initialize canonical driver, path config and exception follow:"  # noqa
+        print(error(msg))
+        print_verbose(system)
+        raise e
+
+    return driver.cmd, driver.env

@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from .config import ConfigProtocol
     from .launcher import Launcher
 
-__all__ = ("CMD_PARTS",)
+__all__ = ("CMD_PARTS", "CMD_PARTS_STANDALONE")
 
 
 # this will be replaced by bind.sh with the actual computed rank at runtime
@@ -382,6 +382,24 @@ CMD_PARTS = (
     cmd_module,
     cmd_processor,
     cmd_kthreads,
+    # Translate the requests to Realm command line parameters
+    cmd_cpus,
+    cmd_gpus,
+    cmd_openmp,
+    cmd_utility,
+    cmd_mem,
+    cmd_numamem,
+    cmd_fbmem,
+    cmd_regmem,
+    cmd_network,
+    cmd_log_levels,
+    cmd_log_file,
+    cmd_eager_alloc,
+    # Append user flags so they can override whatever we provided
+    cmd_user_opts,
+)
+
+CMD_PARTS_STANDALONE = (
     # Translate the requests to Realm command line parameters
     cmd_cpus,
     cmd_gpus,

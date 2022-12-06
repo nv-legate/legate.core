@@ -21,15 +21,15 @@ from typing import TYPE_CHECKING
 
 from ..util.system import System
 from ..util.ui import kvtable, rule, section, value, warn
-from .command import CMD_PARTS
+from .command import CMD_PARTS, CMD_PARTS_STANDALONE
 from .config import ConfigProtocol
-from .launcher import Launcher
+from .launcher import Launcher, SimpleLauncher
 from .logs import process_logs
 
 if TYPE_CHECKING:
     from ..util.types import Command, EnvDict
 
-__all__ = ("Driver", "print_verbose")
+__all__ = ("Driver", "CanonicalDriver", "print_verbose")
 
 _DARWIN_GDB_WARN = """\
 You must start the debugging session with the following command,
@@ -120,6 +120,33 @@ class Driver:
                     )
                 )
             )
+
+class CanonicalDriver(Driver):
+    """Coordinate the system, user-configuration, and launcher to appropriately
+    execute the Legate process.
+
+    Parameters
+    ----------
+        config : Config
+
+        system : System
+
+    """
+
+    def __init__(self, config: ConfigProtocol, system: System) -> None:
+        self.config = config
+        self.system = system
+        self.launcher = SimpleLauncher(config, system)
+
+    @property
+    def cmd(self) -> Command:
+        """The full command invocation that should be used to start Legate."""
+        config = self.config
+        launcher = self.launcher
+        system = self.system
+
+        parts = (part(config, system, launcher) for part in CMD_PARTS_STANDALONE)
+        return sum(parts, ())
 
 
 def print_verbose(
