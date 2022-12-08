@@ -128,14 +128,6 @@ class ReductionInstanceSet {
                        Region& region,
                        Instance& instance,
                        const InstanceMappingPolicy& policy);
-  // public:
-  // bool erase(Instance inst);
-
-  // public:
-  //  size_t get_instance_size() const;
-
-  // private:
-  //  void dump_and_sanity_check() const;
 
  private:
   std::map<Region, ReductionInstanceSpec> instances_;
@@ -237,12 +229,6 @@ class ReductionInstanceManager : public BaseInstanceManager {
 
  public:
   static ReductionInstanceManager* get_instance_manager();
-
-  //  public:
-  //   void erase(Instance inst);
-
-  // public:
-  //  std::map<Legion::Memory, size_t> aggregate_instance_sizes() const;
 
  private:
   std::map<FieldMemInfo, ReductionInstanceSet> instance_sets_{};
