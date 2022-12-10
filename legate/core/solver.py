@@ -350,6 +350,9 @@ class Partitioner:
         partitions: dict[PartSym, PartitionBase],
         all_outputs: set[Store],
         unbound_ndim: Optional[int],
+        # The Boolean return value denotes whether the computed launch shape
+        # is "final". If it's True, there's no room for the solver to improve
+        # the quality of parallelization.
     ) -> Tuple[Optional[Shape], bool]:
         # We filter out the cases where any of the outputs is assigned
         # to replication, in which case the operation must be performed
@@ -559,7 +562,18 @@ class Partitioner:
             launch_shape, done = self.compute_launch_shape(
                 result, all_outputs, unbound_ndim
             )
+            # When partitions have different numbers of chunks, the solver
+            # normally decides to serialize the operation, as there's no
+            # obvious mapping between the partitions. However, it is
+            # sometimes possible to recover parallelism by searching for
+            # an alternative solution to the given set of partitioning
+            # constraints, especially when some of the stores have cached key
+            # partitions that are not computed for themselves but copied from
+            # others due to alignments.
             if can_retry and not done:
+                # We only retry once because resetting the cached key
+                # partitions followed recomputing key partitions is
+                # idempotent.
                 can_retry = False
                 if self._reset_less_optimal_partitions(result):
                     continue
