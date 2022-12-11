@@ -657,7 +657,6 @@ class PreimagePartition(PartitionBase):
         color_shape: Optional[Shape] = None,
         color_transform: Optional[Transform] = None,
     ) -> Optional[LegionPartition]:
-        # TODO (rohany): What should the value of complete be?
         dest_part = self._part.construct(self._dest.storage.region)
         source_region = self._source.storage.region
         source_field = self._source.storage.field.field_id
@@ -748,7 +747,8 @@ class PreimagePartition(PartitionBase):
             # source._storage for equality.
             and self._source._storage == other._source._storage
             and self._source._version == other._source._version
-            and self._dest == other._dest
+            and self._dest.storage.region.index_space
+            == other._dest.storage.region.index_space
             and self._part == other._part
             and self._range == other._range
             and self._mapper == other._mapper
