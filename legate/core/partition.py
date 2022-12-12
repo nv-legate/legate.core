@@ -635,7 +635,13 @@ class PreimagePartition(PartitionBase):
     ) -> None:
         self._mapper = mapper
         self._source = source
-        self._dest = dest
+        # Importantly, we don't store a reference to `dest` and instead
+        # hold onto a handle of the underlying region. This is important
+        # because if we store dest itself on the partition then legate
+        # can't collect and reuse the storage under dest. Since all we
+        # actually need from dest is the underlying index space, storing
+        # the region sidesteps this limitation.
+        self._dest_region = dest.storage.region
         self._part = part
         # Whether this is an image or image_range operation.
         self._range = range
@@ -657,7 +663,7 @@ class PreimagePartition(PartitionBase):
         color_shape: Optional[Shape] = None,
         color_transform: Optional[Transform] = None,
     ) -> Optional[LegionPartition]:
-        dest_part = self._part.construct(self._dest.storage.region)
+        dest_part = self._part.construct(self._dest_region)
         source_region = self._source.storage.region
         source_field = self._source.storage.field.field_id
         functorFn = (
@@ -733,7 +739,7 @@ class PreimagePartition(PartitionBase):
                 # However, we must still check for version in equality to avoid
                 # using old values.
                 # self._store._version,
-                self._dest.storage.region.index_space,
+                self._dest_region.index_space,
                 self._part,
                 self._range,
                 self._mapper,
@@ -747,8 +753,7 @@ class PreimagePartition(PartitionBase):
             # source._storage for equality.
             and self._source._storage == other._source._storage
             and self._source._version == other._source._version
-            and self._dest.storage.region.index_space
-            == other._dest.storage.region.index_space
+            and self._dest_region.index_space == other._dest_region.index_space
             and self._part == other._part
             and self._range == other._range
             and self._mapper == other._mapper
