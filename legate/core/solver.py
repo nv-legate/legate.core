@@ -14,7 +14,7 @@
 #
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Generic, List, Optional, TypeVar
+from typing import TYPE_CHECKING, Generic, List, Optional, Tuple, TypeVar
 
 from . import FieldSpace, Future, Rect
 from .constraints import Alignment, Broadcast, Containment, PartSym
@@ -350,13 +350,16 @@ class Partitioner:
         partitions: dict[PartSym, PartitionBase],
         all_outputs: set[Store],
         unbound_ndim: Optional[int],
-    ) -> Optional[Shape]:
+        # The Boolean return value denotes whether the computed launch shape
+        # is "final". If it's True, there's no room for the solver to improve
+        # the quality of parallelization.
+    ) -> Tuple[Optional[Shape], bool]:
         # We filter out the cases where any of the outputs is assigned
         # to replication, in which case the operation must be performed
         # sequentially
         for unknown, part in partitions.items():
             if unknown.store in all_outputs and part is REPLICATE:
-                return None
+                return None, True
 
         # If we're here, this means that replicated stores are safe to access
         # in parallel, so we filter those out to determine the launch domain
@@ -364,7 +367,7 @@ class Partitioner:
 
         # If all stores are replicated, we can't parallelize the operation
         if len(parts) == 0:
-            return None
+            return None, True
 
         # Here we check if all partitions agree on the color shape
         must_be_1d_launch = False
@@ -382,7 +385,7 @@ class Partitioner:
             # we can't use a 1-D launch domain, hence falling back to
             # a sequential launch
             if unbound_ndim is not None and unbound_ndim != 1:
-                return None
+                return None, True
 
             # If all color spaces don't have the same number of colors,
             # it means some inputs are much smaller than the others
@@ -393,15 +396,80 @@ class Partitioner:
                 assert part.color_shape is not None
                 volumes.add(part.color_shape.volume())
             if len(volumes) > 1:
-                return None
+                return None, False
             else:
-                return Shape(volumes)
+                return Shape(volumes), True
         # If there is an unbound store, the store's dimensionality must be
         # the same as that of the launch domain
         elif unbound_ndim is None or unbound_ndim == launch_shape.ndim:
-            return launch_shape
+            return launch_shape, True
         else:
-            return None
+            return None, True
+
+    def _solve_store_constraints(
+        self,
+        partitions: dict[PartSym, PartitionBase],
+        unknowns: list[PartSym],
+        dependent: dict[PartSym, Expr],
+        all_restrictions: dict[PartSym, Restrictions],
+        constraints: EqClass[PartSym],
+        must_be_even: OrderedSet[PartSym],
+    ) -> Tuple[dict[PartSym, PartitionBase], set[PartSym]]:
+        result = partitions.copy()
+        key_parts: set[PartSym] = set()
+
+        for unknown in unknowns:
+            if unknown in result:
+                continue
+            elif unknown in dependent:
+                continue
+
+            store = unknown.store
+            restrictions = all_restrictions[unknown]
+            cls = constraints.find(unknown)
+
+            partition = store.compute_key_partition(restrictions)
+            if not partition.even and len(cls) > 1:
+                partition, unknown = self.maybe_find_alternative_key_partition(
+                    partition,
+                    unknown,
+                    cls,
+                    restrictions,
+                    must_be_even,
+                )
+            key_parts.add(unknown)
+
+            for to_align in cls:
+                if to_align in result:
+                    continue
+                result[to_align] = partition
+
+        for rhs, lhs in dependent.items():
+            expr = lhs.subst(result).reduce()
+            if TYPE_CHECKING:
+                assert isinstance(expr, Lit)
+            result[rhs] = expr._part
+
+        return result, key_parts
+
+    @staticmethod
+    def _reset_less_optimal_partitions(
+        partitions: dict[PartSym, PartitionBase],
+    ) -> bool:
+        valid_parts = [
+            (part.color_shape.volume(), unknown)
+            for unknown, part in partitions.items()
+            if part.color_shape is not None
+        ]
+        max_dop = max(dop for dop, _ in valid_parts)
+        reset_any = False
+        for dop, unknown in valid_parts:
+            if dop == max_dop:
+                continue
+            reset_any = True
+            unknown.store.reset_key_partition()
+
+        return reset_any
 
     def partition_stores(self) -> Strategy:
         unknowns: OrderedSet[PartSym] = OrderedSet()
@@ -476,45 +544,39 @@ class Partitioner:
                 not store.has_key_partition(all_restrictions[unknown]),
             )
 
-        sorted_unknowns = sorted(unknowns, key=cost)
+        result: dict[PartSym, PartitionBase]
+        key_parts: set[PartSym]
+        launch_shape: Optional[Shape]
 
-        key_parts = set()
-        for unknown in sorted_unknowns:
-            if unknown in partitions:
-                continue
-            elif unknown in dependent:
-                continue
+        can_retry = True
+        while True:
+            result, key_parts = self._solve_store_constraints(
+                partitions,
+                sorted(unknowns, key=cost),
+                dependent,
+                all_restrictions,
+                constraints,
+                must_be_even,
+            )
 
-            store = unknown.store
-            restrictions = all_restrictions[unknown]
-            cls = constraints.find(unknown)
-
-            partition = store.compute_key_partition(restrictions)
-            if not partition.even and len(cls) > 1:
-                partition, unknown = self.maybe_find_alternative_key_partition(
-                    partition,
-                    unknown,
-                    cls,
-                    restrictions,
-                    must_be_even,
-                )
-            key_parts.add(unknown)
-
-            for to_align in cls:
-                if to_align in partitions:
+            launch_shape, done = self.compute_launch_shape(
+                result, all_outputs, unbound_ndim
+            )
+            # When partitions have different numbers of chunks, the solver
+            # normally decides to serialize the operation, as there's no
+            # obvious mapping between the partitions. However, it is
+            # sometimes possible to recover parallelism by searching for
+            # an alternative solution to the given set of partitioning
+            # constraints, especially when some of the stores have cached key
+            # partitions that are not computed for themselves but copied from
+            # others due to alignments.
+            if can_retry and not done:
+                # We only retry once because resetting the cached key
+                # partitions followed recomputing key partitions is
+                # idempotent.
+                can_retry = False
+                if self._reset_less_optimal_partitions(result):
                     continue
-                partitions[to_align] = partition
+            break
 
-        for rhs, lhs in dependent.items():
-            expr = lhs.subst(partitions).reduce()
-            if TYPE_CHECKING:
-                assert isinstance(expr, Lit)
-            partitions[rhs] = expr._part
-
-        launch_shape = self.compute_launch_shape(
-            partitions, all_outputs, unbound_ndim
-        )
-
-        return Strategy(
-            launch_shape, partitions, fspaces, key_parts, constraints
-        )
+        return Strategy(launch_shape, result, fspaces, key_parts, constraints)
