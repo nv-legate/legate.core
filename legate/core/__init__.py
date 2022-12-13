@@ -18,15 +18,27 @@ from ..rc import check_legion
 from ..util.args import parse_library_command_args
 
 from legion_top import ffi, lib as legion, is_legion_python
+
 if is_legion_python == False:
     from legion_canonical_top import legion_python_main, legion_python_cleanup
     from ..driver.main import canonical_main
-    import atexit, sys
-    sys_argv = ["python",] + sys.argv
+    import atexit, sys, os
+
+    sys_argv = [
+        "python",
+    ] + sys.argv
     legate_argv, legate_env = canonical_main(sys_argv)
     # sys_argv = sys.argv[0:]
     print(legate_argv)
-    # print(driver.env)
+    # print(legate_env)
+    for key, value in legate_env.items():
+        if (
+            key.startswith("LEGATE_")
+            or key.startswith("GASNET_")
+            or key.startswith("NCCL_")
+        ):
+            os.environ[key] = value
+            print(key, value)
     legion_python_main(legate_argv)
     atexit.register(legion_python_cleanup)
 else:

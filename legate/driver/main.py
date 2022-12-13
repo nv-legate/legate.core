@@ -17,6 +17,8 @@
 """
 from __future__ import annotations
 
+from typing import Dict, Tuple
+
 __all__ = ("main", "canonical_main")
 
 
@@ -61,9 +63,10 @@ def main(argv: list[str]) -> int:
 
     return driver.run()
 
-def canonical_main(argv: list[str]) -> int:
-    """A main function for the canonical driver that can be used programmatically
-    or by entry-points.
+
+def canonical_main(argv: list[str]) -> Tuple[Tuple[str, ...], Dict[str, str]]:
+    """A main function for the canonical driver that can be used
+    programmatically or by entry-points.
 
     Parameters
     ----------
@@ -72,12 +75,13 @@ def canonical_main(argv: list[str]) -> int:
 
     Returns
     -------
-        int, a process return code
+        Tuple[Tuple[str], Dict[str, str]]
+            Legion command and env of the driver
 
     """
     from ..util.system import System
     from ..util.ui import error
-    from . import Config, CanonicalDriver
+    from . import CanonicalDriver, Config
     from .driver import print_verbose
 
     try:
