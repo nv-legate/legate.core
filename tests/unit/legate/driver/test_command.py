@@ -519,8 +519,43 @@ class Test_cmd_nocr:
 
         assert result == ()
 
-    def test_console(self, genobjs: GenObjs) -> None:
+    def test_console_single_node(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs([], fake_module=None)
+
+        result = m.cmd_nocr(config, system, launcher)
+
+        assert result == ()
+
+    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
+    @pytest.mark.parametrize("rank", ("0", "1", "2"))
+    def test_console_multi_node(
+        self, genobjs: GenObjs, rank: str, rank_var: dict[str, str]
+    ) -> None:
+        config, system, launcher = genobjs(
+            # passing --nodes is not usually necessary for genobjs but we
+            # are probing a "fixup" check that inspect args directly
+            ["--nodes", "2"],
+            multi_rank=(2, 1),
+            rank_env={rank_var: rank},
+            fake_module=None,
+        )
+
+        result = m.cmd_nocr(config, system, launcher)
+
+        assert result == ("--nocr",)
+
+    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
+    def test_console_multi_rank(
+        self, genobjs: GenObjs, rank_var: dict[str, str]
+    ) -> None:
+        config, system, launcher = genobjs(
+            # passing --ranks-per-node is not usually necessary for genobjs
+            # but we are probing a "fixup" check that inspect args directly
+            ["--ranks-per-node", "2"],
+            multi_rank=(1, 2),
+            rank_env={rank_var: "0"},
+            fake_module=None,
+        )
 
         result = m.cmd_nocr(config, system, launcher)
 
