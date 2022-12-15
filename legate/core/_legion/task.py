@@ -309,7 +309,7 @@ class Task(Dispatchable[Future]):
         parent: Optional[Region] = None,
         tag: int = 0,
         flags: int = 0,
-        coherence: int = legion.LEGION_ATOMIC,
+        coherence: int = legion.LEGION_EXCLUSIVE,
     ) -> None:
         """
         Add a reduction region requirement to the task
@@ -869,7 +869,7 @@ class IndexTask(Dispatchable[Union[Future, FutureMap]]):
         parent: Optional[Region] = None,
         tag: int = 0,
         flags: int = 0,
-        coherence: int = legion.LEGION_ATOMIC,
+        coherence: int = legion.LEGION_EXCLUSIVE,
     ) -> None:
         """
         Add a region requirement with reduction privileges for a reduction op

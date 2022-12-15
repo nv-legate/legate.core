@@ -693,18 +693,21 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
 
   // If we're making a reduction instance:
   if (redop != 0) {
-    // See if we already have it in our local instances
-    if (fields.size() == 1 && regions.size() == 1 &&
-        reduction_instances->find_instance(
-          redop, regions.front(), fields.front(), target_memory, result, policy)) {
+    // reuse reductions only for GPU tasks:
+    if (target_proc.kind() == Processor::TOC_PROC) {
+      // See if we already have it in our local instances
+      if (fields.size() == 1 && regions.size() == 1 &&
+          reduction_instances->find_instance(
+            redop, regions.front(), fields.front(), target_memory, result, policy)) {
 #ifdef DEBUG_LEGATE
-      logger.debug() << "Operation " << mappable.get_unique_id()
-                     << ": reused cached reduction instance " << result << " for "
-                     << regions.front();
+        logger.debug() << "Operation " << mappable.get_unique_id()
+                       << ": reused cached reduction instance " << result << " for "
+                       << regions.front();
 #endif
-      runtime->enable_reentrant(ctx);
-      // Needs acquire to keep the runtime happy
-      return true;
+        runtime->enable_reentrant(ctx);
+        // Needs acquire to keep the runtime happy
+        return true;
+      }
     }
 
     // if we didn't find it, create one
@@ -726,10 +729,12 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
       for (LogicalRegion r : regions) msg << " " << r;
       msg << " (size: " << footprint << " bytes, memory: " << target_memory << ")";
 #endif
-      // store reduction instance
-      if (fields.size() == 1 && regions.size() == 1) {
-        auto fid = fields.front();
-        reduction_instances->record_instance(redop, regions.front(), fid, result, policy);
+      if (target_proc.kind() == Processor::TOC_PROC) {
+        // store reduction instance
+        if (fields.size() == 1 && regions.size() == 1) {
+          auto fid = fields.front();
+          reduction_instances->record_instance(redop, regions.front(), fid, result, policy);
+        }
       }
       runtime->enable_reentrant(ctx);
       // We already did the acquire
