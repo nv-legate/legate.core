@@ -100,12 +100,51 @@ architectures. You can use Legate with Pascal GPUs as well, but there could
 be issues due to lack of independent thread scheduling. Please report any such
 issues on GitHub.
 
-### Fortran compiler (optional)
+### CUDA Libraries (optional)
 
-Only necessary if you wish to build OpenBLAS from source.
+Only necessary if you wish to run with Nvidia GPUs.
 
-Not included by default in the generated conda environment files; install
-`fortran-compiler` from `conda-forge` if you need it.
+The following libraries are included automatically in CUDA-enabled environment
+files:
+
+- `cutensor`
+- `nccl`
+
+If you wish to provide alternative installations for these, then you can remove
+them from the environment file and pass the corresponding `--with-<dep>` flag
+to `install.py`.
+
+### Build tools
+
+The following tools are used for building Legate, and are automatically included
+in the environment file:
+
+- `cmake`
+- `git`
+- `make`
+- `ninja` (this is optional, but produces more informative build output)
+- `scikit-build`
+
+### OpenBLAS
+
+This library is automatically pulled from conda. If you wish to provide an
+alternative installation, then you can manually remove `openblas` from the
+generated environment file and pass `--with-openblas` to `install.py`.
+
+Note that you will need to get a Fortran compiler before you can build OpenBLAS
+from source, e.g. by pulling `fortran-compiler` from `conda-forge`.
+
+If you wish to compile Legate with OpenMP support, then you need a build of
+OpenBLAS compiled with the following options:
+
+- `USE_THREAD=1`
+- `USE_OPENMP=1`
+- `NUM_PARALLEL=32` (or at least as many as the NUMA domains on the target
+  machine) -- The `NUM_PARALLEL` flag defines how many instances of OpenBLAS's
+  calculation API can run in parallel. Legate will typically instantiate a
+  separate OpenMP group per NUMA domain, and each group can launch independent
+  BLAS work. If `NUM_PARALLEL` is not high enough, some of this parallel work
+  will be serialized.
 
 ### Numactl (optional)
 
