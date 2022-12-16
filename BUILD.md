@@ -57,18 +57,18 @@ conda env update -f <env-file>.yaml
 
 ## Notable dependencies
 
-### OS (`--os` option)
+### OS (`--os` flag)
 
 Legate has been tested on Linux and MacOS, although only a few flavors of Linux
 such as Ubuntu have been thoroughly tested. There is currently no support for
 Windows.
 
-### Python >= 3.8 (`--python` option)
+### Python >= 3.8 (`--python` flag)
 
 In terms of Python compatibility, Legate *roughly* follows the timeline outlined
 in [NEP 29](https://numpy.org/neps/nep-0029-deprecation_policy.html).
 
-### C++17 compatible compiler (`--compilers` option)
+### C++17 compatible compiler (`--compilers` flag)
 
 For example: g++, clang, or nvc++. When creating an environment using the
 `--compilers` flag, an appropriate compiler for the current system will be
@@ -91,7 +91,7 @@ stubs, are not distributed through conda. These must instead be installed using
 [system-level packages](https://developer.nvidia.com/cuda-downloads).
 
 Independent of the system-level CUDA installation, conda will need to install an
-environment-local copy of the CUDA toolkit (which is what the `--ctk` option
+environment-local copy of the CUDA toolkit (which is what the `--ctk` flag
 controls). To avoid versioning conflicts it is safest to match the version of
 CUDA installed system-wide on your machine
 
@@ -114,7 +114,7 @@ Required to support CPU and memory binding in the Legate launcher.
 Not available on conda; typically available through the system-level package
 manager.
 
-### MPI (`--openmpi` option; optional)
+### MPI (`--openmpi` flag; optional)
 
 Only necessary if you wish to run on multiple nodes.
 
@@ -203,7 +203,7 @@ for dependencies, then any common system-wide installation directories (e.g.
 `/usr/lib`). If a dependency cannot be found but is publicly available in source
 form (e.g. OpenBLAS), cmake will fetch and build it automatically. You can
 override this search by providing an install location for any dependency
-explicitly, using a `--with-dep` flag, e.g. `--with-nccl` and
+explicitly, using a `--with-<dep>` flag, e.g. `--with-nccl` and
 `--with-openblas`.
 
 For multi-node execution Legate uses [GASNet](https://gasnet.lbl.gov/) which can be
