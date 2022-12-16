@@ -82,12 +82,15 @@ override this search by providing an install location for any dependency
 explicitly, using a `--with-<dep>` flag, e.g. `--with-nccl` and
 `--with-openblas`.
 
-For multi-node execution Legate uses [GASNet](https://gasnet.lbl.gov/) which can be
-requested using the `--network gasnet1` or `--network gasnetex` flag. By default
-GASNet will be automatically downloaded and built, but if you have an existing
-installation then you can inform the install script using the `--with-gasnet` flag.
-You also need to specify the interconnect network of the target machine using the
-`--conduit` flag.
+For multi-node execution Legate can use [GASNet](https://gasnet.lbl.gov/) (use
+`--network gasnet1` or `--network gasnetex`) or [UCX](https://openucx.org) (use
+`--network ucx`).
+With gasnet1 or gasnetex, GASNet will be automatically downloaded and built,
+but if you have an existing installation then you can inform the install script
+using the `--with-gasnet` flag. You also need to specify the interconnect network
+of the target machine using the `--conduit` flag.
+With UCX, the library must be already installed and /`--with-ucx` can be used
+to point to the installation path if UCX is not installed under common system paths.
 
 For example this would be an installation for a
 [DGX SuperPOD](https://www.nvidia.com/en-us/data-center/dgx-superpod/):

@@ -246,6 +246,7 @@ def install(
     cmake_exe,
     cmake_generator,
     gasnet_dir,
+    ucx_dir,
     cuda_dir,
     maxdim,
     maxfields,
@@ -292,6 +293,7 @@ def install(
         print("cmake_exe:", cmake_exe)
         print("cmake_generator:", cmake_generator)
         print("gasnet_dir:", gasnet_dir)
+        print("ucx_dir:", ucx_dir)
         print("cuda_dir:", cuda_dir)
         print("maxdim:", maxdim)
         print("maxfields:", maxfields)
@@ -334,6 +336,7 @@ def install(
     legion_dir = validate_path(legion_dir)
     legion_src_dir = validate_path(legion_src_dir)
     gasnet_dir = validate_path(gasnet_dir)
+    ucx_dir = validate_path(ucx_dir)
     thrust_dir = validate_path(thrust_dir)
 
     if verbose:
@@ -343,6 +346,7 @@ def install(
         print("legion_dir: ", legion_dir)
         print("legion_src_dir: ", legion_src_dir)
         print("gasnet_dir: ", gasnet_dir)
+        print("ucx_dir: ", ucx_dir)
         print("thrust_dir: ", thrust_dir)
 
     if thread_count is None:
@@ -446,6 +450,8 @@ def install(
         cmake_flags += ["-DNCCL_DIR=%s" % nccl_dir]
     if gasnet_dir:
         cmake_flags += ["-DGASNet_ROOT_DIR=%s" % gasnet_dir]
+    if ucx_dir:
+        cmake_flags += ["-DUCX_ROOT=%s" % ucx_dir]
     if conduit:
         cmake_flags += ["-DGASNet_CONDUIT=%s" % conduit]
     if cuda_dir:
@@ -530,7 +536,7 @@ def driver():
         dest="networks",
         action="append",
         required=False,
-        choices=["gasnet1", "gasnetex", "mpi"],
+        choices=["gasnet1", "gasnetex", "ucx", "mpi"],
         default=[],
         help="Realm networking backend to use for multi-node execution.",
     )
@@ -541,6 +547,14 @@ def driver():
         required=False,
         default=os.environ.get("GASNET"),
         help="Path to GASNet installation directory.",
+    )
+    parser.add_argument(
+        "--with-ucx",
+        dest="ucx_dir",
+        metavar="DIR",
+        required=False,
+        default=os.environ.get("UCX_ROOT"),
+        help="Path to UCX installation directory.",
     )
     parser.add_argument(
         "--cuda",

@@ -211,6 +211,11 @@ class Launcher:
         # threading support
         env["GASNET_MPI_THREAD"] = "MPI_THREAD_MULTIPLE"
 
+        # Link to the UCX bootstrap plugin, in case Realm is using UCX
+        env["REALM_UCP_BOOTSTRAP_PLUGIN"] = str(
+            system.legion_paths.legion_lib_path / "realm_ucp_bootstrap_mpi.so"
+        )
+
         # Set some environment variables depending on our configuration that
         # we will check in the Legate binary to ensure that it is properly.
         # configured. Always make sure we include the Legion library
