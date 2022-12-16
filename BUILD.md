@@ -191,7 +191,7 @@ Note that you will need to get a Fortran compiler before you can build OpenBLAS
 from source, e.g. by pulling `fortran-compiler` from `conda-forge`.
 
 If you wish to compile Legate with OpenMP support, then you need a build of
-OpenBLAS compiled with the following options:
+OpenBLAS configured with the following options:
 
 - `USE_THREAD=1`
 - `USE_OPENMP=1`
