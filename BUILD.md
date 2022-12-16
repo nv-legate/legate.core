@@ -15,13 +15,12 @@ limitations under the License.
 
 -->
 
-# TL;DR
+# Basic build
 
-1) Check if there are specialized scripts available for your cluster at [nv-legate/quickstart](https://github.com/nv-legate/quickstart).
-2) [Install dependencies from conda](#getting-dependencies-through-conda)
-3) [Build using install.py](#using-installpy)
-
-# Getting dependencies
+If you are building on a cluster, first check if there are specialized scripts
+available for your cluster at
+[nv-legate/quickstart](https://github.com/nv-legate/quickstart). Even if your
+specific cluster is not covered, you may be able to adapt an existing workflow.
 
 ## Getting dependencies through conda
 
@@ -40,7 +39,7 @@ $ ./scripts/generate-conda-envs.py --python 3.10 --ctk 11.7 --os linux --compile
 
 Run this script with `-h` to see all available configuration options for the
 generated environment file (e.g. all the supported Python versions). See the
-[Notable Dependencies](#notable-dependencies) section for more details.
+[Dependencies](#dependency-listing) section for more details.
 
 Once you have this environment file, you can install the required packages by
 creating a new conda environment:
@@ -55,7 +54,64 @@ or by updating an existing environment:
 conda env update -f <env-file>.yaml
 ```
 
-## Notable dependencies
+## Building through install.py
+
+The Legate Core repository comes with a helper `install.py` script in the
+top-level directory, that will build the C++ parts of the library and install
+the C++ and Python components under the currently active Python environment.
+
+To add GPU support, use the `--cuda` flag:
+
+```shell
+./install.py --cuda
+```
+
+You can specify the CUDA toolkit directory and the CUDA architecture you want to
+target using the `--with-cuda` and `--arch` flags, e.g.:
+
+```shell
+./install.py --cuda --with-cuda /usr/local/cuda/ --arch ampere
+```
+
+By default the script relies on CMake's auto-detection for these settings.
+CMake will first search the currently active Python/conda environment
+for dependencies, then any common system-wide installation directories (e.g.
+`/usr/lib`). If a dependency cannot be found but is publicly available in source
+form (e.g. OpenBLAS), cmake will fetch and build it automatically. You can
+override this search by providing an install location for any dependency
+explicitly, using a `--with-<dep>` flag, e.g. `--with-nccl` and
+`--with-openblas`.
+
+For multi-node execution Legate uses [GASNet](https://gasnet.lbl.gov/) which can be
+requested using the `--network gasnet1` or `--network gasnetex` flag. By default
+GASNet will be automatically downloaded and built, but if you have an existing
+installation then you can inform the install script using the `--with-gasnet` flag.
+You also need to specify the interconnect network of the target machine using the
+`--conduit` flag.
+
+For example this would be an installation for a
+[DGX SuperPOD](https://www.nvidia.com/en-us/data-center/dgx-superpod/):
+
+```shell
+./install.py --network gasnet1 --conduit ibv --cuda --arch ampere
+```
+
+Alternatively, here is an install line for the
+[Piz-Daint](https://www.cscs.ch/computers/dismissed/piz-daint-piz-dora/) supercomputer:
+
+```shell
+./install.py --network gasnet1 --conduit aries --cuda --arch pascal
+```
+
+To see all available configuration options, run with the `--help` flag:
+
+```shell
+./install.py --help
+```
+
+# Advanced topics
+
+## Dependency listing
 
 ### OS (`--os` flag)
 
@@ -178,8 +234,9 @@ If using UCX, a build of UCX configured with `--enable-mt` is required.
 
 If you do not wish to use conda for some (or all) of the dependencies, you can
 remove the corresponding entries from the environment file before passing it to
-conda. See [the `install.py` section](#using-installpy) for instructions on how
-to provide alternative locations for these dependencies to the build process.
+conda. See [the `install.py` section](#building-through-installpy) for
+instructions on how to provide alternative locations for these dependencies to
+the build process.
 
 Note that this is likely to result in conflicts between conda-provided and
 system-provided libraries.
@@ -215,64 +272,7 @@ This way you can make sure that the (typically more recent) conda version of any
 common library will be preferred over the system-wide one, no matter which
 component requests it first.
 
-# Building for Users
-
-## Using install.py
-
-The Legate Core repository comes with a helper `install.py` script in the
-top-level directory, that will build the C++ parts of the library and install
-the C++ and Python components under the currently active Python environment.
-
-To add GPU support, use the `--cuda` flag:
-
-```shell
-./install.py --cuda
-```
-
-You can specify the CUDA toolkit directory and the CUDA architecture you want to
-target using the `--with-cuda` and `--arch` flags, e.g.:
-
-```shell
-./install.py --cuda --with-cuda /usr/local/cuda/ --arch ampere
-```
-
-By default the script relies on CMake's auto-detection for these settings.
-CMake will first search the currently active Python/conda environment
-for dependencies, then any common system-wide installation directories (e.g.
-`/usr/lib`). If a dependency cannot be found but is publicly available in source
-form (e.g. OpenBLAS), cmake will fetch and build it automatically. You can
-override this search by providing an install location for any dependency
-explicitly, using a `--with-<dep>` flag, e.g. `--with-nccl` and
-`--with-openblas`.
-
-For multi-node execution Legate uses [GASNet](https://gasnet.lbl.gov/) which can be
-requested using the `--network gasnet1` or `--network gasnetex` flag. By default
-GASNet will be automatically downloaded and built, but if you have an existing
-installation then you can inform the install script using the `--with-gasnet` flag.
-You also need to specify the interconnect network of the target machine using the
-`--conduit` flag.
-
-For example this would be an installation for a
-[DGX SuperPOD](https://www.nvidia.com/en-us/data-center/dgx-superpod/):
-
-```shell
-./install.py --network gasnet1 --conduit ibv --cuda --arch ampere
-```
-
-Alternatively, here is an install line for the
-[Piz-Daint](https://www.cscs.ch/computers/dismissed/piz-daint-piz-dora/) supercomputer:
-
-```shell
-./install.py --network gasnet1 --conduit aries --cuda --arch pascal
-```
-
-To see all available configuration options, run with the `--help` flag:
-
-```shell
-./install.py --help
-```
-
-## Using pip
+## Building through pip
 
 Legate Core is not yet registered in a standard pip repository. However, users
 can still use the pip installer to build and install Legate Core. The following
@@ -288,8 +288,6 @@ or
 ```shell
 $ python3 -m pip install .
 ```
-
-## Advanced Customization
 
 Legate relies on CMake to select its toolchain and build flags. Users can set
 the environment variables `CXX` or `CXXFLAGS` prior to building to override the
@@ -310,9 +308,7 @@ An alternative syntax using `setup.py` with `scikit-build` is
 $ python setup.py install -- -DLegion_USE_CUDA:BOOL=ON
 ```
 
-# Building for Developers
-
-## Overview
+## Building through pip & cmake
 
 pip uses [scikit-build](https://scikit-build.readthedocs.io/en/latest/)
 in `setup.py` to drive the build and installation.  A `pip install` will trigger three general actions:
@@ -326,8 +322,6 @@ This simplifies rebuilding the C++ shared libraries either via command-line or v
 After building the C++ libraries, the `pip install` can be done in "editable" mode using the `-e` flag.
 This configures the Python site packages to import the Python source tree directly.
 The Python source can then be edited and used directly for testing without requiring another `pip install`.
-
-## Example
 
 There are several examples in the `scripts` folder. We walk through the steps in
 `build-separately-no-install.sh` here.
