@@ -112,7 +112,7 @@ class ReductionInstanceSet {
     {
     }
 
-    ReductionOpID redop = 0;
+    ReductionOpID redop{0};
     Instance instance{};
     InstanceMappingPolicy policy{};
   };
