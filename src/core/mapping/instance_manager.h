@@ -54,10 +54,10 @@ std::ostream& operator<<(std::ostream& os, const RegionGroup& region_group);
 
 struct InstanceSet {
  public:
-  using RegionGroupP = std::shared_ptr<RegionGroup>;
   using Region       = Legion::LogicalRegion;
   using Instance     = Legion::Mapping::PhysicalInstance;
   using Domain       = Legion::Domain;
+  using RegionGroupP = std::shared_ptr<RegionGroup>;
 
  public:
   struct InstanceSpec {

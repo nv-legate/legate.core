@@ -686,7 +686,7 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
   auto& fields = layout_constraints.field_constraint.field_set;
 
   // We need to hold the instance manager lock as we're about to try to find an instance
-  AutoLock lock(ctx, local_instances->manager_lock());
+  AutoLock reduction_lock(ctx, reduction_instances->manager_lock());
 
   // This whole process has to appear atomic
   runtime->disable_reentrant(ctx);
@@ -745,6 +745,7 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
     return true;
   }
 
+  AutoLock lock(ctx, local_instances->manager_lock());
   // See if we already have it in our local instances
   if (fields.size() == 1 && regions.size() == 1 &&
       local_instances->find_instance(
