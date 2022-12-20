@@ -90,9 +90,11 @@ def install_kernel_spec(spec: KernelSpec, config: Config) -> None:
     except NoSuchKernel:
         pass
     else:
+        # inexplicably, install_kernel_spec calls lower on the supplied kernel
+        # name before using, so we need to call lower for this advice to work
         msg = error(
             f"kernel spec {spec_name!r} already exists. Remove it by "
-            f"running 'jupyter kernelspec uninstall {spec_name!r}, "
+            f"running: 'jupyter kernelspec uninstall {spec_name.lower()}', "
             "or choose a new kernel name."
         )
         print(msg)
