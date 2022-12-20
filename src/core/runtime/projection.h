@@ -38,8 +38,8 @@ class LegateProjectionFunctor : public Legion::ProjectionFunctor {
   virtual bool is_functional(void) const { return true; }
   virtual bool is_exclusive(void) const { return true; }
   virtual unsigned get_depth(void) const { return 0; }
-  virtual bool is_collective() { return is_collective_; }
-  virtual void set_collective() { is_collective_ = true; }
+  bool is_collective() const { return is_collective_; }
+  void set_collective() { is_collective_ = true; }
 
  public:
   virtual Legion::DomainPoint project_point(const Legion::DomainPoint& point,
