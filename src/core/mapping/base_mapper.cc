@@ -685,14 +685,15 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
   mapping.populate_layout_constraints(layout_constraints);
   auto& fields = layout_constraints.field_constraint.field_set;
 
-  // We need to hold the instance manager lock as we're about to try to find an instance
-  AutoLock reduction_lock(ctx, reduction_instances->manager_lock());
-
-  // This whole process has to appear atomic
-  runtime->disable_reentrant(ctx);
-
   // If we're making a reduction instance:
   if (redop != 0) {
+    // We need to hold the instance manager lock as we're about to try
+    // to find an instance
+    AutoLock reduction_lock(ctx, reduction_instances->manager_lock());
+
+    // This whole process has to appear atomic
+    runtime->disable_reentrant(ctx);
+
     // reuse reductions only for GPU tasks:
     if (target_proc.kind() == Processor::TOC_PROC) {
       // See if we already have it in our local instances
@@ -746,6 +747,7 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
   }
 
   AutoLock lock(ctx, local_instances->manager_lock());
+  runtime->disable_reentrant(ctx);
   // See if we already have it in our local instances
   if (fields.size() == 1 && regions.size() == 1 &&
       local_instances->find_instance(
