@@ -208,7 +208,7 @@ struct create_affine_functor_fn {
     std::stringstream ss;
     ss << "Register projection functor: functor: " << functor << ", id: " << proj_id << ", ";
     spec_to_string(ss, SRC_DIM, TGT_DIM, dims, weights, offsets);
-    log_legate.debug("%s", ss.str().c_str());
+    log_legate.debug() << ss.str();
 #else
     log_legate.debug("Register projection functor: functor: %p, id: %d", functor, proj_id);
 #endif
