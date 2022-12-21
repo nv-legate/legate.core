@@ -245,28 +245,6 @@ LegateProjectionFunctor* find_legate_projection_functor(ProjectionID proj_id)
   return result;
 }
 
-DomainPoint delinearize_future_map_domain(const DomainPoint& point,
-                                          const Domain& domain,
-                                          const Domain& range)
-{
-  int32_t ndim = range.dim;
-
-  DomainPoint result;
-  result.dim = ndim;
-
-  auto lo = range.lo();
-  auto hi = range.hi();
-
-  int64_t idx = point[0];
-  for (int32_t dim = ndim - 1; dim >= 0; --dim) {
-    int64_t extent = hi[dim] - lo[dim] + 1;
-    result[dim]    = idx % extent;
-    idx            = idx / extent;
-  }
-
-  return result;
-}
-
 struct LinearizingPointTransformFunctor : public PointTransformFunctor {
   // This is actually an invertible functor, but we will not use this for inversion
   virtual bool is_invertible(void) const { return false; }
