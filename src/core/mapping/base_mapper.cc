@@ -209,7 +209,7 @@ void BaseMapper::select_task_options(const MapperContext ctx,
                                      TaskOptions& output)
 {
   for (uint32_t idx = 0; idx < task.regions.size(); ++idx) {
-    auto& req   = task.regions[idx];
+    auto& req = task.regions[idx];
     if ((req.handle_type == LEGION_SINGULAR_PROJECTION) ||
         (find_legate_projection_functor(req.projection)->is_collective())) {
       output.check_collective_regions.insert(idx);
