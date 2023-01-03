@@ -225,7 +225,7 @@ CTK_VERSIONS = (
     "11.8",
 )
 
-OS_NAMES: Tuple[OSType, ...] = ("linux", "osx")
+OS_NAMES: Tuple[OSType, ...] = ("linux", "darwin")
 
 
 ENV_TEMPLATE = """\
