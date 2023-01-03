@@ -21,7 +21,7 @@ from typing import Literal, Protocol, Tuple
 
 Req = str
 Reqs = Tuple[Req, ...]
-OSType = Literal["linux", "darwin"]
+OSType = Literal["linux", "osx"]
 
 
 class SectionConfig(Protocol):
@@ -225,7 +225,7 @@ CTK_VERSIONS = (
     "11.8",
 )
 
-OS_NAMES: Tuple[OSType, ...] = ("linux", "darwin")
+OS_NAMES: Tuple[OSType, ...] = ("linux", "osx")
 
 
 ENV_TEMPLATE = """\
@@ -258,7 +258,7 @@ ALL_CONFIGS = [
     for compilers in (True, False)
     for openmpi in (True, False)
 ] + [
-    EnvConfig("test", python, "darwin", "none", compilers, openmpi)
+    EnvConfig("test", python, "osx", "none", compilers, openmpi)
     for python in PYTHON_VERSIONS
     for compilers in (True, False)
     for openmpi in (True, False)
