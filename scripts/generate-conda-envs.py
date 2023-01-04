@@ -156,9 +156,8 @@ class DocsConfig(SectionConfig):
             "jinja2",
             "markdown<3.4.0",
             "pydata-sphinx-theme",
-            "recommonmark",
+            "myst-parser",
             "sphinx-copybutton",
-            "sphinx-markdown-tables",
             "sphinx>=4.4.0",
         )
 
