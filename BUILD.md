@@ -257,7 +257,7 @@ after to trip GLIBC's internal version checks, since the conda library expects
 to find symbols with more recent version numbers than what is available on the
 system-wide GLIBC:
 
-```shell
+```
 /lib/x86_64-linux-gnu/libstdc++.so.6: version `GLIBCXX_3.4.30' not found (required by /opt/conda/envs/legate/lib/libarrow.so)
 ```
 
