@@ -15,12 +15,10 @@
 from __future__ import annotations
 
 import os
-import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ..util.fs import read_c_define
-from ..util.ui import warn
 
 if TYPE_CHECKING:
     from ..util.system import System
@@ -92,8 +90,6 @@ class Launcher:
                     self.detected_rank_id = system.env[var]
                     break
 
-        self._check_realm_python()
-
     def __eq__(self, other: object) -> bool:
         return (
             isinstance(other, type(self))
@@ -153,27 +149,6 @@ class Launcher:
         return name.endswith("PATH") or any(
             name.startswith(prefix) for prefix in LAUNCHER_VAR_PREFIXES
         )
-
-    def _check_realm_python(self) -> None:
-
-        # Make sure the version of Python used by Realm is the same as what the
-        # user is using currently.
-        realm_pylib = read_c_define(
-            self._system.legion_paths.realm_defines_h, "REALM_PYTHON_LIB"
-        )
-
-        if realm_pylib is None:
-            raise RuntimeError("Cannot determine Realm Python Lib")
-
-        realm_home = Path(realm_pylib[1:-1]).parents[1]
-        if (current_home := Path(sys.executable).parents[1]) != realm_home:
-            print(
-                warn(
-                    "Legate was compiled against the Python installation at "
-                    f"{realm_home}, but you are currently using the Python "
-                    f"installation at {current_home}"
-                )
-            )
 
     def _compute_env(self) -> tuple[EnvDict, set[str]]:
         config = self._config
