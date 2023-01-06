@@ -136,7 +136,6 @@ FutureWrapper::FutureWrapper(
 #ifdef DEBUG_LEGATE
     assert(!initialize || future_.get_untyped_size() == field_size);
 #endif
-    auto proc     = Processor::get_executing_processor();
     auto mem_kind = find_memory_kind_for_executing_processor(
 #ifdef LEGATE_NO_FUTURES_ON_FB
       true
