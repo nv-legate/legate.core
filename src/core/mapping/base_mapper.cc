@@ -487,16 +487,14 @@ void BaseMapper::map_task(const MapperContext ctx,
   auto default_option            = options.front();
   auto generate_default_mappings = [&](auto& stores, bool exact) {
     for (auto& store : stores) {
+      auto mapping = StoreMapping::default_mapping(store, default_option, exact);
       if (store.is_future()) {
-        auto option  = default_option == StoreTarget::FBMEM ? StoreTarget::ZCMEM : default_option;
-        auto mapping = StoreMapping::default_mapping(store, option, exact);
         auto fut_idx = store.future_index();
         if (mapped_futures.find(fut_idx) != mapped_futures.end()) continue;
         mapped_futures.insert(fut_idx);
         for_futures.push_back(std::move(mapping));
       } else {
-        auto mapping = StoreMapping::default_mapping(store, default_option, exact);
-        auto key     = store.unique_region_field_id();
+        auto key = store.unique_region_field_id();
         if (mapped_regions.find(key) != mapped_regions.end()) continue;
         mapped_regions.insert(key);
         if (store.unbound())
