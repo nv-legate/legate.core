@@ -310,7 +310,8 @@ line options, and their default values are as follows.
 
 ### Distributed Launch
 
-If Legate is compiled with networking support ([see the installation section](#Installation)),
+If Legate is compiled with networking support (see the
+[installation section](#how-do-i-install-legate)),
 it can be run in parallel by using the `--nodes` option followed by the number of nodes
 to be used.  Whenever the `--nodes` option is used, Legate will be launched
 using `mpirun`, even with `--nodes 1`.  Without the `--nodes` option, no launcher will

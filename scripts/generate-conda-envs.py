@@ -21,7 +21,7 @@ from typing import Literal, Protocol, Tuple
 
 Req = str
 Reqs = Tuple[Req, ...]
-OSType = Literal["linux", "darwin"]
+OSType = Literal["linux", "osx"]
 
 
 class SectionConfig(Protocol):
@@ -156,9 +156,8 @@ class DocsConfig(SectionConfig):
             "jinja2",
             "markdown<3.4.0",
             "pydata-sphinx-theme",
-            "recommonmark",
+            "myst-parser",
             "sphinx-copybutton",
-            "sphinx-markdown-tables",
             "sphinx>=4.4.0",
         )
 
@@ -258,7 +257,7 @@ ALL_CONFIGS = [
     for compilers in (True, False)
     for openmpi in (True, False)
 ] + [
-    EnvConfig("test", python, "darwin", "none", compilers, openmpi)
+    EnvConfig("test", python, "osx", "none", compilers, openmpi)
     for python in PYTHON_VERSIONS
     for compilers in (True, False)
     for openmpi in (True, False)

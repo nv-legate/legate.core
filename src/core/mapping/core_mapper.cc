@@ -350,9 +350,21 @@ void CoreMapper::map_future_map_reduction(const MapperContext ctx,
 {
   output.serdez_upper_bound = LEGATE_MAX_SIZE_SCALAR_RETURN;
 
-  if (!local_gpus.empty())
+  if (!local_gpus.empty()) {
+    // TODO: It's been reported that blindly mapping target instances of future map reductions
+    // to framebuffers hurts performance. Until we find a better mapping policy, we guard
+    // the current policy with a macro.
+#ifdef LEGATE_MAP_FUTURE_MAP_REDUCTIONS_TO_GPU
+    // If this was joining exceptions, we should put instances on a host-visible memory
+    // because they need serdez
+    if (input.tag == LEGATE_CORE_JOIN_EXCEPTION_TAG)
+      output.destination_memories.push_back(local_zerocopy_memory);
+    else
+      for (auto& pair : local_frame_buffers) output.destination_memories.push_back(pair.second);
+#else
     output.destination_memories.push_back(local_zerocopy_memory);
-  else if (has_socket_mem)
+#endif
+  } else if (has_socket_mem)
     for (auto& pair : local_numa_domains) output.destination_memories.push_back(pair.second);
 }
 

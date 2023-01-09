@@ -5,6 +5,7 @@ Welcome to Legate Core's documentation!
   :maxdepth: 1
 
   Overview <README.md>
+  Build instructions <BUILD.md>
   API Reference <api/index.rst>
   Contributing <CONTRIBUTING.md>
   Versions <versions.rst>
