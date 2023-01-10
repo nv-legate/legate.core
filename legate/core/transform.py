@@ -377,7 +377,11 @@ class Project(Transform):
         return point.insert(self._dim, self._index)
 
     def invert_symbolic_point(self, dims: SymbolicPoint) -> SymbolicPoint:
-        return dims[: self._dim] + (ProjExpr(-1),) + dims[self._dim :]
+        return (
+            dims[: self._dim]
+            + (ProjExpr(dim=-1, weight=0),)
+            + dims[self._dim :]
+        )
 
     def invert_restrictions(self, restrictions: Restrictions) -> Restrictions:
         left = restrictions[: self._dim]

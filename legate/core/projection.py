@@ -47,6 +47,7 @@ class ProjExpr:
         if self._repr is None:
             s = ""
             if self._weight != 0:
+                assert self._dim != -1
                 if self._weight != 1:
                     s += f"{self._weight} * "
                 s += f"COORD{self._dim}"
@@ -55,6 +56,8 @@ class ProjExpr:
                     s += f" + {self._offset}"
                 else:
                     s += f" - {abs(self._offset)}"
+            elif self._weight == 0:
+                s += "0"
             self._repr = s
         return self._repr
 

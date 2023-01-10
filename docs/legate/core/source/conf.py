@@ -38,9 +38,10 @@ extensions = [
     "sphinx.ext.mathjax",
     "sphinx.ext.napoleon",
     "sphinx_copybutton",
-    "sphinx_markdown_tables",
-    "recommonmark",
+    "myst_parser",
 ]
+
+suppress_warnings = ["ref.myst"]
 
 # The master toctree document.
 master_doc = "index"
