@@ -22,14 +22,14 @@ help() {
 Usage: bind.sh [OPTIONS]... -- APP...
 
 Options:
-  --launcher={mpirun|srun|jrun|auto|local}
+  --launcher {mpirun|srun|jrun|auto|local}
                     Launcher type, used to set LEGATE_RANK
                     If 'auto', attempt to find the launcher rank automatically
                     If 'local', rank is set to "0".
-  --cpus=SPEC       CPU binding specification, passed to numactl
-  --gpus=SPEC       GPU binding specification, used to set CUDA_VISIBLE_DEVICES
-  --mems=SPEC       Memory binding specification, passed to numactl
-  --nics=SPEC       Network interface binding specification, used to set
+  --cpus SPEC       CPU binding specification, passed to numactl
+  --gpus SPEC       GPU binding specification, used to set CUDA_VISIBLE_DEVICES
+  --mems SPEC       Memory binding specification, passed to numactl
+  --nics SPEC       Network interface binding specification, used to set
                     all of: UCX_NET_DEVICES, NCCL_IB_HCA, GASNET_NUM_QPS,
                     and GASNET_IBV_PORTS
   --debug           print out the final computed invocation before exectuting
