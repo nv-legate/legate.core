@@ -177,7 +177,7 @@ done
 set -- "${updated[@]}"
 
 if [ "$debug" == "1" ]; then
-  echo -n "bind.sh: $@"
+  echo -n "bind.sh:"
   for TOK in "$@"; do printf " %q" "$TOK"; done
   echo
 fi
