@@ -161,7 +161,7 @@ class Machine:
 
     def _get_range(self, kind: ProcessorKind) -> ProcessorRange:
         if kind not in self._proc_ranges:
-            raise IndexError(f"{kind}")
+            return ProcessorRange.create(kind, 1, 1, 0)
         return self._proc_ranges[kind]
 
     def only(self, kind: ProcKindLike) -> Machine:
