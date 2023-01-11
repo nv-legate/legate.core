@@ -226,10 +226,6 @@ conda install -c nvidia -c conda-forge -c legate legate-core
 The conda package is compatible with CUDA >= 11.4 (CUDA driver version >= r470),
 and Volta or later GPU architectures.
 
-Docker image build scripts, as well as specialized
-install scripts for supported clusters are available on the
-[quickstart](https://github.com/nv-legate/quickstart) repo.
-
 See [BUILD.md](BUILD.md) for instructions on building Legate Core from source.
 
 ## How Do I Use Legate?
@@ -314,7 +310,8 @@ line options, and their default values are as follows.
 
 ### Distributed Launch
 
-If Legate is compiled with networking support ([see the installation section](#Installation)),
+If Legate is compiled with networking support (see the
+[installation section](#how-do-i-install-legate)),
 it can be run in parallel by using the `--nodes` option followed by the number of nodes
 to be used.  Whenever the `--nodes` option is used, Legate will be launched
 using `mpirun`, even with `--nodes 1`.  Without the `--nodes` option, no launcher will
