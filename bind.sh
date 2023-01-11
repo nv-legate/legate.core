@@ -147,9 +147,15 @@ if [ -n "${nics+x}" ]; then
   nic="${nics[$local_rank]}"
   nic_array=(${nic//,/ })
   export UCX_NET_DEVICES="${nic//,/:1,}":1
-  export NCCL_IB_HCA="$nic"
   export GASNET_NUM_QPS="${#nic_array[@]}"
   export GASNET_IBV_PORTS="${nic//,/+}"
+
+  # NCCL is supposed to detect the topology and use the right NIC automatically.
+  # NCCL env vars must be set the same way for all ranks on the same node, so
+  # the best we can do here is to constrain NCCL to the full set of NICs that
+  # the user specified.
+  # Note the added "=", to do exact instead of prefix match.
+  export NCCL_IB_HCA="=$(IFS=, ; echo "${nics[*]}")"
 fi
 
 # numactl is only needed if cpu or memory pinning was requested
