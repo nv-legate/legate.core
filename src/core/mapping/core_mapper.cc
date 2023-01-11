@@ -286,19 +286,25 @@ void CoreMapper::map_future_map_reduction(const MapperContext ctx,
 {
   output.serdez_upper_bound = LEGATE_MAX_SIZE_SCALAR_RETURN;
 
+  if (machine->has_gpus()) {
+    // TODO: It's been reported that blindly mapping target instances of future map reductions
+    // to framebuffers hurts performance. Until we find a better mapping policy, we guard
+    // the current policy with a macro.
 #ifdef LEGATE_MAP_FUTURE_MAP_REDUCTIONS_TO_GPU
-  // TODO: It's been reported that blindly mapping target instances of future map reductions
-  // to framebuffers hurts performance. Until we find a better mapping policy, we guard
-  // the current policy with a macro.
 
-  // If this was joining exceptions, we don't want to put instances anywhere
-  // other than the system memory because they need serdez
-  if (input.tag == LEGATE_CORE_JOIN_EXCEPTION_TAG) return;
-  if (machine->has_gpus())
-    for (auto& pair : local_frame_buffers) output.destination_memories.push_back(pair.second);
-  else if (machine->has_socket_memory())
-    for (auto& pair : local_numa_domains) output.destination_memories.push_back(pair.second);
+    // If this was joining exceptions, we should put instances on a host-visible memory
+    // because they need serdez
+    if (input.tag == LEGATE_CORE_JOIN_EXCEPTION_TAG)
+      output.destination_memories.push_back(machine->zerocopy_memory());
+    else
+      for (auto& pair : machine->frame_buffers())
+        output.destination_memories.push_back(pair.second);
+#else
+    output.destination_memories.push_back(machine->zerocopy_memory());
 #endif
+  } else if (machine->has_socket_memory())
+    for (auto& pair : machine->socket_memories())
+      output.destination_memories.push_back(pair.second);
 }
 
 void CoreMapper::select_tunable_value(const MapperContext ctx,

@@ -83,6 +83,7 @@ BaseMapper::BaseMapper(Runtime* rt, Legion::Machine m, const LibraryContext& ctx
     context(ctx),
     logger(create_logger_name().c_str()),
     local_instances(InstanceManager::get_instance_manager()),
+    reduction_instances(ReductionInstanceManager::get_instance_manager()),
     machine(std::make_unique<Machine>(m))
 {
   std::stringstream ss;
@@ -135,6 +136,17 @@ void BaseMapper::select_task_options(const MapperContext ctx,
                                      const LegionTask& task,
                                      TaskOptions& output)
 {
+#ifdef LEGATE_USE_COLLECTIVE
+  for (uint32_t idx = 0; idx < task.regions.size(); ++idx) {
+    auto& req = task.regions[idx];
+    if (req.privilege & LEGION_WRITE_PRIV) continue;
+    if ((req.handle_type == LEGION_SINGULAR_PROJECTION) ||
+        (find_legate_projection_functor(req.projection)->is_collective())) {
+      output.check_collective_regions.insert(idx);
+    }
+  }
+#endif
+
   Task legate_task(&task, context, runtime, ctx);
   auto& machine_desc = legate_task.machine_desc();
   auto all_targets   = machine_desc.valid_targets();
@@ -543,9 +555,35 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
   // Generate layout constraints from the store mapping
   LayoutConstraintSet layout_constraints;
   mapping.populate_layout_constraints(layout_constraints);
+  auto& fields = layout_constraints.field_constraint.field_set;
 
-  // If we're making a reduction instance, we should just make it now
+  // If we're making a reduction instance:
   if (redop != 0) {
+    // We need to hold the instance manager lock as we're about to try
+    // to find an instance
+    AutoLock reduction_lock(ctx, reduction_instances->manager_lock());
+
+    // This whole process has to appear atomic
+    runtime->disable_reentrant(ctx);
+
+    // reuse reductions only for GPU tasks:
+    if (target_proc.kind() == Processor::TOC_PROC) {
+      // See if we already have it in our local instances
+      if (fields.size() == 1 && regions.size() == 1 &&
+          reduction_instances->find_instance(
+            redop, regions.front(), fields.front(), target_memory, result, policy)) {
+#ifdef DEBUG_LEGATE
+        logger.debug() << "Operation " << mappable.get_unique_id()
+                       << ": reused cached reduction instance " << result << " for "
+                       << regions.front();
+#endif
+        runtime->enable_reentrant(ctx);
+        // Needs acquire to keep the runtime happy
+        return true;
+      }
+    }
+
+    // if we didn't find it, create one
     layout_constraints.add_constraint(SpecializedConstraint(REDUCTION_FOLD_SPECIALIZE, redop));
     size_t footprint = 0;
     if (runtime->create_physical_instance(ctx,
@@ -564,6 +602,14 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
       for (LogicalRegion r : regions) msg << " " << r;
       msg << " (size: " << footprint << " bytes, memory: " << target_memory << ")";
 #endif
+      if (target_proc.kind() == Processor::TOC_PROC) {
+        // store reduction instance
+        if (fields.size() == 1 && regions.size() == 1) {
+          auto fid = fields.front();
+          reduction_instances->record_instance(redop, regions.front(), fid, result, policy);
+        }
+      }
+      runtime->enable_reentrant(ctx);
       // We already did the acquire
       return false;
     }
@@ -572,14 +618,8 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
     return true;
   }
 
-  auto& fields = layout_constraints.field_constraint.field_set;
-
-  // We need to hold the instance manager lock as we're about to try to find an instance
   AutoLock lock(ctx, local_instances->manager_lock());
-
-  // This whole process has to appear atomic
   runtime->disable_reentrant(ctx);
-
   // See if we already have it in our local instances
   if (fields.size() == 1 && regions.size() == 1 &&
       local_instances->find_instance(

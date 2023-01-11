@@ -87,6 +87,14 @@ class Machine {
   Legion::Memory get_memory(Legion::Processor proc, StoreTarget target) const;
   Legion::Memory system_memory() const { return system_memory_; }
   Legion::Memory zerocopy_memory() const { return zerocopy_memory_; }
+  const std::map<Legion::Processor, Legion::Memory>& frame_buffers() const
+  {
+    return frame_buffers_;
+  }
+  const std::map<Legion::Processor, Legion::Memory>& socket_memories() const
+  {
+    return socket_memories_;
+  }
 
  public:
   template <typename Functor>

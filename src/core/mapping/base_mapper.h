@@ -32,6 +32,7 @@ namespace mapping {
 
 class InstanceManager;
 class Machine;
+class ReductionInstanceManager;
 
 class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
  public:
@@ -321,6 +322,7 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
 
  protected:
   InstanceManager* local_instances;
+  ReductionInstanceManager* reduction_instances;
   std::unique_ptr<Machine> machine;
 };
 
