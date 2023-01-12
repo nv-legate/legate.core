@@ -599,7 +599,7 @@ def driver():
         dest="spy",
         action="store_true",
         required=False,
-        default=os.environ.get("USE_SPY", "0") == "1",
+        default=True,
         help="Build Legate with detailed Legion Spy enabled.",
     )
     parser.add_argument(
