@@ -149,6 +149,7 @@ class PartitionByImage(PartitionFunctor):
             part_id,
             self.mapper,
             self.tag,
+            (ffi.NULL, 0),
         )
 
 
@@ -194,6 +195,7 @@ class PartitionByImageRange(PartitionFunctor):
             part_id,
             self.mapper,
             self.tag,
+            (ffi.NULL, 0),
         )
 
 
@@ -240,6 +242,7 @@ class PartitionByPreimage(PartitionFunctor):
             part_id,
             self.mapper,
             self.tag,
+            (ffi.NULL, 0),
         )
 
 
@@ -286,6 +289,7 @@ class PartitionByPreimageRange(PartitionFunctor):
             part_id,
             self.mapper,
             self.tag,
+            (ffi.NULL, 0),
         )
 
 
