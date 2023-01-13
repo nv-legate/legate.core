@@ -440,6 +440,7 @@ def install(
 -DLegion_BUILD_BINDINGS=ON
 -DLegion_BUILD_JUPYTER=ON
 -DLegion_EMBED_GASNet_CONFIGURE_ARGS="--with-ibv-max-hcas=8"
+-Dlegate_core_COLLECTIVE:BOOL=OFF
 """.splitlines()
 
     if nccl_dir:
