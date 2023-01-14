@@ -79,6 +79,7 @@ class Config:
         self.memory = object_to_dataclass(args, Memory)
 
         # turn everything else off
+        self.user_script: str = ""
         self.user_opts: tuple[str, ...] = ()
         self.binding = Binding(None, None, None, None)
         self.profiling = Profiling(False, False, False, False, "", [])

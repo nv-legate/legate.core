@@ -185,13 +185,15 @@ class Config:
         # only saving this for help with testing
         self._args = args
 
-        self.user_script = None
+        self.user_script = ""
         for opt in tuple(extra):
             if opt.endswith(".py"):
                 self.user_script = opt
                 break
 
-        self.user_opts = tuple(x for x in tuple(extra) if x != self.user_script)
+        self.user_opts = tuple(
+            x for x in tuple(extra) if x != self.user_script
+        )
 
         # these may modify the args, so apply before dataclass conversions
         self._fixup_nocr(args)
@@ -210,7 +212,7 @@ class Config:
     @cached_property
     def console(self) -> bool:
         """Whether we are starting Legate as an interactive console."""
-        return self.user_script is None
+        return self.user_script == ""
 
     def _fixup_nocr(self, args: Namespace) -> None:
         # this is slightly duplicative of MultiNode.ranks property, but fixup
