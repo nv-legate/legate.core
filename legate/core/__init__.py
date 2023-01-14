@@ -20,11 +20,15 @@ from ..util.args import parse_library_command_args
 from legion_top import is_legion_python
 
 if is_legion_python == False:
-    from legion_top import legion_canonical_python_main, legion_canonical_python_cleanup
+    from legion_top import (
+        legion_canonical_python_main,
+        legion_canonical_python_cleanup,
+    )
     from legion_canonical_cffi import ffi, lib as legion
     from ..driver.main import canonical_main
     import atexit, sys, os
-    print("canonical python")
+
+    print("Canonical python")
 
     sys_argv = [
         "python",
@@ -46,6 +50,7 @@ if is_legion_python == False:
 else:
     print("legion python")
     from legion_cffi import ffi, lib as legion
+
     check_legion()
 
 from ._legion import (
