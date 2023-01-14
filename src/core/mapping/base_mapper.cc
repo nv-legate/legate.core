@@ -211,6 +211,7 @@ void BaseMapper::select_task_options(const MapperContext ctx,
 #ifdef LEGATE_USE_COLLECTIVE
   for (uint32_t idx = 0; idx < task.regions.size(); ++idx) {
     auto& req = task.regions[idx];
+    if (req.privilege & LEGION_WRITE_PRIV) continue;
     if ((req.handle_type == LEGION_SINGULAR_PROJECTION) ||
         (find_legate_projection_functor(req.projection)->is_collective())) {
       output.check_collective_regions.insert(idx);
