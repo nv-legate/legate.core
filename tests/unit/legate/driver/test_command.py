@@ -29,7 +29,10 @@ from .util import GenObjs
 
 
 def test___all__() -> None:
-    assert m.__all__ == ("CMD_PARTS",)
+    assert m.__all__ == (
+        "CMD_PARTS",
+        "CMD_PARTS_CANONICAL",
+    )
 
 
 def test_LEGATE_GLOBAL_RANK_SUBSTITUTION() -> None:

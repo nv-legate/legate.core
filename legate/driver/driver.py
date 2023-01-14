@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING
 
 from ..util.system import System
 from ..util.ui import kvtable, rule, section, value, warn
-from .command import CMD_PARTS, CMD_PARTS_STANDALONE
+from .command import CMD_PARTS, CMD_PARTS_CANONICAL
 from .config import ConfigProtocol
 from .launcher import Launcher, SimpleLauncher
 from .logs import process_logs
@@ -121,6 +121,7 @@ class Driver:
                 )
             )
 
+
 class CanonicalDriver(Driver):
     """Coordinate the system, user-configuration, and launcher to appropriately
     execute the Legate process.
@@ -145,7 +146,9 @@ class CanonicalDriver(Driver):
         launcher = self.launcher
         system = self.system
 
-        parts = (part(config, system, launcher) for part in CMD_PARTS_STANDALONE)
+        parts = (
+            part(config, system, launcher) for part in CMD_PARTS_CANONICAL
+        )
         return sum(parts, ())
 
 

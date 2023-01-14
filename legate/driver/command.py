@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from .config import ConfigProtocol
     from .launcher import Launcher
 
-__all__ = ("CMD_PARTS", "CMD_PARTS_STANDALONE")
+__all__ = ("CMD_PARTS", "CMD_PARTS_CANONICAL")
 
 
 # this will be replaced by bind.sh with the actual computed rank at runtime
@@ -365,6 +365,7 @@ def cmd_user_script(
 ) -> CommandPart:
     return (config.user_script,)
 
+
 def cmd_user_opts(
     config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
@@ -406,7 +407,7 @@ CMD_PARTS = (
     cmd_user_opts,
 )
 
-CMD_PARTS_STANDALONE = (
+CMD_PARTS_CANONICAL = (
     # User script
     cmd_user_script,
     # Translate the requests to Realm command line parameters
