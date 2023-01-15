@@ -13,36 +13,21 @@
 # limitations under the License.
 #
 
-from typing import Any, Callable, List, Tuple, Union
+from typing import Any, Callable, Tuple
 
-from legion_canonical_cffi.lib import (
-    legion_context_t as canonical_cffi_legion_context_t,
-    legion_runtime_t as canonical_cffi_legion_runtime_t,
-)
-
-from legion_cffi.lib import (
-    legion_context_t as cffi_legion_context_t,
-    legion_runtime_t as cffi_legion_runtime_t,
-)
+from legion_cffi.lib import legion_context_t, legion_runtime_t
 
 def add_cleanup_item(callback: Callable[[], None]) -> None: ...
 def legion_canonical_python_main(sys_argv: Tuple[str, ...]) -> None: ...
 def legion_canonical_python_cleanup() -> None: ...
 
 class top_level:
-    runtime: Union[
-        List[cffi_legion_runtime_t], List[canonical_cffi_legion_runtime_t]
-    ]
-    context: Union[
-        List[cffi_legion_context_t], List[canonical_cffi_legion_context_t]
-    ]
-
-is_legion_python: bool
+    runtime: list[legion_runtime_t]
+    context: list[legion_context_t]
 
 __all__ = (
     "add_cleanup_item",
     "legion_canonical_python_main",
     "legion_canonical_python_cleanup",
     "top_level",
-    "is_legion_python",
 )
