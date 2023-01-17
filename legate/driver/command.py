@@ -359,6 +359,10 @@ def cmd_eager_alloc(
 
     return ("-lg:eager_alloc_percentage", str(eager_alloc))
 
+def cmd_ucx(
+    config: ConfigProtocol, system: System, launcher: Launcher
+) -> CommandPart:
+    return ("-ucx:tls_host", "rc,tcp,cuda_copy,cuda_ipc,sm,self")
 
 def cmd_user_opts(
     config: ConfigProtocol, system: System, launcher: Launcher
@@ -395,6 +399,7 @@ CMD_PARTS = (
     cmd_log_levels,
     cmd_log_file,
     cmd_eager_alloc,
+    cmd_ucx,
     # Append user flags so they can override whatever we provided
     cmd_user_opts,
 )
