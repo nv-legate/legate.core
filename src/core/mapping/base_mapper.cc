@@ -941,7 +941,8 @@ void add_instance_to_band_ranking(const PhysicalInstance& instance,
       band_ranking.clear();
       all_local = true;
     }
-  }
+  } else if (all_local)  // Skip any remote instances once we're local
+    return;
   auto finder = source_memories.find(location);
   if (finder == source_memories.end()) {
     affinity.clear();
@@ -976,15 +977,14 @@ void BaseMapper::legate_select_sources(const MapperContext ctx,
   std::vector<std::pair<PhysicalInstance, uint32_t /*bandwidth*/>> band_ranking;
   for (uint32_t idx = 0; idx < sources.size(); idx++) {
     const PhysicalInstance& instance = sources[idx];
-    if (!all_local)  // Skip any remote instances once we're local
-      add_instance_to_band_ranking(instance,
-                                   local_node,
-                                   all_local,
-                                   source_memories,
-                                   band_ranking,
-                                   affinity,
-                                   destination_memory,
-                                   machine);
+    add_instance_to_band_ranking(instance,
+                                 local_node,
+                                 all_local,
+                                 source_memories,
+                                 band_ranking,
+                                 affinity,
+                                 destination_memory,
+                                 machine);
   }
 
   if (!all_local)  // no need to go through the collective instanes if there
@@ -994,19 +994,19 @@ void BaseMapper::legate_select_sources(const MapperContext ctx,
       collective_sources[idx].find_instances_nearest_memory(destination_memory, col_instances);
       // we need only first instance if there are several
       const PhysicalInstance& instance = col_instances[0];
-      if (!all_local)  // Skip any remote instances once we're local
-        add_instance_to_band_ranking(instance,
-                                     local_node,
-                                     all_local,
-                                     source_memories,
-                                     band_ranking,
-                                     affinity,
-                                     destination_memory,
-                                     machine);
+      add_instance_to_band_ranking(instance,
+                                   local_node,
+                                   all_local,
+                                   source_memories,
+                                   band_ranking,
+                                   affinity,
+                                   destination_memory,
+                                   machine);
     }
   }  // if (!all_local)
-
+#ifdef DEBUG_LEGATE
   assert(!band_ranking.empty());
+#endif
   // Easy case of only one instance
   if (band_ranking.size() == 1) {
     ranking.push_back(band_ranking.begin()->first);
