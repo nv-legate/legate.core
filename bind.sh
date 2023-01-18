@@ -22,14 +22,14 @@ help() {
 Usage: bind.sh [OPTIONS]... -- APP...
 
 Options:
-  --launcher={mpirun|srun|jrun|auto|local}
+  --launcher {mpirun|srun|jrun|auto|local}
                     Launcher type, used to set LEGATE_RANK
                     If 'auto', attempt to find the launcher rank automatically
                     If 'local', rank is set to "0".
-  --cpus=SPEC       CPU binding specification, passed to numactl
-  --gpus=SPEC       GPU binding specification, used to set CUDA_VISIBLE_DEVICES
-  --mems=SPEC       Memory binding specification, passed to numactl
-  --nics=SPEC       Network interface binding specification, used to set
+  --cpus SPEC       CPU binding specification, passed to numactl
+  --gpus SPEC       GPU binding specification, used to set CUDA_VISIBLE_DEVICES
+  --mems SPEC       Memory binding specification, passed to numactl
+  --nics SPEC       Network interface binding specification, used to set
                     all of: UCX_NET_DEVICES, NCCL_IB_HCA, GASNET_NUM_QPS,
                     and GASNET_IBV_PORTS
   --debug           print out the final computed invocation before exectuting
@@ -147,9 +147,15 @@ if [ -n "${nics+x}" ]; then
   nic="${nics[$local_rank]}"
   nic_array=(${nic//,/ })
   export UCX_NET_DEVICES="${nic//,/:1,}":1
-  export NCCL_IB_HCA="$nic"
   export GASNET_NUM_QPS="${#nic_array[@]}"
   export GASNET_IBV_PORTS="${nic//,/+}"
+
+  # NCCL is supposed to detect the topology and use the right NIC automatically.
+  # NCCL env vars must be set the same way for all ranks on the same node, so
+  # the best we can do here is to constrain NCCL to the full set of NICs that
+  # the user specified.
+  # Note the added "=", to do exact instead of prefix match.
+  export NCCL_IB_HCA="=$(IFS=, ; echo "${nics[*]}")"
 fi
 
 # numactl is only needed if cpu or memory pinning was requested
@@ -177,7 +183,7 @@ done
 set -- "${updated[@]}"
 
 if [ "$debug" == "1" ]; then
-  echo -n "bind.sh: $@"
+  echo -n "bind.sh:"
   for TOK in "$@"; do printf " %q" "$TOK"; done
   echo
 fi
