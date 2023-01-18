@@ -950,7 +950,9 @@ void add_instance_to_band_ranking(const PhysicalInstance& instance,
       affinity, location, destination_memory, false /*not just local affinities*/);
     uint32_t memory_bandwidth = 0;
     if (!affinity.empty()) {
+#ifdef DEBUG_LEGATE
       assert(affinity.size() == 1);
+#endif
       memory_bandwidth = affinity[0].bandwidth;
     }
     source_memories[location] = memory_bandwidth;
