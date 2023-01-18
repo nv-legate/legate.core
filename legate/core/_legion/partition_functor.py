@@ -14,14 +14,23 @@
 #
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Union
+from typing import TYPE_CHECKING, Any, Optional, Tuple, Union
 
 from .. import ffi, legion
 from .future import FutureMap
 from .geometry import Point
 
 if TYPE_CHECKING:
+    from legion_cffi import CData
+
     from . import FieldID, IndexPartition, IndexSpace, Rect, Region, Transform
+
+
+def _convert_mapper_arg(mapper_arg: Optional[memoryview]) -> Tuple[CData, int]:
+    if mapper_arg is None:
+        return ffi.NULL, 0
+    else:
+        return ffi.from_buffer(mapper_arg), len(mapper_arg)
 
 
 class PartitionFunctor:
@@ -107,6 +116,7 @@ class PartitionByImage(PartitionFunctor):
         field: Union[int, FieldID],
         mapper: int = 0,
         tag: int = 0,
+        mapper_arg: Optional[memoryview] = None,
     ) -> None:
         """
         PartitionByImage projects an existing IndexPartition through a field
@@ -118,6 +128,7 @@ class PartitionByImage(PartitionFunctor):
         self.field = field
         self.mapper = mapper
         self.tag = tag
+        self.mapper_arg = mapper_arg
 
     def partition(
         self,
@@ -140,7 +151,7 @@ class PartitionByImage(PartitionFunctor):
             part_id,
             self.mapper,
             self.tag,
-            (ffi.NULL, 0),
+            _convert_mapper_arg(self.mapper_arg),
         )
 
 
@@ -152,6 +163,7 @@ class PartitionByImageRange(PartitionFunctor):
         field: Union[int, FieldID],
         mapper: int = 0,
         tag: int = 0,
+        mapper_arg: Optional[memoryview] = None,
     ) -> None:
         """
         PartitionByImageRange projects an existing IndexPartition through a
@@ -164,6 +176,7 @@ class PartitionByImageRange(PartitionFunctor):
         self.field = field
         self.mapper = mapper
         self.tag = tag
+        self.mapper_arg = mapper_arg
 
     def partition(
         self,
@@ -186,7 +199,7 @@ class PartitionByImageRange(PartitionFunctor):
             part_id,
             self.mapper,
             self.tag,
-            (ffi.NULL, 0),
+            _convert_mapper_arg(self.mapper_arg),
         )
 
 
@@ -199,6 +212,7 @@ class PartitionByPreimage(PartitionFunctor):
         field: Union[int, FieldID],
         mapper: int = 0,
         tag: int = 0,
+        mapper_arg: Optional[memoryview] = None,
     ) -> None:
         """
         Partition by preimage induces a partition on the index space of
@@ -211,6 +225,7 @@ class PartitionByPreimage(PartitionFunctor):
         self.field = field
         self.mapper = mapper
         self.tag = tag
+        self.mapper_arg = mapper_arg
 
     def partition(
         self,
@@ -233,7 +248,7 @@ class PartitionByPreimage(PartitionFunctor):
             part_id,
             self.mapper,
             self.tag,
-            (ffi.NULL, 0),
+            _convert_mapper_arg(self.mapper_arg),
         )
 
 
@@ -246,6 +261,7 @@ class PartitionByPreimageRange(PartitionFunctor):
         field: Union[int, FieldID],
         mapper: int = 0,
         tag: int = 0,
+        mapper_arg: Optional[memoryview] = None,
     ) -> None:
         """
         Partition by preimage range induces a partition on the index space of
@@ -258,6 +274,7 @@ class PartitionByPreimageRange(PartitionFunctor):
         self.field = field
         self.mapper = mapper
         self.tag = tag
+        self.mapper_arg = mapper_arg
 
     def partition(
         self,
@@ -280,7 +297,7 @@ class PartitionByPreimageRange(PartitionFunctor):
             part_id,
             self.mapper,
             self.tag,
-            (ffi.NULL, 0),
+            _convert_mapper_arg(self.mapper_arg),
         )
 
 
