@@ -79,7 +79,7 @@ if TYPE_CHECKING:
     from .store import RegionField, Store
 
     ProjSpec = Tuple[int, SymbolicPoint]
-    ShardSpec = Tuple[int, tuple[int, int]]
+    ShardSpec = Tuple[int, tuple[int, int], int, int]
 
 from math import prod
 
@@ -1362,8 +1362,10 @@ class Runtime:
         return proj_id
 
     def get_sharding(self, proj_id: int) -> int:
+        proc_range = self.machine.get_processor_range()
+        offset = proc_range.lo % proc_range.per_node_count
         node_range = self.machine.get_node_range()
-        shard_spec = (proj_id, node_range)
+        shard_spec = (proj_id, node_range, offset, proc_range.per_node_count)
 
         if shard_spec in self._registered_shardings:
             return self._registered_shardings[shard_spec]
@@ -1377,6 +1379,8 @@ class Runtime:
             proj_id,
             node_range[0],
             node_range[1],
+            offset,
+            proc_range.per_node_count,
         )
 
         self._registered_shardings[shard_spec] = shard_id

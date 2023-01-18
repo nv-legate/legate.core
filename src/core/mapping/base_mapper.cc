@@ -214,6 +214,9 @@ void BaseMapper::slice_auto_task(const MapperContext ctx,
   for (Domain::DomainPointIterator itr(input.domain); itr; itr++) {
     auto p   = key_functor->project_point(itr.p, sharding_domain);
     auto idx = linearize(lo, hi, p) % size;
+#ifdef DEBUG_LEGATE
+    assert(idx >= offset);
+#endif
     output.slices.push_back(TaskSlice(
       Domain(itr.p, itr.p), avail_procs[idx - offset], false /*recurse*/, false /*stealable*/));
   }
@@ -964,7 +967,14 @@ void BaseMapper::map_copy(const MapperContext ctx,
     auto hi           = key_functor->project_point(sharding_domain.hi(), sharding_domain);
     auto p            = key_functor->project_point(copy.index_point, sharding_domain);
     auto idx          = linearize(lo, hi, p);
-    target_proc       = avail_procs[(idx % size) - offset];
+    auto proc_id      = (idx % size) - offset;
+#ifdef DEBUG_LEGATE
+    // Modulo operation in the following shouldn't be necessary unless this was an indirect copy
+    // that falled back to CPUs
+    assert((proc_id >= 0 && proc_id < avail_procs.size()) ||
+           (indirect && copy_target != machine_desc.preferred_target));
+#endif
+    target_proc = avail_procs[proc_id % avail_procs.size()];
   }
 
   auto store_target = default_store_targets(target_proc.kind()).front();
