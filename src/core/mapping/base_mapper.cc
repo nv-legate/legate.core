@@ -212,8 +212,13 @@ void BaseMapper::select_task_options(const MapperContext ctx,
   for (uint32_t idx = 0; idx < task.regions.size(); ++idx) {
     auto& req = task.regions[idx];
     if (req.privilege & LEGION_WRITE_PRIV) continue;
+    // Look up the projection for the input region. There are cases where
+    // Legate libraries register their own projection functors that are
+    // not recorded by Legate Core. So, handle the case when these functors
+    // are not present and allow for them to be missing.
+    auto projection = find_legate_projection_functor(req.projection, true /* allow_mising */);
     if ((req.handle_type == LEGION_SINGULAR_PROJECTION) ||
-        (find_legate_projection_functor(req.projection)->is_collective())) {
+        (projection != nullptr && projection->is_collective())) {
       output.check_collective_regions.insert(idx);
     }
   }
