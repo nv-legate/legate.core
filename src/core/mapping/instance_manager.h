@@ -129,6 +129,9 @@ class ReductionInstanceSet {
                        Instance& instance,
                        const InstanceMappingPolicy& policy);
 
+ public:
+  bool erase(Instance inst);
+
  private:
   std::map<Region, ReductionInstanceSpec> instances_;
 };
@@ -226,6 +229,9 @@ class ReductionInstanceManager : public BaseInstanceManager {
                        FieldID field_id,
                        Instance instance,
                        const InstanceMappingPolicy& policy = {});
+
+ public:
+  void erase(Instance inst);
 
  public:
   static ReductionInstanceManager* get_instance_manager();

@@ -604,8 +604,13 @@ void BaseMapper::map_legate_stores(const MapperContext ctx,
         logger.debug() << log_mappable(mappable) << ": failed to acquire instance " << result
                        << " for reqs:" << reqs_ss.str();
 #endif
-        AutoLock lock(ctx, local_instances->manager_lock());
-        local_instances->erase(result);
+        if ((*reqs.begin())->redop != 0) {
+          AutoLock lock(ctx, reduction_instances->manager_lock());
+          reduction_instances->erase(result);
+        } else {
+          AutoLock lock(ctx, local_instances->manager_lock());
+          local_instances->erase(result);
+        }
         result = NO_INST;
       }
       instances.push_back(result);
@@ -676,20 +681,17 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
   for (auto* req : reqs) regions.push_back(req->region);
   auto target_memory = get_target_memory(target_proc, policy.target);
 
-  ReductionOpID redop = 0;
-  bool first          = true;
+  ReductionOpID redop = (*reqs.begin())->redop;
+#ifdef DEBUG_LEGATE
   for (auto* req : reqs) {
-    if (first)
-      redop = req->redop;
-    else {
-      if (redop != req->redop) {
-        logger.error(
-          "Colocated stores should be either non-reduction arguments "
-          "or reductions with the same reduction operator.");
-        LEGATE_ABORT;
-      }
+    if (redop != req->redop) {
+      logger.error(
+        "Colocated stores should be either non-reduction arguments "
+        "or reductions with the same reduction operator.");
+      LEGATE_ABORT;
     }
   }
+#endif
 
   // Generate layout constraints from the store mapping
   LayoutConstraintSet layout_constraints;
