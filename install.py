@@ -574,7 +574,7 @@ def driver():
         "--march",
         dest="march",
         required=False,
-        default="native",
+        default="haswell",
         help="Specify the target CPU architecture.",
     )
     parser.add_argument(
