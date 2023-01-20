@@ -17,9 +17,43 @@
 """
 from __future__ import annotations
 
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Type, Union
+
+from . import CanonicalDriver, LegateDriver
 
 __all__ = ("main", "canonical_main")
+
+
+def prepare_driver(
+    argv: list[str],
+    driver_type: Union[Type[CanonicalDriver], Type[LegateDriver]],
+) -> Union[CanonicalDriver, LegateDriver]:
+    from ..util.system import System
+    from ..util.ui import error
+    from . import Config
+    from .driver import print_verbose
+
+    try:
+        config = Config(argv)
+    except Exception as e:
+        print(error("Could not configure driver:\n"))
+        raise e
+
+    try:
+        system = System()
+    except Exception as e:
+        print(error("Could not determine System settings: \n"))
+        raise e
+
+    try:
+        driver = driver_type(config, system)
+    except Exception as e:
+        msg = "Could not initialize driver, path config and exception follow:"  # noqa
+        print(error(msg))
+        print_verbose(system)
+        raise e
+
+    return driver
 
 
 def main(argv: list[str]) -> int:
@@ -36,31 +70,7 @@ def main(argv: list[str]) -> int:
         int, a process return code
 
     """
-    from ..util.system import System
-    from ..util.ui import error
-    from . import Config, LegateDriver
-    from .driver import print_verbose
-
-    try:
-        config = Config(argv)
-    except Exception as e:
-        print(error("Could not configure Legate driver:\n"))
-        raise e
-
-    try:
-        system = System()
-    except Exception as e:
-        print(error("Could not determine System settings: \n"))
-        raise e
-
-    try:
-        driver = LegateDriver(config, system)
-    except Exception as e:
-        msg = "Could not initialize Legate driver, path config and exception follow:"  # noqa
-        print(error(msg))
-        print_verbose(system)
-        raise e
-
+    driver = prepare_driver(argv, LegateDriver)
     return driver.run()
 
 
@@ -79,29 +89,5 @@ def canonical_main(argv: list[str]) -> Tuple[Tuple[str, ...], Dict[str, str]]:
             Legion command and env of the driver
 
     """
-    from ..util.system import System
-    from ..util.ui import error
-    from . import CanonicalDriver, Config
-    from .driver import print_verbose
-
-    try:
-        config = Config(argv)
-    except Exception as e:
-        print(error("Could not configure canonical driver:\n"))
-        raise e
-
-    try:
-        system = System()
-    except Exception as e:
-        print(error("Could not determine System settings: \n"))
-        raise e
-
-    try:
-        driver = CanonicalDriver(config, system)
-    except Exception as e:
-        msg = "Could not initialize canonical driver, path config and exception follow:"  # noqa
-        print(error(msg))
-        print_verbose(system)
-        raise e
-
+    driver = prepare_driver(argv, CanonicalDriver)
     return driver.cmd, driver.env

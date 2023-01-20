@@ -30,7 +30,6 @@ from .util import GenObjs
 
 def test___all__() -> None:
     assert m.__all__ == (
-        "_CMD_PARTS_SHARED",
         "CMD_PARTS_LEGION",
         "CMD_PARTS_CANONICAL",
     )
