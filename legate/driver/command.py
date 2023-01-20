@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from .config import ConfigProtocol
     from .launcher import Launcher
 
-__all__ = ("CMD_PARTS", "CMD_PARTS_CANONICAL")
+__all__ = ("_CMD_PARTS_SHARED", "CMD_PARTS_LEGION", "CMD_PARTS_CANONICAL")
 
 
 # this will be replaced by bind.sh with the actual computed rank at runtime
@@ -372,22 +372,7 @@ def cmd_user_opts(
     return config.user_opts
 
 
-CMD_PARTS = (
-    cmd_bind,
-    cmd_rlwrap,
-    cmd_gdb,
-    cmd_cuda_gdb,
-    cmd_nvprof,
-    cmd_nsys,
-    # Add memcheck right before the binary
-    cmd_memcheck,
-    # Now we're ready to build the actual command to run
-    cmd_legion,
-    # This has to go before script name
-    cmd_nocr,
-    cmd_module,
-    cmd_processor,
-    cmd_kthreads,
+_CMD_PARTS_SHARED = (
     # Translate the requests to Realm command line parameters
     cmd_cpus,
     cmd_gpus,
@@ -401,28 +386,43 @@ CMD_PARTS = (
     cmd_log_levels,
     cmd_log_file,
     cmd_eager_alloc,
-    # User script
-    cmd_user_script,
-    # Append user flags so they can override whatever we provided
-    cmd_user_opts,
+)
+
+CMD_PARTS_LEGION = (
+    (
+        cmd_bind,
+        cmd_rlwrap,
+        cmd_gdb,
+        cmd_cuda_gdb,
+        cmd_nvprof,
+        cmd_nsys,
+        # Add memcheck right before the binary
+        cmd_memcheck,
+        # Now we're ready to build the actual command to run
+        cmd_legion,
+        # This has to go before script name
+        cmd_nocr,
+        cmd_module,
+        cmd_processor,
+        cmd_kthreads,
+    )
+    + _CMD_PARTS_SHARED
+    + (
+        # User script
+        cmd_user_script,
+        # Append user flags so they can override whatever we provided
+        cmd_user_opts,
+    )
 )
 
 CMD_PARTS_CANONICAL = (
-    # User script
-    cmd_user_script,
-    # Translate the requests to Realm command line parameters
-    cmd_cpus,
-    cmd_gpus,
-    cmd_openmp,
-    cmd_utility,
-    cmd_mem,
-    cmd_numamem,
-    cmd_fbmem,
-    cmd_regmem,
-    cmd_network,
-    cmd_log_levels,
-    cmd_log_file,
-    cmd_eager_alloc,
-    # Append user flags so they can override whatever we provided
-    cmd_user_opts,
+    (
+        # User script
+        cmd_user_script,
+    )
+    + _CMD_PARTS_SHARED
+    + (
+        # Append user flags so they can override whatever we provided
+        cmd_user_opts,
+    )
 )

@@ -21,7 +21,7 @@ import pytest
 from pytest_mock import MockerFixture
 
 import legate.driver.driver as m
-from legate.driver.command import CMD_PARTS
+from legate.driver.command import CMD_PARTS_LEGION
 from legate.driver.config import Config
 from legate.driver.launcher import RANK_ENV_VARS, Launcher
 from legate.util.colors import scrub
@@ -60,7 +60,9 @@ class TestDriver:
 
         driver = m.Driver(config, SYSTEM)
 
-        parts = (part(config, SYSTEM, driver.launcher) for part in CMD_PARTS)
+        parts = (
+            part(config, SYSTEM, driver.launcher) for part in CMD_PARTS_LEGION
+        )
         expected_cmd = driver.launcher.cmd + sum(parts, ())
 
         assert driver.cmd == expected_cmd

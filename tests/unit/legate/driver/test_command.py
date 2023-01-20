@@ -30,7 +30,8 @@ from .util import GenObjs
 
 def test___all__() -> None:
     assert m.__all__ == (
-        "CMD_PARTS",
+        "_CMD_PARTS_SHARED",
+        "CMD_PARTS_LEGION",
         "CMD_PARTS_CANONICAL",
     )
 
@@ -40,7 +41,7 @@ def test_LEGATE_GLOBAL_RANK_SUBSTITUTION() -> None:
 
 
 def test_CMD_PARTS() -> None:
-    assert m.CMD_PARTS == (
+    assert m.CMD_PARTS_LEGION == (
         m.cmd_bind,
         m.cmd_rlwrap,
         m.cmd_gdb,

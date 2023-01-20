@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING
 
 from ..util.system import System
 from ..util.ui import kvtable, rule, section, value, warn
-from .command import CMD_PARTS, CMD_PARTS_CANONICAL
+from .command import CMD_PARTS_CANONICAL, CMD_PARTS_LEGION
 from .config import ConfigProtocol
 from .launcher import Launcher, SimpleLauncher
 from .logs import process_logs
@@ -65,11 +65,13 @@ class Driver:
         launcher = self.launcher
         system = self.system
 
-        if config.user_script:
-            new_cmd_parts = CMD_PARTS
-        else:
+        if config.user_script is None:
             # run with console, so remove the cmd_user_script
-            new_cmd_parts = tuple(x for x in CMD_PARTS if x != CMD_PARTS[-2])
+            new_cmd_parts = tuple(
+                x for x in CMD_PARTS_LEGION if x != CMD_PARTS_LEGION[-2]
+            )
+        else:
+            new_cmd_parts = CMD_PARTS_LEGION
         parts = (part(config, system, launcher) for part in new_cmd_parts)
         return launcher.cmd + sum(parts, ())
 
