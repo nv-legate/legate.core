@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from .config import ConfigProtocol
     from .launcher import Launcher
 
-__all__ = ("_CMD_PARTS_SHARED", "CMD_PARTS_LEGION", "CMD_PARTS_CANONICAL")
+__all__ = ("CMD_PARTS_LEGION", "CMD_PARTS_CANONICAL")
 
 
 # this will be replaced by bind.sh with the actual computed rank at runtime
