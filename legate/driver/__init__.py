@@ -22,7 +22,7 @@ from .launcher import Launcher
 def main() -> int:
     import sys
 
-    from .main import main as _main
+    from .main import legate_main as _main
 
     print("run driver")
 

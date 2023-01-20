@@ -21,7 +21,7 @@ from typing import Dict, Tuple, Type, Union
 
 from . import CanonicalDriver, LegateDriver
 
-__all__ = ("main", "canonical_main")
+__all__ = ("legate_main", "canonical_main")
 
 
 def prepare_driver(
@@ -56,7 +56,7 @@ def prepare_driver(
     return driver
 
 
-def main(argv: list[str]) -> int:
+def legate_main(argv: list[str]) -> int:
     """A main function for the Legate driver that can be used programmatically
     or by entry-points.
 
