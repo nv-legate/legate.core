@@ -118,10 +118,8 @@ ProcSlice = Tuple[ProcKindLike, slice]
 class Machine:
     def __init__(
         self,
-        runtime: Runtime,
         proc_ranges: dict[ProcessorKind, ProcessorRange],
     ) -> None:
-        self._runtime = runtime
         self._proc_ranges = proc_ranges
         self._preferred_kind = ProcessorKind.CPU
         for kind in ProcessorKind:
@@ -166,14 +164,14 @@ class Machine:
 
     def only(self, kind: ProcKindLike) -> Machine:
         sanitized = sanitize_kind(kind)
-        return Machine(self._runtime, {sanitized: self._get_range(sanitized)})
+        return Machine({sanitized: self._get_range(sanitized)})
 
     def exclude(self, kind: ProcKindLike) -> Machine:
         sanitized = sanitize_kind(kind)
         ranges = self._proc_ranges.copy()
         if sanitized in ranges:
             del ranges[sanitized]
-        return Machine(self._runtime, ranges)
+        return Machine(ranges)
 
     def count(self, kind: ProcKindLike) -> int:
         sanitized = sanitize_kind(kind)
@@ -190,14 +188,13 @@ class Machine:
                 )
             k = key if isinstance(key, slice) else slice(key, key + 1)
             return Machine(
-                self._runtime,
                 {self._preferred_kind: self.get_processor_range().slice(k)},
             )
         elif isinstance(key, tuple) and len(key) == 2:
             kind = sanitize_kind(key[0])
             new_ranges: dict[ProcessorKind, ProcessorRange] = {}
             new_ranges[kind] = self._get_range(kind).slice(key[1])
-            return Machine(self._runtime, new_ranges)
+            return Machine(new_ranges)
         else:
             raise KeyError(f"Invalid slicing key: {key}")
 
@@ -230,7 +227,7 @@ class Machine:
             ),
         }
 
-        result = Machine(runtime, ranges)
+        result = Machine(ranges)
         if result.empty:
             raise RuntimeError(
                 "No processors are available to run Legate tasks. Please "
@@ -244,7 +241,7 @@ class Machine:
             if kind not in other._proc_ranges:
                 continue
             result[kind] = prange & other._proc_ranges[kind]
-        return Machine(self._runtime, result)
+        return Machine(result)
 
     @property
     def empty(self) -> bool:
@@ -268,12 +265,16 @@ class Machine:
             proc_range.pack(buf)
 
     def __enter__(self) -> None:
-        new_machine = self._runtime.machine & self
+        from .runtime import runtime
+
+        new_machine = runtime.machine & self
         if new_machine.empty:
             raise ValueError(
                 "Empty machines cannot be used for resource scoping"
             )
-        self._runtime.push_machine(new_machine)
+        runtime.push_machine(new_machine)
 
     def __exit__(self, _: Any, __: Any, ___: Any) -> None:
-        self._runtime.pop_machine()
+        from .runtime import runtime
+
+        runtime.pop_machine()
