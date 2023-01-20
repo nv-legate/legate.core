@@ -65,11 +65,11 @@ class Driver:
         launcher = self.launcher
         system = self.system
 
-        if config.user_script == "":
+        if config.user_script:
+             new_cmd_parts = CMD_PARTS
+        else:
             # run with console, so remove the cmd_user_script
             new_cmd_parts = tuple(x for x in CMD_PARTS if x != CMD_PARTS[-2])
-        else:
-            new_cmd_parts = CMD_PARTS
         parts = (part(config, system, launcher) for part in new_cmd_parts)
         return launcher.cmd + sum(parts, ())
 
