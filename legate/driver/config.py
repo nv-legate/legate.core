@@ -187,9 +187,7 @@ class Config:
 
         self.user_script = next((x for x in extra if x.endswith(".py")), "")
 
-        self.user_opts = tuple(
-            x for x in tuple(extra) if x != self.user_script
-        )
+        self.user_opts = tuple(x for x in extra if x != self.user_script)
 
         # these may modify the args, so apply before dataclass conversions
         self._fixup_nocr(args)
