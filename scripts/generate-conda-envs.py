@@ -86,7 +86,7 @@ class BuildConfig(SectionConfig):
             "git",
             "make",
             "ninja",
-            "scikit-build>=0.13.1",
+            "scikit-build>=0.13.1,<0.16.5",
             "setuptools>=60",
             "zlib",
         )
