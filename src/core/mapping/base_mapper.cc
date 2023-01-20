@@ -996,468 +996,484 @@ void BaseMapper::legate_select_sources(const MapperContext ctx,
                                  machine);
   }
 
-  {  // are local normal instances
-    for (uint32_t idx = 0; idx < collective_sources.size(); idx++) {
-      std::vector<PhysicalInstance> col_instances;
-      collective_sources[idx].find_instances_nearest_memory(destination_memory, col_instances);
-      // we need only first instance if there are several
-      const PhysicalInstance& instance = col_instances[0];
-      add_instance_to_band_ranking(instance,
-                                   local_node,
-                                   all_local,
-                                   source_memories,
-                                   band_ranking,
-                                   affinity,
-                                   destination_memory,
-                                   machine);
-    }
+  for (uint32_t idx = 0; idx < collective_sources.size(); idx++) {
+    std::vector<PhysicalInstance> col_instances;
+    collective_sources[idx].find_instances_nearest_memory(destination_memory, col_instances);
+    // we need only first instance if there are several
+    const PhysicalInstance& instance = col_instances[0];
+    add_instance_to_band_ranking(instance,
+                                 local_node,
+                                 all_local,
+                                 source_memories,
+                                 band_ranking,
+                                 affinity,
+                                 destination_memory,
+                                 machine);
+  }
 #ifdef DEBUG_LEGATE
-    assert(!band_ranking.empty());
+  assert(!band_ranking.empty());
 #endif
-    // Easy case of only one instance
-    if (band_ranking.size() == 1) {
-      ranking.push_back(band_ranking.begin()->first);
-      return;
+  // Easy case of only one instance
+  if (band_ranking.size() == 1) {
+    ranking.push_back(band_ranking.begin()->first);
+    return;
+  }
+  // Sort them by bandwidth
+  std::sort(band_ranking.begin(), band_ranking.end(), physical_sort_func);
+  // Iterate from largest bandwidth to smallest
+  for (auto it = band_ranking.rbegin(); it != band_ranking.rend(); ++it)
+    ranking.push_back(it->first);
+}
+
+void BaseMapper::speculate(const MapperContext ctx,
+                           const LegionTask& task,
+                           SpeculativeOutput& output)
+{
+  output.speculate = false;
+}
+
+void BaseMapper::report_profiling(const MapperContext ctx,
+                                  const LegionTask& task,
+                                  const TaskProfilingInfo& input)
+{
+  // Shouldn't get any profiling feedback currently
+  LEGATE_ABORT;
+}
+
+ShardingID BaseMapper::find_sharding_functor_by_key_store_projection(
+  const std::vector<RegionRequirement>& requirements)
+{
+  ProjectionID proj_id = 0;
+  for (auto& requirement : requirements)
+    if (LEGATE_CORE_KEY_STORE_TAG == requirement.tag) {
+      proj_id = requirement.projection;
+      break;
     }
-    // Sort them by bandwidth
-    std::sort(band_ranking.begin(), band_ranking.end(), physical_sort_func);
-    // Iterate from largest bandwidth to smallest
-    for (auto it = band_ranking.rbegin(); it != band_ranking.rend(); ++it)
-      ranking.push_back(it->first);
-  }
+  return find_sharding_functor_by_projection_functor(proj_id);
+}
 
-  void BaseMapper::speculate(
-    const MapperContext ctx, const LegionTask& task, SpeculativeOutput& output)
-  {
-    output.speculate = false;
-  }
+void BaseMapper::select_sharding_functor(const MapperContext ctx,
+                                         const LegionTask& task,
+                                         const SelectShardingFunctorInput& input,
+                                         SelectShardingFunctorOutput& output)
+{
+  output.chosen_functor = task.is_index_space
+                            ? find_sharding_functor_by_key_store_projection(task.regions)
+                            : find_sharding_functor_by_projection_functor(0);
+}
 
-  void BaseMapper::report_profiling(
-    const MapperContext ctx, const LegionTask& task, const TaskProfilingInfo& input)
-  {
-    // Shouldn't get any profiling feedback currently
-    LEGATE_ABORT;
-  }
+void BaseMapper::map_inline(const MapperContext ctx,
+                            const InlineMapping& inline_op,
+                            const MapInlineInput& input,
+                            MapInlineOutput& output)
+{
+  Processor target_proc{Processor::NO_PROC};
+  if (!local_omps.empty())
+    target_proc = local_omps.front();
+  else
+    target_proc = local_cpus.front();
 
-  ShardingID BaseMapper::find_sharding_functor_by_key_store_projection(
-    const std::vector<RegionRequirement>& requirements)
-  {
-    ProjectionID proj_id = 0;
-    for (auto& requirement : requirements)
-      if (LEGATE_CORE_KEY_STORE_TAG == requirement.tag) {
-        proj_id = requirement.projection;
-        break;
-      }
-    return find_sharding_functor_by_projection_functor(proj_id);
-  }
-
-  void BaseMapper::select_sharding_functor(const MapperContext ctx,
-                                           const LegionTask& task,
-                                           const SelectShardingFunctorInput& input,
-                                           SelectShardingFunctorOutput& output)
-  {
-    output.chosen_functor = task.is_index_space
-                              ? find_sharding_functor_by_key_store_projection(task.regions)
-                              : find_sharding_functor_by_projection_functor(0);
-  }
-
-  void BaseMapper::map_inline(const MapperContext ctx,
-                              const InlineMapping& inline_op,
-                              const MapInlineInput& input,
-                              MapInlineOutput& output)
-  {
-    Processor target_proc{Processor::NO_PROC};
-    if (!local_omps.empty())
-      target_proc = local_omps.front();
-    else
-      target_proc = local_cpus.front();
-
-    auto store_target = default_store_targets(target_proc.kind()).front();
+  auto store_target = default_store_targets(target_proc.kind()).front();
 
 #ifdef DEBUG_LEGATE
-    assert(inline_op.requirement.instance_fields.size() == 1);
+  assert(inline_op.requirement.instance_fields.size() == 1);
 #endif
 
-    Store store(legion_runtime->get_mapper_runtime(), ctx, &inline_op.requirement);
-    std::vector<StoreMapping> mappings;
+  Store store(legion_runtime->get_mapper_runtime(), ctx, &inline_op.requirement);
+  std::vector<StoreMapping> mappings;
+  mappings.push_back(StoreMapping::default_mapping(store, store_target, false));
+
+  std::map<const RegionRequirement*, std::vector<PhysicalInstance>*> output_map;
+  for (auto* req : mappings.front().requirements()) output_map[req] = &output.chosen_instances;
+
+  map_legate_stores(ctx, inline_op, mappings, target_proc, output_map);
+}
+
+void BaseMapper::select_inline_sources(const MapperContext ctx,
+                                       const InlineMapping& inline_op,
+                                       const SelectInlineSrcInput& input,
+                                       SelectInlineSrcOutput& output)
+{
+  legate_select_sources(
+    ctx, input.target, input.source_instances, input.collective_views, output.chosen_ranking);
+}
+
+void BaseMapper::report_profiling(const MapperContext ctx,
+                                  const InlineMapping& inline_op,
+                                  const InlineProfilingInfo& input)
+{
+  // No profiling yet for inline mappings
+  LEGATE_ABORT;
+}
+
+void BaseMapper::map_copy(const MapperContext ctx,
+                          const LegionCopy& copy,
+                          const MapCopyInput& input,
+                          MapCopyOutput& output)
+{
+  Processor target_proc{Processor::NO_PROC};
+
+  uint32_t proc_id = 0;
+  if (copy.is_index_space) {
+    Domain sharding_domain = copy.index_domain;
+    if (copy.sharding_space.exists())
+      sharding_domain = runtime->get_index_space_domain(ctx, copy.sharding_space);
+
+    // FIXME: We might later have non-identity projections for copy requirements,
+    // in which case we should find the key store and use its projection functor
+    // for the linearization
+    auto* key_functor = find_legate_projection_functor(0);
+    auto lo           = key_functor->project_point(sharding_domain.lo(), sharding_domain);
+    auto hi           = key_functor->project_point(sharding_domain.hi(), sharding_domain);
+    auto p            = key_functor->project_point(copy.index_point, sharding_domain);
+    proc_id           = linearize(lo, hi, p);
+  }
+  if (!local_gpus.empty())
+    target_proc = local_gpus[proc_id % local_gpus.size()];
+  else if (!local_omps.empty())
+    target_proc = local_omps[proc_id % local_omps.size()];
+  else
+    target_proc = local_cpus[proc_id % local_cpus.size()];
+
+  auto store_target = default_store_targets(target_proc.kind()).front();
+
+  // If we're mapping an indirect copy and have data resident in GPU memory,
+  // map everything to CPU memory, as indirect copies on GPUs are currently
+  // extremely slow.
+  auto indirect =
+    !copy.src_indirect_requirements.empty() || !copy.dst_indirect_requirements.empty();
+  if (indirect && target_proc.kind() == Processor::TOC_PROC) {
+    target_proc  = local_cpus.front();
+    store_target = StoreTarget::SYSMEM;
+  }
+
+  Copy legate_copy(&copy, runtime, ctx);
+
+  std::map<const RegionRequirement*, std::vector<PhysicalInstance>*> output_map;
+  auto add_to_output_map = [&output_map](auto& reqs, auto& instances) {
+    instances.resize(reqs.size());
+    for (uint32_t idx = 0; idx < reqs.size(); ++idx) output_map[&reqs[idx]] = &instances[idx];
+  };
+  add_to_output_map(copy.src_requirements, output.src_instances);
+  add_to_output_map(copy.dst_requirements, output.dst_instances);
+
+#ifdef DEBUG_LEGATE
+  assert(copy.src_indirect_requirements.size() <= 1);
+  assert(copy.dst_indirect_requirements.size() <= 1);
+#endif
+  if (!copy.src_indirect_requirements.empty()) {
+    // This is to make the push_back call later add the isntance to the right place
+    output.src_indirect_instances.clear();
+    output_map[&copy.src_indirect_requirements.front()] = &output.src_indirect_instances;
+  }
+  if (!copy.dst_indirect_requirements.empty()) {
+    // This is to make the push_back call later add the isntance to the right place
+    output.dst_indirect_instances.clear();
+    output_map[&copy.dst_indirect_requirements.front()] = &output.dst_indirect_instances;
+  }
+
+  std::vector<StoreMapping> mappings;
+
+  for (auto& store : legate_copy.inputs())
+    mappings.push_back(StoreMapping::default_mapping(store, store_target, false));
+  for (auto& store : legate_copy.outputs())
+    mappings.push_back(StoreMapping::default_mapping(store, store_target, false));
+  for (auto& store : legate_copy.input_indirections())
+    mappings.push_back(StoreMapping::default_mapping(store, store_target, false));
+  for (auto& store : legate_copy.output_indirections())
     mappings.push_back(StoreMapping::default_mapping(store, store_target, false));
 
-    std::map<const RegionRequirement*, std::vector<PhysicalInstance>*> output_map;
-    for (auto* req : mappings.front().requirements()) output_map[req] = &output.chosen_instances;
+  map_legate_stores(ctx, copy, mappings, target_proc, output_map);
+}
 
-    map_legate_stores(ctx, inline_op, mappings, target_proc, output_map);
-  }
+void BaseMapper::select_copy_sources(const MapperContext ctx,
+                                     const LegionCopy& copy,
+                                     const SelectCopySrcInput& input,
+                                     SelectCopySrcOutput& output)
+{
+  legate_select_sources(
+    ctx, input.target, input.source_instances, input.collective_views, output.chosen_ranking);
+}
 
-  void BaseMapper::select_inline_sources(const MapperContext ctx,
-                                         const InlineMapping& inline_op,
-                                         const SelectInlineSrcInput& input,
-                                         SelectInlineSrcOutput& output)
-  {
-    legate_select_sources(
-      ctx, input.target, input.source_instances, input.collective_views, output.chosen_ranking);
-  }
+void BaseMapper::speculate(const MapperContext ctx,
+                           const LegionCopy& copy,
+                           SpeculativeOutput& output)
+{
+  output.speculate = false;
+}
 
-  void BaseMapper::report_profiling(
-    const MapperContext ctx, const InlineMapping& inline_op, const InlineProfilingInfo& input)
-  {
-    // No profiling yet for inline mappings
-    LEGATE_ABORT;
-  }
+void BaseMapper::report_profiling(const MapperContext ctx,
+                                  const LegionCopy& copy,
+                                  const CopyProfilingInfo& input)
+{
+  // No profiling for copies yet
+  LEGATE_ABORT;
+}
 
-  void BaseMapper::map_copy(const MapperContext ctx,
-                            const LegionCopy& copy,
-                            const MapCopyInput& input,
-                            MapCopyOutput& output)
-  {
-    Processor target_proc{Processor::NO_PROC};
+void BaseMapper::select_sharding_functor(const MapperContext ctx,
+                                         const LegionCopy& copy,
+                                         const SelectShardingFunctorInput& input,
+                                         SelectShardingFunctorOutput& output)
+{
+  // TODO: Copies can have key stores in the future
+  output.chosen_functor = find_sharding_functor_by_projection_functor(0);
+}
 
-    uint32_t proc_id = 0;
-    if (copy.is_index_space) {
-      Domain sharding_domain = copy.index_domain;
-      if (copy.sharding_space.exists())
-        sharding_domain = runtime->get_index_space_domain(ctx, copy.sharding_space);
+void BaseMapper::select_close_sources(const MapperContext ctx,
+                                      const Close& close,
+                                      const SelectCloseSrcInput& input,
+                                      SelectCloseSrcOutput& output)
+{
+  legate_select_sources(
+    ctx, input.target, input.source_instances, input.collective_views, output.chosen_ranking);
+}
 
-      // FIXME: We might later have non-identity projections for copy requirements,
-      // in which case we should find the key store and use its projection functor
-      // for the linearization
-      auto* key_functor = find_legate_projection_functor(0);
-      auto lo           = key_functor->project_point(sharding_domain.lo(), sharding_domain);
-      auto hi           = key_functor->project_point(sharding_domain.hi(), sharding_domain);
-      auto p            = key_functor->project_point(copy.index_point, sharding_domain);
-      proc_id           = linearize(lo, hi, p);
-    }
-    if (!local_gpus.empty())
-      target_proc = local_gpus[proc_id % local_gpus.size()];
-    else if (!local_omps.empty())
-      target_proc = local_omps[proc_id % local_omps.size()];
-    else
-      target_proc = local_cpus[proc_id % local_cpus.size()];
+void BaseMapper::report_profiling(const MapperContext ctx,
+                                  const Close& close,
+                                  const CloseProfilingInfo& input)
+{
+  // No profiling yet for legate
+  LEGATE_ABORT;
+}
 
-    auto store_target = default_store_targets(target_proc.kind()).front();
+void BaseMapper::select_sharding_functor(const MapperContext ctx,
+                                         const Close& close,
+                                         const SelectShardingFunctorInput& input,
+                                         SelectShardingFunctorOutput& output)
+{
+  LEGATE_ABORT;
+}
 
-    // If we're mapping an indirect copy and have data resident in GPU memory,
-    // map everything to CPU memory, as indirect copies on GPUs are currently
-    // extremely slow.
-    auto indirect =
-      !copy.src_indirect_requirements.empty() || !copy.dst_indirect_requirements.empty();
-    if (indirect && target_proc.kind() == Processor::TOC_PROC) {
-      target_proc  = local_cpus.front();
-      store_target = StoreTarget::SYSMEM;
-    }
+void BaseMapper::map_acquire(const MapperContext ctx,
+                             const Acquire& acquire,
+                             const MapAcquireInput& input,
+                             MapAcquireOutput& output)
+{
+  // Nothing to do
+}
 
-    Copy legate_copy(&copy, runtime, ctx);
+void BaseMapper::speculate(const MapperContext ctx,
+                           const Acquire& acquire,
+                           SpeculativeOutput& output)
+{
+  output.speculate = false;
+}
 
-    std::map<const RegionRequirement*, std::vector<PhysicalInstance>*> output_map;
-    auto add_to_output_map = [&output_map](auto& reqs, auto& instances) {
-      instances.resize(reqs.size());
-      for (uint32_t idx = 0; idx < reqs.size(); ++idx) output_map[&reqs[idx]] = &instances[idx];
-    };
-    add_to_output_map(copy.src_requirements, output.src_instances);
-    add_to_output_map(copy.dst_requirements, output.dst_instances);
+void BaseMapper::report_profiling(const MapperContext ctx,
+                                  const Acquire& acquire,
+                                  const AcquireProfilingInfo& input)
+{
+  // No profiling for legate yet
+  LEGATE_ABORT;
+}
 
-#ifdef DEBUG_LEGATE
-    assert(copy.src_indirect_requirements.size() <= 1);
-    assert(copy.dst_indirect_requirements.size() <= 1);
-#endif
-    if (!copy.src_indirect_requirements.empty()) {
-      // This is to make the push_back call later add the isntance to the right place
-      output.src_indirect_instances.clear();
-      output_map[&copy.src_indirect_requirements.front()] = &output.src_indirect_instances;
-    }
-    if (!copy.dst_indirect_requirements.empty()) {
-      // This is to make the push_back call later add the isntance to the right place
-      output.dst_indirect_instances.clear();
-      output_map[&copy.dst_indirect_requirements.front()] = &output.dst_indirect_instances;
-    }
+void BaseMapper::select_sharding_functor(const MapperContext ctx,
+                                         const Acquire& acquire,
+                                         const SelectShardingFunctorInput& input,
+                                         SelectShardingFunctorOutput& output)
+{
+  LEGATE_ABORT;
+}
 
-    std::vector<StoreMapping> mappings;
+void BaseMapper::map_release(const MapperContext ctx,
+                             const Release& release,
+                             const MapReleaseInput& input,
+                             MapReleaseOutput& output)
+{
+  // Nothing to do
+}
 
-    for (auto& store : legate_copy.inputs())
-      mappings.push_back(StoreMapping::default_mapping(store, store_target, false));
-    for (auto& store : legate_copy.outputs())
-      mappings.push_back(StoreMapping::default_mapping(store, store_target, false));
-    for (auto& store : legate_copy.input_indirections())
-      mappings.push_back(StoreMapping::default_mapping(store, store_target, false));
-    for (auto& store : legate_copy.output_indirections())
-      mappings.push_back(StoreMapping::default_mapping(store, store_target, false));
+void BaseMapper::select_release_sources(const MapperContext ctx,
+                                        const Release& release,
+                                        const SelectReleaseSrcInput& input,
+                                        SelectReleaseSrcOutput& output)
+{
+  legate_select_sources(
+    ctx, input.target, input.source_instances, input.collective_views, output.chosen_ranking);
+}
 
-    map_legate_stores(ctx, copy, mappings, target_proc, output_map);
-  }
+void BaseMapper::speculate(const MapperContext ctx,
+                           const Release& release,
+                           SpeculativeOutput& output)
+{
+  output.speculate = false;
+}
 
-  void BaseMapper::select_copy_sources(const MapperContext ctx,
-                                       const LegionCopy& copy,
-                                       const SelectCopySrcInput& input,
-                                       SelectCopySrcOutput& output)
-  {
-    legate_select_sources(
-      ctx, input.target, input.source_instances, input.collective_views, output.chosen_ranking);
-  }
+void BaseMapper::report_profiling(const MapperContext ctx,
+                                  const Release& release,
+                                  const ReleaseProfilingInfo& input)
+{
+  // No profiling for legate yet
+  LEGATE_ABORT;
+}
 
-  void BaseMapper::speculate(
-    const MapperContext ctx, const LegionCopy& copy, SpeculativeOutput& output)
-  {
-    output.speculate = false;
-  }
+void BaseMapper::select_sharding_functor(const MapperContext ctx,
+                                         const Release& release,
+                                         const SelectShardingFunctorInput& input,
+                                         SelectShardingFunctorOutput& output)
+{
+  LEGATE_ABORT;
+}
 
-  void BaseMapper::report_profiling(
-    const MapperContext ctx, const LegionCopy& copy, const CopyProfilingInfo& input)
-  {
-    // No profiling for copies yet
-    LEGATE_ABORT;
-  }
+void BaseMapper::select_partition_projection(const MapperContext ctx,
+                                             const Partition& partition,
+                                             const SelectPartitionProjectionInput& input,
+                                             SelectPartitionProjectionOutput& output)
+{
+  // If we have an open complete partition then use it
+  if (!input.open_complete_partitions.empty())
+    output.chosen_partition = input.open_complete_partitions[0];
+  else
+    output.chosen_partition = LogicalPartition::NO_PART;
+}
 
-  void BaseMapper::select_sharding_functor(const MapperContext ctx,
-                                           const LegionCopy& copy,
-                                           const SelectShardingFunctorInput& input,
-                                           SelectShardingFunctorOutput& output)
-  {
-    // TODO: Copies can have key stores in the future
-    output.chosen_functor = find_sharding_functor_by_projection_functor(0);
-  }
+void BaseMapper::map_partition(const MapperContext ctx,
+                               const Partition& partition,
+                               const MapPartitionInput& input,
+                               MapPartitionOutput& output)
+{
+  Processor target_proc{Processor::NO_PROC};
+  if (!local_omps.empty())
+    target_proc = local_omps.front();
+  else
+    target_proc = local_cpus.front();
 
-  void BaseMapper::select_close_sources(const MapperContext ctx,
-                                        const Close& close,
-                                        const SelectCloseSrcInput& input,
-                                        SelectCloseSrcOutput& output)
-  {
-    legate_select_sources(
-      ctx, input.target, input.source_instances, input.collective_views, output.chosen_ranking);
-  }
-
-  void BaseMapper::report_profiling(
-    const MapperContext ctx, const Close& close, const CloseProfilingInfo& input)
-  {
-    // No profiling yet for legate
-    LEGATE_ABORT;
-  }
-
-  void BaseMapper::select_sharding_functor(const MapperContext ctx,
-                                           const Close& close,
-                                           const SelectShardingFunctorInput& input,
-                                           SelectShardingFunctorOutput& output)
-  {
-    LEGATE_ABORT;
-  }
-
-  void BaseMapper::map_acquire(const MapperContext ctx,
-                               const Acquire& acquire,
-                               const MapAcquireInput& input,
-                               MapAcquireOutput& output)
-  {
-    // Nothing to do
-  }
-
-  void BaseMapper::speculate(
-    const MapperContext ctx, const Acquire& acquire, SpeculativeOutput& output)
-  {
-    output.speculate = false;
-  }
-
-  void BaseMapper::report_profiling(
-    const MapperContext ctx, const Acquire& acquire, const AcquireProfilingInfo& input)
-  {
-    // No profiling for legate yet
-    LEGATE_ABORT;
-  }
-
-  void BaseMapper::select_sharding_functor(const MapperContext ctx,
-                                           const Acquire& acquire,
-                                           const SelectShardingFunctorInput& input,
-                                           SelectShardingFunctorOutput& output)
-  {
-    LEGATE_ABORT;
-  }
-
-  void BaseMapper::map_release(const MapperContext ctx,
-                               const Release& release,
-                               const MapReleaseInput& input,
-                               MapReleaseOutput& output)
-  {
-    // Nothing to do
-  }
-
-  void BaseMapper::select_release_sources(const MapperContext ctx,
-                                          const Release& release,
-                                          const SelectReleaseSrcInput& input,
-                                          SelectReleaseSrcOutput& output)
-  {
-    legate_select_sources(
-      ctx, input.target, input.source_instances, input.collective_views, output.chosen_ranking);
-  }
-
-  void BaseMapper::speculate(
-    const MapperContext ctx, const Release& release, SpeculativeOutput& output)
-  {
-    output.speculate = false;
-  }
-
-  void BaseMapper::report_profiling(
-    const MapperContext ctx, const Release& release, const ReleaseProfilingInfo& input)
-  {
-    // No profiling for legate yet
-    LEGATE_ABORT;
-  }
-
-  void BaseMapper::select_sharding_functor(const MapperContext ctx,
-                                           const Release& release,
-                                           const SelectShardingFunctorInput& input,
-                                           SelectShardingFunctorOutput& output)
-  {
-    LEGATE_ABORT;
-  }
-
-  void BaseMapper::select_partition_projection(const MapperContext ctx,
-                                               const Partition& partition,
-                                               const SelectPartitionProjectionInput& input,
-                                               SelectPartitionProjectionOutput& output)
-  {
-    // If we have an open complete partition then use it
-    if (!input.open_complete_partitions.empty())
-      output.chosen_partition = input.open_complete_partitions[0];
-    else
-      output.chosen_partition = LogicalPartition::NO_PART;
-  }
-
-  void BaseMapper::map_partition(const MapperContext ctx,
-                                 const Partition& partition,
-                                 const MapPartitionInput& input,
-                                 MapPartitionOutput& output)
-  {
-    Processor target_proc{Processor::NO_PROC};
-    if (!local_omps.empty())
-      target_proc = local_omps.front();
-    else
-      target_proc = local_cpus.front();
-
-    auto store_target = default_store_targets(target_proc.kind()).front();
+  auto store_target = default_store_targets(target_proc.kind()).front();
 
 #ifdef DEBUG_LEGATE
-    assert(partition.requirement.instance_fields.size() == 1);
+  assert(partition.requirement.instance_fields.size() == 1);
 #endif
 
-    Store store(legion_runtime->get_mapper_runtime(), ctx, &partition.requirement);
-    std::vector<StoreMapping> mappings;
-    mappings.push_back(StoreMapping::default_mapping(store, store_target, false));
+  Store store(legion_runtime->get_mapper_runtime(), ctx, &partition.requirement);
+  std::vector<StoreMapping> mappings;
+  mappings.push_back(StoreMapping::default_mapping(store, store_target, false));
 
-    std::map<const RegionRequirement*, std::vector<PhysicalInstance>*> output_map;
-    for (auto* req : mappings.front().requirements()) output_map[req] = &output.chosen_instances;
+  std::map<const RegionRequirement*, std::vector<PhysicalInstance>*> output_map;
+  for (auto* req : mappings.front().requirements()) output_map[req] = &output.chosen_instances;
 
-    map_legate_stores(ctx, partition, mappings, target_proc, output_map);
-  }
+  map_legate_stores(ctx, partition, mappings, target_proc, output_map);
+}
 
-  void BaseMapper::select_partition_sources(const MapperContext ctx,
-                                            const Partition& partition,
-                                            const SelectPartitionSrcInput& input,
-                                            SelectPartitionSrcOutput& output)
-  {
-    legate_select_sources(
-      ctx, input.target, input.source_instances, input.collective_views, output.chosen_ranking);
-  }
+void BaseMapper::select_partition_sources(const MapperContext ctx,
+                                          const Partition& partition,
+                                          const SelectPartitionSrcInput& input,
+                                          SelectPartitionSrcOutput& output)
+{
+  legate_select_sources(
+    ctx, input.target, input.source_instances, input.collective_views, output.chosen_ranking);
+}
 
-  void BaseMapper::report_profiling(
-    const MapperContext ctx, const Partition& partition, const PartitionProfilingInfo& input)
-  {
-    // No profiling yet
-    LEGATE_ABORT;
-  }
+void BaseMapper::report_profiling(const MapperContext ctx,
+                                  const Partition& partition,
+                                  const PartitionProfilingInfo& input)
+{
+  // No profiling yet
+  LEGATE_ABORT;
+}
 
-  void BaseMapper::select_sharding_functor(const MapperContext ctx,
-                                           const Partition& partition,
-                                           const SelectShardingFunctorInput& input,
-                                           SelectShardingFunctorOutput& output)
-  {
-    output.chosen_functor = find_sharding_functor_by_projection_functor(0);
-  }
+void BaseMapper::select_sharding_functor(const MapperContext ctx,
+                                         const Partition& partition,
+                                         const SelectShardingFunctorInput& input,
+                                         SelectShardingFunctorOutput& output)
+{
+  output.chosen_functor = find_sharding_functor_by_projection_functor(0);
+}
 
-  void BaseMapper::select_sharding_functor(const MapperContext ctx,
-                                           const Fill& fill,
-                                           const SelectShardingFunctorInput& input,
-                                           SelectShardingFunctorOutput& output)
-  {
-    output.chosen_functor = fill.is_index_space
-                              ? find_sharding_functor_by_key_store_projection({fill.requirement})
-                              : find_sharding_functor_by_projection_functor(0);
-  }
+void BaseMapper::select_sharding_functor(const MapperContext ctx,
+                                         const Fill& fill,
+                                         const SelectShardingFunctorInput& input,
+                                         SelectShardingFunctorOutput& output)
+{
+  output.chosen_functor = fill.is_index_space
+                            ? find_sharding_functor_by_key_store_projection({fill.requirement})
+                            : find_sharding_functor_by_projection_functor(0);
+}
 
-  void BaseMapper::configure_context(
-    const MapperContext ctx, const LegionTask& task, ContextConfigOutput& output)
-  {
-    // Use the defaults currently
-  }
+void BaseMapper::configure_context(const MapperContext ctx,
+                                   const LegionTask& task,
+                                   ContextConfigOutput& output)
+{
+  // Use the defaults currently
+}
 
-  void BaseMapper::select_tunable_value(const MapperContext ctx,
-                                        const LegionTask& task,
-                                        const SelectTunableInput& input,
-                                        SelectTunableOutput& output)
-  {
-    auto value   = tunable_value(input.tunable_id);
-    output.size  = value.size();
-    output.value = malloc(output.size);
-    memcpy(output.value, value.ptr(), output.size);
-  }
+void BaseMapper::select_tunable_value(const MapperContext ctx,
+                                      const LegionTask& task,
+                                      const SelectTunableInput& input,
+                                      SelectTunableOutput& output)
+{
+  auto value   = tunable_value(input.tunable_id);
+  output.size  = value.size();
+  output.value = malloc(output.size);
+  memcpy(output.value, value.ptr(), output.size);
+}
 
-  void BaseMapper::select_sharding_functor(const MapperContext ctx,
-                                           const MustEpoch& epoch,
-                                           const SelectShardingFunctorInput& input,
-                                           MustEpochShardingFunctorOutput& output)
-  {
-    // No must epoch launches in legate
-    LEGATE_ABORT;
-  }
+void BaseMapper::select_sharding_functor(const MapperContext ctx,
+                                         const MustEpoch& epoch,
+                                         const SelectShardingFunctorInput& input,
+                                         MustEpochShardingFunctorOutput& output)
+{
+  // No must epoch launches in legate
+  LEGATE_ABORT;
+}
 
-  void BaseMapper::memoize_operation(const MapperContext ctx,
-                                     const Mappable& mappable,
-                                     const MemoizeInput& input,
-                                     MemoizeOutput& output)
-  {
-    LEGATE_ABORT;
-  }
+void BaseMapper::memoize_operation(const MapperContext ctx,
+                                   const Mappable& mappable,
+                                   const MemoizeInput& input,
+                                   MemoizeOutput& output)
+{
+  LEGATE_ABORT;
+}
 
-  void BaseMapper::map_must_epoch(
-    const MapperContext ctx, const MapMustEpochInput& input, MapMustEpochOutput& output)
-  {
-    // No must epoch launches in legate
-    LEGATE_ABORT;
-  }
+void BaseMapper::map_must_epoch(const MapperContext ctx,
+                                const MapMustEpochInput& input,
+                                MapMustEpochOutput& output)
+{
+  // No must epoch launches in legate
+  LEGATE_ABORT;
+}
 
-  void BaseMapper::map_dataflow_graph(
-    const MapperContext ctx, const MapDataflowGraphInput& input, MapDataflowGraphOutput& output)
-  {
-    // Not supported yet
-    LEGATE_ABORT;
-  }
+void BaseMapper::map_dataflow_graph(const MapperContext ctx,
+                                    const MapDataflowGraphInput& input,
+                                    MapDataflowGraphOutput& output)
+{
+  // Not supported yet
+  LEGATE_ABORT;
+}
 
-  void BaseMapper::select_tasks_to_map(
-    const MapperContext ctx, const SelectMappingInput& input, SelectMappingOutput& output)
-  {
-    // Just map all the ready tasks
-    for (auto task : input.ready_tasks) output.map_tasks.insert(task);
-  }
+void BaseMapper::select_tasks_to_map(const MapperContext ctx,
+                                     const SelectMappingInput& input,
+                                     SelectMappingOutput& output)
+{
+  // Just map all the ready tasks
+  for (auto task : input.ready_tasks) output.map_tasks.insert(task);
+}
 
-  void BaseMapper::select_steal_targets(
-    const MapperContext ctx, const SelectStealingInput& input, SelectStealingOutput& output)
-  {
-    // Nothing to do, no stealing in the leagte mapper currently
-  }
+void BaseMapper::select_steal_targets(const MapperContext ctx,
+                                      const SelectStealingInput& input,
+                                      SelectStealingOutput& output)
+{
+  // Nothing to do, no stealing in the leagte mapper currently
+}
 
-  void BaseMapper::permit_steal_request(
-    const MapperContext ctx, const StealRequestInput& input, StealRequestOutput& output)
-  {
-    // Nothing to do, no stealing in the legate mapper currently
-    LEGATE_ABORT;
-  }
+void BaseMapper::permit_steal_request(const MapperContext ctx,
+                                      const StealRequestInput& input,
+                                      StealRequestOutput& output)
+{
+  // Nothing to do, no stealing in the legate mapper currently
+  LEGATE_ABORT;
+}
 
-  void BaseMapper::handle_message(const MapperContext ctx, const MapperMessage& message)
-  {
-    // We shouldn't be receiving any messages currently
-    LEGATE_ABORT;
-  }
+void BaseMapper::handle_message(const MapperContext ctx, const MapperMessage& message)
+{
+  // We shouldn't be receiving any messages currently
+  LEGATE_ABORT;
+}
 
-  void BaseMapper::handle_task_result(const MapperContext ctx, const MapperTaskResult& result)
-  {
-    // Nothing to do since we should never get one of these
-    LEGATE_ABORT;
-  }
+void BaseMapper::handle_task_result(const MapperContext ctx, const MapperTaskResult& result)
+{
+  // Nothing to do since we should never get one of these
+  LEGATE_ABORT;
+}
 
 }  // namespace mapping
 }  // namespace legate
