@@ -333,6 +333,18 @@ void ReductionInstanceSet::record_instance(ReductionOpID& redop,
   }
 }
 
+bool ReductionInstanceSet::erase(PhysicalInstance inst)
+{
+  for (auto it = instances_.begin(); it != instances_.end(); /*nothing*/) {
+    if (it->second.instance == inst) {
+      auto to_erase = it++;
+      instances_.erase(to_erase);
+    } else
+      it++;
+  }
+  return instances_.empty();
+}
+
 bool InstanceManager::find_instance(Region region,
                                     FieldID field_id,
                                     Memory memory,
@@ -444,6 +456,24 @@ void ReductionInstanceManager::record_instance(ReductionOpID& redop,
     ReductionInstanceSet set;
     set.record_instance(redop, region, instance, policy);
     instance_sets_[key] = set;
+  }
+}
+
+void ReductionInstanceManager::erase(PhysicalInstance inst)
+{
+  const auto mem = inst.get_location();
+  const auto tid = inst.get_tree_id();
+
+  for (auto fit = instance_sets_.begin(); fit != instance_sets_.end(); /*nothing*/) {
+    if ((fit->first.memory != mem) || (fit->first.tid != tid)) {
+      fit++;
+      continue;
+    }
+    if (fit->second.erase(inst)) {
+      auto to_erase = fit++;
+      instance_sets_.erase(to_erase);
+    } else
+      fit++;
   }
 }
 
