@@ -185,11 +185,7 @@ class Config:
         # only saving this for help with testing
         self._args = args
 
-        self.user_script = ""
-        for opt in tuple(extra):
-            if opt.endswith(".py"):
-                self.user_script = opt
-                break
+        self.user_script = next((x for x in extra if x.endswith(".py")), "")
 
         self.user_opts = tuple(
             x for x in tuple(extra) if x != self.user_script
