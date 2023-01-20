@@ -22,7 +22,7 @@ from argparse import Namespace
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Optional, Protocol
 
 from ..util import colors
 from ..util.types import (
@@ -151,7 +151,7 @@ class ConfigProtocol(Protocol):
 
     argv: ArgList
 
-    user_script: str
+    user_script: Optional[str]
     user_opts: tuple[str, ...]
     multi_node: MultiNode
     binding: Binding
@@ -185,7 +185,7 @@ class Config:
         # only saving this for help with testing
         self._args = args
 
-        self.user_script = next((x for x in extra if x.endswith(".py")), "")
+        self.user_script = next((x for x in extra if x.endswith(".py")), None)
 
         self.user_opts = tuple(x for x in extra if x != self.user_script)
 
@@ -206,7 +206,7 @@ class Config:
     @cached_property
     def console(self) -> bool:
         """Whether we are starting Legate as an interactive console."""
-        return self.user_script == ""
+        return self.user_script is None
 
     def _fixup_nocr(self, args: Namespace) -> None:
         # this is slightly duplicative of MultiNode.ranks property, but fixup

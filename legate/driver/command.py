@@ -363,7 +363,7 @@ def cmd_eager_alloc(
 def cmd_user_script(
     config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
-    return () if config.user_script == "" else (config.user_script,)
+    return () if config.user_script is None else (config.user_script,)
 
 
 def cmd_user_opts(
