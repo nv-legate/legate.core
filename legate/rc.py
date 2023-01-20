@@ -54,4 +54,4 @@ def check_legion(msg: str = LEGION_WARNING) -> None:
     """Raise an error if we are not running in legion_python."""
     pass
     if not has_legion_context():
-       raise RuntimeError(msg)
+        raise RuntimeError(msg)
