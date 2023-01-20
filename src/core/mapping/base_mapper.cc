@@ -934,7 +934,6 @@ void BaseMapper::select_task_sources(const MapperContext ctx,
 
 void add_instance_to_band_ranking(const PhysicalInstance& instance,
                                   const Legion::AddressSpace& local_node,
-                                  bool& all_local,
                                   std::map<Memory, uint32_t /*bandwidth*/>& source_memories,
                                   std::vector<std::pair<PhysicalInstance, uint32_t>>& band_ranking,
                                   std::vector<MemoryMemoryAffinity>& affinity,
@@ -942,15 +941,7 @@ void add_instance_to_band_ranking(const PhysicalInstance& instance,
                                   const Legion::Machine& machine)
 {
   Memory location = instance.get_location();
-  if (location.address_space() == local_node) {
-    if (!all_local) {
-      source_memories.clear();
-      band_ranking.clear();
-      all_local = true;
-    }
-  } else if (all_local)  // Skip any remote instances once we're local
-    return;
-  auto finder = source_memories.find(location);
+  auto finder     = source_memories.find(location);
   if (finder == source_memories.end()) {
     affinity.clear();
     machine.get_mem_mem_affinity(
@@ -978,7 +969,6 @@ void BaseMapper::legate_select_sources(const MapperContext ctx,
   // For right now we'll rank instances by the bandwidth of the memory
   // they are in to the destination, we'll only rank sources from the
   // local node if there are any
-  bool all_local = false;
   // TODO: consider layouts when ranking source to help out the DMA system
   Memory destination_memory = target.get_location();
   std::vector<MemoryMemoryAffinity> affinity(1);
@@ -986,14 +976,8 @@ void BaseMapper::legate_select_sources(const MapperContext ctx,
   std::vector<std::pair<PhysicalInstance, uint32_t /*bandwidth*/>> band_ranking;
   for (uint32_t idx = 0; idx < sources.size(); idx++) {
     const PhysicalInstance& instance = sources[idx];
-    add_instance_to_band_ranking(instance,
-                                 local_node,
-                                 all_local,
-                                 source_memories,
-                                 band_ranking,
-                                 affinity,
-                                 destination_memory,
-                                 machine);
+    add_instance_to_band_ranking(
+      instance, local_node, source_memories, band_ranking, affinity, destination_memory, machine);
   }
 
   for (uint32_t idx = 0; idx < collective_sources.size(); idx++) {
@@ -1001,14 +985,8 @@ void BaseMapper::legate_select_sources(const MapperContext ctx,
     collective_sources[idx].find_instances_nearest_memory(destination_memory, col_instances);
     // we need only first instance if there are several
     const PhysicalInstance& instance = col_instances[0];
-    add_instance_to_band_ranking(instance,
-                                 local_node,
-                                 all_local,
-                                 source_memories,
-                                 band_ranking,
-                                 affinity,
-                                 destination_memory,
-                                 machine);
+    add_instance_to_band_ranking(
+      instance, local_node, source_memories, band_ranking, affinity, destination_memory, machine);
   }
 #ifdef DEBUG_LEGATE
   assert(!band_ranking.empty());
