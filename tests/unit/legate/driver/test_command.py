@@ -1213,7 +1213,9 @@ class Test_cmd_user_opts:
     def test_basic(self, genobjs: GenObjs, opts: list[str]) -> None:
         config, system, launcher = genobjs(opts, fake_module=None)
 
-        result = m.cmd_user_opts(config, system, launcher)
+        user_opts = m.cmd_user_opts(config, system, launcher)
+        user_script = m.cmd_user_script(config, system, launcher)
+        result = user_script + user_opts
 
         assert result == tuple(opts)
 
@@ -1222,7 +1224,9 @@ class Test_cmd_user_opts:
         args = ["--verbose", "--rlwrap", "--gpus", "2"] + opts
         config, system, launcher = genobjs(args, fake_module=None)
 
-        result = m.cmd_user_opts(config, system, launcher)
+        user_opts = m.cmd_user_opts(config, system, launcher)
+        user_script = m.cmd_user_script(config, system, launcher)
+        result = user_script + user_opts
 
         assert result == tuple(opts)
 
