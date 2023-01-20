@@ -38,7 +38,7 @@ def main(argv: list[str]) -> int:
     """
     from ..util.system import System
     from ..util.ui import error
-    from . import Config, Driver
+    from . import Config, LegateDriver
     from .driver import print_verbose
 
     try:
@@ -54,7 +54,7 @@ def main(argv: list[str]) -> int:
         raise e
 
     try:
-        driver = Driver(config, system)
+        driver = LegateDriver(config, system)
     except Exception as e:
         msg = "Could not initialize Legate driver, path config and exception follow:"  # noqa
         print(error(msg))

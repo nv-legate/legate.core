@@ -29,7 +29,7 @@ from .logs import process_logs
 if TYPE_CHECKING:
     from ..util.types import Command, EnvDict
 
-__all__ = ("Driver", "CanonicalDriver", "print_verbose")
+__all__ = ("LegateDriver", "CanonicalDriver", "print_verbose")
 
 _DARWIN_GDB_WARN = """\
 You must start the debugging session with the following command,
@@ -41,7 +41,7 @@ reasons:
 """
 
 
-class Driver:
+class LegateDriver:
     """Coordinate the system, user-configuration, and launcher to appropriately
     execute the Legate process.
 
@@ -129,7 +129,7 @@ class Driver:
             )
 
 
-class CanonicalDriver(Driver):
+class CanonicalDriver(LegateDriver):
     """Coordinate the system, user-configuration, and launcher to appropriately
     execute the Legate process.
 
@@ -161,7 +161,7 @@ class CanonicalDriver(Driver):
 
 def print_verbose(
     system: System,
-    driver: Driver | None = None,
+    driver: LegateDriver | None = None,
 ) -> None:
     """Print system and driver configuration values.
 

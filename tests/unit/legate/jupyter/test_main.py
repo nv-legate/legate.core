@@ -38,7 +38,7 @@ def test_main(mocker: MockerFixture) -> None:
 
     config_spy = mocker.spy(legate.jupyter.config.Config, "__init__")
     system_spy = mocker.spy(legate.util.system.System, "__init__")
-    driver_spy = mocker.spy(legate.driver.driver.Driver, "__init__")
+    driver_spy = mocker.spy(legate.driver.driver.LegateDriver, "__init__")
     generate_spy = mocker.spy(legate.jupyter.kernel, "generate_kernel_spec")
     install_mock = mocker.patch("legate.jupyter.kernel.install_kernel_spec")
     mocker.patch.object(
@@ -64,7 +64,7 @@ def test_main(mocker: MockerFixture) -> None:
     assert generate_spy.call_count == 1
     assert len(generate_spy.call_args[0]) == 2
     assert isinstance(
-        generate_spy.call_args[0][0], legate.driver.driver.Driver
+        generate_spy.call_args[0][0], legate.driver.driver.LegateDriver
     )
     assert isinstance(
         generate_spy.call_args[0][1], legate.jupyter.config.Config
