@@ -212,8 +212,13 @@ void BaseMapper::select_task_options(const MapperContext ctx,
   for (uint32_t idx = 0; idx < task.regions.size(); ++idx) {
     auto& req = task.regions[idx];
     if (req.privilege & LEGION_WRITE_PRIV) continue;
+    // Look up the projection for the input region. There are cases where
+    // Legate libraries register their own projection functors that are
+    // not recorded by Legate Core. So, handle the case when these functors
+    // are not present and allow for them to be missing.
+    auto projection = find_legate_projection_functor(req.projection, true /* allow_mising */);
     if ((req.handle_type == LEGION_SINGULAR_PROJECTION) ||
-        (find_legate_projection_functor(req.projection)->is_collective())) {
+        (projection != nullptr && projection->is_collective())) {
       output.check_collective_regions.insert(idx);
     }
   }
@@ -604,8 +609,13 @@ void BaseMapper::map_legate_stores(const MapperContext ctx,
         logger.debug() << log_mappable(mappable) << ": failed to acquire instance " << result
                        << " for reqs:" << reqs_ss.str();
 #endif
-        AutoLock lock(ctx, local_instances->manager_lock());
-        local_instances->erase(result);
+        if ((*reqs.begin())->redop != 0) {
+          AutoLock lock(ctx, reduction_instances->manager_lock());
+          reduction_instances->erase(result);
+        } else {
+          AutoLock lock(ctx, local_instances->manager_lock());
+          local_instances->erase(result);
+        }
         result = NO_INST;
       }
       instances.push_back(result);
@@ -676,20 +686,17 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
   for (auto* req : reqs) regions.push_back(req->region);
   auto target_memory = get_target_memory(target_proc, policy.target);
 
-  ReductionOpID redop = 0;
-  bool first          = true;
+  ReductionOpID redop = (*reqs.begin())->redop;
+#ifdef DEBUG_LEGATE
   for (auto* req : reqs) {
-    if (first)
-      redop = req->redop;
-    else {
-      if (redop != req->redop) {
-        logger.error(
-          "Colocated stores should be either non-reduction arguments "
-          "or reductions with the same reduction operator.");
-        LEGATE_ABORT;
-      }
+    if (redop != req->redop) {
+      logger.error(
+        "Colocated stores should be either non-reduction arguments "
+        "or reductions with the same reduction operator.");
+      LEGATE_ABORT;
     }
   }
+#endif
 
   // Generate layout constraints from the store mapping
   LayoutConstraintSet layout_constraints;
