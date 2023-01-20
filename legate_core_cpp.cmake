@@ -146,7 +146,7 @@ if (legate_core_COLLECTIVE)
   list(APPEND legate_core_CXX_DEFS LEGATE_USE_COLLECTIVE)
 endif()
 
-if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
   list(APPEND legate_core_CXX_DEFS DEBUG_LEGATE)
   list(APPEND legate_core_CUDA_DEFS DEBUG_LEGATE)
 endif()
