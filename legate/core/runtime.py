@@ -647,7 +647,7 @@ class PartitionManager:
         self._store_key_partitions: dict[tuple[int, int], PartitionBase] = {}
 
     def get_current_num_pieces(self) -> int:
-        return self._runtime.machine.num_procs
+        return len(self._runtime.machine)
 
     def get_piece_factors(self) -> list[int]:
         num_pieces = self.get_current_num_pieces()

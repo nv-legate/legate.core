@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import IntEnum, unique
-from typing import TYPE_CHECKING, Any, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Optional, Sequence, Tuple, Union
 
 from . import legion, types as ty
 
@@ -33,12 +33,14 @@ class ProcessorKind(IntEnum):
     CPU = 3
 
 
-def sanitize_kind(kind_str: Union[str, ProcessorKind]) -> ProcessorKind:
-    return (
-        getattr(ProcessorKind, kind_str.upper())
-        if isinstance(kind_str, str)
-        else kind_str
-    )
+ProcKindLike = Union[str, ProcessorKind]
+
+
+def sanitize_kind(kind: ProcKindLike) -> ProcessorKind:
+    try:
+        return ProcessorKind[kind.upper()] if isinstance(kind, str) else kind
+    except KeyError:
+        raise ValueError(f"Invalid processor kind: {kind}")
 
 
 # Inclusive range of processor ids
@@ -59,6 +61,10 @@ class ProcessorRange:
             hi = 0
         return ProcessorRange(kind, per_node_count, lo, hi)
 
+    @property
+    def empty(self) -> bool:
+        return self.hi < self.lo
+
     def __len__(self) -> int:
         return self.hi - self.lo + 1
 
@@ -66,8 +72,9 @@ class ProcessorRange:
         if self.kind != other.kind:
             raise ValueError(
                 "Intersection between different processor kinds: "
-                f"{self} & {other}"
+                f"{self.kind.name} and {other.kind.name}"
             )
+        assert self.per_node_count == other.per_node_count
         return ProcessorRange.create(
             self.kind,
             self.per_node_count,
@@ -96,14 +103,18 @@ class ProcessorRange:
             self.kind, self.per_node_count, new_lo, new_hi
         )
 
-    def __str__(self) -> str:
+    def get_node_range(self) -> tuple[int, int]:
+        if self.empty:
+            raise ValueError(
+                "Illegal to get a node range of an empty processor range"
+            )
+        return (self.lo // self.per_node_count, self.hi // self.per_node_count)
+
+    def __repr__(self) -> str:
         if self.hi < self.lo:
             return "<empty>"
         else:
             return f"[{self.lo}, {self.hi}] ({self.per_node_count} per node)"
-
-    def __repr__(self) -> str:
-        return str(self)
 
     def pack(self, buf: BufferBuilder) -> None:
         buf.pack_32bit_uint(self.per_node_count)
@@ -111,37 +122,32 @@ class ProcessorRange:
         buf.pack_32bit_uint(self.hi)
 
 
-ProcKindLike = Union[str, ProcessorKind]
 ProcSlice = Tuple[ProcKindLike, slice]
 
 
 class Machine:
-    def __init__(
-        self,
-        proc_ranges: dict[ProcessorKind, ProcessorRange],
-    ) -> None:
-        self._proc_ranges = proc_ranges
-        self._preferred_kind = ProcessorKind.CPU
-        for kind in ProcessorKind:
-            if kind in proc_ranges and len(proc_ranges[kind]) > 0:
-                self._preferred_kind = kind
-                break
-        self._num_procs = (
-            len(self._proc_ranges[self._preferred_kind])
-            if self._preferred_kind in self._proc_ranges
-            else 0
-        )
+    def __init__(self, proc_ranges: Sequence[ProcessorRange]) -> None:
+        self._proc_ranges = dict((r.kind, r) for r in proc_ranges)
+        non_empty_kinds = [r.kind for r in proc_ranges if not r.empty]
+        self._preferred_kind = min(non_empty_kinds, default=ProcessorKind.CPU)
 
-    @property
-    def num_procs(self) -> int:
-        return self._num_procs
+    def __len__(self) -> int:
+        return len(self._get_range(self._preferred_kind))
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Machine):
+            return False
+        for kind in ProcessorKind:
+            if self._get_range(kind) != other._get_range(kind):
+                return False
+        return True
 
     @property
     def preferred_kind(self) -> ProcessorKind:
         return self._preferred_kind
 
     def get_processor_range(
-        self, kind: Optional[ProcessorKind] = None
+        self, kind: Optional[ProcKindLike] = None
     ) -> ProcessorRange:
         if kind is None:
             sanitized = self._preferred_kind
@@ -150,12 +156,9 @@ class Machine:
         return self._get_range(sanitized)
 
     def get_node_range(
-        self, kind: Optional[ProcessorKind] = None
+        self, kind: Optional[ProcKindLike] = None
     ) -> tuple[int, int]:
-        proc_range = self.get_processor_range(kind)
-        start_node = proc_range.lo // proc_range.per_node_count
-        end_node = proc_range.hi // proc_range.per_node_count
-        return (start_node, end_node)
+        return self.get_processor_range(kind).get_node_range()
 
     def _get_range(self, kind: ProcessorKind) -> ProcessorRange:
         if kind not in self._proc_ranges:
@@ -163,19 +166,15 @@ class Machine:
         return self._proc_ranges[kind]
 
     def only(self, kind: ProcKindLike) -> Machine:
-        sanitized = sanitize_kind(kind)
-        return Machine({sanitized: self._get_range(sanitized)})
+        return Machine([self._get_range(sanitize_kind(kind))])
 
-    def exclude(self, kind: ProcKindLike) -> Machine:
+    def remove(self, kind: ProcKindLike) -> Machine:
         sanitized = sanitize_kind(kind)
-        ranges = self._proc_ranges.copy()
-        if sanitized in ranges:
-            del ranges[sanitized]
-        return Machine(ranges)
+        ranges = self._proc_ranges.values()
+        return Machine([r for r in ranges if r.kind != sanitized])
 
     def count(self, kind: ProcKindLike) -> int:
-        sanitized = sanitize_kind(kind)
-        return len(self._get_range(sanitized))
+        return len(self._get_range(sanitize_kind(kind)))
 
     def __getitem__(self, key: Union[str, slice, int, ProcSlice]) -> Machine:
         if isinstance(key, str):
@@ -187,14 +186,10 @@ class Machine:
                     "with more than one processor kind"
                 )
             k = key if isinstance(key, slice) else slice(key, key + 1)
-            return Machine(
-                {self._preferred_kind: self.get_processor_range().slice(k)},
-            )
+            return Machine([self.get_processor_range().slice(k)])
         elif isinstance(key, tuple) and len(key) == 2:
             kind = sanitize_kind(key[0])
-            new_ranges: dict[ProcessorKind, ProcessorRange] = {}
-            new_ranges[kind] = self._get_range(kind).slice(key[1])
-            return Machine(new_ranges)
+            return Machine([self._get_range(kind).slice(key[1])])
         else:
             raise KeyError(f"Invalid slicing key: {key}")
 
@@ -207,55 +202,42 @@ class Machine:
             )
         )
 
-        def create_range(kind: ProcessorKind, tunable: int) -> ProcessorRange:
+        def create_range(kind: ProcessorKind) -> ProcessorRange:
+            tunable_name = f"LEGATE_CORE_TUNABLE_TOTAL_{kind.name}S"
+            tunable_id = getattr(legion, tunable_name)
             num_procs = int(
-                runtime.core_context.get_tunable(tunable, ty.int32)
+                runtime.core_context.get_tunable(tunable_id, ty.int32)
             )
             return ProcessorRange.create(
                 kind, num_procs // num_nodes, 0, num_procs - 1
             )
 
-        ranges = {
-            ProcessorKind.GPU: create_range(
-                ProcessorKind.GPU, legion.LEGATE_CORE_TUNABLE_TOTAL_GPUS
-            ),
-            ProcessorKind.OMP: create_range(
-                ProcessorKind.OMP, legion.LEGATE_CORE_TUNABLE_TOTAL_OMPS
-            ),
-            ProcessorKind.CPU: create_range(
-                ProcessorKind.CPU, legion.LEGATE_CORE_TUNABLE_TOTAL_CPUS
-            ),
-        }
-
-        result = Machine(ranges)
+        result = Machine([create_range(kind) for kind in ProcessorKind])
         if result.empty:
             raise RuntimeError(
                 "No processors are available to run Legate tasks. Please "
-                "enable at least one processor of any kind. "
+                "create at least one processor of any kind. "
             )
         return result
 
     def __and__(self, other: Machine) -> Machine:
-        result: dict[ProcessorKind, ProcessorRange] = {}
-        for kind, prange in self._proc_ranges.items():
+        result: list[ProcessorRange] = []
+        for kind, r in self._proc_ranges.items():
             if kind not in other._proc_ranges:
                 continue
-            result[kind] = prange & other._proc_ranges[kind]
+            result.append(r & other._proc_ranges[kind])
         return Machine(result)
 
     @property
     def empty(self) -> bool:
-        return all(len(prange) == 0 for prange in self._proc_ranges.values())
+        return all(r.empty for r in self._proc_ranges.values())
 
-    def __str__(self) -> str:
+    def __repr__(self) -> str:
         desc = ", ".join(
             f"{kind.name}: {prange}"
             for kind, prange in self._proc_ranges.items()
         )
         return f"Machine({desc})"
-
-    def __repr__(self) -> str:
-        return str(self)
 
     def pack(self, buf: BufferBuilder) -> None:
         buf.pack_32bit_uint(self._preferred_kind)
