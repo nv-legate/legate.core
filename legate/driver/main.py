@@ -17,11 +17,11 @@
 """
 from __future__ import annotations
 
-from typing import Dict, Tuple, Type, Union
+from typing import Type, Union
 
 from . import CanonicalDriver, LegateDriver
 
-__all__ = ("legate_main", "canonical_main")
+__all__ = "legate_main"
 
 
 def prepare_driver(
@@ -72,22 +72,3 @@ def legate_main(argv: list[str]) -> int:
     """
     driver = prepare_driver(argv, LegateDriver)
     return driver.run()
-
-
-def canonical_main(argv: list[str]) -> Tuple[Tuple[str, ...], Dict[str, str]]:
-    """A main function for the canonical driver that can be used
-    programmatically or by entry-points.
-
-    Parameters
-    ----------
-        argv : list[str]
-            Command-line arguments to start the canonical driver with
-
-    Returns
-    -------
-        Tuple[Tuple[str], Dict[str, str]]
-            Legion command and env of the driver
-
-    """
-    driver = prepare_driver(argv, CanonicalDriver)
-    return driver.cmd, driver.env

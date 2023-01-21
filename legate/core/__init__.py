@@ -24,7 +24,7 @@ if is_legion_python == False:
         legion_canonical_python_main,
         legion_canonical_python_cleanup,
     )
-    from ..driver.main import canonical_main
+    from ..driver.main import prepare_driver, CanonicalDriver
     import atexit, sys, os
 
     print("canonical python")
@@ -32,7 +32,9 @@ if is_legion_python == False:
     sys_argv = [
         "python",
     ] + sys.argv
-    legate_argv, legate_env = canonical_main(sys_argv)
+    driver = prepare_driver(sys_argv, CanonicalDriver)
+    legate_argv = driver.cmd
+    legate_env = driver.env
     # sys_argv = sys.argv[0:]
     print(legate_argv)
     # print(legate_env)
