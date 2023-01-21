@@ -187,7 +187,14 @@ class Config:
 
         self.user_script = next((x for x in extra if x.endswith(".py")), None)
 
-        self.user_opts = tuple(x for x in extra if x != self.user_script)
+        first_time_seen = True
+        user_opts = []
+        for x in extra:
+            if x == self.user_script and first_time_seen:
+                first_time_seen = False
+            else:
+                user_opts.append(x)
+        self.user_opts = tuple(user_opts)
 
         # these may modify the args, so apply before dataclass conversions
         self._fixup_nocr(args)
