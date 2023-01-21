@@ -967,8 +967,7 @@ void BaseMapper::legate_select_sources(const MapperContext ctx,
 {
   std::map<Memory, uint32_t /*bandwidth*/> source_memories;
   // For right now we'll rank instances by the bandwidth of the memory
-  // they are in to the destination, we'll only rank sources from the
-  // local node if there are any
+  // they are in to the destination.
   // TODO: consider layouts when ranking source to help out the DMA system
   Memory destination_memory = target.get_location();
   std::vector<MemoryMemoryAffinity> affinity(1);
