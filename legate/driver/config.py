@@ -187,13 +187,9 @@ class Config:
 
         self.user_script = next((x for x in extra if x.endswith(".py")), None)
 
-        first_time_seen = True
-        user_opts = []
-        for x in extra:
-            if x == self.user_script and first_time_seen:
-                first_time_seen = False
-            else:
-                user_opts.append(x)
+        user_opts = list(extra)
+        if self.user_script in user_opts:
+            user_opts.remove(self.user_script)
         self.user_opts = tuple(user_opts)
 
         # these may modify the args, so apply before dataclass conversions
