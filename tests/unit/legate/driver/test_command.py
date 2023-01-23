@@ -49,9 +49,10 @@ def test_CMD_PARTS() -> None:
         m.cmd_nsys,
         m.cmd_memcheck,
         m.cmd_legion,
+        m.cmd_python_processor,
         m.cmd_nocr,
         m.cmd_module,
-        m.cmd_processor,
+        m.cmd_local_field,
         m.cmd_kthreads,
         m.cmd_cpus,
         m.cmd_gpus,
@@ -632,13 +633,22 @@ class Test_cmd_legion:
         assert result == (str(system.legion_paths.legion_python),)
 
 
-class Test_cmd_processor:
+class Test_cmd_python_processor:
     def test_default(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs([])
 
-        result = m.cmd_processor(config, system, launcher)
+        result = m.cmd_python_processor(config, system, launcher)
 
-        assert result == ("-ll:py", "1", "-lg:local", "0")
+        assert result == ("-ll:py", "1")
+
+
+class Test_cmd_local_field:
+    def test_default(self, genobjs: GenObjs) -> None:
+        config, system, launcher = genobjs([])
+
+        result = m.cmd_local_field(config, system, launcher)
+
+        assert result == ("-lg:local", "0")
 
 
 class Test_cmd_kthreads:

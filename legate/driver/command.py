@@ -182,11 +182,18 @@ def cmd_legion(
     return (str(system.legion_paths.legion_python),)
 
 
-def cmd_processor(
+def cmd_python_processor(
     config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
-    # We always need one python processor per rank and no local fields
-    return ("-ll:py", "1", "-lg:local", "0")
+    # We always need one python processor per rank
+    return ("-ll:py", "1")
+
+
+def cmd_local_field(
+    config: ConfigProtocol, system: System, launcher: Launcher
+) -> CommandPart:
+    # We always need no local fields
+    return ("-lg:local", "0")
 
 
 def cmd_kthreads(
@@ -373,6 +380,11 @@ def cmd_user_opts(
 
 
 _CMD_PARTS_SHARED = (
+    # This has to go before script name
+    cmd_nocr,
+    cmd_module,
+    cmd_local_field,
+    cmd_kthreads,
     # Translate the requests to Realm command line parameters
     cmd_cpus,
     cmd_gpus,
@@ -401,10 +413,7 @@ CMD_PARTS_LEGION = (
         # Now we're ready to build the actual command to run
         cmd_legion,
         # This has to go before script name
-        cmd_nocr,
-        cmd_module,
-        cmd_processor,
-        cmd_kthreads,
+        cmd_python_processor,
     )
     + _CMD_PARTS_SHARED
     + (
