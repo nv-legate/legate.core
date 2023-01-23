@@ -246,24 +246,27 @@ to this:
 import cunumeric as np
 ```
 After this, you can use the `legate` driver script in the `bin` directory of
-your installation to run any Python program. **Note that the default python
-interpreter (`python`) will not work with programs that use Legate libraries, you
-need to use this custom driver script.**
+your installation or the default python interpreter (python) to run any Python program. 
 
 For example, to run your script in the default configuration (4 CPUs cores and
-4 GB of memory) just run:
+4 GB of memory) just run using the `legate` driver script:
 ```
 $ legate my_python_program.py [other args]
+```
+or using the default python interpreter:
+```
+$ python my_python_program.py [other args]
 ```
 The `legate` script also allows you to control the amount of resources that
 Legate consumes when running on the machine. The `--cpus` and `--gpus` flags
 are used to specify how many CPU and GPU processors should be used on a node.
 The `--sysmem` flag can be used to specify how many MBs of DRAM Legate is allowed
 to use per node, while the `--fbmem` flag controls how many MBs of framebuffer
-memory Legate is allowed to use per GPU. For example, when running on a DGX
-station, you might run your application as follows:
+memory Legate is allowed to use per GPU. Note that most flags are also supported
+when running with the default python interepreter. For example, when running 
+on a DGX station, you might run your application as follows:
 ```
-$ legate --cpus 16 --gpus 4 --sysmem 100000 --fbmem 15000 my_python_program.py
+$ legate/python --cpus 16 --gpus 4 --sysmem 100000 --fbmem 15000 my_python_program.py
 ```
 This will make 16 CPU processors and all 4 GPUs available for use by Legate.
 It will also allow Legate to consume up to 100 GB of DRAM memory and 15 GB of
@@ -277,6 +280,7 @@ the assigned resources please let us know so we can improve our mapping heuristi
 There are many other flags available for use in the `legate` driver script that you
 can use to communicate how Legate should view the available machine resources.
 You can see a list of them by running:
+** TODO: talk about flags only supported by canonical python **
 ```
 $ legate --help
 ```
@@ -317,7 +321,14 @@ to be used.  Whenever the `--nodes` option is used, Legate will be launched
 using `mpirun`, even with `--nodes 1`.  Without the `--nodes` option, no launcher will
 be used.  Legate currently supports `mpirun`, `srun`, and `jsrun` as launchers and we
 are open to adding additional launcher kinds. You can select the
-target kind of launcher with `--launcher`.
+target kind of launcher with `--launcher`. 
+** Note that when using the default python interpreter, you will need to explictily 
+running launchers like:
+```
+$ mpirun -np N python my_python_program.py [other args]
+```
+instead of using `--launcher`.
+
 
 ### Debugging and Profiling
 
