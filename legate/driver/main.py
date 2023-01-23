@@ -21,7 +21,7 @@ from typing import Type, Union
 
 from . import CanonicalDriver, LegateDriver
 
-__all__ = "legate_main"
+__all__ = ("legate_main",)
 
 
 def prepare_driver(
