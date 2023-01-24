@@ -81,7 +81,6 @@ class Launcher:
     def __init__(self, config: ConfigProtocol, system: System) -> None:
         self._config = config
         self._system = system
-        print(system.env)
 
         if config.multi_node.ranks == 1:
             self.detected_rank_id = "0"
