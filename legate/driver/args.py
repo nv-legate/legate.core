@@ -262,7 +262,7 @@ debugging.add_argument(
     default=False,
     required=False,
     help="enable GASNet tracing (assumes GASNet was configured with "
-    "--enable--trace)",
+    "--enable-trace)",
 )
 
 debugging.add_argument(

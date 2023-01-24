@@ -211,8 +211,14 @@ void BaseMapper::select_task_options(const MapperContext ctx,
 #ifdef LEGATE_USE_COLLECTIVE
   for (uint32_t idx = 0; idx < task.regions.size(); ++idx) {
     auto& req = task.regions[idx];
+    if (req.privilege & LEGION_WRITE_PRIV) continue;
+    // Look up the projection for the input region. There are cases where
+    // Legate libraries register their own projection functors that are
+    // not recorded by Legate Core. So, handle the case when these functors
+    // are not present and allow for them to be missing.
+    auto projection = find_legate_projection_functor(req.projection, true /* allow_mising */);
     if ((req.handle_type == LEGION_SINGULAR_PROJECTION) ||
-        (find_legate_projection_functor(req.projection)->is_collective())) {
+        (projection != nullptr && projection->is_collective())) {
       output.check_collective_regions.insert(idx);
     }
   }
@@ -487,16 +493,14 @@ void BaseMapper::map_task(const MapperContext ctx,
   auto default_option            = options.front();
   auto generate_default_mappings = [&](auto& stores, bool exact) {
     for (auto& store : stores) {
+      auto mapping = StoreMapping::default_mapping(store, default_option, exact);
       if (store.is_future()) {
-        auto option  = default_option == StoreTarget::FBMEM ? StoreTarget::ZCMEM : default_option;
-        auto mapping = StoreMapping::default_mapping(store, option, exact);
         auto fut_idx = store.future_index();
         if (mapped_futures.find(fut_idx) != mapped_futures.end()) continue;
         mapped_futures.insert(fut_idx);
         for_futures.push_back(std::move(mapping));
       } else {
-        auto mapping = StoreMapping::default_mapping(store, default_option, exact);
-        auto key     = store.unique_region_field_id();
+        auto key = store.unique_region_field_id();
         if (mapped_regions.find(key) != mapped_regions.end()) continue;
         mapped_regions.insert(key);
         if (store.unbound())
@@ -605,8 +609,13 @@ void BaseMapper::map_legate_stores(const MapperContext ctx,
         logger.debug() << log_mappable(mappable) << ": failed to acquire instance " << result
                        << " for reqs:" << reqs_ss.str();
 #endif
-        AutoLock lock(ctx, local_instances->manager_lock());
-        local_instances->erase(result);
+        if ((*reqs.begin())->redop != 0) {
+          AutoLock lock(ctx, reduction_instances->manager_lock());
+          reduction_instances->erase(result);
+        } else {
+          AutoLock lock(ctx, local_instances->manager_lock());
+          local_instances->erase(result);
+        }
         result = NO_INST;
       }
       instances.push_back(result);
@@ -677,20 +686,17 @@ bool BaseMapper::map_legate_store(const MapperContext ctx,
   for (auto* req : reqs) regions.push_back(req->region);
   auto target_memory = get_target_memory(target_proc, policy.target);
 
-  ReductionOpID redop = 0;
-  bool first          = true;
+  ReductionOpID redop = (*reqs.begin())->redop;
+#ifdef DEBUG_LEGATE
   for (auto* req : reqs) {
-    if (first)
-      redop = req->redop;
-    else {
-      if (redop != req->redop) {
-        logger.error(
-          "Colocated stores should be either non-reduction arguments "
-          "or reductions with the same reduction operator.");
-        LEGATE_ABORT;
-      }
+    if (redop != req->redop) {
+      logger.error(
+        "Colocated stores should be either non-reduction arguments "
+        "or reductions with the same reduction operator.");
+      LEGATE_ABORT;
     }
   }
+#endif
 
   // Generate layout constraints from the store mapping
   LayoutConstraintSet layout_constraints;
@@ -922,54 +928,66 @@ void BaseMapper::select_task_sources(const MapperContext ctx,
                                      const SelectTaskSrcInput& input,
                                      SelectTaskSrcOutput& output)
 {
-  legate_select_sources(ctx, input.target, input.source_instances, output.chosen_ranking);
+  legate_select_sources(
+    ctx, input.target, input.source_instances, input.collective_views, output.chosen_ranking);
+}
+
+void add_instance_to_band_ranking(const PhysicalInstance& instance,
+                                  const Legion::AddressSpace& local_node,
+                                  std::map<Memory, uint32_t /*bandwidth*/>& source_memories,
+                                  std::vector<std::pair<PhysicalInstance, uint32_t>>& band_ranking,
+                                  const Memory& destination_memory,
+                                  const Legion::Machine& machine)
+{
+  Memory location = instance.get_location();
+  auto finder     = source_memories.find(location);
+  if (finder == source_memories.end()) {
+    std::vector<MemoryMemoryAffinity> affinity;
+    machine.get_mem_mem_affinity(
+      affinity, location, destination_memory, false /*not just local affinities*/);
+    uint32_t memory_bandwidth = 0;
+    if (!affinity.empty()) {
+#ifdef DEBUG_LEGATE
+      assert(affinity.size() == 1);
+#endif
+      memory_bandwidth = affinity[0].bandwidth;
+    }
+    source_memories[location] = memory_bandwidth;
+    band_ranking.push_back(std::pair<PhysicalInstance, uint32_t>(instance, memory_bandwidth));
+  } else
+    band_ranking.push_back(std::pair<PhysicalInstance, uint32_t>(instance, finder->second));
 }
 
 void BaseMapper::legate_select_sources(const MapperContext ctx,
                                        const PhysicalInstance& target,
                                        const std::vector<PhysicalInstance>& sources,
+                                       const std::vector<CollectiveView>& collective_sources,
                                        std::deque<PhysicalInstance>& ranking)
 {
   std::map<Memory, uint32_t /*bandwidth*/> source_memories;
   // For right now we'll rank instances by the bandwidth of the memory
-  // they are in to the destination, we'll only rank sources from the
-  // local node if there are any
-  bool all_local = false;
+  // they are in to the destination.
   // TODO: consider layouts when ranking source to help out the DMA system
   Memory destination_memory = target.get_location();
-  std::vector<MemoryMemoryAffinity> affinity(1);
   // fill in a vector of the sources with their bandwidths and sort them
   std::vector<std::pair<PhysicalInstance, uint32_t /*bandwidth*/>> band_ranking;
   for (uint32_t idx = 0; idx < sources.size(); idx++) {
     const PhysicalInstance& instance = sources[idx];
-    Memory location                  = instance.get_location();
-    if (location.address_space() == local_node) {
-      if (!all_local) {
-        source_memories.clear();
-        band_ranking.clear();
-        all_local = true;
-      }
-    } else if (all_local)  // Skip any remote instances once we're local
-      continue;
-    auto finder = source_memories.find(location);
-    if (finder == source_memories.end()) {
-      affinity.clear();
-      machine.get_mem_mem_affinity(
-        affinity, location, destination_memory, false /*not just local affinities*/);
-      uint32_t memory_bandwidth = 0;
-      if (!affinity.empty()) {
-        assert(affinity.size() == 1);
-        memory_bandwidth = affinity[0].bandwidth;
-      }
-      source_memories[location] = memory_bandwidth;
-      band_ranking.push_back(std::pair<PhysicalInstance, uint32_t>(instance, memory_bandwidth));
-    } else
-      band_ranking.push_back(std::pair<PhysicalInstance, uint32_t>(instance, finder->second));
+    add_instance_to_band_ranking(
+      instance, local_node, source_memories, band_ranking, destination_memory, machine);
   }
-  // If there aren't any sources (for example if there are some collective views
-  // to choose from, not yet in this branch), just return nothing and let the
-  // runtime pick something for us.
-  if (band_ranking.empty()) { return; }
+
+  for (uint32_t idx = 0; idx < collective_sources.size(); idx++) {
+    std::vector<PhysicalInstance> col_instances;
+    collective_sources[idx].find_instances_nearest_memory(destination_memory, col_instances);
+    // we need only first instance if there are several
+    const PhysicalInstance& instance = col_instances[0];
+    add_instance_to_band_ranking(
+      instance, local_node, source_memories, band_ranking, destination_memory, machine);
+  }
+#ifdef DEBUG_LEGATE
+  assert(!band_ranking.empty());
+#endif
   // Easy case of only one instance
   if (band_ranking.size() == 1) {
     ranking.push_back(band_ranking.begin()->first);
@@ -1051,7 +1069,8 @@ void BaseMapper::select_inline_sources(const MapperContext ctx,
                                        const SelectInlineSrcInput& input,
                                        SelectInlineSrcOutput& output)
 {
-  legate_select_sources(ctx, input.target, input.source_instances, output.chosen_ranking);
+  legate_select_sources(
+    ctx, input.target, input.source_instances, input.collective_views, output.chosen_ranking);
 }
 
 void BaseMapper::report_profiling(const MapperContext ctx,
@@ -1147,7 +1166,8 @@ void BaseMapper::select_copy_sources(const MapperContext ctx,
                                      const SelectCopySrcInput& input,
                                      SelectCopySrcOutput& output)
 {
-  legate_select_sources(ctx, input.target, input.source_instances, output.chosen_ranking);
+  legate_select_sources(
+    ctx, input.target, input.source_instances, input.collective_views, output.chosen_ranking);
 }
 
 void BaseMapper::speculate(const MapperContext ctx,
@@ -1179,7 +1199,8 @@ void BaseMapper::select_close_sources(const MapperContext ctx,
                                       const SelectCloseSrcInput& input,
                                       SelectCloseSrcOutput& output)
 {
-  legate_select_sources(ctx, input.target, input.source_instances, output.chosen_ranking);
+  legate_select_sources(
+    ctx, input.target, input.source_instances, input.collective_views, output.chosen_ranking);
 }
 
 void BaseMapper::report_profiling(const MapperContext ctx,
@@ -1242,7 +1263,8 @@ void BaseMapper::select_release_sources(const MapperContext ctx,
                                         const SelectReleaseSrcInput& input,
                                         SelectReleaseSrcOutput& output)
 {
-  legate_select_sources(ctx, input.target, input.source_instances, output.chosen_ranking);
+  legate_select_sources(
+    ctx, input.target, input.source_instances, input.collective_views, output.chosen_ranking);
 }
 
 void BaseMapper::speculate(const MapperContext ctx,
@@ -1312,7 +1334,8 @@ void BaseMapper::select_partition_sources(const MapperContext ctx,
                                           const SelectPartitionSrcInput& input,
                                           SelectPartitionSrcOutput& output)
 {
-  legate_select_sources(ctx, input.target, input.source_instances, output.chosen_ranking);
+  legate_select_sources(
+    ctx, input.target, input.source_instances, input.collective_views, output.chosen_ranking);
 }
 
 void BaseMapper::report_profiling(const MapperContext ctx,

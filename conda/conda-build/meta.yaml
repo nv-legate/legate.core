@@ -94,6 +94,7 @@ build:
 requirements:
   build:
     - make
+    - rust
     - ninja
     - cmake {{ cmake_version }}
     - {{ compiler('c') }} =11.2

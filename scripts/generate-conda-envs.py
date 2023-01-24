@@ -85,6 +85,7 @@ class BuildConfig(SectionConfig):
             "cmake>=3.24,!=3.25.0",
             "git",
             "make",
+            "rust",
             "ninja",
             "scikit-build>=0.13.1",
             "setuptools>=60",
