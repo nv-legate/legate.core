@@ -89,7 +89,7 @@ With gasnet1 or gasnetex, GASNet will be automatically downloaded and built,
 but if you have an existing installation then you can inform the install script
 using the `--with-gasnet` flag. You also need to specify the interconnect network
 of the target machine using the `--conduit` flag.
-With UCX, the library must be already installed and /`--with-ucx` can be used
+With UCX, the library must be already installed and `--with-ucx` can be used
 to point to the installation path if UCX is not installed under common system paths.
 
 For example this would be an installation for a
