@@ -936,14 +936,13 @@ void add_instance_to_band_ranking(const PhysicalInstance& instance,
                                   const Legion::AddressSpace& local_node,
                                   std::map<Memory, uint32_t /*bandwidth*/>& source_memories,
                                   std::vector<std::pair<PhysicalInstance, uint32_t>>& band_ranking,
-                                  std::vector<MemoryMemoryAffinity>& affinity,
                                   const Memory& destination_memory,
                                   const Legion::Machine& machine)
 {
   Memory location = instance.get_location();
   auto finder     = source_memories.find(location);
   if (finder == source_memories.end()) {
-    affinity.clear();
+    std::vector<MemoryMemoryAffinity> affinity;
     machine.get_mem_mem_affinity(
       affinity, location, destination_memory, false /*not just local affinities*/);
     uint32_t memory_bandwidth = 0;
@@ -970,13 +969,12 @@ void BaseMapper::legate_select_sources(const MapperContext ctx,
   // they are in to the destination.
   // TODO: consider layouts when ranking source to help out the DMA system
   Memory destination_memory = target.get_location();
-  std::vector<MemoryMemoryAffinity> affinity(1);
   // fill in a vector of the sources with their bandwidths and sort them
   std::vector<std::pair<PhysicalInstance, uint32_t /*bandwidth*/>> band_ranking;
   for (uint32_t idx = 0; idx < sources.size(); idx++) {
     const PhysicalInstance& instance = sources[idx];
     add_instance_to_band_ranking(
-      instance, local_node, source_memories, band_ranking, affinity, destination_memory, machine);
+      instance, local_node, source_memories, band_ranking, destination_memory, machine);
   }
 
   for (uint32_t idx = 0; idx < collective_sources.size(); idx++) {
@@ -985,7 +983,7 @@ void BaseMapper::legate_select_sources(const MapperContext ctx,
     // we need only first instance if there are several
     const PhysicalInstance& instance = col_instances[0];
     add_instance_to_band_ranking(
-      instance, local_node, source_memories, band_ranking, affinity, destination_memory, machine);
+      instance, local_node, source_memories, band_ranking, destination_memory, machine);
   }
 #ifdef DEBUG_LEGATE
   assert(!band_ranking.empty());
