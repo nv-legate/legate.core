@@ -83,12 +83,13 @@ class LegateDriver:
         # in case we want to augment the launcher env we could do it here
         return self.launcher.custom_env_vars
 
-    def run(self) -> int:
-        """Run the Legate process.
+    @property
+    def dry_run(self) -> bool:
+        """Check verbose and dry run.
 
         Returns
         -------
-            int : process return code
+            bool : wether dry run
 
         """
         if self.config.info.verbose:
@@ -101,7 +102,17 @@ class LegateDriver:
 
         self._darwin_gdb_warn()
 
-        if self.config.other.dry_run:
+        return self.config.other.dry_run
+
+    def run(self) -> int:
+        """Run the Legate process.
+
+        Returns
+        -------
+            int : process return code
+
+        """
+        if self.dry_run:
             return 0
 
         with process_logs(self.config, self.system, self.launcher):
@@ -150,6 +161,16 @@ class CanonicalDriver(LegateDriver):
             part(config, system, launcher) for part in CMD_PARTS_CANONICAL
         )
         return sum(parts, ())
+
+    def run(self) -> int:
+        """Run the Legate process.
+
+        Returns
+        -------
+            int : process return code
+
+        """
+        assert False, "This function should not be invoked."
 
 
 def print_verbose(

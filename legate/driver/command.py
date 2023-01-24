@@ -382,7 +382,6 @@ def cmd_user_opts(
 _CMD_PARTS_SHARED = (
     # This has to go before script name
     cmd_nocr,
-    cmd_module,
     cmd_local_field,
     cmd_kthreads,
     # Translate the requests to Realm command line parameters
@@ -414,6 +413,7 @@ CMD_PARTS_LEGION = (
         cmd_legion,
         # This has to go before script name
         cmd_python_processor,
+        cmd_module,
     )
     + _CMD_PARTS_SHARED
     + (

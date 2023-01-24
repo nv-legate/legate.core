@@ -33,17 +33,20 @@ if is_legion_python == False:
         "python",
     ] + sys.argv
     driver = prepare_driver(sys_argv, CanonicalDriver)
+    if driver.dry_run:
+        sys.exit(0)
     legate_argv = driver.cmd
     legate_env = driver.env
     # sys_argv = sys.argv[0:]
     print(legate_argv)
     # print(legate_env)
     for key, value in legate_env.items():
-        if (
-            key.startswith("LEGATE_")
-            or key.startswith("GASNET_")
-            or key.startswith("NCCL_")
-        ):
+        # if (
+        #     key.startswith("LEGATE_")
+        #     or key.startswith("GASNET_")
+        #     or key.startswith("NCCL_")
+        # ):
+        if driver.launcher.is_launcher_var(key):
             os.environ[key] = value
             print(key, value)
     legion_canonical_python_main(legate_argv)
