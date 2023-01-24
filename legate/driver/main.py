@@ -17,11 +17,17 @@
 """
 from __future__ import annotations
 
+import os
 from typing import Type, Union
 
 from . import CanonicalDriver, LegateDriver
 
 __all__ = ("legate_main",)
+
+CONFIG_ENV_CMD = {
+    "LEGATE_CONFIG_GPUS": "--gpus",
+    "LEGATE_CONFIG_CPUS": "--cpus",
+}
 
 
 def prepare_driver(
@@ -33,8 +39,25 @@ def prepare_driver(
     from . import Config
     from .driver import print_verbose
 
+    new_argv = argv.copy()
+    for key, value in os.environ.items():
+        if key in CONFIG_ENV_CMD:
+            try:
+                idx = new_argv.index(CONFIG_ENV_CMD[key])
+                assert new_argv[
+                    idx + 1
+                ].isnumeric(), "The argv %s %s is wrong" % (
+                    new_argv[idx],
+                    new_argv[idx + 1],
+                )
+                new_argv[idx + 1] = value
+            except ValueError:
+                new_argv.append(CONFIG_ENV_CMD[key])
+                new_argv.append(value)
+    print(new_argv)
+
     try:
-        config = Config(argv)
+        config = Config(new_argv)
     except Exception as e:
         print(error("Could not configure driver:\n"))
         raise e
