@@ -42,7 +42,16 @@ def prepare_driver(
     new_argv = argv.copy()
     for key, value in os.environ.items():
         if key in CONFIG_ENV_CMD:
-            if CONFIG_ENV_CMD[key] not in new_argv:
+            try:
+                idx = new_argv.index(CONFIG_ENV_CMD[key])
+                assert new_argv[
+                    idx + 1
+                ].isnumeric(), "The argv %s %s is wrong" % (
+                    new_argv[idx],
+                    new_argv[idx + 1],
+                )
+                new_argv[idx + 1] = value
+            except ValueError:
                 new_argv.append(CONFIG_ENV_CMD[key])
                 new_argv.append(value)
     print(new_argv)
