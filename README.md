@@ -417,7 +417,7 @@ Memory:
 
 * *Does Legate only work on NVIDIA hardware?*
   No, Legate will run on any processor supported by Legion (e.g. x86, ARM, and
-  PowerPC CPUs), and any network supported by GASNet (e.g. Infiniband,
+  PowerPC CPUs), and any network supported by GASNet or UCX (e.g. Infiniband,
   Cray, Omnipath, and (ROC-)Ethernet based interconnects).
 
 * *What languages does the Legate Core API have bindings for?*

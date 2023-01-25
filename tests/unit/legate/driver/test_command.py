@@ -62,6 +62,7 @@ def test_CMD_PARTS() -> None:
         m.cmd_log_levels,
         m.cmd_log_file,
         m.cmd_eager_alloc,
+        m.cmd_ucx,
         m.cmd_user_opts,
     )
 
