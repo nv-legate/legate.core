@@ -249,7 +249,7 @@ A build of UCX configured with `--enable-mt` is required.
 The build of UCX available on conda might not include support for the particular
 networking hardware on your machine (or may not be optimally tuned for such). In
 that case you may want to use an environment file generated with `--no-ucx`,
-get UCX from another source (e.g. MOFED, or the system-level package manager, or
+get UCX from another source (e.g. MOFED, the system-level package manager, or
 compiled manually from source), and pass the location of your installation to
 `install.py` (if necessary) using `--with-ucx`.
 
