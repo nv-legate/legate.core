@@ -246,6 +246,7 @@ def install(
     cmake_exe,
     cmake_generator,
     gasnet_dir,
+    ucx_dir,
     cuda_dir,
     maxdim,
     maxfields,
@@ -292,6 +293,7 @@ def install(
         print("cmake_exe:", cmake_exe)
         print("cmake_generator:", cmake_generator)
         print("gasnet_dir:", gasnet_dir)
+        print("ucx_dir:", ucx_dir)
         print("cuda_dir:", cuda_dir)
         print("maxdim:", maxdim)
         print("maxfields:", maxfields)
@@ -334,6 +336,7 @@ def install(
     legion_dir = validate_path(legion_dir)
     legion_src_dir = validate_path(legion_src_dir)
     gasnet_dir = validate_path(gasnet_dir)
+    ucx_dir = validate_path(ucx_dir)
     thrust_dir = validate_path(thrust_dir)
 
     if verbose:
@@ -343,6 +346,7 @@ def install(
         print("legion_dir: ", legion_dir)
         print("legion_src_dir: ", legion_src_dir)
         print("gasnet_dir: ", gasnet_dir)
+        print("ucx_dir: ", ucx_dir)
         print("thrust_dir: ", thrust_dir)
 
     if thread_count is None:
@@ -408,12 +412,6 @@ def install(
     # Also use preexisting CMAKE_ARGS from conda if set
     cmake_flags = cmd_env.get("CMAKE_ARGS", "").split(" ")
 
-    if cmake_generator:
-        if " " not in cmake_generator:
-            cmake_flags += [f"-G{cmake_generator}"]
-        else:
-            cmake_flags += [f"-G'{cmake_generator}'"]
-
     if debug or verbose:
         cmake_flags += ["--log-level=%s" % ("DEBUG" if debug else "VERBOSE")]
 
@@ -446,6 +444,8 @@ def install(
         cmake_flags += ["-DNCCL_DIR=%s" % nccl_dir]
     if gasnet_dir:
         cmake_flags += ["-DGASNet_ROOT_DIR=%s" % gasnet_dir]
+    if ucx_dir:
+        cmake_flags += ["-DUCX_ROOT=%s" % ucx_dir]
     if conduit:
         cmake_flags += ["-DGASNet_CONDUIT=%s" % conduit]
     if cuda_dir:
@@ -464,10 +464,18 @@ def install(
         cmake_flags += ["-Dlegate_core_LEGION_BRANCH=%s" % legion_branch]
 
     cmake_flags += extra_flags
+    build_flags = [f"-j{str(thread_count)}"]
+    if verbose:
+        if cmake_generator == "Unix Makefiles":
+            build_flags += ["VERBOSE=1"]
+        else:
+            build_flags += ["--verbose"]
+
     cmd_env.update(
         {
-            "SKBUILD_BUILD_OPTIONS": f"-j{str(thread_count)}",
             "CMAKE_ARGS": " ".join(cmake_flags),
+            "CMAKE_GENERATOR": cmake_generator,
+            "SKBUILD_BUILD_OPTIONS": " ".join(build_flags),
         }
     )
 
@@ -530,7 +538,7 @@ def driver():
         dest="networks",
         action="append",
         required=False,
-        choices=["gasnet1", "gasnetex", "mpi"],
+        choices=["gasnet1", "gasnetex", "ucx", "mpi"],
         default=[],
         help="Realm networking backend to use for multi-node execution.",
     )
@@ -541,6 +549,14 @@ def driver():
         required=False,
         default=os.environ.get("GASNET"),
         help="Path to GASNet installation directory.",
+    )
+    parser.add_argument(
+        "--with-ucx",
+        dest="ucx_dir",
+        metavar="DIR",
+        required=False,
+        default=os.environ.get("UCX_ROOT"),
+        help="Path to UCX installation directory.",
     )
     parser.add_argument(
         "--cuda",
@@ -574,7 +590,7 @@ def driver():
         "--march",
         dest="march",
         required=False,
-        default="native",
+        default=("haswell" if platform.machine() == "x86_64" else "native"),
         help="Specify the target CPU architecture.",
     )
     parser.add_argument(
@@ -634,7 +650,10 @@ def driver():
         "--cmake-generator",
         dest="cmake_generator",
         required=False,
-        default=(None if shutil.which("ninja") is None else "Ninja"),
+        default=os.environ.get(
+            "CMAKE_GENERATOR",
+            "Unix Makefiles" if shutil.which("ninja") is None else "Ninja",
+        ),
         choices=["Ninja", "Unix Makefiles", None],
         help="The CMake makefiles generator",
     )

@@ -186,6 +186,17 @@ class Launcher:
         # threading support
         env["GASNET_MPI_THREAD"] = "MPI_THREAD_MULTIPLE"
 
+        # UCX-related environment variables
+        env["UCX_CUDA_COPY_MAX_REG_RATIO"] = "1.0"
+        env["UCX_MULTI_LANE_MAX_RATIO"] = "1.0"
+        env["UCX_IB_RCACHE_PURGE_ON_FORK"] = "n"
+        env["UCX_RC_TX_POLL_ALWAYS"] = "y"
+
+        # Link to the UCX bootstrap plugin, in case Realm is using UCX
+        env["REALM_UCP_BOOTSTRAP_PLUGIN"] = str(
+            system.legion_paths.legion_lib_path / "realm_ucp_bootstrap_mpi.so"
+        )
+
         # Set some environment variables depending on our configuration that
         # we will check in the Legate binary to ensure that it is properly.
         # configured. Always make sure we include the Legion library
