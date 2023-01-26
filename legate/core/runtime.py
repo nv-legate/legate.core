@@ -26,7 +26,8 @@ from typing import TYPE_CHECKING, Any, Deque, List, Optional, TypeVar, Union
 
 from legion_top import add_cleanup_item, top_level
 
-from ..util.args import ArgSpec, Argument, parse_library_command_args
+from ..args import ARGS
+from ..util.args import parse_library_command_args
 from . import ffi  # Make sure we only have one ffi instance
 from . import (
     Fence,
@@ -78,49 +79,6 @@ _sizeof_size_t = ffi.sizeof("size_t")
 assert _sizeof_size_t == 4 or _sizeof_size_t == 8
 
 _LEGATE_FIELD_ID_BASE = 1000
-
-ARGS = [
-    Argument(
-        "consensus",
-        ArgSpec(
-            action="store_true",
-            default=False,
-            dest="consensus",
-            help="Turn on consensus match on single node (for testing).",
-        ),
-    ),
-    Argument(
-        "cycle-check",
-        ArgSpec(
-            action="store_true",
-            default=False,
-            dest="cycle_check",
-            help=(
-                "Check for reference cycles involving RegionField objects on "
-                "script exit (developer option). When such cycles arise "
-                "during execution, they stop used RegionFields from getting "
-                "collected and reused for new Stores, thus increasing memory "
-                "pressure. By default this check will miss any RegionField "
-                "cycles the garbage collector collected during execution; "
-                "run gc.disable() at the beginning of the program to avoid "
-                "this."
-            ),
-        ),
-    ),
-    Argument(
-        "future-leak-check",
-        ArgSpec(
-            action="store_true",
-            default=False,
-            dest="future_leak_check",
-            help=(
-                "Check for reference cycles keeping Future/FutureMap objects "
-                "alive after Legate runtime exit (developer option). Such "
-                "leaks can result in Legion runtime shutdown hangs."
-            ),
-        ),
-    ),
-]
 
 
 # A helper class for doing field management with control replication
