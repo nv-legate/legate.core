@@ -1197,7 +1197,6 @@ class Runtime:
     def destroy(self) -> None:
         # Before we clean up the runtime, we should execute all outstanding
         # operations.
-        print("in destroy")
         self.flush_scheduling_window()
 
         # Then we also need to raise all exceptions if there were any
@@ -1209,18 +1208,13 @@ class Runtime:
                 self.legion_runtime, self.legion_context, barrier
             )
 
-        print("before destory context", len(self._context_list))
-
         # Destroy all libraries. Note that we should do this
         # from the lastly added one to the first one
         for context in reversed(self._context_list):
-            print(context.library.get_name())
             context.destroy()
-        print("done with context list")
         del self._contexts
         del self._context_list
 
-        print("destroy context done")
         self._attachment_manager.destroy()
 
         # Remove references to our legion resources so they can be collected
@@ -1232,14 +1226,12 @@ class Runtime:
         # it may be collected, releasing references to Futures and FutureMaps.
         del self._partition_manager
 
-        print("before _finalize_tasks")
         if self._finalize_tasks:
             # Run a gc and then end the legate task
             gc.collect()
             legate_task_postamble(self.legion_runtime, self.legion_context)
 
         self.destroyed = True
-        print("done with destory")
 
     def get_unique_op_id(self) -> int:
         op_id = self._unique_op_id

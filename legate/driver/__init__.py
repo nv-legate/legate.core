@@ -24,6 +24,4 @@ def main() -> int:
 
     from .main import legate_main as _main
 
-    print("run driver")
-
     return _main(sys.argv)

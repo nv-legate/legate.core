@@ -27,8 +27,7 @@ if is_legion_python == False:
     from ..driver.main import prepare_driver, CanonicalDriver
     import atexit, sys, os
 
-    print("canonical python")
-
+    # parse legate args into legion args
     sys_argv = [
         "python",
     ] + sys.argv
@@ -37,22 +36,13 @@ if is_legion_python == False:
         sys.exit(0)
     legate_argv = driver.cmd
     legate_env = driver.env
-    # sys_argv = sys.argv[0:]
-    print(legate_argv)
-    # print(legate_env)
+    # set env
     for key, value in legate_env.items():
-        # if (
-        #     key.startswith("LEGATE_")
-        #     or key.startswith("GASNET_")
-        #     or key.startswith("NCCL_")
-        # ):
         if driver.launcher.is_launcher_var(key):
             os.environ[key] = value
-            print(key, value)
     legion_canonical_python_main(legate_argv)
     atexit.register(legion_canonical_python_cleanup)
 else:
-    print("legion python")
     check_legion()
 
 from ._legion import (

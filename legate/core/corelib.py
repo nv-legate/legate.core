@@ -59,7 +59,6 @@ class CoreLib(Library):
         return config
 
     def destroy(self) -> None:
-        print("destroy corelib")
         if not self._lib:
             raise RuntimeError("CoreLib was never initialized")
         self._lib.legate_shutdown()
