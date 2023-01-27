@@ -16,7 +16,7 @@ CMAKE_ARGS+="
 if [ -z "$CPU_ONLY" ]; then
   CMAKE_ARGS+="
 -DLegion_USE_CUDA=ON
--DCMAKE_CUDA_ARCHITECTURES:LIST=60-real;70-real;75-real;80-real;86
+-DCMAKE_CUDA_ARCHITECTURES:LIST=60-real;70-real;75-real;80-real;90
 "
 fi
 
