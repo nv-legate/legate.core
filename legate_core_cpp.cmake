@@ -231,9 +231,17 @@ endif()
 add_library(legate_core ${legate_core_SOURCES})
 add_library(legate::core ALIAS legate_core)
 
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  set(platform_rpath_origin "\$ORIGIN")
+elseif (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+  set(platform_rpath_origin "@loader_path")
+endif ()
+
 set_target_properties(legate_core
            PROPERTIES EXPORT_NAME                         core
                       LIBRARY_OUTPUT_NAME                 lgcore
+                      BUILD_RPATH                         "${platform_rpath_origin}"
+                      INSTALL_RPATH                       "${platform_rpath_origin}"
                       CXX_STANDARD                        17
                       CXX_STANDARD_REQUIRED               ON
                       CUDA_STANDARD                       17
@@ -241,13 +249,6 @@ set_target_properties(legate_core
                       POSITION_INDEPENDENT_CODE           ON
                       INTERFACE_POSITION_INDEPENDENT_CODE ON
                       LIBRARY_OUTPUT_DIRECTORY            lib)
-if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
-  set_target_properties(legate_core PROPERTIES BUILD_RPATH "\$ORIGIN")
-  set_target_properties(legate_core PROPERTIES INSTALL_RPATH "\$ORIGIN")
-elseif (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-  set_target_properties(legate_core PROPERTIES BUILD_RPATH "@loader_path")
-  set_target_properties(legate_core PROPERTIES INSTALL_RPATH "@loader_path")
-endif ()
 
 # Add Conda library, and include paths if specified
 if(TARGET conda_env)
