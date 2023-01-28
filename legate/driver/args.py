@@ -116,7 +116,8 @@ binding.add_argument(
     help="CPU cores to bind each rank to. Comma-separated core IDs as "
     "well as ranges are accepted, as reported by `numactl`. Binding "
     "instructions for all ranks should be listed in one string, separated "
-    "by `/`.",
+    "by `/`. "
+    "[legate-only, not supported with standard Python invocation]",
 )
 
 
@@ -124,7 +125,8 @@ binding.add_argument(
     "--mem-bind",
     help="NUMA memories to bind each rank to. Use comma-separated integer "
     "IDs as reported by `numactl`. Binding instructions for all ranks "
-    "should be listed in one string, separated by `/`.",
+    "should be listed in one string, separated by `/`. "
+    "[legate-only, not supported with standard Python invocation]",
 )
 
 
@@ -132,7 +134,8 @@ binding.add_argument(
     "--gpu-bind",
     help="GPUs to bind each rank to. Use comma-separated integer IDs as "
     "reported by `nvidia-smi`. Binding instructions for all ranks "
-    "should be listed in one string, separated by `/`.",
+    "should be listed in one string, separated by `/`. "
+    "[legate-only, not supported with standard Python invocation]",
 )
 
 
@@ -140,7 +143,8 @@ binding.add_argument(
     "--nic-bind",
     help="NICs to bind each rank to. Use comma-separated device names as "
     "appropriate for the network in use. Binding instructions for all ranks "
-    "should be listed in one string, separated by `/`.",
+    "should be listed in one string, separated by `/`. "
+    "[legate-only, not supported with standard Python invocation]",
 )
 
 
