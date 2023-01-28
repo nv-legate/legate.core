@@ -447,7 +447,8 @@ class TestConfig:
     def test_user_opts(self, args: tuple[str, ...]) -> None:
         c = m.Config(["legate"] + list(args) + ["foo.py", "-a", "1"])
 
-        assert c.user_opts == ("foo.py", "-a", "1")
+        assert c.user_opts == ("-a", "1")
+        assert c.user_script == "foo.py"
 
     def test_console_true(self) -> None:
         c = m.Config(["legate"])
@@ -458,5 +459,6 @@ class TestConfig:
     def test_console_false(self) -> None:
         c = m.Config(["legate", "--rlwrap", "--gpus", "2", "foo.py", "-a"])
 
-        assert c.user_opts == ("foo.py", "-a")
+        assert c.user_opts == ("-a",)
+        assert c.user_script == "foo.py"
         assert not c.console

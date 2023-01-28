@@ -116,7 +116,8 @@ binding.add_argument(
     help="CPU cores to bind each rank to. Comma-separated core IDs as "
     "well as ranges are accepted, as reported by `numactl`. Binding "
     "instructions for all ranks should be listed in one string, separated "
-    "by `/`.",
+    "by `/`. "
+    "[legate-only, not supported with standard Python invocation]",
 )
 
 
@@ -124,7 +125,8 @@ binding.add_argument(
     "--mem-bind",
     help="NUMA memories to bind each rank to. Use comma-separated integer "
     "IDs as reported by `numactl`. Binding instructions for all ranks "
-    "should be listed in one string, separated by `/`.",
+    "should be listed in one string, separated by `/`. "
+    "[legate-only, not supported with standard Python invocation]",
 )
 
 
@@ -132,7 +134,8 @@ binding.add_argument(
     "--gpu-bind",
     help="GPUs to bind each rank to. Use comma-separated integer IDs as "
     "reported by `nvidia-smi`. Binding instructions for all ranks "
-    "should be listed in one string, separated by `/`.",
+    "should be listed in one string, separated by `/`. "
+    "[legate-only, not supported with standard Python invocation]",
 )
 
 
@@ -140,7 +143,8 @@ binding.add_argument(
     "--nic-bind",
     help="NICs to bind each rank to. Use comma-separated device names as "
     "appropriate for the network in use. Binding instructions for all ranks "
-    "should be listed in one string, separated by `/`.",
+    "should be listed in one string, separated by `/`. "
+    "[legate-only, not supported with standard Python invocation]",
 )
 
 
@@ -188,7 +192,8 @@ profiling.add_argument(
     dest="cprofile",
     action="store_true",
     required=False,
-    help="profile Python execution with the cprofile module",
+    help="profile Python execution with the cprofile module, "
+    "[legate-only, not supported with standard Python invocation]",
 )
 
 
@@ -197,7 +202,8 @@ profiling.add_argument(
     dest="nvprof",
     action="store_true",
     required=False,
-    help="run Legate with nvprof",
+    help="run Legate with nvprof, "
+    "[legate-only, not supported with standard Python invocation]",
 )
 
 
@@ -206,7 +212,8 @@ profiling.add_argument(
     dest="nsys",
     action="store_true",
     required=False,
-    help="run Legate with Nsight Systems",
+    help="run Legate with Nsight Systems, "
+    "[legate-only, not supported with standard Python invocation]",
 )
 
 
@@ -215,7 +222,8 @@ profiling.add_argument(
     dest="nsys_targets",
     default="cublas,cuda,cudnn,nvtx,ucx",
     required=False,
-    help="Specify profiling targets for Nsight Systems",
+    help="Specify profiling targets for Nsight Systems, "
+    "[legate-only, not supported with standard Python invocation]",
 )
 
 
@@ -227,7 +235,8 @@ profiling.add_argument(
     required=False,
     help="Specify extra flags for Nsight Systems (can appear more than once). "
     "Multiple arguments may be provided together in a quoted string "
-    "(arguments with spaces inside must be additionally quoted)",
+    "(arguments with spaces inside must be additionally quoted), "
+    "[legate-only, not supported with standard Python invocation]",
 )
 
 logging = parser.add_argument_group("Logging")
@@ -277,7 +286,8 @@ debugging.add_argument(
     dest="gdb",
     action="store_true",
     required=False,
-    help="run Legate inside gdb",
+    help="run Legate inside gdb, "
+    "[legate-only, not supported with standard Python invocation]",
 )
 
 
@@ -286,7 +296,8 @@ debugging.add_argument(
     dest="cuda_gdb",
     action="store_true",
     required=False,
-    help="run Legate inside cuda-gdb",
+    help="run Legate inside cuda-gdb, "
+    "[legate-only, not supported with standard Python invocation]",
 )
 
 
@@ -295,7 +306,8 @@ debugging.add_argument(
     dest="memcheck",
     action="store_true",
     required=False,
-    help="run Legate with cuda-memcheck",
+    help="run Legate with cuda-memcheck, "
+    "[legate-only, not supported with standard Python invocation]",
 )
 
 
@@ -372,7 +384,8 @@ info.add_argument(
     dest="bind_detail",
     action="store_true",
     required=False,
-    help="print out the final invocation run by bind.sh",
+    help="print out the final invocation run by bind.sh, "
+    "[legate-only, not supported with standard Python invocation]",
 )
 
 
@@ -384,7 +397,8 @@ other.add_argument(
     dest="module",
     default=None,
     required=False,
-    help="Specify a Python module to load before running",
+    help="Specify a Python module to load before running, "
+    "[legate-only, not supported with standard Python invocation]",
 )
 
 
@@ -402,7 +416,8 @@ other.add_argument(
     dest="rlwrap",
     action="store_true",
     required=False,
-    help="Whether to run with rlwrap to improve readline ability",
+    help="Whether to run with rlwrap to improve readline ability, "
+    "[legate-only, not supported with standard Python invocation]",
 )
 
 other.add_argument(

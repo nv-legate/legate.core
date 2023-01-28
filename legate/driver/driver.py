@@ -21,15 +21,15 @@ from typing import TYPE_CHECKING
 
 from ..util.system import System
 from ..util.ui import kvtable, rule, section, value, warn
-from .command import CMD_PARTS
+from .command import CMD_PARTS_CANONICAL, CMD_PARTS_LEGION
 from .config import ConfigProtocol
-from .launcher import Launcher
+from .launcher import Launcher, SimpleLauncher
 from .logs import process_logs
 
 if TYPE_CHECKING:
     from ..util.types import Command, EnvDict
 
-__all__ = ("Driver", "print_verbose")
+__all__ = ("LegateDriver", "CanonicalDriver", "print_verbose")
 
 _DARWIN_GDB_WARN = """\
 You must start the debugging session with the following command,
@@ -41,7 +41,7 @@ reasons:
 """
 
 
-class Driver:
+class LegateDriver:
     """Coordinate the system, user-configuration, and launcher to appropriately
     execute the Legate process.
 
@@ -65,7 +65,7 @@ class Driver:
         launcher = self.launcher
         system = self.system
 
-        parts = (part(config, system, launcher) for part in CMD_PARTS)
+        parts = (part(config, system, launcher) for part in CMD_PARTS_LEGION)
         return launcher.cmd + sum(parts, ())
 
     @property
@@ -83,12 +83,13 @@ class Driver:
         # in case we want to augment the launcher env we could do it here
         return self.launcher.custom_env_vars
 
-    def run(self) -> int:
-        """Run the Legate process.
+    @property
+    def dry_run(self) -> bool:
+        """Check verbose and dry run.
 
         Returns
         -------
-            int : process return code
+            bool : whether dry run is enabled
 
         """
         if self.config.info.verbose:
@@ -101,7 +102,17 @@ class Driver:
 
         self._darwin_gdb_warn()
 
-        if self.config.other.dry_run:
+        return self.config.other.dry_run
+
+    def run(self) -> int:
+        """Run the Legate process.
+
+        Returns
+        -------
+            int : process return code
+
+        """
+        if self.dry_run:
             return 0
 
         with process_logs(self.config, self.system, self.launcher):
@@ -122,9 +133,49 @@ class Driver:
             )
 
 
+class CanonicalDriver(LegateDriver):
+    """Coordinate the system, user-configuration, and launcher to appropriately
+    execute the Legate process.
+
+    Parameters
+    ----------
+        config : Config
+
+        system : System
+
+    """
+
+    def __init__(self, config: ConfigProtocol, system: System) -> None:
+        self.config = config
+        self.system = system
+        self.launcher = SimpleLauncher(config, system)
+
+    @property
+    def cmd(self) -> Command:
+        """The full command invocation that should be used to start Legate."""
+        config = self.config
+        launcher = self.launcher
+        system = self.system
+
+        parts = (
+            part(config, system, launcher) for part in CMD_PARTS_CANONICAL
+        )
+        return sum(parts, ())
+
+    def run(self) -> int:
+        """Run the Legate process.
+
+        Returns
+        -------
+            int : process return code
+
+        """
+        assert False, "This function should not be invoked."
+
+
 def print_verbose(
     system: System,
-    driver: Driver | None = None,
+    driver: LegateDriver | None = None,
 ) -> None:
     """Print system and driver configuration values.
 

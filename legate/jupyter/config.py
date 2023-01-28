@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 import legate.util.colors as colors
 from legate.driver.config import (
@@ -79,6 +80,7 @@ class Config:
         self.memory = object_to_dataclass(args, Memory)
 
         # turn everything else off
+        self.user_script: Optional[str] = None
         self.user_opts: tuple[str, ...] = ()
         self.binding = Binding(None, None, None, None)
         self.profiling = Profiling(False, False, False, False, "", [])

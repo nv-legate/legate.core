@@ -31,7 +31,7 @@ from jupyter_client.kernelspec import (
     NoSuchKernel,
 )
 
-from legate.driver import Driver
+from legate.driver import LegateDriver
 from legate.jupyter.config import Config
 from legate.util.types import ArgList
 from legate.util.ui import error
@@ -48,7 +48,7 @@ LEGATE_JUPYTER_KERNEL_SPEC_KEY = "__LEGATE_JUPYTER_KERNEL_SPEC__"
 LEGATE_JUPYTER_METADATA_KEY: Literal["legate"] = "legate"
 
 
-def generate_kernel_spec(driver: Driver, config: Config) -> KernelSpec:
+def generate_kernel_spec(driver: LegateDriver, config: Config) -> KernelSpec:
     legion_kernel = Path(__file__).parent / "_legion_kernel.py"
     argv = list(driver.cmd) + [str(legion_kernel), "-f", "{connection_file}"]
 

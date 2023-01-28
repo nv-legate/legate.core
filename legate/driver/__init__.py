@@ -15,13 +15,13 @@
 from __future__ import annotations
 
 from .config import Config
-from .driver import Driver
+from .driver import LegateDriver, CanonicalDriver
 from .launcher import Launcher
 
 
 def main() -> int:
     import sys
 
-    from .main import main as _main
+    from .main import legate_main as _main
 
     return _main(sys.argv)
