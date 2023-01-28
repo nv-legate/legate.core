@@ -36,9 +36,7 @@ if is_legion_python == False:
     legate_argv = driver.cmd
     legate_env = driver.env
     # set env
-    for key, value in legate_env.items():
-        if driver.launcher.is_launcher_var(key):
-            os.environ[key] = value
+    os.environ.update(legate_env)
     legion_canonical_python_main(legate_argv)
     atexit.register(legion_canonical_python_cleanup)
 
