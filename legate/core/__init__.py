@@ -14,6 +14,7 @@
 #
 from __future__ import annotations
 
+from ..rc import check_legion
 from ..util.args import parse_library_command_args
 
 from legion_cffi import is_legion_python, ffi, lib as legion
@@ -41,6 +42,8 @@ if is_legion_python == False:
             os.environ[key] = value
     legion_canonical_python_main(legate_argv)
     atexit.register(legion_canonical_python_cleanup)
+else:
+    check_legion()
 
 from ._legion import (
     LEGATE_MAX_DIM,
