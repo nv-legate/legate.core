@@ -89,7 +89,7 @@ class LegateDriver:
 
         Returns
         -------
-            bool : wether dry run is enabled
+            bool : whether dry run is enabled
 
         """
         if self.config.info.verbose:
