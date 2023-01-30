@@ -50,15 +50,23 @@ Pull requests are welcomed.
 
 If you have questions, please contact us at legate(at)nvidia.com.
 
-1. [Why Legate?](#why-legate)
-1. [What is the Legate Core?](#what-is-the-legate-core)
-1. [How Does Legate Work?](#how-does-legate-work)
-1. [How Do I Install Legate?](#how-do-i-install-legate)
-1. [How Do I Use Legate?](#how-do-i-use-legate)
-1. [Other FAQs](#other-faqs)
-1. [Contributing](#contributing)
-1. [Documentation](#documentation)
-1. [Next Steps](#next-steps)
+- [Legate](#legate)
+  - [Why Legate?](#why-legate)
+  - [What is the Legate Core?](#what-is-the-legate-core)
+  - [How Does Legate Work?](#how-does-legate-work)
+  - [How Do I Install Legate?](#how-do-i-install-legate)
+  - [How Do I Use Legate?](#how-do-i-use-legate)
+    - [Distributed Launch](#distributed-launch)
+    - [Debugging and Profiling](#debugging-and-profiling)
+  - [Running Legate programs with Jupyter Notebook](#running-legate-programs-with-jupyter-notebook)
+    - [Installation of the Legate IPython Kernel](#installation-of-the-legate-ipython-kernel)
+    - [Running with Jupyter Notebook](#running-with-jupyter-notebook)
+    - [Configuring the Jupyter Notebook](#configuring-the-jupyter-notebook)
+    - [Magic Command](#magic-command)
+  - [Other FAQs](#other-faqs)
+  - [Contributing](#contributing)
+  - [Documentation](#documentation)
+  - [Next Steps](#next-steps)
 
 ## Why Legate?
 
@@ -215,120 +223,10 @@ Legate Core is available [on conda](https://anaconda.org/legate/legate-core):
 conda install -c nvidia -c conda-forge -c legate legate-core
 ```
 
-Docker image build scripts, as well as specialized
-install scripts for supported clusters are available on the
-[quickstart](https://github.com/nv-legate/quickstart) repo.
+The conda package is compatible with CUDA >= 11.4 (CUDA driver version >= r470),
+and Volta or later GPU architectures.
 
-Read on for general instructions on building Legate Core from source.
-
-### Dependencies
-
-Legate has been tested on Linux and MacOS, although only a few flavors of Linux
-such as Ubuntu have been thoroughly tested. There is currently no support for
-Windows.
-
-Legate Core requires the following:
-
-  - Python >= 3.8
-  - [CUDA](https://developer.nvidia.com/cuda-downloads) >= 10.2
-  - GNU Make
-  - C++17 compatible compiler (g++, clang, or nvc++)
-  - numactl (optional, to support CPU and memory binding)
-  - the Python packages listed in any one of the conda environment files:
-    - `conda/environment-test-3.8.yml`
-    - `conda/environment-test-3.9.yml`
-    - `conda/environment-test-3.10.yml`
-
-You can install the required Python packages by creating a new conda environment:
-
-```
-conda env create -n legate -f conda/environment-test-3.10.yml
-```
-
-or by updating an existing environment:
-
-```
-conda env update -f conda/environment-test-3.10.yml
-```
-
-Note that conda will need to install an environment-local copy of the CUDA
-toolkit, and by default it will choose the latest available version. To avoid
-versioning conflicts, however, it is safer to match the version of CUDA
-installed system-wide on your machine. Therefore, we suggest that you add this
-as an explicit dependency at the bottom of the conda environment file. For
-example, if your system-wide CUDA installation is at version 10.2, add:
-
-```
-  - cudatoolkit=10.2
-```
-
-### Installation
-
-The Legate Core library comes with both a standard `setup.py` script and a
-custom `install.py` script in the top-level directory of the repository that
-will build and install the Legate Core library. Users can use either script
-to install Legate as they will produce the same effect. Users can do a simple
-pip installation of a single-node, CPU-only Legate configuration by navigating
-to the Legate source directory and running:
-```
-pip install .
-```
-or
-```
-python3 -m pip install .
-```
-
-This will install Legate into the standard packages of the Python environment.
-
-To add GPU support or do more complicated customization, Legate provides a
-helper `install.py` script. For GPU support, simply use the `--cuda` flag:
-
-```
-./install.py --cuda
-```
-
-The first time you request GPU support you may need to use the `--with-cuda` flag to
-specify the location of your CUDA installation and the `--with-nccl` flag to specify
-the path to your NCCL installation, if these cannot be automatically located by the build system.
-You can also specify the name of the CUDA architecture you want to target with the `--arch`
-flag. By default the script relies on CMake's auto-detection.
-```
-./install.py --cuda --with-cuda /usr/local/cuda/ --with-nccl "$CONDA_PREFIX" --arch ampere
-```
-For multi-node support Legate uses [GASNet](https://gasnet.lbl.gov/) which can be
-requested using the `--network gasnet1` or `--network gasnetex` flag. By default
-GASNet will be automatically downloaded and built, but if you have an existing
-installation then you can inform the install script using the `--with-gasnet` flag.
-You also need to specify the interconnect network of the target machine using the
-`--conduit` flag.
-
-For example this would be an installation for a
-[DGX SuperPOD](https://www.nvidia.com/en-us/data-center/dgx-superpod/):
-```
-./install.py --network gasnet1 --conduit ibv --cuda --arch ampere
-```
-Alternatively here is an install line for the
-[Piz-Daint](https://www.cscs.ch/computers/dismissed/piz-daint-piz-dora/) supercomputer:
-```
-./install.py --network gasnet1 --conduit aries --cuda --arch pascal
-```
-To see all the options available for installing Legate, run with the `--help` flag:
-```
-./install.py --help
-```
-
-### Toolchain Selection
-
-Legate relies on CMake to select its toolchain and build flags.
-Users can set the environment variables `CXX` or `CXXFLAGS`
-prior to building to override the CMake defaults. Alternatively, CMake values
-can be overriden through the `SKBUILD_CONFIGURE_OPTIONS` variable,
-which is discussed in more detail in the [developer build instructions](BUILD.md).
-
-### Developer Workflow
-
-Details on doing incremental CMake builds and editable pip installations can be
-found in the [developer build instructions](BUILD.md).
+See [BUILD.md](BUILD.md) for instructions on building Legate Core from source.
 
 ## How Do I Use Legate?
 
@@ -412,7 +310,8 @@ line options, and their default values are as follows.
 
 ### Distributed Launch
 
-If Legate is compiled with networking support ([see the installation section](#Installation)),
+If Legate is compiled with networking support (see the
+[installation section](#how-do-i-install-legate)),
 it can be run in parallel by using the `--nodes` option followed by the number of nodes
 to be used.  Whenever the `--nodes` option is used, Legate will be launched
 using `mpirun`, even with `--nodes 1`.  Without the `--nodes` option, no launcher will
@@ -452,28 +351,22 @@ that can adversely effect the performance of the application.
 Same as normal Python programs, Legate programs can be run
 using Jupyter Notebook. Currently we support single node execution with
 multiple CPUs and GPUs, and plan to support multi-node execution in the future.
-We leverage Legion's Jupyter support, so you may want to refer to the  
+We leverage Legion's Jupyter support, so you may want to refer to the
 [relevant section in Legion's README](https://github.com/StanfordLegion/legion/blob/master/jupyter_notebook/README.md).
-To simplify the installation, we provide a script specifically for Legate libraries. 
+To simplify the installation, we provide a script specifically for Legate libraries.
 
 ### Installation of the Legate IPython Kernel
 
-Please install Legate, then run the following command to install the IPython
-kernel:
+Please install Legate, then run the following command to install a default
+Jupyter kernel:
 ```
-python -m legate.jupyter --json=legate_jupyter.json
+legate-jupyter
 ```
-If `--json=` is not provided, the installation script will look for a file
-named `legate_jupyter.json` in the current directory. A sample
-`legate_jupyter.json` file is provided in the legate.core source directory.
-
 If installation is successful, you will see some output like the following:
 ```
-IPython kernel: legate_kernel_nocr(Legate_SM_GPU) has been installed
+Jupyter kernel spec Legate_SM_GPU (Legate_SM_GPU) has been installed
 ```
-`Legate_SM_GPU` is the kernel name, and you will need to provide it
-when starting the Jupyter Notebook. `SM` means the kernel is only for
-shared memory execution; `GPU` means GPU support is enabled. 
+`Legate_SM_GPU` is the default kernel name.
 
 ### Running with Jupyter Notebook
 
@@ -486,22 +379,13 @@ the Legion Jupyter Notebook extension:
 
 ### Configuring the Jupyter Notebook
 
-The Legate IPython kernel is configured according to the json file provided at
-install time. Here is an example of an entry in the json file:
+The Legate Jupyter kernel is configured according to the command line arguments
+provided at install time.  Standard `legate` options for Core, Memory, and
+Mult-node configuration may be provided, as well as a name for the kernel:
 ```
-"cpus": {
-    "cmd": "--cpus",
-    "value": 1
-}
+legate-jupyter --name legate_cpus_2 --cpus 2
 ```
-* `cpus` is the name of the field. 
-
-* `cmd` is used to tell Jupyter how to pass the value for that field to Legate through the
-CLI, in this case using `--cpus` to set the number of CPUs.
-
-* `value` is the value of the field. 
-
-Other configuration options can be added by using the `other_options` field of the json file. 
+Other configuration options can be seen by using the `--help` command line option.
 
 ### Magic Command
 
@@ -509,24 +393,31 @@ We provide a Jupyter magic command to display the IPython kernel configuration.
 ```
 %load_ext legate.jupyter
 %legate_info
-Number of CPUs to use per rank: 4
-Number of GPUs to use per rank: 1
-Number of OpenMP groups to use per rank: 0
-Number of threads per OpenMP group: 4
-Number of Utility processors per rank: 2
-Amount of DRAM memory per rank (in MBs): 4000
-Amount of DRAM memory per NUMA domain per rank (in MBs): 0
-Amount of framebuffer memory per GPU (in MBs): 4000
-Amount of zero-copy memory per rank (in MBs): 32
-Amount of registered CPU-side pinned memory per rank (in MBs): 0
-Number of nodes to use: 1
+```
+results in output:
+```
+Kernel 'Legate_SM_GPU' configured for 1 node(s)
+
+Cores:
+  CPUs to use per rank : 4
+  GPUs to use per rank : 0
+  OpenMP groups to use per rank : 0
+  Threads per OpenMP group : 4
+  Utility processors per rank : 2
+
+Memory:
+  DRAM memory per rank (in MBs) : 4000
+  DRAM memory per NUMA domain per rank (in MBs) : 0
+  Framebuffer memory per GPU (in MBs) : 4000
+  Zero-copy memory per rank (in MBs) : 32
+  Registered CPU-side pinned memory per rank (in MBs) : 0
 ```
 
 ## Other FAQs
 
 * *Does Legate only work on NVIDIA hardware?*
   No, Legate will run on any processor supported by Legion (e.g. x86, ARM, and
-  PowerPC CPUs), and any network supported by GASNet (e.g. Infiniband,
+  PowerPC CPUs), and any network supported by GASNet or UCX (e.g. Infiniband,
   Cray, Omnipath, and (ROC-)Ethernet based interconnects).
 
 * *What languages does the Legate Core API have bindings for?*

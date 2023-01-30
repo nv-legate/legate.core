@@ -18,16 +18,22 @@ import sys
 from pathlib import Path
 
 import pytest
-from util import Capsys, GenObjs, powerset_nonempty
 
 import legate.driver.command as m
 from legate.driver.launcher import RANK_ENV_VARS
-from legate.driver.types import LauncherType
-from legate.driver.ui import scrub
+from legate.util.colors import scrub
+from legate.util.types import LauncherType
+
+from ...util import Capsys, powerset_nonempty
+from .util import GenObjs
 
 
 def test___all__() -> None:
     assert m.__all__ == ("CMD_PARTS",)
+
+
+def test_LEGATE_GLOBAL_RANK_SUBSTITUTION() -> None:
+    assert m.LEGATE_GLOBAL_RANK_SUBSTITUTION == "%%LEGATE_GLOBAL_RANK%%"
 
 
 def test_CMD_PARTS() -> None:
@@ -52,9 +58,11 @@ def test_CMD_PARTS() -> None:
         m.cmd_numamem,
         m.cmd_fbmem,
         m.cmd_regmem,
+        m.cmd_network,
         m.cmd_log_levels,
         m.cmd_log_file,
         m.cmd_eager_alloc,
+        m.cmd_ucx,
         m.cmd_user_opts,
     )
 
@@ -65,7 +73,16 @@ class Test_cmd_bind:
 
         result = m.cmd_bind(config, system, launcher)
 
-        assert result == ()
+        bind_sh = str(system.legate_paths.bind_sh_path)
+        assert result == (bind_sh, "--launcher", "local", "--")
+
+    def test_bind_detail(self, genobjs: GenObjs) -> None:
+        config, system, launcher = genobjs(["--bind-detail"])
+
+        result = m.cmd_bind(config, system, launcher)
+
+        bind_sh = str(system.legate_paths.bind_sh_path)
+        assert result == (bind_sh, "--launcher", "local", "--debug", "--")
 
     @pytest.mark.parametrize("kind", ("cpu", "gpu", "mem", "nic"))
     def test_basic_local(self, genobjs: GenObjs, kind: str) -> None:
@@ -74,7 +91,14 @@ class Test_cmd_bind:
         result = m.cmd_bind(config, system, launcher)
 
         bind_sh = str(system.legate_paths.bind_sh_path)
-        assert result == (bind_sh, "local", f"--{kind}s", "1")
+        assert result == (
+            bind_sh,
+            "--launcher",
+            "local",
+            f"--{kind}s",
+            "1",
+            "--",
+        )
 
     @pytest.mark.parametrize("launch", ("none", "mpirun", "jsrun", "srun"))
     def test_combo_local(
@@ -99,13 +123,16 @@ class Test_cmd_bind:
         result = m.cmd_bind(config, system, launcher)
 
         bind_sh = str(system.legate_paths.bind_sh_path)
-        assert result[:2] == (
+        assert result[:3] == (
             bind_sh,
+            "--launcher",
             "local" if launch == "none" else launch,
         )
-        x = iter(result[2:])
+        x = iter(result[3:])
         for name, binding in zip(x, x):  # pairwise
             assert f"{name} {binding}" in "--cpus 1 --gpus 1 --nics 1 --mems 1"
+
+        assert result[-1] == "--"
 
     @pytest.mark.parametrize("launch", ("none", "mpirun", "jsrun", "srun"))
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
@@ -125,8 +152,17 @@ class Test_cmd_bind:
 
         result = m.cmd_bind(config, system, launcher)
 
+        launcher_arg = "auto" if launch == "none" else launch
+
         bind_sh = str(system.legate_paths.bind_sh_path)
-        assert result == (bind_sh, launch, f"--{kind}s", "1/2")
+        assert result == (
+            bind_sh,
+            "--launcher",
+            launcher_arg,
+            f"--{kind}s",
+            "1/2",
+            "--",
+        )
 
     @pytest.mark.parametrize("binding", ("1", "1/2/3"))
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
@@ -239,7 +275,10 @@ class Test_cmd_nvprof:
 
         result = m.cmd_nvprof(config, system, launcher)
 
-        log_path = str(config.logging.logdir / "legate_0.nvvp")
+        log_path = str(
+            config.logging.logdir
+            / f"legate_{m.LEGATE_GLOBAL_RANK_SUBSTITUTION}.nvvp"
+        )
         assert result == ("nvprof", "-o", log_path)
 
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
@@ -255,7 +294,10 @@ class Test_cmd_nvprof:
 
         result = m.cmd_nvprof(config, system, launcher)
 
-        log_path = str(config.logging.logdir / f"legate_{rank}.nvvp")
+        log_path = str(
+            config.logging.logdir
+            / f"legate_{m.LEGATE_GLOBAL_RANK_SUBSTITUTION}.nvvp"
+        )
         assert result == ("nvprof", "-o", log_path)
 
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
@@ -272,7 +314,8 @@ class Test_cmd_nvprof:
         result = m.cmd_nvprof(config, system, launcher)
 
         log_path = str(
-            config.logging.logdir / f"legate_{launcher.rank_id}.nvvp"
+            config.logging.logdir
+            / f"legate_{m.LEGATE_GLOBAL_RANK_SUBSTITUTION}.nvvp"
         )
         assert result == ("nvprof", "-o", log_path)
 
@@ -298,7 +341,10 @@ class Test_cmd_nsys:
 
         result = m.cmd_nsys(config, system, launcher)
 
-        log_path = str(config.logging.logdir / f"legate_{rank}")
+        log_path = str(
+            config.logging.logdir
+            / f"legate_{m.LEGATE_GLOBAL_RANK_SUBSTITUTION}"
+        )
         assert result == (
             "nsys",
             "profile",
@@ -321,7 +367,10 @@ class Test_cmd_nsys:
 
         result = m.cmd_nsys(config, system, launcher)
 
-        log_path = str(config.logging.logdir / f"legate_{launcher.rank_id}")
+        log_path = str(
+            config.logging.logdir
+            / f"legate_{m.LEGATE_GLOBAL_RANK_SUBSTITUTION}"
+        )
         assert result == (
             "nsys",
             "profile",
@@ -354,7 +403,10 @@ class Test_cmd_nsys:
 
         result = m.cmd_nsys(config, system, launcher)
 
-        log_path = str(config.logging.logdir / f"legate_{rank}")
+        log_path = str(
+            config.logging.logdir
+            / f"legate_{m.LEGATE_GLOBAL_RANK_SUBSTITUTION}"
+        )
         assert result == (
             "nsys",
             "profile",
@@ -392,7 +444,10 @@ class Test_cmd_nsys:
 
         result = m.cmd_nsys(config, system, launcher)
 
-        log_path = str(config.logging.logdir / f"legate_{rank}")
+        log_path = str(
+            config.logging.logdir
+            / f"legate_{m.LEGATE_GLOBAL_RANK_SUBSTITUTION}"
+        )
         assert result == (
             "nsys",
             "profile",
@@ -425,7 +480,10 @@ class Test_cmd_nsys:
 
         result = m.cmd_nsys(config, system, launcher)
 
-        log_path = str(config.logging.logdir / f"legate_{rank}")
+        log_path = str(
+            config.logging.logdir
+            / f"legate_{m.LEGATE_GLOBAL_RANK_SUBSTITUTION}"
+        )
         assert result == (
             "nsys",
             "profile",
@@ -462,8 +520,43 @@ class Test_cmd_nocr:
 
         assert result == ()
 
-    def test_console(self, genobjs: GenObjs) -> None:
+    def test_console_single_node(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs([], fake_module=None)
+
+        result = m.cmd_nocr(config, system, launcher)
+
+        assert result == ()
+
+    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
+    @pytest.mark.parametrize("rank", ("0", "1", "2"))
+    def test_console_multi_node(
+        self, genobjs: GenObjs, rank: str, rank_var: dict[str, str]
+    ) -> None:
+        config, system, launcher = genobjs(
+            # passing --nodes is not usually necessary for genobjs but we
+            # are probing a "fixup" check that inspect args directly
+            ["--nodes", "2"],
+            multi_rank=(2, 1),
+            rank_env={rank_var: rank},
+            fake_module=None,
+        )
+
+        result = m.cmd_nocr(config, system, launcher)
+
+        assert result == ("--nocr",)
+
+    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
+    def test_console_multi_rank(
+        self, genobjs: GenObjs, rank_var: dict[str, str]
+    ) -> None:
+        config, system, launcher = genobjs(
+            # passing --ranks-per-node is not usually necessary for genobjs
+            # but we are probing a "fixup" check that inspect args directly
+            ["--ranks-per-node", "2"],
+            multi_rank=(1, 2),
+            rank_env={rank_var: "0"},
+            fake_module=None,
+        )
 
         result = m.cmd_nocr(config, system, launcher)
 
@@ -491,6 +584,24 @@ class Test_cmd_module:
         result = m.cmd_module(config, system, launcher)
 
         assert result == ("-m", "foo")
+
+    def test_with_cprofile(self, genobjs: GenObjs) -> None:
+        config, system, launcher = genobjs(["--cprofile"])
+
+        result = m.cmd_module(config, system, launcher)
+
+        log_path = str(
+            config.logging.logdir
+            / f"legate_{m.LEGATE_GLOBAL_RANK_SUBSTITUTION}.cprof"
+        )
+        assert result == ("-m", "cProfile", "-o", log_path)
+
+    def test_module_and_cprofile_error(self, genobjs: GenObjs) -> None:
+        config, system, launcher = genobjs(["--module", "foo", "--cprofile"])
+
+        err = "Only one of --module or --cprofile may be used"
+        with pytest.raises(ValueError, match=err):
+            m.cmd_module(config, system, launcher)
 
 
 class Test_cmd_rlwrap:
@@ -870,6 +981,52 @@ class Test_cmd_regmem:
         result = m.cmd_regmem(config, system, launcher)
 
         assert result == ("-ll:rsize", value)
+
+
+class Test_cmd_network:
+    def test_no_launcher_single_rank(
+        self,
+        genobjs: GenObjs,
+    ) -> None:
+        config, system, launcher = genobjs()
+        result = m.cmd_network(config, system, launcher)
+        assert result == ("-ll:networks", "none")
+
+    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
+    def test_no_launcher_multi_rank(
+        self,
+        genobjs: GenObjs,
+        rank_var: dict[str, str],
+    ) -> None:
+        config, system, launcher = genobjs(
+            multi_rank=(2, 2),
+            rank_env={rank_var: "1"},
+        )
+        result = m.cmd_network(config, system, launcher)
+        assert result == ()
+
+    @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
+    def test_launcher_single_rank(
+        self,
+        genobjs: GenObjs,
+        launch: LauncherType,
+    ) -> None:
+        config, system, launcher = genobjs(["--launcher", launch])
+        result = m.cmd_network(config, system, launcher)
+        assert result == ("-ll:networks", "none")
+
+    @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
+    def test_launcher_multi_rank(
+        self,
+        genobjs: GenObjs,
+        launch: LauncherType,
+    ) -> None:
+        config, system, launcher = genobjs(
+            ["--launcher", launch],
+            multi_rank=(2, 2),
+        )
+        result = m.cmd_network(config, system, launcher)
+        assert result == ()
 
 
 class Test_cmd_log_levels:

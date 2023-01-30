@@ -61,6 +61,10 @@ class Communicator(ABC):
     def destroy(self) -> None:
         for volume, handle in self._handles.items():
             self._finalize(volume, handle)
+        # Drop the references to the handles dict after
+        # all handles have been finalized to ensure that
+        # no references to FutureMaps are kept.
+        self._handles = {}
 
     @abstractproperty
     def needs_barrier(self) -> bool:
@@ -101,14 +105,16 @@ class NCCLCommunicator(Communicator):
 
         task = Task(self._context, self._init_nccl, tag=self._tag)
         task.add_future(nccl_id)
+        task.set_concurrent(True)
         handle = task.execute(Rect([volume]))
-        self._runtime.issue_execution_fence()
         return handle
 
     def _finalize(self, volume: int, handle: FutureMap) -> None:
         from .launcher import TaskLauncher as Task
 
         task = Task(self._context, self._finalize_nccl, tag=self._tag)
+        # Finalize may not need to be concurrent, but set it just in case
+        task.set_concurrent(True)
         task.add_future_map(handle)
         task.execute(Rect([volume]))
 
@@ -161,8 +167,8 @@ class CPUCommunicator(Communicator):
         for i in range(volume):
             f = mapping_table_fm.get_future(Point([i]))
             task.add_future(f)
+        task.set_concurrent(True)
         handle = task.execute(Rect([volume]))
-        self._runtime.issue_execution_fence()
         return handle
 
     def _finalize(self, volume: int, handle: FutureMap) -> None:
@@ -170,5 +176,6 @@ class CPUCommunicator(Communicator):
 
         task = Task(self._context, self._finalize_cpucoll, tag=self._tag)
         task.add_future_map(handle)
+        task.set_concurrent(True)
         task.execute(Rect([volume]))
         self._runtime.issue_execution_fence()

@@ -82,7 +82,7 @@ class Lit(Expr):
         return self
 
     def unknowns(self) -> Iterator[PartSym]:
-        pass
+        return iter([])
 
 
 class PartSym(Expr):
@@ -102,6 +102,8 @@ class PartSym(Expr):
         self._disjoint = disjoint
         self._complete = complete
 
+        self._hash = hash((self._op_hash, self._id))
+
     @property
     def ndim(self) -> int:
         return self._store.ndim
@@ -120,7 +122,7 @@ class PartSym(Expr):
         return f"X{self._id}({disj},{comp})@{self._op_name}"
 
     def __hash__(self) -> int:
-        return hash((self._op_hash, self._id))
+        return self._hash
 
     def subst(self, mapping: dict[PartSym, PartitionBase]) -> Expr:
         return Lit(mapping[self])

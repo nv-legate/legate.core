@@ -37,16 +37,18 @@ function(find_or_configure_legion)
       BUILD_EXPORT_SET   legate-core-exports
       INSTALL_EXPORT_SET legate-core-exports)
 
-  # First try to find Legion via find_package()
-  # so the `Legion_USE_*` variables are visible
-  # Use QUIET find by default.
-  set(_find_mode QUIET)
-  # If Legion_DIR/Legion_ROOT are defined as something other than empty or NOTFOUND
-  # use a REQUIRED find so that the build does not silently download Legion.
-  if(Legion_DIR OR Legion_ROOT)
-    set(_find_mode REQUIRED)
+  if((NOT CPM_Legion_SOURCE) AND (NOT CPM_DOWNLOAD_Legion))
+    # First try to find Legion via find_package()
+    # so the `Legion_USE_*` variables are visible
+    # Use QUIET find by default.
+    set(_find_mode QUIET)
+    # If Legion_DIR/Legion_ROOT are defined as something other than empty or NOTFOUND
+    # use a REQUIRED find so that the build does not silently download Legion.
+    if(Legion_DIR OR Legion_ROOT)
+      set(_find_mode REQUIRED)
+    endif()
+    rapids_find_package(Legion ${PKG_VERSION} EXACT CONFIG ${_find_mode} ${FIND_PKG_ARGS})
   endif()
-  rapids_find_package(Legion ${PKG_VERSION} EXACT CONFIG ${_find_mode} ${FIND_PKG_ARGS})
 
   if(Legion_FOUND)
     message(STATUS "CPM: using local package Legion@${PKG_VERSION}")
@@ -157,6 +159,7 @@ function(find_or_configure_legion)
                                  "Legion_REDOP_HALF ON"
                                  "Legion_REDOP_COMPLEX ON"
                                  "Legion_GPU_REDUCTIONS OFF"
+                                 "Legion_BUILD_RUST_PROFILER ON"
     )
   endif()
 
@@ -173,7 +176,7 @@ function(find_or_configure_legion)
 endfunction()
 
 if(NOT DEFINED legate_core_LEGION_BRANCH)
-  set(legate_core_LEGION_BRANCH control_replication)
+  set(legate_core_LEGION_BRANCH collective)
 endif()
 
 if(NOT DEFINED legate_core_LEGION_REPOSITORY)

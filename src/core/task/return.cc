@@ -35,6 +35,40 @@ using namespace Legion;
 
 namespace legate {
 
+ReturnValue::ReturnValue(Legion::UntypedDeferredValue value, size_t size)
+  : value_(value), size_(size)
+{
+  is_device_value_ = value.get_instance().get_location().kind() == Memory::Kind::GPU_FB_MEM;
+}
+
+/*static*/ ReturnValue ReturnValue::unpack(const void* ptr, size_t size, Memory::Kind memory_kind)
+{
+  ReturnValue result(UntypedDeferredValue(size, memory_kind), size);
+#ifdef DEBUG_LEGATE
+  assert(!result.is_device_value());
+#endif
+  memcpy(result.ptr(), ptr, size);
+
+  return result;
+}
+
+void ReturnValue::finalize(Legion::Context legion_context) const
+{
+  value_.finalize(legion_context);
+}
+
+void* ReturnValue::ptr()
+{
+  AccessorRW<int8_t, 1> acc(value_, size_, false);
+  return acc.ptr(0);
+}
+
+const void* ReturnValue::ptr() const
+{
+  AccessorRO<int8_t, 1> acc(value_, size_, false);
+  return acc.ptr(0);
+}
+
 struct JoinReturnedException {
   using LHS = ReturnedException;
   using RHS = LHS;
@@ -145,53 +179,6 @@ ReturnValue ReturnedException::pack() const
   return ReturnValue(buffer, buffer_size);
 }
 
-namespace {
-
-template <bool PACK_SIZE>
-int8_t* pack_return_value(int8_t* target, const ReturnValue& value)
-{
-  if constexpr (PACK_SIZE) {
-    *reinterpret_cast<uint32_t*>(target) = value.second;
-    target += sizeof(uint32_t);
-  }
-
-  AccessorRO<int8_t, 1> acc(value.first, value.second, false);
-  memcpy(target, acc.ptr(0), value.second);
-  return target + value.second;
-}
-
-#ifdef LEGATE_USE_CUDA
-
-template <bool PACK_SIZE>
-int8_t* pack_return_value(int8_t* target, const ReturnValue& value, cuda::StreamView& stream)
-{
-  if constexpr (PACK_SIZE) {
-    *reinterpret_cast<uint32_t*>(target) = value.second;
-    target += sizeof(uint32_t);
-  }
-
-  AccessorRO<int8_t, 1> acc(value.first, value.second, false);
-  CHECK_CUDA(cudaMemcpyAsync(target, acc.ptr(0), value.second, cudaMemcpyDeviceToHost, stream));
-  return target + value.second;
-}
-
-#endif
-
-ReturnValue unpack_return_value(const int8_t*& ptr, Memory::Kind memory_kind)
-{
-  auto size = *reinterpret_cast<const uint32_t*>(ptr);
-  ptr += sizeof(uint32_t);
-
-  UntypedDeferredValue value(size, memory_kind);
-  AccessorWO<int8_t, 1> acc(value, size, false);
-  memcpy(acc.ptr(0), ptr, size);
-  ptr += size;
-
-  return ReturnValue(value, size);
-}
-
-}  // namespace
-
 ReturnValues::ReturnValues() {}
 
 ReturnValues::ReturnValues(std::vector<ReturnValue>&& return_values)
@@ -199,9 +186,9 @@ ReturnValues::ReturnValues(std::vector<ReturnValue>&& return_values)
 {
   if (return_values_.size() > 1) {
     buffer_size_ += sizeof(uint32_t);
-    for (auto& ret : return_values_) buffer_size_ += sizeof(uint32_t) + ret.second;
+    for (auto& ret : return_values_) buffer_size_ += sizeof(uint32_t) + ret.size();
   } else if (return_values_.size() > 0)
-    buffer_size_ = return_values_[0].second;
+    buffer_size_ = return_values_[0].size();
 }
 
 ReturnValue ReturnValues::operator[](int32_t idx) const { return return_values_[idx]; }
@@ -210,30 +197,64 @@ size_t ReturnValues::legion_buffer_size() const { return buffer_size_; }
 
 void ReturnValues::legion_serialize(void* buffer) const
 {
-#ifdef LEGATE_USE_CUDA
-  auto stream = cuda::StreamPool::get_stream_pool().get_stream();
-#endif
+  // We pack N return values into the buffer in the following format:
+  //
+  // +--------+-----------+-----+------------+-------+-------+-------+-----
+  // |   #    | offset to |     | offset to  | total | value | value | ...
+  // | values | scalar 1  | ... | scalar N-1 | value |   1   |   2   |
+  // |        |           |     |            | size  |       |       |
+  // +--------+-----------+-----+------------+-------+-------+-------+-----
+  //           <============ offsets ===============> <==== values =======>
+  //
+  // the size of value i is computed by offsets[i] - (i == 0 ? 0 : offsets[i-1])
 
-  auto ptr = static_cast<int8_t*>(buffer);
+  // Special case with a single scalar
   if (return_values_.size() == 1) {
     auto& ret = return_values_.front();
 #ifdef LEGATE_USE_CUDA
-    if (ret.first.get_instance().get_location().kind() == Memory::Kind::GPU_FB_MEM)
-      ptr = pack_return_value<false>(ptr, ret, stream);
-    else
+    if (ret.is_device_value()) {
+#ifdef DEBUG_LEGATE
+      assert(Processor::get_executing_processor().kind() == Processor::Kind::TOC_PROC);
 #endif
-      ptr = pack_return_value<false>(ptr, ret);
-  } else {
-    *reinterpret_cast<uint32_t*>(ptr) = return_values_.size();
-    ptr += sizeof(uint32_t);
+      CHECK_CUDA(cudaMemcpyAsync(buffer,
+                                 ret.ptr(),
+                                 ret.size(),
+                                 cudaMemcpyDeviceToHost,
+                                 cuda::StreamPool::get_stream_pool().get_stream()));
+    } else
+#endif
+      memcpy(buffer, ret.ptr(), ret.size());
+    return;
+  }
 
-    for (auto& ret : return_values_) {
+  *static_cast<uint32_t*>(buffer) = return_values_.size();
+  auto ptr                        = static_cast<int8_t*>(buffer) + sizeof(uint32_t);
+
+  uint32_t offset = 0;
+  for (auto ret : return_values_) {
+    offset += ret.size();
+    *reinterpret_cast<uint32_t*>(ptr) = offset;
+    ptr                               = ptr + sizeof(uint32_t);
+  }
+
 #ifdef LEGATE_USE_CUDA
-      if (ret.first.get_instance().get_location().kind() == Memory::Kind::GPU_FB_MEM)
-        ptr = pack_return_value<true>(ptr, ret, stream);
+  if (Processor::get_executing_processor().kind() == Processor::Kind::TOC_PROC) {
+    auto stream = cuda::StreamPool::get_stream_pool().get_stream();
+    for (auto ret : return_values_) {
+      uint32_t size = ret.size();
+      if (ret.is_device_value())
+        CHECK_CUDA(cudaMemcpyAsync(ptr, ret.ptr(), size, cudaMemcpyDeviceToHost, stream));
       else
+        memcpy(ptr, ret.ptr(), size);
+      ptr += size;
+    }
+  } else
 #endif
-        ptr = pack_return_value<true>(ptr, ret);
+  {
+    for (auto ret : return_values_) {
+      uint32_t size = ret.size();
+      memcpy(ptr, ret.ptr(), size);
+      ptr += size;
     }
   }
 }
@@ -244,11 +265,35 @@ void ReturnValues::legion_deserialize(const void* buffer)
 
   auto ptr        = static_cast<const int8_t*>(buffer);
   auto num_values = *reinterpret_cast<const uint32_t*>(ptr);
-  ptr += sizeof(uint32_t);
-  return_values_.resize(num_values);
 
-  for (auto& ret : return_values_) ret = unpack_return_value(ptr, mem_kind);
-  buffer_size_ = ptr - static_cast<const int8_t*>(buffer);
+  auto offsets = reinterpret_cast<const uint32_t*>(ptr + sizeof(uint32_t));
+  auto values  = ptr + sizeof(uint32_t) + sizeof(uint32_t) * num_values;
+
+  uint32_t offset = 0;
+  for (uint32_t idx = 0; idx < num_values; ++idx) {
+    uint32_t next_offset = offsets[idx];
+    uint32_t size        = next_offset - offset;
+    return_values_.push_back(ReturnValue::unpack(values + offset, size, mem_kind));
+    offset = next_offset;
+  }
+}
+
+/*static*/ ReturnValue ReturnValues::extract(Legion::Future future, uint32_t to_extract)
+{
+  auto kind          = find_memory_kind_for_executing_processor();
+  const auto* buffer = future.get_buffer(kind);
+
+  auto ptr        = static_cast<const int8_t*>(buffer);
+  auto num_values = *reinterpret_cast<const uint32_t*>(ptr);
+
+  auto offsets = reinterpret_cast<const uint32_t*>(ptr + sizeof(uint32_t));
+  auto values  = ptr + sizeof(uint32_t) + sizeof(uint32_t) * num_values;
+
+  uint32_t next_offset = offsets[to_extract];
+  uint32_t offset      = to_extract == 0 ? 0 : offsets[to_extract - 1];
+  uint32_t size        = next_offset - offset;
+
+  return ReturnValue::unpack(values + offset, size, kind);
 }
 
 void ReturnValues::finalize(Context legion_context) const
@@ -257,7 +302,7 @@ void ReturnValues::finalize(Context legion_context) const
     Runtime::legion_task_postamble(legion_context);
     return;
   } else if (return_values_.size() == 1) {
-    return_values_.front().first.finalize(legion_context);
+    return_values_.front().finalize(legion_context);
     return;
   }
 

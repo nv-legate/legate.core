@@ -18,10 +18,6 @@ import legate.driver.args as m
 import legate.driver.defaults as defaults
 
 
-def test_LAUNCHERS() -> None:
-    assert m.LAUNCHERS == ("mpirun", "jsrun", "srun", "none")
-
-
 class TestParserDefaults:
     def test_allow_abbrev(self) -> None:
         assert not m.parser.allow_abbrev
@@ -169,6 +165,9 @@ class TestParserDefaults:
 
     def test_verbose(self) -> None:
         assert m.parser.get_default("verbose") is False
+
+    def test_bind_detail(self) -> None:
+        assert m.parser.get_default("bind_detail") is False
 
     # other
 

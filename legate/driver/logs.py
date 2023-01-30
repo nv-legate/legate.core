@@ -22,13 +22,15 @@ from abc import ABCMeta, abstractmethod
 from contextlib import contextmanager
 from shlex import quote
 from subprocess import run
-from typing import Iterator
+from typing import TYPE_CHECKING, Iterator
 
-from .config import Config
-from .launcher import Launcher
-from .system import System
-from .types import Command
-from .ui import warn
+from ..util.ui import warn
+
+if TYPE_CHECKING:
+    from ..util.system import System
+    from ..util.types import Command
+    from .config import ConfigProtocol
+    from .launcher import Launcher
 
 __all__ = (
     "DebuggingHandler",
@@ -51,10 +53,10 @@ class LogHandler(metaclass=ABCMeta):
 
     """
 
-    config: Config
+    config: ConfigProtocol
     system: System
 
-    def __init__(self, config: Config, system: System) -> None:
+    def __init__(self, config: ConfigProtocol, system: System) -> None:
         self.config = config
         self.system = system
 
@@ -162,7 +164,7 @@ class DebuggingHandler(LogHandler):
 
 @contextmanager
 def process_logs(
-    config: Config, system: System, launcher: Launcher
+    config: ConfigProtocol, system: System, launcher: Launcher
 ) -> Iterator[tuple[LogHandler, ...]]:
     """A context manager for log initializion and processing/cleanup, based
     on the user configuration.
@@ -183,7 +185,7 @@ def process_logs(
 
     handlers: list[LogHandler] = []
 
-    if launcher.kind != "none" or launcher.rank_id == "0":
+    if launcher.kind != "none" or launcher.detected_rank_id == "0":
         if config.profiling.profile:
             handlers.append(ProfilingHandler(config, system))
 

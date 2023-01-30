@@ -17,8 +17,8 @@
 namespace legate {
 
 template <typename Deserializer>
-BaseDeserializer<Deserializer>::BaseDeserializer(const Legion::Task* task)
-  : task_(task), task_args_{static_cast<const int8_t*>(task->args), task->arglen}
+BaseDeserializer<Deserializer>::BaseDeserializer(const int8_t* args, size_t arglen)
+  : args_(Span<const int8_t>(args, arglen))
 {
 }
 
@@ -33,8 +33,8 @@ void BaseDeserializer<Deserializer>::_unpack(Scalar& value)
 {
   auto tuple = unpack<bool>();
   auto code  = unpack<LegateTypeCode>();
-  value      = Scalar(tuple, code, task_args_.ptr());
-  task_args_ = task_args_.subspan(value.size());
+  value      = Scalar(tuple, code, args_.ptr());
+  args_      = args_.subspan(value.size());
 }
 
 template <typename Deserializer>

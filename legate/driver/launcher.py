@@ -15,14 +15,15 @@
 from __future__ import annotations
 
 import os
-import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from .config import Config
-from .system import System
-from .types import Command, EnvDict, LauncherType
-from .ui import warn
-from .util import read_c_define
+from ..util.fs import read_c_define
+
+if TYPE_CHECKING:
+    from ..util.system import System
+    from ..util.types import Command, EnvDict, LauncherType
+    from .config import ConfigProtocol
 
 __all__ = ("Launcher",)
 
@@ -51,8 +52,8 @@ LAUNCHER_VAR_PREFIXES = (
 class Launcher:
     """A base class for custom launch handlers for Legate.
 
-    Subclasses should set ``kind``, ``rank_id``, and ``cmd`` properties during
-    their initialization.
+    Subclasses should set ``kind`` and ``cmd`` properties during their
+    initialization.
 
     Parameters
     ----------
@@ -64,11 +65,12 @@ class Launcher:
 
     kind: LauncherType
 
-    rank_id: str
-
     cmd: Command
 
-    _config: Config
+    # base class will attempt to set this
+    detected_rank_id: str | None = None
+
+    _config: ConfigProtocol
 
     _system: System
 
@@ -76,23 +78,28 @@ class Launcher:
 
     _custom_env_vars: set[str] | None = None
 
-    def __init__(self, config: Config, system: System) -> None:
+    def __init__(self, config: ConfigProtocol, system: System) -> None:
         self._config = config
         self._system = system
 
-        self._check_realm_python()
+        if config.multi_node.ranks == 1:
+            self.detected_rank_id = "0"
+        else:
+            for var in RANK_ENV_VARS:
+                if var in system.env:
+                    self.detected_rank_id = system.env[var]
+                    break
 
     def __eq__(self, other: object) -> bool:
         return (
             isinstance(other, type(self))
             and self.kind == other.kind
-            and self.rank_id == other.rank_id
             and self.cmd == other.cmd
             and self.env == other.env
         )
 
     @classmethod
-    def create(cls, config: Config, system: System) -> Launcher:
+    def create(cls, config: ConfigProtocol, system: System) -> Launcher:
         """Factory method for creating appropriate Launcher subclass based on
         user configuration.
 
@@ -143,27 +150,6 @@ class Launcher:
             name.startswith(prefix) for prefix in LAUNCHER_VAR_PREFIXES
         )
 
-    def _check_realm_python(self) -> None:
-
-        # Make sure the version of Python used by Realm is the same as what the
-        # user is using currently.
-        realm_pylib = read_c_define(
-            self._system.legion_paths.realm_defines_h, "REALM_PYTHON_LIB"
-        )
-
-        if realm_pylib is None:
-            raise RuntimeError("Cannot determine Realm Python Lib")
-
-        realm_home = Path(realm_pylib[1:-1]).parents[1]
-        if (current_home := Path(sys.executable).parents[1]) != realm_home:
-            print(
-                warn(
-                    "Legate was compiled against the Python installation at "
-                    f"{realm_home}, but you are currently using the Python "
-                    f"installation at {current_home}"
-                )
-            )
-
     def _compute_env(self) -> tuple[EnvDict, set[str]]:
         config = self._config
         system = self._system
@@ -199,6 +185,17 @@ class Launcher:
         # Make sure GASNet initializes MPI with the right level of
         # threading support
         env["GASNET_MPI_THREAD"] = "MPI_THREAD_MULTIPLE"
+
+        # UCX-related environment variables
+        env["UCX_CUDA_COPY_MAX_REG_RATIO"] = "1.0"
+        env["UCX_MULTI_LANE_MAX_RATIO"] = "1.0"
+        env["UCX_IB_RCACHE_PURGE_ON_FORK"] = "n"
+        env["UCX_RC_TX_POLL_ALWAYS"] = "y"
+
+        # Link to the UCX bootstrap plugin, in case Realm is using UCX
+        env["REALM_UCP_BOOTSTRAP_PLUGIN"] = str(
+            system.legion_paths.legion_lib_path / "realm_ucp_bootstrap_mpi.so"
+        )
 
         # Set some environment variables depending on our configuration that
         # we will check in the Legate binary to ensure that it is properly.
@@ -288,21 +285,14 @@ class SimpleLauncher(Launcher):
 
     kind: LauncherType = "none"
 
-    def __init__(self, config: Config, system: System) -> None:
+    def __init__(self, config: ConfigProtocol, system: System) -> None:
         super().__init__(config, system)
 
-        if config.multi_node.ranks == 1:
-            self.rank_id = "0"
-
-        else:
-            for var in RANK_ENV_VARS:
-                if var in system.env:
-                    self.rank_id = system.env[var]
-                    break
-
-            # NB: for-else clause! (executes if NO loop break)
-            else:
-                raise RuntimeError(RANK_ERR_MSG)
+        # bind.sh handles computing local and global rank id, even in the
+        # simple case, just for consistency. But we do still check the known
+        # rank env vars below in order to issue RANK_ERR_MSG if needed
+        if config.multi_node.ranks > 1 and self.detected_rank_id is None:
+            raise RuntimeError(RANK_ERR_MSG)
 
         self.cmd = ()
 
@@ -316,10 +306,8 @@ class MPILauncher(Launcher):
 
     kind: LauncherType = "mpirun"
 
-    def __init__(self, config: Config, system: System) -> None:
+    def __init__(self, config: ConfigProtocol, system: System) -> None:
         super().__init__(config, system)
-
-        self.rank_id = "%q{OMPI_COMM_WORLD_RANK}"
 
         ranks = config.multi_node.ranks
         ranks_per_node = config.multi_node.ranks_per_node
@@ -346,10 +334,8 @@ class JSRunLauncher(Launcher):
 
     kind: LauncherType = "jsrun"
 
-    def __init__(self, config: Config, system: System) -> None:
+    def __init__(self, config: ConfigProtocol, system: System) -> None:
         super().__init__(config, system)
-
-        self.rank_id = "%q{OMPI_COMM_WORLD_RANK}"
 
         ranks = config.multi_node.ranks
         ranks_per_node = config.multi_node.ranks_per_node
@@ -374,10 +360,8 @@ class SRunLauncher(Launcher):
 
     kind: LauncherType = "srun"
 
-    def __init__(self, config: Config, system: System) -> None:
+    def __init__(self, config: ConfigProtocol, system: System) -> None:
         super().__init__(config, system)
-
-        self.rank_id = "%q{SLURM_PROCID}"
 
         ranks = config.multi_node.ranks
         ranks_per_node = config.multi_node.ranks_per_node

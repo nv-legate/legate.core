@@ -16,6 +16,13 @@
 
 cmake_minimum_required(VERSION 3.22.1 FATAL_ERROR)
 
+if(POLICY CMP0074)
+  # find_package() uses <PackageName>_ROOT variables
+  # https://cmake.org/cmake/help/latest/policy/CMP0074.html#policy:CMP0074
+  cmake_policy(SET CMP0074 NEW)
+  set(CMAKE_POLICY_DEFAULT_CMP0074 NEW)
+endif()
+
 if(POLICY CMP0060)
   # Link libraries by full path even in implicit directories
   # https://cmake.org/cmake/help/latest/policy/CMP0060.html#policy:CMP0060
@@ -65,7 +72,7 @@ include(rapids-cuda)
 include(rapids-export)
 include(rapids-find)
 
-set(legate_core_version 22.10.00)
+set(legate_core_version 22.12.00)
 
 # For now we want the optimization flags to match on both normal make and cmake
 # builds so we override the cmake defaults here for release, this changes
@@ -97,23 +104,22 @@ endif()
 if(CMAKE_GENERATOR STREQUAL "Ninja")
   function(add_touch_legate_core_ninja_build_target)
     set(_suf )
-    set(_depends )
     if(SKBUILD)
       set(_suf "_python")
     endif()
+    add_custom_target("touch_legate_core${_suf}_ninja_build" ALL
+      COMMAND ${CMAKE_COMMAND} -E touch_nocreate "${CMAKE_CURRENT_BINARY_DIR}/build.ninja"
+      COMMENT "touch build.ninja so ninja doesn't re-run CMake on rebuild"
+      VERBATIM
+    )
     foreach(_dep IN ITEMS legion_core legion_core_python
                           Legion LegionRuntime
                           Realm RealmRuntime
                           Regent)
       if(TARGET ${_dep})
-        list(APPEND _depends ${_dep})
+        add_dependencies("touch_legate_core${_suf}_ninja_build" ${_dep})
       endif()
     endforeach()
-    add_custom_target("touch_legion_core${_suf}_ninja_build" ALL
-      COMMAND ${CMAKE_COMMAND} -E touch_nocreate "${CMAKE_CURRENT_BINARY_DIR}/build.ninja"
-      COMMENT "touch build.ninja so ninja doesn't re-run CMake on rebuild"
-      VERBATIM DEPENDS ${_depends}
-    )
   endfunction()
   add_touch_legate_core_ninja_build_target()
 endif()

@@ -32,8 +32,42 @@
 
 namespace legate {
 
-// We're going to allow for each task to use only up to 170 scalar output stores
-constexpr size_t LEGATE_MAX_SIZE_SCALAR_RETURN = 2048;
+// We're going to allow for each task to use only up to 341 scalar output stores
+constexpr size_t LEGATE_MAX_SIZE_SCALAR_RETURN = 4096;
+
+struct VariantOptions {
+  bool leaf{true};
+  bool inner{false};
+  bool idempotent{false};
+  bool concurrent{false};
+  size_t return_size{LEGATE_MAX_SIZE_SCALAR_RETURN};
+
+  VariantOptions& with_leaf(bool _leaf)
+  {
+    leaf = _leaf;
+    return *this;
+  }
+  VariantOptions& with_inner(bool _inner)
+  {
+    inner = _inner;
+    return *this;
+  }
+  VariantOptions& with_idempotent(bool _idempotent)
+  {
+    idempotent = _idempotent;
+    return *this;
+  }
+  VariantOptions& with_concurrent(bool _concurrent)
+  {
+    concurrent = _concurrent;
+    return *this;
+  }
+  VariantOptions& with_return_size(size_t _return_size)
+  {
+    return_size = _return_size;
+    return *this;
+  }
+};
 
 using LegateVariantImpl = void (*)(TaskContext&);
 
@@ -64,11 +98,6 @@ class LegateTask {
     static __no& test(...);
     static const bool value = (sizeof(test<T>(0)) == sizeof(__yes));
   };
-
- public:
-  static void register_variants();
-  template <typename RET_T, typename REDUC_T>
-  static void register_variants_with_return();
 
  public:
   static const char* task_name()
@@ -129,33 +158,24 @@ class LegateTask {
                                Legion::TaskLayoutConstraintSet& layout_constraints,
                                LegateVariantCode var,
                                Legion::Processor::Kind kind,
-                               bool leaf       = false,
-                               bool inner      = false,
-                               bool idempotent = false)
+                               const VariantOptions& options)
   {
     // Construct the code descriptor for this task so that the library
     // can register it later when it is ready
     Legion::CodeDescriptor desc(legate_task_wrapper<TASK_PTR>);
     auto task_id = T::TASK_ID;
 
-    T::Registrar::record_variant(task_id,
-                                 T::task_name(),
-                                 desc,
-                                 execution_constraints,
-                                 layout_constraints,
-                                 var,
-                                 kind,
-                                 leaf,
-                                 inner,
-                                 idempotent,
-                                 LEGATE_MAX_SIZE_SCALAR_RETURN);
+    T::Registrar::record_variant(
+      task_id, T::task_name(), desc, execution_constraints, layout_constraints, var, kind, options);
   }
+  static void register_variants(
+    const std::map<LegateVariantCode, VariantOptions>& all_options = {});
 };
 
 template <typename T, typename BASE, bool HAS_CPU>
 class RegisterCPUVariant {
  public:
-  static void register_variant()
+  static void register_variant(const VariantOptions& options)
   {
     Legion::ExecutionConstraintSet execution_constraints;
     Legion::TaskLayoutConstraintSet layout_constraints;
@@ -163,14 +183,14 @@ class RegisterCPUVariant {
                                                     layout_constraints,
                                                     LEGATE_CPU_VARIANT,
                                                     Legion::Processor::LOC_PROC,
-                                                    true /*leaf*/);
+                                                    options);
   }
 };
 
 template <typename T, typename BASE>
 class RegisterCPUVariant<T, BASE, false> {
  public:
-  static void register_variant()
+  static void register_variant(const VariantOptions& options)
   {
     // Do nothing
   }
@@ -179,7 +199,7 @@ class RegisterCPUVariant<T, BASE, false> {
 template <typename T, typename BASE, bool HAS_OPENMP>
 class RegisterOMPVariant {
  public:
-  static void register_variant()
+  static void register_variant(const VariantOptions& options)
   {
     Legion::ExecutionConstraintSet execution_constraints;
     Legion::TaskLayoutConstraintSet layout_constraints;
@@ -187,14 +207,14 @@ class RegisterOMPVariant {
                                                     layout_constraints,
                                                     LEGATE_OMP_VARIANT,
                                                     Legion::Processor::OMP_PROC,
-                                                    true /*leaf*/);
+                                                    options);
   }
 };
 
 template <typename T, typename BASE>
 class RegisterOMPVariant<T, BASE, false> {
  public:
-  static void register_variant()
+  static void register_variant(const VariantOptions& options)
   {
     // Do nothing
   }
@@ -203,7 +223,7 @@ class RegisterOMPVariant<T, BASE, false> {
 template <typename T, typename BASE, bool HAS_GPU>
 class RegisterGPUVariant {
  public:
-  static void register_variant()
+  static void register_variant(const VariantOptions& options)
   {
     Legion::ExecutionConstraintSet execution_constraints;
     Legion::TaskLayoutConstraintSet layout_constraints;
@@ -211,25 +231,31 @@ class RegisterGPUVariant {
                                                     layout_constraints,
                                                     LEGATE_GPU_VARIANT,
                                                     Legion::Processor::TOC_PROC,
-                                                    true /*leaf*/);
+                                                    options);
   }
 };
 
 template <typename T, typename BASE>
 class RegisterGPUVariant<T, BASE, false> {
  public:
-  static void register_variant()
+  static void register_variant(const VariantOptions& options)
   {
     // Do nothing
   }
 };
 
 template <typename T>
-/*static*/ void LegateTask<T>::register_variants()
+/*static*/ void LegateTask<T>::register_variants(
+  const std::map<LegateVariantCode, VariantOptions>& all_options)
 {
-  RegisterCPUVariant<T, LegateTask<T>, HasCPUVariant::value>::register_variant();
-  RegisterOMPVariant<T, LegateTask<T>, HasOMPVariant::value>::register_variant();
-  RegisterGPUVariant<T, LegateTask<T>, HasGPUVariant::value>::register_variant();
+  // Make a copy of the map of options so that we can do find-or-create on it
+  auto all_options_copy = all_options;
+  RegisterCPUVariant<T, LegateTask<T>, HasCPUVariant::value>::register_variant(
+    all_options_copy[LEGATE_CPU_VARIANT]);
+  RegisterOMPVariant<T, LegateTask<T>, HasOMPVariant::value>::register_variant(
+    all_options_copy[LEGATE_OMP_VARIANT]);
+  RegisterGPUVariant<T, LegateTask<T>, HasGPUVariant::value>::register_variant(
+    all_options_copy[LEGATE_GPU_VARIANT]);
 }
 
 class LegateTaskRegistrar {
@@ -241,10 +267,7 @@ class LegateTaskRegistrar {
                       Legion::TaskLayoutConstraintSet& layout_constraints,
                       LegateVariantCode var,
                       Legion::Processor::Kind kind,
-                      bool leaf,
-                      bool inner,
-                      bool idempotent,
-                      size_t ret_size);
+                      const VariantOptions& options);
 
  public:
   void register_all_tasks(Legion::Runtime* runtime, LibraryContext& context);

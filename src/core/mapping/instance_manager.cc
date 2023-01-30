@@ -302,6 +302,49 @@ void InstanceSet::dump_and_sanity_check() const
   for (auto& entry : instances_) assert(found_groups.count(entry.first) > 0);
 }
 
+bool ReductionInstanceSet::find_instance(ReductionOpID& redop,
+                                         Region& region,
+                                         Instance& result,
+                                         const InstanceMappingPolicy& policy) const
+{
+  auto finder = instances_.find(region);
+  if (finder == instances_.end()) return false;
+  auto& spec = finder->second;
+  if (spec.policy == policy && spec.redop == redop) {
+    result = spec.instance;
+    return true;
+  } else
+    return false;
+}
+
+void ReductionInstanceSet::record_instance(ReductionOpID& redop,
+                                           Region& region,
+                                           Instance& instance,
+                                           const InstanceMappingPolicy& policy)
+{
+  auto finder = instances_.find(region);
+  if (finder != instances_.end()) {
+    auto& spec = finder->second;
+    if (spec.policy != policy || spec.redop != redop) {
+      instances_.insert_or_assign(region, ReductionInstanceSpec(redop, instance, policy));
+    }
+  } else {
+    instances_[region] = ReductionInstanceSpec(redop, instance, policy);
+  }
+}
+
+bool ReductionInstanceSet::erase(PhysicalInstance inst)
+{
+  for (auto it = instances_.begin(); it != instances_.end(); /*nothing*/) {
+    if (it->second.instance == inst) {
+      auto to_erase = it++;
+      instances_.erase(to_erase);
+    } else
+      it++;
+  }
+  return instances_.empty();
+}
+
 bool InstanceManager::find_instance(Region region,
                                     FieldID field_id,
                                     Memory memory,
@@ -381,6 +424,64 @@ std::map<Legion::Memory, size_t> InstanceManager::aggregate_instance_sizes() con
   static InstanceManager* manager{nullptr};
 
   if (nullptr == manager) manager = new InstanceManager();
+  return manager;
+}
+
+bool ReductionInstanceManager::find_instance(ReductionOpID& redop,
+                                             Region region,
+                                             FieldID field_id,
+                                             Memory memory,
+                                             Instance& result,
+                                             const InstanceMappingPolicy& policy)
+{
+  auto finder = instance_sets_.find(FieldMemInfo(region.get_tree_id(), field_id, memory));
+  return policy.allocation != AllocPolicy::MUST_ALLOC && finder != instance_sets_.end() &&
+         finder->second.find_instance(redop, region, result, policy);
+}
+
+void ReductionInstanceManager::record_instance(ReductionOpID& redop,
+                                               Region region,
+                                               FieldID fid,
+                                               Instance instance,
+                                               const InstanceMappingPolicy& policy)
+{
+  const auto mem = instance.get_location();
+  const auto tid = instance.get_tree_id();
+
+  FieldMemInfo key(tid, fid, mem);
+  auto finder = instance_sets_.find(key);
+  if (finder != instance_sets_.end())
+    instance_sets_[key].record_instance(redop, region, instance, policy);
+  else {
+    ReductionInstanceSet set;
+    set.record_instance(redop, region, instance, policy);
+    instance_sets_[key] = set;
+  }
+}
+
+void ReductionInstanceManager::erase(PhysicalInstance inst)
+{
+  const auto mem = inst.get_location();
+  const auto tid = inst.get_tree_id();
+
+  for (auto fit = instance_sets_.begin(); fit != instance_sets_.end(); /*nothing*/) {
+    if ((fit->first.memory != mem) || (fit->first.tid != tid)) {
+      fit++;
+      continue;
+    }
+    if (fit->second.erase(inst)) {
+      auto to_erase = fit++;
+      instance_sets_.erase(to_erase);
+    } else
+      fit++;
+  }
+}
+
+/*static*/ ReductionInstanceManager* ReductionInstanceManager::get_instance_manager()
+{
+  static ReductionInstanceManager* manager{nullptr};
+
+  if (nullptr == manager) manager = new ReductionInstanceManager();
   return manager;
 }
 

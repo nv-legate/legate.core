@@ -38,15 +38,21 @@ class LegateProjectionFunctor : public Legion::ProjectionFunctor {
   virtual bool is_functional(void) const { return true; }
   virtual bool is_exclusive(void) const { return true; }
   virtual unsigned get_depth(void) const { return 0; }
+  bool is_collective() const { return is_collective_; }
+  void set_collective() { is_collective_ = true; }
 
  public:
   virtual Legion::DomainPoint project_point(const Legion::DomainPoint& point,
                                             const Legion::Domain& launch_domain) const = 0;
+
+ private:
+  bool is_collective_ = false;
 };
 
 void register_legate_core_projection_functors(Legion::Runtime* runtime,
                                               const LibraryContext& context);
 
-LegateProjectionFunctor* find_legate_projection_functor(Legion::ProjectionID proj_id);
+LegateProjectionFunctor* find_legate_projection_functor(Legion::ProjectionID proj_id,
+                                                        bool allow_missing = false);
 
 }  // namespace legate
