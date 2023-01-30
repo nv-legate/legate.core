@@ -743,7 +743,7 @@ def driver():
         "--legion-branch",
         dest="legion_branch",
         required=False,
-        default="collective",
+        default="04cf06a2",
         help="Legion branch to build Legate with.",
     )
     args, unknown = parser.parse_known_args()
