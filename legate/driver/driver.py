@@ -185,7 +185,7 @@ class CanonicalDriver(LegateDriver):
 
 
 def get_versions() -> LegateVersions:
-    from legate import __version__
+    from legate import __version__ as lg_version
 
     os.environ["_LEGATE_PROJECT_HELP_ARGS_"] = "1"
     try:
@@ -197,7 +197,7 @@ def get_versions() -> LegateVersions:
     del os.environ["_LEGATE_PROJECT_HELP_ARGS_"]
 
     return LegateVersions(
-        legate_version=__version__, cunumeric_version=cn_version
+        legate_version=lg_version, cunumeric_version=cn_version
     )
 
 
