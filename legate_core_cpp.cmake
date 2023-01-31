@@ -231,11 +231,17 @@ endif()
 add_library(legate_core ${legate_core_SOURCES})
 add_library(legate::core ALIAS legate_core)
 
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  set(platform_rpath_origin "\$ORIGIN")
+elseif (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+  set(platform_rpath_origin "@loader_path")
+endif ()
+
 set_target_properties(legate_core
            PROPERTIES EXPORT_NAME                         core
                       LIBRARY_OUTPUT_NAME                 lgcore
-                      BUILD_RPATH                         "\$ORIGIN"
-                      INSTALL_RPATH                       "\$ORIGIN"
+                      BUILD_RPATH                         "${platform_rpath_origin}"
+                      INSTALL_RPATH                       "${platform_rpath_origin}"
                       CXX_STANDARD                        17
                       CXX_STANDARD_REQUIRED               ON
                       CUDA_STANDARD                       17
