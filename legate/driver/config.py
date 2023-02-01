@@ -176,8 +176,18 @@ class Config:
     """
 
     def __init__(self, argv: ArgList) -> None:
-        self.argv = argv
+        user_script = next((x for x in argv if x.endswith(".py")), None)
+        if user_script:
+            user_script_index = argv.index(user_script)
+            legate_argv = argv[:user_script_index]
+            user_argv = argv[user_script_index:][1:]
+        else:
+            legate_argv = argv
+            user_argv = []
 
+        self.argv = legate_argv
+
+        # extra might contain legion command line options for now
         args, extra = parser.parse_known_args(self.argv[1:])
 
         colors.ENABLED = args.color
@@ -185,12 +195,10 @@ class Config:
         # only saving this for help with testing
         self._args = args
 
-        self.user_script = next((x for x in extra if x.endswith(".py")), None)
+        self.user_script = user_script
 
-        user_opts = list(extra)
-        if self.user_script in user_opts:
-            user_opts.remove(self.user_script)
-        self.user_opts = tuple(user_opts)
+        # extra here might be legion or realm command line options
+        self.user_opts = tuple(user_argv) + tuple(extra)
 
         # these may modify the args, so apply before dataclass conversions
         self._fixup_nocr(args)

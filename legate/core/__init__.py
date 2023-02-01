@@ -14,8 +14,6 @@
 #
 from __future__ import annotations
 
-from ..util.args import parse_library_command_args
-
 from legion_cffi import is_legion_python, ffi, lib as legion
 
 if is_legion_python == False:
@@ -24,20 +22,26 @@ if is_legion_python == False:
         legion_canonical_python_cleanup,
     )
     from ..driver.main import prepare_driver, CanonicalDriver
-    import atexit, sys, os
+    import atexit, os, shlex, sys
 
-    # parse legate args into legion args
-    sys_argv = [
-        "python",
-    ] + sys.argv
-    driver = prepare_driver(sys_argv, CanonicalDriver)
+    # A little explanation. We want to encourage configuration options be
+    # passed via LEGATE_CONFIG, in order to be considerate to user scripts.
+    # But we still need to accept actual command line args for comaptibility,
+    # and those should also take precedences. Here we splice the options from
+    # LEGATE_CONFIG in before sys.argv, and take advantage of the fact that if
+    # there are any options repeated in both places, argparse will use the
+    # latter (i.e. the actual command line provided ones).
+    env_args = shlex.split(os.environ.get("LEGATE_CONFIG", ""))
+    argv = ["legate"] + env_args + sys.argv
+
+    driver = prepare_driver(argv, CanonicalDriver)
+
     if driver.dry_run:
         sys.exit(0)
-    legate_argv = driver.cmd
-    legate_env = driver.env
-    # set env
-    os.environ.update(legate_env)
-    legion_canonical_python_main(legate_argv)
+
+    os.environ.update(driver.env)
+
+    legion_canonical_python_main(driver.cmd)
     atexit.register(legion_canonical_python_cleanup)
 
 from ._legion import (
