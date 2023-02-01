@@ -14,7 +14,6 @@
 #
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from shlex import quote
 from subprocess import run
@@ -49,7 +48,6 @@ class LegateVersions(DataclassMixin):
     """Collect package versions relevant to Legate."""
 
     legate_version: str
-    cunumeric_version: str | None
 
 
 class LegateDriver:
@@ -187,18 +185,7 @@ class CanonicalDriver(LegateDriver):
 def get_versions() -> LegateVersions:
     from legate import __version__ as lg_version
 
-    os.environ["_LEGATE_PROJECT_HELP_ARGS_"] = "1"
-    try:
-        import cunumeric  # type: ignore [import]
-
-        cn_version = cunumeric.__version__
-    except ModuleNotFoundError:
-        cn_version = None
-    del os.environ["_LEGATE_PROJECT_HELP_ARGS_"]
-
-    return LegateVersions(
-        legate_version=lg_version, cunumeric_version=cn_version
-    )
+    return LegateVersions(legate_version=lg_version)
 
 
 def print_verbose(
