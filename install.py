@@ -413,7 +413,7 @@ def install(
     cmake_flags = cmd_env.get("CMAKE_ARGS", "").split(" ")
 
     if debug or verbose:
-        cmake_flags += [f"--log-level={'DEBUG' if debug else 'VERBOSE'}"]
+        cmake_flags += ["--log-level=%s" % ("DEBUG" if debug else "VERBOSE")]
 
     cmake_flags += f"""\
 -DCMAKE_BUILD_TYPE={(
@@ -441,27 +441,27 @@ def install(
 """.splitlines()
 
     if nccl_dir:
-        cmake_flags += [f"-DNCCL_DIR={nccl_dir}"]
+        cmake_flags += ["-DNCCL_DIR=%s" % nccl_dir]
     if gasnet_dir:
-        cmake_flags += [f"-DGASNet_ROOT_DIR={gasnet_dir}"]
+        cmake_flags += ["-DGASNet_ROOT_DIR=%s" % gasnet_dir]
     if ucx_dir:
-        cmake_flags += [f"-DUCX_ROOT={ucx_dir}"]
+        cmake_flags += ["-DUCX_ROOT=%s" % ucx_dir]
     if conduit:
-        cmake_flags += [f"-DGASNet_CONDUIT={conduit}"]
+        cmake_flags += ["-DGASNet_CONDUIT=%s" % conduit]
     if cuda_dir:
-        cmake_flags += [f"-DCUDA_TOOLKIT_ROOT_DIR={cuda_dir}"]
+        cmake_flags += ["-DCUDA_TOOLKIT_ROOT_DIR=%s" % cuda_dir]
     if thrust_dir:
-        cmake_flags += [f"-DThrust_ROOT={thrust_dir}"]
+        cmake_flags += ["-DThrust_ROOT=%s" % thrust_dir]
     if legion_dir:
-        cmake_flags += [f"-DLegion_ROOT={legion_dir}"]
+        cmake_flags += ["-DLegion_ROOT=%s" % legion_dir]
     elif legion_src_dir:
-        cmake_flags += [f"-DCPM_Legion_SOURCE={legion_src_dir}"]
+        cmake_flags += ["-DCPM_Legion_SOURCE=%s" % legion_src_dir]
     else:
         cmake_flags += ["-DCPM_DOWNLOAD_Legion=ON"]
     if legion_url:
-        cmake_flags += [f"-Dlegate_core_LEGION_REPOSITORY={legion_url}"]
+        cmake_flags += ["-Dlegate_core_LEGION_REPOSITORY=%s" % legion_url]
     if legion_branch:
-        cmake_flags += [f"-Dlegate_core_LEGION_BRANCH={legion_branch}"]
+        cmake_flags += ["-Dlegate_core_LEGION_BRANCH=%s" % legion_branch]
 
     cmake_flags += extra_flags
     build_flags = [f"-j{str(thread_count)}"]
@@ -761,7 +761,7 @@ def driver():
         )
         print("to specify the CMake executable if it is not on PATH.")
         print()
-        print(f"Attempted to execute: {args.cmake_exe}")
+        print("Attempted to execute: %s" % args.cmake_exe)
         sys.exit(1)
 
     install(unknown=unknown, **vars(args))

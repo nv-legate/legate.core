@@ -14,15 +14,12 @@
 #
 from __future__ import annotations
 
-import os
-from dataclasses import dataclass
 from shlex import quote
 from subprocess import run
 from textwrap import indent
 from typing import TYPE_CHECKING
 
 from ..util.system import System
-from ..util.types import DataclassMixin
 from ..util.ui import kvtable, rule, section, value, warn
 from .command import CMD_PARTS_CANONICAL, CMD_PARTS_LEGION
 from .config import ConfigProtocol
@@ -42,14 +39,6 @@ reasons:
 (lldb) process launch -v LIB_PATH={libpath} -v PYTHONPATH={pythonpath}
 
 """
-
-
-@dataclass(frozen=True)
-class LegateVersions(DataclassMixin):
-    """Collect package versions relevant to Legate."""
-
-    legate_version: str
-    cunumeric_version: str | None
 
 
 class LegateDriver:
@@ -184,23 +173,6 @@ class CanonicalDriver(LegateDriver):
         assert False, "This function should not be invoked."
 
 
-def get_versions() -> LegateVersions:
-    from legate import __version__ as lg_version
-
-    os.environ["_LEGATE_PROJECT_HELP_ARGS_"] = "1"
-    try:
-        import cunumeric  # type: ignore [import]
-
-        cn_version = cunumeric.__version__
-    except ModuleNotFoundError:
-        cn_version = None
-    del os.environ["_LEGATE_PROJECT_HELP_ARGS_"]
-
-    return LegateVersions(
-        legate_version=lg_version, cunumeric_version=cn_version
-    )
-
-
 def print_verbose(
     system: System,
     driver: LegateDriver | None = None,
@@ -229,9 +201,6 @@ def print_verbose(
 
     print(section("\nLegion paths:"))
     print(indent(str(system.legion_paths), prefix="  "))
-
-    print(section("\nVersions:"))
-    print(indent(str(get_versions()), prefix="  "))
 
     if driver:
         print(section("\nCommand:"))
