@@ -223,8 +223,12 @@ Legate Core is available [on conda](https://anaconda.org/legate/legate-core):
 conda install -c nvidia -c conda-forge -c legate legate-core
 ```
 
-The conda package is compatible with CUDA >= 11.4 (CUDA driver version >= r470),
-and Volta or later GPU architectures.
+Only linux-64 packages are available at the moment.
+
+The default package contains GPU support, and is compatible with CUDA >= 11.4
+(CUDA driver version >= r470), and Volta or later GPU architectures. There are
+also CPU-only packages available, and will be automatically selected by `conda`
+when installing on a machine without GPUs.
 
 See [BUILD.md](BUILD.md) for instructions on building Legate Core from source.
 
