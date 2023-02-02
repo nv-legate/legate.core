@@ -27,11 +27,23 @@ namespace nvtx {
 
 class Range {
  public:
-  Range(const char* message) { range_ = nvtxRangeStartA(message); }
-  ~Range() { nvtxRangeEnd(range_); }
+  Range(const char* message)
+  {
+    nvtxEventAttributes_t eventAttrib = {0};
+    eventAttrib.version               = NVTX_VERSION;
+    eventAttrib.size                  = NVTX_EVENT_ATTRIB_STRUCT_SIZE;
+    eventAttrib.messageType           = NVTX_MESSAGE_TYPE_ASCII;
+    eventAttrib.message.ascii         = message;
+    nvtxDomainRangePushEx(domain, &eventAttrib);
+  }
+  ~Range() { nvtxDomainRangePop(domain); }
+
+  static void initialize() { domain = nvtxDomainCreateA(domainName); }
+  static void shutdown() { nvtxDomainDestroy(domain); }
 
  private:
-  nvtxRangeId_t range_;
+  static const char* const domainName;
+  static nvtxDomainHandle_t domain;
 };
 
 }  // namespace nvtx
