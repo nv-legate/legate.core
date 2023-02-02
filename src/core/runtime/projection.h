@@ -52,6 +52,7 @@ class LegateProjectionFunctor : public Legion::ProjectionFunctor {
 void register_legate_core_projection_functors(Legion::Runtime* runtime,
                                               const LibraryContext& context);
 
-LegateProjectionFunctor* find_legate_projection_functor(Legion::ProjectionID proj_id);
+LegateProjectionFunctor* find_legate_projection_functor(Legion::ProjectionID proj_id,
+                                                        bool allow_missing = false);
 
 }  // namespace legate

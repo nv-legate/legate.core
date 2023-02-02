@@ -14,12 +14,31 @@
 #
 from __future__ import annotations
 
-from ..rc import check_legion
 from ..util.args import parse_library_command_args
 
-check_legion()
+from legion_cffi import is_legion_python, ffi, lib as legion
 
-from legion_cffi import ffi, lib as legion
+if is_legion_python == False:
+    from legion_top import (
+        legion_canonical_python_main,
+        legion_canonical_python_cleanup,
+    )
+    from ..driver.main import prepare_driver, CanonicalDriver
+    import atexit, sys, os
+
+    # parse legate args into legion args
+    sys_argv = [
+        "python",
+    ] + sys.argv
+    driver = prepare_driver(sys_argv, CanonicalDriver)
+    if driver.dry_run:
+        sys.exit(0)
+    legate_argv = driver.cmd
+    legate_env = driver.env
+    # set env
+    os.environ.update(legate_env)
+    legion_canonical_python_main(legate_argv)
+    atexit.register(legion_canonical_python_cleanup)
 
 from ._legion import (
     LEGATE_MAX_DIM,

@@ -159,6 +159,7 @@ function(find_or_configure_legion)
                                  "Legion_REDOP_HALF ON"
                                  "Legion_REDOP_COMPLEX ON"
                                  "Legion_GPU_REDUCTIONS OFF"
+                                 "Legion_BUILD_RUST_PROFILER ON"
     )
   endif()
 

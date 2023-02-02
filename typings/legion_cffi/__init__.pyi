@@ -42,3 +42,5 @@ class FFI:
     ) -> CData: ...
 
 ffi: FFI
+
+is_legion_python: bool

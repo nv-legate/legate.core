@@ -274,6 +274,7 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
   void legate_select_sources(const Legion::Mapping::MapperContext ctx,
                              const Legion::Mapping::PhysicalInstance& target,
                              const std::vector<Legion::Mapping::PhysicalInstance>& sources,
+                             const std::vector<Legion::Mapping::CollectiveView>& collective_sources,
                              std::deque<Legion::Mapping::PhysicalInstance>& ranking);
   Legion::ShardingID find_mappable_sharding_functor_id(const Legion::Mappable& mappable);
 

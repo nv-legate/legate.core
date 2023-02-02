@@ -29,7 +29,10 @@ from .util import GenObjs
 
 
 def test___all__() -> None:
-    assert m.__all__ == ("CMD_PARTS",)
+    assert m.__all__ == (
+        "CMD_PARTS_LEGION",
+        "CMD_PARTS_CANONICAL",
+    )
 
 
 def test_LEGATE_GLOBAL_RANK_SUBSTITUTION() -> None:
@@ -37,7 +40,7 @@ def test_LEGATE_GLOBAL_RANK_SUBSTITUTION() -> None:
 
 
 def test_CMD_PARTS() -> None:
-    assert m.CMD_PARTS == (
+    assert m.CMD_PARTS_LEGION == (
         m.cmd_bind,
         m.cmd_rlwrap,
         m.cmd_gdb,
@@ -46,9 +49,10 @@ def test_CMD_PARTS() -> None:
         m.cmd_nsys,
         m.cmd_memcheck,
         m.cmd_legion,
-        m.cmd_nocr,
+        m.cmd_python_processor,
         m.cmd_module,
-        m.cmd_processor,
+        m.cmd_nocr,
+        m.cmd_local_field,
         m.cmd_kthreads,
         m.cmd_cpus,
         m.cmd_gpus,
@@ -62,6 +66,8 @@ def test_CMD_PARTS() -> None:
         m.cmd_log_levels,
         m.cmd_log_file,
         m.cmd_eager_alloc,
+        m.cmd_ucx,
+        m.cmd_user_script,
         m.cmd_user_opts,
     )
 
@@ -628,13 +634,22 @@ class Test_cmd_legion:
         assert result == (str(system.legion_paths.legion_python),)
 
 
-class Test_cmd_processor:
+class Test_cmd_python_processor:
     def test_default(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs([])
 
-        result = m.cmd_processor(config, system, launcher)
+        result = m.cmd_python_processor(config, system, launcher)
 
-        assert result == ("-ll:py", "1", "-lg:local", "0")
+        assert result == ("-ll:py", "1")
+
+
+class Test_cmd_local_field:
+    def test_default(self, genobjs: GenObjs) -> None:
+        config, system, launcher = genobjs([])
+
+        result = m.cmd_local_field(config, system, launcher)
+
+        assert result == ("-lg:local", "0")
 
 
 class Test_cmd_kthreads:
@@ -1209,7 +1224,9 @@ class Test_cmd_user_opts:
     def test_basic(self, genobjs: GenObjs, opts: list[str]) -> None:
         config, system, launcher = genobjs(opts, fake_module=None)
 
-        result = m.cmd_user_opts(config, system, launcher)
+        user_opts = m.cmd_user_opts(config, system, launcher)
+        user_script = m.cmd_user_script(config, system, launcher)
+        result = user_script + user_opts
 
         assert result == tuple(opts)
 
@@ -1218,7 +1235,9 @@ class Test_cmd_user_opts:
         args = ["--verbose", "--rlwrap", "--gpus", "2"] + opts
         config, system, launcher = genobjs(args, fake_module=None)
 
-        result = m.cmd_user_opts(config, system, launcher)
+        user_opts = m.cmd_user_opts(config, system, launcher)
+        user_script = m.cmd_user_script(config, system, launcher)
+        result = user_script + user_opts
 
         assert result == tuple(opts)
 

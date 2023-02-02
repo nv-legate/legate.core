@@ -253,12 +253,13 @@ void register_legate_core_projection_functors(Legion::Runtime* runtime,
   identity_functor = new IdentityFunctor(runtime);
 }
 
-LegateProjectionFunctor* find_legate_projection_functor(ProjectionID proj_id)
+LegateProjectionFunctor* find_legate_projection_functor(ProjectionID proj_id, bool allow_missing)
 {
   if (0 == proj_id) return identity_functor;
   const std::lock_guard<std::mutex> lock(functor_table_lock);
   auto result = functor_table[proj_id];
-  if (nullptr == result) {
+  // If we're not OK with a missing projection functor, then throw an error.
+  if (nullptr == result && !allow_missing) {
     log_legate.debug("Failed to find projection functor of id %d", proj_id);
     LEGATE_ABORT;
   }

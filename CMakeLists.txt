@@ -16,6 +16,13 @@
 
 cmake_minimum_required(VERSION 3.22.1 FATAL_ERROR)
 
+if(POLICY CMP0074)
+  # find_package() uses <PackageName>_ROOT variables
+  # https://cmake.org/cmake/help/latest/policy/CMP0074.html#policy:CMP0074
+  cmake_policy(SET CMP0074 NEW)
+  set(CMAKE_POLICY_DEFAULT_CMP0074 NEW)
+endif()
+
 if(POLICY CMP0060)
   # Link libraries by full path even in implicit directories
   # https://cmake.org/cmake/help/latest/policy/CMP0060.html#policy:CMP0060
