@@ -258,3 +258,42 @@ class TestMachine:
         values = struct.unpack("I" * 2, packed)
         assert values[0] == ProcessorKind.CPU
         assert values[1] == 0
+
+    def test_idempotent_scopes(self) -> None:
+        from legate.core import get_machine
+
+        machine = get_machine()
+        with machine:
+            assert machine == get_machine()
+            with machine:
+                assert machine == get_machine()
+
+    def test_machine_stack(self) -> None:
+        from legate.core import get_machine
+        from legate.core.runtime import runtime
+
+        fake_machine = Machine(RANGES[-1:])
+        runtime.push_machine(fake_machine)
+
+        sub_machine1 = fake_machine[:-1]
+        sub_machine2 = sub_machine1[1:]
+        expected = sub_machine1[1:-1]
+
+        orig_machine = get_machine()
+        with sub_machine1:
+            assert sub_machine1 == get_machine()
+            with sub_machine2:
+                assert expected == get_machine()
+            assert sub_machine1 == get_machine()
+        assert orig_machine == get_machine()
+
+    def test_empty_scope(self) -> None:
+        from legate.core import get_machine
+
+        machine = get_machine()
+        rng = machine.get_processor_range()
+        empty_rng = ProcessorRange.create(rng.kind, rng.per_node_count, 1, 0)
+        err_msg = "Empty machines cannot be used for resource scoping"
+        with pytest.raises(ValueError, match=err_msg):
+            with Machine([empty_rng]):
+                pass
