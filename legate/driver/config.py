@@ -198,7 +198,7 @@ class Config:
         self.user_script = user_script
 
         # extra here might be legion, realm, or cunumeric command line options
-        self.user_opts = tuple(user_argv) + tuple(extra)
+        self.user_opts = tuple(extra) + tuple(user_argv)
 
         # these may modify the args, so apply before dataclass conversions
         self._fixup_nocr(args)
