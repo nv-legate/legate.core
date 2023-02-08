@@ -258,13 +258,13 @@ class TestStage(Protocol):
 
         cov_args = self.cov_args(config)
 
-        cmd = [str(config.legate_path)] + cov_args
-
         stage_args = self.args + self.shard_args(shard, config)
         file_args = self.file_args(test_file, config)
 
-        cmd += (
-            stage_args
+        cmd = (
+            [str(config.legate_path)]
+            + stage_args
+            + cov_args
             + [str(test_path)]
             + file_args
             + config.extra_args
