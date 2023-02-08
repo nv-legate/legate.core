@@ -102,7 +102,7 @@ parser = _LegateArgumentParser(
 parser.add_argument(
     "command",
     nargs=REMAINDER,
-    help="A python script to run, plus any argumentsfor the script. "
+    help="A python script to run, plus any arguments for the script. "
     "Any arguments after the script will be passed to the script, i.e. "
     "NOT used as arguments to legate itself.",
 )
