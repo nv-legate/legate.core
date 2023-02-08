@@ -163,6 +163,10 @@ void BaseMapper::select_task_options(const MapperContext ctx,
 
   auto target = task_target(legate_task, options);
   machine->dispatch(target, [&](auto target, auto& procs) {
+    if (task.is_index_space || task.local_function) {
+      output.initial_proc = procs.front();
+      return;
+    }
     Span<const Processor> avail_procs;
     uint32_t size;
     uint32_t offset;
