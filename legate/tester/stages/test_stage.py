@@ -57,6 +57,12 @@ class TestStage(Protocol):
     #: Any fixed stage-specific command-line args to pass
     args: ArgList
 
+    # This can go away when/if "-cunumeric:test" is replaced by an env var.
+    # The issue is that currently the args above are all otherwise legate
+    # args that must appear before the script path, but "-cunumeric:test" is
+    # not a legate arg, so it cannot go there.
+    _tmp_args: ArgList
+
     # --- Protocol methods
 
     def __init__(self, config: Config, system: TestSystem) -> None:
@@ -252,12 +258,18 @@ class TestStage(Protocol):
 
         cov_args = self.cov_args(config)
 
-        cmd = [str(config.legate_path)] + cov_args + [str(test_path)]
+        cmd = [str(config.legate_path)] + cov_args
 
         stage_args = self.args + self.shard_args(shard, config)
         file_args = self.file_args(test_file, config)
 
-        cmd += stage_args + file_args + config.extra_args
+        cmd += (
+            stage_args
+            + [str(test_path)]
+            + file_args
+            + config.extra_args
+            + self._tmp_args
+        )
 
         if custom_args:
             cmd += custom_args
