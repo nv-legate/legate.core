@@ -157,7 +157,7 @@ void CoreMapper::select_task_options(const MapperContext ctx,
                                      const LegionTask& task,
                                      TaskOptions& output)
 {
-  if (task.is_index_space) {
+  if (task.is_index_space || task.local_function) {
     Processor proc = Processor::NO_PROC;
     if (task.tag == LEGATE_CPU_VARIANT) {
       proc = machine->cpus().front();
