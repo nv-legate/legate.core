@@ -164,6 +164,7 @@ class DocsConfig(SectionConfig):
             "myst-parser",
             "sphinx-copybutton",
             "sphinx>=4.4.0",
+            "doxygen",
         )
 
 
