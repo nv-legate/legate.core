@@ -31,7 +31,8 @@ def test_default() -> None:
     s = FakeSystem(cpus=12)
     stage = m.CPU(c, s)
     assert stage.kind == "cpus"
-    assert stage.args == ["-cunumeric:test"]
+    assert stage.args == []
+    assert stage._tmp_args == ["-cunumeric:test"]
     assert stage.env(c, s) == UNPIN_ENV
     assert stage.spec.workers > 0
 
@@ -44,7 +45,8 @@ def test_cpu_pin_strict() -> None:
     s = FakeSystem(cpus=12)
     stage = m.CPU(c, s)
     assert stage.kind == "cpus"
-    assert stage.args == ["-cunumeric:test"]
+    assert stage.args == []
+    assert stage._tmp_args == ["-cunumeric:test"]
     assert stage.env(c, s) == {}
     assert stage.spec.workers > 0
 
@@ -57,7 +59,8 @@ def test_cpu_pin_none() -> None:
     s = FakeSystem(cpus=12)
     stage = m.CPU(c, s)
     assert stage.kind == "cpus"
-    assert stage.args == ["-cunumeric:test"]
+    assert stage.args == []
+    assert stage._tmp_args == ["-cunumeric:test"]
     assert stage.env(c, s) == UNPIN_ENV
     assert stage.spec.workers > 0
 

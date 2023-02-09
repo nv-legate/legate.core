@@ -43,6 +43,8 @@ class Eager(TestStage):
 
     args: ArgList = []
 
+    _tmp_args = []
+
     def __init__(self, config: Config, system: TestSystem) -> None:
         self._init(config, system)
 

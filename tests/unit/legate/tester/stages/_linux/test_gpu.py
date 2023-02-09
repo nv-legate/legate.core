@@ -30,7 +30,8 @@ def test_default() -> None:
     s = FakeSystem()
     stage = m.GPU(c, s)
     assert stage.kind == "cuda"
-    assert stage.args == ["-cunumeric:test"]
+    assert stage.args == []
+    assert stage._tmp_args == ["-cunumeric:test"]
     assert stage.env(c, s) == {}
     assert stage.spec.workers > 0
 
