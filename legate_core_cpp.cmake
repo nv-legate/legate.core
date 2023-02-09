@@ -331,6 +331,7 @@ if (legate_core_BUILD_DOCS)
     set(DOXYGEN_EXTENSION_MAPPING cu=C++ cuh=C++)
     set(DOXYGEN_HIDE_UNDOC_MEMBERS YES)
     set(DOXYGEN_HIDE_UNDOC_CLASSES YES)
+    set(DOXYGEN_STRIP_FROM_INC_PATH ${CMAKE_SOURCE_DIR}/src)
     doxygen_add_docs("doxygen_legate" ALL
       ${legate_core_DOC_SOURCES}
       COMMENT "Custom command for building Doxygen docs."
