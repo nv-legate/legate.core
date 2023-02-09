@@ -114,8 +114,9 @@ class LibraryContext {
   ResourceScope shard_scope_;
 };
 
-// A thin context layer on top of the Legion runtime, primarily designed to hide verbosity
-// of the Legion API.
+/**
+ * @brief A task context that contains task arguments and communicators
+ */
 class TaskContext {
  public:
   TaskContext(const Legion::Task* task,
@@ -124,19 +125,70 @@ class TaskContext {
               Legion::Runtime* runtime);
 
  public:
+  /**
+   * @brief Returns input stores
+   *
+   * @return a vector of input stores
+   */
   std::vector<Store>& inputs() { return inputs_; }
+  /**
+   * @brief Returns output stores
+   *
+   * @return a vector of output stores
+   */
   std::vector<Store>& outputs() { return outputs_; }
+  /**
+   * @brief Returns reduction stores
+   *
+   * @return a vector of reduction stores
+   */
   std::vector<Store>& reductions() { return reductions_; }
+  /**
+   * @brief Returns by-value arguments
+   *
+   * @return a vector of scalar objects
+   */
   std::vector<Scalar>& scalars() { return scalars_; }
+  /**
+   * @brief Returns communicators
+   *
+   * @return a vector of communicator objects
+   */
   std::vector<comm::Communicator>& communicators() { return comms_; }
 
  public:
+  /**
+   * @brief Indicates whether the task is parallelized
+   *
+   * @return true the task is a single task
+   * @return false the task is one in a set of multiple parallel tasks
+   */
   bool is_single_task() const;
+  /**
+   * @brief Indicates whether the task is allowed to raise an exception
+   *
+   * @return true the task can raise an exception
+   * @return false the task must not raise an exception
+   */
   bool can_raise_exception() const { return can_raise_exception_; }
+  /**
+   * @brief Returns a point of this task. A 0D point will be returned for a single task.
+   *
+   * @return a domain point
+   */
   Legion::DomainPoint get_task_index() const;
+  /**
+   * @brief Returns the launch domain of a group of parallel tasks to which this task belongs.
+   * An empty domain will be returned for a single task.
+   *
+   * @return a domain
+   */
   Legion::Domain get_launch_domain() const;
 
  public:
+  /**
+   * @brief Makes all of unbound output stores of this task empty
+   */
   void make_all_unbound_stores_empty();
   ReturnValues pack_return_values() const;
   ReturnValues pack_return_values_with_exception(int32_t index,

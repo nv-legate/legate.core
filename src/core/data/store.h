@@ -257,6 +257,9 @@ class FutureWrapper {
   Legion::UntypedDeferredValue buffer_{};
 };
 
+/**
+ * @brief A multi-dimensional data container to store task data
+ */
 class Store {
  public:
   Store() {}
@@ -284,11 +287,34 @@ class Store {
   Store& operator=(const Store& other) = delete;
 
  public:
+  /**
+   * @brief Indicates whether the store is valid. A store passed to a task can be invalid
+   * only for reducer tasks for tree reduction.
+   *
+   * @return true the store is valid
+   * @return false the store is invalid and cannot be used in any data access
+   */
   bool valid() const;
+  /**
+   * @brief Indicates whether the store is transformed in any way.
+   *
+   * @return true the store is transformed
+   * @return false the store is not transformed
+   */
   bool transformed() const { return !transform_->identity(); }
 
  public:
+  /**
+   * @brief Returns the dimension of the store
+   *
+   * @return the store's dimension
+   */
   int32_t dim() const { return dim_; }
+  /**
+   * @brief Returns the type code of the store
+   *
+   * @return the store's type code
+   */
   template <typename TYPE_CODE = LegateTypeCode>
   TYPE_CODE code() const
   {
@@ -296,51 +322,186 @@ class Store {
   }
 
  public:
+  /**
+   * @brief Returns a read-only accessor to the store for the entire domain
+   *
+   * @return a read-only accessor to the store
+   */
   template <typename T, int32_t DIM>
   AccessorRO<T, DIM> read_accessor() const;
+  /**
+   * @brief Returns a write-only accessor to the store for the entire domain
+   *
+   * @return a write-only accessor to the store
+   */
   template <typename T, int32_t DIM>
   AccessorWO<T, DIM> write_accessor() const;
+  /**
+   * @brief Returns a read-write accessor to the store for the entire domain
+   *
+   * @return a read-write accessor to the store
+   */
   template <typename T, int32_t DIM>
   AccessorRW<T, DIM> read_write_accessor() const;
+  /**
+   * @brief Returns a reduction accessor to the store for the entire domain
+   *
+   * @return a reduction accessor to the store
+   */
   template <typename OP, bool EXCLUSIVE, int32_t DIM>
   AccessorRD<OP, EXCLUSIVE, DIM> reduce_accessor() const;
 
  public:
+  /**
+   * @brief Returns a read-only accessor to the store for specific bounds.
+   *
+   * @param bounds Domain within which accesses should be allowed.
+   * The actual bounds for valid access are determined by an intersection between
+   * the store's domain and the bounds.
+   *
+   * @return a read-only accessor to the store
+   */
   template <typename T, int32_t DIM>
   AccessorRO<T, DIM> read_accessor(const Legion::Rect<DIM>& bounds) const;
+  /**
+   * @brief Returns a write-only accessor to the store for the entire domain
+   *
+   * @param bounds Domain within which accesses should be allowed.
+   * The actual bounds for valid access are determined by an intersection between
+   * the store's domain and the bounds.
+   *
+   * @return a write-only accessor to the store
+   */
   template <typename T, int32_t DIM>
   AccessorWO<T, DIM> write_accessor(const Legion::Rect<DIM>& bounds) const;
+  /**
+   * @brief Returns a read-write accessor to the store for the entire domain
+   *
+   * @param bounds Domain within which accesses should be allowed.
+   * The actual bounds for valid access are determined by an intersection between
+   * the store's domain and the bounds.
+   *
+   * @return a read-write accessor to the store
+   */
   template <typename T, int32_t DIM>
   AccessorRW<T, DIM> read_write_accessor(const Legion::Rect<DIM>& bounds) const;
+  /**
+   * @brief Returns a reduction accessor to the store for the entire domain
+   *
+   * @param bounds Domain within which accesses should be allowed.
+   * The actual bounds for valid access are determined by an intersection between
+   * the store's domain and the bounds.
+   *
+   * @return a reduction accessor to the store
+   */
   template <typename OP, bool EXCLUSIVE, int32_t DIM>
   AccessorRD<OP, EXCLUSIVE, DIM> reduce_accessor(const Legion::Rect<DIM>& bounds) const;
 
  public:
+  /**
+   * @brief Creates a buffer of specified extents for the unbound store. The returned
+   * buffer is always consistent with the mapping policy for the store. Can be invoked
+   * multiple times unless `return_buffer` is true.
+   *
+   * @param extents Extents of the buffer
+   *
+   * @param return_buffer If the value is true, the created buffer will be bound
+   * to the store upon return
+   *
+   * @return a reductionaccessor to the store
+   */
   template <typename T, int32_t DIM>
   Buffer<T, DIM> create_output_buffer(const Legion::Point<DIM>& extents,
                                       bool return_buffer = false);
 
  public:
+  /**
+   * @brief Returns the store's domain
+   *
+   * @return the store's domain
+   */
   template <int32_t DIM>
   Legion::Rect<DIM> shape() const;
+  /**
+   * @brief Returns the store's domain in a dimension-erased domain type
+   *
+   * @return the store's domain in a dimension-erased domain type
+   */
   Legion::Domain domain() const;
 
  public:
+  /**
+   * @brief Indicates whether the store can have a read accessor
+   *
+   * @return true the store can have a read accessor
+   * @return false the store cannot have a read accesor
+   */
   bool is_readable() const { return readable_; }
+  /**
+   * @brief Indicates whether the store can have a write accessor
+   *
+   * @return true the store can have a write accessor
+   * @return false the store cannot have a write accesor
+   */
   bool is_writable() const { return writable_; }
+  /**
+   * @brief Indicates whether the store can have a reduction accessor
+   *
+   * @return true the store can have a reduction accessor
+   * @return false the store cannot have a reduction accesor
+   */
   bool is_reducible() const { return reducible_; }
 
  public:
+  /**
+   * @brief Returns the scalar value stored in the store. The requested
+   * type must match with the store's data type. Illegal if the store's
+   * volume is not equal to 1.
+   *
+   * @return the scalar value stored in the store
+   */
   template <typename VAL>
   VAL scalar() const;
 
  public:
+  /**
+   * @brief Binds a buffer to the store. Valid only when the store is unbound and
+   * has not yet been bound to another buffer. The buffer must be consistent with
+   * the mapping policy for the store. Recommend that the buffer be created by
+   * a `create_output_buffer` call.
+   *
+   * @param buffer Buffer to bind to the store
+   *
+   * @param extents Extents of the buffer. Passing extents smaller than the actual
+   * extents of the buffer is legal; the runtime uses the passed extents as the
+   * extents of this store.
+   *
+   */
   template <typename T, int32_t DIM>
   void return_data(Buffer<T, DIM>& buffer, const Legion::Point<DIM>& extents);
+  /**
+   * @brief Makes the unbound store empty. Valid only when the store is unbound and
+   * has not yet been bound to another buffer.
+   */
   void make_empty();
 
  public:
+  /**
+   * @brief Indicates whether the store is backed by a future
+   * (i.e., a container for scalar value)
+   *
+   * @return true the store is backed by a future
+   * @return false the store is backed by a region field
+   */
   bool is_future() const { return is_future_; }
+  /**
+   * @brief Indicates whether the store is an unbound store. The value DOES NOT indicate
+   * that the store has already assigned to a buffer; i.e., the store may have been assigned
+   * to a buffer even when this function returns `true`.
+   *
+   * @return true the store is an unbound store
+   * @return false the store is a normal store
+   */
   bool is_output_store() const { return is_output_store_; }
   ReturnValue pack() const { return future_.pack(); }
   ReturnValue pack_weight() const { return output_field_.pack_weight(); }
