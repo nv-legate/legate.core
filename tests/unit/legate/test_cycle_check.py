@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 
+import os
 import subprocess
 from pathlib import Path
 
@@ -35,8 +36,16 @@ x.append(x)
 def test_cycle_check(tmp_path: Path) -> None:
     prog_file = tmp_path / "prog.py"
     prog_file.write_text(PROG_TEXT)
+    env = os.environ.copy()
+    env["LEGATE_CYCLE_CHECK"] = "yes"
     output = subprocess.check_output(
-        ["legate", prog_file, "--cpus", "1", "-legate:cycle-check"]
+        [
+            "legate",
+            prog_file,
+            "--cpus",
+            "1",
+        ],
+        env=env,
     )
     assert "found cycle!" in output.decode("utf-8")
 

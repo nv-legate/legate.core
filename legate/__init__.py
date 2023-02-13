@@ -17,8 +17,6 @@ from pkgutil import extend_path
 
 __path__ = extend_path(__path__, __name__)
 
-from .args import ARGS
-
 from . import _version
 
 __version__ = _version.get_versions()["version"]  # type: ignore[no-untyped-call]
