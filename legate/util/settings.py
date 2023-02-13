@@ -1,4 +1,4 @@
-# Copyright 2021-2022 NVIDIA Corporation
+# Copyright 2023 NVIDIA Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -105,8 +105,8 @@ def convert_bool(value: bool | str) -> bool:
     If a boolean is passed in, it is returned as-is. Otherwise the function
     maps the following strings, ignoring case:
 
-    * "yes", "1", "on" -> True
-    * "no", "0", "off" -> False
+    * "yes", "1", "on", "true" -> True
+    * "no", "0", "off", "false" -> False
 
     Args:
         value (str):
@@ -123,9 +123,9 @@ def convert_bool(value: bool | str) -> bool:
         return value
 
     val = value.lower()
-    if val in ["yes", "1", "on", "true", "True"]:
+    if val in ("yes", "1", "on", "true"):
         return True
-    if val in ["no", "0", "off", "false", "False"]:
+    if val in ("no", "0", "off", "false"):
         return False
 
     raise ValueError(f"Cannot convert {value} to boolean value")
@@ -144,6 +144,9 @@ def convert_str_seq(
 
     Returns
         list[str]
+
+    Raises:
+        ValueError
 
     """
     if isinstance(value, (list, tuple)):
@@ -167,7 +170,7 @@ class PrioritizedSetting(Generic[T]):
     1. local defaults
     0. global defaults
 
-    If a value cannot be determined, a ValueError is raised.
+    If a value cannot be determined, a RuntimeError is raised.
 
     The ``env_var`` argument specifies the name of an environment to check for
     setting values, e.g. ``"LEGATE_CHECK_CYCLE"``.
