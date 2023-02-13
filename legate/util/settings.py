@@ -295,11 +295,11 @@ class PrioritizedSetting(Generic[T]):
     @property
     def convert_type(self) -> str:
         if self._convert is convert_str:
-            return "String"
+            return "str"
         if self._convert is convert_bool:
-            return "Bool"
+            return "bool"
         if self._convert is convert_str_seq:
-            return "List[String]"
+            return "tuple[str, ...]"
         raise RuntimeError("unreachable")
 
 

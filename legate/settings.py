@@ -53,7 +53,9 @@ class LegateRuntimeSettings(Settings):
         default=False,
         convert=convert_bool,
         help="""
-        Whether to check for reference cycles keeping Future/FutureMap objects.
+        Whether to check for reference cycles keeping Future/FutureMap objects
+        alive after Legate runtime exit (developer option). Such leaks can
+        result in Legion runtime shutdown hangs.
         """,
     )
 

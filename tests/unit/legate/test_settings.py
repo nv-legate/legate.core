@@ -46,9 +46,9 @@ class TestSettings:
         assert ps._parent == m.settings
 
     def test_types(self) -> None:
-        assert m.settings.consensus.convert_type == "Bool"
-        assert m.settings.cycle_check.convert_type == "Bool"
-        assert m.settings.future_leak_check.convert_type == "Bool"
+        assert m.settings.consensus.convert_type == "bool"
+        assert m.settings.cycle_check.convert_type == "bool"
+        assert m.settings.future_leak_check.convert_type == "bool"
 
 
 class TestDefaults:
