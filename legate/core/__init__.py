@@ -24,15 +24,7 @@ if is_legion_python == False:
     from ..driver.main import prepare_driver, CanonicalDriver
     import atexit, os, shlex, sys
 
-    # A little explanation. We want to encourage configuration options be
-    # passed via LEGATE_CONFIG, in order to be considerate to user scripts.
-    # But we still need to accept actual command line args for comaptibility,
-    # and those should also take precedences. Here we splice the options from
-    # LEGATE_CONFIG in before sys.argv, and take advantage of the fact that if
-    # there are any options repeated in both places, argparse will use the
-    # latter (i.e. the actual command line provided ones).
-    env_args = shlex.split(os.environ.get("LEGATE_CONFIG", ""))
-    argv = ["legate"] + env_args + sys.argv
+    argv = ["legate"] + shlex.split(os.environ.get("LEGATE_CONFIG", ""))
 
     driver = prepare_driver(argv, CanonicalDriver)
 
