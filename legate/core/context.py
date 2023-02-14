@@ -54,7 +54,7 @@ class AnyCallable(Protocol):
 
 
 def find_last_user_frame(libname: str) -> str:
-    for (frame, _) in traceback.walk_stack(None):
+    for frame, _ in traceback.walk_stack(None):
         if "__name__" not in frame.f_globals:
             continue
         if not any(

@@ -33,7 +33,6 @@ __all__ = ("TestSystem",)
 
 @dataclass
 class ProcessResult:
-
     #: The command invovation, including relevant environment vars
     invocation: str
 

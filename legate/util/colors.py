@@ -94,7 +94,6 @@ try:
         colorama.init()
 
 except ImportError:
-
     bright = dim = white = cyan = red = magenta = green = yellow = _text
 
 # ref: https://stackoverflow.com/a/14693789

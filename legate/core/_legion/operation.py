@@ -1309,7 +1309,7 @@ class IndexAttach(Dispatchable[ExternalResources]):
             mem = legion.legion_memory_query_next(query, mem)
         legion.legion_memory_query_destroy(query)
         legion.legion_machine_destroy(machine)
-        for (sub_region, buf) in shard_local_data.items():
+        for sub_region, buf in shard_local_data.items():
             if sub_region.parent is not None:
                 assert sub_region.parent.parent is parent
             legion.legion_index_attach_launcher_attach_array_soa(

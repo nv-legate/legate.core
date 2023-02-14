@@ -297,7 +297,6 @@ class TestStage(Protocol):
     def _launch(
         self, config: Config, system: TestSystem
     ) -> list[ProcessResult]:
-
         pool = multiprocessing.pool.ThreadPool(self.spec.workers)
 
         jobs = [

@@ -54,7 +54,6 @@ __all__ = ("parser",)
 #
 # All of this is somewhat clunky but the best option to provide a good UX.
 class _LegateArgumentParser(ArgumentParser):
-
     packages = ("legate", "cunumeric")
 
     def print_help(self, file: Optional[IO[str]] = None) -> None:
