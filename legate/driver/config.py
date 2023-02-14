@@ -146,7 +146,6 @@ class Other(DataclassMixin):
 
 
 class ConfigProtocol(Protocol):
-
     _args: Namespace
 
     argv: ArgList

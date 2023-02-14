@@ -289,7 +289,7 @@ class Task(TaskProtocol):
         self._tb_repr = capture_traceback_repr()
 
     def _add_scalar_args_to_launcher(self, launcher: TaskLauncher) -> None:
-        for (arg, dtype) in self._scalar_args:
+        for arg, dtype in self._scalar_args:
             launcher.add_scalar_arg(arg, dtype)
 
     def _demux_scalar_stores_future(self, result: Future) -> None:
@@ -604,7 +604,7 @@ class AutoTask(AutoOperation, Task):
             # We update the key partition of a store only when it gets updated
             store.set_key_partition(store_part.partition)
 
-        for ((store, redop), part_symb) in zip(
+        for (store, redop), part_symb in zip(
             self._reductions, self._reduction_parts
         ):
             req, tag, store_part = self.get_requirement(
@@ -618,7 +618,7 @@ class AutoTask(AutoOperation, Task):
                 store, req, tag=tag, read_write=can_read_write
             )
 
-        for (store, part_symb) in zip(self._outputs, self._output_parts):
+        for store, part_symb in zip(self._outputs, self._output_parts):
             if not store.unbound:
                 continue
             fspace = strategy.get_field_space(part_symb)
@@ -964,7 +964,7 @@ class Copy(AutoOperation):
             else:
                 launcher.add_output(store, req, tag=tag)
 
-        for ((store, redop), part_symb) in zip(
+        for (store, redop), part_symb in zip(
             self._reductions, self._reduction_parts
         ):
             req, tag, store_part = self.get_requirement(

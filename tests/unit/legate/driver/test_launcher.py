@@ -421,7 +421,6 @@ class TestSimpleLauncher:
 
 
 class TestMPILauncher:
-
     XARGS1 = (
         ()
         + ("-x", "DEFAULTS_PATH")
@@ -536,7 +535,6 @@ class TestMPILauncher:
         genconfig: GenConfig,
         rank_var: str,
     ) -> None:
-
         for name in m.RANK_ENV_VARS:
             monkeypatch.delenv(name, raising=False)
         monkeypatch.setenv(name, "123")
@@ -633,7 +631,6 @@ class TestJSRunLauncher:
         genconfig: GenConfig,
         rank_var: str,
     ) -> None:
-
         for name in m.RANK_ENV_VARS:
             monkeypatch.delenv(name, raising=False)
         monkeypatch.setenv(name, "123")

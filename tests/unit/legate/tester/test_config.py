@@ -100,7 +100,6 @@ class TestConfig:
 
     @pytest.mark.parametrize("feature", FEATURES)
     def test_cmd_features(self, feature: str) -> None:
-
         # test a single value
         c = m.Config(["test.py", "--use", feature])
         assert set(c.features) == {feature}

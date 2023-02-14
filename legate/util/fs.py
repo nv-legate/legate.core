@@ -114,7 +114,6 @@ def get_legate_build_dir(legate_dir: Path) -> Path | None:
         return None
 
     for f in skbuild_dir.iterdir():
-
         # If using a local scikit-build dir at _skbuild/<arch>/cmake-build,
         # read Legion_BINARY_DIR and Legion_SOURCE_DIR from CMakeCache.txt
 

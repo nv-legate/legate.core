@@ -209,7 +209,7 @@ class RegionField:
                 else field_type
             )
             shard_local_data = {}
-            for (c, buf) in alloc.shard_local_buffers.items():
+            for c, buf in alloc.shard_local_buffers.items():
                 subregion = alloc.partition.get_child(c)
                 bounds = subregion.index_space.get_bounds()
                 if buf.shape != tuple(
