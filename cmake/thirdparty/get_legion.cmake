@@ -176,7 +176,7 @@ function(find_or_configure_legion)
 endfunction()
 
 if(NOT DEFINED legate_core_LEGION_BRANCH)
-  set(legate_core_LEGION_BRANCH collective)
+  set(legate_core_LEGION_BRANCH control_replication)
 endif()
 
 if(NOT DEFINED legate_core_LEGION_REPOSITORY)
