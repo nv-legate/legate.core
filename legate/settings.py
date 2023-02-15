@@ -20,7 +20,6 @@ __all__ = ("settings",)
 
 
 class LegateRuntimeSettings(Settings):
-
     consensus: PrioritizedSetting[bool] = PrioritizedSetting(
         "consensus",
         "LEGATE_CONSENSUS",
