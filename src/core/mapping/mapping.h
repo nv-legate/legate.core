@@ -18,38 +18,106 @@
 
 #include "core/mapping/operation.h"
 
+/**
+ * @file
+ * @brief Legate Mapping API
+ */
+
 namespace legate {
 namespace mapping {
 
+/**
+ * @brief An enum class for task targets
+ */
 enum class TaskTarget : int32_t {
+  /**
+   * @brief Indicates the task be mapped to a CPU
+   */
   CPU = 1,
+  /**
+   * @brief Indicates the task be mapped to a GPU
+   */
   GPU = 2,
+  /**
+   * @brief Indicates the task be mapped to an OpenMP processor
+   */
   OMP = 3,
 };
 
+/**
+ * @brief An enum class for store targets
+ */
 enum class StoreTarget : int32_t {
-  SYSMEM    = 1,
-  FBMEM     = 2,
-  ZCMEM     = 3,
+  /**
+   * @brief Indicates the store be mapped to the system memory
+   */
+  SYSMEM = 1,
+  /**
+   * @brief Indicates the store be mapped to the framebuffer
+   */
+  FBMEM = 2,
+  /**
+   * @brief Indicates the store be mapped to the pinned memory
+   */
+  ZCMEM = 3,
+  /**
+   * @brief Indicates the store be mapped to the memory closest to the target processor
+   */
   SOCKETMEM = 4,
 };
 
+/**
+ * @brief An enum class for instance allocation policies
+ */
 enum class AllocPolicy : int32_t {
-  MAY_ALLOC  = 1,
+  /**
+   * @brief Indicates the store can reuse an existing instance
+   */
+  MAY_ALLOC = 1,
+  /**
+   * @brief Indicates the store must be mapped to a fresh instance
+   */
   MUST_ALLOC = 2,
 };
 
+/**
+ * @brief An enum class for instant layouts
+ */
 enum class InstLayout : int32_t {
+  /**
+   * @brief Indicates the store must be mapped to an SOA instance
+   */
   SOA = 1,
+  /**
+   * @brief Indicates the store must be mapped to an AOS instance. No different than `SOA` in a
+   * store mapping for a single store
+   */
   AOS = 2,
 };
 
+/**
+ * @brief A descriptor for dimension ordering
+ */
 struct DimOrdering {
  public:
+  /**
+   * @brief An enum class for kinds of dimension ordering
+   */
   enum class Kind : int32_t {
-    C       = 1,
+    /**
+     * @brief Indicates the instance have C layout (i.e., the last dimension is the leading
+     * dimension in the instance)
+     */
+    C = 1,
+    /**
+     * @brief Indicates the instance have Fortran layout (i.e., the first dimension is the leading
+     * dimension instance)
+     */
     FORTRAN = 2,
-    CUSTOM  = 3,
+    /**
+     * @brief Indicates the order of dimensions of the instance is manually specified
+     */
+    CUSTOM = 3,
   };
 
  public:
@@ -71,26 +139,66 @@ struct DimOrdering {
                                    std::vector<Legion::DimensionKind>& ordering) const;
 
  public:
+  /**
+   * @brief Sets the dimension ordering to C
+   */
   void c_order();
+  /**
+   * @brief Sets the dimension ordering to Fortran
+   */
   void fortran_order();
+  /**
+   * @brief Sets a custom dimension ordering
+   *
+   * @param dims A vector that stores the order of dimensions.
+   */
   void custom_order(std::vector<int32_t>&& dims);
 
  public:
+  /**
+   * @brief Dimension ordering type
+   */
   Kind kind{Kind::C};
   // When relative is true, 'dims' specifies the order of dimensions
   // for the store's local coordinate space, which will be mapped
   // back to the root store's original coordinate space.
+  /**
+   * @brief If true, the dimension ordering specifies the order of dimensions
+   * for the store's current domain, which will be transformed back to the root
+   * store's domain.
+   */
   bool relative{false};
-  // Used only when the kind is CUSTOM
+  /**
+   * @brief Dimension list. Used only when the `kind` is `CUSTOM`.
+   */
   std::vector<int32_t> dims{};
 };
 
+/**
+ * @brief A descriptor for instance mapping policy
+ */
 struct InstanceMappingPolicy {
  public:
+  /**
+   * @brief Target memory type for the instance
+   */
   StoreTarget target{StoreTarget::SYSMEM};
+  /**
+   * @brief Allocation policy
+   */
   AllocPolicy allocation{AllocPolicy::MAY_ALLOC};
+  /**
+   * @brief Instance layout for the instance
+   */
   InstLayout layout{InstLayout::SOA};
+  /**
+   * @brief Dimension ordering for the instance
+   */
   DimOrdering ordering{};
+  /**
+   * @brief If true, the instance must be tight to the store(s); i.e., the instance
+   * must not have any extra elements not included in the store(s).
+   */
   bool exact{false};
 
  public:
@@ -116,9 +224,18 @@ struct InstanceMappingPolicy {
   static InstanceMappingPolicy default_policy(StoreTarget target, bool exact = false);
 };
 
+/**
+ * @brief A mapping policy for stores
+ */
 struct StoreMapping {
  public:
+  /**
+   * @brief Stores to which the `policy` should be applied
+   */
   std::vector<Store> stores{};
+  /**
+   * @brief Instance mapping policy
+   */
   InstanceMappingPolicy policy;
 
  public:
@@ -138,23 +255,87 @@ struct StoreMapping {
   const Store& store() const;
 
  public:
+  /**
+   * @brief Returns a region requirement index for the stores.
+   *
+   * Illegal if the store mapping has more than one store and the stores are mapped to
+   * different region requirements.
+   *
+   * @return Region requirement index
+   */
   uint32_t requirement_index() const;
+  /**
+   * @brief Returns a set of region requirement indices for the stores.
+   *
+   * @return A set of region requirement indices
+   */
   std::set<uint32_t> requirement_indices() const;
+  /**
+   * @brief Returns the stores' region requirements
+   *
+   * @return A set of region requirements
+   */
   std::set<const Legion::RegionRequirement*> requirements() const;
 
  public:
   void populate_layout_constraints(Legion::LayoutConstraintSet& layout_constraints) const;
 
  public:
+  /**
+   * @brief Creates a `StoreMapping` object following the default mapping poicy
+   *
+   * @param store Target store for the mapping policy
+   * @param target Target memory type for the store
+   * @param exact Indicates whether the policy should request an exact instance
+   *
+   * @return A `StoreMapping` object
+   */
   static StoreMapping default_mapping(const Store& store, StoreTarget target, bool exact = false);
 };
 
+/**
+ * @brief An abstract class that defines Legate mapping APIs
+ *
+ * The APIs give Legate libraries high-level control on task and store mappings
+ */
 struct LegateMapper {
-  virtual bool is_pure() const                                                              = 0;
-  virtual TaskTarget task_target(const Task& task, const std::vector<TaskTarget>& options)  = 0;
+  /**
+   * @brief Indicates whether the mapper is stateless
+   *
+   * @return true The mapper is stateless
+   * @return false The mapper is stateful
+   */
+  virtual bool is_pure() const = 0;
+  /**
+   * @brief Picks the target processor type for the task
+   *
+   * @param task Task to map
+   * @param options Processor types for which the task has variants
+   *
+   * @return A target processor type
+   */
+  virtual TaskTarget task_target(const Task& task, const std::vector<TaskTarget>& options) = 0;
+  /**
+   * @brief Chooses mapping policies for the task's stores.
+   *
+   * Store mappings can be underspecified; any store of the task that doesn't have a mapping policy
+   * will fall back to the default one.
+   *
+   * @param task Task to map
+   * @param options Types of memories to which the stores can be mapped
+   *
+   * @return A vector of store mappings
+   */
   virtual std::vector<StoreMapping> store_mappings(const Task& task,
                                                    const std::vector<StoreTarget>& options) = 0;
-  virtual Scalar tunable_value(TunableID tunable_id)                                        = 0;
+  /**
+   * @brief Returns a tunable value
+   *
+   * @param tunable_id a tunable value id
+   *
+   * @return A tunable value in a `Scalar` object
+   */
+  virtual Scalar tunable_value(TunableID tunable_id) = 0;
 };
 
 }  // namespace mapping

@@ -20,11 +20,29 @@
 
 #include "core/utilities/machine.h"
 
+/**
+ * @file
+ * @brief Type alias definition for legate::Buffer and utility functions for it
+ */
+
 namespace legate {
 
+/**
+ * @brief A typed buffer class for intra-task temporary allocations
+ */
 template <typename VAL, int32_t DIM = 1>
 using Buffer = Legion::DeferredBuffer<VAL, DIM>;
 
+/**
+ * @brief Creates a `Buffer` of specific extents
+ *
+ * @param extents Extents of the buffer
+ * @param kind Kind of the target memory (optional). If not given, the runtime will pick
+ * automatically based on the executing processor
+ * @param alignment Alignment for the memory allocation (optional)
+ *
+ * @return A `Buffer` object
+ */
 template <typename VAL, int32_t DIM>
 Buffer<VAL, DIM> create_buffer(const Legion::Point<DIM>& extents,
                                Legion::Memory::Kind kind = Legion::Memory::Kind::NO_MEMKIND,
@@ -39,6 +57,16 @@ Buffer<VAL, DIM> create_buffer(const Legion::Point<DIM>& extents,
   return Buffer<VAL, DIM>(bounds, kind, nullptr, alignment);
 }
 
+/**
+ * @brief Creates a `Buffer` of a specific size. Always returns a 1D buffer.
+ *
+ * @param size Size of the buffdr
+ * @param kind Kind of the target memory (optional). If not given, the runtime will pick
+ * automatically based on the executing processor
+ * @param alignment Alignment for the memory allocation (optional)
+ *
+ * @return A 1D `Buffer` object
+ */
 template <typename VAL>
 Buffer<VAL> create_buffer(size_t size,
                           Legion::Memory::Kind kind = Legion::Memory::Kind::NO_MEMKIND,

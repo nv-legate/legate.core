@@ -18,17 +18,24 @@
 
 #include "legion.h"
 
+/**
+ * @file
+ * @brief Class definition for legate::comm::Communicator
+ */
+
 namespace legate {
 namespace comm {
 
-// This is a thin class wrapping a future that contains a communicator.
-// This class only provides a template member function for retrieving the handle
-// and the client is expected to use a correct type for the communicators that it uses.
-//
-// The following is the list of handle types for supported communicators:
-//
-//   - NCCL: ncclComm_t*
-//
+/**
+ * @brief A thin wrapper class for communicators stored in futures. This class only provides
+ * a tempalte method to retrieve the communicator handle and the client is expected to pass
+ * the right handle type.
+ *
+ * The following is the list of handle types for communicators supported in Legate:
+ *
+ *   - NCCL: ncclComm_t*
+ *   - CPU communicator in Legate: legate::comm::coll::CollComm*
+ */
 class Communicator {
  public:
   Communicator() {}
@@ -39,6 +46,11 @@ class Communicator {
   Communicator& operator=(const Communicator&) = default;
 
  public:
+  /**
+   * @brief Returns the communicator stored in the wrapper
+   *
+   * @return A communicator
+   */
   template <typename T>
   T get() const
   {

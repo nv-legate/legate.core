@@ -21,11 +21,27 @@
 #include <cuda_runtime.h>
 #include "legion.h"
 
+/**
+ * @file
+ * @brief Class definition for legate::cuda::StreamPool
+ */
+
 namespace legate {
 namespace cuda {
 
+/**
+ * @brief A simple wrapper around CUDA streams to inject auxiliary features
+ *
+ * When `LEGATE_SYNC_STREAM_VIEW` is set to 1, every `StreamView` synchronizes the CUDA stream
+ * that it wraps when it is destroyed.
+ */
 struct StreamView {
  public:
+  /**
+   * @brief Creates a `StreamView` with a raw CUDA stream
+   *
+   * @param stream Raw CUDA stream to wrap
+   */
   StreamView(cudaStream_t stream) : valid_(true), stream_(stream) {}
   ~StreamView();
 
@@ -38,6 +54,11 @@ struct StreamView {
   StreamView& operator=(StreamView&&);
 
  public:
+  /**
+   * @brief Unwraps the raw CUDA stream
+   *
+   * @return Raw CUDA stream wrapped by the `StreamView`
+   */
   operator cudaStream_t() const { return stream_; }
 
  private:
@@ -45,15 +66,28 @@ struct StreamView {
   cudaStream_t stream_;
 };
 
+/**
+ * @brief A stream pool
+ */
 struct StreamPool {
  public:
   StreamPool() {}
   ~StreamPool();
 
  public:
+  /**
+   * @brief Returns a `StreamView` in the pool
+   *
+   * @return A `StreamView` object
+   */
   StreamView get_stream();
 
  public:
+  /**
+   * @brief Returns a singleton stream pool
+   *
+   * @return A `StreamPool` object
+   */
   static StreamPool& get_stream_pool();
 
  private:

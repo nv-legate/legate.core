@@ -21,6 +21,11 @@
 #include "core/comm/communicator.h"
 #include "core/task/return.h"
 
+/**
+ * @file
+ * @brief Class definition for legate::Context
+ */
+
 namespace legate {
 
 namespace mapping {
@@ -126,33 +131,33 @@ class TaskContext {
 
  public:
   /**
-   * @brief Returns input stores
+   * @brief Returns input stores of the task
    *
-   * @return a vector of input stores
+   * @return Vector of input stores
    */
   std::vector<Store>& inputs() { return inputs_; }
   /**
-   * @brief Returns output stores
+   * @brief Returns output stores of the task
    *
-   * @return a vector of output stores
+   * @return Vector of output stores
    */
   std::vector<Store>& outputs() { return outputs_; }
   /**
-   * @brief Returns reduction stores
+   * @brief Returns reduction stores of the task
    *
-   * @return a vector of reduction stores
+   * @return Vector of reduction stores
    */
   std::vector<Store>& reductions() { return reductions_; }
   /**
-   * @brief Returns by-value arguments
+   * @brief Returns by-value arguments of the task
    *
-   * @return a vector of scalar objects
+   * @return Vector of scalar objects
    */
   std::vector<Scalar>& scalars() { return scalars_; }
   /**
-   * @brief Returns communicators
+   * @brief Returns communicators of the task
    *
-   * @return a vector of communicator objects
+   * @return Vector of communicator objects
    */
   std::vector<comm::Communicator>& communicators() { return comms_; }
 
@@ -160,28 +165,27 @@ class TaskContext {
   /**
    * @brief Indicates whether the task is parallelized
    *
-   * @return true the task is a single task
-   * @return false the task is one in a set of multiple parallel tasks
+   * @return true The task is a single task
+   * @return false The task is one in a set of multiple parallel tasks
    */
   bool is_single_task() const;
   /**
    * @brief Indicates whether the task is allowed to raise an exception
    *
-   * @return true the task can raise an exception
-   * @return false the task must not raise an exception
+   * @return true The task can raise an exception
+   * @return false The task must not raise an exception
    */
   bool can_raise_exception() const { return can_raise_exception_; }
   /**
-   * @brief Returns a point of this task. A 0D point will be returned for a single task.
+   * @brief Returns the point of the task. A 0D point will be returned for a single task.
    *
-   * @return a domain point
+   * @return The point of the task
    */
   Legion::DomainPoint get_task_index() const;
   /**
-   * @brief Returns the launch domain of a group of parallel tasks to which this task belongs.
-   * An empty domain will be returned for a single task.
+   * @brief Returns the task group's launch domain. A single task returns an empty domain
    *
-   * @return a domain
+   * @return The task group's launch domain
    */
   Legion::Domain get_launch_domain() const;
 

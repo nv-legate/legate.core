@@ -24,6 +24,11 @@
 #include "legate_defines.h"
 #include "legion.h"
 
+/**
+ * @file
+ * @brief Class definition for legate::Store
+ */
+
 namespace legate {
 
 class RegionField {
@@ -258,7 +263,7 @@ class FutureWrapper {
 };
 
 /**
- * @brief A multi-dimensional data container to store task data
+ * @brief A multi-dimensional data container storing task data
  */
 class Store {
  public:
@@ -291,15 +296,15 @@ class Store {
    * @brief Indicates whether the store is valid. A store passed to a task can be invalid
    * only for reducer tasks for tree reduction.
    *
-   * @return true the store is valid
-   * @return false the store is invalid and cannot be used in any data access
+   * @return true The store is valid
+   * @return false The store is invalid and cannot be used in any data access
    */
   bool valid() const;
   /**
    * @brief Indicates whether the store is transformed in any way.
    *
-   * @return true the store is transformed
-   * @return false the store is not transformed
+   * @return true The store is transformed
+   * @return false The store is not transformed
    */
   bool transformed() const { return !transform_->identity(); }
 
@@ -307,13 +312,13 @@ class Store {
   /**
    * @brief Returns the dimension of the store
    *
-   * @return the store's dimension
+   * @return The store's dimension
    */
   int32_t dim() const { return dim_; }
   /**
    * @brief Returns the type code of the store
    *
-   * @return the store's type code
+   * @return The store's type code
    */
   template <typename TYPE_CODE = LegateTypeCode>
   TYPE_CODE code() const
@@ -325,28 +330,28 @@ class Store {
   /**
    * @brief Returns a read-only accessor to the store for the entire domain
    *
-   * @return a read-only accessor to the store
+   * @return A read-only accessor to the store
    */
   template <typename T, int32_t DIM>
   AccessorRO<T, DIM> read_accessor() const;
   /**
    * @brief Returns a write-only accessor to the store for the entire domain
    *
-   * @return a write-only accessor to the store
+   * @return A write-only accessor to the store
    */
   template <typename T, int32_t DIM>
   AccessorWO<T, DIM> write_accessor() const;
   /**
    * @brief Returns a read-write accessor to the store for the entire domain
    *
-   * @return a read-write accessor to the store
+   * @return A read-write accessor to the store
    */
   template <typename T, int32_t DIM>
   AccessorRW<T, DIM> read_write_accessor() const;
   /**
    * @brief Returns a reduction accessor to the store for the entire domain
    *
-   * @return a reduction accessor to the store
+   * @return A reduction accessor to the store
    */
   template <typename OP, bool EXCLUSIVE, int32_t DIM>
   AccessorRD<OP, EXCLUSIVE, DIM> reduce_accessor() const;
@@ -359,7 +364,7 @@ class Store {
    * The actual bounds for valid access are determined by an intersection between
    * the store's domain and the bounds.
    *
-   * @return a read-only accessor to the store
+   * @return A read-only accessor to the store
    */
   template <typename T, int32_t DIM>
   AccessorRO<T, DIM> read_accessor(const Legion::Rect<DIM>& bounds) const;
@@ -370,7 +375,7 @@ class Store {
    * The actual bounds for valid access are determined by an intersection between
    * the store's domain and the bounds.
    *
-   * @return a write-only accessor to the store
+   * @return A write-only accessor to the store
    */
   template <typename T, int32_t DIM>
   AccessorWO<T, DIM> write_accessor(const Legion::Rect<DIM>& bounds) const;
@@ -381,7 +386,7 @@ class Store {
    * The actual bounds for valid access are determined by an intersection between
    * the store's domain and the bounds.
    *
-   * @return a read-write accessor to the store
+   * @return A read-write accessor to the store
    */
   template <typename T, int32_t DIM>
   AccessorRW<T, DIM> read_write_accessor(const Legion::Rect<DIM>& bounds) const;
@@ -392,7 +397,7 @@ class Store {
    * The actual bounds for valid access are determined by an intersection between
    * the store's domain and the bounds.
    *
-   * @return a reduction accessor to the store
+   * @return A reduction accessor to the store
    */
   template <typename OP, bool EXCLUSIVE, int32_t DIM>
   AccessorRD<OP, EXCLUSIVE, DIM> reduce_accessor(const Legion::Rect<DIM>& bounds) const;
@@ -408,7 +413,7 @@ class Store {
    * @param return_buffer If the value is true, the created buffer will be bound
    * to the store upon return
    *
-   * @return a reductionaccessor to the store
+   * @return A reduction accessor to the store
    */
   template <typename T, int32_t DIM>
   Buffer<T, DIM> create_output_buffer(const Legion::Point<DIM>& extents,
@@ -418,14 +423,14 @@ class Store {
   /**
    * @brief Returns the store's domain
    *
-   * @return the store's domain
+   * @return Store's domain
    */
   template <int32_t DIM>
   Legion::Rect<DIM> shape() const;
   /**
    * @brief Returns the store's domain in a dimension-erased domain type
    *
-   * @return the store's domain in a dimension-erased domain type
+   * @return Store's domain in a dimension-erased domain type
    */
   Legion::Domain domain() const;
 
@@ -433,22 +438,22 @@ class Store {
   /**
    * @brief Indicates whether the store can have a read accessor
    *
-   * @return true the store can have a read accessor
-   * @return false the store cannot have a read accesor
+   * @return true The store can have a read accessor
+   * @return false The store cannot have a read accesor
    */
   bool is_readable() const { return readable_; }
   /**
    * @brief Indicates whether the store can have a write accessor
    *
-   * @return true the store can have a write accessor
-   * @return false the store cannot have a write accesor
+   * @return true The store can have a write accessor
+   * @return false The store cannot have a write accesor
    */
   bool is_writable() const { return writable_; }
   /**
    * @brief Indicates whether the store can have a reduction accessor
    *
-   * @return true the store can have a reduction accessor
-   * @return false the store cannot have a reduction accesor
+   * @return true The store can have a reduction accessor
+   * @return false The store cannot have a reduction accesor
    */
   bool is_reducible() const { return reducible_; }
 
@@ -458,7 +463,7 @@ class Store {
    * type must match with the store's data type. Illegal if the store's
    * volume is not equal to 1.
    *
-   * @return the scalar value stored in the store
+   * @return The scalar value stored in the store
    */
   template <typename VAL>
   VAL scalar() const;
@@ -490,8 +495,8 @@ class Store {
    * @brief Indicates whether the store is backed by a future
    * (i.e., a container for scalar value)
    *
-   * @return true the store is backed by a future
-   * @return false the store is backed by a region field
+   * @return true The store is backed by a future
+   * @return false The store is backed by a region field
    */
   bool is_future() const { return is_future_; }
   /**
@@ -499,8 +504,8 @@ class Store {
    * that the store has already assigned to a buffer; i.e., the store may have been assigned
    * to a buffer even when this function returns `true`.
    *
-   * @return true the store is an unbound store
-   * @return false the store is a normal store
+   * @return true The store is an unbound store
+   * @return false The store is a normal store
    */
   bool is_output_store() const { return is_output_store_; }
   ReturnValue pack() const { return future_.pack(); }
