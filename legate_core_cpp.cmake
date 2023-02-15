@@ -394,6 +394,8 @@ Imported Targets:
 
 ]=])
 
+file(READ ${CMAKE_SOURCE_DIR}/cmake/legate_helper_functions.cmake helper_functions)
+
 string(JOIN "\n" code_string
 [=[
 if(NOT TARGET legate::Thrust)
@@ -410,6 +412,7 @@ if(Legion_NETWORKS)
   find_package(MPI REQUIRED COMPONENTS CXX)
 endif()
 ]=]
+"${helper_functions}"
 )
 
 rapids_export(
