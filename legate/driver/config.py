@@ -146,7 +146,6 @@ class Other(DataclassMixin):
 
 
 class ConfigProtocol(Protocol):
-
     _args: Namespace
 
     argv: ArgList
@@ -178,19 +177,15 @@ class Config:
     def __init__(self, argv: ArgList) -> None:
         self.argv = argv
 
-        args, extra = parser.parse_known_args(self.argv[1:])
+        args = parser.parse_args(self.argv[1:])
 
         colors.ENABLED = args.color
 
         # only saving this for help with testing
         self._args = args
 
-        self.user_script = next((x for x in extra if x.endswith(".py")), None)
-
-        user_opts = list(extra)
-        if self.user_script in user_opts:
-            user_opts.remove(self.user_script)
-        self.user_opts = tuple(user_opts)
+        self.user_script = args.command[0] if args.command else None
+        self.user_opts = tuple(args.command[1:]) if self.user_script else ()
 
         # these may modify the args, so apply before dataclass conversions
         self._fixup_nocr(args)

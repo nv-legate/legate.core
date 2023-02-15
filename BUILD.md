@@ -189,6 +189,7 @@ in the environment file:
 - `git`
 - `make`
 - `ninja` (this is optional, but produces more informative build output)
+- `rust`
 - `scikit-build`
 
 ### OpenBLAS

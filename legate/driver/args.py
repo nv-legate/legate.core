@@ -16,7 +16,7 @@
 #
 from __future__ import annotations
 
-from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
+from argparse import REMAINDER, ArgumentDefaultsHelpFormatter, ArgumentParser
 from typing import IO, Optional
 
 from ..util.shared_args import (
@@ -54,7 +54,6 @@ __all__ = ("parser",)
 #
 # All of this is somewhat clunky but the best option to provide a good UX.
 class _LegateArgumentParser(ArgumentParser):
-
     packages = ("legate", "cunumeric")
 
     def print_help(self, file: Optional[IO[str]] = None) -> None:
@@ -99,6 +98,13 @@ parser = _LegateArgumentParser(
     formatter_class=ArgumentDefaultsHelpFormatter,
 )
 
+parser.add_argument(
+    "command",
+    nargs=REMAINDER,
+    help="A python script to run, plus any arguments for the script. "
+    "Any arguments after the script will be passed to the script, i.e. "
+    "NOT used as arguments to legate itself.",
+)
 
 multi_node = parser.add_argument_group("Multi-node configuration")
 multi_node.add_argument(NODES.name, **NODES.kwargs)

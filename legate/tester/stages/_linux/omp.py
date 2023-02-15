@@ -48,7 +48,9 @@ class OMP(TestStage):
 
     kind: FeatureType = "openmp"
 
-    args = [CUNUMERIC_TEST_ARG]
+    args: ArgList = []
+
+    _tmp_args = [CUNUMERIC_TEST_ARG]
 
     def __init__(self, config: Config, system: TestSystem) -> None:
         self._init(config, system)

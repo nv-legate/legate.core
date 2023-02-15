@@ -58,6 +58,8 @@ struct StreamPool {
 
  private:
   // For now we keep only one stream in the pool
+  // TODO: If this ever changes, the use of non-stream-ordered `DeferredBuffer`s
+  // in `core/data/buffer.h` will no longer be safe.
   std::unique_ptr<cudaStream_t> cached_stream_{nullptr};
 };
 

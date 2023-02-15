@@ -41,7 +41,6 @@ class TestKernel:
 
 class TestConfig:
     def test_default_init(self) -> None:
-
         # Note this test does not clear the environment. Default values from
         # the defaults module can depend on the environment, but what matters
         # is that the generated config matches those values, whatever they are.
@@ -120,7 +119,6 @@ class TestConfig:
         assert colors.ENABLED is True
 
     def test_arg_conversions(self, mocker: MockerFixture) -> None:
-
         # This is kind of a dumb short-cut test, but if we believe that
         # object_to_dataclass works as advertised, then this test ensures that
         # it is being used for all the sub-configs that it should be used for
