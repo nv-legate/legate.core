@@ -31,6 +31,7 @@ CUNUMERIC_TEST_ENV = {"CUNUMERIC_TEST": "1"}
 
 # Raise min chunk sizes for deferred codepaths to force eager execution
 EAGER_ENV = {
+    "CUNUMERIC_TEST": "0",
     "CUNUMERIC_MIN_CPU_CHUNK": "2000000000",
     "CUNUMERIC_MIN_OMP_CHUNK": "2000000000",
     "CUNUMERIC_MIN_GPU_CHUNK": "2000000000",
