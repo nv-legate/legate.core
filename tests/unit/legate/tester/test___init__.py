@@ -33,7 +33,7 @@ from legate.tester import (
 
 class TestConsts:
     def test_DEFAULT_CPUS_PER_NODE(self) -> None:
-        assert DEFAULT_CPUS_PER_NODE == 4
+        assert DEFAULT_CPUS_PER_NODE == 2
 
     def test_DEFAULT_GPUS_PER_NODE(self) -> None:
         assert DEFAULT_GPUS_PER_NODE == 1
