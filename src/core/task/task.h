@@ -16,60 +16,23 @@
 
 #pragma once
 
-#include <cxxabi.h>
-#include <sstream>
-
-#include "legion.h"
-#include "realm/faults.h"
-
-#include "core/runtime/context.h"
-#include "core/runtime/runtime.h"
-#include "core/task/exception.h"
-#include "core/task/return.h"
-#include "core/utilities/deserializer.h"
-#include "core/utilities/nvtx_help.h"
+#include "core/task/variant.h"
 #include "core/utilities/typedefs.h"
 
 namespace legate {
 
-// We're going to allow for each task to use only up to 341 scalar output stores
-constexpr size_t LEGATE_MAX_SIZE_SCALAR_RETURN = 4096;
+class TaskContext;
 
-struct VariantOptions {
-  bool leaf{true};
-  bool inner{false};
-  bool idempotent{false};
-  bool concurrent{false};
-  size_t return_size{LEGATE_MAX_SIZE_SCALAR_RETURN};
+using VariantImpl = void (*)(TaskContext&);
 
-  VariantOptions& with_leaf(bool _leaf)
-  {
-    leaf = _leaf;
-    return *this;
-  }
-  VariantOptions& with_inner(bool _inner)
-  {
-    inner = _inner;
-    return *this;
-  }
-  VariantOptions& with_idempotent(bool _idempotent)
-  {
-    idempotent = _idempotent;
-    return *this;
-  }
-  VariantOptions& with_concurrent(bool _concurrent)
-  {
-    concurrent = _concurrent;
-    return *this;
-  }
-  VariantOptions& with_return_size(size_t _return_size)
-  {
-    return_size = _return_size;
-    return *this;
-  }
-};
+namespace detail {
 
-using LegateVariantImpl = void (*)(TaskContext&);
+const char* task_name(const std::type_info&);
+
+void task_wrapper(
+  VariantImpl, const std::type_info&, const void*, size_t, const void*, size_t, Legion::Processor);
+
+};  // namespace detail
 
 template <typename T>
 class LegateTask {
@@ -100,60 +63,17 @@ class LegateTask {
   };
 
  public:
-  static const char* task_name()
-  {
-    static std::string result;
-    if (result.empty()) {
-      int status      = 0;
-      char* demangled = abi::__cxa_demangle(typeid(T).name(), 0, 0, &status);
-      result          = demangled;
-      free(demangled);
-    }
-
-    return result.c_str();
-  }
-
   // Task wrappers so we can instrument all Legate tasks if we want
-  template <LegateVariantImpl TASK_PTR>
+  template <VariantImpl VARIANT_IMPL>
   static void legate_task_wrapper(
     const void* args, size_t arglen, const void* userdata, size_t userlen, Legion::Processor p)
   {
-    // Legion preamble
-    const Legion::Task* task;
-    const std::vector<Legion::PhysicalRegion>* regions;
-    Legion::Context legion_context;
-    Legion::Runtime* runtime;
-    Legion::Runtime::legion_task_preamble(args, arglen, p, task, regions, legion_context, runtime);
-
-#ifdef LEGATE_USE_CUDA
-    nvtx::Range auto_range(task_name());
-#endif
-
-    Core::show_progress(task, legion_context, runtime, task_name());
-
-    TaskContext context(task, *regions, legion_context, runtime);
-
-    ReturnValues return_values{};
-    try {
-      if (!Core::use_empty_task) (*TASK_PTR)(context);
-      return_values = context.pack_return_values();
-    } catch (legate::TaskException& e) {
-      if (context.can_raise_exception()) {
-        context.make_all_unbound_stores_empty();
-        return_values = context.pack_return_values_with_exception(e.index(), e.error_message());
-      } else
-        // If a Legate exception is thrown by a task that does not declare any exception,
-        // this is a bug in the library that needs to be reported to the developer
-        Core::report_unexpected_exception(task_name(), e);
-    }
-
-    // Legion postamble
-    return_values.finalize(legion_context);
+    detail::task_wrapper(VARIANT_IMPL, typeid(T), args, arglen, userdata, userlen, p);
   }
 
  public:
   // Methods for registering variants
-  template <LegateVariantImpl TASK_PTR>
+  template <VariantImpl TASK_PTR>
   static void register_variant(Legion::ExecutionConstraintSet& execution_constraints,
                                Legion::TaskLayoutConstraintSet& layout_constraints,
                                LegateVariantCode var,
@@ -165,9 +85,17 @@ class LegateTask {
     Legion::CodeDescriptor desc(legate_task_wrapper<TASK_PTR>);
     auto task_id = T::TASK_ID;
 
-    T::Registrar::record_variant(
-      task_id, T::task_name(), desc, execution_constraints, layout_constraints, var, kind, options);
+    T::Registrar::record_variant(task_id,
+                                 detail::task_name(typeid(T)),
+                                 desc,
+                                 execution_constraints,
+                                 layout_constraints,
+                                 var,
+                                 kind,
+                                 options);
   }
+
+ public:
   static void register_variants(
     const std::map<LegateVariantCode, VariantOptions>& all_options = {});
 };
@@ -257,52 +185,5 @@ template <typename T>
   RegisterGPUVariant<T, LegateTask<T>, HasGPUVariant::value>::register_variant(
     all_options_copy[LEGATE_GPU_VARIANT]);
 }
-
-class LegateTaskRegistrar {
- public:
-  void record_variant(Legion::TaskID tid,
-                      const char* task_name,
-                      const Legion::CodeDescriptor& desc,
-                      Legion::ExecutionConstraintSet& execution_constraints,
-                      Legion::TaskLayoutConstraintSet& layout_constraints,
-                      LegateVariantCode var,
-                      Legion::Processor::Kind kind,
-                      const VariantOptions& options);
-
- public:
-  void register_all_tasks(Legion::Runtime* runtime, LibraryContext& context);
-
- private:
-  struct PendingTaskVariant : public Legion::TaskVariantRegistrar {
-   public:
-    PendingTaskVariant(void)
-      : Legion::TaskVariantRegistrar(), task_name(nullptr), var(LEGATE_NO_VARIANT)
-    {
-    }
-    PendingTaskVariant(Legion::TaskID tid,
-                       bool global,
-                       const char* var_name,
-                       const char* t_name,
-                       const Legion::CodeDescriptor& desc,
-                       LegateVariantCode v,
-                       size_t ret)
-      : Legion::TaskVariantRegistrar(tid, global, var_name),
-        task_name(t_name),
-        descriptor(desc),
-        var(v),
-        ret_size(ret)
-    {
-    }
-
-   public:
-    const char* task_name;
-    Legion::CodeDescriptor descriptor;
-    LegateVariantCode var;
-    size_t ret_size;
-  };
-
- private:
-  std::vector<PendingTaskVariant> pending_task_variants_;
-};
 
 }  // namespace legate

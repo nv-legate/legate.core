@@ -205,8 +205,10 @@ list(APPEND legate_core_SOURCES
   src/core/runtime/projection.cc
   src/core/runtime/runtime.cc
   src/core/runtime/shard.cc
+  src/core/task/registrar.cc
   src/core/task/return.cc
   src/core/task/task.cc
+  src/core/task/variant.cc
   src/core/utilities/debug.cc
   src/core/utilities/deserializer.cc
   src/core/utilities/machine.cc
@@ -356,6 +358,7 @@ install(
   FILES src/core/task/exception.h
         src/core/task/return.h
         src/core/task/task.h
+        src/core/task/variant.h
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/legate/core/task)
 
 install(
