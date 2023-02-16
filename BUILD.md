@@ -82,12 +82,18 @@ override this search by providing an install location for any dependency
 explicitly, using a `--with-<dep>` flag, e.g. `--with-nccl` and
 `--with-openblas`.
 
-For multi-node execution Legate uses [GASNet](https://gasnet.lbl.gov/) which can be
-requested using the `--network gasnet1` or `--network gasnetex` flag. By default
-GASNet will be automatically downloaded and built, but if you have an existing
-installation then you can inform the install script using the `--with-gasnet` flag.
-You also need to specify the interconnect network of the target machine using the
-`--conduit` flag.
+For multi-node execution Legate can use [GASNet](https://gasnet.lbl.gov/) (use
+`--network gasnet1` or `--network gasnetex`) or [UCX](https://openucx.org) (use
+`--network ucx`).
+With gasnet1 or gasnetex, GASNet will be automatically downloaded and built,
+but if you have an existing installation then you can inform the install script
+using the `--with-gasnet` flag. You also need to specify the interconnect network
+of the target machine using the `--conduit` flag.
+With UCX, the library must be already installed and `--with-ucx` can be used
+to point to the installation path if UCX is not installed under common system paths.
+At least version 1.14 is required, configured with `--enable-mt`.
+
+Compiling with networking support requires MPI.
 
 For example this would be an installation for a
 [DGX SuperPOD](https://www.nvidia.com/en-us/data-center/dgx-superpod/):
@@ -113,7 +119,7 @@ To see all available configuration options, run with the `--help` flag:
 
 ## Dependency listing
 
-### OS (`--os` flag)
+### OS (`--os` flag on `generate-conda-envs.py`)
 
 Legate has been tested on Linux and MacOS, although only a few flavors of Linux
 such as Ubuntu have been thoroughly tested. There is currently no support for
@@ -144,7 +150,9 @@ Only necessary if you wish to run with Nvidia GPUs.
 
 Some CUDA components necessary for building, e.g. the `nvcc` compiler and driver
 stubs, are not distributed through conda. These must instead be installed using
-[system-level packages](https://developer.nvidia.com/cuda-downloads).
+[system-level packages](https://developer.nvidia.com/cuda-downloads). If these
+are not installed under a standard system location, you will need to inform
+`install.py` of their location using `--with-cuda`.
 
 Independent of the system-level CUDA installation, conda will need to install an
 environment-local copy of the CUDA toolkit (which is what the `--ctk` flag
@@ -160,15 +168,17 @@ issues on GitHub.
 
 Only necessary if you wish to run with Nvidia GPUs.
 
-The following libraries are included automatically in CUDA-enabled environment
-files:
+The following additional CUDA libraries are required:
 
-- `cutensor`
-- `nccl`
+- `curand` (only necessary to provide this if building without CUDA support;
+  CUDA-enabled installations will use the version bundled with CUDA)
+- `cutensor` >= 1.3.3 (included in conda environment file)
+- `nccl` (included in conda environment file)
+- `thrust` >= 1.15 (pulled from github)
 
 If you wish to provide alternative installations for these, then you can remove
-them from the environment file and pass the corresponding `--with-<dep>` flag
-to `install.py`.
+them from the environment file (if necessary) and pass the corresponding
+`--with-<dep>` flag to `install.py`.
 
 ### Build tools
 
@@ -179,6 +189,7 @@ in the environment file:
 - `git`
 - `make`
 - `ninja` (this is optional, but produces more informative build output)
+- `rust`
 - `scikit-build`
 
 ### OpenBLAS
@@ -221,14 +232,27 @@ file generated with `--no-openmpi`.
 
 Legate requires a build of MPI that supports `MPI_THREAD_MULTIPLE`.
 
-### Networking libraries (e.g. Infiniband, RoCE, UCX; optional)
+### Infiniband/RoCE networking libraries (optional)
 
-Only necessary if you wish to run on multiple nodes.
+Only necessary if you wish to run on multiple nodes, using the corresponding
+networking hardware.
 
 Not available on conda; typically available through MOFED or the system-level
 package manager.
 
-If using UCX, a build of UCX configured with `--enable-mt` is required.
+### UCX >= 1.14 (`--ucx` flag; optional)
+
+Only necessary if you wish to run on multiple nodes, using the UCX Realm
+networking backend.
+
+A build of UCX configured with `--enable-mt` is required.
+
+The build of UCX available on conda might not include support for the particular
+networking hardware on your machine (or may not be optimally tuned for such). In
+that case you may want to use an environment file generated with `--no-ucx`,
+get UCX from another source (e.g. MOFED, the system-level package manager, or
+compiled manually from source), and pass the location of your installation to
+`install.py` (if necessary) using `--with-ucx`.
 
 ## Alternative sources for dependencies
 

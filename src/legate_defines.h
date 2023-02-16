@@ -46,7 +46,8 @@
 #endif
 
 #ifndef LEGATE_USE_NETWORK
-#if defined(REALM_USE_GASNET1) || defined(REALM_USE_GASNETEX) || defined(REALM_USE_MPI)
+#if defined(REALM_USE_GASNET1) || defined(REALM_USE_GASNETEX) || defined(REALM_USE_MPI) || \
+  defined(REALM_USE_UCX)
 #define LEGATE_USE_NETWORK
 #endif
 #endif

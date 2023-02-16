@@ -75,6 +75,7 @@ class CUDAConfig(SectionConfig):
 class BuildConfig(SectionConfig):
     compilers: bool = True
     openmpi: bool = True
+    ucx: bool = True
 
     header = "build"
 
@@ -85,6 +86,7 @@ class BuildConfig(SectionConfig):
             "cmake>=3.24,!=3.25.0",
             "git",
             "make",
+            "rust",
             "ninja",
             "scikit-build>=0.13.1",
             "setuptools>=60",
@@ -94,11 +96,14 @@ class BuildConfig(SectionConfig):
             pkgs += ("c-compiler", "cxx-compiler")
         if self.openmpi:
             pkgs += ("openmpi",)
+        if self.ucx:
+            pkgs += ("ucx>=1.14",)
         return sorted(pkgs)
 
     def __str__(self) -> str:
         val = "-compilers" if self.compilers else ""
         val += "-openmpi" if self.openmpi else ""
+        val += "-ucx" if self.ucx else ""
         return val
 
 
@@ -170,6 +175,7 @@ class EnvConfig:
     ctk: str
     compilers: bool
     openmpi: bool
+    ucx: bool
 
     @property
     def sections(self) -> Tuple[SectionConfig, ...]:
@@ -187,7 +193,7 @@ class EnvConfig:
 
     @property
     def build(self) -> BuildConfig:
-        return BuildConfig(self.compilers, self.openmpi)
+        return BuildConfig(self.compilers, self.openmpi, self.ucx)
 
     @property
     def runtime(self) -> RuntimeConfig:
@@ -251,13 +257,14 @@ PIP_TEMPLATE = """\
 """
 
 ALL_CONFIGS = [
-    EnvConfig("test", python, "linux", ctk, compilers, openmpi)
+    EnvConfig("test", python, "linux", ctk, compilers, openmpi, ucx)
     for python in PYTHON_VERSIONS
     for ctk in CTK_VERSIONS
     for compilers in (True, False)
     for openmpi in (True, False)
+    for ucx in (True, False)
 ] + [
-    EnvConfig("test", python, "osx", "none", compilers, openmpi)
+    EnvConfig("test", python, "osx", "none", compilers, openmpi, False)
     for python in PYTHON_VERSIONS
     for compilers in (True, False)
     for openmpi in (True, False)
@@ -307,7 +314,6 @@ class BooleanFlag(Action):
 
 
 if __name__ == "__main__":
-
     import sys
 
     parser = ArgumentParser()
@@ -344,6 +350,13 @@ if __name__ == "__main__":
         default=None,
         help="Whether to include openmpi or not (default: both)",
     )
+    parser.add_argument(
+        "--ucx",
+        action=BooleanFlag,
+        dest="ucx",
+        default=None,
+        help="Whether to include UCX or not (default: both)",
+    )
 
     args = parser.parse_args(sys.argv[1:])
 
@@ -361,6 +374,8 @@ if __name__ == "__main__":
         configs = (x for x in configs if x.os == args.os)
     if args.openmpi is not None:
         configs = (x for x in configs if x.build.openmpi == args.openmpi)
+    if args.ucx is not None:
+        configs = (x for x in configs if x.build.ucx == args.ucx)
 
     for config in configs:
         conda_sections = indent(

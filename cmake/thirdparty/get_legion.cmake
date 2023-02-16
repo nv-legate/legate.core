@@ -159,6 +159,7 @@ function(find_or_configure_legion)
                                  "Legion_REDOP_HALF ON"
                                  "Legion_REDOP_COMPLEX ON"
                                  "Legion_GPU_REDUCTIONS OFF"
+                                 "Legion_BUILD_RUST_PROFILER ON"
     )
   endif()
 
@@ -175,7 +176,7 @@ function(find_or_configure_legion)
 endfunction()
 
 if(NOT DEFINED legate_core_LEGION_BRANCH)
-  set(legate_core_LEGION_BRANCH collective)
+  set(legate_core_LEGION_BRANCH control_replication)
 endif()
 
 if(NOT DEFINED legate_core_LEGION_REPOSITORY)

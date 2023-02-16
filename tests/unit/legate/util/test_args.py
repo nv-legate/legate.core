@@ -22,7 +22,7 @@ import pytest
 
 import legate.util.args as m
 
-from ...util import Capsys, powerset
+from ...util import powerset
 
 T = TypeVar("T")
 
@@ -99,122 +99,6 @@ class TestArgument:
 
 def test_entries() -> None:
     assert set(m.entries(_TestObj())) == {("a", 10), ("c", "foo")}
-
-
-class Test_parse_library_command_args:
-    @pytest.mark.parametrize("name", ("1foo", "a.b", "a/b", "a[", "a("))
-    def test_bad_libname(self, name: str) -> None:
-        with pytest.raises(ValueError):
-            m.parse_library_command_args(name, [])
-
-    def test_default_help(
-        self, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
-    ) -> None:
-        monkeypatch.setattr("sys.argv", ["app", "-foo:help"])
-        with pytest.raises(SystemExit) as e:
-            m.parse_library_command_args("foo", [])
-        assert e.value.code is None
-        out, err = capsys.readouterr()
-        assert out.startswith("usage: <foo program>")
-
-    def test_default_help_precedence(
-        self, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
-    ) -> None:
-        monkeypatch.setattr("sys.argv", ["app", "-foo:help", "-foo:bar"])
-        args = [m.Argument("bar", m.ArgSpec(dest="bar"))]
-        with pytest.raises(SystemExit) as e:
-            m.parse_library_command_args("foo", args)
-        assert e.value.code is None
-        out, err = capsys.readouterr()
-        assert out.startswith("usage: <foo program>")
-
-    def test_default_help_patches_short_args(
-        self, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
-    ) -> None:
-        monkeypatch.setattr("sys.argv", ["app", "-foo:help", "-foo:bar"])
-        args = [m.Argument("bar", m.ArgSpec(dest="bar"))]
-        with pytest.raises(SystemExit) as e:
-            m.parse_library_command_args("foo", args)
-        assert e.value.code is None
-        out, err = capsys.readouterr()
-        assert out.startswith("usage: <foo program>")
-        assert "-foo:bar" in out
-        assert "--foo:bar" not in out
-
-    def test_help_override(
-        self, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
-    ) -> None:
-        monkeypatch.setattr("sys.argv", ["app", "-foo:help"])
-        args = [
-            m.Argument("help", m.ArgSpec(action="store_true", dest="help"))
-        ]
-        ns = m.parse_library_command_args("foo", args)
-        out, err = capsys.readouterr()
-        assert out == ""
-        assert vars(ns) == {"help": True}
-        assert sys.argv == ["app"]
-
-    def test_basic(
-        self, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
-    ) -> None:
-        monkeypatch.setattr("sys.argv", ["app", "-foo:bar", "-foo:quux", "1"])
-        args = [
-            m.Argument("bar", m.ArgSpec(action="store_true", dest="bar")),
-            m.Argument(
-                "quux", m.ArgSpec(dest="quux", action="store", type=int)
-            ),
-        ]
-        ns = m.parse_library_command_args("foo", args)
-        out, err = capsys.readouterr()
-        assert out == ""
-        assert vars(ns) == {"bar": True, "quux": 1}
-        assert sys.argv == ["app"]
-
-    def test_extra_args_passed_on(
-        self, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
-    ) -> None:
-        monkeypatch.setattr("sys.argv", ["app", "-foo:bar", "--extra", "1"])
-        args = [m.Argument("bar", m.ArgSpec(action="store_true", dest="bar"))]
-        ns = m.parse_library_command_args("foo", args)
-        out, err = capsys.readouterr()
-        assert out == ""
-        assert vars(ns) == {"bar": True}
-        assert sys.argv == ["app", "--extra", "1"]
-
-    def test_unrecognized_libname_arg(
-        self, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
-    ) -> None:
-        monkeypatch.setattr("sys.argv", ["app", "-foo:bar", "-foo:baz"])
-        with pytest.warns(UserWarning) as record:
-            ns = m.parse_library_command_args("foo", [])
-        out, err = capsys.readouterr()
-        assert out == ""
-        assert vars(ns) == {}
-        assert sys.argv == ["app", "-foo:bar", "-foo:baz"]
-
-        # issues one warning for the first encountered
-        assert len(record) == 1
-        assert isinstance(record[0].message, Warning)
-        assert (
-            record[0].message.args[0]
-            == "Unrecognized argument '-foo:bar' for foo (passed on as-is)"
-        )
-        assert out == ""
-        assert vars(ns) == {}
-        assert sys.argv == ["app", "-foo:bar", "-foo:baz"]
-
-    def test_no_prefix_conflict(
-        self, monkeypatch: pytest.MonkeyPatch, capsys: Capsys
-    ) -> None:
-        monkeypatch.setattr(
-            "sys.argv", ["app", "-foo:bar", "--foo", "-f", "1", "-ff"]
-        )
-        args = [m.Argument("bar", m.ArgSpec(action="store_true", dest="bar"))]
-        ns = m.parse_library_command_args("foo", args)
-        out, err = capsys.readouterr()
-        assert out == ""
-        assert vars(ns) == {"bar": True}
-        assert sys.argv == ["app", "--foo", "-f", "1", "-ff"]
 
 
 if __name__ == "__main__":
