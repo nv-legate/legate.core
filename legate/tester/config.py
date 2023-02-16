@@ -63,6 +63,7 @@ class Config:
         self.fbmem = args.fbmem
         self.gpu_delay = args.gpu_delay
         self.ompthreads = args.ompthreads
+        self.numamem = args.numamem
 
         # test run configuration
         self.debug = args.debug
