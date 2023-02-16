@@ -315,7 +315,6 @@ class BooleanFlag(Action):
 
 
 if __name__ == "__main__":
-
     import sys
 
     parser = ArgumentParser()

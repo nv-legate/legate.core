@@ -26,8 +26,7 @@ from typing import TYPE_CHECKING, Any, Deque, List, Optional, TypeVar, Union
 
 from legion_top import add_cleanup_item, top_level
 
-from ..args import ARGS
-from ..util.args import parse_library_command_args
+from ..settings import settings
 from . import ffi  # Make sure we only have one ffi instance
 from . import (
     Fence,
@@ -919,8 +918,6 @@ class Runtime:
         focus on implementing their domain logic.
         """
 
-        self._args = parse_library_command_args("legate", ARGS)
-
         # Record whether we need to run finalize tasks
         # Key off whether we are being loaded in a context or not
         try:
@@ -1005,7 +1002,7 @@ class Runtime:
         )
         self._field_manager_class = (
             ConsensusMatchingFieldManager
-            if self._num_nodes > 1 or self._args.consensus
+            if self._num_nodes > 1 or settings.consensus()
             else FieldManager
         )
         self._max_lru_length = int(
@@ -1649,7 +1646,7 @@ runtime: Runtime = Runtime(core_library)
 
 def _cleanup_legate_runtime() -> None:
     global runtime
-    future_leak_check = runtime._args.future_leak_check
+    future_leak_check = settings.future_leak_check()
     runtime.destroy()
     del runtime
     gc.collect()
@@ -1679,7 +1676,7 @@ class _CycleCheckWrapper(ModuleType):
         find_cycles(False)
 
 
-if runtime._args.cycle_check:
+if settings.cycle_check():
     # The first thing that legion_top does after executing the user script
     # is to remove the newly created "__main__" module. We intercept this
     # deletion operation to perform our check.

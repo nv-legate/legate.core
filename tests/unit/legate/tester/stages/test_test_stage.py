@@ -33,14 +33,11 @@ s = FakeSystem()
 
 
 class MockTestStage(m.TestStage):
-
     kind: FeatureType = "eager"
 
     name = "mock"
 
     args = ["-foo", "-bar"]
-
-    _tmp_args = []
 
     def __init__(self, config: Config, system: _TestSystem) -> None:
         self._init(config, system)

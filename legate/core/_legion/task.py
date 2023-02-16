@@ -471,7 +471,6 @@ class Task(Dispatchable[Future]):
 
 
 class IndexTask(Dispatchable[Union[Future, FutureMap]]):
-
     point_args: Union[list[Any], None]
 
     def __init__(

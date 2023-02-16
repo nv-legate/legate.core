@@ -193,7 +193,6 @@ class Test_cmd_bind:
 
 
 class Test_cmd_gdb:
-
     MULTI_RANK_WARN = (
         "WARNING: Legate does not support gdb for multi-rank runs"
     )
@@ -231,7 +230,6 @@ class Test_cmd_gdb:
 
 
 class Test_cmd_cuda_gdb:
-
     MULTI_RANK_WARN = (
         "WARNING: Legate does not support cuda-gdb for multi-rank runs"
     )
@@ -653,7 +651,6 @@ class Test_cmd_local_field:
 
 
 class Test_cmd_kthreads:
-
     DBG_OPTS = ("--gdb", "--cuda-gdb", "--freeze-on-error")
 
     def test_default(self, genobjs: GenObjs) -> None:
@@ -1211,7 +1208,6 @@ class Test_cmd_eager_alloc:
 
 
 class Test_cmd_user_opts:
-
     USER_OPTS: tuple[list[str], ...] = (
         [],
         ["foo"],
