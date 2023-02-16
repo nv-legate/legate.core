@@ -79,6 +79,8 @@ def test_shard_args(shard: tuple[int, ...], expected: str) -> None:
         f"{c.omps}",
         "--ompthreads",
         f"{c.ompthreads}",
+        "--numamem",
+        f"{c.numamem}",
         "--cpu-bind",
         expected,
     ]

@@ -22,6 +22,7 @@ from legate.tester import (
     DEFAULT_GPU_DELAY,
     DEFAULT_GPU_MEMORY_BUDGET,
     DEFAULT_GPUS_PER_NODE,
+    DEFAULT_NUMAMEM,
     DEFAULT_OMPS_PER_NODE,
     DEFAULT_OMPTHREADS,
     DEFAULT_PROCESS_ENV,
@@ -49,6 +50,9 @@ class TestConsts:
 
     def test_DEFAULT_OMPTHREADS(self) -> None:
         assert DEFAULT_OMPTHREADS == 4
+
+    def test_DEFAULT_NUMAMEM(self) -> None:
+        assert DEFAULT_NUMAMEM == 0
 
     def test_DEFAULT_PROCESS_ENV(self) -> None:
         assert DEFAULT_PROCESS_ENV == {
