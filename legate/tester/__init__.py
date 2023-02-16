@@ -29,7 +29,7 @@ FeatureType: TypeAlias = Union[
 ]
 
 #: Value to use if --cpus is not specified.
-DEFAULT_CPUS_PER_NODE = 4
+DEFAULT_CPUS_PER_NODE = 2
 
 #: Value to use if --gpus is not specified.
 DEFAULT_GPUS_PER_NODE = 1
