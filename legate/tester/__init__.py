@@ -46,6 +46,9 @@ DEFAULT_OMPS_PER_NODE = 1
 #: Value to use if --ompthreads is not specified.
 DEFAULT_OMPTHREADS = 4
 
+#: Value to use if --numamem is not specified.
+DEFAULT_NUMAMEM = 0
+
 #: Default values to apply to normalize the testing environment.
 DEFAULT_PROCESS_ENV = {
     "LEGATE_TEST": "1",
