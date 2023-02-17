@@ -239,7 +239,7 @@ channels:
   - conda-forge
 dependencies:
 
-  - python={python}
+  - python={python},!=3.9.7  # avoid https://bugs.python.org/issue45121
 
 {conda_sections}{pip}
 """
