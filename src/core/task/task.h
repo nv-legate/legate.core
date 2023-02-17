@@ -27,10 +27,10 @@ using VariantImpl = void (*)(TaskContext&);
 
 namespace detail {
 
-const char* task_name(const std::type_info&);
+std::string generate_task_name(const std::type_info&);
 
 void task_wrapper(
-  VariantImpl, const std::type_info&, const void*, size_t, const void*, size_t, Legion::Processor);
+  VariantImpl, const char*, const void*, size_t, const void*, size_t, Legion::Processor);
 
 };  // namespace detail
 
@@ -63,12 +63,19 @@ class LegateTask {
   };
 
  public:
+  static const char* task_name()
+  {
+    static std::string result = detail::generate_task_name(typeid(T));
+    return result.c_str();
+  }
+
+ public:
   // Task wrappers so we can instrument all Legate tasks if we want
   template <VariantImpl VARIANT_IMPL>
   static void legate_task_wrapper(
     const void* args, size_t arglen, const void* userdata, size_t userlen, Legion::Processor p)
   {
-    detail::task_wrapper(VARIANT_IMPL, typeid(T), args, arglen, userdata, userlen, p);
+    detail::task_wrapper(VARIANT_IMPL, task_name(), args, arglen, userdata, userlen, p);
   }
 
  public:
@@ -85,14 +92,8 @@ class LegateTask {
     Legion::CodeDescriptor desc(legate_task_wrapper<TASK_PTR>);
     auto task_id = T::TASK_ID;
 
-    T::Registrar::record_variant(task_id,
-                                 detail::task_name(typeid(T)),
-                                 desc,
-                                 execution_constraints,
-                                 layout_constraints,
-                                 var,
-                                 kind,
-                                 options);
+    T::Registrar::record_variant(
+      task_id, task_name(), desc, execution_constraints, layout_constraints, var, kind, options);
   }
 
  public:

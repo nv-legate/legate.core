@@ -77,7 +77,7 @@ void TaskRegistrar::record_variant(Legion::TaskID tid,
   registrar->set_idempotent(options.idempotent);
   registrar->set_concurrent(options.concurrent);
 
-  pending_task_variants_.push_back(std::move(registrar));
+  pending_task_variants_.push_back(registrar);
 }
 
 void TaskRegistrar::register_all_tasks(Legion::Runtime* runtime, LibraryContext& context)

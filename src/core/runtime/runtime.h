@@ -33,9 +33,8 @@ class Core {
   static void shutdown(void);
   static void show_progress(const Legion::Task* task,
                             Legion::Context ctx,
-                            Legion::Runtime* runtime,
-                            const char* task_name);
-  static void report_unexpected_exception(const char* task_name, const legate::TaskException& e);
+                            Legion::Runtime* runtime);
+  static void report_unexpected_exception(const Legion::Task* task, const legate::TaskException& e);
 
  public:
   // Configuration settings

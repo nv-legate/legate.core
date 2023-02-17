@@ -105,7 +105,7 @@ static void extract_scalar_task(
   Legion::Runtime* runtime;
   Legion::Runtime::legion_task_preamble(args, arglen, p, task, regions, legion_context, runtime);
 
-  Core::show_progress(task, legion_context, runtime, task->get_task_name());
+  Core::show_progress(task, legion_context, runtime);
 
   TaskContext context(task, *regions, legion_context, runtime);
   auto idx            = context.scalars()[0].value<int32_t>();
@@ -124,8 +124,7 @@ static void extract_scalar_task(
 
 /*static*/ void Core::show_progress(const Legion::Task* task,
                                     Legion::Context ctx,
-                                    Legion::Runtime* runtime,
-                                    const char* task_name)
+                                    Legion::Runtime* runtime)
 {
   if (!Core::show_progress_requested) return;
   const auto exec_proc     = runtime->get_executing_processor(ctx);
@@ -136,24 +135,24 @@ static void extract_scalar_task(
   std::stringstream point_str;
   const auto& point = task->index_point;
   point_str << point[0];
-  for (int32_t dim = 1; dim < task->index_point.dim; ++dim) point_str << "," << point[dim];
+  for (int32_t dim = 1; dim < point.dim; ++dim) point_str << "," << point[dim];
 
   log_legate.print("%s %s task [%s], pt = (%s), proc = " IDFMT,
-                   task_name,
+                   task->get_task_name(),
                    proc_kind_str,
                    task->get_provenance_string().c_str(),
                    point_str.str().c_str(),
                    exec_proc.id);
 }
 
-/*static*/ void Core::report_unexpected_exception(const char* task_name,
+/*static*/ void Core::report_unexpected_exception(const Legion::Task* task,
                                                   const legate::TaskException& e)
 {
   log_legate.error(
     "Task %s threw an exception \"%s\", but the task did not declare any exception. "
     "Please specify a Python exception that you want this exception to be re-thrown with "
     "using 'throws_exception'.",
-    task_name,
+    task->get_task_name(),
     e.error_message().c_str());
   LEGATE_ABORT;
 }

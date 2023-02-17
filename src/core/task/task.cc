@@ -32,21 +32,18 @@
 namespace legate {
 namespace detail {
 
-const char* task_name(const std::type_info& ti)
+std::string generate_task_name(const std::type_info& ti)
 {
-  static std::string result;
-  if (result.empty()) {
-    int status      = 0;
-    char* demangled = abi::__cxa_demangle(ti.name(), 0, 0, &status);
-    result          = demangled;
-    free(demangled);
-  }
-
-  return result.c_str();
+  std::string result;
+  int status      = 0;
+  char* demangled = abi::__cxa_demangle(ti.name(), 0, 0, &status);
+  result          = demangled;
+  free(demangled);
+  return std::move(result);
 }
 
 void task_wrapper(VariantImpl variant_impl,
-                  const std::type_info& ti,
+                  const char* task_name,
                   const void* args,
                   size_t arglen,
                   const void* userdata,
@@ -62,10 +59,10 @@ void task_wrapper(VariantImpl variant_impl,
   Legion::Runtime::legion_task_preamble(args, arglen, p, task, regions, legion_context, runtime);
 
 #ifdef LEGATE_USE_CUDA
-  nvtx::Range auto_range(task_name(ti));
+  nvtx::Range auto_range(task_name);
 #endif
 
-  Core::show_progress(task, legion_context, runtime, task_name(ti));
+  Core::show_progress(task, legion_context, runtime);
 
   TaskContext context(task, *regions, legion_context, runtime);
 
@@ -80,7 +77,7 @@ void task_wrapper(VariantImpl variant_impl,
     } else
       // If a Legate exception is thrown by a task that does not declare any exception,
       // this is a bug in the library that needs to be reported to the developer
-      Core::report_unexpected_exception(task_name(ti), e);
+      Core::report_unexpected_exception(task, e);
   }
 
   // Legion postamble

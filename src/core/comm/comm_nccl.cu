@@ -59,7 +59,7 @@ static ncclUniqueId init_nccl_id(const Legion::Task* task,
 {
   legate::nvtx::Range auto_range("core::comm::nccl::init_id");
 
-  Core::show_progress(task, context, runtime, task->get_task_name());
+  Core::show_progress(task, context, runtime);
 
   ncclUniqueId id;
   CHECK_NCCL(ncclGetUniqueId(&id));
@@ -74,7 +74,7 @@ static ncclComm_t* init_nccl(const Legion::Task* task,
 {
   legate::nvtx::Range auto_range("core::comm::nccl::init");
 
-  Core::show_progress(task, context, runtime, task->get_task_name());
+  Core::show_progress(task, context, runtime);
 
   assert(task->futures.size() == 1);
 
@@ -119,7 +119,7 @@ static void finalize_nccl(const Legion::Task* task,
 {
   legate::nvtx::Range auto_range("core::comm::nccl::finalize");
 
-  Core::show_progress(task, context, runtime, task->get_task_name());
+  Core::show_progress(task, context, runtime);
 
   assert(task->futures.size() == 1);
   auto comm = task->futures[0].get_result<ncclComm_t*>();

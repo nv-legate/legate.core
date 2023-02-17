@@ -30,7 +30,7 @@ static int init_cpucoll_mapping(const Legion::Task* task,
                                 Legion::Context context,
                                 Legion::Runtime* runtime)
 {
-  Core::show_progress(task, context, runtime, task->get_task_name());
+  Core::show_progress(task, context, runtime);
   int mpi_rank = 0;
 #if defined(LEGATE_USE_NETWORK)
   if (coll::backend_network->comm_type == coll::CollCommType::CollMPI) {
@@ -46,7 +46,7 @@ static coll::CollComm init_cpucoll(const Legion::Task* task,
                                    Legion::Context context,
                                    Legion::Runtime* runtime)
 {
-  Core::show_progress(task, context, runtime, task->get_task_name());
+  Core::show_progress(task, context, runtime);
 
   const int point = task->index_point[0];
   int num_ranks   = task->index_domain.get_volume();
@@ -80,7 +80,7 @@ static void finalize_cpucoll(const Legion::Task* task,
                              Legion::Context context,
                              Legion::Runtime* runtime)
 {
-  Core::show_progress(task, context, runtime, task->get_task_name());
+  Core::show_progress(task, context, runtime);
 
   assert(task->futures.size() == 1);
   coll::CollComm comm = task->futures[0].get_result<coll::CollComm>();
