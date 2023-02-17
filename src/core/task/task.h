@@ -35,41 +35,9 @@ void task_wrapper(
 };  // namespace detail
 
 template <typename T>
-class LegateTask {
- protected:
-  // Helper class for checking for various kinds of variants
-  using __no  = int8_t[1];
-  using __yes = int8_t[2];
-  struct HasCPUVariant {
-    template <typename U>
-    static __yes& test(decltype(&U::cpu_variant));
-    template <typename U>
-    static __no& test(...);
-    static const bool value = (sizeof(test<T>(0)) == sizeof(__yes));
-  };
-  struct HasOMPVariant {
-    template <typename U>
-    static __yes& test(decltype(&U::omp_variant));
-    template <typename U>
-    static __no& test(...);
-    static const bool value = (sizeof(test<T>(0)) == sizeof(__yes));
-  };
-  struct HasGPUVariant {
-    template <typename U>
-    static __yes& test(decltype(&U::gpu_variant));
-    template <typename U>
-    static __no& test(...);
-    static const bool value = (sizeof(test<T>(0)) == sizeof(__yes));
-  };
+struct LegateTask {
+  using BASE = LegateTask<T>;
 
- public:
-  static const char* task_name()
-  {
-    static std::string result = detail::generate_task_name(typeid(T));
-    return result.c_str();
-  }
-
- public:
   // Task wrappers so we can instrument all Legate tasks if we want
   template <VariantImpl VARIANT_IMPL>
   static void legate_task_wrapper(
@@ -78,7 +46,6 @@ class LegateTask {
     detail::task_wrapper(VARIANT_IMPL, task_name(), args, arglen, userdata, userlen, p);
   }
 
- public:
   // Methods for registering variants
   template <VariantImpl TASK_PTR>
   static void register_variant(Legion::ExecutionConstraintSet& execution_constraints,
@@ -96,80 +63,13 @@ class LegateTask {
       task_id, task_name(), desc, execution_constraints, layout_constraints, var, kind, options);
   }
 
- public:
   static void register_variants(
     const std::map<LegateVariantCode, VariantOptions>& all_options = {});
-};
 
-template <typename T, typename BASE, bool HAS_CPU>
-class RegisterCPUVariant {
- public:
-  static void register_variant(const VariantOptions& options)
+  static const char* task_name()
   {
-    Legion::ExecutionConstraintSet execution_constraints;
-    Legion::TaskLayoutConstraintSet layout_constraints;
-    BASE::template register_variant<T::cpu_variant>(execution_constraints,
-                                                    layout_constraints,
-                                                    LEGATE_CPU_VARIANT,
-                                                    Legion::Processor::LOC_PROC,
-                                                    options);
-  }
-};
-
-template <typename T, typename BASE>
-class RegisterCPUVariant<T, BASE, false> {
- public:
-  static void register_variant(const VariantOptions& options)
-  {
-    // Do nothing
-  }
-};
-
-template <typename T, typename BASE, bool HAS_OPENMP>
-class RegisterOMPVariant {
- public:
-  static void register_variant(const VariantOptions& options)
-  {
-    Legion::ExecutionConstraintSet execution_constraints;
-    Legion::TaskLayoutConstraintSet layout_constraints;
-    BASE::template register_variant<T::omp_variant>(execution_constraints,
-                                                    layout_constraints,
-                                                    LEGATE_OMP_VARIANT,
-                                                    Legion::Processor::OMP_PROC,
-                                                    options);
-  }
-};
-
-template <typename T, typename BASE>
-class RegisterOMPVariant<T, BASE, false> {
- public:
-  static void register_variant(const VariantOptions& options)
-  {
-    // Do nothing
-  }
-};
-
-template <typename T, typename BASE, bool HAS_GPU>
-class RegisterGPUVariant {
- public:
-  static void register_variant(const VariantOptions& options)
-  {
-    Legion::ExecutionConstraintSet execution_constraints;
-    Legion::TaskLayoutConstraintSet layout_constraints;
-    BASE::template register_variant<T::gpu_variant>(execution_constraints,
-                                                    layout_constraints,
-                                                    LEGATE_GPU_VARIANT,
-                                                    Legion::Processor::TOC_PROC,
-                                                    options);
-  }
-};
-
-template <typename T, typename BASE>
-class RegisterGPUVariant<T, BASE, false> {
- public:
-  static void register_variant(const VariantOptions& options)
-  {
-    // Do nothing
+    static std::string result = detail::generate_task_name(typeid(T));
+    return result.c_str();
   }
 };
 
@@ -179,11 +79,11 @@ template <typename T>
 {
   // Make a copy of the map of options so that we can do find-or-create on it
   auto all_options_copy = all_options;
-  RegisterCPUVariant<T, LegateTask<T>, HasCPUVariant::value>::register_variant(
+  detail::RegisterVariant<T, detail::CPUVariant>::register_variant(
     all_options_copy[LEGATE_CPU_VARIANT]);
-  RegisterOMPVariant<T, LegateTask<T>, HasOMPVariant::value>::register_variant(
+  detail::RegisterVariant<T, detail::OMPVariant>::register_variant(
     all_options_copy[LEGATE_OMP_VARIANT]);
-  RegisterGPUVariant<T, LegateTask<T>, HasGPUVariant::value>::register_variant(
+  detail::RegisterVariant<T, detail::GPUVariant>::register_variant(
     all_options_copy[LEGATE_GPU_VARIANT]);
 }
 
