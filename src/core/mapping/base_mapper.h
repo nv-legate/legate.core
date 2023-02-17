@@ -38,9 +38,12 @@ enum class Strictness : bool {
   hint   = false,
 };
 
-class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
+class BaseMapper : public Legion::Mapping::Mapper, public MachineQueryInterface {
  public:
-  BaseMapper(Legion::Runtime* rt, Legion::Machine machine, const LibraryContext& context);
+  BaseMapper(std::unique_ptr<LegateMapper> legate_mapper,
+             Legion::Runtime* rt,
+             Legion::Machine machine,
+             const LibraryContext& context);
   virtual ~BaseMapper(void);
 
  private:
@@ -53,6 +56,13 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
   static size_t get_total_nodes(Legion::Machine m);
   std::string create_name(Legion::AddressSpace node) const;
   std::string create_logger_name() const;
+
+ public:
+  // MachineQueryInterface
+  virtual const std::vector<Legion::Processor>& cpus() const override { return local_cpus; }
+  virtual const std::vector<Legion::Processor>& gpus() const override { return local_gpus; }
+  virtual const std::vector<Legion::Processor>& omps() const override { return local_omps; }
+  virtual uint32_t total_nodes() const override { return total_nodes_; }
 
  public:
   virtual const char* get_mapper_name(void) const override;
@@ -344,18 +354,20 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
   {
     return (left.second < right.second);
   }
-  // NumPyOpCode decode_task_id(Legion::TaskID tid);
+
+ private:
+  std::unique_ptr<LegateMapper> legate_mapper_;
 
  public:
   Legion::Runtime* const legion_runtime;
   const Legion::Machine machine;
   const LibraryContext context;
   const Legion::AddressSpace local_node;
-  const size_t total_nodes;
   const std::string mapper_name;
   Legion::Logger logger;
 
  protected:
+  const size_t total_nodes_;
   std::vector<Legion::Processor> local_cpus;
   std::vector<Legion::Processor> local_gpus;
   std::vector<Legion::Processor> local_omps;  // OpenMP processors

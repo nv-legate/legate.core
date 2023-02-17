@@ -157,6 +157,28 @@ static void extract_scalar_task(
   LEGATE_ABORT;
 }
 
+namespace detail {
+
+struct RegistrationCallbackArgs {
+  Core::RegistrationCallback callback;
+};
+
+static void invoke_legate_registration_callback(const Legion::RegistrationCallbackArgs& args)
+{
+  auto p_args = static_cast<RegistrationCallbackArgs*>(args.buffer.get_ptr());
+  p_args->callback();
+};
+
+}  // namespace detail
+
+/*static*/ void Core::perform_registration(RegistrationCallback callback)
+{
+  legate::detail::RegistrationCallbackArgs args{callback};
+  Legion::UntypedBuffer buffer(&args, sizeof(args));
+  Legion::Runtime::perform_registration_callback(
+    detail::invoke_legate_registration_callback, buffer, true /*global*/);
+}
+
 void register_legate_core_tasks(Machine machine, Runtime* runtime, const LibraryContext& context)
 {
   const TaskID extract_scalar_task_id  = context.get_task_id(LEGATE_CORE_EXTRACT_SCALAR_TASK_ID);

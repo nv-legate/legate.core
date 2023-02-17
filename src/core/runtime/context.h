@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <memory>
+
 #include "legion.h"
 
 #include "core/comm/communicator.h"
@@ -25,7 +27,7 @@ namespace legate {
 
 namespace mapping {
 
-class BaseMapper;
+class LegateMapper;
 
 }  // namespace mapping
 
@@ -102,7 +104,8 @@ class LibraryContext {
   bool valid_sharding_id(Legion::ShardingID shard_id) const;
 
  public:
-  void register_mapper(mapping::BaseMapper* mapper, int64_t local_mapper_id = 0) const;
+  void register_mapper(std::unique_ptr<mapping::LegateMapper> mapper,
+                       int64_t local_mapper_id = 0) const;
 
  private:
   Legion::Runtime* runtime_;

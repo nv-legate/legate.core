@@ -124,14 +124,14 @@ ShardingID find_sharding_functor_by_projection_functor(Legion::ProjectionID proj
   return functor_id_table[proj_id];
 }
 
-struct callback_args_t {
+struct ShardingCallbackArgs {
   Legion::ShardID shard_id;
   Legion::ProjectionID proj_id;
 };
 
 static void sharding_functor_registration_callback(const Legion::RegistrationCallbackArgs& args)
 {
-  auto p_args   = static_cast<callback_args_t*>(args.buffer.get_ptr());
+  auto p_args   = static_cast<ShardingCallbackArgs*>(args.buffer.get_ptr());
   auto shard_id = p_args->shard_id;
   auto proj_id  = p_args->proj_id;
 
@@ -149,7 +149,7 @@ void legate_create_sharding_functor_using_projection(Legion::ShardID shard_id,
                                                      Legion::ProjectionID proj_id)
 {
   auto runtime = Runtime::get_runtime();
-  legate::callback_args_t args{shard_id, proj_id};
+  legate::ShardingCallbackArgs args{shard_id, proj_id};
   {
     const std::lock_guard<std::mutex> lock(legate::functor_table_lock);
     legate::functor_id_table[proj_id] = shard_id;

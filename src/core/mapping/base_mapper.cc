@@ -75,13 +75,17 @@ std::string log_mappable(const Mappable& mappable, bool prefix_only = false)
 
 }  // namespace
 
-BaseMapper::BaseMapper(Runtime* rt, Machine m, const LibraryContext& ctx)
+BaseMapper::BaseMapper(std::unique_ptr<LegateMapper> legate_mapper,
+                       Runtime* rt,
+                       Machine m,
+                       const LibraryContext& ctx)
   : Mapper(rt->get_mapper_runtime()),
+    legate_mapper_(std::move(legate_mapper)),
     legion_runtime(rt),
     machine(m),
     context(ctx),
     local_node(get_local_node()),
-    total_nodes(get_total_nodes(m)),
+    total_nodes_(get_total_nodes(m)),
     mapper_name(std::move(create_name(local_node))),
     logger(create_logger_name().c_str()),
     local_instances(InstanceManager::get_instance_manager()),
@@ -139,6 +143,8 @@ BaseMapper::BaseMapper(Runtime* rt, Machine m, const LibraryContext& ctx)
       local_numa_domains[local_omp] = local_system_memory;
   }
   generate_prime_factors();
+
+  legate_mapper_->set_machine(this);
 }
 
 BaseMapper::~BaseMapper(void)
@@ -232,7 +238,7 @@ void BaseMapper::select_task_options(const MapperContext ctx,
   options.push_back(TaskTarget::CPU);
 
   Task legate_task(&task, context, runtime, ctx);
-  auto target = task_target(legate_task, options);
+  auto target = legate_mapper_->task_target(legate_task, options);
 
   dispatch(target, [&output](auto& procs) { output.initial_proc = procs.front(); });
   // We never want valid instances
@@ -429,7 +435,7 @@ void BaseMapper::map_task(const MapperContext ctx,
 
   const auto& options = default_store_targets(task.target_proc.kind());
 
-  auto mappings = store_mappings(legate_task, options);
+  auto mappings = legate_mapper_->store_mappings(legate_task, options);
 
   auto validate_colocation = [this](const auto& mapping) {
     if (mapping.stores.empty()) {
@@ -1380,7 +1386,7 @@ void BaseMapper::select_tunable_value(const MapperContext ctx,
                                       const SelectTunableInput& input,
                                       SelectTunableOutput& output)
 {
-  auto value   = tunable_value(input.tunable_id);
+  auto value   = legate_mapper_->tunable_value(input.tunable_id);
   output.size  = value.size();
   output.value = malloc(output.size);
   memcpy(output.value, value.ptr(), output.size);

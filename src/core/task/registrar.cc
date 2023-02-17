@@ -80,8 +80,9 @@ void TaskRegistrar::record_variant(Legion::TaskID tid,
   pending_task_variants_.push_back(registrar);
 }
 
-void TaskRegistrar::register_all_tasks(Legion::Runtime* runtime, LibraryContext& context)
+void TaskRegistrar::register_all_tasks(const LibraryContext& context)
 {
+  auto runtime = Legion::Runtime::get_runtime();
   // Do all our registrations
   for (auto& task : pending_task_variants_) {
     task->task_id =

@@ -149,8 +149,15 @@ struct StoreMapping {
   static StoreMapping default_mapping(const Store& store, StoreTarget target, bool exact = false);
 };
 
+struct MachineQueryInterface {
+  virtual const std::vector<Legion::Processor>& cpus() const = 0;
+  virtual const std::vector<Legion::Processor>& gpus() const = 0;
+  virtual const std::vector<Legion::Processor>& omps() const = 0;
+  virtual uint32_t total_nodes() const                       = 0;
+};
+
 struct LegateMapper {
-  virtual bool is_pure() const                                                              = 0;
+  virtual void set_machine(const MachineQueryInterface* machine)                            = 0;
   virtual TaskTarget task_target(const Task& task, const std::vector<TaskTarget>& options)  = 0;
   virtual std::vector<StoreMapping> store_mappings(const Task& task,
                                                    const std::vector<StoreTarget>& options) = 0;

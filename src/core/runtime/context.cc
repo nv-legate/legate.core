@@ -148,13 +148,15 @@ bool LibraryContext::valid_sharding_id(Legion::ShardingID shard_id) const
   return shard_scope_.in_scope(shard_id);
 }
 
-void LibraryContext::register_mapper(mapping::BaseMapper* mapper, int64_t local_mapper_id) const
+void LibraryContext::register_mapper(std::unique_ptr<mapping::LegateMapper> mapper,
+                                     int64_t local_mapper_id) const
 {
-  auto mapper_id = get_mapper_id(local_mapper_id);
+  auto base_mapper = new legate::mapping::BaseMapper(
+    std::move(mapper), runtime_, Realm::Machine::get_machine(), *this);
+  Legion::Mapping::Mapper* legion_mapper = base_mapper;
   if (Core::log_mapping_decisions)
-    runtime_->add_mapper(mapper_id, new Legion::Mapping::LoggingWrapper(mapper, &mapper->logger));
-  else
-    runtime_->add_mapper(mapper_id, mapper);
+    legion_mapper = new Legion::Mapping::LoggingWrapper(base_mapper, &base_mapper->logger);
+  runtime_->add_mapper(get_mapper_id(local_mapper_id), legion_mapper);
 }
 
 TaskContext::TaskContext(const Legion::Task* task,
