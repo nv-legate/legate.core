@@ -33,9 +33,9 @@ struct LegateTask {
   static void register_variants(
     const std::map<LegateVariantCode, VariantOptions>& all_options = {});
 
-  // What follows are implementation details that unfortunately could not be made
-  // private due to all template foos we do for variant discovery. Understanding
-  // them shouldn't be necessary for writing Legate tasks.
+ private:
+  template <typename, template <typename...> typename, bool>
+  friend struct detail::RegisterVariantImpl;
 
   // A wrapper that wraps all Legate task variant implementations. Provides
   // common functionalities and instrumentations
