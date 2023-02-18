@@ -18,9 +18,10 @@
 
 #include <memory>
 
+#include "legion.h"
+
 #include "core/task/variant.h"
 #include "core/utilities/typedefs.h"
-#include "legion.h"
 
 namespace legate {
 
@@ -35,7 +36,7 @@ class TaskRegistrar {
                       Legion::ExecutionConstraintSet& execution_constraints,
                       Legion::TaskLayoutConstraintSet& layout_constraints,
                       LegateVariantCode var,
-                      Legion::Processor::Kind kind,
+                      Processor::Kind kind,
                       const VariantOptions& options);
 
  public:

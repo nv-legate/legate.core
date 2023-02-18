@@ -31,8 +31,6 @@
 #include "core/cuda/stream_pool.h"
 #endif
 
-using namespace Legion;
-
 namespace legate {
 
 ReturnValue::ReturnValue(Legion::UntypedDeferredValue value, size_t size)
@@ -43,7 +41,7 @@ ReturnValue::ReturnValue(Legion::UntypedDeferredValue value, size_t size)
 
 /*static*/ ReturnValue ReturnValue::unpack(const void* ptr, size_t size, Memory::Kind memory_kind)
 {
-  ReturnValue result(UntypedDeferredValue(size, memory_kind), size);
+  ReturnValue result(Legion::UntypedDeferredValue(size, memory_kind), size);
 #ifdef DEBUG_LEGATE
   assert(!result.is_device_value());
 #endif
@@ -108,12 +106,14 @@ static void pack_returned_exception(const ReturnedException& value, void*& ptr, 
   value.legion_serialize(ptr);
 }
 
-static void returned_exception_init(const ReductionOp* reduction_op, void*& ptr, size_t& size)
+static void returned_exception_init(const Legion::ReductionOp* reduction_op,
+                                    void*& ptr,
+                                    size_t& size)
 {
   pack_returned_exception(JoinReturnedException::identity, ptr, size);
 }
 
-static void returned_exception_fold(const ReductionOp* reduction_op,
+static void returned_exception_fold(const Legion::ReductionOp* reduction_op,
                                     void*& lhs_ptr,
                                     size_t& lhs_size,
                                     const void* rhs_ptr)
@@ -171,7 +171,7 @@ ReturnValue ReturnedException::pack() const
 {
   auto buffer_size = legion_buffer_size();
   auto mem_kind    = find_memory_kind_for_executing_processor();
-  auto buffer      = UntypedDeferredValue(buffer_size, mem_kind);
+  auto buffer      = Legion::UntypedDeferredValue(buffer_size, mem_kind);
 
   AccessorWO<int8_t, 1> acc(buffer, buffer_size, false);
   legion_serialize(acc.ptr(0));
@@ -296,10 +296,10 @@ void ReturnValues::legion_deserialize(const void* buffer)
   return ReturnValue::unpack(values + offset, size, kind);
 }
 
-void ReturnValues::finalize(Context legion_context) const
+void ReturnValues::finalize(Legion::Context legion_context) const
 {
   if (return_values_.empty()) {
-    Runtime::legion_task_postamble(legion_context);
+    Legion::Runtime::legion_task_postamble(legion_context);
     return;
   } else if (return_values_.size() == 1) {
     return_values_.front().finalize(legion_context);
@@ -317,17 +317,18 @@ void ReturnValues::finalize(Context legion_context) const
 
   size_t return_size = legion_buffer_size();
   auto return_buffer =
-    UntypedDeferredValue(return_size, find_memory_kind_for_executing_processor());
+    Legion::UntypedDeferredValue(return_size, find_memory_kind_for_executing_processor());
   AccessorWO<int8_t, 1> acc(return_buffer, return_size, false);
   legion_serialize(acc.ptr(0));
   return_buffer.finalize(legion_context);
 }
 
-void register_exception_reduction_op(Runtime* runtime, const LibraryContext& context)
+void register_exception_reduction_op(Legion::Runtime* runtime, const LibraryContext& context)
 {
   auto redop_id = context.get_reduction_op_id(LEGATE_CORE_JOIN_EXCEPTION_OP);
   auto* redop   = Realm::ReductionOpUntyped::create_reduction_op<JoinReturnedException>();
-  Runtime::register_reduction_op(redop_id, redop, returned_exception_init, returned_exception_fold);
+  Legion::Runtime::register_reduction_op(
+    redop_id, redop, returned_exception_init, returned_exception_fold);
 }
 
 }  // namespace legate

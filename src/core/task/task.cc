@@ -48,7 +48,7 @@ void task_wrapper(VariantImpl variant_impl,
                   size_t arglen,
                   const void* userdata,
                   size_t userlen,
-                  Legion::Processor p)
+                  Processor p)
 
 {
   // Legion preamble

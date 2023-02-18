@@ -19,8 +19,6 @@
 
 #include "core/comm/coll.h"
 
-using namespace Legion;
-
 namespace legate {
 namespace comm {
 namespace cpu {
@@ -95,32 +93,29 @@ void register_tasks(Legion::Machine machine,
                     Legion::Runtime* runtime,
                     const LibraryContext& context)
 {
-  const InputArgs& command_args = Legion::Runtime::get_input_args();
-  int argc                      = command_args.argc;
-  char** argv                   = command_args.argv;
-  coll::collInit(argc, argv);
+  const auto& command_args = Legion::Runtime::get_input_args();
+  coll::collInit(command_args.argc, command_args.argv);
 
-  const TaskID init_cpucoll_mapping_task_id =
-    context.get_task_id(LEGATE_CORE_INIT_CPUCOLL_MAPPING_TASK_ID);
+  auto init_cpucoll_mapping_task_id = context.get_task_id(LEGATE_CORE_INIT_CPUCOLL_MAPPING_TASK_ID);
   const char* init_cpucoll_mapping_task_name = "core::comm::cpu::init_mapping";
   runtime->attach_name(init_cpucoll_mapping_task_id,
                        init_cpucoll_mapping_task_name,
                        false /*mutable*/,
                        true /*local only*/);
 
-  const TaskID init_cpucoll_task_id  = context.get_task_id(LEGATE_CORE_INIT_CPUCOLL_TASK_ID);
+  auto init_cpucoll_task_id          = context.get_task_id(LEGATE_CORE_INIT_CPUCOLL_TASK_ID);
   const char* init_cpucoll_task_name = "core::comm::cpu::init";
   runtime->attach_name(
     init_cpucoll_task_id, init_cpucoll_task_name, false /*mutable*/, true /*local only*/);
 
-  const TaskID finalize_cpucoll_task_id = context.get_task_id(LEGATE_CORE_FINALIZE_CPUCOLL_TASK_ID);
+  auto finalize_cpucoll_task_id = context.get_task_id(LEGATE_CORE_FINALIZE_CPUCOLL_TASK_ID);
   const char* finalize_cpucoll_task_name = "core::comm::cpu::finalize";
   runtime->attach_name(
     finalize_cpucoll_task_id, finalize_cpucoll_task_name, false /*mutable*/, true /*local only*/);
 
   auto make_registrar = [&](auto task_id, auto* task_name, auto proc_kind) {
-    TaskVariantRegistrar registrar(task_id, task_name);
-    registrar.add_constraint(ProcessorConstraint(proc_kind));
+    Legion::TaskVariantRegistrar registrar(task_id, task_name);
+    registrar.add_constraint(Legion::ProcessorConstraint(proc_kind));
     registrar.set_leaf(true);
     registrar.global_registration = false;
     return registrar;

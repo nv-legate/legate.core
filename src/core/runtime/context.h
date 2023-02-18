@@ -18,11 +18,13 @@
 
 #include <memory>
 
-#include "legate_defines.h"
 #include "legion.h"
+// Must be included after legion.h
+#include "legate_defines.h"
 
 #include "core/comm/communicator.h"
 #include "core/task/return.h"
+#include "core/utilities/typedefs.h"
 
 namespace legate {
 
@@ -137,8 +139,8 @@ class TaskContext {
  public:
   bool is_single_task() const;
   bool can_raise_exception() const { return can_raise_exception_; }
-  Legion::DomainPoint get_task_index() const;
-  Legion::Domain get_launch_domain() const;
+  DomainPoint get_task_index() const;
+  Domain get_launch_domain() const;
 
  public:
   void make_all_unbound_stores_empty();

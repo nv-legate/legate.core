@@ -17,6 +17,7 @@
 #include "core/task/registrar.h"
 
 #include "core/runtime/context.h"
+#include "core/utilities/typedefs.h"
 
 namespace legate {
 
@@ -52,18 +53,18 @@ void TaskRegistrar::record_variant(Legion::TaskID tid,
                                    Legion::ExecutionConstraintSet& execution_constraints,
                                    Legion::TaskLayoutConstraintSet& layout_constraints,
                                    LegateVariantCode var,
-                                   Legion::Processor::Kind kind,
+                                   Processor::Kind kind,
                                    const VariantOptions& options)
 {
-  assert((kind == Legion::Processor::LOC_PROC) || (kind == Legion::Processor::TOC_PROC) ||
-         (kind == Legion::Processor::OMP_PROC));
+  assert((kind == Processor::LOC_PROC) || (kind == Processor::TOC_PROC) ||
+         (kind == Processor::OMP_PROC));
 
   // Buffer these up until we can do our actual registration with the runtime
   auto registrar = new PendingTaskVariant(tid,
                                           false /*global*/,
-                                          (kind == Legion::Processor::LOC_PROC)   ? "CPU"
-                                          : (kind == Legion::Processor::TOC_PROC) ? "GPU"
-                                                                                  : "OpenMP",
+                                          (kind == Processor::LOC_PROC)   ? "CPU"
+                                          : (kind == Processor::TOC_PROC) ? "GPU"
+                                                                          : "OpenMP",
                                           task_name,
                                           desc,
                                           var,

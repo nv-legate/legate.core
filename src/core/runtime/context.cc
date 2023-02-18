@@ -203,7 +203,7 @@ TaskContext::TaskContext(const Legion::Task* task,
 #ifdef LEGATE_USE_CUDA
   // If the task is running on a GPU and there is at least one scalar store for reduction,
   // we need to wait for all the host-to-device copies for initialization to finish
-  if (Legion::Processor::get_executing_processor().kind() == Legion::Processor::Kind::TOC_PROC)
+  if (Processor::get_executing_processor().kind() == Processor::Kind::TOC_PROC)
     for (auto& reduction : reductions_)
       if (reduction.is_future()) {
         CHECK_CUDA(cudaDeviceSynchronize());
@@ -214,9 +214,9 @@ TaskContext::TaskContext(const Legion::Task* task,
 
 bool TaskContext::is_single_task() const { return !task_->is_index_space; }
 
-Legion::DomainPoint TaskContext::get_task_index() const { return task_->index_point; }
+DomainPoint TaskContext::get_task_index() const { return task_->index_point; }
 
-Legion::Domain TaskContext::get_launch_domain() const { return task_->index_domain; }
+Domain TaskContext::get_launch_domain() const { return task_->index_domain; }
 
 void TaskContext::make_all_unbound_stores_empty()
 {

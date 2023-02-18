@@ -28,8 +28,6 @@
 
 namespace legate {
 
-using namespace Legion;
-
 Logger log_legate("legate");
 
 // This is the unique string name for our library which can be used
@@ -128,9 +126,9 @@ static void extract_scalar_task(
 {
   if (!Core::show_progress_requested) return;
   const auto exec_proc     = runtime->get_executing_processor(ctx);
-  const auto proc_kind_str = (exec_proc.kind() == Legion::Processor::LOC_PROC)   ? "CPU"
-                             : (exec_proc.kind() == Legion::Processor::TOC_PROC) ? "GPU"
-                                                                                 : "OpenMP";
+  const auto proc_kind_str = (exec_proc.kind() == Processor::LOC_PROC)   ? "CPU"
+                             : (exec_proc.kind() == Processor::TOC_PROC) ? "GPU"
+                                                                         : "OpenMP";
 
   std::stringstream point_str;
   const auto& point = task->index_point;
@@ -179,16 +177,18 @@ static void invoke_legate_registration_callback(const Legion::RegistrationCallba
     detail::invoke_legate_registration_callback, buffer, true /*global*/);
 }
 
-void register_legate_core_tasks(Machine machine, Runtime* runtime, const LibraryContext& context)
+void register_legate_core_tasks(Legion::Machine machine,
+                                Legion::Runtime* runtime,
+                                const LibraryContext& context)
 {
-  const TaskID extract_scalar_task_id  = context.get_task_id(LEGATE_CORE_EXTRACT_SCALAR_TASK_ID);
+  auto extract_scalar_task_id          = context.get_task_id(LEGATE_CORE_EXTRACT_SCALAR_TASK_ID);
   const char* extract_scalar_task_name = "core::extract_scalar";
   runtime->attach_name(
     extract_scalar_task_id, extract_scalar_task_name, false /*mutable*/, true /*local only*/);
 
   auto make_registrar = [&](auto task_id, auto* task_name, auto proc_kind) {
-    TaskVariantRegistrar registrar(task_id, task_name);
-    registrar.add_constraint(ProcessorConstraint(proc_kind));
+    Legion::TaskVariantRegistrar registrar(task_id, task_name);
+    registrar.add_constraint(Legion::ProcessorConstraint(proc_kind));
     registrar.set_leaf(true);
     registrar.global_registration = false;
     return registrar;
@@ -211,10 +211,11 @@ void register_legate_core_tasks(Machine machine, Runtime* runtime, const Library
   comm::register_tasks(machine, runtime, context);
 }
 
-extern void register_exception_reduction_op(Runtime* runtime, const LibraryContext& context);
+extern void register_exception_reduction_op(Legion::Runtime* runtime,
+                                            const LibraryContext& context);
 
-/*static*/ void core_registration_callback(Machine machine,
-                                           Runtime* runtime,
+/*static*/ void core_registration_callback(Legion::Machine machine,
+                                           Legion::Runtime* runtime,
                                            const std::set<Processor>& local_procs)
 {
   ResourceConfig config;
@@ -236,7 +237,7 @@ extern void register_exception_reduction_op(Runtime* runtime, const LibraryConte
   register_legate_core_sharding_functors(runtime, context);
 
   auto fut = runtime->select_tunable_value(
-    Runtime::get_context(), LEGATE_CORE_TUNABLE_HAS_SOCKET_MEM, context.get_mapper_id(0));
+    Legion::Runtime::get_context(), LEGATE_CORE_TUNABLE_HAS_SOCKET_MEM, context.get_mapper_id(0));
   Core::has_socket_mem = fut.get_result<bool>();
 }
 

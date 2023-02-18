@@ -35,7 +35,6 @@ namespace legate {
 namespace comm {
 namespace coll {
 
-using namespace Legion;
 Logger log_coll("coll");
 
 BackendNetwork* backend_network = nullptr;

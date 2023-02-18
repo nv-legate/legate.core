@@ -41,14 +41,14 @@ struct LegateTask {
   // common functionalities and instrumentations
   template <VariantImpl VARIANT_IMPL>
   static void legate_task_wrapper(
-    const void* args, size_t arglen, const void* userdata, size_t userlen, Legion::Processor p);
+    const void* args, size_t arglen, const void* userdata, size_t userlen, Processor p);
 
   // A helper to register a single task variant
   template <VariantImpl VARIANT_IMPL>
   static void register_variant(Legion::ExecutionConstraintSet& execution_constraints,
                                Legion::TaskLayoutConstraintSet& layout_constraints,
                                LegateVariantCode var,
-                               Legion::Processor::Kind kind,
+                               Processor::Kind kind,
                                const VariantOptions& options);
 
   static const char* task_name();

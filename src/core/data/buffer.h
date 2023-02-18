@@ -19,6 +19,7 @@
 #include "legion.h"
 
 #include "core/utilities/machine.h"
+#include "core/utilities/typedefs.h"
 
 namespace legate {
 
@@ -43,11 +44,10 @@ using Buffer = Legion::DeferredBuffer<VAL, DIM>;
 // after it's technically been deallocated.
 
 template <typename VAL, int32_t DIM>
-Buffer<VAL, DIM> create_buffer(const Legion::Point<DIM>& extents,
-                               Legion::Memory::Kind kind = Legion::Memory::Kind::NO_MEMKIND,
-                               size_t alignment          = 16)
+Buffer<VAL, DIM> create_buffer(const Point<DIM>& extents,
+                               Memory::Kind kind = Memory::Kind::NO_MEMKIND,
+                               size_t alignment  = 16)
 {
-  using namespace Legion;
   if (Memory::Kind::NO_MEMKIND == kind) kind = find_memory_kind_for_executing_processor(false);
   auto hi = extents - Point<DIM>::ONES();
   // We just avoid creating empty buffers, as they cause all sorts of headaches.
@@ -58,10 +58,10 @@ Buffer<VAL, DIM> create_buffer(const Legion::Point<DIM>& extents,
 
 template <typename VAL>
 Buffer<VAL> create_buffer(size_t size,
-                          Legion::Memory::Kind kind = Legion::Memory::Kind::NO_MEMKIND,
-                          size_t alignment          = 16)
+                          Memory::Kind kind = Memory::Kind::NO_MEMKIND,
+                          size_t alignment  = 16)
 {
-  return create_buffer<VAL, 1>(Legion::Point<1>(size), kind, alignment);
+  return create_buffer<VAL, 1>(Point<1>(size), kind, alignment);
 }
 
 }  // namespace legate

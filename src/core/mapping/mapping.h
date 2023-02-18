@@ -17,6 +17,7 @@
 #pragma once
 
 #include "core/mapping/operation.h"
+#include "core/utilities/typedefs.h"
 
 namespace legate {
 namespace mapping {
@@ -108,7 +109,8 @@ struct InstanceMappingPolicy {
   bool operator==(const InstanceMappingPolicy&) const;
   bool operator!=(const InstanceMappingPolicy&) const;
 
- public:
+ private:
+  friend class StoreMapping;
   void populate_layout_constraints(const Store& store,
                                    Legion::LayoutConstraintSet& layout_constraints) const;
 
@@ -142,7 +144,8 @@ struct StoreMapping {
   std::set<uint32_t> requirement_indices() const;
   std::set<const Legion::RegionRequirement*> requirements() const;
 
- public:
+ private:
+  friend class BaseMapper;
   void populate_layout_constraints(Legion::LayoutConstraintSet& layout_constraints) const;
 
  public:
@@ -150,10 +153,10 @@ struct StoreMapping {
 };
 
 struct MachineQueryInterface {
-  virtual const std::vector<Legion::Processor>& cpus() const = 0;
-  virtual const std::vector<Legion::Processor>& gpus() const = 0;
-  virtual const std::vector<Legion::Processor>& omps() const = 0;
-  virtual uint32_t total_nodes() const                       = 0;
+  virtual const std::vector<Processor>& cpus() const = 0;
+  virtual const std::vector<Processor>& gpus() const = 0;
+  virtual const std::vector<Processor>& omps() const = 0;
+  virtual uint32_t total_nodes() const               = 0;
 };
 
 struct LegateMapper {
