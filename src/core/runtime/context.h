@@ -18,6 +18,7 @@
 
 #include <memory>
 
+#include "legate_defines.h"
 #include "legion.h"
 
 #include "core/comm/communicator.h"
@@ -72,9 +73,7 @@ class ResourceScope {
 
 class LibraryContext {
  public:
-  LibraryContext(Legion::Runtime* runtime,
-                 const std::string& library_name,
-                 const ResourceConfig& config);
+  LibraryContext(const std::string& library_name, const ResourceConfig& config);
 
  public:
   LibraryContext(const LibraryContext&) = default;
@@ -104,6 +103,8 @@ class LibraryContext {
   bool valid_sharding_id(Legion::ShardingID shard_id) const;
 
  public:
+  template <typename REDOP>
+  void register_reduction_operator();
   void register_mapper(std::unique_ptr<mapping::LegateMapper> mapper,
                        int64_t local_mapper_id = 0) const;
 
@@ -162,3 +163,5 @@ class TaskContext {
 };
 
 }  // namespace legate
+
+#include "core/runtime/context.inl"

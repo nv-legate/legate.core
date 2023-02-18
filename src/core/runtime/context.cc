@@ -32,24 +32,22 @@
 
 namespace legate {
 
-LibraryContext::LibraryContext(Legion::Runtime* runtime,
-                               const std::string& library_name,
-                               const ResourceConfig& config)
-  : runtime_(runtime), library_name_(library_name)
+LibraryContext::LibraryContext(const std::string& library_name, const ResourceConfig& config)
+  : runtime_(Legion::Runtime::get_runtime()), library_name_(library_name)
 {
   task_scope_ = ResourceScope(
-    runtime->generate_library_task_ids(library_name.c_str(), config.max_tasks), config.max_tasks);
+    runtime_->generate_library_task_ids(library_name.c_str(), config.max_tasks), config.max_tasks);
   mapper_scope_ =
-    ResourceScope(runtime->generate_library_mapper_ids(library_name.c_str(), config.max_mappers),
+    ResourceScope(runtime_->generate_library_mapper_ids(library_name.c_str(), config.max_mappers),
                   config.max_mappers);
   redop_scope_ = ResourceScope(
-    runtime->generate_library_reduction_ids(library_name.c_str(), config.max_reduction_ops),
+    runtime_->generate_library_reduction_ids(library_name.c_str(), config.max_reduction_ops),
     config.max_reduction_ops);
   proj_scope_ = ResourceScope(
-    runtime->generate_library_projection_ids(library_name.c_str(), config.max_projections),
+    runtime_->generate_library_projection_ids(library_name.c_str(), config.max_projections),
     config.max_projections);
   shard_scope_ = ResourceScope(
-    runtime->generate_library_sharding_ids(library_name.c_str(), config.max_shardings),
+    runtime_->generate_library_sharding_ids(library_name.c_str(), config.max_shardings),
     config.max_shardings);
 }
 

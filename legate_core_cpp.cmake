@@ -357,6 +357,7 @@ install(
 
 install(
   FILES src/core/runtime/context.h
+        src/core/runtime/context.inl
         src/core/runtime/runtime.h
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/legate/core/runtime)
 
