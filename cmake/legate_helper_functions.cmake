@@ -1,10 +1,10 @@
 macro(legate_include_rapids)
   if (NOT _LEGATE_HAS_RAPIDS)
-    if(NOT EXISTS ${CMAKE_BINARY_DIR}/RAPIDS.cmake)
-      file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-22.08/RAPIDS.cmake
-           ${CMAKE_BINARY_DIR}/RAPIDS.cmake)
+    if(NOT EXISTS ${CMAKE_BINARY_DIR}/LEGATE_RAPIDS.cmake)
+      file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-23.02/RAPIDS.cmake
+           ${CMAKE_BINARY_DIR}/LEGATE_RAPIDS.cmake)
     endif()
-    include(${CMAKE_BINARY_DIR}/RAPIDS.cmake)
+    include(${CMAKE_BINARY_DIR}/LEGATE_RAPIDS.cmake)
     include(rapids-cmake)
     include(rapids-cpm)
     include(rapids-cuda)
@@ -19,14 +19,14 @@ function(legate_default_cpp_install target)
   set(one_value_args EXPORT)
   set(multi_value_args)
   cmake_parse_arguments(
-    OPT
+    LEGATE_OPT
     "${options}"
     "${one_value_args}"
     "${multi_value_args}"
     ${ARGN}
   )
 
-  if (NOT OPT_EXPORT)
+  if (NOT LEGATE_OPT_EXPORT)
     message(FATAL_ERROR "Need EXPORT name for legate_default_install")
   endif()
 
@@ -36,29 +36,29 @@ function(legate_default_cpp_install target)
 
   install(TARGETS ${target}
           DESTINATION ${lib_dir}
-	  EXPORT ${OPT_EXPORT})
-
-  set(code_string "set(legate_core_DIR ${legate_core_DIR})")
+	  EXPORT ${LEGATE_OPT_EXPORT})
 
   rapids_export(
     INSTALL ${target}
-    EXPORT_SET ${OPT_EXPORT}
+    EXPORT_SET ${LEGATE_OPT_EXPORT}
     GLOBAL_TARGETS ${target}
     NAMESPACE legate::
-    FINAL_CODE_BLOCK code_string
   )
 
   # build export targets
   rapids_export(
     BUILD ${target}
-    EXPORT_SET ${OPT_EXPORT}
+    EXPORT_SET ${LEGATE_OPT_EXPORT}
     GLOBAL_TARGETS ${target}
     NAMESPACE legate::
-    FINAL_CODE_BLOCK code_string
   )
 endfunction()
 
 function(legate_add_cffi header target)
+if (NOT DEFINED CMAKE_C_COMPILER)
+  message(FATAL_ERROR "Must enable C language to build Legate projects")
+endif()
+
 execute_process(
   COMMAND ${CMAKE_C_COMPILER}
     -E
@@ -121,14 +121,14 @@ function(legate_default_python_install target)
   set(one_value_args EXPORT)
   set(multi_value_args)
   cmake_parse_arguments(
-    OPT
+    LEGATE_OPT
     "${options}"
     "${one_value_args}"
     "${multi_value_args}"
     ${ARGN}
   )
 
-  if (NOT OPT_EXPORT)
+  if (NOT LEGATE_OPT_EXPORT)
     message(FATAL_ERROR "Need EXPORT name for legate_default_python_install")
   endif()
 
@@ -139,12 +139,12 @@ function(legate_default_python_install target)
 
     install(TARGETS ${target}_python
             DESTINATION ${lib_dir}
-            EXPORT ${OPT_EXPORT})
+            EXPORT ${LEGATE_OPT_EXPORT})
 
     legate_include_rapids()
     rapids_export(
       INSTALL ${target}_python
-      EXPORT_SET ${OPT_EXPORT}
+      EXPORT_SET ${LEGATE_OPT_EXPORT}
       GLOBAL_TARGETS ${target}_python
       NAMESPACE legate::
     )
@@ -156,14 +156,14 @@ function(legate_add_cpp_subdirectory dir target)
   set(one_value_args EXPORT)
   set(multi_value_args)
   cmake_parse_arguments(
-    OPT
+    LEGATE_OPT
     "${options}"
     "${one_value_args}"
     "${multi_value_args}"
     ${ARGN}
   )
 
-  if (NOT OPT_EXPORT)
+  if (NOT LEGATE_OPT_EXPORT)
     message(FATAL_ERROR "Need EXPORT name for legate_default_install")
   endif()
 
@@ -171,8 +171,8 @@ function(legate_add_cpp_subdirectory dir target)
 
   rapids_find_package(legate_core CONFIG
           GLOBAL_TARGETS legate::core
-          BUILD_EXPORT_SET ${OPT_EXPORT}
-          INSTALL_EXPORT_SET ${OPT_EXPORT})
+          BUILD_EXPORT_SET ${LEGATE_OPT_EXPORT}
+          INSTALL_EXPORT_SET ${LEGATE_OPT_EXPORT})
 
   if (SKBUILD)
     if (NOT DEFINED ${target}_ROOT)
@@ -180,15 +180,15 @@ function(legate_add_cpp_subdirectory dir target)
     endif()
     rapids_find_package(${target} CONFIG
       GLOBAL_TARGETS legate::${target}
-      BUILD_EXPORT_SET ${OPT_EXPORT}
-      INSTALL_EXPORT_SET ${OPT_EXPORT})
+      BUILD_EXPORT_SET ${LEGATE_OPT_EXPORT}
+      INSTALL_EXPORT_SET ${LEGATE_OPT_EXPORT})
     if (NOT ${target}_FOUND)
-      add_subdirectory(${dir} ${CMAKE_SOURCE_DIR}/build)
-      legate_default_cpp_install(${target} EXPORT ${OPT_EXPORT})
+      add_subdirectory(${dir} ${CMAKE_SOURCE_DIR}/build/legate_${target})
+      legate_default_cpp_install(${target} EXPORT ${LEGATE_OPT_EXPORT})
     endif()
   else()
     add_subdirectory(${dir})
-    legate_default_cpp_install(${target} EXPORT ${OPT_EXPORT})
+    legate_default_cpp_install(${target} EXPORT ${LEGATE_OPT_EXPORT})
   endif()
 
 endfunction()
@@ -222,7 +222,7 @@ struct Task : public legate::LegateTask<T> {
 ]=])
   string(CONFIGURE "${file_template}" file_content @ONLY)
   file(WRITE ${CMAKE_CURRENT_SOURCE_DIR}/legate_library.h "${file_content}")
- 
+
   set(file_template
 [=[
 #include "legate_library.h"
@@ -253,7 +253,7 @@ class Mapper : public legate::mapping::BaseMapper {
     const std::vector<legate::mapping::TaskTarget>& options) override {
     return *options.begin();
   }
- 
+
   std::vector<legate::mapping::StoreMapping> store_mappings(
     const legate::mapping::Task& task,
     const std::vector<legate::mapping::StoreTarget>& options) override {
@@ -320,7 +320,7 @@ void @target@_perform_registration(void)
   string(CONFIGURE "${file_template}" file_content @ONLY)
   file(WRITE ${CMAKE_CURRENT_SOURCE_DIR}/legate_library.cc "${file_content}")
 
-  set(${output_sources_variable} 
+  set(${output_sources_variable}
     legate_library.h
     legate_library.cc
     PARENT_SCOPE

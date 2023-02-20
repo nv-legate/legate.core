@@ -421,7 +421,9 @@ rapids_export(
   GLOBAL_TARGETS core
   NAMESPACE legate::
   DOCUMENTATION doc_string
-  FINAL_CODE_BLOCK code_string)
+  FINAL_CODE_BLOCK code_string
+  LANGUAGES ${ENABLED_LANGUAGES}
+)
 
 # build export targets
 rapids_export(
@@ -430,4 +432,6 @@ rapids_export(
   GLOBAL_TARGETS core
   NAMESPACE legate::
   DOCUMENTATION doc_string
-  FINAL_CODE_BLOCK code_string)
+  FINAL_CODE_BLOCK code_string
+  LANGUAGES ${ENABLED_LANGUAES}
+)
