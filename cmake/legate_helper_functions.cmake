@@ -99,7 +99,7 @@ def get_libpath():
         return None
 
     return (
-	find_lib("@CMAKE_BINARY_DIR@") or
+        find_lib("@libdir@") or
         find_lib(join(dirname(dirname(dirname(cn_path))), "lib")) or
         find_lib(join(dirname(dirname(sys.executable)), "lib")) or
         ""
@@ -109,9 +109,11 @@ libpath: str = get_libpath()
 header: str = """@header_content@"""
 ]=])
 
-set(libpath "")
-string(CONFIGURE "${install_info_in}" install_info @ONLY)
-file(WRITE ${CMAKE_SOURCE_DIR}/${target}/install_info.py "${install_info}")
+  if (NOT SKBUILD OR NOT ${target}_DIR)
+    set(libdir ${CMAKE_SOURCE_DIR}/build)
+    string(CONFIGURE "${install_info_in}" install_info @ONLY)
+    file(WRITE ${CMAKE_SOURCE_DIR}/${target}/install_info.py "${install_info}")
+  endif()
 endfunction()
 
 function(legate_default_python_install target)
