@@ -110,8 +110,11 @@ header: str = """@header_content@"""
 ]=])
 
   if (NOT SKBUILD OR NOT ${target}_DIR)
-    set(libdir ${CMAKE_SOURCE_DIR}/build)
+    # if doing an editable C++ build prior to scikit-build install
+    # or doing a scikit-build from scratch, we need to generate install info
+    set(libdir ${CMAKE_BINARY_DIR}/legate_${target})
     string(CONFIGURE "${install_info_in}" install_info @ONLY)
+    # this needs to go into the source tree for scikit-build install to work
     file(WRITE ${CMAKE_SOURCE_DIR}/${target}/install_info.py "${install_info}")
   endif()
 endfunction()
@@ -151,9 +154,9 @@ function(legate_default_python_install target)
   endif()
 endfunction()
 
-function(legate_add_cpp_subdirectory dir target)
+function(legate_add_cpp_subdirectory dir)
   set(options)
-  set(one_value_args EXPORT)
+  set(one_value_args EXPORT TARGET)
   set(multi_value_args)
   cmake_parse_arguments(
     LEGATE_OPT
@@ -166,6 +169,12 @@ function(legate_add_cpp_subdirectory dir target)
   if (NOT LEGATE_OPT_EXPORT)
     message(FATAL_ERROR "Need EXPORT name for legate_default_install")
   endif()
+
+  if (NOT LEGATE_OPT_TARGET)
+    message(FATAL_ERROR "Need TARGET name for Legate package")
+  endif()
+  # abbreviate for the function
+  set(target ${LEGATE_OPT_TARGET})
 
   legate_include_rapids()
 
@@ -183,11 +192,11 @@ function(legate_add_cpp_subdirectory dir target)
       BUILD_EXPORT_SET ${LEGATE_OPT_EXPORT}
       INSTALL_EXPORT_SET ${LEGATE_OPT_EXPORT})
     if (NOT ${target}_FOUND)
-      add_subdirectory(${dir} ${CMAKE_SOURCE_DIR}/build/legate_${target})
+      add_subdirectory(${dir} ${CMAKE_BINARY_DIR}/legate_${target})
       legate_default_cpp_install(${target} EXPORT ${LEGATE_OPT_EXPORT})
     endif()
   else()
-    add_subdirectory(${dir})
+    add_subdirectory(${dir} ${CMAKE_BINARY_DIR}/legate_${target})
     legate_default_cpp_install(${target} EXPORT ${LEGATE_OPT_EXPORT})
   endif()
 
