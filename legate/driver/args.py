@@ -102,7 +102,7 @@ binding.add_argument(
 )
 
 
-core = parser.add_argument_group("Core alloction")
+core = parser.add_argument_group("Core allocation")
 core.add_argument(CPUS.name, **CPUS.kwargs)
 core.add_argument(GPUS.name, **GPUS.kwargs)
 core.add_argument(OMPS.name, **OMPS.kwargs)
@@ -110,7 +110,7 @@ core.add_argument(OMPTHREADS.name, **OMPTHREADS.kwargs)
 core.add_argument(UTILITY.name, **UTILITY.kwargs)
 
 
-memory = parser.add_argument_group("Memory alloction")
+memory = parser.add_argument_group("Memory allocation")
 memory.add_argument(SYSMEM.name, **SYSMEM.kwargs)
 memory.add_argument(NUMAMEM.name, **NUMAMEM.kwargs)
 memory.add_argument(FBMEM.name, **FBMEM.kwargs)
