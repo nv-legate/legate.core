@@ -156,12 +156,18 @@ class DocsConfig(SectionConfig):
     header = "docs"
 
     @property
+    def conda(self) -> Reqs:
+        return ("pandoc",)
+
+    @property
     def pip(self) -> Reqs:
         return (
+            "ipython",
             "jinja2",
             "markdown<3.4.0",
             "pydata-sphinx-theme",
             "myst-parser",
+            "nbsphinx",
             "sphinx-copybutton",
             "sphinx>=4.4.0",
         )
