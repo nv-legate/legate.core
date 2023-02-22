@@ -94,5 +94,6 @@ module = [
     "legate._version",
     "legate.__main__",
     "legate.install_info",
+    "legate._sphinxext.*",
 ]
 ignore_errors = true
