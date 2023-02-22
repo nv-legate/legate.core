@@ -30,18 +30,39 @@
 #include "core/utilities/nvtx_help.h"
 #include "core/utilities/typedefs.h"
 
+/**
+ * @file
+ * @brief Class definition fo legate::LegateTask
+ */
 namespace legate {
 
 // We're going to allow for each task to use only up to 341 scalar output stores
 constexpr size_t LEGATE_MAX_SIZE_SCALAR_RETURN = 4096;
 
+/**
+ * @brief A helper class for specifying variant options
+ */
 struct VariantOptions {
+  /**
+   * @brief If the flag is `true`, the variant launches no subtasks. `true` by default.
+   */
   bool leaf{true};
   bool inner{false};
   bool idempotent{false};
+  /**
+   * @brief If the flag is `true`, the variant needs a concurrent task launch. `false` by default.
+   */
   bool concurrent{false};
+  /**
+   * @brief Maximum aggregate size for scalar output values. 4096 by default.
+   */
   size_t return_size{LEGATE_MAX_SIZE_SCALAR_RETURN};
 
+  /**
+   * @brief Changes the value of the `leaf` flag
+   *
+   * @param `_leaf` A new value for the `leaf` flag
+   */
   VariantOptions& with_leaf(bool _leaf)
   {
     leaf = _leaf;
@@ -57,11 +78,21 @@ struct VariantOptions {
     idempotent = _idempotent;
     return *this;
   }
+  /**
+   * @brief Changes the value of the `concurrent` flag
+   *
+   * @param `_concurrent` A new value for the `concurrent` flag
+   */
   VariantOptions& with_concurrent(bool _concurrent)
   {
     concurrent = _concurrent;
     return *this;
   }
+  /**
+   * @brief Sets a maximum aggregate size for scalar output values
+   *
+   * @param `_return_size` A new maximum aggregate size for scalar output values
+   */
   VariantOptions& with_return_size(size_t _return_size)
   {
     return_size = _return_size;
@@ -69,10 +100,28 @@ struct VariantOptions {
   }
 };
 
-using LegateVariantImpl = void (*)(TaskContext&);
-
+/**
+ * @brief A base class for Legate task implementations
+ *
+ * Any Legate task must inherit legate::LegateTask directly of transitively. Curently, each task
+ * can have up to three variants and the variants need to be static member functions of the class
+ * under the following names:
+ *
+ *   - `cpu_variant`: CPU implementation of the task
+ *   - `gpu_variant`: GPU implementation of the task
+ *   - `omp_variant`: OpenMP implementation of the task
+ *
+ * Tasks must have at least one variant, and all task variants must be semantically equivalent
+ * (modulo some minor rounding errors due to floating point imprecision).
+ */
 template <typename T>
 class LegateTask {
+ public:
+  /**
+   * @brief Function signature for task variants. Each task variant must be a function of this type.
+   */
+  using LegateVariantImpl = void (*)(TaskContext&);
+
  protected:
   // Helper class for checking for various kinds of variants
   using __no  = int8_t[1];
@@ -168,6 +217,13 @@ class LegateTask {
     T::Registrar::record_variant(
       task_id, T::task_name(), desc, execution_constraints, layout_constraints, var, kind, options);
   }
+  /**
+   * @brief Registers all task variants of the task. The client can optionally specifies
+   * variant options.
+   *
+   * @all_options Options for task variants. Variants with no entires in `all_options` will use
+   * the default set of options
+   */
   static void register_variants(
     const std::map<LegateVariantCode, VariantOptions>& all_options = {});
 };

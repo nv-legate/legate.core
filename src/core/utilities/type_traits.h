@@ -18,6 +18,11 @@
 
 #include "core/utilities/typedefs.h"
 
+/**
+ * @file
+ * @brief Definitions for type traits in Legate
+ */
+
 namespace legate {
 
 // This maps a type to its LegateTypeCode
@@ -54,6 +59,9 @@ static constexpr LegateTypeCode legate_type_code_of<complex<float>> = COMPLEX64_
 template <>
 static constexpr LegateTypeCode legate_type_code_of<complex<double>> = COMPLEX128_LT;
 #else  // not clang
+/**
+ * @brief A template that converts a type to the type code
+ */
 template <class>
 constexpr LegateTypeCode legate_type_code_of = MAX_TYPE_NUMBER;
 
@@ -148,29 +156,47 @@ struct LegateTypeOf<LegateTypeCode::COMPLEX128_LT> {
   using type = complex<double>;
 };
 
+/**
+ * @brief A template that converts a type code to the type
+ */
 template <LegateTypeCode CODE>
 using legate_type_of = typename LegateTypeOf<CODE>::type;
 
+/**
+ * @brief A predicate that holds if the type code is of an integral type
+ */
 template <LegateTypeCode CODE>
 struct is_integral {
   static constexpr bool value = std::is_integral<legate_type_of<CODE>>::value;
 };
 
+/**
+ * @brief A predicate that holds if the type code is of a signed integral type
+ */
 template <LegateTypeCode CODE>
 struct is_signed {
   static constexpr bool value = std::is_signed<legate_type_of<CODE>>::value;
 };
 
+/**
+ * @brief A predicate that holds if the type code is of an unsigned integral type
+ */
 template <LegateTypeCode CODE>
 struct is_unsigned {
   static constexpr bool value = std::is_unsigned<legate_type_of<CODE>>::value;
 };
 
+/**
+ * @brief A predicate that holds if the type code is of a floating point type
+ */
 template <LegateTypeCode CODE>
 struct is_floating_point {
   static constexpr bool value = std::is_floating_point<legate_type_of<CODE>>::value;
 };
 
+/**
+ * @brief A predicate that holds if the type code is of a complex type
+ */
 template <LegateTypeCode CODE>
 struct is_complex : std::false_type {};
 
@@ -180,6 +206,9 @@ struct is_complex<LegateTypeCode::COMPLEX64_LT> : std::true_type {};
 template <>
 struct is_complex<LegateTypeCode::COMPLEX128_LT> : std::true_type {};
 
+/**
+ * @brief A predicate that holds if the type is one of the supported complex types
+ */
 template <typename T>
 struct is_complex_type : std::false_type {};
 
