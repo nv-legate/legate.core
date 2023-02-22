@@ -1,3 +1,5 @@
+.. _label_operation:
+
 .. currentmodule:: legate.core.operation
 
 Tasks and Other Operation Kinds

@@ -1,3 +1,5 @@
+.. _label_runtime:
+
 .. currentmodule:: legate.core
 
 Runtime and Library Contexts

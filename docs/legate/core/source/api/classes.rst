@@ -8,6 +8,7 @@ Classes
    runtime
    operation
    store
+   allocation
    partition
    shape
-   legion
+.. legion
