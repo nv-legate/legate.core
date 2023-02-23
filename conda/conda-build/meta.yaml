@@ -112,6 +112,7 @@ requirements:
     - cuda-nvtx ={{ cuda_version }}
     - cuda-cccl ={{ cuda_version }}
     - cuda-cudart ={{ cuda_version }}
+    - cuda-nvml-dev ={{ cuda_version }}
     - cuda-driver-dev ={{ cuda_version }}
     - cuda-cudart-dev ={{ cuda_version }}
 {% endif %}

@@ -39,8 +39,6 @@ class MockTestStage(m.TestStage):
 
     args = ["-foo", "-bar"]
 
-    _tmp_args = []
-
     def __init__(self, config: Config, system: _TestSystem) -> None:
         self._init(config, system)
 

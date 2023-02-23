@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 
 from ..test_stage import TestStage
 from ..util import (
-    CUNUMERIC_TEST_ARG,
+    CUNUMERIC_TEST_ENV,
     UNPIN_ENV,
     Shard,
     StageSpec,
@@ -50,13 +50,13 @@ class CPU(TestStage):
 
     args: ArgList = []
 
-    _tmp_args = [CUNUMERIC_TEST_ARG]
-
     def __init__(self, config: Config, system: TestSystem) -> None:
         self._init(config, system)
 
     def env(self, config: Config, system: TestSystem) -> EnvDict:
-        return {} if config.cpu_pin == "strict" else dict(UNPIN_ENV)
+        env = {} if config.cpu_pin == "strict" else dict(UNPIN_ENV)
+        env.update(CUNUMERIC_TEST_ENV)
+        return env
 
     def shard_args(self, shard: Shard, config: Config) -> ArgList:
         args = [

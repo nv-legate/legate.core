@@ -17,7 +17,6 @@
 from __future__ import annotations
 
 from argparse import REMAINDER, ArgumentDefaultsHelpFormatter, ArgumentParser
-from typing import IO, Optional
 
 from ..util.shared_args import (
     CPUS,
@@ -41,58 +40,7 @@ from . import defaults
 __all__ = ("parser",)
 
 
-# We want to provide information about library-specific command line options
-# for legate and cunumeric, etc. if they are installed. But we want to avoid
-# importing those packages under normal circumstances. This argument parser
-# subclass overrides the standard print_help method to attempt to import
-# specified packages *only* when printing help output. Additionally:
-#
-# - names of downstream packages must be configured on the packages class attr
-# - downstream packages must expose a <pkg_name>.ARGS attr with argparse args
-# - <pkg_name>.ARGS must be plain-python importable if the environment variable
-#   _LEGATE_PROJECT_HELP_ARGS_ is set to "1"
-#
-# All of this is somewhat clunky but the best option to provide a good UX.
-class _LegateArgumentParser(ArgumentParser):
-    packages = ("legate", "cunumeric")
-
-    def print_help(self, file: Optional[IO[str]] = None) -> None:
-        import importlib
-        import os
-        from argparse import SUPPRESS
-
-        os.environ["_LEGATE_PROJECT_HELP_ARGS_"] = "1"
-
-        super().print_help(file)
-
-        helps = []
-
-        for pkg_name in self.packages:
-            try:
-                ARGS = importlib.import_module(pkg_name).ARGS
-                parser = ArgumentParser(
-                    prog=pkg_name,
-                    add_help=False,
-                    allow_abbrev=False,
-                    usage=SUPPRESS,
-                )
-
-                for arg in ARGS:
-                    argname = f"-{pkg_name}:{arg.name}"
-                    parser.add_argument(argname, **arg.kwargs)
-
-                helps.append((pkg_name, parser.format_help()))
-
-            except Exception:
-                pass
-
-        if helps:
-            print("\nLibrary-specific options\n------------------------\n")
-            for pkg_name, help in helps:
-                print(f"{pkg_name} library {help}")
-
-
-parser = _LegateArgumentParser(
+parser = ArgumentParser(
     description="Legate Driver",
     allow_abbrev=False,
     formatter_class=ArgumentDefaultsHelpFormatter,
@@ -154,7 +102,7 @@ binding.add_argument(
 )
 
 
-core = parser.add_argument_group("Core alloction")
+core = parser.add_argument_group("Core allocation")
 core.add_argument(CPUS.name, **CPUS.kwargs)
 core.add_argument(GPUS.name, **GPUS.kwargs)
 core.add_argument(OMPS.name, **OMPS.kwargs)
@@ -162,7 +110,7 @@ core.add_argument(OMPTHREADS.name, **OMPTHREADS.kwargs)
 core.add_argument(UTILITY.name, **UTILITY.kwargs)
 
 
-memory = parser.add_argument_group("Memory alloction")
+memory = parser.add_argument_group("Memory allocation")
 memory.add_argument(SYSMEM.name, **SYSMEM.kwargs)
 memory.add_argument(NUMAMEM.name, **NUMAMEM.kwargs)
 memory.add_argument(FBMEM.name, **FBMEM.kwargs)

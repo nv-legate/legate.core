@@ -18,7 +18,7 @@ import time
 from typing import TYPE_CHECKING
 
 from ..test_stage import TestStage
-from ..util import CUNUMERIC_TEST_ARG, Shard, StageSpec, adjust_workers
+from ..util import CUNUMERIC_TEST_ENV, Shard, StageSpec, adjust_workers
 
 if TYPE_CHECKING:
     from ....util.types import ArgList, EnvDict
@@ -46,13 +46,11 @@ class GPU(TestStage):
 
     args: ArgList = []
 
-    _tmp_args = [CUNUMERIC_TEST_ARG]
-
     def __init__(self, config: Config, system: TestSystem) -> None:
         self._init(config, system)
 
     def env(self, config: Config, system: TestSystem) -> EnvDict:
-        return {}
+        return dict(CUNUMERIC_TEST_ENV)
 
     def delay(self, shard: Shard, config: Config, system: TestSystem) -> None:
         time.sleep(config.gpu_delay / 1000)

@@ -29,7 +29,7 @@ FeatureType: TypeAlias = Union[
 ]
 
 #: Value to use if --cpus is not specified.
-DEFAULT_CPUS_PER_NODE = 4
+DEFAULT_CPUS_PER_NODE = 2
 
 #: Value to use if --gpus is not specified.
 DEFAULT_GPUS_PER_NODE = 1
@@ -45,6 +45,9 @@ DEFAULT_OMPS_PER_NODE = 1
 
 #: Value to use if --ompthreads is not specified.
 DEFAULT_OMPTHREADS = 4
+
+#: Value to use if --numamem is not specified.
+DEFAULT_NUMAMEM = 0
 
 #: Default values to apply to normalize the testing environment.
 DEFAULT_PROCESS_ENV = {
