@@ -451,7 +451,7 @@ def install(
     if conduit:
         cmake_flags += [f"-DGASNet_CONDUIT={conduit}"]
     if cuda_dir:
-        cmake_flags += [f"-DCUDA_TOOLKIT_ROOT_DIR={cuda_dir}"]
+        cmake_flags += [f"-DCUDAToolkit_ROOT={cuda_dir}"]
     if thrust_dir:
         cmake_flags += [f"-DThrust_ROOT={thrust_dir}"]
     if legion_dir:
@@ -745,7 +745,7 @@ def driver():
         "--legion-branch",
         dest="legion_branch",
         required=False,
-        default="control_replication",
+        default=None,
         help="Legion branch to build Legate with.",
     )
     args, unknown = parser.parse_known_args()

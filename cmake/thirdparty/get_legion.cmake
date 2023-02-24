@@ -14,6 +14,8 @@
 # limitations under the License.
 #=============================================================================
 
+include_guard(GLOBAL)
+
 function(find_or_configure_legion)
   set(oneValueArgs VERSION REPOSITORY BRANCH EXCLUDE_FROM_ALL)
   cmake_parse_arguments(PKG "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
@@ -175,9 +177,21 @@ function(find_or_configure_legion)
 
 endfunction()
 
+# This will be defined if provided via the command-line.
+# It will never be cached (see below)
 if(NOT DEFINED legate_core_LEGION_BRANCH)
-  set(legate_core_LEGION_BRANCH control_replication)
+  set(legate_core_LEGION_BRANCH 7b5835255fecf2edf300cb565e7bd3b0af8d03ad)
 endif()
+
+# Create a legate_core_LEGION_BRANCH variable in the current scope either from
+# the existing current-scope variable, or the cache variable.
+set(legate_core_LEGION_BRANCH "${legate_core_LEGION_BRANCH}")
+
+# Remove legate_core_LEGION_BRANCH from the CMakeCache.txt. This ensures
+# reconfiguring the same build dir without passing
+# `-Dlegate_core_LEGION_BRANCH=` reverts to the hash above instead of reusing
+# the previous `-Dlegate_core_LEGION_BRANCH=` value.
+unset(legate_core_LEGION_BRANCH CACHE)
 
 if(NOT DEFINED legate_core_LEGION_REPOSITORY)
   set(legate_core_LEGION_REPOSITORY https://gitlab.com/StanfordLegion/legion.git)
