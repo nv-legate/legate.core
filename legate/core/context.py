@@ -681,6 +681,31 @@ def track_provenance(
     context: Context,
     nested: bool = False,
 ) -> Callable[[AnyCallable], AnyCallable]:
+    """
+    Decorator that adds provenance tracking to functions. Provenance of each
+    operation issued within the wrapped function will be tracked automatically.
+
+    Parameters
+    ----------
+    context : Context
+        Context that the function uses to issue operations
+
+    nested : bool
+        If ``True``, each invocation to a wrapped function within another
+        wrapped function updates the provenance string. Otherwise, the
+        provenance is tracked only for the outermost wrapped function.
+
+    Returns
+    -------
+    Decorator
+        Function that takes a function and returns a one with provenance
+        tracking
+
+    See Also
+    --------
+    legate.core.context.Context.track_provenance
+    """
+
     def decorator(func: AnyCallable) -> AnyCallable:
         return context.track_provenance(func, nested=nested)
 

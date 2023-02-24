@@ -1750,4 +1750,11 @@ def legate_add_library(library: Library) -> None:
 
 
 def get_legate_runtime() -> Runtime:
+    """
+    Returns the Legate runtime
+
+    Returns
+    -------
+        Legate runtime object
+    """
     return runtime
