@@ -171,6 +171,12 @@ class Operation(OperationProtocol):
         ----------
         store1, store2 : Store
             Stores to align
+
+        Raises
+        ------
+        ValueError
+            If the stores don't have the same shape or only one of them is
+            unbound
         """
         self._check_store(store1, allow_unbound=True)
         self._check_store(store2, allow_unbound=True)
@@ -886,11 +892,16 @@ class ManualTask(Operation, Task):
             Store or store partition to pass as output
         proj : ProjFn, optional
             Projection function
+
+        Raises
+        ------
+        NotImplementedError
+            If the store is unbound
         """
         self._check_arg(arg)
         if isinstance(arg, Store):
             if arg.unbound:
-                raise ValueError(
+                raise NotImplementedError(
                     "Unbound store cannot be used with "
                     "manually parallelized task"
                 )
@@ -1021,6 +1032,11 @@ class Copy(AutoOperation):
         ----------
         store : Store
             Source store
+
+        Raises
+        ------
+        ValueError
+            If the store is scalar or unbound
         """
         if store.kind is Future or store.unbound:
             raise ValueError(
@@ -1041,6 +1057,13 @@ class Copy(AutoOperation):
         ----------
         store : Store
             Target store
+
+        Raises
+        ------
+        RuntimeError
+            If the copy already has a reduction target
+        ValueError
+            If the store is scalar or unbound
         """
         if len(self._reductions) > 0:
             raise RuntimeError(
@@ -1068,6 +1091,13 @@ class Copy(AutoOperation):
             Reduction target store
         redop : int
             Reduction operator ID
+
+        Raises
+        ------
+        RuntimeError
+            If the copy already has a normal target
+        ValueError
+            If the store is scalar or unbound
         """
         if len(self._outputs) > 0:
             raise RuntimeError(
@@ -1091,6 +1121,11 @@ class Copy(AutoOperation):
         ----------
         store : Store
             Source indirection store
+
+        Raises
+        ------
+        RuntimeError
+            If the copy already has a source indirection
         """
         if len(self._source_indirects) != 0:
             raise RuntimeError(
@@ -1111,6 +1146,11 @@ class Copy(AutoOperation):
         ----------
         store : Store
             Target indirection store
+
+        Raises
+        ------
+        RuntimeError
+            If the copy already has a target indirection
         """
         if len(self._target_indirects) != 0:
             raise RuntimeError(
