@@ -227,7 +227,9 @@ class Tiling(PartitionBase):
         my_lo = self._offset
         my_hi = self._offset + self.tile_shape * self._color_shape
 
-        return my_lo <= offsets and offsets + extents <= my_hi
+        return all(a <= b for (a, b) in zip(my_lo, offsets)) and all(
+            a <= b for (a, b) in zip(offsets + extents, my_hi)
+        )
 
     def is_disjoint_for(self, launch_domain: Optional[Rect]) -> bool:
         return (
