@@ -354,7 +354,7 @@ def cmd_log_file(
     log_to_file = config.logging.log_to_file
 
     if log_to_file:
-        return ("-logfile", str(log_dir / "legate_%.log"))
+        return ("-logfile", str(log_dir / "legate_%.log"), "-errlevel", "4")
 
     return ()
 
