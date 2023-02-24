@@ -238,7 +238,9 @@ class Tiling(PartitionBase):
         )
 
     def has_color(self, color: Shape) -> bool:
-        return color >= 0 and color < self._color_shape
+        return all(a >= 0 for a in color) and all(
+            a < b for (a, b) in zip(color, self._color_shape)
+        )
 
     @lru_cache
     def get_subregion_size(self, extents: Shape, color: Shape) -> Shape:
