@@ -296,11 +296,34 @@ struct StoreMapping {
   static StoreMapping default_mapping(const Store& store, StoreTarget target, bool exact = false);
 };
 
+/**
+ * @brief An abstract class that defines machine query APIs
+ */
 struct MachineQueryInterface {
+  /**
+   * @brief Returns local CPUs
+   *
+   * @return A vector of processors
+   */
   virtual const std::vector<Processor>& cpus() const = 0;
+  /**
+   * @brief Returns local GPUs
+   *
+   * @return A vector of processors
+   */
   virtual const std::vector<Processor>& gpus() const = 0;
+  /**
+   * @brief Returns local OpenMP processors
+   *
+   * @return A vector of processors
+   */
   virtual const std::vector<Processor>& omps() const = 0;
-  virtual uint32_t total_nodes() const               = 0;
+  /**
+   * @brief Returns the total number of nodes
+   *
+   * @return Total number of nodes
+   */
+  virtual uint32_t total_nodes() const = 0;
 };
 
 /**
@@ -309,6 +332,12 @@ struct MachineQueryInterface {
  * The APIs give Legate libraries high-level control on task and store mappings
  */
 struct LegateMapper {
+  /**
+   * @brief Sets a machine query interface. This call gives the mapper a chance
+   * to cache the machine query interface.
+   *
+   * @param machine Machine query interface
+   */
   virtual void set_machine(const MachineQueryInterface* machine) = 0;
   /**
    * @brief Picks the target processor type for the task
