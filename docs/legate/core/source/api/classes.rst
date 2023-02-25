@@ -9,6 +9,6 @@ Classes
    operation
    store
    allocation
-   partition
    shape
+.. partition
 .. legion

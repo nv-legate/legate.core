@@ -49,6 +49,23 @@ class InlineMappedAllocation:
     def consume(
         self, ctor: Callable[[tuple[int, ...], int, tuple[int, ...]], Any]
     ) -> Any:
+        """
+        Consumes the allocation. Each allocation can be consumed only once.
+
+        Parameters
+        ----------
+        ctor : Callback
+            Callback that constructs a Python object from the allocation.
+            Each callback gets the shape, the physical address, and the strides
+            of the allocation, and is supposed to return a Python object
+            using the allocation. Leaking the three arguments in some other way
+            will lead to an undefined behavior.
+
+        Returns
+        -------
+        Any
+            Python object the callback constructs from the allocation
+        """
         if self._consumed:
             raise RuntimeError("Each inline mapping can be consumed only once")
         self._consumed = True
