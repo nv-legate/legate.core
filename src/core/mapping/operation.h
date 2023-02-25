@@ -43,12 +43,12 @@ class RegionField {
 
  public:
   template <int32_t DIM>
-  Legion::Rect<DIM> shape(Legion::Mapping::MapperRuntime* runtime,
-                          const Legion::Mapping::MapperContext context) const;
+  Rect<DIM> shape(Legion::Mapping::MapperRuntime* runtime,
+                  const Legion::Mapping::MapperContext context) const;
 
  public:
-  Legion::Domain domain(Legion::Mapping::MapperRuntime* runtime,
-                        const Legion::Mapping::MapperContext context) const;
+  Domain domain(Legion::Mapping::MapperRuntime* runtime,
+                const Legion::Mapping::MapperContext context) const;
 
  public:
   bool operator==(const RegionField& other) const;
@@ -76,7 +76,7 @@ class RegionField {
 class FutureWrapper {
  public:
   FutureWrapper() {}
-  FutureWrapper(uint32_t idx, const Legion::Domain& domain);
+  FutureWrapper(uint32_t idx, const Domain& domain);
 
  public:
   FutureWrapper(const FutureWrapper& other)            = default;
@@ -88,12 +88,12 @@ class FutureWrapper {
 
  public:
   template <int32_t DIM>
-  Legion::Rect<DIM> shape() const;
-  Legion::Domain domain() const;
+  Rect<DIM> shape() const;
+  Domain domain() const;
 
  private:
   uint32_t idx_{-1U};
-  Legion::Domain domain_{};
+  Domain domain_{};
 };
 
 class Store {
@@ -131,7 +131,7 @@ class Store {
 
  public:
   bool is_reduction() const { return redop_id_ > 0; }
-  Legion::ReductionOpID redop() const { return redop_id_; }
+  int32_t redop() const { return redop_id_; }
 
  public:
   bool can_colocate_with(const Store& other) const;
@@ -145,10 +145,10 @@ class Store {
 
  public:
   template <int32_t DIM>
-  Legion::Rect<DIM> shape() const;
+  Rect<DIM> shape() const;
 
  public:
-  Legion::Domain domain() const;
+  Domain domain() const;
 
  private:
   bool is_future_{false};
@@ -186,7 +186,7 @@ class Task {
   const std::vector<Scalar>& scalars() const { return scalars_; }
 
  public:
-  Legion::DomainPoint point() const { return task_->index_point; }
+  DomainPoint point() const { return task_->index_point; }
 
  private:
   const LibraryContext& library_;
@@ -210,7 +210,7 @@ class Copy {
   const std::vector<Store>& output_indirections() const { return output_indirections_; }
 
  public:
-  Legion::DomainPoint point() const { return copy_->index_point; }
+  DomainPoint point() const { return copy_->index_point; }
 
  private:
   const Legion::Copy* copy_;

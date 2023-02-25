@@ -19,6 +19,7 @@
 #include "legion.h"
 
 #include "core/runtime/context.h"
+#include "core/utilities/typedefs.h"
 
 namespace legate {
 
@@ -30,8 +31,8 @@ class LegateProjectionFunctor : public Legion::ProjectionFunctor {
  public:
   using Legion::ProjectionFunctor::project;
   virtual Legion::LogicalRegion project(Legion::LogicalPartition upper_bound,
-                                        const Legion::DomainPoint& point,
-                                        const Legion::Domain& launch_domain);
+                                        const DomainPoint& point,
+                                        const Domain& launch_domain);
 
  public:
   // legate projection functors are almost always functional and don't traverse the region tree
@@ -42,8 +43,8 @@ class LegateProjectionFunctor : public Legion::ProjectionFunctor {
   void set_collective() { is_collective_ = true; }
 
  public:
-  virtual Legion::DomainPoint project_point(const Legion::DomainPoint& point,
-                                            const Legion::Domain& launch_domain) const = 0;
+  virtual DomainPoint project_point(const DomainPoint& point,
+                                    const Domain& launch_domain) const = 0;
 
  private:
   bool is_collective_ = false;

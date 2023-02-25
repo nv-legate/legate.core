@@ -17,6 +17,7 @@
 #pragma once
 
 #include "core/data/store.h"
+#include "core/utilities/typedefs.h"
 
 #ifdef LEGATE_USE_CUDA
 #include <cuda_runtime_api.h>
@@ -25,8 +26,6 @@
 #include <sstream>
 
 namespace legate {
-
-using namespace Legion;
 
 #ifdef LEGATE_USE_CUDA
 

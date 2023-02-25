@@ -18,26 +18,22 @@
 #include "core/data/scalar.h"
 #include "core/data/store.h"
 #include "core/utilities/machine.h"
+#include "core/utilities/typedefs.h"
 
 #include "legion/legion_c.h"
 #include "legion/legion_c_util.h"
 
-using LegionTask = Legion::Task;
-
-using namespace Legion;
-using namespace Legion::Mapping;
-
 namespace legate {
 
-TaskDeserializer::TaskDeserializer(const LegionTask* task,
-                                   const std::vector<PhysicalRegion>& regions)
+TaskDeserializer::TaskDeserializer(const Legion::Task* task,
+                                   const std::vector<Legion::PhysicalRegion>& regions)
   : BaseDeserializer(static_cast<const int8_t*>(task->args), task->arglen),
     futures_{task->futures.data(), task->futures.size()},
     regions_{regions.data(), regions.size()},
     outputs_()
 {
-  auto runtime = Runtime::get_runtime();
-  auto ctx     = Runtime::get_context();
+  auto runtime = Legion::Runtime::get_runtime();
+  auto ctx     = Legion::Runtime::get_context();
   runtime->get_output_regions(ctx, outputs_);
 
   first_task_ = !task->is_index_space || (task->index_point == task->index_domain.lo());
@@ -76,7 +72,7 @@ void TaskDeserializer::_unpack(FutureWrapper& value)
   auto field_size  = unpack<int32_t>();
 
   auto point = unpack<std::vector<int64_t>>();
-  Legion::Domain domain;
+  Domain domain;
   domain.dim = static_cast<int32_t>(point.size());
   for (int32_t idx = 0; idx < domain.dim; ++idx) {
     domain.rect_data[idx]              = 0;
@@ -122,14 +118,14 @@ void TaskDeserializer::_unpack(Legion::PhaseBarrier& barrier)
   auto future   = futures_[0];
   futures_      = futures_.subspan(1);
   auto barrier_ = future.get_result<legion_phase_barrier_t>();
-  barrier       = CObjectWrapper::unwrap(barrier_);
+  barrier       = Legion::CObjectWrapper::unwrap(barrier_);
 }
 
 namespace mapping {
 
 TaskDeserializer::TaskDeserializer(const Legion::Task* task,
-                                   MapperRuntime* runtime,
-                                   MapperContext context)
+                                   Legion::Mapping::MapperRuntime* runtime,
+                                   Legion::Mapping::MapperContext context)
   : BaseDeserializer(static_cast<const int8_t*>(task->args), task->arglen),
     task_(task),
     runtime_(runtime),
@@ -170,7 +166,7 @@ void TaskDeserializer::_unpack(FutureWrapper& value)
   unpack<int32_t>();
 
   auto point = unpack<std::vector<int64_t>>();
-  Legion::Domain domain;
+  Domain domain;
   domain.dim = static_cast<int32_t>(point.size());
   for (int32_t idx = 0; idx < domain.dim; ++idx) {
     domain.rect_data[idx]              = 0;
@@ -193,8 +189,8 @@ void TaskDeserializer::_unpack(RegionField& value, bool is_output_region)
 CopyDeserializer::CopyDeserializer(const void* args,
                                    size_t arglen,
                                    std::vector<ReqsRef>&& all_requirements,
-                                   MapperRuntime* runtime,
-                                   MapperContext context)
+                                   Legion::Mapping::MapperRuntime* runtime,
+                                   Legion::Mapping::MapperContext context)
   : BaseDeserializer(static_cast<const int8_t*>(args), arglen),
     all_reqs_(std::forward<std::vector<ReqsRef>>(all_requirements)),
     curr_reqs_(all_reqs_.begin()),

@@ -23,11 +23,10 @@
 #include "core/task/task.h"
 #include "core/utilities/deserializer.h"
 #include "core/utilities/machine.h"
+#include "core/utilities/nvtx_help.h"
 #include "legate.h"
 
 namespace legate {
-
-using namespace Legion;
 
 Logger log_legate("legate");
 
@@ -95,7 +94,7 @@ static void extract_scalar_task(
   Legion::Runtime* runtime;
   Legion::Runtime::legion_task_preamble(args, arglen, p, task, regions, legion_context, runtime);
 
-  Core::show_progress(task, legion_context, runtime, task->get_task_name());
+  Core::show_progress(task, legion_context, runtime);
 
   TaskContext context(task, *regions, legion_context, runtime);
   auto idx            = context.scalars()[0].value<int32_t>();
@@ -112,50 +111,73 @@ static void extract_scalar_task(
 
 /*static*/ void Core::show_progress(const Legion::Task* task,
                                     Legion::Context ctx,
-                                    Legion::Runtime* runtime,
-                                    const char* task_name)
+                                    Legion::Runtime* runtime)
 {
   if (!Core::show_progress_requested) return;
   const auto exec_proc     = runtime->get_executing_processor(ctx);
-  const auto proc_kind_str = (exec_proc.kind() == Legion::Processor::LOC_PROC)   ? "CPU"
-                             : (exec_proc.kind() == Legion::Processor::TOC_PROC) ? "GPU"
-                                                                                 : "OpenMP";
+  const auto proc_kind_str = (exec_proc.kind() == Processor::LOC_PROC)   ? "CPU"
+                             : (exec_proc.kind() == Processor::TOC_PROC) ? "GPU"
+                                                                         : "OpenMP";
 
   std::stringstream point_str;
   const auto& point = task->index_point;
   point_str << point[0];
-  for (int32_t dim = 1; dim < task->index_point.dim; ++dim) point_str << "," << point[dim];
+  for (int32_t dim = 1; dim < point.dim; ++dim) point_str << "," << point[dim];
 
   log_legate.print("%s %s task [%s], pt = (%s), proc = " IDFMT,
-                   task_name,
+                   task->get_task_name(),
                    proc_kind_str,
                    task->get_provenance_string().c_str(),
                    point_str.str().c_str(),
                    exec_proc.id);
 }
 
-/*static*/ void Core::report_unexpected_exception(const char* task_name,
+/*static*/ void Core::report_unexpected_exception(const Legion::Task* task,
                                                   const legate::TaskException& e)
 {
   log_legate.error(
     "Task %s threw an exception \"%s\", but the task did not declare any exception. "
     "Please specify a Python exception that you want this exception to be re-thrown with "
     "using 'throws_exception'.",
-    task_name,
+    task->get_task_name(),
     e.error_message().c_str());
   LEGATE_ABORT;
 }
 
-void register_legate_core_tasks(Machine machine, Runtime* runtime, const LibraryContext& context)
+namespace detail {
+
+struct RegistrationCallbackArgs {
+  Core::RegistrationCallback callback;
+};
+
+static void invoke_legate_registration_callback(const Legion::RegistrationCallbackArgs& args)
 {
-  const TaskID extract_scalar_task_id  = context.get_task_id(LEGATE_CORE_EXTRACT_SCALAR_TASK_ID);
+  auto p_args = static_cast<RegistrationCallbackArgs*>(args.buffer.get_ptr());
+  p_args->callback();
+};
+
+}  // namespace detail
+
+/*static*/ void Core::perform_registration(RegistrationCallback callback)
+{
+  legate::detail::RegistrationCallbackArgs args{callback};
+  Legion::UntypedBuffer buffer(&args, sizeof(args));
+  Legion::Runtime::perform_registration_callback(
+    detail::invoke_legate_registration_callback, buffer, true /*global*/);
+}
+
+void register_legate_core_tasks(Legion::Machine machine,
+                                Legion::Runtime* runtime,
+                                const LibraryContext& context)
+{
+  auto extract_scalar_task_id          = context.get_task_id(LEGATE_CORE_EXTRACT_SCALAR_TASK_ID);
   const char* extract_scalar_task_name = "core::extract_scalar";
   runtime->attach_name(
     extract_scalar_task_id, extract_scalar_task_name, false /*mutable*/, true /*local only*/);
 
   auto make_registrar = [&](auto task_id, auto* task_name, auto proc_kind) {
-    TaskVariantRegistrar registrar(task_id, task_name);
-    registrar.add_constraint(ProcessorConstraint(proc_kind));
+    Legion::TaskVariantRegistrar registrar(task_id, task_name);
+    registrar.add_constraint(Legion::ProcessorConstraint(proc_kind));
     registrar.set_leaf(true);
     registrar.global_registration = false;
     return registrar;
@@ -178,10 +200,11 @@ void register_legate_core_tasks(Machine machine, Runtime* runtime, const Library
   comm::register_tasks(machine, runtime, context);
 }
 
-extern void register_exception_reduction_op(Runtime* runtime, const LibraryContext& context);
+extern void register_exception_reduction_op(Legion::Runtime* runtime,
+                                            const LibraryContext& context);
 
-/*static*/ void core_registration_callback(Machine machine,
-                                           Runtime* runtime,
+/*static*/ void core_registration_callback(Legion::Machine machine,
+                                           Legion::Runtime* runtime,
                                            const std::set<Processor>& local_procs)
 {
   ResourceConfig config;
@@ -190,7 +213,7 @@ extern void register_exception_reduction_op(Runtime* runtime, const LibraryConte
   // We register one sharding functor for each new projection functor
   config.max_shardings     = LEGATE_CORE_MAX_FUNCTOR_ID;
   config.max_reduction_ops = LEGATE_CORE_MAX_REDUCTION_OP_ID;
-  LibraryContext context(runtime, core_library_name, config);
+  LibraryContext context(core_library_name, config);
 
   register_legate_core_tasks(machine, runtime, context);
 
@@ -203,7 +226,7 @@ extern void register_exception_reduction_op(Runtime* runtime, const LibraryConte
   register_legate_core_sharding_functors(runtime, context);
 
   auto fut = runtime->select_tunable_value(
-    Runtime::get_context(), LEGATE_CORE_TUNABLE_HAS_SOCKET_MEM, context.get_mapper_id(0));
+    Legion::Runtime::get_context(), LEGATE_CORE_TUNABLE_HAS_SOCKET_MEM, context.get_mapper_id(0));
   Core::has_socket_mem = fut.get_result<bool>();
 }
 
