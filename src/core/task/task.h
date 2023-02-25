@@ -55,8 +55,8 @@ struct LegateTask {
    * @brief Registers all task variants of the task. The client can optionally specifies
    * variant options.
    *
-   * @all_options Options for task variants. Variants with no entires in `all_options` will use
-   * the default set of options
+   * @param all_options Options for task variants. Variants with no entires in `all_options` will
+   * use the default set of options
    */
   static void register_variants(
     const std::map<LegateVariantCode, VariantOptions>& all_options = {});
