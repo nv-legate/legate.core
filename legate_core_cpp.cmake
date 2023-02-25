@@ -323,6 +323,7 @@ if (legate_core_BUILD_DOCS)
       src/core/task/variant.h
       src/core/task/exception.h
       src/core/runtime/context.h
+      src/core/runtime/runtime.h
       src/core/utilities/debug.h
       src/core/utilities/dispatch.h
       src/core/utilities/span.h
