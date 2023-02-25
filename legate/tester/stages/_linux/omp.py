@@ -64,6 +64,8 @@ class OMP(TestStage):
             str(config.omps),
             "--ompthreads",
             str(config.ompthreads),
+            "--numamem",
+            str(config.numamem),
         ]
         if config.cpu_pin != "none":
             args += [

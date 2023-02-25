@@ -22,6 +22,7 @@ from legate.tester import (
     DEFAULT_GPU_DELAY,
     DEFAULT_GPU_MEMORY_BUDGET,
     DEFAULT_GPUS_PER_NODE,
+    DEFAULT_NUMAMEM,
     DEFAULT_OMPS_PER_NODE,
     DEFAULT_OMPTHREADS,
     args as m,
@@ -58,6 +59,9 @@ class TestParserDefaults:
 
     def test_ompthreads(self) -> None:
         assert m.parser.get_default("ompthreads") == DEFAULT_OMPTHREADS
+
+    def test_numamem(self) -> None:
+        assert m.parser.get_default("numamem") == DEFAULT_NUMAMEM
 
     def test_legate_dir(self) -> None:
         assert m.parser.get_default("legate_dir") is None

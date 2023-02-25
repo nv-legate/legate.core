@@ -324,12 +324,14 @@ def install(
     print("Using python lib and version: {}, {}".format(pylib_name, pyversion))
 
     def validate_path(path):
-        if path is not None and (path := str(path)) != "":
-            if not os.path.isabs(path):
-                path = join(legate_core_dir, path)
-            if exists(path := realpath(path)):
-                return path
-        return None
+        if path is None or (path := str(path)) == "":
+            return None
+        if not os.path.isabs(path):
+            path = join(legate_core_dir, path)
+        if not exists(path := realpath(path)):
+            print(f"Error: path does not exist: {path}")
+            sys.exit(1)
+        return path
 
     cuda_dir = validate_path(cuda_dir)
     nccl_dir = validate_path(nccl_dir)
