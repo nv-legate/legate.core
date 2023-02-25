@@ -20,9 +20,6 @@
 namespace legate {
 namespace mapping {
 
-using namespace Legion;
-using namespace Legion::Mapping;
-
 using RegionGroupP = std::shared_ptr<RegionGroup>;
 
 static Legion::Logger log_instmgr("instmgr");
@@ -37,9 +34,9 @@ RegionGroup::RegionGroup(std::set<Region>&& rs, const Domain bound)
 {
 }
 
-std::vector<LogicalRegion> RegionGroup::get_regions() const
+std::vector<RegionGroup::Region> RegionGroup::get_regions() const
 {
-  std::vector<LogicalRegion> result;
+  std::vector<Region> result;
   result.insert(result.end(), regions.begin(), regions.end());
   return std::move(result);
 }
@@ -106,7 +103,7 @@ static inline bool too_big(size_t union_volume,
 struct construct_overlapping_region_group_fn {
   template <int32_t DIM>
   RegionGroupP operator()(const InstanceSet::Region& region,
-                          const InstanceSet::Domain& domain,
+                          const Domain& domain,
                           const std::map<RegionGroup*, InstanceSet::InstanceSpec>& instances)
   {
     auto bound       = domain.bounds<DIM, coord_t>();
@@ -159,7 +156,7 @@ struct construct_overlapping_region_group_fn {
       bound_vol = union_vol;
     }
 
-    return std::make_shared<RegionGroup>(std::move(regions), InstanceSet::Domain(bound));
+    return std::make_shared<RegionGroup>(std::move(regions), Domain(bound));
   }
 };
 
@@ -241,7 +238,7 @@ std::set<InstanceSet::Instance> InstanceSet::record_instance(RegionGroupP group,
   return std::move(replaced);
 }
 
-bool InstanceSet::erase(PhysicalInstance inst)
+bool InstanceSet::erase(Instance inst)
 {
   std::set<RegionGroup*> filtered_groups;
 #ifdef DEBUG_LEGATE
@@ -333,7 +330,7 @@ void ReductionInstanceSet::record_instance(ReductionOpID& redop,
   }
 }
 
-bool ReductionInstanceSet::erase(PhysicalInstance inst)
+bool ReductionInstanceSet::erase(Instance inst)
 {
   for (auto it = instances_.begin(); it != instances_.end(); /*nothing*/) {
     if (it->second.instance == inst) {
@@ -390,7 +387,7 @@ std::set<InstanceManager::Instance> InstanceManager::record_instance(
   return instance_sets_[key].record_instance(group, instance, policy);
 }
 
-void InstanceManager::erase(PhysicalInstance inst)
+void InstanceManager::erase(Instance inst)
 {
   const auto mem = inst.get_location();
   const auto tid = inst.get_tree_id();
@@ -408,9 +405,9 @@ void InstanceManager::erase(PhysicalInstance inst)
   }
 }
 
-std::map<Legion::Memory, size_t> InstanceManager::aggregate_instance_sizes() const
+std::map<Memory, size_t> InstanceManager::aggregate_instance_sizes() const
 {
-  std::map<Legion::Memory, size_t> result;
+  std::map<Memory, size_t> result;
   for (auto& pair : instance_sets_) {
     auto& memory = pair.first.memory;
     if (result.find(memory) == result.end()) result[memory] = 0;
@@ -459,7 +456,7 @@ void ReductionInstanceManager::record_instance(ReductionOpID& redop,
   }
 }
 
-void ReductionInstanceManager::erase(PhysicalInstance inst)
+void ReductionInstanceManager::erase(Instance inst)
 {
   const auto mem = inst.get_location();
   const auto tid = inst.get_tree_id();

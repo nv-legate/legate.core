@@ -18,11 +18,10 @@
 
 namespace legate {
 
-using namespace Legion;
-
-DomainAffineTransform combine(const DomainAffineTransform& lhs, const DomainAffineTransform& rhs)
+Legion::DomainAffineTransform combine(const Legion::DomainAffineTransform& lhs,
+                                      const Legion::DomainAffineTransform& rhs)
 {
-  DomainAffineTransform result;
+  Legion::DomainAffineTransform result;
   auto transform   = lhs.transform * rhs.transform;
   auto offset      = lhs.transform * rhs.offset + lhs.offset;
   result.transform = transform;
@@ -37,7 +36,7 @@ TransformStack::TransformStack(std::unique_ptr<StoreTransform>&& transform,
 {
 }
 
-Legion::Domain TransformStack::transform(const Legion::Domain& input) const
+Domain TransformStack::transform(const Domain& input) const
 {
 #ifdef DEBUG_LEGATE
   assert(transform_ != nullptr);
@@ -100,12 +99,12 @@ Domain Shift::transform(const Domain& input) const
   return result;
 }
 
-DomainAffineTransform Shift::inverse_transform(int32_t in_dim) const
+Legion::DomainAffineTransform Shift::inverse_transform(int32_t in_dim) const
 {
   assert(dim_ < in_dim);
   auto out_dim = in_dim;
 
-  DomainTransform transform;
+  Legion::DomainTransform transform;
   transform.m = out_dim;
   transform.n = in_dim;
   for (int32_t i = 0; i < out_dim; ++i)
@@ -116,7 +115,7 @@ DomainAffineTransform Shift::inverse_transform(int32_t in_dim) const
   offset.dim = out_dim;
   for (int32_t i = 0; i < out_dim; ++i) offset[i] = i == dim_ ? -offset_ : 0;
 
-  DomainAffineTransform result;
+  Legion::DomainAffineTransform result;
   result.transform = transform;
   result.offset    = offset;
   return result;
@@ -152,12 +151,12 @@ Domain Promote::transform(const Domain& input) const
   return output;
 }
 
-DomainAffineTransform Promote::inverse_transform(int32_t in_dim) const
+Legion::DomainAffineTransform Promote::inverse_transform(int32_t in_dim) const
 {
   assert(extra_dim_ < in_dim);
   auto out_dim = in_dim - 1;
 
-  DomainTransform transform;
+  Legion::DomainTransform transform;
   transform.m = std::max<int32_t>(out_dim, 1);
   transform.n = in_dim;
   for (int32_t i = 0; i < transform.m; ++i)
@@ -171,7 +170,7 @@ DomainAffineTransform Promote::inverse_transform(int32_t in_dim) const
   offset.dim = std::max<int32_t>(out_dim, 1);
   for (int32_t i = 0; i < transform.m; ++i) offset[i] = 0;
 
-  DomainAffineTransform result;
+  Legion::DomainAffineTransform result;
   result.transform = transform;
   result.offset    = offset;
   return result;
@@ -202,12 +201,12 @@ Domain Project::transform(const Domain& input) const
   return output;
 }
 
-DomainAffineTransform Project::inverse_transform(int32_t in_dim) const
+Legion::DomainAffineTransform Project::inverse_transform(int32_t in_dim) const
 {
   auto out_dim = in_dim + 1;
   assert(dim_ < out_dim);
 
-  DomainTransform transform;
+  Legion::DomainTransform transform;
   transform.m = out_dim;
   if (in_dim == 0) {
     transform.n         = out_dim;
@@ -225,7 +224,7 @@ DomainAffineTransform Project::inverse_transform(int32_t in_dim) const
   offset.dim = out_dim;
   for (int32_t i = 0; i < out_dim; ++i) offset[i] = i == dim_ ? coord_ : 0;
 
-  DomainAffineTransform result;
+  Legion::DomainAffineTransform result;
   result.transform = transform;
   result.offset    = offset;
   return result;
@@ -254,9 +253,9 @@ Domain Transpose::transform(const Domain& input) const
   return output;
 }
 
-DomainAffineTransform Transpose::inverse_transform(int32_t in_dim) const
+Legion::DomainAffineTransform Transpose::inverse_transform(int32_t in_dim) const
 {
-  DomainTransform transform;
+  Legion::DomainTransform transform;
   transform.m = in_dim;
   transform.n = in_dim;
   for (int32_t i = 0; i < in_dim; ++i)
@@ -268,7 +267,7 @@ DomainAffineTransform Transpose::inverse_transform(int32_t in_dim) const
   offset.dim = in_dim;
   for (int32_t i = 0; i < in_dim; ++i) offset[i] = 0;
 
-  DomainAffineTransform result;
+  Legion::DomainAffineTransform result;
   result.transform = transform;
   result.offset    = offset;
   return result;
@@ -338,9 +337,9 @@ Domain Delinearize::transform(const Domain& input) const
   return delinearize(dim_, sizes_.size(), strides_, input);
 }
 
-DomainAffineTransform Delinearize::inverse_transform(int32_t in_dim) const
+Legion::DomainAffineTransform Delinearize::inverse_transform(int32_t in_dim) const
 {
-  DomainTransform transform;
+  Legion::DomainTransform transform;
   int32_t out_dim = in_dim - strides_.size() + 1;
   transform.m     = out_dim;
   transform.n     = in_dim;
@@ -357,7 +356,7 @@ DomainAffineTransform Delinearize::inverse_transform(int32_t in_dim) const
   offset.dim = out_dim;
   for (int32_t i = 0; i < out_dim; ++i) offset[i] = 0;
 
-  DomainAffineTransform result;
+  Legion::DomainAffineTransform result;
   result.transform = transform;
   result.offset    = offset;
   return result;

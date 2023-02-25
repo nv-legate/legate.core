@@ -17,6 +17,7 @@
 #pragma once
 
 #include "core/mapping/operation.h"
+#include "core/utilities/typedefs.h"
 
 /**
  * @file
@@ -216,7 +217,8 @@ struct InstanceMappingPolicy {
   bool operator==(const InstanceMappingPolicy&) const;
   bool operator!=(const InstanceMappingPolicy&) const;
 
- public:
+ private:
+  friend class StoreMapping;
   void populate_layout_constraints(const Store& store,
                                    Legion::LayoutConstraintSet& layout_constraints) const;
 
@@ -277,7 +279,8 @@ struct StoreMapping {
    */
   std::set<const Legion::RegionRequirement*> requirements() const;
 
- public:
+ private:
+  friend class BaseMapper;
   void populate_layout_constraints(Legion::LayoutConstraintSet& layout_constraints) const;
 
  public:
@@ -293,19 +296,20 @@ struct StoreMapping {
   static StoreMapping default_mapping(const Store& store, StoreTarget target, bool exact = false);
 };
 
+struct MachineQueryInterface {
+  virtual const std::vector<Processor>& cpus() const = 0;
+  virtual const std::vector<Processor>& gpus() const = 0;
+  virtual const std::vector<Processor>& omps() const = 0;
+  virtual uint32_t total_nodes() const               = 0;
+};
+
 /**
  * @brief An abstract class that defines Legate mapping APIs
  *
  * The APIs give Legate libraries high-level control on task and store mappings
  */
 struct LegateMapper {
-  /**
-   * @brief Indicates whether the mapper is stateless
-   *
-   * @return true The mapper is stateless
-   * @return false The mapper is stateful
-   */
-  virtual bool is_pure() const = 0;
+  virtual void set_machine(const MachineQueryInterface* machine) = 0;
   /**
    * @brief Picks the target processor type for the task
    *

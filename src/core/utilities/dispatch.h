@@ -86,42 +86,42 @@ struct inner_dim_dispatch_fn {
       case 1: {
         return f.template operator()<DIM, 1>(std::forward<Fnargs>(args)...);
       }
-#if LEGION_MAX_DIM >= 2
+#if LEGATE_MAX_DIM >= 2
       case 2: {
         return f.template operator()<DIM, 2>(std::forward<Fnargs>(args)...);
       }
 #endif
-#if LEGION_MAX_DIM >= 3
+#if LEGATE_MAX_DIM >= 3
       case 3: {
         return f.template operator()<DIM, 3>(std::forward<Fnargs>(args)...);
       }
 #endif
-#if LEGION_MAX_DIM >= 4
+#if LEGATE_MAX_DIM >= 4
       case 4: {
         return f.template operator()<DIM, 4>(std::forward<Fnargs>(args)...);
       }
 #endif
-#if LEGION_MAX_DIM >= 5
+#if LEGATE_MAX_DIM >= 5
       case 5: {
         return f.template operator()<DIM, 5>(std::forward<Fnargs>(args)...);
       }
 #endif
-#if LEGION_MAX_DIM >= 6
+#if LEGATE_MAX_DIM >= 6
       case 6: {
         return f.template operator()<DIM, 6>(std::forward<Fnargs>(args)...);
       }
 #endif
-#if LEGION_MAX_DIM >= 7
+#if LEGATE_MAX_DIM >= 7
       case 7: {
         return f.template operator()<DIM, 7>(std::forward<Fnargs>(args)...);
       }
 #endif
-#if LEGION_MAX_DIM >= 8
+#if LEGATE_MAX_DIM >= 8
       case 8: {
         return f.template operator()<DIM, 8>(std::forward<Fnargs>(args)...);
       }
 #endif
-#if LEGION_MAX_DIM >= 9
+#if LEGATE_MAX_DIM >= 9
       case 9: {
         return f.template operator()<DIM, 9>(std::forward<Fnargs>(args)...);
       }
@@ -136,47 +136,47 @@ template <typename Functor, typename... Fnargs>
 constexpr decltype(auto) double_dispatch(int dim, LegateTypeCode code, Functor f, Fnargs&&... args)
 {
   switch (dim) {
-#if LEGION_MAX_DIM >= 1
+#if LEGATE_MAX_DIM >= 1
     case 1: {
       return inner_type_dispatch_fn<1>{}(code, f, std::forward<Fnargs>(args)...);
     }
 #endif
-#if LEGION_MAX_DIM >= 2
+#if LEGATE_MAX_DIM >= 2
     case 2: {
       return inner_type_dispatch_fn<2>{}(code, f, std::forward<Fnargs>(args)...);
     }
 #endif
-#if LEGION_MAX_DIM >= 3
+#if LEGATE_MAX_DIM >= 3
     case 3: {
       return inner_type_dispatch_fn<3>{}(code, f, std::forward<Fnargs>(args)...);
     }
 #endif
-#if LEGION_MAX_DIM >= 4
+#if LEGATE_MAX_DIM >= 4
     case 4: {
       return inner_type_dispatch_fn<4>{}(code, f, std::forward<Fnargs>(args)...);
     }
 #endif
-#if LEGION_MAX_DIM >= 5
+#if LEGATE_MAX_DIM >= 5
     case 5: {
       return inner_type_dispatch_fn<5>{}(code, f, std::forward<Fnargs>(args)...);
     }
 #endif
-#if LEGION_MAX_DIM >= 6
+#if LEGATE_MAX_DIM >= 6
     case 6: {
       return inner_type_dispatch_fn<6>{}(code, f, std::forward<Fnargs>(args)...);
     }
 #endif
-#if LEGION_MAX_DIM >= 7
+#if LEGATE_MAX_DIM >= 7
     case 7: {
       return inner_type_dispatch_fn<7>{}(code, f, std::forward<Fnargs>(args)...);
     }
 #endif
-#if LEGION_MAX_DIM >= 8
+#if LEGATE_MAX_DIM >= 8
     case 8: {
       return inner_type_dispatch_fn<8>{}(code, f, std::forward<Fnargs>(args)...);
     }
 #endif
-#if LEGION_MAX_DIM >= 9
+#if LEGATE_MAX_DIM >= 9
     case 9: {
       return inner_type_dispatch_fn<9>{}(code, f, std::forward<Fnargs>(args)...);
     }
@@ -190,47 +190,47 @@ template <typename Functor, typename... Fnargs>
 constexpr decltype(auto) double_dispatch(int dim1, int dim2, Functor f, Fnargs&&... args)
 {
   switch (dim1) {
-#if LEGION_MAX_DIM >= 1
+#if LEGATE_MAX_DIM >= 1
     case 1: {
       return inner_dim_dispatch_fn<1>{}(dim2, f, std::forward<Fnargs>(args)...);
     }
 #endif
-#if LEGION_MAX_DIM >= 2
+#if LEGATE_MAX_DIM >= 2
     case 2: {
       return inner_dim_dispatch_fn<2>{}(dim2, f, std::forward<Fnargs>(args)...);
     }
 #endif
-#if LEGION_MAX_DIM >= 3
+#if LEGATE_MAX_DIM >= 3
     case 3: {
       return inner_dim_dispatch_fn<3>{}(dim2, f, std::forward<Fnargs>(args)...);
     }
 #endif
-#if LEGION_MAX_DIM >= 4
+#if LEGATE_MAX_DIM >= 4
     case 4: {
       return inner_dim_dispatch_fn<4>{}(dim2, f, std::forward<Fnargs>(args)...);
     }
 #endif
-#if LEGION_MAX_DIM >= 5
+#if LEGATE_MAX_DIM >= 5
     case 5: {
       return inner_dim_dispatch_fn<5>{}(dim2, f, std::forward<Fnargs>(args)...);
     }
 #endif
-#if LEGION_MAX_DIM >= 6
+#if LEGATE_MAX_DIM >= 6
     case 6: {
       return inner_dim_dispatch_fn<6>{}(dim2, f, std::forward<Fnargs>(args)...);
     }
 #endif
-#if LEGION_MAX_DIM >= 7
+#if LEGATE_MAX_DIM >= 7
     case 7: {
       return inner_dim_dispatch_fn<7>{}(dim2, f, std::forward<Fnargs>(args)...);
     }
 #endif
-#if LEGION_MAX_DIM >= 8
+#if LEGATE_MAX_DIM >= 8
     case 8: {
       return inner_dim_dispatch_fn<8>{}(dim2, f, std::forward<Fnargs>(args)...);
     }
 #endif
-#if LEGION_MAX_DIM >= 9
+#if LEGATE_MAX_DIM >= 9
     case 9: {
       return inner_dim_dispatch_fn<9>{}(dim2, f, std::forward<Fnargs>(args)...);
     }
@@ -244,47 +244,47 @@ template <typename Functor, typename... Fnargs>
 constexpr decltype(auto) dim_dispatch(int dim, Functor f, Fnargs&&... args)
 {
   switch (dim) {
-#if LEGION_MAX_DIM >= 1
+#if LEGATE_MAX_DIM >= 1
     case 1: {
       return f.template operator()<1>(std::forward<Fnargs>(args)...);
     }
 #endif
-#if LEGION_MAX_DIM >= 2
+#if LEGATE_MAX_DIM >= 2
     case 2: {
       return f.template operator()<2>(std::forward<Fnargs>(args)...);
     }
 #endif
-#if LEGION_MAX_DIM >= 3
+#if LEGATE_MAX_DIM >= 3
     case 3: {
       return f.template operator()<3>(std::forward<Fnargs>(args)...);
     }
 #endif
-#if LEGION_MAX_DIM >= 4
+#if LEGATE_MAX_DIM >= 4
     case 4: {
       return f.template operator()<4>(std::forward<Fnargs>(args)...);
     }
 #endif
-#if LEGION_MAX_DIM >= 5
+#if LEGATE_MAX_DIM >= 5
     case 5: {
       return f.template operator()<5>(std::forward<Fnargs>(args)...);
     }
 #endif
-#if LEGION_MAX_DIM >= 6
+#if LEGATE_MAX_DIM >= 6
     case 6: {
       return f.template operator()<6>(std::forward<Fnargs>(args)...);
     }
 #endif
-#if LEGION_MAX_DIM >= 7
+#if LEGATE_MAX_DIM >= 7
     case 7: {
       return f.template operator()<7>(std::forward<Fnargs>(args)...);
     }
 #endif
-#if LEGION_MAX_DIM >= 8
+#if LEGATE_MAX_DIM >= 8
     case 8: {
       return f.template operator()<8>(std::forward<Fnargs>(args)...);
     }
 #endif
-#if LEGION_MAX_DIM >= 9
+#if LEGATE_MAX_DIM >= 9
     case 9: {
       return f.template operator()<9>(std::forward<Fnargs>(args)...);
     }

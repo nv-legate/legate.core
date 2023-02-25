@@ -64,7 +64,7 @@ class RegionField {
     ACC operator()(const Legion::PhysicalRegion& pr,
                    Legion::FieldID fid,
                    const Legion::AffineTransform<M, N>& transform,
-                   const Legion::Rect<N>& bounds)
+                   const Rect<N>& bounds)
     {
       return ACC(pr, fid, transform, bounds);
     }
@@ -81,7 +81,7 @@ class RegionField {
                    Legion::FieldID fid,
                    int32_t redop_id,
                    const Legion::AffineTransform<M, N>& transform,
-                   const Legion::Rect<N>& bounds)
+                   const Rect<N>& bounds)
     {
       return ACC(pr, fid, redop_id, transform, bounds);
     }
@@ -89,9 +89,9 @@ class RegionField {
 
   struct get_domain_fn {
     template <int32_t DIM>
-    Legion::Domain operator()(const Legion::PhysicalRegion& pr)
+    Domain operator()(const Legion::PhysicalRegion& pr)
     {
-      return Legion::Domain(pr.get_bounds<DIM, Legion::coord_t>());
+      return Domain(pr.get_bounds<DIM, Legion::coord_t>());
     }
   };
 
@@ -118,35 +118,34 @@ class RegionField {
 
  public:
   template <typename T, int32_t DIM>
-  AccessorRO<T, DIM> read_accessor(const Legion::Rect<DIM>& bounds) const;
+  AccessorRO<T, DIM> read_accessor(const Rect<DIM>& bounds) const;
   template <typename T, int32_t DIM>
-  AccessorWO<T, DIM> write_accessor(const Legion::Rect<DIM>& bounds) const;
+  AccessorWO<T, DIM> write_accessor(const Rect<DIM>& bounds) const;
   template <typename T, int32_t DIM>
-  AccessorRW<T, DIM> read_write_accessor(const Legion::Rect<DIM>& bounds) const;
+  AccessorRW<T, DIM> read_write_accessor(const Rect<DIM>& bounds) const;
   template <typename OP, bool EXCLUSIVE, int32_t DIM>
-  AccessorRD<OP, EXCLUSIVE, DIM> reduce_accessor(int32_t redop_id,
-                                                 const Legion::Rect<DIM>& bounds) const;
+  AccessorRD<OP, EXCLUSIVE, DIM> reduce_accessor(int32_t redop_id, const Rect<DIM>& bounds) const;
 
  public:
   template <typename T, int32_t DIM>
-  AccessorRO<T, DIM> read_accessor(const Legion::Rect<DIM>& bounds,
+  AccessorRO<T, DIM> read_accessor(const Rect<DIM>& bounds,
                                    const Legion::DomainAffineTransform& transform) const;
   template <typename T, int32_t DIM>
-  AccessorWO<T, DIM> write_accessor(const Legion::Rect<DIM>& bounds,
+  AccessorWO<T, DIM> write_accessor(const Rect<DIM>& bounds,
                                     const Legion::DomainAffineTransform& transform) const;
   template <typename T, int32_t DIM>
-  AccessorRW<T, DIM> read_write_accessor(const Legion::Rect<DIM>& bounds,
+  AccessorRW<T, DIM> read_write_accessor(const Rect<DIM>& bounds,
                                          const Legion::DomainAffineTransform& transform) const;
   template <typename OP, bool EXCLUSIVE, int32_t DIM>
   AccessorRD<OP, EXCLUSIVE, DIM> reduce_accessor(
     int32_t redop_id,
-    const Legion::Rect<DIM>& bounds,
+    const Rect<DIM>& bounds,
     const Legion::DomainAffineTransform& transform) const;
 
  public:
   template <int32_t DIM>
-  Legion::Rect<DIM> shape() const;
-  Legion::Domain domain() const;
+  Rect<DIM> shape() const;
+  Domain domain() const;
 
  public:
   bool is_readable() const { return readable_; }
@@ -182,11 +181,11 @@ class OutputRegionField {
 
  public:
   template <typename T, int32_t DIM>
-  Buffer<T, DIM> create_output_buffer(const Legion::Point<DIM>& extents, bool return_buffer);
+  Buffer<T, DIM> create_output_buffer(const Point<DIM>& extents, bool return_buffer);
 
  public:
   template <typename T, int32_t DIM>
-  void return_data(Buffer<T, DIM>& buffer, const Legion::Point<DIM>& extents);
+  void return_data(Buffer<T, DIM>& buffer, const Point<DIM>& extents);
   void make_empty(int32_t dim);
 
  public:
@@ -207,7 +206,7 @@ class FutureWrapper {
   FutureWrapper() {}
   FutureWrapper(bool read_only,
                 int32_t field_size,
-                Legion::Domain domain,
+                Domain domain,
                 Legion::Future future,
                 bool initialize = false);
 
@@ -230,14 +229,13 @@ class FutureWrapper {
 
  public:
   template <typename T, int32_t DIM>
-  AccessorRO<T, DIM> read_accessor(const Legion::Rect<DIM>& bounds) const;
+  AccessorRO<T, DIM> read_accessor(const Rect<DIM>& bounds) const;
   template <typename T, int32_t DIM>
-  AccessorWO<T, DIM> write_accessor(const Legion::Rect<DIM>& bounds) const;
+  AccessorWO<T, DIM> write_accessor(const Rect<DIM>& bounds) const;
   template <typename T, int32_t DIM>
-  AccessorRW<T, DIM> read_write_accessor(const Legion::Rect<DIM>& bounds) const;
+  AccessorRW<T, DIM> read_write_accessor(const Rect<DIM>& bounds) const;
   template <typename OP, bool EXCLUSIVE, int32_t DIM>
-  AccessorRD<OP, EXCLUSIVE, DIM> reduce_accessor(int32_t redop_id,
-                                                 const Legion::Rect<DIM>& bounds) const;
+  AccessorRD<OP, EXCLUSIVE, DIM> reduce_accessor(int32_t redop_id, const Rect<DIM>& bounds) const;
 
  public:
   template <typename VAL>
@@ -245,8 +243,8 @@ class FutureWrapper {
 
  public:
   template <int32_t DIM>
-  Legion::Rect<DIM> shape() const;
-  Legion::Domain domain() const;
+  Rect<DIM> shape() const;
+  Domain domain() const;
 
  public:
   void initialize_with_identity(int32_t redop_id);
@@ -257,7 +255,7 @@ class FutureWrapper {
  private:
   bool read_only_{true};
   size_t field_size_{0};
-  Legion::Domain domain_{};
+  Domain domain_{};
   Legion::Future future_{};
   Legion::UntypedDeferredValue buffer_{};
 };
@@ -367,7 +365,7 @@ class Store {
    * @return A read-only accessor to the store
    */
   template <typename T, int32_t DIM>
-  AccessorRO<T, DIM> read_accessor(const Legion::Rect<DIM>& bounds) const;
+  AccessorRO<T, DIM> read_accessor(const Rect<DIM>& bounds) const;
   /**
    * @brief Returns a write-only accessor to the store for the entire domain
    *
@@ -378,7 +376,7 @@ class Store {
    * @return A write-only accessor to the store
    */
   template <typename T, int32_t DIM>
-  AccessorWO<T, DIM> write_accessor(const Legion::Rect<DIM>& bounds) const;
+  AccessorWO<T, DIM> write_accessor(const Rect<DIM>& bounds) const;
   /**
    * @brief Returns a read-write accessor to the store for the entire domain
    *
@@ -389,7 +387,7 @@ class Store {
    * @return A read-write accessor to the store
    */
   template <typename T, int32_t DIM>
-  AccessorRW<T, DIM> read_write_accessor(const Legion::Rect<DIM>& bounds) const;
+  AccessorRW<T, DIM> read_write_accessor(const Rect<DIM>& bounds) const;
   /**
    * @brief Returns a reduction accessor to the store for the entire domain
    *
@@ -400,7 +398,7 @@ class Store {
    * @return A reduction accessor to the store
    */
   template <typename OP, bool EXCLUSIVE, int32_t DIM>
-  AccessorRD<OP, EXCLUSIVE, DIM> reduce_accessor(const Legion::Rect<DIM>& bounds) const;
+  AccessorRD<OP, EXCLUSIVE, DIM> reduce_accessor(const Rect<DIM>& bounds) const;
 
  public:
   /**
@@ -416,8 +414,7 @@ class Store {
    * @return A reduction accessor to the store
    */
   template <typename T, int32_t DIM>
-  Buffer<T, DIM> create_output_buffer(const Legion::Point<DIM>& extents,
-                                      bool return_buffer = false);
+  Buffer<T, DIM> create_output_buffer(const Point<DIM>& extents, bool return_buffer = false);
 
  public:
   /**
@@ -426,13 +423,13 @@ class Store {
    * @return Store's domain
    */
   template <int32_t DIM>
-  Legion::Rect<DIM> shape() const;
+  Rect<DIM> shape() const;
   /**
    * @brief Returns the store's domain in a dimension-erased domain type
    *
    * @return Store's domain in a dimension-erased domain type
    */
-  Legion::Domain domain() const;
+  Domain domain() const;
 
  public:
   /**
@@ -483,7 +480,7 @@ class Store {
    *
    */
   template <typename T, int32_t DIM>
-  void return_data(Buffer<T, DIM>& buffer, const Legion::Point<DIM>& extents);
+  void return_data(Buffer<T, DIM>& buffer, const Point<DIM>& extents);
   /**
    * @brief Makes the unbound store empty. Valid only when the store is unbound and
    * has not yet been bound to another buffer.

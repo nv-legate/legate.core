@@ -16,10 +16,15 @@
 
 #pragma once
 
+#include <memory>
+
 #include "legion.h"
+// Must be included after legion.h
+#include "legate_defines.h"
 
 #include "core/comm/communicator.h"
 #include "core/task/return.h"
+#include "core/utilities/typedefs.h"
 
 /**
  * @file
@@ -30,7 +35,7 @@ namespace legate {
 
 namespace mapping {
 
-class BaseMapper;
+class LegateMapper;
 
 }  // namespace mapping
 
@@ -75,9 +80,7 @@ class ResourceScope {
 
 class LibraryContext {
  public:
-  LibraryContext(Legion::Runtime* runtime,
-                 const std::string& library_name,
-                 const ResourceConfig& config);
+  LibraryContext(const std::string& library_name, const ResourceConfig& config);
 
  public:
   LibraryContext(const LibraryContext&) = default;
@@ -107,7 +110,10 @@ class LibraryContext {
   bool valid_sharding_id(Legion::ShardingID shard_id) const;
 
  public:
-  void register_mapper(mapping::BaseMapper* mapper, int64_t local_mapper_id = 0) const;
+  template <typename REDOP>
+  void register_reduction_operator();
+  void register_mapper(std::unique_ptr<mapping::LegateMapper> mapper,
+                       int64_t local_mapper_id = 0) const;
 
  private:
   Legion::Runtime* runtime_;
@@ -181,13 +187,13 @@ class TaskContext {
    *
    * @return The point of the task
    */
-  Legion::DomainPoint get_task_index() const;
+  DomainPoint get_task_index() const;
   /**
    * @brief Returns the task group's launch domain. A single task returns an empty domain
    *
    * @return The task group's launch domain
    */
-  Legion::Domain get_launch_domain() const;
+  Domain get_launch_domain() const;
 
  public:
   /**
@@ -215,3 +221,5 @@ class TaskContext {
 };
 
 }  // namespace legate
+
+#include "core/runtime/context.inl"

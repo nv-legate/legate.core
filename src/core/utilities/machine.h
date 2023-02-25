@@ -18,8 +18,10 @@
 
 #include "legion.h"
 
+#include "core/utilities/typedefs.h"
+
 namespace legate {
 
-Legion::Memory::Kind find_memory_kind_for_executing_processor(bool host_accessible = true);
+Memory::Kind find_memory_kind_for_executing_processor(bool host_accessible = true);
 
 }  // namespace legate

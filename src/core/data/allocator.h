@@ -53,7 +53,7 @@ class ScopedAllocator {
    * (and unless explicitly deallocated).
    * @param alignment Alignment for the allocations
    */
-  ScopedAllocator(Legion::Memory::Kind kind, bool scoped = true, size_t alignment = 16);
+  ScopedAllocator(Memory::Kind kind, bool scoped = true, size_t alignment = 16);
   ~ScopedAllocator();
 
  public:
@@ -74,7 +74,7 @@ class ScopedAllocator {
   void deallocate(void* ptr);
 
  private:
-  Legion::Memory::Kind target_kind_{Legion::Memory::Kind::SYSTEM_MEM};
+  Memory::Kind target_kind_{Memory::Kind::SYSTEM_MEM};
   bool scoped_;
   size_t alignment_;
   std::unordered_map<const void*, ByteBuffer> buffers_{};
