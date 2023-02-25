@@ -20,6 +20,10 @@
 
 #include "core/utilities/typedefs.h"
 
+/**
+ * @file
+ * @brief Class definition fo legate::VariantOptions
+ */
 namespace legate {
 
 // We're going to allow for each task to use only up to 341 scalar output stores
