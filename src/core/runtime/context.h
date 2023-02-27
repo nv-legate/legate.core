@@ -16,16 +16,21 @@
 
 #pragma once
 
+#include <memory>
+
 #include "legion.h"
+// Must be included after legion.h
+#include "legate_defines.h"
 
 #include "core/comm/communicator.h"
 #include "core/task/return.h"
+#include "core/utilities/typedefs.h"
 
 namespace legate {
 
 namespace mapping {
 
-class BaseMapper;
+class LegateMapper;
 
 }  // namespace mapping
 
@@ -70,9 +75,7 @@ class ResourceScope {
 
 class LibraryContext {
  public:
-  LibraryContext(Legion::Runtime* runtime,
-                 const std::string& library_name,
-                 const ResourceConfig& config);
+  LibraryContext(const std::string& library_name, const ResourceConfig& config);
 
  public:
   LibraryContext(const LibraryContext&) = default;
@@ -102,7 +105,10 @@ class LibraryContext {
   bool valid_sharding_id(Legion::ShardingID shard_id) const;
 
  public:
-  void register_mapper(mapping::BaseMapper* mapper, int64_t local_mapper_id = 0) const;
+  template <typename REDOP>
+  void register_reduction_operator();
+  void register_mapper(std::unique_ptr<mapping::LegateMapper> mapper,
+                       int64_t local_mapper_id = 0) const;
 
  private:
   Legion::Runtime* runtime_;
@@ -133,8 +139,8 @@ class TaskContext {
  public:
   bool is_single_task() const;
   bool can_raise_exception() const { return can_raise_exception_; }
-  Legion::DomainPoint get_task_index() const;
-  Legion::Domain get_launch_domain() const;
+  DomainPoint get_task_index() const;
+  Domain get_launch_domain() const;
 
  public:
   void make_all_unbound_stores_empty();
@@ -159,3 +165,5 @@ class TaskContext {
 };
 
 }  // namespace legate
+
+#include "core/runtime/context.inl"
