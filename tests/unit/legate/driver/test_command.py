@@ -58,6 +58,7 @@ def test_CMD_PARTS() -> None:
         m.cmd_gpus,
         m.cmd_openmp,
         m.cmd_utility,
+        m.cmd_bgwork,
         m.cmd_mem,
         m.cmd_numamem,
         m.cmd_fbmem,
@@ -826,7 +827,7 @@ class Test_cmd_utility:
 
         result = m.cmd_utility(config, system, launcher)
 
-        assert result == ("-ll:util", "2", "-ll:bgwork", "2")
+        assert result == ("-ll:util", "2")
 
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("rank", ("0", "1", "2"))
@@ -865,7 +866,7 @@ class Test_cmd_utility:
 
         result = m.cmd_utility(config, system, launcher)
 
-        assert result == ("-ll:util", value, "-ll:bgwork", value)
+        assert result == ("-ll:util", value)
 
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     @pytest.mark.parametrize("value", ("2", "3", "10"))
@@ -878,7 +879,7 @@ class Test_cmd_utility:
 
         result = m.cmd_utility(config, system, launcher)
 
-        assert result == ("-ll:util", value, "-ll:bgwork", value)
+        assert result == ("-ll:util", value)
 
 
 class Test_cmd_sysmem:
