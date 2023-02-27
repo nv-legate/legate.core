@@ -90,7 +90,6 @@ class CoreMapper : public Legion::Mapping::NullMapper {
   void configure_context(const Legion::Mapping::MapperContext ctx,
                          const Legion::Task& task,
                          ContextConfigOutput& output) override;
-
   void map_future_map_reduction(const Legion::Mapping::MapperContext ctx,
                                 const FutureMapReductionInput& input,
                                 FutureMapReductionOutput& output) override;
