@@ -363,6 +363,7 @@ install(
 
 install(
   FILES src/core/task/exception.h
+        src/core/task/registrar.h
         src/core/task/return.h
         src/core/task/task.h
         src/core/task/task.inl
