@@ -154,7 +154,7 @@ struct StoreMapping {
 
 class MachineQueryInterface {
  public:
-  virtual ~MachineQueryInterface(){}
+  virtual ~MachineQueryInterface() {}
   virtual const std::vector<Processor>& cpus() const = 0;
   virtual const std::vector<Processor>& gpus() const = 0;
   virtual const std::vector<Processor>& omps() const = 0;
@@ -163,7 +163,7 @@ class MachineQueryInterface {
 
 class LegateMapper {
  public:
-  virtual ~LegateMapper(){}
+  virtual ~LegateMapper() {}
   virtual void set_machine(const MachineQueryInterface* machine)                            = 0;
   virtual TaskTarget task_target(const Task& task, const std::vector<TaskTarget>& options)  = 0;
   virtual std::vector<StoreMapping> store_mappings(const Task& task,

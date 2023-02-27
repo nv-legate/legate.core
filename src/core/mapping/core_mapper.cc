@@ -65,31 +65,31 @@ class CoreMapper : public Legion::Mapping::NullMapper {
 
  public:  // Task mapping calls
   void select_task_options(const Legion::Mapping::MapperContext ctx,
-                                   const Legion::Task& task,
-                                   TaskOptions& output) override;
+                           const Legion::Task& task,
+                           TaskOptions& output) override;
   void slice_task(const Legion::Mapping::MapperContext ctx,
-                          const Legion::Task& task,
-                          const SliceTaskInput& input,
-                          SliceTaskOutput& output) override;
+                  const Legion::Task& task,
+                  const SliceTaskInput& input,
+                  SliceTaskOutput& output) override;
   void map_task(const Legion::Mapping::MapperContext ctx,
-                        const Legion::Task& task,
-                        const MapTaskInput& input,
-                        MapTaskOutput& output) override;
+                const Legion::Task& task,
+                const MapTaskInput& input,
+                MapTaskOutput& output) override;
   void select_sharding_functor(const Legion::Mapping::MapperContext ctx,
-                                       const Legion::Task& task,
-                                       const SelectShardingFunctorInput& input,
-                                       SelectShardingFunctorOutput& output) override;
+                               const Legion::Task& task,
+                               const SelectShardingFunctorInput& input,
+                               SelectShardingFunctorOutput& output) override;
   void select_steal_targets(const Legion::Mapping::MapperContext ctx,
-                                    const SelectStealingInput& input,
-                                    SelectStealingOutput& output) override;
+                            const SelectStealingInput& input,
+                            SelectStealingOutput& output) override;
   void select_tasks_to_map(const Legion::Mapping::MapperContext ctx,
-                                   const SelectMappingInput& input,
-                                   SelectMappingOutput& output) override;
+                           const SelectMappingInput& input,
+                           SelectMappingOutput& output) override;
 
  public:
   void configure_context(const Legion::Mapping::MapperContext ctx,
-                                 const Legion::Task& task,
-                                 ContextConfigOutput& output) override;
+                         const Legion::Task& task,
+                         ContextConfigOutput& output) override;
   void map_future_map_reduction(const Legion::Mapping::MapperContext ctx,
                                 const FutureMapReductionInput& input,
                                 FutureMapReductionOutput& output) override;
