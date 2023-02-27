@@ -271,7 +271,7 @@ def cmd_bgwork(
     # message handler threads equal to our number of utility
     # processors in order to prevent head-of-line blocking
     if ranks > 1:
-        opts += ("-ll:bgwork", str(utility))
+        opts += ("-ll:bgwork", str(max(utility, 2)))
 
     if ranks > 1 and "ucx" in install_info.networks:
         opts += ("-ll:bgworkpin", "1")
