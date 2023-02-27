@@ -28,7 +28,7 @@
 
 /**
  * @file
- * @brief Class definition for legate::Context
+ * @brief Class definitions for legate::LibraryContext and legate::TaskContext
  */
 
 namespace legate {
@@ -42,9 +42,21 @@ class LegateMapper;
 class Store;
 class Scalar;
 
+/**
+ * @brief POD for library configuration.
+ */
 struct ResourceConfig {
+  /**
+   * @brief Maximum number of tasks
+   */
   int64_t max_tasks{1000000};
+  /**
+   * @brief Maximum number of mappers
+   */
   int64_t max_mappers{1};
+  /**
+   * @brief Maximum number of reduction operators
+   */
   int64_t max_reduction_ops{0};
   int64_t max_projections{0};
   int64_t max_shardings{0};
@@ -78,14 +90,34 @@ class ResourceScope {
   int64_t max_{-1};
 };
 
+/**
+ * @brief A library context that provides APIs for registering components
+ */
 class LibraryContext {
  public:
+  /**
+   * @brief Creates a library context from a library name and a configuration.
+   *
+   * A library is registered to the runtime only upon the first construction
+   * and the `config` object is referred to only when the registration happens.
+   * All the following constructions of `LibraryContext` only retrieve the
+   * metadata from the runtime without registration and ignore the `config`.
+   *
+   * @param library_name Library name
+   * @param config Resource configuration for the library. If the library is already
+   * registered, the value will be ignored.
+   */
   LibraryContext(const std::string& library_name, const ResourceConfig& config);
 
  public:
   LibraryContext(const LibraryContext&) = default;
 
  public:
+  /**
+   * @brief Returns the name of the library
+   *
+   * @return Library name
+   */
   const std::string& get_library_name() const;
 
  public:
@@ -110,8 +142,63 @@ class LibraryContext {
   bool valid_sharding_id(Legion::ShardingID shard_id) const;
 
  public:
+  /**
+   * @brief Registers a library specific reduction operator.
+   *
+   * The type parameter `REDOP` must be a reduction operator class that has the following structure:
+   *
+   * @code{.cpp}
+   * struct RedOp {
+   *   using LHS = ...; // Type of the LHS values
+   *   using RHS = ...; // Type of the RHS values
+   *
+   *   static const RHS identity = ...; // Identity of the reduction operator
+   *   static const int32_t REDOP_ID = ... // Reduction operator id
+   *
+   *   template <bool EXCLUSIVE>
+   *   __CUDA_HD__ inline static void apply(LHS& lhs, RHS rhs)
+   *   {
+   *     ...
+   *   }
+   *   template <bool EXCLUSIVE>
+   *   __CUDA_HD__ inline static void fold(RHS& rhs1, RHS rhs2)
+   *   {
+   *     ...
+   *   }
+   * };
+   * @endcode
+   *
+   * Semantically, Legate performs reductions of values `V0`, ..., `Vn` into element `E` in the
+   * following way.
+   *
+   * @code{.cpp}
+   * RHS T = RedOp::identity;
+   * RedOp::fold(T, V0)
+   * ...
+   * RedOp::fold(T, Vn)
+   * RedOp::apply(E, T)
+   * @endcode
+   *
+   * Oftentimes, the LHS and RHS of a reduction operator are the same type and `fold` and  `apply`
+   * perform the same computation, but that's not mandatory. For example, one may implement
+   * a reduction operator for subtraction, where the `fold` would sum up all RHS values whereas
+   * the `apply` would subtract the aggregate value from the LHS.
+   *
+   * The reduction operator id (`REDOP_ID`) can be local to the library but should be unique
+   * for each opeartor within the library.
+   *
+   * Finally, the contract for `apply` and `fold` is that they must update the
+   * reference atomically when the `EXCLUSIVE` is `false`.
+   */
   template <typename REDOP>
   void register_reduction_operator();
+  /**
+   * @brief Registers a library specific mapper. Transfers the ownership of the mapper to
+   * the runtime.
+   *
+   * @param mapper Mapper object
+   * @param local_mapper_id Id for the mapper. Used only when there are more than one mapper.
+   */
   void register_mapper(std::unique_ptr<mapping::LegateMapper> mapper,
                        int64_t local_mapper_id = 0) const;
 

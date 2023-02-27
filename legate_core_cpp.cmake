@@ -319,6 +319,7 @@ if (legate_core_BUILD_DOCS)
       src/core/data/buffer.h
       src/core/mapping/mapping.h
       src/core/mapping/operation.h
+      src/core/task/registrar.h
       src/core/task/task.h
       src/core/task/variant.h
       src/core/task/exception.h
