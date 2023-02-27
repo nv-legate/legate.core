@@ -27,15 +27,18 @@ extern uint32_t extract_env(const char* env_name,
                             const uint32_t default_value,
                             const uint32_t test_value);
 
-class Core {
+struct Core {
  public:
   static void parse_config(void);
   static void shutdown(void);
   static void show_progress(const Legion::Task* task,
                             Legion::Context ctx,
-                            Legion::Runtime* runtime,
-                            const char* task_name);
-  static void report_unexpected_exception(const char* task_name, const legate::TaskException& e);
+                            Legion::Runtime* runtime);
+  static void report_unexpected_exception(const Legion::Task* task, const legate::TaskException& e);
+
+ public:
+  using RegistrationCallback = void (*)();
+  static void perform_registration(RegistrationCallback callback);
 
  public:
   // Configuration settings

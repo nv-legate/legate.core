@@ -16,54 +16,73 @@
 
 #include "core/task/task.h"
 
+#include <cxxabi.h>
+
+#include "realm/faults.h"
+
+#include "core/runtime/context.h"
+#include "core/runtime/runtime.h"
+#include "core/task/exception.h"
+#include "core/task/registrar.h"
+#include "core/task/return.h"
+#include "core/utilities/deserializer.h"
+#include "core/utilities/nvtx_help.h"
+#include "core/utilities/typedefs.h"
+
 namespace legate {
+namespace detail {
 
-using namespace Legion;
-
-void LegateTaskRegistrar::record_variant(TaskID tid,
-                                         const char* task_name,
-                                         const CodeDescriptor& descriptor,
-                                         ExecutionConstraintSet& execution_constraints,
-                                         TaskLayoutConstraintSet& layout_constraints,
-                                         LegateVariantCode var,
-                                         Processor::Kind kind,
-                                         const VariantOptions& options)
+std::string generate_task_name(const std::type_info& ti)
 {
-  assert((kind == Processor::LOC_PROC) || (kind == Processor::TOC_PROC) ||
-         (kind == Processor::OMP_PROC));
-
-  // Buffer these up until we can do our actual registration with the runtime
-  pending_task_variants_.push_back(PendingTaskVariant(tid,
-                                                      false /*global*/,
-                                                      (kind == Processor::LOC_PROC)   ? "CPU"
-                                                      : (kind == Processor::TOC_PROC) ? "GPU"
-                                                                                      : "OpenMP",
-                                                      task_name,
-                                                      descriptor,
-                                                      var,
-                                                      options.return_size));
-
-  auto& registrar = pending_task_variants_.back();
-  registrar.execution_constraints.swap(execution_constraints);
-  registrar.layout_constraints.swap(layout_constraints);
-  registrar.add_constraint(ProcessorConstraint(kind));
-  registrar.set_leaf(options.leaf);
-  registrar.set_inner(options.inner);
-  registrar.set_idempotent(options.idempotent);
-  registrar.set_concurrent(options.concurrent);
+  std::string result;
+  int status      = 0;
+  char* demangled = abi::__cxa_demangle(ti.name(), 0, 0, &status);
+  result          = demangled;
+  free(demangled);
+  return std::move(result);
 }
 
-void LegateTaskRegistrar::register_all_tasks(Runtime* runtime, LibraryContext& context)
+void task_wrapper(VariantImpl variant_impl,
+                  const char* task_name,
+                  const void* args,
+                  size_t arglen,
+                  const void* userdata,
+                  size_t userlen,
+                  Processor p)
+
 {
-  // Do all our registrations
-  for (auto& task : pending_task_variants_) {
-    task.task_id =
-      context.get_task_id(task.task_id);  // Convert a task local task id to a global id
-    // Attach the task name too for debugging
-    runtime->attach_name(task.task_id, task.task_name, false /*mutable*/, true /*local only*/);
-    runtime->register_task_variant(task, task.descriptor, nullptr, 0, task.ret_size, task.var);
+  // Legion preamble
+  const Legion::Task* task;
+  const std::vector<Legion::PhysicalRegion>* regions;
+  Legion::Context legion_context;
+  Legion::Runtime* runtime;
+  Legion::Runtime::legion_task_preamble(args, arglen, p, task, regions, legion_context, runtime);
+
+#ifdef LEGATE_USE_CUDA
+  nvtx::Range auto_range(task_name);
+#endif
+
+  Core::show_progress(task, legion_context, runtime);
+
+  TaskContext context(task, *regions, legion_context, runtime);
+
+  ReturnValues return_values{};
+  try {
+    if (!Core::use_empty_task) (*variant_impl)(context);
+    return_values = context.pack_return_values();
+  } catch (legate::TaskException& e) {
+    if (context.can_raise_exception()) {
+      context.make_all_unbound_stores_empty();
+      return_values = context.pack_return_values_with_exception(e.index(), e.error_message());
+    } else
+      // If a Legate exception is thrown by a task that does not declare any exception,
+      // this is a bug in the library that needs to be reported to the developer
+      Core::report_unexpected_exception(task, e);
   }
-  pending_task_variants_.clear();
+
+  // Legion postamble
+  return_values.finalize(legion_context);
 }
 
+}  // namespace detail
 }  // namespace legate

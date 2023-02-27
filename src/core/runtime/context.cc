@@ -32,24 +32,22 @@
 
 namespace legate {
 
-LibraryContext::LibraryContext(Legion::Runtime* runtime,
-                               const std::string& library_name,
-                               const ResourceConfig& config)
-  : runtime_(runtime), library_name_(library_name)
+LibraryContext::LibraryContext(const std::string& library_name, const ResourceConfig& config)
+  : runtime_(Legion::Runtime::get_runtime()), library_name_(library_name)
 {
   task_scope_ = ResourceScope(
-    runtime->generate_library_task_ids(library_name.c_str(), config.max_tasks), config.max_tasks);
+    runtime_->generate_library_task_ids(library_name.c_str(), config.max_tasks), config.max_tasks);
   mapper_scope_ =
-    ResourceScope(runtime->generate_library_mapper_ids(library_name.c_str(), config.max_mappers),
+    ResourceScope(runtime_->generate_library_mapper_ids(library_name.c_str(), config.max_mappers),
                   config.max_mappers);
   redop_scope_ = ResourceScope(
-    runtime->generate_library_reduction_ids(library_name.c_str(), config.max_reduction_ops),
+    runtime_->generate_library_reduction_ids(library_name.c_str(), config.max_reduction_ops),
     config.max_reduction_ops);
   proj_scope_ = ResourceScope(
-    runtime->generate_library_projection_ids(library_name.c_str(), config.max_projections),
+    runtime_->generate_library_projection_ids(library_name.c_str(), config.max_projections),
     config.max_projections);
   shard_scope_ = ResourceScope(
-    runtime->generate_library_sharding_ids(library_name.c_str(), config.max_shardings),
+    runtime_->generate_library_sharding_ids(library_name.c_str(), config.max_shardings),
     config.max_shardings);
 }
 
@@ -148,13 +146,15 @@ bool LibraryContext::valid_sharding_id(Legion::ShardingID shard_id) const
   return shard_scope_.in_scope(shard_id);
 }
 
-void LibraryContext::register_mapper(mapping::BaseMapper* mapper, int64_t local_mapper_id) const
+void LibraryContext::register_mapper(std::unique_ptr<mapping::LegateMapper> mapper,
+                                     int64_t local_mapper_id) const
 {
-  auto mapper_id = get_mapper_id(local_mapper_id);
+  auto base_mapper = new legate::mapping::BaseMapper(
+    std::move(mapper), runtime_, Realm::Machine::get_machine(), *this);
+  Legion::Mapping::Mapper* legion_mapper = base_mapper;
   if (Core::log_mapping_decisions)
-    runtime_->add_mapper(mapper_id, new Legion::Mapping::LoggingWrapper(mapper, &mapper->logger));
-  else
-    runtime_->add_mapper(mapper_id, mapper);
+    legion_mapper = new Legion::Mapping::LoggingWrapper(base_mapper, &base_mapper->logger);
+  runtime_->add_mapper(get_mapper_id(local_mapper_id), legion_mapper);
 }
 
 TaskContext::TaskContext(const Legion::Task* task,
@@ -203,7 +203,7 @@ TaskContext::TaskContext(const Legion::Task* task,
 #ifdef LEGATE_USE_CUDA
   // If the task is running on a GPU and there is at least one scalar store for reduction,
   // we need to wait for all the host-to-device copies for initialization to finish
-  if (Legion::Processor::get_executing_processor().kind() == Legion::Processor::Kind::TOC_PROC)
+  if (Processor::get_executing_processor().kind() == Processor::Kind::TOC_PROC)
     for (auto& reduction : reductions_)
       if (reduction.is_future()) {
         CHECK_CUDA(cudaDeviceSynchronize());
@@ -214,9 +214,9 @@ TaskContext::TaskContext(const Legion::Task* task,
 
 bool TaskContext::is_single_task() const { return !task_->is_index_space; }
 
-Legion::DomainPoint TaskContext::get_task_index() const { return task_->index_point; }
+DomainPoint TaskContext::get_task_index() const { return task_->index_point; }
 
-Legion::Domain TaskContext::get_launch_domain() const { return task_->index_domain; }
+Domain TaskContext::get_launch_domain() const { return task_->index_domain; }
 
 void TaskContext::make_all_unbound_stores_empty()
 {
