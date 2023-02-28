@@ -2,8 +2,8 @@ from typing import Any
 
 import cunumeric
 import numpy as np
-
 from hello import iota, square, sum, to_scalar
+
 from legate.core import Store
 
 
