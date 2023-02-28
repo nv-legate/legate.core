@@ -23,6 +23,18 @@ function(find_or_configure_legion)
   include("${rapids-cmake-dir}/export/detail/parse_version.cmake")
   rapids_export_parse_version(${PKG_VERSION} Legion PKG_VERSION)
 
+  include("${rapids-cmake-dir}/cpm/detail/package_details.cmake")
+  rapids_cpm_package_details(Legion version git_repo git_branch shallow exclude_from_all)
+
+  set(version ${PKG_VERSION})
+  set(exclude_from_all ${PKG_EXCLUDE_FROM_ALL})
+  if(PKG_BRANCH)
+    set(git_branch "${PKG_BRANCH}")
+  endif()
+  if(PKG_REPOSITORY)
+    set(git_repo "${PKG_REPOSITORY}")
+  endif()
+
   set(Legion_CUDA_ARCH "")
   if(Legion_USE_CUDA)
     set(Legion_CUDA_ARCH ${CMAKE_CUDA_ARCHITECTURES})
@@ -49,14 +61,15 @@ function(find_or_configure_legion)
     if(Legion_DIR OR Legion_ROOT)
       set(_find_mode REQUIRED)
     endif()
-    rapids_find_package(Legion ${PKG_VERSION} EXACT CONFIG ${_find_mode} ${FIND_PKG_ARGS})
+    rapids_find_package(Legion ${version} EXACT CONFIG ${_find_mode} ${FIND_PKG_ARGS})
   endif()
 
   if(Legion_FOUND)
-    message(STATUS "CPM: using local package Legion@${PKG_VERSION}")
+    message(STATUS "CPM: using local package Legion@${version}")
   else()
+
     include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/cpm_helpers.cmake)
-    get_cpm_git_args(legion_cpm_git_args REPOSITORY ${PKG_REPOSITORY} BRANCH ${PKG_BRANCH})
+    get_cpm_git_args(legion_cpm_git_args REPOSITORY ${git_repo} BRANCH ${git_branch})
     if(NOT DEFINED Legion_PYTHON_EXTRA_INSTALL_ARGS)
       set(Legion_PYTHON_EXTRA_INSTALL_ARGS "--single-version-externally-managed --root=/")
     endif()
@@ -146,14 +159,19 @@ function(find_or_configure_legion)
     set(Legion_CUDA_ARCH ${Legion_CUDA_ARCH} CACHE STRING
       "Comma-separated list of CUDA architectures to build for (e.g. 60,70)" FORCE)
 
-    rapids_cpm_find(Legion ${PKG_VERSION} ${FIND_PKG_ARGS}
+    message(VERBOSE "legate.core: Legion version: ${version}")
+    message(VERBOSE "legate.core: Legion git_repo: ${git_repo}")
+    message(VERBOSE "legate.core: Legion git_branch: ${git_branch}")
+    message(VERBOSE "legate.core: Legion exclude_from_all: ${exclude_from_all}")
+
+    rapids_cpm_find(Legion ${version} ${FIND_PKG_ARGS}
         CPM_ARGS
           ${legion_cpm_git_args}
           FIND_PACKAGE_ARGUMENTS EXACT
-          EXCLUDE_FROM_ALL       ${PKG_EXCLUDE_FROM_ALL}
+          EXCLUDE_FROM_ALL       ${exclude_from_all}
           OPTIONS                ${_legion_cuda_options}
                                  "CMAKE_CXX_STANDARD ${_cxx_std}"
-                                 "Legion_VERSION ${PKG_VERSION}"
+                                 "Legion_VERSION ${version}"
                                  "Legion_BUILD_BINDINGS ON"
                                  "Legion_BUILD_APPS OFF"
                                  "Legion_BUILD_TESTS OFF"
@@ -177,28 +195,20 @@ function(find_or_configure_legion)
 
 endfunction()
 
-# This will be defined if provided via the command-line.
-# It will never be cached (see below)
-if(NOT DEFINED legate_core_LEGION_BRANCH)
-  set(legate_core_LEGION_BRANCH 7b5835255fecf2edf300cb565e7bd3b0af8d03ad)
-endif()
-
-# Create a legate_core_LEGION_BRANCH variable in the current scope either from
-# the existing current-scope variable, or the cache variable.
-set(legate_core_LEGION_BRANCH "${legate_core_LEGION_BRANCH}")
-
-# Remove legate_core_LEGION_BRANCH from the CMakeCache.txt. This ensures
-# reconfiguring the same build dir without passing
-# `-Dlegate_core_LEGION_BRANCH=` reverts to the hash above instead of reusing
-# the previous `-Dlegate_core_LEGION_BRANCH=` value.
-unset(legate_core_LEGION_BRANCH CACHE)
-
-if(NOT DEFINED legate_core_LEGION_REPOSITORY)
-  set(legate_core_LEGION_REPOSITORY https://gitlab.com/StanfordLegion/legion.git)
-endif()
-
-set(legate_core_LEGION_REPOSITORY "${legate_core_LEGION_REPOSITORY}")
-unset(legate_core_LEGION_REPOSITORY CACHE)
+foreach(_var IN ITEMS "legate_core_LEGION_VERSION"
+                      "legate_core_LEGION_BRANCH"
+                      "legate_core_LEGION_REPOSITORY"
+                      "legate_core_EXCLUDE_LEGION_FROM_ALL")
+  if(DEFINED ${_var})
+    # Create a legate_core_LEGION_BRANCH variable in the current scope either from the existing
+    # current-scope variable, or the cache variable.
+    set(${_var} "${${_var}}")
+    # Remove legate_core_LEGION_BRANCH from the CMakeCache.txt. This ensures reconfiguring the same
+    # build dir without passing `-Dlegate_core_LEGION_BRANCH=` reverts to the hash above instead of
+    # reusing the previous `-Dlegate_core_LEGION_BRANCH=` value.
+    unset(${_var} CACHE)
+  endif()
+endforeach()
 
 if(NOT DEFINED legate_core_LEGION_VERSION)
   set(legate_core_LEGION_VERSION "${legate_core_VERSION_MAJOR}.${legate_core_VERSION_MINOR}.0")
