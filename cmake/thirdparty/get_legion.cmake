@@ -197,6 +197,9 @@ if(NOT DEFINED legate_core_LEGION_REPOSITORY)
   set(legate_core_LEGION_REPOSITORY https://gitlab.com/StanfordLegion/legion.git)
 endif()
 
+set(legate_core_LEGION_REPOSITORY "${legate_core_LEGION_REPOSITORY}")
+unset(legate_core_LEGION_REPOSITORY CACHE)
+
 if(NOT DEFINED legate_core_LEGION_VERSION)
   set(legate_core_LEGION_VERSION "${legate_core_VERSION_MAJOR}.${legate_core_VERSION_MINOR}.0")
 endif()

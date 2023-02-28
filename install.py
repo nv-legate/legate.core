@@ -738,7 +738,7 @@ def driver():
         "--legion-url",
         dest="legion_url",
         required=False,
-        default="https://gitlab.com/StanfordLegion/legion.git",
+        default=None,
         help="Legion git URL to build Legate with.",
     )
     parser.add_argument(
