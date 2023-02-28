@@ -54,25 +54,39 @@ function(legate_default_cpp_install target)
   )
 endfunction()
 
-function(legate_add_cffi header target)
-if (NOT DEFINED CMAKE_C_COMPILER)
-  message(FATAL_ERROR "Must enable C language to build Legate projects")
-endif()
+function(legate_add_cffi header)
+  if (NOT DEFINED CMAKE_C_COMPILER)
+    message(FATAL_ERROR "Must enable C language to build Legate projects")
+  endif()
 
-execute_process(
-  COMMAND ${CMAKE_C_COMPILER}
-    -E
-    -P "${header}"
-  ECHO_ERROR_VARIABLE
-  OUTPUT_VARIABLE header_output
-  COMMAND_ERROR_IS_FATAL ANY
-)
-string(JOIN "\n" header_content
-  "${header_output}"
-  "void ${target}_perform_registration();"
-)
+  set(options)
+  set(one_value_args TARGET)
+  set(multi_value_args)
+  cmake_parse_arguments(
+    LEGATE_OPT
+    "${options}"
+    "${one_value_args}"
+    "${multi_value_args}"
+    ${ARGN}
+  )
+  # abbreviate for the function below
+  set(target ${LEGATE_OPT_TARGET})
 
-set(install_info_in
+  execute_process(
+    COMMAND ${CMAKE_C_COMPILER}
+      -E
+      -P "${header}"
+    ECHO_ERROR_VARIABLE
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    OUTPUT_VARIABLE header_output
+    COMMAND_ERROR_IS_FATAL ANY
+  )
+  string(JOIN "\n" header_content
+    "${header_output}"
+    "void ${target}_perform_registration();"
+  )
+
+  set(install_info_in
 [=[
 from pathlib import Path
 
@@ -218,7 +232,7 @@ struct Registry {
   {
     get_registrar().record_variant(std::forward<Args>(args)...);
   }
-  static legate::LegateTaskRegistrar& get_registrar();
+  static legate::TaskRegistrar& get_registrar();
 };
 
 template <typename T, int ID>
@@ -235,19 +249,13 @@ struct Task : public legate::LegateTask<T> {
   set(file_template
 [=[
 #include "legate_library.h"
-#include "core/mapping/base_mapper.h"
+#include "core/mapping/mapping.h"
 
 namespace @target@ {
 
-class Mapper : public legate::mapping::BaseMapper {
-
+class Mapper : public legate::mapping::LegateMapper {
  public:
-  Mapper(Legion::Runtime* rt, Legion::Machine machine, const legate::LibraryContext& context)
-  : BaseMapper(rt, machine, context)
-  {
-  }
-
-  virtual ~Mapper(void) {}
+  Mapper(){}
 
  private:
   Mapper(const Mapper& rhs)            = delete;
@@ -255,7 +263,9 @@ class Mapper : public legate::mapping::BaseMapper {
 
   // Legate mapping functions
  public:
-  bool is_pure() const override { return true; }
+  void set_machine(const legate::mapping::MachineQueryInterface* machine) override {
+    machine_ = machine;
+  }
 
   legate::mapping::TaskTarget task_target(
     const legate::mapping::Task& task,
@@ -284,32 +294,33 @@ class Mapper : public legate::mapping::BaseMapper {
   legate::Scalar tunable_value(legate::TunableID tunable_id) override {
     return 0;
   }
+
+ private:
+  const legate::mapping::MachineQueryInterface* machine_;
 };
 
 static const char* const library_name = "hello";
 
 Legion::Logger log_hello("hello");
 
-/*static*/ legate::LegateTaskRegistrar& Registry::get_registrar()
+/*static*/ legate::TaskRegistrar& Registry::get_registrar()
 {
-  static legate::LegateTaskRegistrar registrar;
+  static legate::TaskRegistrar registrar;
   return registrar;
 }
 
-void registration_callback(Legion::Machine machine,
-                           Legion::Runtime* runtime,
-                           const std::set<Legion::Processor>& local_procs)
+void registration_callback()
 {
   legate::ResourceConfig config;
   config.max_mappers       = 1;
   config.max_tasks         = 1024;
   config.max_reduction_ops = 8;
-  legate::LibraryContext context(runtime, library_name, config);
+  legate::LibraryContext context(library_name, config);
 
-  Registry::get_registrar().register_all_tasks(runtime, context);
+  Registry::get_registrar().register_all_tasks(context);
 
   // Now we can register our mapper with the runtime
-  context.register_mapper(new Mapper(runtime, machine, context), 0);
+  context.register_mapper(std::make_unique<Mapper>(), 0);
 }
 
 }  // namespace @target@
@@ -321,7 +332,7 @@ void @target@_perform_registration(void)
   // Tell the runtime about our registration callback so we hook it
   // in before the runtime starts and make it global so that we know
   // that this call back is invoked everywhere across all nodes
-  Legion::Runtime::perform_registration_callback(@target@::registration_callback, true /*global*/);
+  legate::Core::perform_registration(@target@::registration_callback);
 }
 
 }

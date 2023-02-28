@@ -123,3 +123,8 @@ if(CMAKE_GENERATOR STREQUAL "Ninja")
   endfunction()
   add_touch_legate_core_ninja_build_target()
 endif()
+
+option(legate_core_EXAMPLE_BUILD_TESTS OFF)
+if (legate_core_EXAMPLE_BUILD_TESTS)
+  add_subdirectory(examples)
+endif()

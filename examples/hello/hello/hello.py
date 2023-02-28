@@ -18,7 +18,7 @@ class HelloOpCode(IntEnum):
 
 
 def print_hello(message: str) -> None:
-    """Create a Legate to task to print a message
+    """Create a Legate task launch to print a message
 
     Args:
         message (str): The message to print
@@ -29,14 +29,14 @@ def print_hello(message: str) -> None:
 
 
 def print_hellos(message: str, n: int) -> None:
-    """Create a Legate to task launch to print a message
-       in n replicas of the task
+    """Create a Legate task launch to print a message n times,
+       using n replicas of the task
 
     Args:
         message (str): The message to print
         n (int): The number of times to print
     """
-    launch_domain = Rect(lo=[0], hi=[n], exclusive=True)
+    launch_domain = Rect(lo=[0], hi=[n])
     task = user_context.create_manual_task(
         HelloOpCode.HELLO_WORLD, launch_domain=launch_domain
     )
@@ -73,13 +73,15 @@ def to_scalar(input: Store) -> float:
     Returns:
         float: A Python scalar
     """
+    # This operation blocks until the data in the Store
+    # is available and correct
     buf = input.storage.get_buffer(np.float32().itemsize)
     result = np.frombuffer(buf, dtype=np.float32, count=1)
     return float(result[0])
 
 
 def zero() -> Store:
-    """Create a Legates store representing a single zero scalar
+    """Creates a Legate store representing a single zero scalar
 
     Returns:
         Store: A Legate store representing a scalar zero
@@ -128,14 +130,14 @@ def sum(input: Any) -> Store:
     Returns:
         Store: A Legate store encapsulating the array sum
     """
-    input = _get_legate_store(input)
+    input_store = _get_legate_store(input)
 
     task = user_context.create_auto_task(HelloOpCode.SUM)
 
     # zero-initialize the output for the summation
     output = zero()
 
-    task.add_input(input)
+    task.add_input(input_store)
     task.add_reduction(output, types.ReductionOp.ADD)
     task.execute()
     return output
@@ -152,16 +154,16 @@ def square(input: Any) -> Store:
         Store: A Legate store encapsulating a 1-D array
                holding the elementwise square values
     """
-    input = _get_legate_store(input)
+    input_store = _get_legate_store(input)
 
     output = user_context.create_store(
-        types.float32, shape=input.shape, optimize_scalar=True
+        types.float32, shape=input_store.shape, optimize_scalar=True
     )
     task = user_context.create_auto_task(HelloOpCode.SQUARE)
 
-    task.add_input(input)
+    task.add_input(input_store)
     task.add_output(output)
-    task.add_alignment(input, output)
+    task.add_alignment(input_store, output)
     task.execute()
 
     return output
