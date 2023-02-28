@@ -145,7 +145,8 @@ class LibraryContext {
   /**
    * @brief Registers a library specific reduction operator.
    *
-   * The type parameter `REDOP` must be a reduction operator class that has the following structure:
+   * The type parameter `REDOP` points to a class that implements a reduction operator.
+   * Each reduction operator class has the following structure:
    *
    * @code{.cpp}
    * struct RedOp {
@@ -168,8 +169,8 @@ class LibraryContext {
    * };
    * @endcode
    *
-   * Semantically, Legate performs reductions of values `V0`, ..., `Vn` into element `E` in the
-   * following way.
+   * Semantically, Legate performs reductions of values `V0`, ..., `Vn` to element `E` in the
+   * following way:
    *
    * @code{.cpp}
    * RHS T = RedOp::identity;
@@ -178,6 +179,8 @@ class LibraryContext {
    * RedOp::fold(T, Vn)
    * RedOp::apply(E, T)
    * @endcode
+   * I.e., Legate gathers all reduction contributions using `fold` and applies the accumulator
+   * to the element using `apply`.
    *
    * Oftentimes, the LHS and RHS of a reduction operator are the same type and `fold` and  `apply`
    * perform the same computation, but that's not mandatory. For example, one may implement

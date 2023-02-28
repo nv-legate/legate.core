@@ -31,6 +31,12 @@ namespace legate {
 /**
  * @brief A typed buffer class for intra-task temporary allocations
  *
+ * Values in a buffer can be accessed by index expressions with legate::Point objects,
+ * or via a raw pointer to the underlying allocation, which can be queried with the `ptr` method.
+ *
+ * `legate::Buffer` is an alias to
+ * [`Legion::DeferredBuffer`](https://github.com/StanfordLegion/legion/blob/9ed6f4d6b579c4f17e0298462e89548a4f0ed6e5/runtime/legion.h#L3509-L3609).
+ *
  * Note on using temporary buffers in CUDA tasks:
  *
  * We use Legion `DeferredBuffer`s, whose lifetime is not connected with the CUDA stream(s) used to

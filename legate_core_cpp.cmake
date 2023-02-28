@@ -329,6 +329,7 @@ if (legate_core_BUILD_DOCS)
       src/core/utilities/dispatch.h
       src/core/utilities/span.h
       src/core/utilities/type_traits.h
+      src/core/utilities/typedefs.h
     )
     set(DOXYGEN_FULL_PATH_NAMES NO)
     set(DOXYGEN_GENERATE_HTML YES)
