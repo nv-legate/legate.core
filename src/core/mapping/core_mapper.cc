@@ -49,6 +49,7 @@ class CoreMapper : public Legion::Mapping::NullMapper {
   CoreMapper(Legion::Mapping::MapperRuntime* runtime,
              Legion::Machine machine,
              const LibraryContext& context);
+
   virtual ~CoreMapper();
 
  public:
@@ -58,44 +59,44 @@ class CoreMapper : public Legion::Mapping::NullMapper {
   static const char* create_name(Legion::AddressSpace node);
 
  public:
-  virtual const char* get_mapper_name() const override;
-  virtual Legion::Mapping::Mapper::MapperSyncModel get_mapper_sync_model() const override;
-  virtual bool request_valid_instances() const { return false; }
+  const char* get_mapper_name() const override;
+  Legion::Mapping::Mapper::MapperSyncModel get_mapper_sync_model() const override;
+  bool request_valid_instances() const override { return false; }
 
  public:  // Task mapping calls
-  virtual void select_task_options(const Legion::Mapping::MapperContext ctx,
-                                   const Legion::Task& task,
-                                   TaskOptions& output);
-  virtual void slice_task(const Legion::Mapping::MapperContext ctx,
-                          const Legion::Task& task,
-                          const SliceTaskInput& input,
-                          SliceTaskOutput& output);
-  virtual void map_task(const Legion::Mapping::MapperContext ctx,
-                        const Legion::Task& task,
-                        const MapTaskInput& input,
-                        MapTaskOutput& output);
-  virtual void select_sharding_functor(const Legion::Mapping::MapperContext ctx,
-                                       const Legion::Task& task,
-                                       const SelectShardingFunctorInput& input,
-                                       SelectShardingFunctorOutput& output);
-  virtual void select_steal_targets(const Legion::Mapping::MapperContext ctx,
-                                    const SelectStealingInput& input,
-                                    SelectStealingOutput& output);
-  virtual void select_tasks_to_map(const Legion::Mapping::MapperContext ctx,
-                                   const SelectMappingInput& input,
-                                   SelectMappingOutput& output);
+  void select_task_options(const Legion::Mapping::MapperContext ctx,
+                           const Legion::Task& task,
+                           TaskOptions& output) override;
+  void slice_task(const Legion::Mapping::MapperContext ctx,
+                  const Legion::Task& task,
+                  const SliceTaskInput& input,
+                  SliceTaskOutput& output) override;
+  void map_task(const Legion::Mapping::MapperContext ctx,
+                const Legion::Task& task,
+                const MapTaskInput& input,
+                MapTaskOutput& output) override;
+  void select_sharding_functor(const Legion::Mapping::MapperContext ctx,
+                               const Legion::Task& task,
+                               const SelectShardingFunctorInput& input,
+                               SelectShardingFunctorOutput& output) override;
+  void select_steal_targets(const Legion::Mapping::MapperContext ctx,
+                            const SelectStealingInput& input,
+                            SelectStealingOutput& output) override;
+  void select_tasks_to_map(const Legion::Mapping::MapperContext ctx,
+                           const SelectMappingInput& input,
+                           SelectMappingOutput& output) override;
 
  public:
-  virtual void configure_context(const Legion::Mapping::MapperContext ctx,
-                                 const Legion::Task& task,
-                                 ContextConfigOutput& output);
+  void configure_context(const Legion::Mapping::MapperContext ctx,
+                         const Legion::Task& task,
+                         ContextConfigOutput& output) override;
   void map_future_map_reduction(const Legion::Mapping::MapperContext ctx,
                                 const FutureMapReductionInput& input,
-                                FutureMapReductionOutput& output);
-  virtual void select_tunable_value(const Legion::Mapping::MapperContext ctx,
-                                    const Legion::Task& task,
-                                    const SelectTunableInput& input,
-                                    SelectTunableOutput& output);
+                                FutureMapReductionOutput& output) override;
+  void select_tunable_value(const Legion::Mapping::MapperContext ctx,
+                            const Legion::Task& task,
+                            const SelectTunableInput& input,
+                            SelectTunableOutput& output) override;
 
  protected:
   template <typename Functor>

@@ -310,7 +310,9 @@ struct StoreMapping {
  * @ingroup mapping
  * @brief An abstract class that defines machine query APIs
  */
-struct MachineQueryInterface {
+class MachineQueryInterface {
+ public:
+  virtual ~MachineQueryInterface() {}
   /**
    * @brief Returns local CPUs
    *
@@ -343,7 +345,9 @@ struct MachineQueryInterface {
  *
  * The APIs give Legate libraries high-level control on task and store mappings
  */
-struct LegateMapper {
+class LegateMapper {
+ public:
+  virtual ~LegateMapper() {}
   /**
    * @brief Sets a machine query interface. This call gives the mapper a chance
    * to cache the machine query interface.
