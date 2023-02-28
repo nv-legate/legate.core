@@ -28,6 +28,7 @@
 namespace legate {
 
 /**
+ * @ingroup data
  * @brief A type-erased container for scalars and tuples of scalars.
  *
  * A Scalar can be owned or shared, depending on whether it owns the backing allocation:

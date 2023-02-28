@@ -43,6 +43,7 @@ class Store;
 class Scalar;
 
 /**
+ * @ingroup runtime
  * @brief POD for library configuration.
  */
 struct ResourceConfig {
@@ -91,6 +92,7 @@ class ResourceScope {
 };
 
 /**
+ * @ingroup runtime
  * @brief A library context that provides APIs for registering components
  */
 class LibraryContext {
@@ -216,6 +218,7 @@ class LibraryContext {
 };
 
 /**
+ * @ingroup task
  * @brief A task context that contains task arguments and communicators
  */
 class TaskContext {

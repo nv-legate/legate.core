@@ -24,6 +24,9 @@
 #include "legate_defines.h"
 #include "legion.h"
 
+/** @defgroup data Data abstractions and allocators
+ */
+
 /**
  * @file
  * @brief Class definition for legate::Store
@@ -261,6 +264,7 @@ class FutureWrapper {
 };
 
 /**
+ * @ingroup data
  * @brief A multi-dimensional data container storing task data
  */
 class Store {

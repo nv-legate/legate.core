@@ -29,6 +29,7 @@
 namespace legate {
 
 /**
+ * @ingroup data
  * @brief A typed buffer class for intra-task temporary allocations
  *
  * Values in a buffer can be accessed by index expressions with legate::Point objects,
@@ -59,6 +60,7 @@ template <typename VAL, int32_t DIM = 1>
 using Buffer = Legion::DeferredBuffer<VAL, DIM>;
 
 /**
+ * @ingroup data
  * @brief Creates a `Buffer` of specific extents
  *
  * @param extents Extents of the buffer
@@ -82,6 +84,7 @@ Buffer<VAL, DIM> create_buffer(const Point<DIM>& extents,
 }
 
 /**
+ * @ingroup data
  * @brief Creates a `Buffer` of a specific size. Always returns a 1D buffer.
  *
  * @param size Size of the buffdr

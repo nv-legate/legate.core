@@ -30,6 +30,7 @@ namespace legate {
 namespace cuda {
 
 /**
+ * @ingroup task
  * @brief A simple wrapper around CUDA streams to inject auxiliary features
  *
  * When `LEGATE_SYNC_STREAM_VIEW` is set to 1, every `StreamView` synchronizes the CUDA stream

@@ -28,6 +28,7 @@
 namespace legate {
 
 /**
+ * @ingroup data
  * @brief A simple allocator backed by `Buffer` objects
  *
  * For each allocation request, this allocator creates a 1D `Buffer` of `int8_t` and returns

@@ -26,6 +26,7 @@
 namespace legate {
 
 /**
+ * @ingroup task
  * @brief An exception class used in cross language exception handling
  *
  * Any client that needs to catch a C++ exception during task execution and have it rethrown

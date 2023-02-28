@@ -313,23 +313,30 @@ if (legate_core_BUILD_DOCS)
   if(Doxygen_FOUND)
     set(legate_core_DOC_SOURCES "")
     list(APPEND legate_core_DOC_SOURCES
+      # task
+      src/core/task/task.h
+      src/core/task/registrar.h
+      src/core/task/variant.h
+      src/core/task/exception.h
       src/core/cuda/stream_pool.h
+      # data
       src/core/data/store.h
       src/core/data/scalar.h
       src/core/data/buffer.h
+      src/core/utilities/span.h
+      src/core/data/allocator.h
+      # runtime
+      src/core/runtime/runtime.h
+      src/core/runtime/context.h
+      # mapping
       src/core/mapping/mapping.h
       src/core/mapping/operation.h
-      src/core/task/registrar.h
-      src/core/task/task.h
-      src/core/task/variant.h
-      src/core/task/exception.h
-      src/core/runtime/context.h
-      src/core/runtime/runtime.h
+      # aliases
+      src/core/utilities/typedefs.h
+      # utilities
       src/core/utilities/debug.h
       src/core/utilities/dispatch.h
-      src/core/utilities/span.h
       src/core/utilities/type_traits.h
-      src/core/utilities/typedefs.h
     )
     set(DOXYGEN_FULL_PATH_NAMES NO)
     set(DOXYGEN_GENERATE_HTML YES)

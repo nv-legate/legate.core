@@ -19,6 +19,9 @@
 #include "core/mapping/operation.h"
 #include "core/utilities/typedefs.h"
 
+/** @defgroup mapping Mapping API
+ */
+
 /**
  * @file
  * @brief Legate Mapping API
@@ -28,6 +31,7 @@ namespace legate {
 namespace mapping {
 
 /**
+ * @ingroup mapping
  * @brief An enum class for task targets
  */
 enum class TaskTarget : int32_t {
@@ -46,6 +50,7 @@ enum class TaskTarget : int32_t {
 };
 
 /**
+ * @ingroup mapping
  * @brief An enum class for store targets
  */
 enum class StoreTarget : int32_t {
@@ -68,6 +73,7 @@ enum class StoreTarget : int32_t {
 };
 
 /**
+ * @ingroup mapping
  * @brief An enum class for instance allocation policies
  */
 enum class AllocPolicy : int32_t {
@@ -82,6 +88,7 @@ enum class AllocPolicy : int32_t {
 };
 
 /**
+ * @ingroup mapping
  * @brief An enum class for instant layouts
  */
 enum class InstLayout : int32_t {
@@ -97,6 +104,7 @@ enum class InstLayout : int32_t {
 };
 
 /**
+ * @ingroup mapping
  * @brief A descriptor for dimension ordering
  */
 struct DimOrdering {
@@ -176,6 +184,7 @@ struct DimOrdering {
 };
 
 /**
+ * @ingroup mapping
  * @brief A descriptor for instance mapping policy
  */
 struct InstanceMappingPolicy {
@@ -227,6 +236,7 @@ struct InstanceMappingPolicy {
 };
 
 /**
+ * @ingroup mapping
  * @brief A mapping policy for stores
  */
 struct StoreMapping {
@@ -297,6 +307,7 @@ struct StoreMapping {
 };
 
 /**
+ * @ingroup mapping
  * @brief An abstract class that defines machine query APIs
  */
 struct MachineQueryInterface {
@@ -327,6 +338,7 @@ struct MachineQueryInterface {
 };
 
 /**
+ * @ingroup mapping
  * @brief An abstract class that defines Legate mapping APIs
  *
  * The APIs give Legate libraries high-level control on task and store mappings

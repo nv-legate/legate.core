@@ -34,6 +34,7 @@ class LibraryContext;
 class PendingTaskVariant;
 
 /**
+ * @ingroup task
  * @brief A helper class for task variant registration.
  *
  * Because of the way Legate checks the existence of a certain task variant at compile time,

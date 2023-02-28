@@ -30,6 +30,7 @@ namespace legate {
 constexpr size_t LEGATE_MAX_SIZE_SCALAR_RETURN = 4096;
 
 /**
+ * @ingroup task
  * @brief A helper class for specifying variant options
  */
 struct VariantOptions {

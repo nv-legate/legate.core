@@ -27,6 +27,7 @@
 namespace legate {
 
 /**
+ * @ingroup data
  * @brief A simple span implementation used in Legate. Should eventually be replaced with
  * std::span once we bump up the C++ standard version to C++20
  */

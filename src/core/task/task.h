@@ -19,6 +19,9 @@
 #include "core/task/variant.h"
 #include "core/utilities/typedefs.h"
 
+/** @defgroup task Task
+ */
+
 /**
  * @file
  * @brief Class definition fo legate::LegateTask
@@ -33,6 +36,7 @@ class TaskContext;
 using VariantImpl = void (*)(TaskContext&);
 
 /**
+ * @ingroup task
  * @brief A base class template for Legate task implementations.
  *
  * Any Legate task class must inherit legate::LegateTask directly or transitively. The type

@@ -102,6 +102,7 @@ class FutureWrapper {
 };
 
 /**
+ * @ingroup mapping
  * @brief A metadata class that mirrors the structure of legate::Store but contains
  * only the data relevant to mapping
  */
@@ -223,6 +224,7 @@ class Store {
 };
 
 /**
+ * @ingroup mapping
  * @brief A metadata class for tasks
  */
 class Task {
