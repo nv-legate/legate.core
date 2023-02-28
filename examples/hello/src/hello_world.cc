@@ -3,6 +3,8 @@
 
 namespace hello {
 
+Legion::Logger logger("legate.hello");
+
 class HelloWorldTask : public Task<HelloWorldTask, HELLO_WORLD> {
 public:
   static void cpu_variant(legate::TaskContext &context) {

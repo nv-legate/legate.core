@@ -9,7 +9,7 @@ In general, a Legate application will need to implement three pieces.
 1. C++ tasks
 1. Python library
 
-Please refer to the README in the [Legate repo](https://github.com/nv-legate/legate.core/blob/branch-23.03/README.md)
+Please refer to the README in the [Legate repo](https://github.com/nv-legate/legate.core/blob/HEAD/README.md)
 for first installing `legate.core`.  We strongly recommend creating a Conda environment for development and testing.
 
 # Build System
