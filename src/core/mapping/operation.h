@@ -61,7 +61,7 @@ class Task : public Mappable {
   const std::vector<Scalar>& scalars() const { return scalars_; }
 
  public:
-  Legion::DomainPoint point() const { return task_->index_point; }
+  DomainPoint point() const { return task_->index_point; }
 
  public:
   TaskTarget target() const;
@@ -88,7 +88,7 @@ class Copy : public Mappable {
   const std::vector<Store>& output_indirections() const { return output_indirections_; }
 
  public:
-  Legion::DomainPoint point() const { return copy_->index_point; }
+  DomainPoint point() const { return copy_->index_point; }
 
  private:
   const Legion::Copy* copy_;

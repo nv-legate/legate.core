@@ -20,26 +20,19 @@
 namespace legate {
 namespace mapping {
 
-using LegionMappable = Legion::Mappable;
-using LegionTask     = Legion::Task;
-using LegionCopy     = Legion::Copy;
-
-using namespace Legion;
-using namespace Legion::Mapping;
-
 Mappable::Mappable() {}
 
-Mappable::Mappable(const LegionMappable* mappable)
+Mappable::Mappable(const Legion::Mappable* mappable)
 {
   MapperDataDeserializer dez(mappable);
-  machine_desc_ = dez.unpack<mapping::MachineDesc>();
+  machine_desc_ = dez.unpack<MachineDesc>();
   sharding_id_  = dez.unpack<uint32_t>();
 }
 
-Task::Task(const LegionTask* task,
+Task::Task(const Legion::Task* task,
            const LibraryContext& library,
-           MapperRuntime* runtime,
-           const MapperContext context)
+           Legion::Mapping::MapperRuntime* runtime,
+           const Legion::Mapping::MapperContext context)
   : Mappable(task), task_(task), library_(library)
 {
   TaskDeserializer dez(task, runtime, context);
@@ -65,7 +58,9 @@ TaskTarget Task::target() const
   return TaskTarget::CPU;
 }
 
-Copy::Copy(const LegionCopy* copy, MapperRuntime* runtime, const MapperContext context)
+Copy::Copy(const Legion::Copy* copy,
+           Legion::Mapping::MapperRuntime* runtime,
+           const Legion::Mapping::MapperContext context)
   : Mappable(), copy_(copy)
 {
   CopyDeserializer dez(copy,

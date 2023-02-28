@@ -26,12 +26,7 @@
 #endif
 #include "core/task/task.h"
 #include "core/utilities/linearize.h"
-
-using LegionTask    = Legion::Task;
-using LegionMachine = Legion::Machine;
-
-using namespace Legion;
-using namespace Legion::Mapping;
+#include "core/utilities/typedefs.h"
 
 namespace legate {
 
@@ -55,50 +50,53 @@ namespace mapping {
 // should be overriding this mapper so we burry it in here
 class CoreMapper : public Legion::Mapping::NullMapper {
  public:
-  CoreMapper(MapperRuntime* runtime, LegionMachine machine, const LibraryContext& context);
-  virtual ~CoreMapper(void);
+  CoreMapper(Legion::Mapping::MapperRuntime* runtime,
+             Legion::Machine machine,
+             const LibraryContext& context);
+
+  virtual ~CoreMapper();
 
  public:
-  virtual const char* get_mapper_name(void) const;
-  virtual MapperSyncModel get_mapper_sync_model(void) const;
-  virtual bool request_valid_instances(void) const { return false; }
+  const char* get_mapper_name() const override;
+  Legion::Mapping::Mapper::MapperSyncModel get_mapper_sync_model() const override;
+  bool request_valid_instances() const override { return false; }
 
  public:  // Task mapping calls
-  virtual void select_task_options(const MapperContext ctx,
-                                   const LegionTask& task,
-                                   TaskOptions& output);
-  virtual void slice_task(const MapperContext ctx,
-                          const LegionTask& task,
-                          const SliceTaskInput& input,
-                          SliceTaskOutput& output);
-  virtual void map_task(const MapperContext ctx,
-                        const LegionTask& task,
-                        const MapTaskInput& input,
-                        MapTaskOutput& output);
-  virtual void select_sharding_functor(const MapperContext ctx,
-                                       const LegionTask& task,
-                                       const SelectShardingFunctorInput& input,
-                                       SelectShardingFunctorOutput& output);
-  virtual void select_steal_targets(const MapperContext ctx,
-                                    const SelectStealingInput& input,
-                                    SelectStealingOutput& output);
-  virtual void select_tasks_to_map(const MapperContext ctx,
-                                   const SelectMappingInput& input,
-                                   SelectMappingOutput& output);
+  void select_task_options(const Legion::Mapping::MapperContext ctx,
+                           const Legion::Task& task,
+                           TaskOptions& output) override;
+  void slice_task(const Legion::Mapping::MapperContext ctx,
+                  const Legion::Task& task,
+                  const SliceTaskInput& input,
+                  SliceTaskOutput& output) override;
+  void map_task(const Legion::Mapping::MapperContext ctx,
+                const Legion::Task& task,
+                const MapTaskInput& input,
+                MapTaskOutput& output) override;
+  void select_sharding_functor(const Legion::Mapping::MapperContext ctx,
+                               const Legion::Task& task,
+                               const SelectShardingFunctorInput& input,
+                               SelectShardingFunctorOutput& output) override;
+  void select_steal_targets(const Legion::Mapping::MapperContext ctx,
+                            const SelectStealingInput& input,
+                            SelectStealingOutput& output) override;
+  void select_tasks_to_map(const Legion::Mapping::MapperContext ctx,
+                           const SelectMappingInput& input,
+                           SelectMappingOutput& output) override;
 
  public:
-  virtual void configure_context(const MapperContext ctx,
-                                 const LegionTask& task,
-                                 ContextConfigOutput& output);
-  void map_future_map_reduction(const MapperContext ctx,
+  void configure_context(const Legion::Mapping::MapperContext ctx,
+                         const Legion::Task& task,
+                         ContextConfigOutput& output) override;
+  void map_future_map_reduction(const Legion::Mapping::MapperContext ctx,
                                 const FutureMapReductionInput& input,
-                                FutureMapReductionOutput& output);
-  virtual void select_tunable_value(const MapperContext ctx,
-                                    const LegionTask& task,
-                                    const SelectTunableInput& input,
-                                    SelectTunableOutput& output);
+                                FutureMapReductionOutput& output) override;
+  void select_tunable_value(const Legion::Mapping::MapperContext ctx,
+                            const Legion::Task& task,
+                            const SelectTunableInput& input,
+                            SelectTunableOutput& output) override;
 
- protected:
+ public:
   LibraryContext context;
   std::unique_ptr<Machine> machine;
 
@@ -117,7 +115,9 @@ class CoreMapper : public Legion::Mapping::NullMapper {
   std::string mapper_name;
 };
 
-CoreMapper::CoreMapper(MapperRuntime* rt, LegionMachine m, const LibraryContext& c)
+CoreMapper::CoreMapper(Legion::Mapping::MapperRuntime* rt,
+                       Legion::Machine m,
+                       const LibraryContext& c)
   : NullMapper(rt, m),
     context(c),
     machine(std::make_unique<Machine>(m)),
@@ -148,13 +148,13 @@ CoreMapper::~CoreMapper(void) {}
 
 const char* CoreMapper::get_mapper_name(void) const { return mapper_name.c_str(); }
 
-Mapper::MapperSyncModel CoreMapper::get_mapper_sync_model(void) const
+Legion::Mapping::Mapper::MapperSyncModel CoreMapper::get_mapper_sync_model() const
 {
   return SERIALIZED_REENTRANT_MAPPER_MODEL;
 }
 
-void CoreMapper::select_task_options(const MapperContext ctx,
-                                     const LegionTask& task,
+void CoreMapper::select_task_options(const Legion::Mapping::MapperContext ctx,
+                                     const Legion::Task& task,
                                      TaskOptions& output)
 {
   if (task.is_index_space || task.local_function) {
@@ -196,8 +196,8 @@ void CoreMapper::select_task_options(const MapperContext ctx,
   assert(output.initial_proc.exists());
 }
 
-void CoreMapper::slice_task(const MapperContext ctx,
-                            const LegionTask& task,
+void CoreMapper::slice_task(const Legion::Mapping::MapperContext ctx,
+                            const Legion::Task& task,
                             const SliceTaskInput& input,
                             SliceTaskOutput& output)
 {
@@ -230,8 +230,8 @@ void CoreMapper::slice_task(const MapperContext ctx,
   });
 }
 
-void CoreMapper::map_task(const MapperContext ctx,
-                          const LegionTask& task,
+void CoreMapper::map_task(const Legion::Mapping::MapperContext ctx,
+                          const Legion::Task& task,
                           const MapTaskInput& input,
                           MapTaskOutput& output)
 {
@@ -241,38 +241,38 @@ void CoreMapper::map_task(const MapperContext ctx,
   output.chosen_variant = task.tag;
 }
 
-void CoreMapper::select_sharding_functor(const MapperContext ctx,
-                                         const LegionTask& task,
+void CoreMapper::select_sharding_functor(const Legion::Mapping::MapperContext ctx,
+                                         const Legion::Task& task,
                                          const SelectShardingFunctorInput& input,
                                          SelectShardingFunctorOutput& output)
 {
   mapping::Mappable legate_mappable(&task);
-  output.chosen_functor = static_cast<ShardingID>(legate_mappable.sharding_id());
+  output.chosen_functor = static_cast<Legion::ShardingID>(legate_mappable.sharding_id());
 }
 
-void CoreMapper::select_steal_targets(const MapperContext ctx,
+void CoreMapper::select_steal_targets(const Legion::Mapping::MapperContext ctx,
                                       const SelectStealingInput& input,
                                       SelectStealingOutput& output)
 {
   // Do nothing
 }
 
-void CoreMapper::select_tasks_to_map(const MapperContext ctx,
+void CoreMapper::select_tasks_to_map(const Legion::Mapping::MapperContext ctx,
                                      const SelectMappingInput& input,
                                      SelectMappingOutput& output)
 {
   output.map_tasks.insert(input.ready_tasks.begin(), input.ready_tasks.end());
 }
 
-void CoreMapper::configure_context(const MapperContext ctx,
-                                   const LegionTask& task,
+void CoreMapper::configure_context(const Legion::Mapping::MapperContext ctx,
+                                   const Legion::Task& task,
                                    ContextConfigOutput& output)
 {
   // Use the defaults currently
 }
 
 template <typename T>
-void pack_tunable(const T value, Mapper::SelectTunableOutput& output)
+void pack_tunable(const T value, Legion::Mapping::Mapper::SelectTunableOutput& output)
 {
   T* result    = static_cast<T*>(malloc(sizeof(value)));
   *result      = value;
@@ -280,7 +280,7 @@ void pack_tunable(const T value, Mapper::SelectTunableOutput& output)
   output.size  = sizeof(value);
 }
 
-void CoreMapper::map_future_map_reduction(const MapperContext ctx,
+void CoreMapper::map_future_map_reduction(const Legion::Mapping::MapperContext ctx,
                                           const FutureMapReductionInput& input,
                                           FutureMapReductionOutput& output)
 {
@@ -307,8 +307,8 @@ void CoreMapper::map_future_map_reduction(const MapperContext ctx,
       output.destination_memories.push_back(pair.second);
 }
 
-void CoreMapper::select_tunable_value(const MapperContext ctx,
-                                      const LegionTask& task,
+void CoreMapper::select_tunable_value(const Legion::Mapping::MapperContext ctx,
+                                      const Legion::Task& task,
                                       const SelectTunableInput& input,
                                       SelectTunableOutput& output)
 {
@@ -400,8 +400,8 @@ void CoreMapper::select_tunable_value(const MapperContext ctx,
 
 }  // namespace mapping
 
-void register_legate_core_mapper(LegionMachine machine,
-                                 Runtime* runtime,
+void register_legate_core_mapper(Legion::Machine machine,
+                                 Legion::Runtime* runtime,
                                  const LibraryContext& context)
 {
   // Replace all the default mappers with our custom mapper for the Legate

@@ -23,6 +23,7 @@
 #include "core/data/store.h"
 #include "core/legate_c.h"
 #include "core/runtime/runtime.h"
+#include "core/task/registrar.h"
 #include "core/task/task.h"
 #include "core/utilities/deserializer.h"
 #include "core/utilities/dispatch.h"

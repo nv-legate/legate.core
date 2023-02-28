@@ -42,3 +42,5 @@ def get_libpath():
 
 libpath: str = get_libpath()
 header: str = """@header@"""
+
+networks: list[str] = "@Legion_NETWORKS@".split()

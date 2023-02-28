@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from .. import install_info
 from ..util.ui import warn
 
 if TYPE_CHECKING:
@@ -258,24 +259,35 @@ def cmd_openmp(
     )
 
 
-def cmd_utility(
+def cmd_bgwork(
     config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
-    utility = config.core.utility
     ranks = config.multi_node.ranks
+    utility = config.core.utility
 
-    if utility == 1:
-        return ()
-
-    opts: CommandPart = ("-ll:util", str(utility))
+    opts: CommandPart = ()
 
     # If we are running multi-rank then make the number of active
     # message handler threads equal to our number of utility
     # processors in order to prevent head-of-line blocking
     if ranks > 1:
-        opts += ("-ll:bgwork", str(utility))
+        opts += ("-ll:bgwork", str(max(utility, 2)))
+
+    if ranks > 1 and "ucx" in install_info.networks:
+        opts += ("-ll:bgworkpin", "1")
 
     return opts
+
+
+def cmd_utility(
+    config: ConfigProtocol, system: System, launcher: Launcher
+) -> CommandPart:
+    utility = config.core.utility
+
+    if utility == 1:
+        return ()
+
+    return ("-ll:util", str(utility))
 
 
 def cmd_mem(
@@ -354,7 +366,7 @@ def cmd_log_file(
     log_to_file = config.logging.log_to_file
 
     if log_to_file:
-        return ("-logfile", str(log_dir / "legate_%.log"))
+        return ("-logfile", str(log_dir / "legate_%.log"), "-errlevel", "4")
 
     return ()
 
@@ -395,6 +407,7 @@ _CMD_PARTS_SHARED = (
     cmd_gpus,
     cmd_openmp,
     cmd_utility,
+    cmd_bgwork,
     cmd_mem,
     cmd_numamem,
     cmd_fbmem,

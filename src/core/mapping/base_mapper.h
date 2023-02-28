@@ -34,10 +34,13 @@ class InstanceManager;
 class Machine;
 class ReductionInstanceManager;
 
-class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
+class BaseMapper : public Legion::Mapping::Mapper, public MachineQueryInterface {
  public:
-  BaseMapper(Legion::Runtime* rt, Legion::Machine machine, const LibraryContext& context);
-  virtual ~BaseMapper(void);
+  BaseMapper(std::unique_ptr<LegateMapper> legate_mapper,
+             Legion::Runtime* rt,
+             Legion::Machine machine,
+             const LibraryContext& context);
+  virtual ~BaseMapper();
 
  private:
   BaseMapper(const BaseMapper& rhs)            = delete;
@@ -49,9 +52,16 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
   std::string create_logger_name() const;
 
  public:
-  virtual const char* get_mapper_name(void) const override;
-  virtual Legion::Mapping::Mapper::MapperSyncModel get_mapper_sync_model(void) const override;
-  virtual bool request_valid_instances(void) const override { return false; }
+  // MachineQueryInterface
+  virtual const std::vector<Processor>& cpus() const override { return machine->cpus(); }
+  virtual const std::vector<Processor>& gpus() const override { return machine->gpus(); }
+  virtual const std::vector<Processor>& omps() const override { return machine->omps(); }
+  virtual uint32_t total_nodes() const override { return machine->total_nodes; }
+
+ public:
+  virtual const char* get_mapper_name() const override;
+  virtual Legion::Mapping::Mapper::MapperSyncModel get_mapper_sync_model() const override;
+  virtual bool request_valid_instances() const override { return false; }
 
  public:  // Task mapping calls
   virtual void select_task_options(const Legion::Mapping::MapperContext ctx,
@@ -256,7 +266,7 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
   void map_legate_stores(const Legion::Mapping::MapperContext ctx,
                          const Legion::Mappable& mappable,
                          std::vector<StoreMapping>& mappings,
-                         Legion::Processor target_proc,
+                         Processor target_proc,
                          OutputMap& output_map);
   void tighten_write_policies(const Legion::Mappable& mappable,
                               std::vector<StoreMapping>& mappings);
@@ -264,12 +274,12 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
                         const Legion::Mappable& mappable,
                         const StoreMapping& mapping,
                         const std::set<const Legion::RegionRequirement*>& reqs,
-                        Legion::Processor target_proc,
+                        Processor target_proc,
                         Legion::Mapping::PhysicalInstance& result,
                         bool can_fail);
   void report_failed_mapping(const Legion::Mappable& mappable,
                              unsigned index,
-                             Legion::Memory target_memory,
+                             Memory target_memory,
                              Legion::ReductionOpID redop);
   void legate_select_sources(const Legion::Mapping::MapperContext ctx,
                              const Legion::Mapping::PhysicalInstance& target,
@@ -284,7 +294,7 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
                    TaskTarget target);
   std::optional<Legion::VariantID> find_variant(const Legion::Mapping::MapperContext ctx,
                                                 const Legion::Task& task,
-                                                Legion::Processor::Kind kind);
+                                                Processor::Kind kind);
 
  protected:
   void slice_auto_task(const Legion::Mapping::MapperContext ctx,
@@ -306,7 +316,9 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
   {
     return (left.second < right.second);
   }
-  // NumPyOpCode decode_task_id(Legion::TaskID tid);
+
+ private:
+  std::unique_ptr<LegateMapper> legate_mapper_;
 
  public:
   Legion::Runtime* const legion_runtime;
@@ -318,7 +330,7 @@ class BaseMapper : public Legion::Mapping::Mapper, public LegateMapper {
   std::string mapper_name;
 
  protected:
-  using VariantCacheKey = std::pair<Legion::TaskID, Legion::Processor::Kind>;
+  using VariantCacheKey = std::pair<Legion::TaskID, Processor::Kind>;
   std::map<VariantCacheKey, std::optional<Legion::VariantID>> variants;
 
  protected:

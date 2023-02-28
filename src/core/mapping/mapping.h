@@ -18,6 +18,7 @@
 
 #include "core/data/scalar.h"
 #include "core/mapping/store.h"
+#include "core/utilities/typedefs.h"
 
 namespace legate {
 namespace mapping {
@@ -112,7 +113,8 @@ struct InstanceMappingPolicy {
   bool operator==(const InstanceMappingPolicy&) const;
   bool operator!=(const InstanceMappingPolicy&) const;
 
- public:
+ private:
+  friend class StoreMapping;
   void populate_layout_constraints(const Store& store,
                                    Legion::LayoutConstraintSet& layout_constraints) const;
 
@@ -146,15 +148,27 @@ struct StoreMapping {
   std::set<uint32_t> requirement_indices() const;
   std::set<const Legion::RegionRequirement*> requirements() const;
 
- public:
+ private:
+  friend class BaseMapper;
   void populate_layout_constraints(Legion::LayoutConstraintSet& layout_constraints) const;
 
  public:
   static StoreMapping default_mapping(const Store& store, StoreTarget target, bool exact = false);
 };
 
-struct LegateMapper {
-  virtual bool is_pure() const                                                              = 0;
+class MachineQueryInterface {
+ public:
+  virtual ~MachineQueryInterface() {}
+  virtual const std::vector<Processor>& cpus() const = 0;
+  virtual const std::vector<Processor>& gpus() const = 0;
+  virtual const std::vector<Processor>& omps() const = 0;
+  virtual uint32_t total_nodes() const               = 0;
+};
+
+class LegateMapper {
+ public:
+  virtual ~LegateMapper() {}
+  virtual void set_machine(const MachineQueryInterface* machine)                            = 0;
   virtual TaskTarget task_target(const Task& task, const std::vector<TaskTarget>& options)  = 0;
   virtual std::vector<StoreMapping> store_mappings(const Task& task,
                                                    const std::vector<StoreTarget>& options) = 0;

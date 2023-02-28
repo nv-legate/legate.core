@@ -1,4 +1,4 @@
-/* Copyright 2021-2022 NVIDIA Corporation
+/* Copyright 2023 NVIDIA Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,38 @@
  *
  */
 
-#pragma once
-
-#include "core/utilities/typedefs.h"
+#include "core/task/variant.h"
 
 namespace legate {
 
-size_t linearize(const DomainPoint& lo, const DomainPoint& hi, const DomainPoint& point);
+VariantOptions& VariantOptions::with_leaf(bool _leaf)
+{
+  leaf = _leaf;
+  return *this;
+}
 
-DomainPoint delinearize(const DomainPoint& lo, const DomainPoint& hi, size_t idx);
+VariantOptions& VariantOptions::with_inner(bool _inner)
+{
+  inner = _inner;
+  return *this;
+}
+
+VariantOptions& VariantOptions::with_idempotent(bool _idempotent)
+{
+  idempotent = _idempotent;
+  return *this;
+}
+
+VariantOptions& VariantOptions::with_concurrent(bool _concurrent)
+{
+  concurrent = _concurrent;
+  return *this;
+}
+
+VariantOptions& VariantOptions::with_return_size(size_t _return_size)
+{
+  return_size = _return_size;
+  return *this;
+}
 
 }  // namespace legate

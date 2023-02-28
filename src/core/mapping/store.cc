@@ -19,9 +19,10 @@
 namespace legate {
 namespace mapping {
 
-using namespace Legion;
-
-RegionField::RegionField(const RegionRequirement* req, int32_t dim, uint32_t idx, FieldID fid)
+RegionField::RegionField(const Legion::RegionRequirement* req,
+                         int32_t dim,
+                         uint32_t idx,
+                         Legion::FieldID fid)
   : req_(req), dim_(dim), idx_(idx), fid_(fid)
 {
 }
@@ -33,13 +34,13 @@ bool RegionField::can_colocate_with(const RegionField& other) const
   return my_req->region.get_tree_id() == other_req->region.get_tree_id();
 }
 
-Domain RegionField::domain(Mapping::MapperRuntime* runtime,
-                           const Mapping::MapperContext context) const
+Domain RegionField::domain(Legion::Mapping::MapperRuntime* runtime,
+                           const Legion::Mapping::MapperContext context) const
 {
   return runtime->get_index_space_domain(context, get_index_space());
 }
 
-IndexSpace RegionField::get_index_space() const { return req_->region.get_index_space(); }
+Legion::IndexSpace RegionField::get_index_space() const { return req_->region.get_index_space(); }
 
 FutureWrapper::FutureWrapper(uint32_t idx, const Domain& domain) : idx_(idx), domain_(domain) {}
 

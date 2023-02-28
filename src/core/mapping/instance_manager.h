@@ -30,7 +30,6 @@ namespace mapping {
 struct RegionGroup {
  public:
   using Region = Legion::LogicalRegion;
-  using Domain = Legion::Domain;
 
  public:
   RegionGroup(const std::set<Region>& regions, const Domain bounding_box);
@@ -56,7 +55,6 @@ struct InstanceSet {
  public:
   using Region       = Legion::LogicalRegion;
   using Instance     = Legion::Mapping::PhysicalInstance;
-  using Domain       = Legion::Domain;
   using RegionGroupP = std::shared_ptr<RegionGroup>;
 
  public:
@@ -99,7 +97,6 @@ class ReductionInstanceSet {
  public:
   using Region        = Legion::LogicalRegion;
   using Instance      = Legion::Mapping::PhysicalInstance;
-  using Domain        = Legion::Domain;
   using ReductionOpID = Legion::ReductionOpID;
 
  public:
@@ -141,9 +138,7 @@ class BaseInstanceManager {
   using Region       = Legion::LogicalRegion;
   using RegionTreeID = Legion::RegionTreeID;
   using Instance     = Legion::Mapping::PhysicalInstance;
-  using Domain       = Legion::Domain;
   using FieldID      = Legion::FieldID;
-  using Memory       = Legion::Memory;
 
  public:
   struct FieldMemInfo {
@@ -206,7 +201,7 @@ class InstanceManager : public BaseInstanceManager {
   static InstanceManager* get_instance_manager();
 
  public:
-  std::map<Legion::Memory, size_t> aggregate_instance_sizes() const;
+  std::map<Memory, size_t> aggregate_instance_sizes() const;
 
  private:
   std::map<FieldMemInfo, InstanceSet> instance_sets_{};

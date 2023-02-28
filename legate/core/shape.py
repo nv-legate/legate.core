@@ -32,6 +32,11 @@ def _cast_tuple(value: int | Iterable[int], ndim: int) -> tuple[int, ...]:
     return tuple(value)
 
 
+class _ShapeComparisonResult(tuple[bool, ...]):
+    def __bool__(self) -> bool:
+        assert False, "use any() or all()"
+
+
 class Shape:
     _extents: Union[tuple[int, ...], None]
     _ispace: Union[IndexSpace, None]
@@ -154,41 +159,45 @@ class Shape:
         else:
             return False
 
-    def __le__(self, other: ExtentLike) -> bool:
+    def __le__(self, other: ExtentLike) -> _ShapeComparisonResult:
         lh = self.extents
         rh = (
             other.extents
             if isinstance(other, Shape)
             else _cast_tuple(other, self.ndim)
         )
-        return len(lh) == len(rh) and lh <= rh
+        assert len(lh) == len(rh)
+        return _ShapeComparisonResult(l <= r for (l, r) in zip(lh, rh))
 
-    def __lt__(self, other: ExtentLike) -> bool:
+    def __lt__(self, other: ExtentLike) -> _ShapeComparisonResult:
         lh = self.extents
         rh = (
             other.extents
             if isinstance(other, Shape)
             else _cast_tuple(other, self.ndim)
         )
-        return len(lh) == len(rh) and lh < rh
+        assert len(lh) == len(rh)
+        return _ShapeComparisonResult(l < r for (l, r) in zip(lh, rh))
 
-    def __ge__(self, other: ExtentLike) -> bool:
+    def __ge__(self, other: ExtentLike) -> _ShapeComparisonResult:
         lh = self.extents
         rh = (
             other.extents
             if isinstance(other, Shape)
             else _cast_tuple(other, self.ndim)
         )
-        return len(lh) == len(rh) and lh >= rh
+        assert len(lh) == len(rh)
+        return _ShapeComparisonResult(l >= r for (l, r) in zip(lh, rh))
 
-    def __gt__(self, other: ExtentLike) -> bool:
+    def __gt__(self, other: ExtentLike) -> _ShapeComparisonResult:
         lh = self.extents
         rh = (
             other.extents
             if isinstance(other, Shape)
             else _cast_tuple(other, self.ndim)
         )
-        return len(lh) == len(rh) and lh > rh
+        assert len(lh) == len(rh)
+        return _ShapeComparisonResult(l > r for (l, r) in zip(lh, rh))
 
     def __add__(self, other: ExtentLike) -> Shape:
         lh = self.extents
