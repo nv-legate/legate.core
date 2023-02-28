@@ -1380,7 +1380,7 @@ class Test_cmd_log_file:
         result = m.cmd_log_file(config, system, launcher)
 
         logfile = str(config.logging.logdir / "legate_%.log")
-        assert result == ("-logfile", logfile)
+        assert result == ("-logfile", logfile, "-errlevel", "4")
 
     def test_flag_with_dir(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs(
@@ -1390,7 +1390,7 @@ class Test_cmd_log_file:
         result = m.cmd_log_file(config, system, launcher)
 
         logfile = str(Path("foo") / "legate_%.log")
-        assert result == ("-logfile", logfile)
+        assert result == ("-logfile", logfile, "-errlevel", "4")
 
 
 class Test_cmd_eager_alloc:
