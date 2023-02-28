@@ -16,6 +16,12 @@
 
 #pragma once
 
+/**
+ * @mainpage Legate C++ API reference
+ *
+ * This is an API reference for Legate's C++ components.
+ */
+
 #include "legion.h"
 // legion.h has to go before these
 #include "core/data/allocator.h"

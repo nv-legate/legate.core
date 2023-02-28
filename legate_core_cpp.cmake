@@ -337,7 +337,10 @@ if (legate_core_BUILD_DOCS)
       src/core/utilities/debug.h
       src/core/utilities/dispatch.h
       src/core/utilities/type_traits.h
+      # main page
+      src/legate.h
     )
+    set(DOXYGEN_PROJECT_NAME "Legate")
     set(DOXYGEN_FULL_PATH_NAMES NO)
     set(DOXYGEN_GENERATE_HTML YES)
     set(DOXYGEN_GENERATE_LATEX NO)
