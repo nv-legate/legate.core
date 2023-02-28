@@ -152,14 +152,18 @@ struct StoreMapping {
   static StoreMapping default_mapping(const Store& store, StoreTarget target, bool exact = false);
 };
 
-struct MachineQueryInterface {
+class MachineQueryInterface {
+ public:
+  virtual ~MachineQueryInterface() {}
   virtual const std::vector<Processor>& cpus() const = 0;
   virtual const std::vector<Processor>& gpus() const = 0;
   virtual const std::vector<Processor>& omps() const = 0;
   virtual uint32_t total_nodes() const               = 0;
 };
 
-struct LegateMapper {
+class LegateMapper {
+ public:
+  virtual ~LegateMapper() {}
   virtual void set_machine(const MachineQueryInterface* machine)                            = 0;
   virtual TaskTarget task_target(const Task& task, const std::vector<TaskTarget>& options)  = 0;
   virtual std::vector<StoreMapping> store_mappings(const Task& task,
