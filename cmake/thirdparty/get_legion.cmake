@@ -204,8 +204,8 @@ foreach(_var IN ITEMS "legate_core_LEGION_VERSION"
     # current-scope variable, or the cache variable.
     set(${_var} "${${_var}}")
     # Remove legate_core_LEGION_BRANCH from the CMakeCache.txt. This ensures reconfiguring the same
-    # build dir without passing `-Dlegate_core_LEGION_BRANCH=` reverts to the hash above instead of
-    # reusing the previous `-Dlegate_core_LEGION_BRANCH=` value.
+    # build dir without passing `-Dlegate_core_LEGION_BRANCH=` reverts to the value in versions.json
+    # instead of reusing the previous `-Dlegate_core_LEGION_BRANCH=` value.
     unset(${_var} CACHE)
   endif()
 endforeach()
