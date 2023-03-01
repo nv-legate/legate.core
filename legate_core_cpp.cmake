@@ -412,6 +412,13 @@ endif()
 ]=]
 )
 
+if(DEFINED legate_core_cuda_stubs_path)
+  string(JOIN "\n" code_string "${code_string}"
+    "list(APPEND CMAKE_C_IMPLICIT_LINK_DIRECTORIES ${legate_core_cuda_stubs_path})"
+    "list(APPEND CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES ${legate_core_cuda_stubs_path})"
+    "list(APPEND CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES ${legate_core_cuda_stubs_path})")
+endif()
+
 rapids_export(
   INSTALL legate_core
   EXPORT_SET legate-core-exports
