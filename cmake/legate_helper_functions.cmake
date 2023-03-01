@@ -105,7 +105,11 @@ def get_libpath():
     )
 
 libpath: str = get_libpath()
-header: str = """@header@"""
+
+header: str = """
+  @header@
+  void @target@_perform_registration();
+"""
 ]=])
   set(install_info_py_in ${CMAKE_BINARY_DIR}/legate_${target}/install_info.py.in)
   set(install_info_py ${CMAKE_SOURCE_DIR}/${target}/install_info.py)
@@ -141,6 +145,7 @@ header: str = """@header@"""
   add_custom_target("generate_install_info_py" ALL
     COMMAND ${CMAKE_COMMAND}
       -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+      -Dtarget=${target}
       -P ${generate_script}
     OUTPUT ${install_info_py}
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
