@@ -34,7 +34,7 @@ An auto task indicates Legate should auto-partition based
 on cost heuristics and partitioning constraints.
 An input and output array are added.
 The most critical step here, though, is the alignment of
-the input and output. Since we want to an elementwise operation,
+the input and output. Since we want to do elementwise operations,
 we need the input and output partitions to be aligned.
 This expresses an auto-partitioning constraint.
 Finally, the task is enqueued by calling its `execute` method.
