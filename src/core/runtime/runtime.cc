@@ -150,7 +150,7 @@ struct RegistrationCallbackArgs {
   Core::RegistrationCallback callback;
 };
 
-static void invoke_legate_registration_callback(const Legion::RegistrationCallbackArgs& args)
+void invoke_legate_registration_callback(const Legion::RegistrationCallbackArgs& args)
 {
   auto p_args = static_cast<RegistrationCallbackArgs*>(args.buffer.get_ptr());
   p_args->callback();
