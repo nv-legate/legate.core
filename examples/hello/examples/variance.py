@@ -1,9 +1,15 @@
 from typing import Any
 
-import cunumeric
-import numpy as np
-from hello import iota, square, sum, to_scalar
+try:
+    import cunumeric
 
+    have_cunumeric = True
+except ImportError:
+    have_cunumeric = False
+
+import numpy as np
+
+from hello import iota, square, sum, to_scalar
 from legate.core import Store
 
 
@@ -27,6 +33,7 @@ print(mean_and_variance(a, n))
 
 
 # Example #2: Use a random array from cunumeric
-a = cunumeric.random.randn(n).astype(np.float32)
-print(a)
-print(mean_and_variance(a, n))
+if have_cunumeric:
+    a = cunumeric.random.randn(n).astype(np.float32)
+    print(a)
+    print(mean_and_variance(a, n))
