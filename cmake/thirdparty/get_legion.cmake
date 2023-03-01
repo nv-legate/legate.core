@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright 2022 NVIDIA Corporation
+# Copyright 2022-2023 NVIDIA Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,10 +23,14 @@ function(find_or_configure_legion)
   include("${rapids-cmake-dir}/export/detail/parse_version.cmake")
   rapids_export_parse_version(${PKG_VERSION} Legion PKG_VERSION)
 
+  string(REGEX REPLACE "^0([0-9]+)?$" "\\1" Legion_major_version "${Legion_major_version}")
+  string(REGEX REPLACE "^0([0-9]+)?$" "\\1" Legion_minor_version "${Legion_minor_version}")
+  string(REGEX REPLACE "^0([0-9]+)?$" "\\1" Legion_patch_version "${Legion_patch_version}")
+
   include("${rapids-cmake-dir}/cpm/detail/package_details.cmake")
   rapids_cpm_package_details(Legion version git_repo git_branch shallow exclude_from_all)
 
-  set(version ${PKG_VERSION})
+  set(version "${Legion_major_version}.${Legion_minor_version}.${Legion_patch_version}")
   set(exclude_from_all ${PKG_EXCLUDE_FROM_ALL})
   if(PKG_BRANCH)
     set(git_branch "${PKG_BRANCH}")
@@ -180,6 +184,14 @@ function(find_or_configure_legion)
                                  "Legion_REDOP_COMPLEX ON"
                                  "Legion_GPU_REDUCTIONS OFF"
                                  "Legion_BUILD_RUST_PROFILER ON"
+                                 "Legion_SPY ${Legion_SPY}"
+                                 "Legion_USE_LLVM ${Legion_USE_LLVM}"
+                                 "Legion_USE_HDF5 ${Legion_USE_HDF5}"
+                                 "Legion_USE_CUDA ${Legion_USE_CUDA}"
+                                 "Legion_NETWORKS ${Legion_NETWORKS}"
+                                 "Legion_USE_OpenMP ${Legion_USE_OpenMP}"
+                                 "Legion_USE_Python ${Legion_USE_Python}"
+                                 "Legion_BOUNDS_CHECKS ${Legion_BOUNDS_CHECKS}"
     )
   endif()
 
@@ -211,7 +223,7 @@ foreach(_var IN ITEMS "legate_core_LEGION_VERSION"
 endforeach()
 
 if(NOT DEFINED legate_core_LEGION_VERSION)
-  set(legate_core_LEGION_VERSION "${legate_core_VERSION_MAJOR}.${legate_core_VERSION_MINOR}.0")
+  set(legate_core_LEGION_VERSION "${legate_core_VERSION}")
 endif()
 
 find_or_configure_legion(VERSION          ${legate_core_LEGION_VERSION}
