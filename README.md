@@ -465,8 +465,8 @@ See the discussion of contributing in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Documentation
 
-A complete list of available features can is provided in the [API
-reference](https://nv-legate.github.io/legate.core/api.html).
+A complete list of available features can is found in the [Legate Core
+documentation](https://nv-legate.github.io/legate.core).
 
 ## Next Steps
 
