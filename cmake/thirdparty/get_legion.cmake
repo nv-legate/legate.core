@@ -86,37 +86,40 @@ function(find_or_configure_legion)
       endif()
 
       # Get the `stubs/libcuda.so` path so we can set CMAKE_LIBRARY_PATH for FindCUDA.cmake
-
-      # Prefer users' CUDA_PATH envvar (if set)
-      set(_cuda_stubs "$ENV{CUDA_PATH}")
-      if(NOT _cuda_stubs)
-        if(DEFINED ENV{CUDA_LIB_PATH})
-          # Prefer users' CUDA_LIB_PATH envvar (if set)
-          list(APPEND _cuda_stubs "$ENV{CUDA_LIB_PATH}")
-          message(VERBOSE "legate.core: Path(s) to CUDA stubs: ${_cuda_stubs}")
-        elseif(EXISTS "${CUDAToolkit_LIBRARY_DIR}/stubs/libcuda.so")
-          # This might be the path to the `$CONDA_PREFIX/lib`
-          # If it is (and it has the libcuda.so driver stub),
-          # then we know we're using the cuda-toolkit package
-          # and should link to that driver stub instead of the
-          # one potentially in `/usr/local/cuda/lib[64]/stubs`
-          list(APPEND _cuda_stubs "${CUDAToolkit_LIBRARY_DIR}/stubs")
-          message(VERBOSE "legate.core: Path(s) to CUDA stubs: ${_cuda_stubs}")
-        elseif(DEFINED ENV{LIBRARY_PATH})
-          # LIBRARY_PATH is set automatically in the `nvidia/cuda` containers.
-          # Only use it if the conda env doesn't have the `stubs/libcuda.so` lib.
-          list(APPEND _cuda_stubs "$ENV{LIBRARY_PATH}")
-          message(VERBOSE "legate.core: Path(s) to CUDA stubs: ${_cuda_stubs}")
-        elseif(CMAKE_SIZEOF_VOID_P LESS 8)
-          # Otherwise assume stubs are relative to the CUDA toolkit root dir
-          list(APPEND _cuda_stubs "${CUDAToolkit_LIBRARY_ROOT}/lib/stubs")
-          message(VERBOSE "legate.core: Path(s) to CUDA stubs: ${_cuda_stubs}")
-        else()
-          # Otherwise assume stubs are relative to the CUDA toolkit root dir
-          list(APPEND _cuda_stubs "${CUDAToolkit_LIBRARY_ROOT}/lib64/stubs")
-          message(VERBOSE "legate.core: Path(s) to CUDA stubs: ${_cuda_stubs}")
-        endif()
+      set(_libdir "lib64")
+      if(CMAKE_SIZEOF_VOID_P LESS 8)
+        set(_libdir "lib")
       endif()
+
+      if(EXISTS "${CUDAToolkit_LIBRARY_DIR}/stubs/libcuda.so")
+        # This might be the path to the `$CONDA_PREFIX/lib`
+        # If it is (and it has the libcuda.so driver stub),
+        # then we know we're using the cuda-toolkit package
+        # and should link to that driver stub instead of the
+        # one potentially in `/usr/local/cuda/lib[64]/stubs`
+        list(APPEND _cuda_stubs "${CUDAToolkit_LIBRARY_DIR}/stubs")
+      elseif(EXISTS "${CUDAToolkit_TARGET_DIR}/${_libdir}/stubs/libcuda.so")
+        # Otherwise assume stubs are relative to the CUDA toolkit root dir
+        list(APPEND _cuda_stubs "${CUDAToolkit_TARGET_DIR}/${_libdir}/stubs")
+      elseif(EXISTS "${CUDAToolkit_LIBRARY_ROOT}/${_libdir}/stubs/libcuda.so")
+        list(APPEND _cuda_stubs "${CUDAToolkit_LIBRARY_ROOT}/${_libdir}/stubs")
+      elseif(DEFINED ENV{CUDA_PATH} AND EXISTS "$ENV{CUDA_PATH}/${_libdir}/stubs/libcuda.so")
+        # Use CUDA_PATH envvar (if set)
+        list(APPEND _cuda_stubs "$ENV{CUDA_PATH}/${_libdir}/stubs/libcuda.so")
+      elseif(DEFINED ENV{CUDA_LIB_PATH} AND EXISTS "$ENV{CUDA_LIB_PATH}/stubs/libcuda.so")
+        # Use CUDA_LIB_PATH envvar (if set)
+        list(APPEND _cuda_stubs "$ENV{CUDA_LIB_PATH}/stubs/libcuda.so")
+      elseif(DEFINED ENV{LIBRARY_PATH} AND
+            ("$ENV{LIBRARY_PATH}" STREQUAL "/usr/local/cuda/${_libdir}/stubs"))
+        # LIBRARY_PATH is set in the `nvidia/cuda` containers to /usr/local/cuda/lib64/stubs
+        list(APPEND _cuda_stubs "$ENV{LIBRARY_PATH}")
+      else()
+        message(FATAL_ERROR "Could not find the libcuda.so driver stub. "
+                            "Please reconfigure with -DCUDAToolkit_ROOT= "
+                            "set to a valid CUDA Toolkit installation.")
+      endif()
+
+      message(VERBOSE "legate.core: Path(s) to CUDA stubs: ${_cuda_stubs}")
 
       list(APPEND _legion_cuda_options "CUDA_NVCC_FLAGS ${_nvcc_flags}")
       list(APPEND _legion_cuda_options "CMAKE_CUDA_STANDARD ${_cuda_std}")
@@ -131,6 +134,8 @@ function(find_or_configure_legion)
       list(APPEND CMAKE_C_IMPLICIT_LINK_DIRECTORIES "${_cuda_stubs}")
       list(APPEND CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES "${_cuda_stubs}")
       list(APPEND CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES "${_cuda_stubs}")
+      set(legate_core_cuda_stubs_path "${_cuda_stubs}" PARENT_SCOPE)
+      set(legate_core_cuda_stubs_path "${_cuda_stubs}" CACHE STRING "" FORCE)
     endif()
 
     # Because legion sets these as cache variables, we need to force set this as a cache variable here
