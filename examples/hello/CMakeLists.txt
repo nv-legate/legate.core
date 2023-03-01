@@ -9,6 +9,6 @@ find_package(legate_core REQUIRED)
 
 legate_add_cpp_subdirectory(src TARGET hello EXPORT hello-export)
 
-legate_add_cffi(src/hello_cffi.h TARGET hello)
+legate_add_cffi(${CMAKE_CURRENT_SOURCE_DIR}/src/hello_cffi.h TARGET hello)
 legate_python_library_template(hello)
 legate_default_python_install(hello EXPORT hello-export)

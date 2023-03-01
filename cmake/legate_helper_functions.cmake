@@ -71,21 +71,6 @@ function(legate_add_cffi header)
   )
   # abbreviate for the function below
   set(target ${LEGATE_OPT_TARGET})
-
-  execute_process(
-    COMMAND ${CMAKE_C_COMPILER}
-      -E
-      -P "${header}"
-    ECHO_ERROR_VARIABLE
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-    OUTPUT_VARIABLE header_output
-    COMMAND_ERROR_IS_FATAL ANY
-  )
-  string(JOIN "\n" header_content
-    "${header_output}"
-    "void ${target}_perform_registration();"
-  )
-
   set(install_info_in
 [=[
 from pathlib import Path
@@ -120,17 +105,48 @@ def get_libpath():
     )
 
 libpath: str = get_libpath()
-header: str = """@header_content@"""
+header: str = """@header@"""
 ]=])
+  set(install_info_py_in ${CMAKE_BINARY_DIR}/legate_${target}/install_info.py.in)
+  set(install_info_py ${CMAKE_SOURCE_DIR}/${target}/install_info.py)
+  file(WRITE ${install_info_py_in} "${install_info_in}")
 
-  if (NOT SKBUILD OR NOT ${target}_DIR)
-    # if doing an editable C++ build prior to scikit-build install
-    # or doing a scikit-build from scratch, we need to generate install info
-    set(libdir ${CMAKE_BINARY_DIR}/legate_${target})
-    string(CONFIGURE "${install_info_in}" install_info @ONLY)
-    # this needs to go into the source tree for scikit-build install to work
-    file(WRITE ${CMAKE_SOURCE_DIR}/${target}/install_info.py "${install_info}")
-  endif()
+  set(generate_script_content
+  [=[
+    execute_process(
+      COMMAND ${CMAKE_C_COMPILER}
+        -E
+        -P @header@
+      ECHO_ERROR_VARIABLE
+      OUTPUT_VARIABLE header
+      COMMAND_ERROR_IS_FATAL ANY
+    )
+    configure_file(
+        @install_info_py_in@
+        @install_info_py@
+        @ONLY)
+  ]=])
+
+  set(generate_script ${CMAKE_BINARY_DIR}/gen_install_info.cmake)
+  file(CONFIGURE
+       OUTPUT ${generate_script}
+       CONTENT "${generate_script_content}"
+       @ONLY
+  )
+
+  # cmake doesn't let you pipe the output of a
+  # custom command so you have to generate a script
+  # that writes to a file and THEN run that in a
+  # custom command
+  add_custom_target("generate_install_info_py" ALL
+    COMMAND ${CMAKE_COMMAND}
+      -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+      -P ${generate_script}
+    OUTPUT ${install_info_py}
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMENT "Generating install_info.py"
+    DEPENDS ${header}
+  )
 endfunction()
 
 function(legate_default_python_install target)
