@@ -1,0 +1,7 @@
+<map id="type_traits.h" name="type_traits.h">
+<area shape="rect" id="node1" title="Definitions for type traits in Legate." alt="" coords="27,5,131,31"/>
+<area shape="rect" id="node2" href="$legate_8h_source.html" title=" " alt="" coords="5,152,80,177"/>
+<area shape="rect" id="node3" href="$scalar_8h.html" title="Class definition for legate::Scalar." alt="" coords="80,79,152,104"/>
+<area shape="rect" id="node4" href="$operation_8h.html" title="Class definitions for operations and stores used in mapping." alt="" coords="104,152,200,177"/>
+<area shape="rect" id="node5" href="$mapping_8h.html" title="Legate Mapping API." alt="" coords="107,225,197,251"/>
+</map>

@@ -1,0 +1,27 @@
+var searchData=
+[
+  ['scalar_0',['Scalar',['../classlegate_1_1Scalar.html',1,'legate::Scalar'],['../classlegate_1_1Scalar.html#aa2f763d06669ea2cfd62d717ee5bf23a',1,'legate::Scalar::Scalar(const std::vector&lt; T &gt; &amp;values)'],['../classlegate_1_1Scalar.html#aab08bde944f6de6f836591014da8ac57',1,'legate::Scalar::Scalar(T value)'],['../classlegate_1_1Scalar.html#a3bcd1a3a181f33eae5f5458f4917528d',1,'legate::Scalar::Scalar(bool tuple, LegateTypeCode code, const void *data)']]],
+  ['scalar_1',['scalar',['../classlegate_1_1Store.html#a7a4fc0d3a2de4d533892ed24cba8a447',1,'legate::Store']]],
+  ['scalar_2eh_2',['scalar.h',['../scalar_8h.html',1,'']]],
+  ['scalars_3',['scalars',['../classlegate_1_1mapping_1_1Task.html#a7fe14e694938c526ebf2364f6fb2ef5c',1,'legate::mapping::Task::scalars()'],['../classlegate_1_1TaskContext.html#a55a7e480be80b8e8a96aba1bb73e4198',1,'legate::TaskContext::scalars()']]],
+  ['scopedallocator_4',['ScopedAllocator',['../classlegate_1_1ScopedAllocator.html',1,'legate::ScopedAllocator'],['../classlegate_1_1ScopedAllocator.html#aa331f87b52348aa0628d699c13fc2cd8',1,'legate::ScopedAllocator::ScopedAllocator()']]],
+  ['set_5fmachine_5',['set_machine',['../classlegate_1_1mapping_1_1LegateMapper.html#af051f165eea12b54ea9fd68876021ba8',1,'legate::mapping::LegateMapper']]],
+  ['shape_6',['shape',['../classlegate_1_1Store.html#ada131de565e1157963182c8f0f7a8044',1,'legate::Store::shape()'],['../classlegate_1_1mapping_1_1Store.html#ad052b27c045f1bf412c14182e3faf048',1,'legate::mapping::Store::shape()']]],
+  ['size_7',['size',['../structlegate_1_1Span.html#a25baba9a28d9a48dcb1c19e2d349adfb',1,'legate::Span::size()'],['../classlegate_1_1Scalar.html#a22af4176ea48f6ac0e8415aea8876942',1,'legate::Scalar::size()']]],
+  ['soa_8',['SOA',['../group__mapping.html#gga3adb92606f48a8e6fef1a0892d88ec67abe5a791366c5f2810d7dd6132dc0f06c',1,'legate::mapping']]],
+  ['socketmem_9',['SOCKETMEM',['../group__mapping.html#gga7e2cad8c47f5c2d65fb316ddc0940d4baec3bcbd9f9b0295e03d901726264056f',1,'legate::mapping']]],
+  ['span_10',['Span',['../structlegate_1_1Span.html',1,'legate::Span&lt; T &gt;'],['../structlegate_1_1Span.html#aba23202335c53f161a6a915201d1a93d',1,'legate::Span::Span()']]],
+  ['span_2eh_11',['span.h',['../span_8h.html',1,'']]],
+  ['store_12',['Store',['../classlegate_1_1mapping_1_1Store.html',1,'legate::mapping::Store'],['../classlegate_1_1Store.html',1,'legate::Store']]],
+  ['store_2eh_13',['store.h',['../store_8h.html',1,'']]],
+  ['store_5fmappings_14',['store_mappings',['../classlegate_1_1mapping_1_1LegateMapper.html#a02515e40e1db394892dd8713fdf11c9e',1,'legate::mapping::LegateMapper']]],
+  ['storemapping_15',['StoreMapping',['../structlegate_1_1mapping_1_1StoreMapping.html',1,'legate::mapping']]],
+  ['stores_16',['stores',['../structlegate_1_1mapping_1_1StoreMapping.html#adf531de5947726c3370ab21622234480',1,'legate::mapping::StoreMapping']]],
+  ['storetarget_17',['StoreTarget',['../group__mapping.html#ga7e2cad8c47f5c2d65fb316ddc0940d4b',1,'legate::mapping']]],
+  ['stream_5fpool_2eh_18',['stream_pool.h',['../stream__pool_8h.html',1,'']]],
+  ['streampool_19',['StreamPool',['../structlegate_1_1cuda_1_1StreamPool.html',1,'legate::cuda']]],
+  ['streamview_20',['StreamView',['../structlegate_1_1cuda_1_1StreamView.html',1,'legate::cuda::StreamView'],['../structlegate_1_1cuda_1_1StreamView.html#a92edf6164986947b666820ebc3555d9c',1,'legate::cuda::StreamView::StreamView()']]],
+  ['subspan_21',['subspan',['../structlegate_1_1Span.html#a565ee7907bcbb7c2d05b21fc93ebbe6d',1,'legate::Span']]],
+  ['sumreduction_22',['SumReduction',['../group__reduction.html#ga597bee16895747960675d38c01958b6c',1,'legate']]],
+  ['sysmem_23',['SYSMEM',['../group__mapping.html#gga7e2cad8c47f5c2d65fb316ddc0940d4bafd675e30b081b246462b344319d7a19a',1,'legate::mapping']]]
+];

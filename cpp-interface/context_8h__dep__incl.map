@@ -1,0 +1,5 @@
+<map id="context.h" name="context.h">
+<area shape="rect" id="node1" title="Class definitions for legate::LibraryContext and legate::TaskContext." alt="" coords="12,5,95,31"/>
+<area shape="rect" id="node2" href="$operation_8h.html" title="Class definitions for operations and stores used in mapping." alt="" coords="5,79,101,104"/>
+<area shape="rect" id="node3" href="$mapping_8h.html" title="Legate Mapping API." alt="" coords="8,152,99,177"/>
+</map>

@@ -1,0 +1,5 @@
+<map id="legate::mapping::StoreMapping" name="legate::mapping::StoreMapping">
+<area shape="rect" id="node1" title="A mapping policy for stores." alt="" coords="5,196,231,221"/>
+<area shape="rect" id="node2" href="$structlegate_1_1mapping_1_1InstanceMappingPolicy.html" title="A descriptor for instance mapping policy." alt="" coords="23,93,213,133"/>
+<area shape="rect" id="node3" href="$structlegate_1_1mapping_1_1DimOrdering.html" title="A descriptor for dimension ordering." alt="" coords="9,5,227,31"/>
+</map>

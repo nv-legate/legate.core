@@ -1,0 +1,10 @@
+<map id="allocator.h" name="allocator.h">
+<area shape="rect" id="node1" title="Class definition for legate::ScopedAllocator." alt="" coords="142,5,233,31"/>
+<area shape="rect" id="node2" href="$buffer_8h.html" title="Type alias definition for legate::Buffer and utility functions for it." alt="" coords="42,79,178,104"/>
+<area shape="rect" id="node8" title=" " alt="" coords="203,79,327,104"/>
+<area shape="rect" id="node3" title=" " alt="" coords="49,225,123,251"/>
+<area shape="rect" id="node4" title=" " alt="" coords="23,152,197,177"/>
+<area shape="rect" id="node5" href="$typedefs_8h.html" title="Type aliases to Legion components." alt="" coords="222,152,398,177"/>
+<area shape="rect" id="node6" title=" " alt="" coords="175,225,296,251"/>
+<area shape="rect" id="node7" title=" " alt="" coords="320,225,449,251"/>
+</map>

@@ -1,0 +1,12 @@
+<map id="scalar.h" name="scalar.h">
+<area shape="rect" id="node1" title="Class definition for legate::Scalar." alt="" coords="267,5,339,31"/>
+<area shape="rect" id="node2" href="$span_8h.html" title="Class definition for legate::Span." alt="" coords="7,86,158,111"/>
+<area shape="rect" id="node5" href="$type__traits_8h.html" title="Definitions for type traits in Legate." alt="" coords="183,79,319,119"/>
+<area shape="rect" id="node6" href="$typedefs_8h.html" title="Type aliases to Legion components." alt="" coords="235,167,411,192"/>
+<area shape="rect" id="node10" title=" " alt="" coords="394,86,539,111"/>
+<area shape="rect" id="node3" title=" " alt="" coords="5,167,80,192"/>
+<area shape="rect" id="node4" title=" " alt="" coords="104,167,179,192"/>
+<area shape="rect" id="node7" title=" " alt="" coords="163,240,237,265"/>
+<area shape="rect" id="node8" title=" " alt="" coords="262,240,383,265"/>
+<area shape="rect" id="node9" title=" " alt="" coords="407,240,537,265"/>
+</map>

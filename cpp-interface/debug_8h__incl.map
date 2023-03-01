@@ -1,0 +1,14 @@
+<map id="debug.h" name="debug.h">
+<area shape="rect" id="node1" title="Debugging utilities." alt="" coords="788,5,862,31"/>
+<area shape="rect" id="node2" href="$store_8h.html" title="Class definition for legate::Store." alt="" coords="390,79,522,104"/>
+<area shape="rect" id="node6" href="$typedefs_8h.html" title="Type aliases to Legion components." alt="" coords="556,225,732,251"/>
+<area shape="rect" id="node12" title=" " alt="" coords="862,79,937,104"/>
+<area shape="rect" id="node3" href="$buffer_8h.html" title="Type alias definition for legate::Buffer and utility functions for it." alt="" coords="550,152,686,177"/>
+<area shape="rect" id="node4" title=" " alt="" coords="468,299,542,324"/>
+<area shape="rect" id="node5" title=" " alt="" coords="134,225,308,251"/>
+<area shape="rect" id="node8" title=" " alt="" coords="712,299,842,324"/>
+<area shape="rect" id="node9" title=" " alt="" coords="37,152,200,177"/>
+<area shape="rect" id="node10" title=" " alt="" coords="224,152,362,177"/>
+<area shape="rect" id="node11" title=" " alt="" coords="386,152,526,177"/>
+<area shape="rect" id="node7" title=" " alt="" coords="567,299,688,324"/>
+</map>

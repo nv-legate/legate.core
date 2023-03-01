@@ -1,0 +1,7 @@
+<map id="buffer.h" name="buffer.h">
+<area shape="rect" id="node1" title="Type alias definition for legate::Buffer and utility functions for it." alt="" coords="66,5,137,31"/>
+<area shape="rect" id="node2" href="$allocator_8h.html" title="Class definition for legate::ScopedAllocator." alt="" coords="5,79,96,104"/>
+<area shape="rect" id="node4" href="$store_8h.html" title="Class definition for legate::Store." alt="" coords="120,79,187,104"/>
+<area shape="rect" id="node3" href="$legate_8h_source.html" title=" " alt="" coords="15,152,89,177"/>
+<area shape="rect" id="node5" href="$debug_8h.html" title="Debugging utilities." alt="" coords="116,152,191,177"/>
+</map>
