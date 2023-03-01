@@ -1,0 +1,6 @@
+﻿legate.core.store.StorePartition.store
+======================================
+
+.. currentmodule:: legate.core.store
+
+.. autoproperty:: StorePartition.store

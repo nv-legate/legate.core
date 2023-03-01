@@ -1,0 +1,6 @@
+﻿legate.core.operation.AutoTask.add\_broadcast
+=============================================
+
+.. currentmodule:: legate.core.operation
+
+.. automethod:: AutoTask.add_broadcast

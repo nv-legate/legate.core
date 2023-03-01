@@ -1,0 +1,6 @@
+﻿legate.core.allocation.InlineMappedAllocation.consume
+=====================================================
+
+.. currentmodule:: legate.core.allocation
+
+.. automethod:: InlineMappedAllocation.consume

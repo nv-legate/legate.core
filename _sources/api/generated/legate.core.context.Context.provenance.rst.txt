@@ -1,0 +1,6 @@
+﻿legate.core.context.Context.provenance
+======================================
+
+.. currentmodule:: legate.core.context
+
+.. autoproperty:: Context.provenance

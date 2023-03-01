@@ -1,0 +1,6 @@
+﻿legate.core.store.Store.partition\_by\_tiling
+=============================================
+
+.. currentmodule:: legate.core.store
+
+.. automethod:: Store.partition_by_tiling

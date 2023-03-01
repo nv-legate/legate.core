@@ -1,0 +1,6 @@
+﻿legate.core.context.Context.create\_copy
+========================================
+
+.. currentmodule:: legate.core.context
+
+.. automethod:: Context.create_copy

@@ -1,0 +1,6 @@
+﻿legate.core.operation.ManualTask.throws\_exception
+==================================================
+
+.. currentmodule:: legate.core.operation
+
+.. automethod:: ManualTask.throws_exception

@@ -1,0 +1,6 @@
+﻿legate.core.shape.Shape.drop
+============================
+
+.. currentmodule:: legate.core.shape
+
+.. automethod:: Shape.drop

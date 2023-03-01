@@ -1,0 +1,6 @@
+﻿legate.core.store.Store.transform
+=================================
+
+.. currentmodule:: legate.core.store
+
+.. autoproperty:: Store.transform

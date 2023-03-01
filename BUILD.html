@@ -1,0 +1,840 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Basic build &#8212; legate.core  documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=12da95d707ffb74b382d" rel="stylesheet" />
+<link href="_static/styles/bootstrap.css?digest=12da95d707ffb74b382d" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=12da95d707ffb74b382d" rel="stylesheet" />
+
+  
+  <link href="_static/vendor/fontawesome/6.1.2/css/all.min.css?digest=12da95d707ffb74b382d" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.1.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.1.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.1.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css" />
+    <link rel="stylesheet" type="text/css" href="_static/params.css" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=12da95d707ffb74b382d" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=12da95d707ffb74b382d" />
+
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/clipboard.min.js"></script>
+    <script src="_static/copybutton.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'BUILD';</script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="API Reference" href="api/index.html" />
+    <link rel="prev" title="Legate" href="README.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__primary"
+          id="__primary"/>
+  <label class="overlay overlay-primary" for="__primary"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__secondary"
+          id="__secondary"/>
+  <label class="overlay overlay-secondary" for="__secondary"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+  
+    <nav class="bd-header navbar navbar-expand-lg bd-navbar">
+<div class="bd-header__inner bd-page-width">
+  <label class="sidebar-toggle primary-toggle" for="__primary">
+    <span class="fa-solid fa-bars"></span>
+  </label>
+  
+  <div class="navbar-header-items__start">
+    
+      <div class="navbar-item">
+  
+
+<a class="navbar-brand logo" href="index.html">
+  
+  
+  
+  
+  
+    <p class="title logo__title">legate.core  documentation</p>
+  
+</a></div>
+    
+  </div>
+  
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item"><nav class="navbar-nav">
+  <p class="sidebar-header-items__title"
+     role="heading"
+     aria-level="1"
+     aria-label="Site Navigation">
+    Site Navigation
+  </p>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="README.html">
+                        Overview
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item current active">
+                      <a class="nav-link nav-internal" href="#">
+                        Build instructions
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="api/index.html">
+                        Python API Reference
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-external" href="https://nv-legate.github.io/legate.core/cpp-interface">
+                        C++ API Reference
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="CONTRIBUTING.html">
+                        Contributing
+                      </a>
+                    </li>
+                
+            <div class="nav-item dropdown">
+                <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    More
+                </button>
+                <div class="dropdown-menu">
+                    
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="versions.html">
+                        Versions
+                      </a>
+                    </li>
+                
+                </div>
+            </div>
+            
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+  </button>
+`);
+</script>
+        </div>
+      
+      
+        <div class="navbar-item">
+<script>
+document.write(`
+  <button class="theme-switch-button btn btn-sm btn-outline-primary navbar-btn rounded-circle" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch" data-mode="light"><i class="fa-solid fa-sun"></i></span>
+    <span class="theme-switch" data-mode="dark"><i class="fa-solid fa-moon"></i></span>
+    <span class="theme-switch" data-mode="auto"><i class="fa-solid fa-circle-half-stroke"></i></span>
+  </button>
+`);
+</script></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+  </button>
+`);
+</script>
+    </div>
+  
+
+  
+    <label class="sidebar-toggle secondary-toggle" for="__secondary">
+      <span class="fa-solid fa-outdent"></span>
+    </label>
+  
+</div>
+
+    </nav>
+  
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      <div class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          <div class="navbar-item"><nav class="navbar-nav">
+  <p class="sidebar-header-items__title"
+     role="heading"
+     aria-level="1"
+     aria-label="Site Navigation">
+    Site Navigation
+  </p>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="README.html">
+                        Overview
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item current active">
+                      <a class="nav-link nav-internal" href="#">
+                        Build instructions
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="api/index.html">
+                        Python API Reference
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-external" href="https://nv-legate.github.io/legate.core/cpp-interface">
+                        C++ API Reference
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="CONTRIBUTING.html">
+                        Contributing
+                      </a>
+                    </li>
+                
+            <div class="nav-item dropdown">
+                <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    More
+                </button>
+                <div class="dropdown-menu">
+                    
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="versions.html">
+                        Versions
+                      </a>
+                    </li>
+                
+                </div>
+            </div>
+            
+  </ul>
+</nav></div>
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+<script>
+document.write(`
+  <button class="theme-switch-button btn btn-sm btn-outline-primary navbar-btn rounded-circle" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch" data-mode="light"><i class="fa-solid fa-sun"></i></span>
+    <span class="theme-switch" data-mode="dark"><i class="fa-solid fa-moon"></i></span>
+    <span class="theme-switch" data-mode="auto"><i class="fa-solid fa-circle-half-stroke"></i></span>
+  </button>
+`);
+</script></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+
+
+<nav aria-label="Breadcrumbs">
+  <ul class="bd-breadcrumbs" role="navigation" aria-label="Breadcrumb">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    <li class="breadcrumb-item active" aria-current="page">Basic build</li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article" role="main">
+                  
+  <!--
+Copyright 2021-2022 NVIDIA Corporation
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+-->
+<section id="basic-build">
+<h1>Basic build<a class="headerlink" href="#basic-build" title="Permalink to this heading">#</a></h1>
+<p>If you are building on a cluster, first check if there are specialized scripts
+available for your cluster at
+<a class="reference external" href="https://github.com/nv-legate/quickstart">nv-legate/quickstart</a>. Even if your
+specific cluster is not covered, you may be able to adapt an existing workflow.</p>
+<section id="getting-dependencies-through-conda">
+<h2>Getting dependencies through conda<a class="headerlink" href="#getting-dependencies-through-conda" title="Permalink to this heading">#</a></h2>
+<p>The primary method of retrieving dependencies for Legate Core and downstream
+libraries is through <a class="reference external" href="https://conda.io">conda</a>. You will need an installation of
+conda to follow the instructions below.</p>
+<p>Please use the <code class="docutils literal notranslate"><span class="pre">scripts/generate-conda-envs.py</span></code> script to create a conda
+environment file listing all the packages that are required to build, run and
+test Legate Core and all downstream libraries. For example:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>./scripts/generate-conda-envs.py<span class="w"> </span>--python<span class="w"> </span><span class="m">3</span>.10<span class="w"> </span>--ctk<span class="w"> </span><span class="m">11</span>.7<span class="w"> </span>--os<span class="w"> </span>linux<span class="w"> </span>--compilers<span class="w"> </span>--openmpi
+---<span class="w"> </span>generating:<span class="w"> </span>environment-test-linux-py310-cuda-11.7-compilers-openmpi.yaml
+</pre></div>
+</div>
+<p>Run this script with <code class="docutils literal notranslate"><span class="pre">-h</span></code> to see all available configuration options for the
+generated environment file (e.g. all the supported Python versions). See the
+<span class="xref myst">Dependencies</span> section for more details.</p>
+<p>Once you have this environment file, you can install the required packages by
+creating a new conda environment:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>conda<span class="w"> </span>env<span class="w"> </span>create<span class="w"> </span>-n<span class="w"> </span>legate<span class="w"> </span>-f<span class="w"> </span>&lt;env-file&gt;.yaml
+</pre></div>
+</div>
+<p>or by updating an existing environment:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>conda<span class="w"> </span>env<span class="w"> </span>update<span class="w"> </span>-f<span class="w"> </span>&lt;env-file&gt;.yaml
+</pre></div>
+</div>
+</section>
+<section id="building-through-install-py">
+<h2>Building through install.py<a class="headerlink" href="#building-through-install-py" title="Permalink to this heading">#</a></h2>
+<p>The Legate Core repository comes with a helper <code class="docutils literal notranslate"><span class="pre">install.py</span></code> script in the
+top-level directory, that will build the C++ parts of the library and install
+the C++ and Python components under the currently active Python environment.</p>
+<p>To add GPU support, use the <code class="docutils literal notranslate"><span class="pre">--cuda</span></code> flag:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>./install.py<span class="w"> </span>--cuda
+</pre></div>
+</div>
+<p>You can specify the CUDA toolkit directory and the CUDA architecture you want to
+target using the <code class="docutils literal notranslate"><span class="pre">--with-cuda</span></code> and <code class="docutils literal notranslate"><span class="pre">--arch</span></code> flags, e.g.:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>./install.py<span class="w"> </span>--cuda<span class="w"> </span>--with-cuda<span class="w"> </span>/usr/local/cuda/<span class="w"> </span>--arch<span class="w"> </span>ampere
+</pre></div>
+</div>
+<p>By default the script relies on CMake’s auto-detection for these settings.
+CMake will first search the currently active Python/conda environment
+for dependencies, then any common system-wide installation directories (e.g.
+<code class="docutils literal notranslate"><span class="pre">/usr/lib</span></code>). If a dependency cannot be found but is publicly available in source
+form (e.g. OpenBLAS), cmake will fetch and build it automatically. You can
+override this search by providing an install location for any dependency
+explicitly, using a <code class="docutils literal notranslate"><span class="pre">--with-&lt;dep&gt;</span></code> flag, e.g. <code class="docutils literal notranslate"><span class="pre">--with-nccl</span></code> and
+<code class="docutils literal notranslate"><span class="pre">--with-openblas</span></code>.</p>
+<p>For multi-node execution Legate can use <a class="reference external" href="https://gasnet.lbl.gov/">GASNet</a> (use
+<code class="docutils literal notranslate"><span class="pre">--network</span> <span class="pre">gasnet1</span></code> or <code class="docutils literal notranslate"><span class="pre">--network</span> <span class="pre">gasnetex</span></code>) or <a class="reference external" href="https://openucx.org">UCX</a> (use
+<code class="docutils literal notranslate"><span class="pre">--network</span> <span class="pre">ucx</span></code>).
+With gasnet1 or gasnetex, GASNet will be automatically downloaded and built,
+but if you have an existing installation then you can inform the install script
+using the <code class="docutils literal notranslate"><span class="pre">--with-gasnet</span></code> flag. You also need to specify the interconnect network
+of the target machine using the <code class="docutils literal notranslate"><span class="pre">--conduit</span></code> flag.
+With UCX, the library must be already installed and <code class="docutils literal notranslate"><span class="pre">--with-ucx</span></code> can be used
+to point to the installation path if UCX is not installed under common system paths.
+At least version 1.14 is required, configured with <code class="docutils literal notranslate"><span class="pre">--enable-mt</span></code>.</p>
+<p>Compiling with networking support requires MPI.</p>
+<p>For example this would be an installation for a
+<a class="reference external" href="https://www.nvidia.com/en-us/data-center/dgx-superpod/">DGX SuperPOD</a>:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>./install.py<span class="w"> </span>--network<span class="w"> </span>gasnet1<span class="w"> </span>--conduit<span class="w"> </span>ibv<span class="w"> </span>--cuda<span class="w"> </span>--arch<span class="w"> </span>ampere
+</pre></div>
+</div>
+<p>Alternatively, here is an install line for the
+<a class="reference external" href="https://www.cscs.ch/computers/dismissed/piz-daint-piz-dora/">Piz-Daint</a> supercomputer:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>./install.py<span class="w"> </span>--network<span class="w"> </span>gasnet1<span class="w"> </span>--conduit<span class="w"> </span>aries<span class="w"> </span>--cuda<span class="w"> </span>--arch<span class="w"> </span>pascal
+</pre></div>
+</div>
+<p>To see all available configuration options, run with the <code class="docutils literal notranslate"><span class="pre">--help</span></code> flag:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>./install.py<span class="w"> </span>--help
+</pre></div>
+</div>
+</section>
+</section>
+<section id="advanced-topics">
+<h1>Advanced topics<a class="headerlink" href="#advanced-topics" title="Permalink to this heading">#</a></h1>
+<section id="dependency-listing">
+<h2>Dependency listing<a class="headerlink" href="#dependency-listing" title="Permalink to this heading">#</a></h2>
+<section id="os-os-flag-on-generate-conda-envs-py">
+<h3>OS (<code class="docutils literal notranslate"><span class="pre">--os</span></code> flag on <code class="docutils literal notranslate"><span class="pre">generate-conda-envs.py</span></code>)<a class="headerlink" href="#os-os-flag-on-generate-conda-envs-py" title="Permalink to this heading">#</a></h3>
+<p>Legate has been tested on Linux and MacOS, although only a few flavors of Linux
+such as Ubuntu have been thoroughly tested. There is currently no support for
+Windows.</p>
+</section>
+<section id="python-3-9-python-flag">
+<h3>Python &gt;= 3.9 (<code class="docutils literal notranslate"><span class="pre">--python</span></code> flag)<a class="headerlink" href="#python-3-9-python-flag" title="Permalink to this heading">#</a></h3>
+<p>In terms of Python compatibility, Legate <em>roughly</em> follows the timeline outlined
+in <a class="reference external" href="https://numpy.org/neps/nep-0029-deprecation_policy.html">NEP 29</a>.</p>
+</section>
+<section id="c-17-compatible-compiler-compilers-flag">
+<h3>C++17 compatible compiler (<code class="docutils literal notranslate"><span class="pre">--compilers</span></code> flag)<a class="headerlink" href="#c-17-compatible-compiler-compilers-flag" title="Permalink to this heading">#</a></h3>
+<p>For example: g++, clang, or nvc++. When creating an environment using the
+<code class="docutils literal notranslate"><span class="pre">--compilers</span></code> flag, an appropriate compiler for the current system will be
+pulled from conda.</p>
+<p>If you need/prefer to use the system-provided compilers (typical for HPC
+installations), please use a conda environment generated with <code class="docutils literal notranslate"><span class="pre">--no-compilers</span></code>.
+Note that this will likely result in a
+<span class="xref myst">conda/system library conflict</span>,
+since the system compilers will typically produce executables
+that link against the system-provided libraries, which can shadow the
+conda-provided equivalents.</p>
+</section>
+<section id="cuda-10-2-ctk-flag-optional">
+<h3>CUDA &gt;= 10.2 (<code class="docutils literal notranslate"><span class="pre">--ctk</span></code> flag; optional)<a class="headerlink" href="#cuda-10-2-ctk-flag-optional" title="Permalink to this heading">#</a></h3>
+<p>Only necessary if you wish to run with Nvidia GPUs.</p>
+<p>Some CUDA components necessary for building, e.g. the <code class="docutils literal notranslate"><span class="pre">nvcc</span></code> compiler and driver
+stubs, are not distributed through conda. These must instead be installed using
+<a class="reference external" href="https://developer.nvidia.com/cuda-downloads">system-level packages</a>. If these
+are not installed under a standard system location, you will need to inform
+<code class="docutils literal notranslate"><span class="pre">install.py</span></code> of their location using <code class="docutils literal notranslate"><span class="pre">--with-cuda</span></code>.</p>
+<p>Independent of the system-level CUDA installation, conda will need to install an
+environment-local copy of the CUDA toolkit (which is what the <code class="docutils literal notranslate"><span class="pre">--ctk</span></code> flag
+controls). To avoid versioning conflicts it is safest to match the version of
+CUDA installed system-wide on your machine</p>
+<p>Legate is tested and guaranteed to be compatible with Volta and later GPU
+architectures. You can use Legate with Pascal GPUs as well, but there could
+be issues due to lack of independent thread scheduling. Please report any such
+issues on GitHub.</p>
+</section>
+<section id="cuda-libraries-optional">
+<h3>CUDA Libraries (optional)<a class="headerlink" href="#cuda-libraries-optional" title="Permalink to this heading">#</a></h3>
+<p>Only necessary if you wish to run with Nvidia GPUs.</p>
+<p>The following additional CUDA libraries are required:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">curand</span></code> (only necessary to provide this if building without CUDA support;
+CUDA-enabled installations will use the version bundled with CUDA)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cutensor</span></code> &gt;= 1.3.3 (included in conda environment file)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nccl</span></code> (included in conda environment file)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">thrust</span></code> &gt;= 1.15 (pulled from github)</p></li>
+</ul>
+<p>If you wish to provide alternative installations for these, then you can remove
+them from the environment file (if necessary) and pass the corresponding
+<code class="docutils literal notranslate"><span class="pre">--with-&lt;dep&gt;</span></code> flag to <code class="docutils literal notranslate"><span class="pre">install.py</span></code>.</p>
+</section>
+<section id="build-tools">
+<h3>Build tools<a class="headerlink" href="#build-tools" title="Permalink to this heading">#</a></h3>
+<p>The following tools are used for building Legate, and are automatically included
+in the environment file:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">cmake</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">git</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">make</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ninja</span></code> (this is optional, but produces more informative build output)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">rust</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">scikit-build</span></code></p></li>
+</ul>
+</section>
+<section id="openblas">
+<h3>OpenBLAS<a class="headerlink" href="#openblas" title="Permalink to this heading">#</a></h3>
+<p>This library is automatically pulled from conda. If you wish to provide an
+alternative installation, then you can manually remove <code class="docutils literal notranslate"><span class="pre">openblas</span></code> from the
+generated environment file and pass <code class="docutils literal notranslate"><span class="pre">--with-openblas</span></code> to <code class="docutils literal notranslate"><span class="pre">install.py</span></code>.</p>
+<p>Note that you will need to get a Fortran compiler before you can build OpenBLAS
+from source, e.g. by pulling <code class="docutils literal notranslate"><span class="pre">fortran-compiler</span></code> from <code class="docutils literal notranslate"><span class="pre">conda-forge</span></code>.</p>
+<p>If you wish to compile Legate with OpenMP support, then you need a build of
+OpenBLAS configured with the following options:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">USE_THREAD=1</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">USE_OPENMP=1</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">NUM_PARALLEL=32</span></code> (or at least as many as the NUMA domains on the target
+machine) – The <code class="docutils literal notranslate"><span class="pre">NUM_PARALLEL</span></code> flag defines how many instances of OpenBLAS’s
+calculation API can run in parallel. Legate will typically instantiate a
+separate OpenMP group per NUMA domain, and each group can launch independent
+BLAS work. If <code class="docutils literal notranslate"><span class="pre">NUM_PARALLEL</span></code> is not high enough, some of this parallel work
+will be serialized.</p></li>
+</ul>
+</section>
+<section id="numactl-optional">
+<h3>Numactl (optional)<a class="headerlink" href="#numactl-optional" title="Permalink to this heading">#</a></h3>
+<p>Required to support CPU and memory binding in the Legate launcher.</p>
+<p>Not available on conda; typically available through the system-level package
+manager.</p>
+</section>
+<section id="mpi-openmpi-flag-optional">
+<h3>MPI (<code class="docutils literal notranslate"><span class="pre">--openmpi</span></code> flag; optional)<a class="headerlink" href="#mpi-openmpi-flag-optional" title="Permalink to this heading">#</a></h3>
+<p>Only necessary if you wish to run on multiple nodes.</p>
+<p>Conda distributes a generic build of OpenMPI, but you may need to use a more
+specialized build, e.g. the one distributed by
+<a class="reference external" href="https://network.nvidia.com/products/infiniband-drivers/linux/mlnx_ofed/">MOFED</a>,
+or one provided by your HPC vendor. In that case you should use an environment
+file generated with <code class="docutils literal notranslate"><span class="pre">--no-openmpi</span></code>.</p>
+<p>Legate requires a build of MPI that supports <code class="docutils literal notranslate"><span class="pre">MPI_THREAD_MULTIPLE</span></code>.</p>
+</section>
+<section id="infiniband-roce-networking-libraries-optional">
+<h3>Infiniband/RoCE networking libraries (optional)<a class="headerlink" href="#infiniband-roce-networking-libraries-optional" title="Permalink to this heading">#</a></h3>
+<p>Only necessary if you wish to run on multiple nodes, using the corresponding
+networking hardware.</p>
+<p>Not available on conda; typically available through MOFED or the system-level
+package manager.</p>
+</section>
+<section id="ucx-1-14-ucx-flag-optional">
+<h3>UCX &gt;= 1.14 (<code class="docutils literal notranslate"><span class="pre">--ucx</span></code> flag; optional)<a class="headerlink" href="#ucx-1-14-ucx-flag-optional" title="Permalink to this heading">#</a></h3>
+<p>Only necessary if you wish to run on multiple nodes, using the UCX Realm
+networking backend.</p>
+<p>A build of UCX configured with <code class="docutils literal notranslate"><span class="pre">--enable-mt</span></code> is required.</p>
+<p>The build of UCX available on conda might not include support for the particular
+networking hardware on your machine (or may not be optimally tuned for such). In
+that case you may want to use an environment file generated with <code class="docutils literal notranslate"><span class="pre">--no-ucx</span></code>,
+get UCX from another source (e.g. MOFED, the system-level package manager, or
+compiled manually from source), and pass the location of your installation to
+<code class="docutils literal notranslate"><span class="pre">install.py</span></code> (if necessary) using <code class="docutils literal notranslate"><span class="pre">--with-ucx</span></code>.</p>
+</section>
+</section>
+<section id="alternative-sources-for-dependencies">
+<h2>Alternative sources for dependencies<a class="headerlink" href="#alternative-sources-for-dependencies" title="Permalink to this heading">#</a></h2>
+<p>If you do not wish to use conda for some (or all) of the dependencies, you can
+remove the corresponding entries from the environment file before passing it to
+conda. See <span class="xref myst">the <code class="docutils literal notranslate"><span class="pre">install.py</span></code> section</span> for
+instructions on how to provide alternative locations for these dependencies to
+the build process.</p>
+<p>Note that this is likely to result in conflicts between conda-provided and
+system-provided libraries.</p>
+<p>Conda distributes its own version of certain common libraries (in particular the
+C++ standard library), which are also typically available system-wide. Any
+system package you include will typically link to the system version, while
+conda packages link to the conda version. Often these two different versions,
+although incompatible, carry the same version number (<code class="docutils literal notranslate"><span class="pre">SONAME</span></code>), and are
+therefore indistinguishable to the dynamic linker. Then, the first component to
+specify a link location for this library will cause it to be loaded from there,
+and any subsequent link requests for the same library, even if suggesting a
+different link location, will get served using the previously linked version.</p>
+<p>This can cause link failures at runtime, e.g. when a system-level library
+happens to be the first to load GLIBC, causing any conda library that comes
+after to trip GLIBC’s internal version checks, since the conda library expects
+to find symbols with more recent version numbers than what is available on the
+system-wide GLIBC:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>/lib/x86_64-linux-gnu/libstdc++.so.6: version `GLIBCXX_3.4.30&#39; not found (required by /opt/conda/envs/legate/lib/libarrow.so)
+</pre></div>
+</div>
+<p>You can usually work around this issue by putting the conda library directory
+first in the dynamic library resolution path:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nv">LD_LIBRARY_PATH</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$CONDA_PREFIX</span><span class="s2">/lib:</span><span class="nv">$LD_LIBRARY_PATH</span><span class="s2">&quot;</span>
+</pre></div>
+</div>
+<p>This way you can make sure that the (typically more recent) conda version of any
+common library will be preferred over the system-wide one, no matter which
+component requests it first.</p>
+</section>
+<section id="building-through-pip">
+<h2>Building through pip<a class="headerlink" href="#building-through-pip" title="Permalink to this heading">#</a></h2>
+<p>Legate Core is not yet registered in a standard pip repository. However, users
+can still use the pip installer to build and install Legate Core. The following
+command will trigger a single-node, CPU-only build of Legate Core, then install
+it into the currently active Python environment:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>.
+</pre></div>
+</div>
+<p>or</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>python3<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>.
+</pre></div>
+</div>
+<p>Legate relies on CMake to select its toolchain and build flags. Users can set
+the environment variables <code class="docutils literal notranslate"><span class="pre">CXX</span></code> or <code class="docutils literal notranslate"><span class="pre">CXXFLAGS</span></code> prior to building to override the
+CMake defaults.</p>
+<p>Alternatively, CMake and build tool arguments can be passed via the
+<code class="docutils literal notranslate"><span class="pre">CMAKE_ARGS</span></code>/<code class="docutils literal notranslate"><span class="pre">SKBUILD_CONFIGURE_OPTIONS</span></code> and <code class="docutils literal notranslate"><span class="pre">SKBUILD_BUILD_OPTIONS</span></code>
+<a class="reference external" href="https://scikit-build.readthedocs.io/en/latest/usage.html#environment-variable-configuration">environment variables</a>:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span><span class="nv">CMAKE_ARGS</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">CMAKE_ARGS</span><span class="k">:-</span><span class="si">}</span><span class="s2"> -D Legion_USE_CUDA:BOOL=ON&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>pip<span class="w"> </span>install<span class="w"> </span>.
+</pre></div>
+</div>
+<p>An alternative syntax using <code class="docutils literal notranslate"><span class="pre">setup.py</span></code> with <code class="docutils literal notranslate"><span class="pre">scikit-build</span></code> is</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>python<span class="w"> </span>setup.py<span class="w"> </span>install<span class="w"> </span>--<span class="w"> </span>-DLegion_USE_CUDA:BOOL<span class="o">=</span>ON
+</pre></div>
+</div>
+</section>
+<section id="building-through-pip-cmake">
+<h2>Building through pip &amp; cmake<a class="headerlink" href="#building-through-pip-cmake" title="Permalink to this heading">#</a></h2>
+<p>pip uses <a class="reference external" href="https://scikit-build.readthedocs.io/en/latest/">scikit-build</a>
+in <code class="docutils literal notranslate"><span class="pre">setup.py</span></code> to drive the build and installation.  A <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span></code> will trigger three general actions:</p>
+<ol class="arabic simple">
+<li><p>CMake build and installation of C++ libraries</p></li>
+<li><p>CMake generation of configuration files and build-dependent Python files</p></li>
+<li><p>pip installation of Python files</p></li>
+</ol>
+<p>The CMake build can be configured independently of <code class="docutils literal notranslate"><span class="pre">pip</span></code>, allowing incremental C++ builds directly through CMake.
+This simplifies rebuilding the C++ shared libraries either via command-line or via IDE.
+After building the C++ libraries, the <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span></code> can be done in “editable” mode using the <code class="docutils literal notranslate"><span class="pre">-e</span></code> flag.
+This configures the Python site packages to import the Python source tree directly.
+The Python source can then be edited and used directly for testing without requiring another <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span></code>.</p>
+<p>There are several examples in the <code class="docutils literal notranslate"><span class="pre">scripts</span></code> folder. We walk through the steps in
+<code class="docutils literal notranslate"><span class="pre">build-separately-no-install.sh</span></code> here.</p>
+<p>First, the CMake build needs to be configured:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>cmake<span class="w"> </span>-S<span class="w"> </span>.<span class="w"> </span>-B<span class="w"> </span>build<span class="w"> </span>-GNinja<span class="w"> </span>-D<span class="w"> </span><span class="nv">Legion_USE_CUDA</span><span class="o">=</span>ON
+</pre></div>
+</div>
+<p>Once configured, we can build the C++ libraries:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>cmake<span class="w"> </span>--build<span class="w"> </span>build
+</pre></div>
+</div>
+<p>This will invoke Ninja (or make) to execute the build.
+Once the C++ libraries are available, we can do an editable (development) pip installation.</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span><span class="nv">SKBUILD_BUILD_OPTIONS</span><span class="o">=</span><span class="s2">&quot;-D FIND_LEGATE_CORE_CPP=ON -D legate_core_ROOT=</span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span><span class="s2">/build&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>python3<span class="w"> </span>-m<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--root<span class="w"> </span>/<span class="w"> </span>--no-deps<span class="w"> </span>--no-build-isolation
+<span class="w">  </span>--editable<span class="w"> </span>.
+</pre></div>
+</div>
+<p>The Python source tree and CMake build tree are now available with the environment Python
+for running Legate programs. The diagram below illustrates the
+complete workflow for building both Legate core and a downstream package,
+<a class="reference external" href="https://github.com/nv-legate/cunumeric">cuNumeric</a></p>
+<img src="docs/figures/developer-build.png" alt="drawing" width="600"/>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+                <footer class="bd-footer-article">
+                  <!-- Previous / next buttons -->
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="README.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Legate</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="api/index.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">API Reference</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+  <div class="sidebar-secondary-item">
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">Basic build</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#getting-dependencies-through-conda">Getting dependencies through conda</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#building-through-install-py">Building through install.py</a></li>
+</ul>
+</li>
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#advanced-topics">Advanced topics</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#dependency-listing">Dependency listing</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#os-os-flag-on-generate-conda-envs-py">OS (<code class="docutils literal notranslate"><span class="pre">--os</span></code> flag on <code class="docutils literal notranslate"><span class="pre">generate-conda-envs.py</span></code>)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#python-3-9-python-flag">Python &gt;= 3.9 (<code class="docutils literal notranslate"><span class="pre">--python</span></code> flag)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#c-17-compatible-compiler-compilers-flag">C++17 compatible compiler (<code class="docutils literal notranslate"><span class="pre">--compilers</span></code> flag)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cuda-10-2-ctk-flag-optional">CUDA &gt;= 10.2 (<code class="docutils literal notranslate"><span class="pre">--ctk</span></code> flag; optional)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cuda-libraries-optional">CUDA Libraries (optional)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#build-tools">Build tools</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#openblas">OpenBLAS</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#numactl-optional">Numactl (optional)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#mpi-openmpi-flag-optional">MPI (<code class="docutils literal notranslate"><span class="pre">--openmpi</span></code> flag; optional)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#infiniband-roce-networking-libraries-optional">Infiniband/RoCE networking libraries (optional)</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ucx-1-14-ucx-flag-optional">UCX &gt;= 1.14 (<code class="docutils literal notranslate"><span class="pre">--ucx</span></code> flag; optional)</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#alternative-sources-for-dependencies">Alternative sources for dependencies</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#building-through-pip">Building through pip</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#building-through-pip-cmake">Building through pip &amp; cmake</a></li>
+</ul>
+</li>
+</ul>
+
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+  <div class="tocsection sourcelink">
+    <a href="_sources/BUILD.md.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            <div class="bd-footer-content__inner"></div>
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="_static/scripts/bootstrap.js?digest=12da95d707ffb74b382d"></script>
+<script src="_static/scripts/pydata-sphinx-theme.js?digest=12da95d707ffb74b382d"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+  <p class="copyright">
+    
+      © Copyright 2021-2022, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+  <p class="sphinx-version">
+    Created using <a href="https://sphinx-doc.org/">Sphinx</a> 5.3.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item"><p class="theme-version">
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.13.0.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

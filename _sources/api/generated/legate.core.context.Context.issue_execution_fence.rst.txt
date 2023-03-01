@@ -1,0 +1,6 @@
+﻿legate.core.context.Context.issue\_execution\_fence
+===================================================
+
+.. currentmodule:: legate.core.context
+
+.. automethod:: Context.issue_execution_fence

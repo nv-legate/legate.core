@@ -1,0 +1,6 @@
+﻿legate.core.shape.Shape.fixed
+=============================
+
+.. currentmodule:: legate.core.shape
+
+.. autoproperty:: Shape.fixed

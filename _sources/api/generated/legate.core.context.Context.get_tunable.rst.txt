@@ -1,0 +1,6 @@
+﻿legate.core.context.Context.get\_tunable
+========================================
+
+.. currentmodule:: legate.core.context
+
+.. automethod:: Context.get_tunable

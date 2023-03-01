@@ -1,0 +1,662 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>legate.core.shape.Shape.drop &#8212; legate.core  documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=12da95d707ffb74b382d" rel="stylesheet" />
+<link href="../../_static/styles/bootstrap.css?digest=12da95d707ffb74b382d" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=12da95d707ffb74b382d" rel="stylesheet" />
+
+  
+  <link href="../../_static/vendor/fontawesome/6.1.2/css/all.min.css?digest=12da95d707ffb74b382d" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.1.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.1.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.1.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/params.css" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=12da95d707ffb74b382d" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=12da95d707ffb74b382d" />
+
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/sphinx_highlight.js"></script>
+    <script src="../../_static/clipboard.min.js"></script>
+    <script src="../../_static/copybutton.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'api/generated/legate.core.shape.Shape.drop';</script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="legate.core.shape.Shape.update" href="legate.core.shape.Shape.update.html" />
+    <link rel="prev" title="legate.core.shape.Shape.strides" href="legate.core.shape.Shape.strides.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__primary"
+          id="__primary"/>
+  <label class="overlay overlay-primary" for="__primary"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__secondary"
+          id="__secondary"/>
+  <label class="overlay overlay-secondary" for="__secondary"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+  
+    <nav class="bd-header navbar navbar-expand-lg bd-navbar">
+<div class="bd-header__inner bd-page-width">
+  <label class="sidebar-toggle primary-toggle" for="__primary">
+    <span class="fa-solid fa-bars"></span>
+  </label>
+  
+  <div class="navbar-header-items__start">
+    
+      <div class="navbar-item">
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    <p class="title logo__title">legate.core  documentation</p>
+  
+</a></div>
+    
+  </div>
+  
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item"><nav class="navbar-nav">
+  <p class="sidebar-header-items__title"
+     role="heading"
+     aria-level="1"
+     aria-label="Site Navigation">
+    Site Navigation
+  </p>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../../README.html">
+                        Overview
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../../BUILD.html">
+                        Build instructions
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item current active">
+                      <a class="nav-link nav-internal" href="../index.html">
+                        Python API Reference
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-external" href="https://nv-legate.github.io/legate.core/cpp-interface">
+                        C++ API Reference
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../../CONTRIBUTING.html">
+                        Contributing
+                      </a>
+                    </li>
+                
+            <div class="nav-item dropdown">
+                <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    More
+                </button>
+                <div class="dropdown-menu">
+                    
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../../versions.html">
+                        Versions
+                      </a>
+                    </li>
+                
+                </div>
+            </div>
+            
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+  </button>
+`);
+</script>
+        </div>
+      
+      
+        <div class="navbar-item">
+<script>
+document.write(`
+  <button class="theme-switch-button btn btn-sm btn-outline-primary navbar-btn rounded-circle" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch" data-mode="light"><i class="fa-solid fa-sun"></i></span>
+    <span class="theme-switch" data-mode="dark"><i class="fa-solid fa-moon"></i></span>
+    <span class="theme-switch" data-mode="auto"><i class="fa-solid fa-circle-half-stroke"></i></span>
+  </button>
+`);
+</script></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+  </button>
+`);
+</script>
+    </div>
+  
+
+  
+    <label class="sidebar-toggle secondary-toggle" for="__secondary">
+      <span class="fa-solid fa-outdent"></span>
+    </label>
+  
+</div>
+
+    </nav>
+  
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          <div class="navbar-item"><nav class="navbar-nav">
+  <p class="sidebar-header-items__title"
+     role="heading"
+     aria-level="1"
+     aria-label="Site Navigation">
+    Site Navigation
+  </p>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../../README.html">
+                        Overview
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../../BUILD.html">
+                        Build instructions
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item current active">
+                      <a class="nav-link nav-internal" href="../index.html">
+                        Python API Reference
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-external" href="https://nv-legate.github.io/legate.core/cpp-interface">
+                        C++ API Reference
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../../CONTRIBUTING.html">
+                        Contributing
+                      </a>
+                    </li>
+                
+            <div class="nav-item dropdown">
+                <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    More
+                </button>
+                <div class="dropdown-menu">
+                    
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../../versions.html">
+                        Versions
+                      </a>
+                    </li>
+                
+                </div>
+            </div>
+            
+  </ul>
+</nav></div>
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+<script>
+document.write(`
+  <button class="theme-switch-button btn btn-sm btn-outline-primary navbar-btn rounded-circle" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch" data-mode="light"><i class="fa-solid fa-sun"></i></span>
+    <span class="theme-switch" data-mode="dark"><i class="fa-solid fa-moon"></i></span>
+    <span class="theme-switch" data-mode="auto"><i class="fa-solid fa-circle-half-stroke"></i></span>
+  </button>
+`);
+</script></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item"><nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../routines.html">Routines</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-1"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="legate.core.get_legate_runtime.html">legate.core.get_legate_runtime</a></li>
+<li class="toctree-l2"><a class="reference internal" href="legate.core.track_provenance.html">legate.core.track_provenance</a></li>
+</ul>
+</li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../classes.html">Classes</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-2"><i class="fa-solid fa-chevron-down"></i></label><ul class="current">
+<li class="toctree-l2 has-children"><a class="reference internal" href="../runtime.html">Runtime and Library Contexts</a><input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-3"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.Library.get_name.html">legate.core.Library.get_name</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.Library.get_shared_library.html">legate.core.Library.get_shared_library</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.Library.get_c_header.html">legate.core.Library.get_c_header</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.Library.get_registration_callback.html">legate.core.Library.get_registration_callback</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.Library.get_resource_configuration.html">legate.core.Library.get_resource_configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.ResourceConfig.max_tasks.html">legate.core.ResourceConfig.max_tasks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.ResourceConfig.max_reduction_ops.html">legate.core.ResourceConfig.max_reduction_ops</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.ResourceConfig.max_mappers.html">legate.core.ResourceConfig.max_mappers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.context.Context.create_store.html">legate.core.context.Context.create_store</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.context.Context.create_task.html">legate.core.context.Context.create_task</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.context.Context.create_manual_task.html">legate.core.context.Context.create_manual_task</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.context.Context.create_auto_task.html">legate.core.context.Context.create_auto_task</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.context.Context.create_copy.html">legate.core.context.Context.create_copy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.context.Context.create_fill.html">legate.core.context.Context.create_fill</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.context.Context.issue_execution_fence.html">legate.core.context.Context.issue_execution_fence</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.context.Context.tree_reduce.html">legate.core.context.Context.tree_reduce</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.context.Context.get_tunable.html">legate.core.context.Context.get_tunable</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.context.Context.provenance.html">legate.core.context.Context.provenance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.context.Context.annotation.html">legate.core.context.Context.annotation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.context.Context.set_provenance.html">legate.core.context.Context.set_provenance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.context.Context.reset_provenance.html">legate.core.context.Context.reset_provenance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.context.Context.push_provenance.html">legate.core.context.Context.push_provenance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.context.Context.pop_provenance.html">legate.core.context.Context.pop_provenance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.context.Context.track_provenance.html">legate.core.context.Context.track_provenance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.runtime.Runtime.num_cpus.html">legate.core.runtime.Runtime.num_cpus</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.runtime.Runtime.num_omps.html">legate.core.runtime.Runtime.num_omps</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.runtime.Runtime.num_gpus.html">legate.core.runtime.Runtime.num_gpus</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.runtime.Runtime.register_library.html">legate.core.runtime.Runtime.register_library</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.runtime.Runtime.create_future.html">legate.core.runtime.Runtime.create_future</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.context.Annotation.__init__.html">legate.core.context.Annotation.__init__</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../operation.html">Operations</a><input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-4"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.operation.AutoTask.add_input.html">legate.core.operation.AutoTask.add_input</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.operation.AutoTask.add_output.html">legate.core.operation.AutoTask.add_output</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.operation.AutoTask.add_reduction.html">legate.core.operation.AutoTask.add_reduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.operation.AutoTask.add_scalar_arg.html">legate.core.operation.AutoTask.add_scalar_arg</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.operation.AutoTask.declare_partition.html">legate.core.operation.AutoTask.declare_partition</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.operation.AutoTask.add_constraint.html">legate.core.operation.AutoTask.add_constraint</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.operation.AutoTask.add_alignment.html">legate.core.operation.AutoTask.add_alignment</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.operation.AutoTask.add_broadcast.html">legate.core.operation.AutoTask.add_broadcast</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.operation.AutoTask.throws_exception.html">legate.core.operation.AutoTask.throws_exception</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.operation.AutoTask.can_raise_exception.html">legate.core.operation.AutoTask.can_raise_exception</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.operation.AutoTask.add_nccl_communicator.html">legate.core.operation.AutoTask.add_nccl_communicator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.operation.AutoTask.add_cpu_communicator.html">legate.core.operation.AutoTask.add_cpu_communicator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.operation.AutoTask.side_effect.html">legate.core.operation.AutoTask.side_effect</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.operation.AutoTask.set_concurrent.html">legate.core.operation.AutoTask.set_concurrent</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.operation.AutoTask.set_side_effect.html">legate.core.operation.AutoTask.set_side_effect</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.operation.AutoTask.execute.html">legate.core.operation.AutoTask.execute</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.operation.Copy.add_input.html">legate.core.operation.Copy.add_input</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.operation.Copy.add_output.html">legate.core.operation.Copy.add_output</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.operation.Copy.add_reduction.html">legate.core.operation.Copy.add_reduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.operation.Copy.add_source_indirect.html">legate.core.operation.Copy.add_source_indirect</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.operation.Copy.add_target_indirect.html">legate.core.operation.Copy.add_target_indirect</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.operation.Copy.execute.html">legate.core.operation.Copy.execute</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.operation.Fill.execute.html">legate.core.operation.Fill.execute</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.operation.ManualTask.side_effect.html">legate.core.operation.ManualTask.side_effect</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.operation.ManualTask.set_concurrent.html">legate.core.operation.ManualTask.set_concurrent</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.operation.ManualTask.set_side_effect.html">legate.core.operation.ManualTask.set_side_effect</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.operation.ManualTask.add_input.html">legate.core.operation.ManualTask.add_input</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.operation.ManualTask.add_output.html">legate.core.operation.ManualTask.add_output</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.operation.ManualTask.add_reduction.html">legate.core.operation.ManualTask.add_reduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.operation.ManualTask.add_scalar_arg.html">legate.core.operation.ManualTask.add_scalar_arg</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.operation.ManualTask.throws_exception.html">legate.core.operation.ManualTask.throws_exception</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.operation.ManualTask.can_raise_exception.html">legate.core.operation.ManualTask.can_raise_exception</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.operation.ManualTask.add_nccl_communicator.html">legate.core.operation.ManualTask.add_nccl_communicator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.operation.ManualTask.add_cpu_communicator.html">legate.core.operation.ManualTask.add_cpu_communicator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.operation.ManualTask.execute.html">legate.core.operation.ManualTask.execute</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../store.html">Store</a><input class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-5"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.store.Store.shape.html">legate.core.store.Store.shape</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.store.Store.ndim.html">legate.core.store.Store.ndim</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.store.Store.size.html">legate.core.store.Store.size</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.store.Store.type.html">legate.core.store.Store.type</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.store.Store.kind.html">legate.core.store.Store.kind</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.store.Store.unbound.html">legate.core.store.Store.unbound</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.store.Store.scalar.html">legate.core.store.Store.scalar</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.store.Store.transform.html">legate.core.store.Store.transform</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.store.Store.transformed.html">legate.core.store.Store.transformed</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.store.Store.promote.html">legate.core.store.Store.promote</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.store.Store.project.html">legate.core.store.Store.project</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.store.Store.slice.html">legate.core.store.Store.slice</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.store.Store.transpose.html">legate.core.store.Store.transpose</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.store.Store.delinearize.html">legate.core.store.Store.delinearize</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.store.Store.get_inline_allocation.html">legate.core.store.Store.get_inline_allocation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.store.Store.get_key_partition.html">legate.core.store.Store.get_key_partition</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.store.Store.set_key_partition.html">legate.core.store.Store.set_key_partition</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.store.Store.reset_key_partition.html">legate.core.store.Store.reset_key_partition</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.store.Store.partition_by_tiling.html">legate.core.store.Store.partition_by_tiling</a></li>
+</ul>
+</li>
+
+<li class="toctree-l2 has-children"><a class="reference internal" href="../allocation.html">Inline mapping</a><input class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-6"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.allocation.InlineMappedAllocation.consume.html">legate.core.allocation.InlineMappedAllocation.consume</a></li>
+</ul>
+</li>
+<li class="toctree-l2 current active has-children"><a class="reference internal" href="../shape.html">Shape</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-7"><i class="fa-solid fa-chevron-down"></i></label><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="legate.core.shape.Shape.__init__.html">legate.core.shape.Shape.__init__</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.shape.Shape.extents.html">legate.core.shape.Shape.extents</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.shape.Shape.fixed.html">legate.core.shape.Shape.fixed</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.shape.Shape.ndim.html">legate.core.shape.Shape.ndim</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.shape.Shape.volume.html">legate.core.shape.Shape.volume</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.shape.Shape.sum.html">legate.core.shape.Shape.sum</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.shape.Shape.strides.html">legate.core.shape.Shape.strides</a></li>
+<li class="toctree-l3 current active"><a class="current reference internal" href="#">legate.core.shape.Shape.drop</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.shape.Shape.update.html">legate.core.shape.Shape.update</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.shape.Shape.replace.html">legate.core.shape.Shape.replace</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.shape.Shape.insert.html">legate.core.shape.Shape.insert</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.shape.Shape.map.html">legate.core.shape.Shape.map</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.shape.Shape.__eq__.html">legate.core.shape.Shape.__eq__</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.shape.Shape.__le__.html">legate.core.shape.Shape.__le__</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.shape.Shape.__lt__.html">legate.core.shape.Shape.__lt__</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.shape.Shape.__ge__.html">legate.core.shape.Shape.__ge__</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.shape.Shape.__gt__.html">legate.core.shape.Shape.__gt__</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.shape.Shape.__add__.html">legate.core.shape.Shape.__add__</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.shape.Shape.__sub__.html">legate.core.shape.Shape.__sub__</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.shape.Shape.__mul__.html">legate.core.shape.Shape.__mul__</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.shape.Shape.__mod__.html">legate.core.shape.Shape.__mod__</a></li>
+<li class="toctree-l3"><a class="reference internal" href="legate.core.shape.Shape.__floordiv__.html">legate.core.shape.Shape.__floordiv__</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+
+
+
+
+<nav aria-label="Breadcrumbs">
+  <ul class="bd-breadcrumbs" role="navigation" aria-label="Breadcrumb">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../index.html" class="nav-link">API Reference</a></li>
+    
+    
+    <li class="breadcrumb-item"><i class="fa-solid fa-ellipsis"></i></li>
+    
+    
+    <li class="breadcrumb-item"><a href="../shape.html" class="nav-link">Shape</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page">legate.core.shape.Shape.drop</li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article" role="main">
+                  
+  <section id="legate-core-shape-shape-drop">
+<h1>legate.core.shape.Shape.drop<a class="headerlink" href="#legate-core-shape-shape-drop" title="Permalink to this heading">#</a></h1>
+<dl class="py method">
+<dt class="sig sig-object py" id="legate.core.shape.Shape.drop">
+<span class="sig-prename descclassname"><span class="pre">Shape.</span></span><span class="sig-name descname"><span class="pre">drop</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Shape</span></span></span><a class="headerlink" href="#legate.core.shape.Shape.drop" title="Permalink to this definition">#</a></dt>
+<dd><p>Removes a dimension from the shape</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – Dimension to remove</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Shape with one less dimension</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Shape</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>Can block on the producer task</p>
+</dd></dl>
+
+</section>
+
+
+                </article>
+              
+              
+              
+                <footer class="bd-footer-article">
+                  <!-- Previous / next buttons -->
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="legate.core.shape.Shape.strides.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">legate.core.shape.Shape.strides</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="legate.core.shape.Shape.update.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">legate.core.shape.Shape.update</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+  <div class="sidebar-secondary-item">
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#legate.core.shape.Shape.drop"><code class="docutils literal notranslate"><span class="pre">Shape.drop()</span></code></a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+  <div class="tocsection sourcelink">
+    <a href="../../_sources/api/generated/legate.core.shape.Shape.drop.rst.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            <div class="bd-footer-content__inner"></div>
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../../_static/scripts/bootstrap.js?digest=12da95d707ffb74b382d"></script>
+<script src="../../_static/scripts/pydata-sphinx-theme.js?digest=12da95d707ffb74b382d"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+  <p class="copyright">
+    
+      © Copyright 2021-2022, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+  <p class="sphinx-version">
+    Created using <a href="https://sphinx-doc.org/">Sphinx</a> 5.3.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item"><p class="theme-version">
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.13.0.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

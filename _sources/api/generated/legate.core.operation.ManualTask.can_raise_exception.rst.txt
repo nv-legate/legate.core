@@ -1,0 +1,6 @@
+﻿legate.core.operation.ManualTask.can\_raise\_exception
+======================================================
+
+.. currentmodule:: legate.core.operation
+
+.. autoproperty:: ManualTask.can_raise_exception

@@ -1,0 +1,6 @@
+﻿legate.core.shape.Shape.insert
+==============================
+
+.. currentmodule:: legate.core.shape
+
+.. automethod:: Shape.insert

@@ -1,0 +1,6 @@
+﻿legate.core.Library.get\_c\_header
+==================================
+
+.. currentmodule:: legate.core
+
+.. automethod:: Library.get_c_header

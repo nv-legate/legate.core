@@ -1,0 +1,6 @@
+﻿legate.core.get\_legate\_runtime
+================================
+
+.. currentmodule:: legate.core
+
+.. autofunction:: get_legate_runtime

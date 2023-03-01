@@ -1,0 +1,6 @@
+﻿legate.core.context.Context.annotation
+======================================
+
+.. currentmodule:: legate.core.context
+
+.. autoproperty:: Context.annotation

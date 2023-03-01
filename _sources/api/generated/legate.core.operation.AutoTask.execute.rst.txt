@@ -1,0 +1,6 @@
+﻿legate.core.operation.AutoTask.execute
+======================================
+
+.. currentmodule:: legate.core.operation
+
+.. automethod:: AutoTask.execute

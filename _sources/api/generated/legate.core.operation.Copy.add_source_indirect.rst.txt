@@ -1,0 +1,6 @@
+﻿legate.core.operation.Copy.add\_source\_indirect
+================================================
+
+.. currentmodule:: legate.core.operation
+
+.. automethod:: Copy.add_source_indirect

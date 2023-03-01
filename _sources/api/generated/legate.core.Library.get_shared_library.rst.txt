@@ -1,0 +1,6 @@
+﻿legate.core.Library.get\_shared\_library
+========================================
+
+.. currentmodule:: legate.core
+
+.. automethod:: Library.get_shared_library

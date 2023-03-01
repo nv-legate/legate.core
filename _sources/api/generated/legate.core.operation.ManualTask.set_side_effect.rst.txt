@@ -1,0 +1,6 @@
+﻿legate.core.operation.ManualTask.set\_side\_effect
+==================================================
+
+.. currentmodule:: legate.core.operation
+
+.. automethod:: ManualTask.set_side_effect

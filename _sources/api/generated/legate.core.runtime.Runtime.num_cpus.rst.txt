@@ -1,0 +1,6 @@
+﻿legate.core.runtime.Runtime.num\_cpus
+=====================================
+
+.. currentmodule:: legate.core.runtime
+
+.. autoproperty:: Runtime.num_cpus

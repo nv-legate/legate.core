@@ -1,0 +1,6 @@
+﻿legate.core.context.Context.pop\_provenance
+===========================================
+
+.. currentmodule:: legate.core.context
+
+.. automethod:: Context.pop_provenance

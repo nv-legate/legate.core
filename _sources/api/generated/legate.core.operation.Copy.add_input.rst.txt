@@ -1,0 +1,6 @@
+﻿legate.core.operation.Copy.add\_input
+=====================================
+
+.. currentmodule:: legate.core.operation
+
+.. automethod:: Copy.add_input

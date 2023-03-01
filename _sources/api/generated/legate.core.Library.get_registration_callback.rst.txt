@@ -1,0 +1,6 @@
+﻿legate.core.Library.get\_registration\_callback
+===============================================
+
+.. currentmodule:: legate.core
+
+.. automethod:: Library.get_registration_callback

@@ -1,0 +1,6 @@
+﻿legate.core.store.Store.slice
+=============================
+
+.. currentmodule:: legate.core.store
+
+.. automethod:: Store.slice

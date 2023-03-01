@@ -1,0 +1,6 @@
+﻿legate.core.context.Annotation.\_\_init\_\_
+===========================================
+
+.. currentmodule:: legate.core.context
+
+.. automethod:: Annotation.__init__

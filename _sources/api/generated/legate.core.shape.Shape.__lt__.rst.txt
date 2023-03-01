@@ -1,0 +1,6 @@
+﻿legate.core.shape.Shape.\_\_lt\_\_
+==================================
+
+.. currentmodule:: legate.core.shape
+
+.. automethod:: Shape.__lt__

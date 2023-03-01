@@ -1,186 +1,386 @@
 
 
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
-<head>
-  <meta charset="utf-8" />
+
+
+<html lang="en" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Legate &#8212; legate.core  documentation</title>
   
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
-  <title>Legate &mdash; legate.core  documentation</title>
   
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=12da95d707ffb74b382d" rel="stylesheet" />
+<link href="_static/styles/bootstrap.css?digest=12da95d707ffb74b382d" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=12da95d707ffb74b382d" rel="stylesheet" />
 
   
-  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-  <link rel="stylesheet" href="_static/copybutton.css" type="text/css" />
-  <link rel="stylesheet" href="_static/params.css" type="text/css" />
+  <link href="_static/vendor/fontawesome/6.1.2/css/all.min.css?digest=12da95d707ffb74b382d" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.1.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.1.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.1.2/webfonts/fa-regular-400.woff2" />
 
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css" />
+    <link rel="stylesheet" type="text/css" href="_static/params.css" />
   
-  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=12da95d707ffb74b382d" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=12da95d707ffb74b382d" />
 
-  
-  
-
-  
-
-  
-  <!--[if lt IE 9]>
-    <script src="_static/js/html5shiv.min.js"></script>
-  <![endif]-->
-  
-    
-      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
-        <script src="_static/jquery.js"></script>
-        <script src="_static/underscore.js"></script>
-        <script src="_static/doctools.js"></script>
-        <script src="_static/clipboard.min.js"></script>
-        <script src="_static/copybutton.js"></script>
-        <script src="_static/copybutton_pydocs.js"></script>
-    
-    <script type="text/javascript" src="_static/js/theme.js"></script>
-
-    
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/clipboard.min.js"></script>
+    <script src="_static/copybutton.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'README';</script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Legate Core API Reference" href="api.html" />
-    <link rel="prev" title="Welcome to Legate Core’s documentation!" href="index.html" /> 
-</head>
-
-<body class="wy-body-for-nav">
-
-   
-  <div class="wy-grid-for-nav">
-    
-    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
-      <div class="wy-side-scroll">
-        <div class="wy-side-nav-search" >
-          
-
-          
-            <a href="index.html" class="icon icon-home"> legate.core
-          
-
-          
-          </a>
-
-          
-            
-            
-          
-
-          
-<div role="search">
-  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
-    <input type="hidden" name="check_keywords" value="yes" />
-    <input type="hidden" name="area" value="default" />
-  </form>
-</div>
-
-          
-        </div>
-
-        
-        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
-          
-            
-            
-              
-            
-            
-              <ul class="current">
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Overview</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#why-legate">Why Legate?</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#what-is-the-legate-core">What is the Legate Core?</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#how-does-legate-work">How Does Legate Work?</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#how-do-i-install-legate">How Do I Install Legate?</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#dependencies">Dependencies</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#installation">Installation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#python-used-by-legate">Python used by Legate</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#toolchain-selection">Toolchain selection</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="#how-do-i-use-legate">How Do I Use Legate?</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#distributed-launch">Distributed Launch</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#debugging-and-profiling">Debugging and Profiling</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="#other-faqs">Other FAQs</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#documentation">Documentation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#next-steps">Next Steps</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="api.html">API Reference</a></li>
-</ul>
-
-            
-          
-        </div>
-        
-      </div>
-    </nav>
-
-    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
-
-      
-      <nav class="wy-nav-top" aria-label="top navigation">
-        
-          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-          <a href="index.html">legate.core</a>
-        
-      </nav>
-
-
-      <div class="wy-nav-content">
-        
-        <div class="rst-content">
-        
-          
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<div role="navigation" aria-label="breadcrumbs navigation">
-
-  <ul class="wy-breadcrumbs">
-    
-      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
-        
-      <li>Legate</li>
-    
-    
-      <li class="wy-breadcrumbs-aside">
-        
-          
-            <a href="_sources/README.md.txt" rel="nofollow"> View page source</a>
-          
-        
-      </li>
-    
-  </ul>
+    <link rel="next" title="Basic build" href="BUILD.html" />
+    <link rel="prev" title="Welcome to Legate Core’s documentation!" href="index.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
 
   
-  <hr/>
-</div>
-          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
-           <div itemprop="articleBody">
+  
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__primary"
+          id="__primary"/>
+  <label class="overlay overlay-primary" for="__primary"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__secondary"
+          id="__secondary"/>
+  <label class="overlay overlay-secondary" for="__secondary"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+  
+    <nav class="bd-header navbar navbar-expand-lg bd-navbar">
+<div class="bd-header__inner bd-page-width">
+  <label class="sidebar-toggle primary-toggle" for="__primary">
+    <span class="fa-solid fa-bars"></span>
+  </label>
+  
+  <div class="navbar-header-items__start">
+    
+      <div class="navbar-item">
+  
+
+<a class="navbar-brand logo" href="index.html">
+  
+  
+  
+  
+  
+    <p class="title logo__title">legate.core  documentation</p>
+  
+</a></div>
+    
+  </div>
+  
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item"><nav class="navbar-nav">
+  <p class="sidebar-header-items__title"
+     role="heading"
+     aria-level="1"
+     aria-label="Site Navigation">
+    Site Navigation
+  </p>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+                    <li class="nav-item current active">
+                      <a class="nav-link nav-internal" href="#">
+                        Overview
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="BUILD.html">
+                        Build instructions
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="api/index.html">
+                        Python API Reference
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-external" href="https://nv-legate.github.io/legate.core/cpp-interface">
+                        C++ API Reference
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="CONTRIBUTING.html">
+                        Contributing
+                      </a>
+                    </li>
+                
+            <div class="nav-item dropdown">
+                <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    More
+                </button>
+                <div class="dropdown-menu">
+                    
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="versions.html">
+                        Versions
+                      </a>
+                    </li>
+                
+                </div>
+            </div>
             
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+  </button>
+`);
+</script>
+        </div>
+      
+      
+        <div class="navbar-item">
+<script>
+document.write(`
+  <button class="theme-switch-button btn btn-sm btn-outline-primary navbar-btn rounded-circle" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch" data-mode="light"><i class="fa-solid fa-sun"></i></span>
+    <span class="theme-switch" data-mode="dark"><i class="fa-solid fa-moon"></i></span>
+    <span class="theme-switch" data-mode="auto"><i class="fa-solid fa-circle-half-stroke"></i></span>
+  </button>
+`);
+</script></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+  </button>
+`);
+</script>
+    </div>
+  
+
+  
+    <label class="sidebar-toggle secondary-toggle" for="__secondary">
+      <span class="fa-solid fa-outdent"></span>
+    </label>
+  
+</div>
+
+    </nav>
+  
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      <div class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          <div class="navbar-item"><nav class="navbar-nav">
+  <p class="sidebar-header-items__title"
+     role="heading"
+     aria-level="1"
+     aria-label="Site Navigation">
+    Site Navigation
+  </p>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+                    <li class="nav-item current active">
+                      <a class="nav-link nav-internal" href="#">
+                        Overview
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="BUILD.html">
+                        Build instructions
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="api/index.html">
+                        Python API Reference
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-external" href="https://nv-legate.github.io/legate.core/cpp-interface">
+                        C++ API Reference
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="CONTRIBUTING.html">
+                        Contributing
+                      </a>
+                    </li>
+                
+            <div class="nav-item dropdown">
+                <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    More
+                </button>
+                <div class="dropdown-menu">
+                    
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="versions.html">
+                        Versions
+                      </a>
+                    </li>
+                
+                </div>
+            </div>
+            
+  </ul>
+</nav></div>
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+<script>
+document.write(`
+  <button class="theme-switch-button btn btn-sm btn-outline-primary navbar-btn rounded-circle" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch" data-mode="light"><i class="fa-solid fa-sun"></i></span>
+    <span class="theme-switch" data-mode="dark"><i class="fa-solid fa-moon"></i></span>
+    <span class="theme-switch" data-mode="auto"><i class="fa-solid fa-circle-half-stroke"></i></span>
+  </button>
+`);
+</script></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+
+
+<nav aria-label="Breadcrumbs">
+  <ul class="bd-breadcrumbs" role="navigation" aria-label="Breadcrumb">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    <li class="breadcrumb-item active" aria-current="page">Legate</li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article" role="main">
+                  
   <!--
-Copyright 2021 NVIDIA Corporation
+Copyright 2021-2022 NVIDIA Corporation
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -194,8 +394,9 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
---><div class="section" id="legate">
-<h1>Legate<a class="headerlink" href="#legate" title="Permalink to this headline">¶</a></h1>
+-->
+<section id="legate">
+<h1>Legate<a class="headerlink" href="#legate" title="Permalink to this heading">#</a></h1>
 <p>The Legate project endeavors to democratize computing by making it possible
 for all programmers to leverage the power of large clusters of CPUs and GPUs
 by running the same code that runs on a desktop or a laptop at scale.
@@ -203,8 +404,9 @@ Using this technology, computational and data scientists can develop and test
 programs on moderately sized data sets on local machines and then immediately
 scale up to larger data sets deployed on many nodes in the cloud or on a
 supercomputer without any code modifications. In visual terms:</p>
-<img src="docs/figures/vision.png" alt="drawing" width="700"/><p>The Legate project is built upon two foundational principles:</p>
-<ol class="simple">
+<img src="docs/figures/vision.png" alt="drawing" width="700"/>
+<p>The Legate project is built upon two foundational principles:</p>
+<ol class="arabic simple">
 <li><p>For end users, such as computational and data scientists, the programming
 model must be identical to programming a single sequential CPU on their
 laptop or desktop. All concerns relating to parallelism, data
@@ -221,20 +423,39 @@ performance on large scale machines.</p></li>
 </ol>
 <p>The Legate project is still in its nascent stages of development, but much of
 the fundamental architecture is in place. We encourage development and contributions
-to existing Legate libraries, such as Legate NumPy and Legate Pandas, as well as
-the development of new Legate libraries. Pull requests are welcomed.</p>
-<ol class="simple">
-<li><p><a class="reference external" href="#why-legate">Why Legate?</a></p></li>
-<li><p><a class="reference external" href="#what-is-the-legate-core">What is the Legate Core?</a></p></li>
-<li><p><a class="reference external" href="#how-does-legate-work">How Does Legate Work?</a></p></li>
-<li><p><a class="reference external" href="#how-do-i-install-legate">How Do I Install Legate?</a></p></li>
-<li><p><a class="reference external" href="#how-do-i-use-legate">How Do I Use Legate?</a></p></li>
-<li><p><a class="reference external" href="#other-faqs">Other FAQs</a></p></li>
-<li><p><a class="reference external" href="#documentation">Documentation</a></p></li>
-<li><p><a class="reference external" href="#next-steps">Next Steps</a></p></li>
-</ol>
-<div class="section" id="why-legate">
-<h2>Why Legate?<a class="headerlink" href="#why-legate" title="Permalink to this headline">¶</a></h2>
+to existing Legate libraries, as well as the development of new Legate libraries.
+Pull requests are welcomed.</p>
+<p>If you have questions, please contact us at legate(at)nvidia.com.</p>
+<ul class="simple">
+<li><p><span class="xref myst">Legate</span></p>
+<ul>
+<li><p><span class="xref myst">Why Legate?</span></p></li>
+<li><p><span class="xref myst">What is the Legate Core?</span></p></li>
+<li><p><span class="xref myst">How Does Legate Work?</span></p></li>
+<li><p><span class="xref myst">How Do I Install Legate?</span></p></li>
+<li><p><span class="xref myst">How Do I Use Legate?</span></p>
+<ul>
+<li><p><span class="xref myst">Distributed Launch</span></p></li>
+<li><p><span class="xref myst">Debugging and Profiling</span></p></li>
+</ul>
+</li>
+<li><p><span class="xref myst">Running Legate programs with Jupyter Notebook</span></p>
+<ul>
+<li><p><span class="xref myst">Installation of the Legate IPython Kernel</span></p></li>
+<li><p><span class="xref myst">Running with Jupyter Notebook</span></p></li>
+<li><p><span class="xref myst">Configuring the Jupyter Notebook</span></p></li>
+<li><p><span class="xref myst">Magic Command</span></p></li>
+</ul>
+</li>
+<li><p><span class="xref myst">Other FAQs</span></p></li>
+<li><p><span class="xref myst">Contributing</span></p></li>
+<li><p><span class="xref myst">Documentation</span></p></li>
+<li><p><span class="xref myst">Next Steps</span></p></li>
+</ul>
+</li>
+</ul>
+<section id="why-legate">
+<h2>Why Legate?<a class="headerlink" href="#why-legate" title="Permalink to this heading">#</a></h2>
 <p>Computational problems today continue to grow both in their complexity as well
 as the scale of the data that they consume and generate. This is true both in
 traditional HPC domains as well as enterprise data analytics cases. Consequently,
@@ -246,15 +467,15 @@ so that any programmer can run code on any scale machine without needing to be
 an expert in parallel programming and distributed systems, thereby allowing
 developers to bring the problem-solving power of large machines to bear on
 more kinds of challenging problems than ever before.</p>
-</div>
-<div class="section" id="what-is-the-legate-core">
-<h2>What is the Legate Core?<a class="headerlink" href="#what-is-the-legate-core" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="what-is-the-legate-core">
+<h2>What is the Legate Core?<a class="headerlink" href="#what-is-the-legate-core" title="Permalink to this heading">#</a></h2>
 <p>The Legate Core is our version of <a class="reference external" href="https://arrow.apache.org/">Apache Arrow</a>. Apache
 Arrow has significantly improved composability of software libraries by making it
 possible for different libraries to share in-memory buffers of data without
 unnecessary copying. However, it falls short when it comes to meeting two
 of our primary requirements for Legate:</p>
-<ol class="simple">
+<ol class="arabic simple">
 <li><p>Arrow only provides an API for describing a physical representation
 of data as a single memory allocation. There is no interface for describing
 cases where data has been partitioned and then capturing the logical
@@ -287,7 +508,7 @@ provides a new interface for reasoning about partitioned and distributed
 data in asynchronous execution environments.</p>
 <p>Any implementation of a <code class="docutils literal notranslate"><span class="pre">LegateStore</span></code> must maintain the following guarantees
 to clients of the Legate Core API (i.e. Legate library developers):</p>
-<ol class="simple">
+<ol class="arabic simple">
 <li><p>The coherence of data contained in a <code class="docutils literal notranslate"><span class="pre">LegateStore</span></code> must be implicitly
 managed by the implementation of the Legate Core API. This means that
 no matter where data is requested to perform a computation in a machine,
@@ -318,9 +539,9 @@ that make implementing distributed and accelerated libraries hard off of the
 library developers and onto the implementation of the Legate Core API. This
 is by design as it allows the costs to be amortized across all libraries in
 the ecosystem and ensures that Legate library developers are more productive.</p>
-</div>
-<div class="section" id="how-does-legate-work">
-<h2>How Does Legate Work?<a class="headerlink" href="#how-does-legate-work" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="how-does-legate-work">
+<h2>How Does Legate Work?<a class="headerlink" href="#how-does-legate-work" title="Permalink to this heading">#</a></h2>
 <p>Our implementation of the Legate Core API is built on top of the
 <a class="reference external" href="http://legion.stanford.edu">Legion</a> programming model and runtime system.
 Legion was originally designed for large HPC applications that target
@@ -335,7 +556,7 @@ to use Legion such that developers can still get access to the benefits of
 Legion without needing to learn all of the lowest-level interfaces.</p>
 <p>The <a class="reference external" href="https://legion.stanford.edu/pdfs/sc2012.pdf">Legion programming model</a>
 greatly aids in implementing the Legate Core API. Data types from libraries,
-such as arrays in Legate NumPy are mapped down onto <code class="docutils literal notranslate"><span class="pre">LegateStore</span></code> objects
+such as arrays in cuNumeric are mapped down onto <code class="docutils literal notranslate"><span class="pre">LegateStore</span></code> objects
 that wrap Legion data types such as logical regions or futures.
 In the case of regions, Legate application libraries rely heavily on
 Legion’s <a class="reference external" href="https://legion.stanford.edu/pdfs/oopsla2013.pdf">support for partitioning of logical regions into arbitrary
@@ -373,96 +594,24 @@ detect it and insert the necessary data movement and synchronization
 across nodes (or GPU framebuffers). This is the transformation that allows
 sequential programs to run efficiently at scale across large clusters
 as though they are running on a single processor.</p>
-</div>
-<div class="section" id="how-do-i-install-legate">
-<h2>How Do I Install Legate?<a class="headerlink" href="#how-do-i-install-legate" title="Permalink to this headline">¶</a></h2>
-<div class="section" id="dependencies">
-<h3>Dependencies<a class="headerlink" href="#dependencies" title="Permalink to this headline">¶</a></h3>
-<p>Legate has been tested on both Linux and Darwin operating systems, although only
-a few flavors of Linux such as Ubuntu have been thoroughly tested. There is currently
-no support for Windows.</p>
-<p>The Legate Core currently requires Python &gt;= 3.7 and the following packages:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">pyarrow=1.0.1</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">numpy</span></code></p></li>
-<li><p><a class="reference external" href="https://developer.nvidia.com/cuda-downloads">CUDA</a> &gt;= 8.0</p></li>
-<li><p>C++14 compatible compiler (g++, clang, or nvc++)</p></li>
-</ul>
-</div>
-<div class="section" id="installation">
-<h3>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h3>
-<p>The Legate Core library comes with both a standard <code class="docutils literal notranslate"><span class="pre">setup.py</span></code> script and a
-custom <code class="docutils literal notranslate"><span class="pre">install.py</span></code> script in the top-level directory of the repository that
-will build and install the Legate Core library. Users can use either script
-to install Legate as they will produce the same effect. A simple
-single-node, CPU-only installation of Legate into <code class="docutils literal notranslate"><span class="pre">targetdir</span></code> will be performed by:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">./</span><span class="n">setup</span><span class="o">.</span><span class="n">py</span> <span class="o">--</span><span class="n">install</span><span class="o">-</span><span class="nb">dir</span> <span class="n">targetdir</span>
+</section>
+<section id="how-do-i-install-legate">
+<h2>How Do I Install Legate?<a class="headerlink" href="#how-do-i-install-legate" title="Permalink to this heading">#</a></h2>
+<p>Legate Core is available <a class="reference external" href="https://anaconda.org/legate/legate-core">on conda</a>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">conda</span> <span class="n">install</span> <span class="o">-</span><span class="n">c</span> <span class="n">nvidia</span> <span class="o">-</span><span class="n">c</span> <span class="n">conda</span><span class="o">-</span><span class="n">forge</span> <span class="o">-</span><span class="n">c</span> <span class="n">legate</span> <span class="n">legate</span><span class="o">-</span><span class="n">core</span>
 </pre></div>
 </div>
-<p>To add GPU support for Legate simply use the <code class="docutils literal notranslate"><span class="pre">--cuda</span></code> flag. The first time you request
-GPU support you will need to use the <code class="docutils literal notranslate"><span class="pre">--with-cuda</span></code> flag to specify the location
-of your CUDA installation. For later invocations you do not need to use this
-flag again the installation scripts will remember the location of your CUDA
-installation until you tell it differently. You can also specify the name of the
-CUDA architecture you want to target with the <code class="docutils literal notranslate"><span class="pre">--arch</span></code> flag (the default is <code class="docutils literal notranslate"><span class="pre">volta</span></code>
-but you can also specify <code class="docutils literal notranslate"><span class="pre">kepler</span></code>, <code class="docutils literal notranslate"><span class="pre">maxwell</span></code>, <code class="docutils literal notranslate"><span class="pre">pascal</span></code>, or <code class="docutils literal notranslate"><span class="pre">ampere</span></code>).</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">./</span><span class="n">install</span><span class="o">.</span><span class="n">py</span> <span class="o">--</span><span class="n">cuda</span> <span class="o">--</span><span class="k">with</span><span class="o">-</span><span class="n">cuda</span> <span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">local</span><span class="o">/</span><span class="n">cuda</span><span class="o">/</span> <span class="o">--</span><span class="n">arch</span> <span class="n">volta</span>
-</pre></div>
-</div>
-<p>For multi-node support Legate uses <a class="reference external" href="https://gasnet.lbl.gov/">GASNet</a> which can be
-requested using the the <code class="docutils literal notranslate"><span class="pre">--gasnet</span></code> flag. If you have an existing GASNet installation
-then you can inform the install script with the <code class="docutils literal notranslate"><span class="pre">--with-gasnet</span></code> flag. The
-<code class="docutils literal notranslate"><span class="pre">install.py</span></code> script also requires you to specify the interconnect network of
-the target machine using the <code class="docutils literal notranslate"><span class="pre">--conduit</span></code> flag (current choices are one of <code class="docutils literal notranslate"><span class="pre">ibv</span></code>
-for <a class="reference external" href="http://www.infinibandta.org/">Infiniband</a>, or <code class="docutils literal notranslate"><span class="pre">gemini</span></code> or <code class="docutils literal notranslate"><span class="pre">aries</span></code> for Cray
-interconnects). For example this would be an installation for a
-<a class="reference external" href="https://www.nvidia.com/en-us/data-center/dgx-superpod/">DGX SuperPOD</a>:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">./</span><span class="n">install</span><span class="o">.</span><span class="n">py</span> <span class="o">--</span><span class="n">gasnet</span> <span class="o">--</span><span class="n">conduit</span> <span class="n">ibv</span> <span class="o">--</span><span class="n">cuda</span> <span class="o">--</span><span class="n">arch</span> <span class="n">ampere</span>
-</pre></div>
-</div>
-<p>Alternatively here is an install line for the
-<a class="reference external" href="https://www.cscs.ch/computers/dismissed/piz-daint-piz-dora/">Piz-Daint</a> supercomputer:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">./</span><span class="n">install</span><span class="o">.</span><span class="n">py</span> <span class="o">--</span><span class="n">gasnet</span> <span class="o">--</span><span class="n">conduit</span> <span class="n">aries</span> <span class="o">--</span><span class="n">cuda</span> <span class="o">--</span><span class="n">arch</span> <span class="n">pascal</span>
-</pre></div>
-</div>
-<p>To see all the options available for installing Legate, just run with the <code class="docutils literal notranslate"><span class="pre">--help</span></code> flag:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">./</span><span class="n">install</span><span class="o">.</span><span class="n">py</span> <span class="o">--</span><span class="n">help</span>
-</pre></div>
-</div>
-<p>Options passed to <code class="docutils literal notranslate"><span class="pre">setup.py</span></code> will automatically be forwarded to <code class="docutils literal notranslate"><span class="pre">install.py</span></code> so
-that users can use them interchangeably (this provides backwards compatibility
-for earlier versions of Legate when only <code class="docutils literal notranslate"><span class="pre">install.py</span></code> existed).</p>
-</div>
-<div class="section" id="python-used-by-legate">
-<h3>Python used by Legate<a class="headerlink" href="#python-used-by-legate" title="Permalink to this headline">¶</a></h3>
-<p>Legate discovers the Python library and version during build time, and then it
-builds all successive Legate libraries against that version of Python. The build system
-tries to detect the Python setup from the default Python interpreter, but sometimes
-it is unsuccessful or a different version of Python than the one in the environment
-may be desired. To use a different version of Python than the one available in the
-environment, the <code class="docutils literal notranslate"><span class="pre">PYTHON_ROOT</span></code> variable must be set to the base directory of the
-desired Python installation.</p>
-<p>Sometimes, the search for the Python library may fail.  In such situation, the
-build system generates a warning:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">runtime</span><span class="o">.</span><span class="n">mk</span><span class="p">:</span> <span class="n">cannot</span> <span class="n">find</span> <span class="n">libpython3</span><span class="o">.</span><span class="mi">6</span><span class="o">*.</span><span class="n">so</span> <span class="o">-</span> <span class="n">falling</span> <span class="n">back</span> <span class="n">to</span> <span class="n">using</span> <span class="n">LD_LIBRARY_PATH</span>
-</pre></div>
-</div>
-<p>In this case, Legate will use the Python library that is available at runtime, if any.
-To explicitly specify the Python library to use, <code class="docutils literal notranslate"><span class="pre">PYTHON_LIB</span></code> should be set to the
-location of the library, and <code class="docutils literal notranslate"><span class="pre">PYTHON_VERSION_MAJOR</span></code> should be set to <code class="docutils literal notranslate"><span class="pre">3</span></code>.</p>
-</div>
-<div class="section" id="toolchain-selection">
-<h3>Toolchain selection<a class="headerlink" href="#toolchain-selection" title="Permalink to this headline">¶</a></h3>
-<p>Legate relies on environment variables to select its toolchain and build flags
-(such as <code class="docutils literal notranslate"><span class="pre">CXX</span></code>, <code class="docutils literal notranslate"><span class="pre">CC_FLAGS</span></code>, <code class="docutils literal notranslate"><span class="pre">LD_FLAGS</span></code>, <code class="docutils literal notranslate"><span class="pre">NVCC_FLAGS</span></code>). Setting these environment
-variables prior to building and installing Legate will influence the build of
-any C++ and CUDA code in Legate.</p>
-</div>
-</div>
-<div class="section" id="how-do-i-use-legate">
-<h2>How Do I Use Legate?<a class="headerlink" href="#how-do-i-use-legate" title="Permalink to this headline">¶</a></h2>
+<p>Only linux-64 packages are available at the moment.</p>
+<p>The default package contains GPU support, and is compatible with CUDA &gt;= 11.4
+(CUDA driver version &gt;= r470), and Volta or later GPU architectures. There are
+also CPU-only packages available, and will be automatically selected by <code class="docutils literal notranslate"><span class="pre">conda</span></code>
+when installing on a machine without GPUs.</p>
+<p>See <a class="reference internal" href="BUILD.html"><span class="doc std std-doc">BUILD.md</span></a> for instructions on building Legate Core from source.</p>
+</section>
+<section id="how-do-i-use-legate">
+<h2>How Do I Use Legate?<a class="headerlink" href="#how-do-i-use-legate" title="Permalink to this heading">#</a></h2>
 <p>After installing the Legate Core library, the next step is to install a Legate
-application library such as Legate NumPy. The installation process for a
+application library such as cuNumeric. The installation process for a
 Legate application library will require you to provide a pointer to the location
 of your Legate Core library installation as this will be used to configure the
 installation of the Legate application library. After you finish installing any
@@ -473,13 +622,16 @@ For example, you can change this:</p>
 </pre></div>
 </div>
 <p>to this:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">legate.numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">cunumeric</span> <span class="k">as</span> <span class="nn">np</span>
 </pre></div>
 </div>
 <p>After this, you can use the <code class="docutils literal notranslate"><span class="pre">legate</span></code> driver script in the <code class="docutils literal notranslate"><span class="pre">bin</span></code> directory of
-your installation to run any Python program. For example, to run your script
-in the default configuration (4 CPUs cores and 4 GB of memory) just run:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">installdir</span><span class="o">/</span><span class="nb">bin</span><span class="o">/</span><span class="n">legate</span> <span class="n">my_python_program</span><span class="o">.</span><span class="n">py</span> <span class="p">[</span><span class="n">other</span> <span class="n">args</span><span class="p">]</span>
+your installation to run any Python program. <strong>Note that the default python
+interpreter (<code class="docutils literal notranslate"><span class="pre">python</span></code>) will not work with programs that use Legate libraries, you
+need to use this custom driver script.</strong></p>
+<p>For example, to run your script in the default configuration (4 CPUs cores and
+4 GB of memory) just run:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ legate my_python_program.py [other args]
 </pre></div>
 </div>
 <p>The <code class="docutils literal notranslate"><span class="pre">legate</span></code> script also allows you to control the amount of resources that
@@ -489,7 +641,7 @@ The <code class="docutils literal notranslate"><span class="pre">--sysmem</span>
 to use per node, while the <code class="docutils literal notranslate"><span class="pre">--fbmem</span></code> flag controls how many MBs of framebuffer
 memory Legate is allowed to use per GPU. For example, when running on a DGX
 station, you might run your application as follows:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">installdir</span><span class="o">/</span><span class="nb">bin</span><span class="o">/</span><span class="n">legate</span> <span class="o">--</span><span class="n">cpus</span> <span class="mi">16</span> <span class="o">--</span><span class="n">gpus</span> <span class="mi">4</span> <span class="o">--</span><span class="n">sysmem</span> <span class="mi">100000</span> <span class="o">-</span><span class="n">fbmem</span> <span class="mi">15000</span> <span class="n">my_python_program</span><span class="o">.</span><span class="n">py</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ legate --cpus 16 --gpus 4 --sysmem 100000 --fbmem 15000 my_python_program.py
 </pre></div>
 </div>
 <p>This will make 16 CPU processors and all 4 GPUs available for use by Legate.
@@ -504,32 +656,82 @@ the assigned resources please let us know so we can improve our mapping heuristi
 There are many other flags available for use in the <code class="docutils literal notranslate"><span class="pre">legate</span></code> driver script that you
 can use to communicate how Legate should view the available machine resources.
 You can see a list of them by running:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">installdir</span><span class="o">/</span><span class="nb">bin</span><span class="o">/</span><span class="n">legate</span> <span class="o">--</span><span class="n">help</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ legate --help
 </pre></div>
 </div>
 <p>In addition to running Legate programs, you can also use Legate in an interactive
 mode by simply not passing any <code class="docutils literal notranslate"><span class="pre">*py</span></code> files on the command line. You can still
 request resources just as you would though with a normal file. Legate will
 still use all the resources available to it, including doing multi-node execution.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">installdir</span><span class="o">/</span><span class="nb">bin</span><span class="o">/</span><span class="n">legate</span> <span class="o">--</span><span class="n">cpus</span> <span class="mi">16</span> <span class="o">--</span><span class="n">gpus</span> <span class="mi">4</span> <span class="o">--</span><span class="n">sysmem</span> <span class="mi">100000</span> <span class="o">-</span><span class="n">fbmem</span> <span class="mi">15000</span>
-<span class="n">Welcome</span> <span class="n">to</span> <span class="n">Legion</span> <span class="n">Python</span> <span class="n">interactive</span> <span class="n">console</span>
-<span class="o">&gt;&gt;&gt;</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ legate --cpus 16 --gpus 4 --sysmem 100000 --fbmem 15000
+Welcome to Legion Python interactive console
+&gt;&gt;&gt;
 </pre></div>
 </div>
 <p>Note that Legate does not currently support multi-tenancy cases where different
 users are attempting to use the same hardware concurrently.</p>
-<div class="section" id="distributed-launch">
-<h3>Distributed Launch<a class="headerlink" href="#distributed-launch" title="Permalink to this headline">¶</a></h3>
-<p>If legate is compiled with GASNet support (<a class="reference external" href="#Installation">see the installation section</a>),
+<p>As a convenience, several command-line options can have their default values set
+via environment variables. These environment variables, their corresponding command-
+line options, and their default values are as follows.</p>
+<table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p>CLI Option</p></th>
+<th class="head"><p>Env. Variable</p></th>
+<th class="head"><p>Default Value</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>–omps</p></td>
+<td><p>LEGATE_OMP_PROCS</p></td>
+<td><p>0</p></td>
+</tr>
+<tr class="row-odd"><td><p>–ompthreads</p></td>
+<td><p>LEGATE_OMP_THREADS</p></td>
+<td><p>4</p></td>
+</tr>
+<tr class="row-even"><td><p>–utility</p></td>
+<td><p>LEGATE_UTILITY_CORES</p></td>
+<td><p>2</p></td>
+</tr>
+<tr class="row-odd"><td><p>–sysmem</p></td>
+<td><p>LEGATE_SYSMEM</p></td>
+<td><p>4000</p></td>
+</tr>
+<tr class="row-even"><td><p>–numamem</p></td>
+<td><p>LEGATE_NUMAMEM</p></td>
+<td><p>0</p></td>
+</tr>
+<tr class="row-odd"><td><p>–fbmem</p></td>
+<td><p>LEGATE_FBMEM</p></td>
+<td><p>4000</p></td>
+</tr>
+<tr class="row-even"><td><p>–zcmem</p></td>
+<td><p>LEGATE_ZCMEM</p></td>
+<td><p>32</p></td>
+</tr>
+<tr class="row-odd"><td><p>–regmem</p></td>
+<td><p>LEGATE_REGMEM</p></td>
+<td><p>0</p></td>
+</tr>
+<tr class="row-even"><td><p>–eager-alloc-percentage</p></td>
+<td><p>LEGATE_EAGER_ALLOC_PERCENTAGE</p></td>
+<td><p>50</p></td>
+</tr>
+</tbody>
+</table>
+<section id="distributed-launch">
+<h3>Distributed Launch<a class="headerlink" href="#distributed-launch" title="Permalink to this heading">#</a></h3>
+<p>If Legate is compiled with networking support (see the
+<span class="xref myst">installation section</span>),
 it can be run in parallel by using the <code class="docutils literal notranslate"><span class="pre">--nodes</span></code> option followed by the number of nodes
 to be used.  Whenever the <code class="docutils literal notranslate"><span class="pre">--nodes</span></code> option is used, Legate will be launched
 using <code class="docutils literal notranslate"><span class="pre">mpirun</span></code>, even with <code class="docutils literal notranslate"><span class="pre">--nodes</span> <span class="pre">1</span></code>.  Without the <code class="docutils literal notranslate"><span class="pre">--nodes</span></code> option, no launcher will
 be used.  Legate currently supports <code class="docutils literal notranslate"><span class="pre">mpirun</span></code>, <code class="docutils literal notranslate"><span class="pre">srun</span></code>, and <code class="docutils literal notranslate"><span class="pre">jsrun</span></code> as launchers and we
 are open to adding additional launcher kinds. You can select the
 target kind of launcher with <code class="docutils literal notranslate"><span class="pre">--launcher</span></code>.</p>
-</div>
-<div class="section" id="debugging-and-profiling">
-<h3>Debugging and Profiling<a class="headerlink" href="#debugging-and-profiling" title="Permalink to this headline">¶</a></h3>
+</section>
+<section id="debugging-and-profiling">
+<h3>Debugging and Profiling<a class="headerlink" href="#debugging-and-profiling" title="Permalink to this heading">#</a></h3>
 <p>Legate also comes with several tools that you can use to better understand
 your program both from a correctness and a performance standpoint. For
 correctness, Legate has facilities for constructing both dataflow
@@ -552,16 +754,83 @@ your local machine (depending on your browser).</p>
 <p>We recommend that you do not mix debugging and profiling in the same run as
 some of the logging for the debugging features requires significant file I/O
 that can adversely effect the performance of the application.</p>
+</section>
+</section>
+<section id="running-legate-programs-with-jupyter-notebook">
+<h2>Running Legate programs with Jupyter Notebook<a class="headerlink" href="#running-legate-programs-with-jupyter-notebook" title="Permalink to this heading">#</a></h2>
+<p>Same as normal Python programs, Legate programs can be run
+using Jupyter Notebook. Currently we support single node execution with
+multiple CPUs and GPUs, and plan to support multi-node execution in the future.
+We leverage Legion’s Jupyter support, so you may want to refer to the
+<a class="reference external" href="https://github.com/StanfordLegion/legion/blob/master/jupyter_notebook/README.md">relevant section in Legion’s README</a>.
+To simplify the installation, we provide a script specifically for Legate libraries.</p>
+<section id="installation-of-the-legate-ipython-kernel">
+<h3>Installation of the Legate IPython Kernel<a class="headerlink" href="#installation-of-the-legate-ipython-kernel" title="Permalink to this heading">#</a></h3>
+<p>Please install Legate, then run the following command to install a default
+Jupyter kernel:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">legate</span><span class="o">-</span><span class="n">jupyter</span>
+</pre></div>
 </div>
+<p>If installation is successful, you will see some output like the following:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Jupyter</span> <span class="n">kernel</span> <span class="n">spec</span> <span class="n">Legate_SM_GPU</span> <span class="p">(</span><span class="n">Legate_SM_GPU</span><span class="p">)</span> <span class="n">has</span> <span class="n">been</span> <span class="n">installed</span>
+</pre></div>
 </div>
-<div class="section" id="other-faqs">
-<h2>Other FAQs<a class="headerlink" href="#other-faqs" title="Permalink to this headline">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">Legate_SM_GPU</span></code> is the default kernel name.</p>
+</section>
+<section id="running-with-jupyter-notebook">
+<h3>Running with Jupyter Notebook<a class="headerlink" href="#running-with-jupyter-notebook" title="Permalink to this heading">#</a></h3>
+<p>You will need to start a Jupyter server, then you can use a Jupyter notebook
+from any browser. Please refer to the following two sections from the README of
+the Legion Jupyter Notebook extension:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://github.com/StanfordLegion/legion/tree/master/jupyter_notebook#start-the-jupyter-notebook-server">Start the Jupyter Notebook server</a></p></li>
+<li><p><a class="reference external" href="https://github.com/StanfordLegion/legion/tree/master/jupyter_notebook#use-the-jupyter-notebook-in-the-browser">Use the Jupyter Notebook in the browser</a></p></li>
+</ul>
+</section>
+<section id="configuring-the-jupyter-notebook">
+<h3>Configuring the Jupyter Notebook<a class="headerlink" href="#configuring-the-jupyter-notebook" title="Permalink to this heading">#</a></h3>
+<p>The Legate Jupyter kernel is configured according to the command line arguments
+provided at install time.  Standard <code class="docutils literal notranslate"><span class="pre">legate</span></code> options for Core, Memory, and
+Mult-node configuration may be provided, as well as a name for the kernel:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">legate</span><span class="o">-</span><span class="n">jupyter</span> <span class="o">--</span><span class="n">name</span> <span class="n">legate_cpus_2</span> <span class="o">--</span><span class="n">cpus</span> <span class="mi">2</span>
+</pre></div>
+</div>
+<p>Other configuration options can be seen by using the <code class="docutils literal notranslate"><span class="pre">--help</span></code> command line option.</p>
+</section>
+<section id="magic-command">
+<h3>Magic Command<a class="headerlink" href="#magic-command" title="Permalink to this heading">#</a></h3>
+<p>We provide a Jupyter magic command to display the IPython kernel configuration.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">%</span><span class="n">load_ext</span> <span class="n">legate</span><span class="o">.</span><span class="n">jupyter</span>
+<span class="o">%</span><span class="n">legate_info</span>
+</pre></div>
+</div>
+<p>results in output:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Kernel</span> <span class="s1">&#39;Legate_SM_GPU&#39;</span> <span class="n">configured</span> <span class="k">for</span> <span class="mi">1</span> <span class="n">node</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+
+<span class="n">Cores</span><span class="p">:</span>
+  <span class="n">CPUs</span> <span class="n">to</span> <span class="n">use</span> <span class="n">per</span> <span class="n">rank</span> <span class="p">:</span> <span class="mi">4</span>
+  <span class="n">GPUs</span> <span class="n">to</span> <span class="n">use</span> <span class="n">per</span> <span class="n">rank</span> <span class="p">:</span> <span class="mi">0</span>
+  <span class="n">OpenMP</span> <span class="n">groups</span> <span class="n">to</span> <span class="n">use</span> <span class="n">per</span> <span class="n">rank</span> <span class="p">:</span> <span class="mi">0</span>
+  <span class="n">Threads</span> <span class="n">per</span> <span class="n">OpenMP</span> <span class="n">group</span> <span class="p">:</span> <span class="mi">4</span>
+  <span class="n">Utility</span> <span class="n">processors</span> <span class="n">per</span> <span class="n">rank</span> <span class="p">:</span> <span class="mi">2</span>
+
+<span class="n">Memory</span><span class="p">:</span>
+  <span class="n">DRAM</span> <span class="n">memory</span> <span class="n">per</span> <span class="n">rank</span> <span class="p">(</span><span class="ow">in</span> <span class="n">MBs</span><span class="p">)</span> <span class="p">:</span> <span class="mi">4000</span>
+  <span class="n">DRAM</span> <span class="n">memory</span> <span class="n">per</span> <span class="n">NUMA</span> <span class="n">domain</span> <span class="n">per</span> <span class="n">rank</span> <span class="p">(</span><span class="ow">in</span> <span class="n">MBs</span><span class="p">)</span> <span class="p">:</span> <span class="mi">0</span>
+  <span class="n">Framebuffer</span> <span class="n">memory</span> <span class="n">per</span> <span class="n">GPU</span> <span class="p">(</span><span class="ow">in</span> <span class="n">MBs</span><span class="p">)</span> <span class="p">:</span> <span class="mi">4000</span>
+  <span class="n">Zero</span><span class="o">-</span><span class="n">copy</span> <span class="n">memory</span> <span class="n">per</span> <span class="n">rank</span> <span class="p">(</span><span class="ow">in</span> <span class="n">MBs</span><span class="p">)</span> <span class="p">:</span> <span class="mi">32</span>
+  <span class="n">Registered</span> <span class="n">CPU</span><span class="o">-</span><span class="n">side</span> <span class="n">pinned</span> <span class="n">memory</span> <span class="n">per</span> <span class="n">rank</span> <span class="p">(</span><span class="ow">in</span> <span class="n">MBs</span><span class="p">)</span> <span class="p">:</span> <span class="mi">0</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="other-faqs">
+<h2>Other FAQs<a class="headerlink" href="#other-faqs" title="Permalink to this heading">#</a></h2>
 <ul class="simple">
 <li><p><em>Does Legate only work on NVIDIA hardware?</em>
-No, Legate will run on most kinds of hardware, anywhere that Legion and
-GASNet will run. This includes x86, ARM, and PowerPC CPUs. GASNet (and therefore
-Legate) also includes support for Infiniband, Cray, Omnipath, and
-(ROC-)Ethernet based interconnects.</p></li>
+No, Legate will run on any processor supported by Legion (e.g. x86, ARM, and
+PowerPC CPUs), and any network supported by GASNet or UCX (e.g. Infiniband,
+Cray, Omnipath, and (ROC-)Ethernet based interconnects).</p></li>
 <li><p><em>What languages does the Legate Core API have bindings for?</em>
 Currently the Legate Core bindings are only available in Python. Watch
 this space for new language bindings soon or make a pull request to
@@ -593,14 +862,18 @@ If you are interested in pursuing this approach please open an issue
 on the <a class="reference external" href="https://github.com/StanfordLegion/legion/issues">Legion github issue tracker</a>
 as it will be almost entirely orthogonal to how you use Legate.</p></li>
 </ul>
-</div>
-<div class="section" id="documentation">
-<h2>Documentation<a class="headerlink" href="#documentation" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="contributing">
+<h2>Contributing<a class="headerlink" href="#contributing" title="Permalink to this heading">#</a></h2>
+<p>See the discussion of contributing in <a class="reference internal" href="CONTRIBUTING.html"><span class="doc std std-doc">CONTRIBUTING.md</span></a>.</p>
+</section>
+<section id="documentation">
+<h2>Documentation<a class="headerlink" href="#documentation" title="Permalink to this heading">#</a></h2>
 <p>A complete list of available features can is provided in the <a class="reference external" href="https://nv-legate.github.io/legate.core/api.html">API
 reference</a>.</p>
-</div>
-<div class="section" id="next-steps">
-<h2>Next Steps<a class="headerlink" href="#next-steps" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="next-steps">
+<h2>Next Steps<a class="headerlink" href="#next-steps" title="Permalink to this heading">#</a></h2>
 <p>We recommend starting by experimenting with at least one Legate application
 library to test out performance and see how Legate works. If you are interested
 in building your own Legate application library, we recommend that you
@@ -608,55 +881,131 @@ investigate our <a class="reference external" href="https://github.com/nv-legate
 library</a> that provides a small
 example of how to get started developing your own drop-in replacement library
 on top of Legion using the Legate Core library.</p>
-</div>
-</div>
+</section>
+</section>
 
 
-           </div>
-           
-          </div>
-          <footer>
-    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
-        <a href="api.html" class="btn btn-neutral float-right" title="Legate Core API Reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
-        <a href="index.html" class="btn btn-neutral float-left" title="Welcome to Legate Core’s documentation!" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-    </div>
-
-  <hr/>
-
-  <div role="contentinfo">
-    <p>
-        &#169; Copyright 2021, NVIDIA.
-
-    </p>
-  </div>
-    
-    
-    
-    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
-    
-    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
-    
-    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
-
-</footer>
-        </div>
+                </article>
+              
+              
+              
+                <footer class="bd-footer-article">
+                  <!-- Previous / next buttons -->
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="index.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Welcome to Legate Core’s documentation!</p>
       </div>
+    </a>
+    <a class="right-next"
+       href="BUILD.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Basic build</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
 
-    </section>
+  <div class="sidebar-secondary-item">
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#why-legate">Why Legate?</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#what-is-the-legate-core">What is the Legate Core?</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-does-legate-work">How Does Legate Work?</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-do-i-install-legate">How Do I Install Legate?</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#how-do-i-use-legate">How Do I Use Legate?</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#distributed-launch">Distributed Launch</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#debugging-and-profiling">Debugging and Profiling</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#running-legate-programs-with-jupyter-notebook">Running Legate programs with Jupyter Notebook</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#installation-of-the-legate-ipython-kernel">Installation of the Legate IPython Kernel</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#running-with-jupyter-notebook">Running with Jupyter Notebook</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#configuring-the-jupyter-notebook">Configuring the Jupyter Notebook</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#magic-command">Magic Command</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#other-faqs">Other FAQs</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#contributing">Contributing</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#documentation">Documentation</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#next-steps">Next Steps</a></li>
+</ul>
+  </nav></div>
 
+  <div class="sidebar-secondary-item">
+  <div class="tocsection sourcelink">
+    <a href="_sources/README.md.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            <div class="bd-footer-content__inner"></div>
+          </footer>
+        
+      </main>
+    </div>
   </div>
   
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="_static/scripts/bootstrap.js?digest=12da95d707ffb74b382d"></script>
+<script src="_static/scripts/pydata-sphinx-theme.js?digest=12da95d707ffb74b382d"></script>
 
-  <script type="text/javascript">
-      jQuery(function () {
-          SphinxRtdTheme.Navigation.enable(true);
-      });
-  </script>
-
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
   
-  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+  <p class="copyright">
     
-   
+      © Copyright 2021-2022, NVIDIA.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+  <p class="sphinx-version">
+    Created using <a href="https://sphinx-doc.org/">Sphinx</a> 5.3.0.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item"><p class="theme-version">
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.13.0.
+</p></div>
+      
+    </div>
+  
+</div>
 
-</body>
+  </footer>
+  </body>
 </html>

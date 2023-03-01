@@ -1,0 +1,6 @@
+﻿legate.core.shape.Shape.map
+===========================
+
+.. currentmodule:: legate.core.shape
+
+.. automethod:: Shape.map

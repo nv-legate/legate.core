@@ -1,0 +1,6 @@
+﻿legate.core.ResourceConfig.max\_reduction\_ops
+==============================================
+
+.. currentmodule:: legate.core
+
+.. autoattribute:: ResourceConfig.max_reduction_ops

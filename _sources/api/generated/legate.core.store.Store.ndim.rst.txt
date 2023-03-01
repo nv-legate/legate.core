@@ -1,0 +1,6 @@
+﻿legate.core.store.Store.ndim
+============================
+
+.. currentmodule:: legate.core.store
+
+.. autoproperty:: Store.ndim

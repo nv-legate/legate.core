@@ -1,0 +1,6 @@
+﻿legate.core.store.Store.get\_inline\_allocation
+===============================================
+
+.. currentmodule:: legate.core.store
+
+.. automethod:: Store.get_inline_allocation

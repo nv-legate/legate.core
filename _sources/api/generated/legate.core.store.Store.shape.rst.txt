@@ -1,0 +1,6 @@
+﻿legate.core.store.Store.shape
+=============================
+
+.. currentmodule:: legate.core.store
+
+.. autoproperty:: Store.shape

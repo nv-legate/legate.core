@@ -1,0 +1,6 @@
+﻿legate.core.store.Store.delinearize
+===================================
+
+.. currentmodule:: legate.core.store
+
+.. automethod:: Store.delinearize

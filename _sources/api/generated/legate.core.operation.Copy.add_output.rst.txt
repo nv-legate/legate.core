@@ -1,0 +1,6 @@
+﻿legate.core.operation.Copy.add\_output
+======================================
+
+.. currentmodule:: legate.core.operation
+
+.. automethod:: Copy.add_output

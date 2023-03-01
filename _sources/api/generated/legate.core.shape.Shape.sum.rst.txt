@@ -1,0 +1,6 @@
+﻿legate.core.shape.Shape.sum
+===========================
+
+.. currentmodule:: legate.core.shape
+
+.. automethod:: Shape.sum

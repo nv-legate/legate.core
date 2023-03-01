@@ -1,0 +1,6 @@
+﻿legate.core.Library.get\_name
+=============================
+
+.. currentmodule:: legate.core
+
+.. automethod:: Library.get_name

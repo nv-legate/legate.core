@@ -1,0 +1,6 @@
+﻿legate.core.context.Context.create\_store
+=========================================
+
+.. currentmodule:: legate.core.context
+
+.. automethod:: Context.create_store

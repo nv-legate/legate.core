@@ -1,0 +1,6 @@
+﻿legate.core.store.Store.type
+============================
+
+.. currentmodule:: legate.core.store
+
+.. autoproperty:: Store.type
