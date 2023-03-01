@@ -1,6 +1,9 @@
 from typing import Any
 
-from hello import iota, square, sum, to_scalar
+import cunumeric
+import numpy as np
+
+from hello import square, sum, to_scalar
 from legate.core import Store
 
 
@@ -16,7 +19,8 @@ def mean_and_variance(a: Any, n: int) -> float:
     return mean_a, variance
 
 
-# Example: Use a basic 1,2,3,4 array
+# Example: Use a random array from cunumeric
 n = 4
-a = iota(n)
+a = cunumeric.random.randn(n).astype(np.float32)
+print(a)
 print(mean_and_variance(a, n))

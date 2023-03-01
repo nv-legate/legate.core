@@ -10,8 +10,7 @@ public:
     legate::Rect<1> input_shape = input.shape<1>(); // should be a 1-Dim array
     auto in = input.read_accessor<float, 1>();
 
-    logger.info() << "Elementwise square [" << input_shape.lo << ","
-                  << input_shape.hi << "]";
+    logger.info() << "Sum [" << input_shape.lo << "," << input_shape.hi << "]";
 
     float total = 0;
     // i is a global index for the complete array
