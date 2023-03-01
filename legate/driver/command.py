@@ -382,7 +382,7 @@ def cmd_eager_alloc(
 def cmd_ucx(
     config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
-    return ("-ucx:tls_host", "^dc,ud")
+    return ("-ucx:tls_host", "rc,tcp,cuda_copy,cuda_ipc,sm,self")
 
 
 def cmd_user_script(
