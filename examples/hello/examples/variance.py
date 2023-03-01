@@ -1,6 +1,7 @@
 from typing import Any
 
 from hello import iota, square, sum, to_scalar
+
 from legate.core import Store
 
 
