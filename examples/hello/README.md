@@ -19,12 +19,19 @@ for first installing `legate.core`.  We strongly recommend creating a Conda envi
 To build the project, the user can do the following:
 
 ```
-$ cmake -S . -B build -D legate_core_ROOT=<legate_install>
+$ cmake -S . -B build
 $ cmake --build build
 $ python -m pip install -e .
 ```
 
-This performs an editable install of the project, which we recommend for development
+This performs an editable install of the project, which we recommend for development.
+If `cmake` fails to find Legate, the path to the installed Legate can be manually
+specific as `-Dlegate_core_ROOT=<...>` to the `cmake` configuration.
+Alternatively, the user can just do a regular pip installation:
+
+```
+$ python -m pip install .
+```
 
 ## CMake
 CMake is the officially supported mechanism for building Legate libraries.
