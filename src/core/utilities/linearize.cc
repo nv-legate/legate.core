@@ -19,8 +19,6 @@
 
 namespace legate {
 
-using namespace Legion;
-
 struct linearize_fn {
   template <int32_t DIM>
   size_t operator()(const DomainPoint& lo_dp, const DomainPoint& hi_dp, const DomainPoint& point_dp)

@@ -165,7 +165,7 @@ class DocsConfig(SectionConfig):
             "ipython",
             "jinja2",
             "markdown<3.4.0",
-            "pydata-sphinx-theme",
+            "pydata-sphinx-theme>=0.13",
             "myst-parser",
             "nbsphinx",
             "sphinx-copybutton",
@@ -220,7 +220,7 @@ class EnvConfig:
 
 # --- Setup -------------------------------------------------------------------
 
-PYTHON_VERSIONS = ("3.8", "3.9", "3.10")
+PYTHON_VERSIONS = ("3.9", "3.10")
 
 CTK_VERSIONS = (
     "none",

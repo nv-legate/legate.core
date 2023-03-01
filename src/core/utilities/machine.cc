@@ -19,8 +19,6 @@
 #include "core/runtime/runtime.h"
 #include "legate_defines.h"
 
-using namespace Legion;
-
 namespace legate {
 
 Memory::Kind find_memory_kind_for_executing_processor(bool host_accessible)
