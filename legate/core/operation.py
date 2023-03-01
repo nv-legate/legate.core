@@ -158,6 +158,26 @@ class Operation(OperationProtocol):
         return result
 
     def add_alignment(self, store1: Store, store2: Store) -> None:
+        """
+        Sets an alignment between stores. Equivalent to the following code:
+
+        ::
+
+            symb1 = op.declare_partition(store1)
+            symb2 = op.declare_partition(store2)
+            op.add_constraint(symb1 == symb2)
+
+        Parameters
+        ----------
+        store1, store2 : Store
+            Stores to align
+
+        Raises
+        ------
+        ValueError
+            If the stores don't have the same shape or only one of them is
+            unbound
+        """
         self._check_store(store1, allow_unbound=True)
         self._check_store(store2, allow_unbound=True)
         if not (
@@ -175,14 +195,44 @@ class Operation(OperationProtocol):
     def add_broadcast(
         self, store: Store, axes: Optional[Union[int, Iterable[int]]] = None
     ) -> None:
+        """
+        Sets a broadcasting constraint on the store. Equivalent to the
+        following code:
+
+        ::
+
+            symb = op.declare_partition(store)
+            op.add_constraint(symb.broadcast(axes))
+
+        Parameters
+        ----------
+        store : Store
+            Store to set a broadcasting constraint on
+        axes : int or Iterable[int], optional
+            Axes to broadcast. The entire store is replicated if no axes are
+            given.
+        """
         self._check_store(store)
         part = self._get_unique_partition(store)
         self.add_constraint(part.broadcast(axes=axes))
 
     def add_constraint(self, constraint: Constraint) -> None:
+        """
+        Adds a partitioning constraint to the operation
+
+        Parameters
+        ----------
+        constraint : Constraint
+            Partitioning constraint
+        """
         self._constraints.append(constraint)
 
     def execute(self) -> None:
+        """
+        Submits the operation to the runtime. There is no guarantee that the
+        operation will start the execution right upon the return of this
+        method.
+        """
         self._context.runtime.submit(self)
 
     @staticmethod
@@ -220,6 +270,23 @@ class Operation(OperationProtocol):
     def declare_partition(
         self, store: Store, disjoint: bool = True, complete: bool = True
     ) -> PartSym:
+        """
+        Creates a partition symbol for the store
+
+        Parameters
+        ----------
+        store : Store
+            Store to associate the partition symbol with
+        disjoint : bool, optional
+            ``True`` (by default) means the partition must be disjoint
+        complete : bool, optional
+            ``True`` (by default) means the partition must be complete
+
+        Returns
+        -------
+        PartSym
+            A partition symbol
+        """
         sym = PartSym(
             self._op_id,
             self.get_name(),
@@ -253,16 +320,62 @@ class Task(TaskProtocol):
 
     @property
     def side_effect(self) -> bool:
+        """
+        Indicates whether the task has side effects
+
+        Returns
+        -------
+        bool
+            ``True`` if the task has side efects
+        """
         return self._side_effect
 
     def set_side_effect(self, side_effect: bool) -> None:
+        """
+        Sets whether the task has side effects or not. A task is assumed to be
+        free of side effects by default if the task only has scalar arguments.
+
+        Parameters
+        ----------
+        side_effect : bool
+            A new boolean value indicating whether the task has side effects
+        """
         self._side_effect = side_effect
 
     @property
     def concurrent(self) -> bool:
+        """
+        Indicates whether the task needs a concurrent task launch.
+
+        A concurrent task launch guarantees that all tasks will be active at
+        the same time and make progress concurrently. This means that the tasks
+        will and should be mapped to distinct processors and that no other
+        tasks will be interleaved at any given point in time during execution
+        of the concurrent tasks. This operational guarantee is useful
+        when the tasks need to perform collective operations or explicit
+        communication outside Legate, but comes with performance overhead
+        due to distributed rendezvous used in the launch.
+
+        Returns
+        -------
+        bool
+            ``True`` if the task needs a concurrent task launch
+        """
         return self._concurrent
 
     def set_concurrent(self, concurrent: bool) -> None:
+        """
+        Sets whether the task needs a concurrent task launch. Any task with at
+        least one communicator will implicitly use concurrent task launch, so
+        this method is to be used when the task needs a concurrent task launch
+        for a reason unknown to Legate.
+
+        Parameters
+        ----------
+        concurrent : bool
+            A new boolean value indicating whether the task needs a concurrent
+            task launch
+        """
         self._concurrent = concurrent
 
     def get_name(self) -> str:
@@ -272,6 +385,18 @@ class Task(TaskProtocol):
     def add_scalar_arg(
         self, value: Any, dtype: Union[DTType, tuple[DTType]]
     ) -> None:
+        """
+        Adds a by-value argument to the task
+
+        Parameters
+        ----------
+        value : Any
+            Scalar value or a tuple of scalars (but no nested tuples)
+        dtype : DType
+            Data type descriptor for the scalar value. A descriptor ``(T,)``
+            means that the value is a tuple of elements of type ``T``.
+        """
+
         self._scalar_args.append((value, dtype))
 
     def add_dtype_arg(self, dtype: DTType) -> None:
@@ -279,10 +404,29 @@ class Task(TaskProtocol):
         self._scalar_args.append((code, ty.int32))
 
     def throws_exception(self, exn_type: type) -> None:
+        """
+        Declares that the task can raise an exception. If more than one
+        exception is added to the task, they are numbered by the order in which
+        they are added, and those numbers are used to refer to them in the C++
+        task.
+
+        Parameters
+        ----------
+        exn_type : Type
+            Type of exception
+        """
         self._exn_types.append(exn_type)
 
     @property
     def can_raise_exception(self) -> bool:
+        """
+        Indicates whether the task can raise an exception
+
+        Returns
+        -------
+        bool
+            ``True`` if the task can raise an exception
+        """
         return len(self._exn_types) > 0
 
     def capture_traceback(self) -> None:
@@ -427,10 +571,16 @@ class Task(TaskProtocol):
                 self._demux_scalar_stores_future_map(result, launch_domain)
 
     def add_nccl_communicator(self) -> None:
+        """
+        Adds a NCCL communicator to the task
+        """
         comm = self._context.get_nccl_communicator()
         self._comm_args.append(comm)
 
     def add_cpu_communicator(self) -> None:
+        """
+        Adds a CPU communicator to the task
+        """
         comm = self._context.get_cpu_communicator()
         self._comm_args.append(comm)
 
@@ -470,41 +620,12 @@ class AutoOperation(Operation):
         tag = self.get_tag(strategy, part_symb)
         return req, tag, store_part
 
-    def add_input(
-        self, store: Store, partition: Optional[PartSym] = None
-    ) -> None:
-        self._check_store(store)
-        if partition is None:
-            partition = self._get_unique_partition(store)
-        self._inputs.append(store)
-        self._input_parts.append(partition)
-
-    def add_output(
-        self, store: Store, partition: Optional[PartSym] = None
-    ) -> None:
-        self._check_store(store, allow_unbound=True)
-        if store.kind is Future:
-            self._scalar_outputs.append(len(self._outputs))
-        elif store.unbound:
-            self._unbound_outputs.append(len(self._outputs))
-        if partition is None:
-            partition = self._get_unique_partition(store)
-        self._outputs.append(store)
-        self._output_parts.append(partition)
-
-    def add_reduction(
-        self, store: Store, redop: int, partition: Optional[PartSym] = None
-    ) -> None:
-        self._check_store(store)
-        if store.kind is Future:
-            self._scalar_reductions.append(len(self._reductions))
-        if partition is None:
-            partition = self._get_unique_partition(store)
-        self._reductions.append((store, redop))
-        self._reduction_parts.append(partition)
-
 
 class AutoTask(AutoOperation, Task):
+    """
+    A type of tasks that are automatically parallelized
+    """
+
     def __init__(
         self,
         context: Context,
@@ -520,6 +641,74 @@ class AutoTask(AutoOperation, Task):
         )
         self._reusable_stores: list[Tuple[Store, PartSym]] = []
         self._reuse_map: dict[int, Store] = {}
+
+    def add_input(
+        self, store: Store, partition: Optional[PartSym] = None
+    ) -> None:
+        """
+        Adds a store as input to the task
+
+        Parameters
+        ----------
+        store : Store
+            Store to pass as input
+        partition : PartSym, optional
+            Partition to associate with the store. The default partition is
+            picked if none is given.
+        """
+        self._check_store(store)
+        if partition is None:
+            partition = self._get_unique_partition(store)
+        self._inputs.append(store)
+        self._input_parts.append(partition)
+
+    def add_output(
+        self, store: Store, partition: Optional[PartSym] = None
+    ) -> None:
+        """
+        Adds a store as output to the task
+
+        Parameters
+        ----------
+        store : Store
+            Store to pass as output
+        partition : PartSym, optional
+            Partition to associate with the store. The default partition is
+            picked if none is given.
+        """
+        self._check_store(store, allow_unbound=True)
+        if store.kind is Future:
+            self._scalar_outputs.append(len(self._outputs))
+        elif store.unbound:
+            self._unbound_outputs.append(len(self._outputs))
+        if partition is None:
+            partition = self._get_unique_partition(store)
+        self._outputs.append(store)
+        self._output_parts.append(partition)
+
+    def add_reduction(
+        self, store: Store, redop: int, partition: Optional[PartSym] = None
+    ) -> None:
+        """
+        Adds a store to the task for reduction
+
+        Parameters
+        ----------
+        store : Store
+            Store to pass for reduction
+        redop : int
+            Reduction operator ID
+        partition : PartSym, optional
+            Partition to associate with the store. The default partition is
+            picked if none is given.
+        """
+        self._check_store(store)
+        if store.kind is Future:
+            self._scalar_reductions.append(len(self._reductions))
+        if partition is None:
+            partition = self._get_unique_partition(store)
+        self._reductions.append((store, redop))
+        self._reduction_parts.append(partition)
 
     def record_reuse(
         self,
@@ -643,6 +832,10 @@ class AutoTask(AutoOperation, Task):
 
 
 class ManualTask(Operation, Task):
+    """
+    A type of tasks that need explicit parallelization
+    """
+
     def __init__(
         self,
         context: Context,
@@ -685,6 +878,16 @@ class ManualTask(Operation, Task):
         arg: Union[Store, StorePartition],
         proj: Optional[ProjFn] = None,
     ) -> None:
+        """
+        Adds a store as input to the task
+
+        Parameters
+        ----------
+        arg : Store or StorePartition
+            Store or store partition to pass as input
+        proj : ProjFn, optional
+            Projection function
+        """
         self._check_arg(arg)
         if isinstance(arg, Store):
             self._input_parts.append(arg.partition(REPLICATE))
@@ -697,10 +900,25 @@ class ManualTask(Operation, Task):
         arg: Union[Store, StorePartition],
         proj: Optional[ProjFn] = None,
     ) -> None:
+        """
+        Adds a store as output to the task
+
+        Parameters
+        ----------
+        arg : Store or StorePartition
+            Store or store partition to pass as output
+        proj : ProjFn, optional
+            Projection function
+
+        Raises
+        ------
+        NotImplementedError
+            If the store is unbound
+        """
         self._check_arg(arg)
         if isinstance(arg, Store):
             if arg.unbound:
-                raise ValueError(
+                raise NotImplementedError(
                     "Unbound store cannot be used with "
                     "manually parallelized task"
                 )
@@ -718,6 +936,16 @@ class ManualTask(Operation, Task):
         redop: int,
         proj: Optional[ProjFn] = None,
     ) -> None:
+        """
+        Adds a store to the task for reduction
+
+        Parameters
+        ----------
+        arg : Store or StorePartition
+            Store or store partition to pass for reduction
+        proj : ProjFn, optional
+            Projection function
+        """
         self._check_arg(arg)
         if isinstance(arg, Store):
             if arg.kind is Future:
@@ -791,6 +1019,10 @@ class ManualTask(Operation, Task):
 
 
 class Copy(AutoOperation):
+    """
+    A special kind of operation for copying data from one store to another.
+    """
+
     def __init__(
         self,
         context: Context,
@@ -813,49 +1045,141 @@ class Copy(AutoOperation):
     def inputs(self) -> list[Store]:
         return super().inputs + self._source_indirects + self._target_indirects
 
-    def add_output(
-        self, store: Store, partition: Optional[PartSym] = None
-    ) -> None:
+    def add_input(self, store: Store) -> None:
+        """
+        Adds a store as a source of the copy
+
+        Parameters
+        ----------
+        store : Store
+            Source store
+
+        Raises
+        ------
+        ValueError
+            If the store is scalar or unbound
+        """
+        if store.kind is Future or store.unbound:
+            raise ValueError(
+                "Copy input must be a normal, region-backed store"
+            )
+        self._check_store(store)
+        partition = self._get_unique_partition(store)
+        self._inputs.append(store)
+        self._input_parts.append(partition)
+
+    def add_output(self, store: Store) -> None:
+        """
+        Adds a store as a target of the copy. To avoid ambiguity in matching
+        sources and targets, one copy cannot have both normal targets and
+        reduction targets.
+
+        Parameters
+        ----------
+        store : Store
+            Target store
+
+        Raises
+        ------
+        RuntimeError
+            If the copy already has a reduction target
+        ValueError
+            If the store is scalar or unbound
+        """
         if len(self._reductions) > 0:
             raise RuntimeError(
                 "Copy targets must be either all normal outputs or reductions"
             )
-        super().add_output(store, partition)
+        if store.kind is Future or store.unbound:
+            raise ValueError(
+                "Copy target must be a normal, region-backed store"
+            )
 
-    def add_reduction(
-        self, store: Store, redop: int, partition: Optional[PartSym] = None
-    ) -> None:
+        self._check_store(store)
+        partition = self._get_unique_partition(store)
+        self._outputs.append(store)
+        self._output_parts.append(partition)
+
+    def add_reduction(self, store: Store, redop: int) -> None:
+        """
+        Adds a store as a reduction target of the copy. To avoid ambiguity in
+        matching sources and targets, one copy cannot have both normal targets
+        and reduction targets.
+
+        Parameters
+        ----------
+        store : Store
+            Reduction target store
+        redop : int
+            Reduction operator ID
+
+        Raises
+        ------
+        RuntimeError
+            If the copy already has a normal target
+        ValueError
+            If the store is scalar or unbound
+        """
         if len(self._outputs) > 0:
             raise RuntimeError(
                 "Copy targets must be either all normal outputs or reductions"
             )
-        super().add_reduction(store, redop, partition)
+        if store.kind is Future or store.unbound:
+            raise ValueError(
+                "Copy target must be a normal, region-backed store"
+            )
+        self._check_store(store)
+        partition = self._get_unique_partition(store)
+        self._reductions.append((store, redop))
+        self._reduction_parts.append(partition)
 
-    def add_source_indirect(
-        self, store: Store, partition: Optional[PartSym] = None
-    ) -> None:
+    def add_source_indirect(self, store: Store) -> None:
+        """
+        Adds an indirection for sources. A copy can have only up to one source
+        indirection.
+
+        Parameters
+        ----------
+        store : Store
+            Source indirection store
+
+        Raises
+        ------
+        RuntimeError
+            If the copy already has a source indirection
+        """
         if len(self._source_indirects) != 0:
             raise RuntimeError(
                 "There can be only up to one source indirection store for "
                 "a Copy operation"
             )
         self._check_store(store)
-        if partition is None:
-            partition = self._get_unique_partition(store)
+        partition = self._get_unique_partition(store)
         self._source_indirects.append(store)
         self._source_indirect_parts.append(partition)
 
-    def add_target_indirect(
-        self, store: Store, partition: Optional[PartSym] = None
-    ) -> None:
+    def add_target_indirect(self, store: Store) -> None:
+        """
+        Adds an indirection for targets. A copy can have only up to one target
+        indirection.
+
+        Parameters
+        ----------
+        store : Store
+            Target indirection store
+
+        Raises
+        ------
+        RuntimeError
+            If the copy already has a target indirection
+        """
         if len(self._target_indirects) != 0:
             raise RuntimeError(
                 "There can be only up to one target indirection store for "
                 "a Copy operation"
             )
         self._check_store(store)
-        if partition is None:
-            partition = self._get_unique_partition(store)
+        partition = self._get_unique_partition(store)
         self._target_indirects.append(store)
         self._target_indirect_parts.append(partition)
 
@@ -994,6 +1318,10 @@ class Copy(AutoOperation):
 
 
 class Fill(AutoOperation):
+    """
+    A special kind of operation for filling a store with constant values
+    """
+
     def __init__(
         self,
         context: Context,
@@ -1009,8 +1337,18 @@ class Fill(AutoOperation):
             raise ValueError("Fill lhs must be a bound Store")
         if lhs.kind is Future:
             raise ValueError("Fill lhs must be a RegionField-backed Store")
-        super().add_input(value)
-        super().add_output(lhs)
+        self._add_value(value)
+        self._add_lhs(lhs)
+
+    def _add_value(self, value: Store) -> None:
+        partition = self._get_unique_partition(value)
+        self._inputs.append(value)
+        self._input_parts.append(partition)
+
+    def _add_lhs(self, lhs: Store) -> None:
+        partition = self._get_unique_partition(lhs)
+        self._outputs.append(lhs)
+        self._output_parts.append(partition)
 
     def get_name(self) -> str:
         libname = self.context.library.get_name()
@@ -1032,21 +1370,6 @@ class Fill(AutoOperation):
         raise TypeError(
             "User partitioning constraints are not allowed for fills"
         )
-
-    def add_input(
-        self, store: Store, partition: Optional[PartSym] = None
-    ) -> None:
-        raise TypeError("No further inputs can be added to fills")
-
-    def add_output(
-        self, store: Store, partition: Optional[PartSym] = None
-    ) -> None:
-        raise TypeError("No further outputs can be added to fills")
-
-    def add_reduction(
-        self, store: Store, redop: int, partition: Optional[PartSym] = None
-    ) -> None:
-        raise TypeError("No reductions can be added to fills")
 
     def launch(self, strategy: Strategy) -> None:
         lhs = self._outputs[0]
@@ -1095,6 +1418,19 @@ class Reduce(AutoOperation):
         self._runtime = context.runtime
         self._radix = radix
         self._task_id = task_id
+
+    def add_input(self, store: Store) -> None:
+        self._check_store(store)
+        partition = self._get_unique_partition(store)
+        self._inputs.append(store)
+        self._input_parts.append(partition)
+
+    def add_output(self, store: Store) -> None:
+        assert store.unbound
+        partition = self._get_unique_partition(store)
+        self._unbound_outputs.append(len(self._outputs))
+        self._outputs.append(store)
+        self._output_parts.append(partition)
 
     def launch(self, strategy: Strategy) -> None:
         assert len(self._inputs) == 1 and len(self._outputs) == 1

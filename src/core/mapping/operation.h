@@ -23,6 +23,11 @@
 #include "core/data/transform.h"
 #include "core/runtime/context.h"
 
+/**
+ * @file
+ * @brief Class definitions for operations and stores used in mapping
+ */
+
 namespace legate {
 namespace mapping {
 
@@ -96,6 +101,11 @@ class FutureWrapper {
   Domain domain_{};
 };
 
+/**
+ * @ingroup mapping
+ * @brief A metadata class that mirrors the structure of legate::Store but contains
+ * only the data relevant to mapping
+ */
 class Store {
  public:
   Store() {}
@@ -125,15 +135,51 @@ class Store {
   Store& operator=(Store&& other) = default;
 
  public:
+  /**
+   * @brief Indicates whether the store is backed by a future
+   *
+   * @return true The store is backed by a future
+   * @return false The store is backed by a region field
+   */
   bool is_future() const { return is_future_; }
+  /**
+   * @brief Indicates whether the store is unbound
+   *
+   * @return true The store is unbound
+   * @return false The store is a normal store
+   */
   bool unbound() const { return is_output_store_; }
+  /**
+   * @brief Returns the store's dimension
+   *
+   * @return Store's dimension
+   */
   int32_t dim() const { return dim_; }
 
  public:
+  /**
+   * @brief Indicates whether the store is a reduction store
+   *
+   * @return true The store is a reduction store
+   * @return false The store is either an input or output store
+   */
   bool is_reduction() const { return redop_id_ > 0; }
+  /**
+   * @brief Returns the reduction operator id for the store
+   *
+   * @return Reduction oeprator id
+   */
   int32_t redop() const { return redop_id_; }
 
  public:
+  /**
+   * @brief Indicates whether the store can colocate in an instance with a given store
+   *
+   * @param other Store against which the colocation is checked
+   *
+   * @return true The store can colocate with the input
+   * @return false The store cannot colocate with the input
+   */
   bool can_colocate_with(const Store& other) const;
   const RegionField& region_field() const;
   const FutureWrapper& future() const;
@@ -144,10 +190,18 @@ class Store {
   uint32_t future_index() const;
 
  public:
+  /**
+   * @brief Returns the store's domain
+   *
+   * @return Store's domain
+   */
   template <int32_t DIM>
   Rect<DIM> shape() const;
-
- public:
+  /**
+   * @brief Returns the store's domain in a dimension-erased domain type
+   *
+   * @return Store's domain in a dimension-erased domain type
+   */
   Domain domain() const;
 
  private:
@@ -169,6 +223,10 @@ class Store {
   Legion::Mapping::MapperContext context_{nullptr};
 };
 
+/**
+ * @ingroup mapping
+ * @brief A metadata class for tasks
+ */
 class Task {
  public:
   Task(const Legion::Task* task,
@@ -177,15 +235,47 @@ class Task {
        const Legion::Mapping::MapperContext context);
 
  public:
+  /**
+   * @brief Returns the task id
+   *
+   * @return Task id
+   */
   int64_t task_id() const;
 
  public:
+  /**
+   * @brief Returns metadata for the task's input stores
+   *
+   * @return Vector of store metadata objects
+   */
   const std::vector<Store>& inputs() const { return inputs_; }
+  /**
+   * @brief Returns metadata for the task's output stores
+   *
+   * @return Vector of store metadata objects
+   */
   const std::vector<Store>& outputs() const { return outputs_; }
+  /**
+   * @brief Returns metadata for the task's reduction stores
+   *
+   * @return Vector of store metadata objects
+   */
   const std::vector<Store>& reductions() const { return reductions_; }
+  /**
+   * @brief Returns the vector of the task's by-value arguments. Unlike `mapping::Store`
+   * objects that have no access to data in the stores, the returned `Scalar` objects
+   * contain valid arguments to the task
+   *
+   * @return Vector of `Scalar` objects
+   */
   const std::vector<Scalar>& scalars() const { return scalars_; }
 
  public:
+  /**
+   * @brief Returns the point of the task
+   *
+   * @return The point of the task
+   */
   DomainPoint point() const { return task_->index_point; }
 
  private:

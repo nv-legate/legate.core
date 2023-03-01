@@ -22,20 +22,11 @@ if TYPE_CHECKING:
 
 
 class ResourceConfig:
-    __slots__ = (
-        "max_tasks",
-        "max_mappers",
-        "max_reduction_ops",
-        "max_projections",
-        "max_shardings",
-    )
-
-    def __init__(self) -> None:
-        self.max_tasks = 1_000_000
-        self.max_mappers = 1
-        self.max_reduction_ops = 0
-        self.max_projections = 0
-        self.max_shardings = 0
+    max_tasks = 1_000_000
+    max_reduction_ops = 0
+    max_mappers = 1
+    max_projections = 0
+    max_shardings = 0
 
 
 class ResourceScope:

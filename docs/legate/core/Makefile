@@ -19,6 +19,7 @@
 # You can set these variables from the command line, and also
 # from the environment for the first two.
 SPHINXOPTS    ?= -v -W
+PARALLEL_BUILD ?= 1
 SPHINXBUILD   ?= legate $(shell which sphinx-build)
 SOURCEDIR     = source
 BUILDDIR      = build
@@ -32,7 +33,7 @@ help:
 # Catch-all target: route all unknown targets to Sphinx using the new
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
 %: Makefile
-	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O) -j $(PARALLEL_BUILD)
 	rm -rf build/html/docs
 	mkdir -p build/html/docs
 	cp -r ../../figures build/html/docs/

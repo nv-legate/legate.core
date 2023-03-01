@@ -79,6 +79,7 @@ endif()
 option(legate_core_STATIC_CUDA_RUNTIME "Statically link the cuda runtime library" OFF)
 option(legate_core_EXCLUDE_LEGION_FROM_ALL "Exclude Legion targets from legate.core's 'all' target" OFF)
 option(legate_core_COLLECTIVE "Use of collective instances" ON)
+option(legate_core_BUILD_DOCS "Build doxygen docs" OFF)
 
 
 set_or_default(NCCL_DIR NCCL_PATH)
