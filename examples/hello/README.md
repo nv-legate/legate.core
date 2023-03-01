@@ -33,6 +33,10 @@ Alternatively, the user can just do a regular pip installation:
 $ python -m pip install .
 ```
 
+These approaches are illustrated in the `editable-install.sh` and `install.sh` scripts.
+In particular, `editable-install.sh` shows how to use Legate install info to
+point CMake to the correct installation root.
+
 ## CMake
 CMake is the officially supported mechanism for building Legate libraries.
 Legate exports a CMake target and helper functions for building libraries and provides by-far the easiest onboarding.
