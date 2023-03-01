@@ -59,7 +59,10 @@ class ScopedAllocator {
 
  public:
   /**
-   * @brief Allocates a memory space
+   * @brief Allocates a contiguous buffer of the given Memory::Kind
+   *
+   * When the allocator runs out of memory, the runtime will fail with an error message.
+   * Otherwise, the function returns a valid pointer.
    *
    * @param bytes Size of the allocation in bytes
    *
@@ -68,7 +71,7 @@ class ScopedAllocator {
   void* allocate(size_t bytes);
   /**
    * @brief Deallocates an allocation. The input pointer must be one that was previously
-   * returned by an `allocate` call, otherwise the code will crash.
+   * returned by an `allocate` call, otherwise the code will fail with an error message.
    *
    * @param ptr Pointer to the allocation to deallocate
    */

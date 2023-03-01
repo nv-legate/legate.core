@@ -52,8 +52,6 @@ class Scalar {
    * @param tuple If true, the allocation contains a tuple of scalars.
    * @param code Type code of the scalar(s)
    * @param data Allocation containing the data.
-   *
-   * @return A shared `Scalar` object
    */
   Scalar(bool tuple, LegateTypeCode code, const void* data);
   ~Scalar();
@@ -62,9 +60,9 @@ class Scalar {
   /**
    * @brief Creates an owned scalar from a scalar value
    *
-   * @param value A scalar value to create a `Scalar` with
+   * @tparam T The scalar type to wrap
    *
-   * @return An owned `Scalar` object
+   * @param value A scalar value to create a `Scalar` with
    */
   template <typename T>
   Scalar(T value);
@@ -73,8 +71,6 @@ class Scalar {
    * will be copied.
    *
    * @param values A vector that contains elements of a tuple
-   *
-   * @return An owned `Scalar` object
    */
   template <typename T>
   Scalar(const std::vector<T>& values);
@@ -104,6 +100,8 @@ class Scalar {
   /**
    * @brief Returns the value stored in the `Scalar`. The call does no type checking;
    * i.e., passing a wrong type parameter will not be caught by the call.
+   *
+   * @tparam VAL Type of the value to unwrap
    *
    * @return The value stored in the `Scalar`
    */

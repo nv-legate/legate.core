@@ -37,9 +37,8 @@ class PendingTaskVariant;
  * @ingroup task
  * @brief A helper class for task variant registration.
  *
- * Because of the way Legate checks the existence of a certain task variant at compile time,
- * some amount of tramploine has to be exposed to client libraries. The `legate::TaskRegistrar`
- * class is meant to simplify that boilerplate. The following is a boilerplate that each library
+ * The `legate::TaskRegistrar` class is designed to simplify the boilerplate that client libraries
+ * need to register all its task variants. The following is a boilerplate that each library
  * needs to write:
  *
  * @code{.cpp}

@@ -216,7 +216,7 @@ class Shape:
         Returns
         ------
         bool
-            ``True`` if the shapes are the identical
+            ``True`` if the shapes are identical
 
         Notes
         -----

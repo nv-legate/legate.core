@@ -85,10 +85,10 @@ Storage management
 Partition management
 --------------------
 
-In most cases, Legate clients need to create nor manage partitions manually by
-themselves. However, there are occassions where the clients need to parallelize
+In most cases, Legate clients need not create nor manage partitions manually by
+themselves. However, there are occasions where the clients need to parallelize
 tasks manually, for which stores need to be partitioned manually as well. For
-those occassions, clients may want to query and update the `key` partition of
+those occasions, clients may want to query and update the `key` partition of
 each store, i.e., the partition used for updating the store for the last time.
 The following are the API calls for manual partition management.
 
@@ -100,6 +100,8 @@ The following are the API calls for manual partition management.
    Store.reset_key_partition
    Store.partition_by_tiling
 
+
+.. _label_store_partition:
 
 StorePartition
 ==============

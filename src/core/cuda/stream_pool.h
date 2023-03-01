@@ -79,13 +79,16 @@ struct StreamPool {
   /**
    * @brief Returns a `StreamView` in the pool
    *
-   * @return A `StreamView` object
+   * @return A `StreamView` object. Currently, all stream views returned from this pool are backed
+   * by the same CUDA stream.
    */
   StreamView get_stream();
 
  public:
   /**
    * @brief Returns a singleton stream pool
+   *
+   * The stream pool is alive throughout the program execution.
    *
    * @return A `StreamPool` object
    */

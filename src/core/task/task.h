@@ -61,7 +61,7 @@ struct LegateTask {
   using BASE = LegateTask<T>;
 
   /**
-   * @brief Registers all task variants of the task. The client can optionally specifies
+   * @brief Registers all task variants of the task. The client can optionally specify
    * variant options.
    *
    * @param all_options Options for task variants. Variants with no entires in `all_options` will

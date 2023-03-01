@@ -353,6 +353,12 @@ class Store {
   /**
    * @brief Returns a reduction accessor to the store for the entire domain
    *
+   * @tparam OP Reduction operator class. For details about reduction operators, See
+   * LibraryContext::register_reduction_operator.
+   *
+   * @tparam EXCLUSIVE Indicates whether reductions can be performed in exclusive mode. If
+   * `EXCLUSIVE` is `false`, every reduction via the acecssor is performed atomically.
+   *
    * @return A reduction accessor to the store
    */
   template <typename OP, bool EXCLUSIVE, int32_t DIM>
@@ -398,6 +404,12 @@ class Store {
    * @param bounds Domain within which accesses should be allowed.
    * The actual bounds for valid access are determined by an intersection between
    * the store's domain and the bounds.
+   *
+   * @tparam OP Reduction operator class. For details about reduction operators, See
+   * LibraryContext::register_reduction_operator.
+   *
+   * @tparam EXCLUSIVE Indicates whether reductions can be performed in exclusive mode. If
+   * `EXCLUSIVE` is `false`, every reduction via the acecssor is performed atomically.
    *
    * @return A reduction accessor to the store
    */
@@ -460,9 +472,12 @@ class Store {
 
  public:
   /**
-   * @brief Returns the scalar value stored in the store. The requested
-   * type must match with the store's data type. Illegal if the store's
-   * volume is not equal to 1.
+   * @brief Returns the scalar value stored in the store.
+   *
+   * The requested type must match with the store's data type. If the store is not
+   * backed by the future, the runtime will fail with an error message.
+   *
+   * @tparam VAL Type of the scalar value
    *
    * @return The scalar value stored in the store
    */

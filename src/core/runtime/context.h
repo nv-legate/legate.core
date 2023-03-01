@@ -48,15 +48,15 @@ class Scalar;
  */
 struct ResourceConfig {
   /**
-   * @brief Maximum number of tasks
+   * @brief Maximum number of tasks that the library can register
    */
   int64_t max_tasks{1000000};
   /**
-   * @brief Maximum number of mappers
+   * @brief Maximum number of mappers that the library can register
    */
   int64_t max_mappers{1};
   /**
-   * @brief Maximum number of reduction operators
+   * @brief Maximum number of custom reduction operators that the library can register
    */
   int64_t max_reduction_ops{0};
   int64_t max_projections{0};
@@ -202,7 +202,7 @@ class LibraryContext {
    * the runtime.
    *
    * @param mapper Mapper object
-   * @param local_mapper_id Id for the mapper. Used only when there are more than one mapper.
+   * @param local_mapper_id Id for the mapper. Used only when there is more than one mapper.
    */
   void register_mapper(std::unique_ptr<mapping::LegateMapper> mapper,
                        int64_t local_mapper_id = 0) const;

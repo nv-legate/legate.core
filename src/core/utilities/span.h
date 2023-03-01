@@ -78,8 +78,8 @@ struct Span {
 
  public:
   /**
-   * @brief Slices off the first `off` elements. Passing an `off` breater than
-   * the size is illegal.
+   * @brief Slices off the first `off` elements. Passing an `off` greater than
+   * the size will fail with an assertion failure.
    *
    * @param off Number of elements to skip
    *

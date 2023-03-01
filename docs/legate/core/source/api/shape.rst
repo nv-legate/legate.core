@@ -11,7 +11,7 @@ help the runtime query the store's metadata or construct another store
 isomorphic to the store without getting blocked.
 
 Shape objects should behave just like an array of integers, but operations that
-introspect the values implicitly blocks on completion of the producer task.
+introspect the values implicitly block on completion of the producer task.
 
 
 .. autosummary::

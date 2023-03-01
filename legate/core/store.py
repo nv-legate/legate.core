@@ -954,12 +954,12 @@ class Store:
     @property
     def ndim(self) -> int:
         """
-        Returns the dimension of the store.
+        Returns the number of dimensions of the store.
 
         Returns
         -------
         int
-          The store's dimension
+          The number of dimensions
         """
         if self._shape is None:
             assert self._ndim is not None
@@ -970,7 +970,7 @@ class Store:
     @property
     def size(self) -> int:
         """
-        Returns the size of the store.
+        Returns the number of elements in the store.
 
         Returns
         -------
@@ -1139,7 +1139,7 @@ class Store:
         are broadcasted along the new dimension.
 
         For example, for a 1D store ``A`` contains ``[1, 2, 3]``,
-        ``A.promote(0, 2)`` yields:
+        ``A.promote(0, 2)`` yields a store equivalent to:
 
         ::
 
@@ -1169,7 +1169,7 @@ class Store:
         Raises
         ------
         ValueError
-            If ``extra_dim`` is negative or greater than the store's dimension
+            If ``extra_dim`` is not a valid dimension name
         """
         extra_dim = extra_dim + self.ndim if extra_dim < 0 else extra_dim
         if extra_dim < 0 or extra_dim > self.ndim:
@@ -1200,8 +1200,8 @@ class Store:
         are on hyperplane :math:`x_\\mathtt{dim} = \\mathtt{index}`.
 
         For example, if a 2D store ``A`` contains ``[[1, 2], [3, 4]]``,
-        ``A.project(0, 1)`` yields ``[3, 4]``, whereas ``A.project(1, 0)``
-        yields ``[1, 3]``.
+        ``A.project(0, 1)`` yields a store equivalent to ``[3, 4]``, whereas
+        ``A.project(1, 0)`` yields ``[1, 3]``.
 
         Parameters
         ----------
@@ -1218,8 +1218,7 @@ class Store:
         Raises
         ------
         ValueError
-            If any of the following happens: 1) ``dim`` is negative; 2) ``dim``
-            is greater than or equal to to store's dimension; 3) ``index`` is
+            If ``dim`` is not a valid dimension name or ``index`` is
             out of bounds
         """
         dim = dim + self.ndim if dim < 0 else dim
@@ -1290,7 +1289,7 @@ class Store:
 
         ::
 
-            A.slice(0, slice(1, None)).A.slice(1, slice(None, 2))
+            A.slice(0, slice(1, None)).slice(1, slice(None, 2))
 
         results in:
 

@@ -55,19 +55,19 @@ enum class TaskTarget : int32_t {
  */
 enum class StoreTarget : int32_t {
   /**
-   * @brief Indicates the store be mapped to the system memory
+   * @brief Indicates the store be mapped to the system memory (host memory)
    */
   SYSMEM = 1,
   /**
-   * @brief Indicates the store be mapped to the framebuffer
+   * @brief Indicates the store be mapped to the GPU framebuffer
    */
   FBMEM = 2,
   /**
-   * @brief Indicates the store be mapped to the pinned memory
+   * @brief Indicates the store be mapped to the pinned memory for zero-copy GPU accesses
    */
   ZCMEM = 3,
   /**
-   * @brief Indicates the store be mapped to the memory closest to the target processor
+   * @brief Indicates the store be mapped to the host memory closest to the target CPU
    */
   SOCKETMEM = 4,
 };
@@ -270,8 +270,8 @@ struct StoreMapping {
   /**
    * @brief Returns a region requirement index for the stores.
    *
-   * Illegal if the store mapping has more than one store and the stores are mapped to
-   * different region requirements.
+   * Returns an undefined value if the store mapping has more than one store and the stores are
+   * mapped to different region requirements.
    *
    * @return Region requirement index
    */

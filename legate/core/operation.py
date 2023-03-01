@@ -345,7 +345,16 @@ class Task(TaskProtocol):
     @property
     def concurrent(self) -> bool:
         """
-        Inidicates whether the task needs a concurrent task launch.
+        Indicates whether the task needs a concurrent task launch.
+
+        A concurrent task launch guarantees that all tasks will be active at
+        the same time and make progress concurrently. This means that the tasks
+        will and should be mapped to distinct processors and that no other
+        tasks will be interleaved at any given point in time during execution
+        of the concurrent tasks. This operational guarantee is useful
+        when the tasks need to perform collective operations or explicit
+        communication outside Legate, but comes with performance overhead
+        due to distributed rendezvous used in the launch.
 
         Returns
         -------
@@ -613,6 +622,10 @@ class AutoOperation(Operation):
 
 
 class AutoTask(AutoOperation, Task):
+    """
+    A type of tasks that are automatically parallelized
+    """
+
     def __init__(
         self,
         context: Context,
@@ -819,6 +832,10 @@ class AutoTask(AutoOperation, Task):
 
 
 class ManualTask(Operation, Task):
+    """
+    A type of tasks that need explicit parallelization
+    """
+
     def __init__(
         self,
         context: Context,
@@ -1002,6 +1019,10 @@ class ManualTask(Operation, Task):
 
 
 class Copy(AutoOperation):
+    """
+    A special kind of operation for copying data from one store to another.
+    """
+
     def __init__(
         self,
         context: Context,
@@ -1297,6 +1318,10 @@ class Copy(AutoOperation):
 
 
 class Fill(AutoOperation):
+    """
+    A special kind of operation for filling a store with constant values
+    """
+
     def __init__(
         self,
         context: Context,

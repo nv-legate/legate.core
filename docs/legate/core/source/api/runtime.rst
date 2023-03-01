@@ -12,7 +12,7 @@ A ``Library`` class is an interface that every library descriptor needs to
 implement. Each library should tell the Legate runtime how to initialize and
 configure the library, and this class provides a common way to reveal that
 information to the runtime. Each library should register to the runtime a
-library descriptor object that implements ``Library``, directly or via duck
+library descriptor object that implements ``Library`` directly or via duck
 typing. (See :meth:`legate.core.runtime.Runtime.register_library`.)
 
 .. autosummary::

@@ -50,6 +50,8 @@ class Communicator {
   /**
    * @brief Returns the communicator stored in the wrapper
    *
+   * @tparam T The type of communicator handle to get (see valid types above)
+   *
    * @return A communicator
    */
   template <typename T>

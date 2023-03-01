@@ -26,7 +26,8 @@
  */
 namespace legate {
 
-// We're going to allow for each task to use only up to 341 scalar output stores
+// Each scalar output store can take up to 12 bytes, so in the worst case there can be only up to
+// 341 scalar output stores.
 constexpr size_t LEGATE_MAX_SIZE_SCALAR_RETURN = 4096;
 
 /**

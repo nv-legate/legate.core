@@ -43,15 +43,15 @@ using TunableID = Legion::TunableID;
 
 // Geometry types
 
-/**
- * @brief Coordinate type. Alias to `long long int`.
- */
-using coord_t = Legion::coord_t;
-
 /** @defgroup geometry Geometry types
  *
  * @{
  */
+
+/**
+ * @brief Coordinate type.
+ */
+using coord_t = Legion::coord_t;
 
 /**
  * @brief Type for multi-dimensional points.
@@ -152,10 +152,8 @@ using AccessorRW = Legion::FieldAccessor<READ_WRITE, FT, N, T, Realm::AffineAcce
  * @brief Reduction accessor
  *
  * Unlike the other accessors, an index expression on a reduction accessor allows the client to
- * perform only two operations,
- * `<<=` and `reduce`, both of which reduce a value to the chosen element. Unlike the `<<=`
- * operator, `reduce` takes a template argument that indicates whether the access can be exlusive;
- * passing `true` means that the reduction can be performed without atomic instruction.
+ * perform only two operations, `<<=` and `reduce`, both of which reduce a value to the chosen
+ * element.
  *
  * See
  * [legion.h](https://github.com/StanfordLegion/legion/blob/9ed6f4d6b579c4f17e0298462e89548a4f0ed6e5/runtime/legion.h#L2837-L2848)

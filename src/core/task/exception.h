@@ -31,7 +31,7 @@ namespace legate {
  *
  * Any client that needs to catch a C++ exception during task execution and have it rethrown
  * on the launcher side should wrap that C++ exception with a `TaskException`. In case the
- * task can raise more than one type of exceptions, they are distinguished by integer ids;
+ * task can raise more than one type of exception, they are distinguished by integer ids;
  * the launcher is responsible for enumerating a list of all exceptions that can be raised
  * and the integer ids are positions in that list.
  */
