@@ -116,23 +116,26 @@ $(function() {
 <div class="line"><a id="l00045" name="l00045"></a><span class="lineno">   45</span> </div>
 <div class="line"><a id="l00046" name="l00046"></a><span class="lineno">   46</span> <span class="keyword">public</span>:</div>
 <div class="line"><a id="l00050" name="l00050"></a><span class="lineno"><a class="line" href="structlegate_1_1Core.html#a9bbba31714573657ac72f8bab2edc02e">   50</a></span>  <span class="keyword">using </span><a class="code hl_typedef" href="structlegate_1_1Core.html#a9bbba31714573657ac72f8bab2edc02e">RegistrationCallback</a> = void (*)();</div>
-<div class="line"><a id="l00057" name="l00057"></a><span class="lineno"><a class="line" href="structlegate_1_1Core.html#aaba930a9866bc4a92dc053cdd097c444">   57</a></span>  <span class="keyword">static</span> <span class="keywordtype">void</span> <a class="code hl_function" href="structlegate_1_1Core.html#aaba930a9866bc4a92dc053cdd097c444">perform_registration</a>(<a class="code hl_typedef" href="structlegate_1_1Core.html#a9bbba31714573657ac72f8bab2edc02e">RegistrationCallback</a> callback);</div>
-<div class="line"><a id="l00058" name="l00058"></a><span class="lineno">   58</span> </div>
-<div class="line"><a id="l00059" name="l00059"></a><span class="lineno">   59</span> <span class="keyword">public</span>:</div>
-<div class="line"><a id="l00060" name="l00060"></a><span class="lineno">   60</span>  <span class="comment">// Configuration settings</span></div>
-<div class="line"><a id="l00061" name="l00061"></a><span class="lineno">   61</span>  <span class="keyword">static</span> <span class="keywordtype">bool</span> show_progress_requested;</div>
-<div class="line"><a id="l00062" name="l00062"></a><span class="lineno">   62</span>  <span class="keyword">static</span> <span class="keywordtype">bool</span> use_empty_task;</div>
-<div class="line"><a id="l00063" name="l00063"></a><span class="lineno">   63</span>  <span class="keyword">static</span> <span class="keywordtype">bool</span> synchronize_stream_view;</div>
-<div class="line"><a id="l00064" name="l00064"></a><span class="lineno">   64</span>  <span class="keyword">static</span> <span class="keywordtype">bool</span> log_mapping_decisions;</div>
-<div class="line"><a id="l00065" name="l00065"></a><span class="lineno">   65</span>  <span class="keyword">static</span> <span class="keywordtype">bool</span> has_socket_mem;</div>
-<div class="line"><a id="l00066" name="l00066"></a><span class="lineno">   66</span>};</div>
-<div class="line"><a id="l00067" name="l00067"></a><span class="lineno">   67</span> </div>
-<div class="line"><a id="l00068" name="l00068"></a><span class="lineno">   68</span>}  <span class="comment">// namespace legate</span></div>
+<div class="line"><a id="l00057" name="l00057"></a><span class="lineno">   57</span>  <span class="keyword">template</span> &lt;RegistrationCallback CALLBACK&gt;</div>
+<div class="line"><a id="l00058" name="l00058"></a><span class="lineno">   58</span>  <span class="keyword">static</span> <span class="keywordtype">void</span> <a class="code hl_function" href="structlegate_1_1Core.html#ab892937a7dac39e2390344df4da42f95">perform_registration</a>();</div>
+<div class="line"><a id="l00059" name="l00059"></a><span class="lineno">   59</span> </div>
+<div class="line"><a id="l00060" name="l00060"></a><span class="lineno">   60</span> <span class="keyword">public</span>:</div>
+<div class="line"><a id="l00061" name="l00061"></a><span class="lineno">   61</span>  <span class="comment">// Configuration settings</span></div>
+<div class="line"><a id="l00062" name="l00062"></a><span class="lineno">   62</span>  <span class="keyword">static</span> <span class="keywordtype">bool</span> show_progress_requested;</div>
+<div class="line"><a id="l00063" name="l00063"></a><span class="lineno">   63</span>  <span class="keyword">static</span> <span class="keywordtype">bool</span> use_empty_task;</div>
+<div class="line"><a id="l00064" name="l00064"></a><span class="lineno">   64</span>  <span class="keyword">static</span> <span class="keywordtype">bool</span> synchronize_stream_view;</div>
+<div class="line"><a id="l00065" name="l00065"></a><span class="lineno">   65</span>  <span class="keyword">static</span> <span class="keywordtype">bool</span> log_mapping_decisions;</div>
+<div class="line"><a id="l00066" name="l00066"></a><span class="lineno">   66</span>  <span class="keyword">static</span> <span class="keywordtype">bool</span> has_socket_mem;</div>
+<div class="line"><a id="l00067" name="l00067"></a><span class="lineno">   67</span>};</div>
+<div class="line"><a id="l00068" name="l00068"></a><span class="lineno">   68</span> </div>
+<div class="line"><a id="l00069" name="l00069"></a><span class="lineno">   69</span>}  <span class="comment">// namespace legate</span></div>
+<div class="line"><a id="l00070" name="l00070"></a><span class="lineno">   70</span> </div>
+<div class="line"><a id="l00071" name="l00071"></a><span class="lineno">   71</span><span class="preprocessor">#include &quot;core/runtime/runtime.inl&quot;</span></div>
 <div class="ttc" id="aclasslegate_1_1TaskException_html"><div class="ttname"><a href="classlegate_1_1TaskException.html">legate::TaskException</a></div><div class="ttdoc">An exception class used in cross language exception handling.</div><div class="ttdef"><b>Definition:</b> exception.h:38</div></div>
 <div class="ttc" id="aexception_8h_html"><div class="ttname"><a href="exception_8h.html">exception.h</a></div><div class="ttdoc">Class definition for legate::TaskException.</div></div>
 <div class="ttc" id="astructlegate_1_1Core_html"><div class="ttname"><a href="structlegate_1_1Core.html">legate::Core</a></div><div class="ttdoc">A utility class that collects static members shared by all Legate libraries.</div><div class="ttdef"><b>Definition:</b> runtime.h:37</div></div>
 <div class="ttc" id="astructlegate_1_1Core_html_a9bbba31714573657ac72f8bab2edc02e"><div class="ttname"><a href="structlegate_1_1Core.html#a9bbba31714573657ac72f8bab2edc02e">legate::Core::RegistrationCallback</a></div><div class="ttdeci">void(*)() RegistrationCallback</div><div class="ttdoc">Type signature for registration callbacks.</div><div class="ttdef"><b>Definition:</b> runtime.h:50</div></div>
-<div class="ttc" id="astructlegate_1_1Core_html_aaba930a9866bc4a92dc053cdd097c444"><div class="ttname"><a href="structlegate_1_1Core.html#aaba930a9866bc4a92dc053cdd097c444">legate::Core::perform_registration</a></div><div class="ttdeci">static void perform_registration(RegistrationCallback callback)</div><div class="ttdoc">Performs a registration callback. Libraries must perform registration of tasks and other components t...</div></div>
+<div class="ttc" id="astructlegate_1_1Core_html_ab892937a7dac39e2390344df4da42f95"><div class="ttname"><a href="structlegate_1_1Core.html#ab892937a7dac39e2390344df4da42f95">legate::Core::perform_registration</a></div><div class="ttdeci">static void perform_registration()</div><div class="ttdoc">Performs a registration callback. Libraries must perform registration of tasks and other components t...</div><div class="ttdef"><b>Definition:</b> runtime.inl:36</div></div>
 <div class="ttc" id="atypedefs_8h_html"><div class="ttname"><a href="typedefs_8h.html">typedefs.h</a></div><div class="ttdoc">Type aliases to Legion components.</div></div>
 </div><!-- fragment --></div><!-- contents -->
 <!-- start footer part -->

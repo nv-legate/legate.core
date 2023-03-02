@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['perform_5fregistration_0',['perform_registration',['../structlegate_1_1Core.html#aaba930a9866bc4a92dc053cdd097c444',1,'legate::Core']]],
+  ['perform_5fregistration_0',['perform_registration',['../structlegate_1_1Core.html#ab892937a7dac39e2390344df4da42f95',1,'legate::Core']]],
   ['point_1',['point',['../classlegate_1_1mapping_1_1Task.html#a6e7b8e7e3049aaf4f0b6a2432016e2ec',1,'legate::mapping::Task']]],
   ['point_2',['Point',['../group__geometry.html#gad3f1c2668191a7a97740a5116d647b9d',1,'legate']]],
   ['pointindomainiterator_3',['PointInDomainIterator',['../group__iterator.html#gaacb3e8ff06a1c67583afc5d1ecb7d87d',1,'legate']]],
