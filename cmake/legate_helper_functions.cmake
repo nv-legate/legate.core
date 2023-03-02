@@ -353,7 +353,7 @@ void @target@_perform_registration(void)
   // Tell the runtime about our registration callback so we hook it
   // in before the runtime starts and make it global so that we know
   // that this call back is invoked everywhere across all nodes
-  legate::Core::perform_registration(@target@::registration_callback);
+  legate::Core::perform_registration<@target@::registration_callback>();
 }
 
 }
