@@ -327,6 +327,7 @@ if (legate_core_BUILD_DOCS)
       src/core/data/allocator.h
       # runtime
       src/core/runtime/runtime.h
+      src/core/runtime/runtime.inl
       src/core/runtime/context.h
       # mapping
       src/core/mapping/mapping.h
