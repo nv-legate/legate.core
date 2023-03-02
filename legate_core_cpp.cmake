@@ -412,6 +412,7 @@ install(
   FILES src/core/runtime/context.h
         src/core/runtime/context.inl
         src/core/runtime/runtime.h
+        src/core/runtime/runtime.inl
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/legate/core/runtime)
 
 install(
@@ -467,6 +468,13 @@ endif()
 ]=]
 "${helper_functions}"
 )
+
+if(DEFINED legate_core_cuda_stubs_path)
+  string(JOIN "\n" code_string "${code_string}"
+    "list(APPEND CMAKE_C_IMPLICIT_LINK_DIRECTORIES ${legate_core_cuda_stubs_path})"
+    "list(APPEND CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES ${legate_core_cuda_stubs_path})"
+    "list(APPEND CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES ${legate_core_cuda_stubs_path})")
+endif()
 
 rapids_export(
   INSTALL legate_core

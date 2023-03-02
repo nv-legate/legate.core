@@ -18,6 +18,10 @@
 
 #include "core/utilities/typedefs.h"
 
+/**
+ * @file
+ * @brief Definitions for dispatch routines
+ */
 namespace legate {
 
 template <int DIM>
@@ -132,6 +136,20 @@ struct inner_dim_dispatch_fn {
   }
 };
 
+/**
+ * @ingroup util
+ * @brief Converts the runtime dimension and type code into compile time constants and
+ * invokes the functor with them
+ *
+ * The functor's `operator()` should take a dimension and a type code as template parameters.
+ *
+ * @param dim Dimension
+ * @param code Type code
+ * @param f Functor to dispatch
+ * @param args Extra arguments to the functor
+ *
+ * @return The functor's return value
+ */
 template <typename Functor, typename... Fnargs>
 constexpr decltype(auto) double_dispatch(int dim, LegateTypeCode code, Functor f, Fnargs&&... args)
 {
@@ -186,6 +204,20 @@ constexpr decltype(auto) double_dispatch(int dim, LegateTypeCode code, Functor f
   return inner_type_dispatch_fn<1>{}(code, f, std::forward<Fnargs>(args)...);
 }
 
+/**
+ * @ingroup util
+ * @brief Converts the runtime dimensions into compile time constants and invokes
+ * the functor with them
+ *
+ * The functor's `operator()` should take exactly two integers as template parameters.
+ *
+ * @param dim1 First dimension
+ * @param dim2 Second dimension
+ * @param f Functor to dispatch
+ * @param args Extra arguments to the functor
+ *
+ * @return The functor's return value
+ */
 template <typename Functor, typename... Fnargs>
 constexpr decltype(auto) double_dispatch(int dim1, int dim2, Functor f, Fnargs&&... args)
 {
@@ -240,6 +272,19 @@ constexpr decltype(auto) double_dispatch(int dim1, int dim2, Functor f, Fnargs&&
   return inner_dim_dispatch_fn<1>{}(dim2, f, std::forward<Fnargs>(args)...);
 }
 
+/**
+ * @ingroup util
+ * @brief Converts the runtime dimension into a compile time constant and invokes
+ * the functor with it
+ *
+ * The functor's `operator()` should take an integer as its sole template parameter.
+ *
+ * @param dim Dimension
+ * @param f Functor to dispatch
+ * @param args Extra arguments to the functor
+ *
+ * @return The functor's return value
+ */
 template <typename Functor, typename... Fnargs>
 constexpr decltype(auto) dim_dispatch(int dim, Functor f, Fnargs&&... args)
 {
@@ -294,6 +339,19 @@ constexpr decltype(auto) dim_dispatch(int dim, Functor f, Fnargs&&... args)
   return f.template operator()<1>(std::forward<Fnargs>(args)...);
 }
 
+/**
+ * @ingroup util
+ * @brief Converts the runtime type code into a compile time constant and invokes
+ * the functor with it
+ *
+ * The functor's `operator()` should take a type code as its sole template parameter.
+ *
+ * @param code Type code
+ * @param f Functor to dispatch
+ * @param args Extra arguments to the functor
+ *
+ * @return The functor's return value
+ */
 template <typename Functor, typename... Fnargs>
 constexpr decltype(auto) type_dispatch(LegateTypeCode code, Functor f, Fnargs&&... args)
 {

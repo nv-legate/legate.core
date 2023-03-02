@@ -6,7 +6,8 @@ Welcome to Legate Core's documentation!
 
   Overview <README.md>
   Build instructions <BUILD.md>
-  API Reference <api/index.rst>
+  Python API Reference <api/index.rst>
+  C++ API Reference <https://nv-legate.github.io/legate.core/cpp-interface>
   Contributing <CONTRIBUTING.md>
   Versions <versions.rst>
 

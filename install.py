@@ -241,6 +241,7 @@ def install(
     hdf,
     llvm,
     spy,
+    build_docs,
     conduit,
     nccl_dir,
     cmake_exe,
@@ -288,6 +289,7 @@ def install(
         print("hdf:", hdf)
         print("llvm:", llvm)
         print("spy:", spy)
+        print("build_docs:", build_docs)
         print("conduit:", conduit)
         print("nccl_dir:", nccl_dir)
         print("cmake_exe:", cmake_exe)
@@ -464,6 +466,8 @@ def install(
         cmake_flags += [f"-Dlegate_core_LEGION_REPOSITORY={legion_url}"]
     if legion_branch:
         cmake_flags += [f"-Dlegate_core_LEGION_BRANCH={legion_branch}"]
+    if build_docs:
+        cmake_flags += ["-Dlegate_core_BUILD_DOCS=ON"]
 
     cmake_flags += extra_flags
     build_flags = [f"-j{str(thread_count)}"]
@@ -619,6 +623,14 @@ def driver():
         required=False,
         default=os.environ.get("USE_SPY", "0") == "1",
         help="Build Legate with detailed Legion Spy enabled.",
+    )
+    parser.add_argument(
+        "--docs",
+        dest="build_docs",
+        action="store_true",
+        required=False,
+        default=False,
+        help="Build Doxygen docs.",
     )
     parser.add_argument(
         "--conduit",

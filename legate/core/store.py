@@ -783,10 +783,26 @@ class StorePartition:
 
     @property
     def store(self) -> Store:
+        """
+        Returns the store of the store partition
+
+        Returns
+        -------
+        Store
+            A ``Store`` object wrapped in the store partition
+        """
         return self._store
 
     @property
     def partition(self) -> PartitionBase:
+        """
+        Returns the partition descriptor of the store partition
+
+        Returns
+        -------
+        PartitionBase
+            A ``PartitionBase`` object wrapped in the store partition
+        """
         return self._partition
 
     @property
@@ -794,6 +810,19 @@ class StorePartition:
         return self._store.transform
 
     def get_child_store(self, *indices: int) -> Store:
+        """
+        Returns the sub-store of a given color
+
+        Parameters
+        ----------
+        indices : tuple[int]
+            Color of the sub-store
+
+        Returns
+        -------
+        Store
+            The sub-store of the chosen color
+        """
         color = self.transform.invert_color(Shape(indices))
         child_storage = self._storage_partition.get_child(color)
         child_transform = self.transform
@@ -892,6 +921,15 @@ class Store:
 
     @property
     def shape(self) -> Shape:
+        """
+        Returns the shape of the store. Flushes the scheduling window if the
+        store is unbound and has no shape assigned.
+
+        Returns
+        -------
+        Shape
+          The store's shape
+        """
         if self._shape is None:
             # If someone wants to access the shape of an unbound
             # store before it is set, that means the producer task is
@@ -912,6 +950,14 @@ class Store:
 
     @property
     def ndim(self) -> int:
+        """
+        Returns the number of dimensions of the store.
+
+        Returns
+        -------
+        int
+          The number of dimensions
+        """
         if self._shape is None:
             assert self._ndim is not None
             return self._ndim
@@ -920,12 +966,25 @@ class Store:
 
     @property
     def size(self) -> int:
+        """
+        Returns the number of elements in the store.
+
+        Returns
+        -------
+        int
+          The store's size
+        """
         return prod(self.shape) if self.ndim > 0 else 1
 
     @property
     def type(self) -> _Dtype:
         """
-        Return the type of the data in this storage primitive
+        Returns the element type of the store.
+
+        Returns
+        -------
+        _Dtype
+          Type of elements in the store
         """
         return self._dtype
 
@@ -935,24 +994,42 @@ class Store:
     @property
     def kind(self) -> Union[Type[RegionField], Type[Future]]:
         """
-        Return the type of the Legion storage object backing the data in this
-        storage object: either Future, or RegionField.
+        Returns the kind of backing storage
+
+        Returns
+        -------
+        Type
+          `RegionField` or `Future`
         """
         return self._storage.kind
 
     @property
     def unbound(self) -> bool:
+        """
+        Indicates whether the store is unbound
+
+        Returns
+        -------
+        bool
+          ``True`` if the store is unbound
+        """
         return self._shape is None
 
     @property
     def scalar(self) -> bool:
+        """
+        Indicates whether the store is scalar (i.e., backed by a `Future` and
+        of size 1)
+
+        Returns
+        -------
+        bool
+          ``True`` if the store is scalar
+        """
         return self.kind is Future and self.shape.volume() == 1
 
     @property
     def storage(self) -> Union[RegionField, Future]:
-        """
-        Return the Legion container backing this Store.
-        """
         if self.unbound:
             raise RuntimeError(
                 "Storage of a variable size store cannot be retrieved "
@@ -973,10 +1050,26 @@ class Store:
 
     @property
     def transform(self) -> TransformStackBase:
+        """
+        Returns a transformation attached to the store
+
+        Returns
+        -------
+        TransformStackBase
+            Transformation attached to the store
+        """
         return self._transform
 
     @property
     def transformed(self) -> bool:
+        """
+        Indicates whether the store is transformed
+
+        Returns
+        -------
+        bool
+            If ``True``, the store is transformed
+        """
         return not self._transform.bottom
 
     def attach_external_allocation(
@@ -1035,6 +1128,46 @@ class Store:
     # Convert a store in N-D space to that in (N+1)-D space.
     # The extra_dim specifies the added dimension
     def promote(self, extra_dim: int, dim_size: int = 1) -> Store:
+        """
+        Adds an extra dimension to the store. Value of ``extra_dim`` decides
+        where a new dimension should be added, and each dimension `i`, where
+        `i` >= ``extra_dim``, is mapped to dimension `i+1` in a returned store.
+        A returned store provides a view to the input store where the values
+        are broadcasted along the new dimension.
+
+        For example, for a 1D store ``A`` contains ``[1, 2, 3]``,
+        ``A.promote(0, 2)`` yields a store equivalent to:
+
+        ::
+
+            [[1, 2, 3],
+             [1, 2, 3]]
+
+        whereas ``A.promote(1, 2)`` yields:
+
+        ::
+
+            [[1, 1],
+             [2, 2],
+             [3, 3]]
+
+        Parameters
+        ----------
+        extra_dim : int
+            Position for a new dimension
+        dim_size : int, optional
+            Extent of the new dimension
+
+        Returns
+        -------
+        Store
+            A new store with an extra dimension
+
+        Raises
+        ------
+        ValueError
+            If ``extra_dim`` is not a valid dimension name
+        """
         extra_dim = extra_dim + self.ndim if extra_dim < 0 else extra_dim
         if extra_dim < 0 or extra_dim > self.ndim:
             raise ValueError(
@@ -1057,6 +1190,34 @@ class Store:
     # Take a hyperplane of an N-D store for a given index
     # to create an (N-1)-D store
     def project(self, dim: int, index: int) -> Store:
+        """
+        Projects out a dimension of the store. Each dimension `i`, where
+        `i` > ``dim``, is mapped to dimension `i-1` in a returned store.
+        A returned store provides a view to the input store where the values
+        are on hyperplane :math:`x_\\mathtt{dim} = \\mathtt{index}`.
+
+        For example, if a 2D store ``A`` contains ``[[1, 2], [3, 4]]``,
+        ``A.project(0, 1)`` yields a store equivalent to ``[3, 4]``, whereas
+        ``A.project(1, 0)`` yields ``[1, 3]``.
+
+        Parameters
+        ----------
+        dim : int
+            Dimension to project out
+        index : int
+            Index on the chosen dimension
+
+        Returns
+        -------
+        Store
+            A new store with one fewer dimension
+
+        Raises
+        ------
+        ValueError
+            If ``dim`` is not a valid dimension name or ``index`` is
+            out of bounds
+        """
         dim = dim + self.ndim if dim < 0 else dim
         if dim < 0 or dim >= self.ndim:
             raise ValueError(
@@ -1094,6 +1255,68 @@ class Store:
         )
 
     def slice(self, dim: int, sl: slice) -> Store:
+        """
+        Slices a contiguous sub-section of the store.
+
+        For example, consider a 2D store ``A``
+
+        ::
+
+            [[1, 2, 3],
+             [4, 5, 6],
+             [7, 8, 9]]
+
+        A slicing ``A.slice(0, slice(1, None))`` yields:
+
+        ::
+
+            [[4, 5, 6],
+             [7, 8, 9]]
+
+        The result store will look like this on a different slicing call
+        ``A.slice(1, slice(None, 2))``:
+
+        ::
+
+            [[1, 2],
+             [4, 5],
+             [7, 8]]
+
+        Finally, chained slicing calls
+
+        ::
+
+            A.slice(0, slice(1, None)).slice(1, slice(None, 2))
+
+        results in:
+
+        ::
+
+            [[4, 5],
+             [7, 8]]
+
+
+        Parameters
+        ----------
+        dim : int
+            Dimension to slice
+        sl : slice
+            Slice that expresses a sub-section
+
+        Returns
+        -------
+        Store
+            A new store that correponds to the sliced section
+
+        Notes
+        -----
+        Slicing with a non-unit step is currently not supported.
+
+        Raises
+        ------
+        ValueError
+            If ``sl.step`` is not a unit or ``sl`` is out of bounds
+        """
         dim = dim + self.ndim if dim < 0 else dim
         if dim < 0 or dim >= self.ndim:
             raise ValueError(
@@ -1143,6 +1366,60 @@ class Store:
         )
 
     def transpose(self, axes: tuple[int, ...]) -> Store:
+        """
+        Reorders dimensions of the store. Dimension ``i`` of the resulting
+        store is mapped to dimension ``axes[i]`` of the input store.
+
+        For example, for a 3D store ``A``
+
+        ::
+
+            [[[1, 2],
+              [3, 4]],
+
+             [[5, 6],
+              [7, 8]]]
+
+        transpose calls ``A.transpose([1, 2, 0])`` and ``A.transpose([2, 1,
+        0])`` yield the following stores, respectively:
+
+        ::
+
+            [[[1, 5],
+              [2, 6]],
+
+             [[3, 7],
+              [4, 8]]]
+
+
+        ::
+
+            [[[1, 5],
+              [3, 7]],
+
+             [[2, 6],
+              [4, 8]]]
+
+
+        Parameters
+        ----------
+        axes : tuple[int]
+            Mapping from dimensions of the resulting store to those of the
+            input
+
+        Returns
+        -------
+        Store
+            A new store with the dimensions transposed
+
+        Raises
+        ------
+        ValueError
+            If any of the following happens: 1) The length of ``axes`` doesn't
+            match the store's dimension; 2) ``axes`` has duplicates; 3) Any
+            value in ``axes`` is negative, or greater than or equal to the
+            store's dimension
+        """
         if len(axes) != self.ndim:
             raise ValueError(
                 f"dimension mismatch: expected {self.ndim} axes, "
@@ -1170,6 +1447,54 @@ class Store:
         )
 
     def delinearize(self, dim: int, shape: tuple[int, ...]) -> Store:
+        """
+        Delinearizes a dimension into multiple dimensions. Each dimension
+        `i` of the store, where `i` > ``dim``, will be mapped to dimension
+        `i+N` of the resulting store, where `N` is the length of ``shape``.
+        A delinearization that does not preserve the size of the store is
+        invalid.
+
+        For example, consider a 2D store ``A``
+
+        ::
+
+            [[1, 2, 3, 4],
+             [5, 6, 7, 8]]
+
+        A delinearizing call `A.delinearize(1, [2, 2]))` yields:
+
+        ::
+
+            [[[1, 2],
+              [3, 4]],
+
+             [[5, 6],
+              [7, 8]]]
+
+        Parameters
+        ----------
+        dim : int
+            Dimension to delinearize
+        shape : tuple[int]
+            New shape for the chosen dimension
+
+        Returns
+        -------
+        Store
+            A new store with the chosen dimension delinearized
+
+        Notes
+        -----
+        Unlike other transformations, delinearization is not an affine
+        transformation. Due to this nature, delinearized stores can raise
+        `NonInvertibleError` in places where they cannot be used.
+
+        Raises
+        ------
+        ValueError
+            If ``dim`` is invalid for the store or ``shape`` does not preserve
+            the size of the chosen dimenison
+        """
         dim = dim + self.ndim if dim < 0 else dim
         if dim < 0 or dim >= self.ndim:
             raise ValueError(
@@ -1198,6 +1523,24 @@ class Store:
     def get_inline_allocation(
         self, context: Optional[Context] = None
     ) -> InlineMappedAllocation:
+        """
+        Creates an inline allocation for the store.
+
+        Parameters
+        ----------
+        context : Context, optional
+            Library context within which the allocation is created
+
+        Notes
+        -------
+        This call blocks the client's control flow. And it fetches the data for
+        the whole store on a single node.
+
+        Returns
+        -------
+        InlineMappedAllocation
+            A helper object wrapping the allocation
+        """
         assert self.kind is RegionField
         return self._storage.get_inline_allocation(
             self.shape,
@@ -1216,6 +1559,14 @@ class Store:
         self._transform.serialize(buf)
 
     def get_key_partition(self) -> Optional[PartitionBase]:
+        """
+        Returns the current key partition of the store
+
+        Returns
+        -------
+        PartitionBase
+            The store's key partition
+        """
         # Flush outstanding operations to have the key partition of this store
         # registered correctly
         runtime.flush_scheduling_window()
@@ -1235,6 +1586,14 @@ class Store:
         return (part is not None) and (part.even or self._transform.bottom)
 
     def set_key_partition(self, partition: PartitionBase) -> None:
+        """
+        Sets a new key partition for the store
+
+        Parameters
+        ----------
+        partition : PartitionBase
+            A new key partition
+        """
         runtime.partition_manager.record_store_key_partition(
             self._unique_id, partition
         )
@@ -1245,6 +1604,9 @@ class Store:
         )
 
     def reset_key_partition(self) -> None:
+        """
+        Clears the store's key partition
+        """
         runtime.partition_manager.reset_store_key_partition(self._unique_id)
         # Also reset the storage's key partition.
         self._storage.reset_key_partition()
@@ -1343,6 +1705,19 @@ class Store:
     def partition_by_tiling(
         self, tile_shape: Union[Shape, Sequence[int]]
     ) -> StorePartition:
+        """
+        Creates a tiled partition of the store
+
+        Parameters
+        ----------
+        tile_shape : Shape or Sequence[int]
+            Shape of tiles
+
+        Returns
+        -------
+        StorePartition
+            A ``StorePartition`` object
+        """
         if self.unbound:
             raise TypeError("Unbound store cannot be manually partitioned")
         if not isinstance(tile_shape, Shape):

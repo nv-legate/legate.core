@@ -157,7 +157,7 @@ class DocsConfig(SectionConfig):
 
     @property
     def conda(self) -> Reqs:
-        return ("pandoc",)
+        return ("pandoc", "doxygen")
 
     @property
     def pip(self) -> Reqs:
