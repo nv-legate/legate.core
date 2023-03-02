@@ -306,6 +306,59 @@ SECTIONS
 endif()
 
 ##############################################################################
+# - Doxygen target------------------------------------------------------------
+
+if (legate_core_BUILD_DOCS)
+  find_package(Doxygen)
+  if(Doxygen_FOUND)
+    set(legate_core_DOC_SOURCES "")
+    list(APPEND legate_core_DOC_SOURCES
+      # task
+      src/core/task/task.h
+      src/core/task/registrar.h
+      src/core/task/variant.h
+      src/core/task/exception.h
+      src/core/cuda/stream_pool.h
+      # data
+      src/core/data/store.h
+      src/core/data/scalar.h
+      src/core/data/buffer.h
+      src/core/utilities/span.h
+      src/core/data/allocator.h
+      # runtime
+      src/core/runtime/runtime.h
+      src/core/runtime/runtime.inl
+      src/core/runtime/context.h
+      # mapping
+      src/core/mapping/mapping.h
+      src/core/mapping/operation.h
+      # aliases
+      src/core/utilities/typedefs.h
+      # utilities
+      src/core/utilities/debug.h
+      src/core/utilities/dispatch.h
+      src/core/utilities/type_traits.h
+      # main page
+      src/legate.h
+    )
+    set(DOXYGEN_PROJECT_NAME "Legate")
+    set(DOXYGEN_FULL_PATH_NAMES NO)
+    set(DOXYGEN_GENERATE_HTML YES)
+    set(DOXYGEN_GENERATE_LATEX NO)
+    set(DOXYGEN_EXTENSION_MAPPING cu=C++ cuh=C++)
+    set(DOXYGEN_HIDE_UNDOC_MEMBERS YES)
+    set(DOXYGEN_HIDE_UNDOC_CLASSES YES)
+    set(DOXYGEN_STRIP_FROM_INC_PATH ${CMAKE_SOURCE_DIR}/src)
+    doxygen_add_docs("doxygen_legate" ALL
+      ${legate_core_DOC_SOURCES}
+      COMMENT "Custom command for building Doxygen docs."
+    )
+  else()
+    message(STATUS "cannot find Doxygen. not generating docs.")
+  endif()
+endif()
+
+##############################################################################
 # - install targets-----------------------------------------------------------
 
 include(CPack)

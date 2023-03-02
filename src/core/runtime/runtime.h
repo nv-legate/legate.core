@@ -38,7 +38,17 @@ struct Core {
 
  public:
   using RegistrationCallback = void (*)();
+
   static void perform_registration(RegistrationCallback callback);
+
+  /**
+   * @brief Performs a registration callback. Libraries must perform
+   * registration of tasks and other components through this function.
+   *
+   * @tparam CALLBACK Registration callback to perform
+   */
+  template <RegistrationCallback CALLBACK>
+  static void perform_registration();
 
  public:
   // Configuration settings
@@ -50,3 +60,5 @@ struct Core {
 };
 
 }  // namespace legate
+
+#include "core/runtime/runtime.inl"
