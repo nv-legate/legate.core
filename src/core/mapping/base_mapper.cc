@@ -764,7 +764,7 @@ bool BaseMapper::map_legate_store(const Legion::Mapping::MapperContext ctx,
       return false;
     }
     if (!can_fail)
-      report_failed_mapping(mappable, mapping.requirement_index(), target_memory, redop);
+      report_failed_mapping(mappable, mapping.requirement_index(), target_memory, redop, footprint);
     return true;
   }
 
@@ -863,7 +863,8 @@ bool BaseMapper::map_legate_store(const Legion::Mapping::MapperContext ctx,
   // If we make it here then we failed entirely
   if (!can_fail) {
     auto req_indices = mapping.requirement_indices();
-    for (auto req_idx : req_indices) report_failed_mapping(mappable, req_idx, target_memory, redop);
+    for (auto req_idx : req_indices)
+      report_failed_mapping(mappable, req_idx, target_memory, redop, footprint);
   }
   return true;
 }
@@ -871,7 +872,8 @@ bool BaseMapper::map_legate_store(const Legion::Mapping::MapperContext ctx,
 void BaseMapper::report_failed_mapping(const Legion::Mappable& mappable,
                                        uint32_t index,
                                        Memory target_memory,
-                                       Legion::ReductionOpID redop)
+                                       Legion::ReductionOpID redop,
+                                       size_t footprint)
 {
   static const char* memory_kinds[] = {
 #define MEM_NAMES(name, desc) desc,
@@ -894,15 +896,32 @@ void BaseMapper::report_failed_mapping(const Legion::Mappable& mappable,
   else
     req_ss << "region requirement " << index;
 
-  logger.error("Mapper %s failed to map %s of %s%s[%s] (UID %lld) into %s memory " IDFMT,
+  logger.error("Mapper %s failed to allocate %zd bytes on memory " IDFMT
+               " (of kind %s: %s) for %s of %s%s[%s] (UID %lld).\n"
+               "This means Legate was unable to reserve ouf of its memory pool the full amount "
+               "required for the above operation. Here are some things to try:\n"
+               "* Make sure your code is not impeding the garbage collection of Legate-backed "
+               "objects, e.g. by storing references in caches, or creating reference cycles.\n"
+               "* Ask Legate to reserve more space on the above memory, using the appropriate "
+               "--*mem legate flag.\n"
+               "* Assign less memory to the eager pool, by reducing --eager-alloc-percentage.\n"
+               "* If running on multiple nodes, increase how often distributed garbage collection "
+               "runs, by reducing LEGATE_FIELD_REUSE_FREQ (default: 32, warning: may "
+               "incur overhead).\n"
+               "* Adapt your code to reduce temporary storage requirements, e.g. by breaking up "
+               "larger operations into batches.\n"
+               "* If the previous steps don't help, and you are confident Legate should be able to "
+               "handle your code's working set, please open an issue on Legate's bug tracker.",
                get_mapper_name(),
+               footprint,
+               target_memory.id,
+               Legion::Mapping::Utilities::to_string(target_memory.kind()),
+               memory_kinds[target_memory.kind()],
                req_ss.str().c_str(),
                log_mappable(mappable, true /*prefix_only*/).c_str(),
                opname.c_str(),
                provenance.c_str(),
-               mappable.get_unique_id(),
-               memory_kinds[target_memory.kind()],
-               target_memory.id);
+               mappable.get_unique_id());
   LEGATE_ABORT;
 }
 

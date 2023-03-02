@@ -287,7 +287,8 @@ class BaseMapper : public Legion::Mapping::Mapper, public MachineQueryInterface 
   void report_failed_mapping(const Legion::Mappable& mappable,
                              unsigned index,
                              Memory target_memory,
-                             Legion::ReductionOpID redop);
+                             Legion::ReductionOpID redop,
+                             size_t footprint);
   void legate_select_sources(const Legion::Mapping::MapperContext ctx,
                              const Legion::Mapping::PhysicalInstance& target,
                              const std::vector<Legion::Mapping::PhysicalInstance>& sources,
