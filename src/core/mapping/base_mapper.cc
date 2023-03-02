@@ -900,18 +900,18 @@ void BaseMapper::report_failed_mapping(const Legion::Mappable& mappable,
                " (of kind %s: %s) for %s of %s%s[%s] (UID %lld).\n"
                "This means Legate was unable to reserve ouf of its memory pool the full amount "
                "required for the above operation. Here are some things to try:\n"
-               "(1) Make sure your code is not impeding the garbage collection of Legate-backed "
+               "* Make sure your code is not impeding the garbage collection of Legate-backed "
                "objects, e.g. by storing references in caches, or creating reference cycles.\n"
-               "(2) Ask Legate to reserve more space on the above memory, using the appropriate "
+               "* Ask Legate to reserve more space on the above memory, using the appropriate "
                "--*mem legate flag.\n"
-               "(3) Assign less memory to the eager pool, by reducing --eager-alloc-percentage.\n"
-               "(4) If running on multiple nodes, increase how often distributed garbage "
-               "collection runs, by reducing LEGATE_FIELD_REUSE_FREQ (default: 32, warning: may "
+               "* Assign less memory to the eager pool, by reducing --eager-alloc-percentage.\n"
+               "* If running on multiple nodes, increase how often distributed garbage collection "
+               "runs, by reducing LEGATE_FIELD_REUSE_FREQ (default: 32, warning: may "
                "incur overhead).\n"
-               "(5) Adapt your code to reduce temporary storage requirements, e.g. by breaking up "
+               "* Adapt your code to reduce temporary storage requirements, e.g. by breaking up "
                "larger operations into batches.\n"
-               "(6) If the previous steps don't help, and you are confident Legate should be able "
-               "to handle your code's working set, please open an issue on Legate's bug tracker.",
+               "* If the previous steps don't help, and you are confident Legate should be able to "
+               "handle your code's working set, please open an issue on Legate's bug tracker.",
                get_mapper_name(),
                footprint,
                target_memory.id,
