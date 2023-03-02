@@ -448,6 +448,8 @@ Imported Targets:
 
 ]=])
 
+file(READ ${CMAKE_SOURCE_DIR}/cmake/legate_helper_functions.cmake helper_functions)
+
 string(JOIN "\n" code_string
 [=[
 if(NOT TARGET legate::Thrust)
@@ -464,6 +466,7 @@ if(Legion_NETWORKS)
   find_package(MPI REQUIRED COMPONENTS CXX)
 endif()
 ]=]
+"${helper_functions}"
 )
 
 if(DEFINED legate_core_cuda_stubs_path)
@@ -479,7 +482,9 @@ rapids_export(
   GLOBAL_TARGETS core
   NAMESPACE legate::
   DOCUMENTATION doc_string
-  FINAL_CODE_BLOCK code_string)
+  FINAL_CODE_BLOCK code_string
+  LANGUAGES ${ENABLED_LANGUAGES}
+)
 
 # build export targets
 rapids_export(
@@ -488,4 +493,6 @@ rapids_export(
   GLOBAL_TARGETS core
   NAMESPACE legate::
   DOCUMENTATION doc_string
-  FINAL_CODE_BLOCK code_string)
+  FINAL_CODE_BLOCK code_string
+  LANGUAGES ${ENABLED_LANGUAES}
+)

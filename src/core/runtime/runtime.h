@@ -48,6 +48,7 @@ struct Core {
    * @brief Type signature for registration callbacks
    */
   using RegistrationCallback = void (*)();
+
   /**
    * @brief Performs a registration callback. Libraries must perform
    * registration of tasks and other components through this function.
