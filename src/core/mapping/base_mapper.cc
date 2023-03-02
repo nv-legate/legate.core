@@ -897,19 +897,19 @@ void BaseMapper::report_failed_mapping(const Legion::Mappable& mappable,
     req_ss << "region requirement " << index;
 
   logger.error("Mapper %s failed to allocate %zd bytes on memory " IDFMT
-               " (of kind %s: %s) for %s of %s%s[%s] (UID %lld). This means Legate was unable to "
-               "reserve ouf of its memory pool the full amount required for the above operation. "
-               "Here are some things to try: "
+               " (of kind %s: %s) for %s of %s%s[%s] (UID %lld).\n"
+               "This means Legate was unable to reserve ouf of its memory pool the full amount "
+               "required for the above operation. Here are some things to try:\n"
                "(1) Make sure your code is not impeding the garbage collection of Legate-backed "
-               "objects, e.g. by storing references in caches, or creating reference cycles. "
+               "objects, e.g. by storing references in caches, or creating reference cycles.\n"
                "(2) Ask Legate to reserve more space on the above memory, using the appropriate "
-               "--*mem legate flag. "
-               "(3) Assign less memory to the eager pool, by reducing --eager-alloc-percentage. "
+               "--*mem legate flag.\n"
+               "(3) Assign less memory to the eager pool, by reducing --eager-alloc-percentage.\n"
                "(4) If running on multiple nodes, increase how often distributed garbage "
                "collection runs, by reducing LEGATE_FIELD_REUSE_FREQ (default: 32, warning: may "
-               "incur overhead). "
+               "incur overhead).\n"
                "(5) Adapt your code to reduce temporary storage requirements, e.g. by breaking up "
-               "larger operations into batches. "
+               "larger operations into batches.\n"
                "(6) If the previous steps don't help, and you are confident Legate should be able "
                "to handle your code's working set, please open an issue on Legate's bug tracker.",
                get_mapper_name(),
