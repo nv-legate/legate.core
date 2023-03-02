@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from argparse import REMAINDER, ArgumentDefaultsHelpFormatter, ArgumentParser
 
+from .. import __version__
 from ..util.shared_args import (
     CPUS,
     FBMEM,
@@ -380,4 +381,10 @@ other.add_argument(
     action="store_true",
     required=False,
     help="Whether to use color terminal output (if colorama is installed)",
+)
+
+other.add_argument(
+    "--version",
+    action="version",
+    version=__version__,
 )
