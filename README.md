@@ -23,9 +23,7 @@ by running the same code that runs on a desktop or a laptop at scale.
 Using this technology, computational and data scientists can develop and test
 programs on moderately sized data sets on local machines and then immediately
 scale up to larger data sets deployed on many nodes in the cloud or on a
-supercomputer without any code modifications. In visual terms:
-
-<img src="docs/figures/vision.png" alt="drawing" width="700"/>
+supercomputer without any code modifications.
 
 The Legate project is built upon two foundational principles:
 
@@ -473,7 +471,6 @@ documentation](https://nv-legate.github.io/legate.core).
 We recommend starting by experimenting with at least one Legate application
 library to test out performance and see how Legate works. If you are interested
 in building your own Legate application library, we recommend that you
-investigate our [Legate Hello World application
-library](https://github.com/nv-legate/legate.hello) that provides a small
-example of how to get started developing your own drop-in replacement library
-on top of Legion using the Legate Core library.
+investigate our [Legate Hello World application library](examples/hello) that
+provides a small example of how to get started developing your own drop-in
+replacement library on top of Legion using the Legate Core library.
