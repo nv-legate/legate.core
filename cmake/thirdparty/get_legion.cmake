@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright 2022 NVIDIA Corporation
+# Copyright 2022-2023 NVIDIA Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,12 +14,30 @@
 # limitations under the License.
 #=============================================================================
 
+include_guard(GLOBAL)
+
 function(find_or_configure_legion)
   set(oneValueArgs VERSION REPOSITORY BRANCH EXCLUDE_FROM_ALL)
   cmake_parse_arguments(PKG "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
   include("${rapids-cmake-dir}/export/detail/parse_version.cmake")
   rapids_export_parse_version(${PKG_VERSION} Legion PKG_VERSION)
+
+  string(REGEX REPLACE "^0([0-9]+)?$" "\\1" Legion_major_version "${Legion_major_version}")
+  string(REGEX REPLACE "^0([0-9]+)?$" "\\1" Legion_minor_version "${Legion_minor_version}")
+  string(REGEX REPLACE "^0([0-9]+)?$" "\\1" Legion_patch_version "${Legion_patch_version}")
+
+  include("${rapids-cmake-dir}/cpm/detail/package_details.cmake")
+  rapids_cpm_package_details(Legion version git_repo git_branch shallow exclude_from_all)
+
+  set(version "${Legion_major_version}.${Legion_minor_version}.${Legion_patch_version}")
+  set(exclude_from_all ${PKG_EXCLUDE_FROM_ALL})
+  if(PKG_BRANCH)
+    set(git_branch "${PKG_BRANCH}")
+  endif()
+  if(PKG_REPOSITORY)
+    set(git_repo "${PKG_REPOSITORY}")
+  endif()
 
   set(Legion_CUDA_ARCH "")
   if(Legion_USE_CUDA)
@@ -47,14 +65,15 @@ function(find_or_configure_legion)
     if(Legion_DIR OR Legion_ROOT)
       set(_find_mode REQUIRED)
     endif()
-    rapids_find_package(Legion ${PKG_VERSION} EXACT CONFIG ${_find_mode} ${FIND_PKG_ARGS})
+    rapids_find_package(Legion ${version} EXACT CONFIG ${_find_mode} ${FIND_PKG_ARGS})
   endif()
 
   if(Legion_FOUND)
-    message(STATUS "CPM: using local package Legion@${PKG_VERSION}")
+    message(STATUS "CPM: using local package Legion@${version}")
   else()
+
     include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/cpm_helpers.cmake)
-    get_cpm_git_args(legion_cpm_git_args REPOSITORY ${PKG_REPOSITORY} BRANCH ${PKG_BRANCH})
+    get_cpm_git_args(legion_cpm_git_args REPOSITORY ${git_repo} BRANCH ${git_branch})
     if(NOT DEFINED Legion_PYTHON_EXTRA_INSTALL_ARGS)
       set(Legion_PYTHON_EXTRA_INSTALL_ARGS "--single-version-externally-managed --root=/")
     endif()
@@ -149,14 +168,19 @@ function(find_or_configure_legion)
     set(Legion_CUDA_ARCH ${Legion_CUDA_ARCH} CACHE STRING
       "Comma-separated list of CUDA architectures to build for (e.g. 60,70)" FORCE)
 
-    rapids_cpm_find(Legion ${PKG_VERSION} ${FIND_PKG_ARGS}
+    message(VERBOSE "legate.core: Legion version: ${version}")
+    message(VERBOSE "legate.core: Legion git_repo: ${git_repo}")
+    message(VERBOSE "legate.core: Legion git_branch: ${git_branch}")
+    message(VERBOSE "legate.core: Legion exclude_from_all: ${exclude_from_all}")
+
+    rapids_cpm_find(Legion ${version} ${FIND_PKG_ARGS}
         CPM_ARGS
           ${legion_cpm_git_args}
           FIND_PACKAGE_ARGUMENTS EXACT
-          EXCLUDE_FROM_ALL       ${PKG_EXCLUDE_FROM_ALL}
+          EXCLUDE_FROM_ALL       ${exclude_from_all}
           OPTIONS                ${_legion_cuda_options}
                                  "CMAKE_CXX_STANDARD ${_cxx_std}"
-                                 "Legion_VERSION ${PKG_VERSION}"
+                                 "Legion_VERSION ${version}"
                                  "Legion_BUILD_BINDINGS ON"
                                  "Legion_BUILD_APPS OFF"
                                  "Legion_BUILD_TESTS OFF"
@@ -165,6 +189,14 @@ function(find_or_configure_legion)
                                  "Legion_REDOP_COMPLEX ON"
                                  "Legion_GPU_REDUCTIONS OFF"
                                  "Legion_BUILD_RUST_PROFILER ON"
+                                 "Legion_SPY ${Legion_SPY}"
+                                 "Legion_USE_LLVM ${Legion_USE_LLVM}"
+                                 "Legion_USE_HDF5 ${Legion_USE_HDF5}"
+                                 "Legion_USE_CUDA ${Legion_USE_CUDA}"
+                                 "Legion_NETWORKS ${Legion_NETWORKS}"
+                                 "Legion_USE_OpenMP ${Legion_USE_OpenMP}"
+                                 "Legion_USE_Python ${Legion_USE_Python}"
+                                 "Legion_BOUNDS_CHECKS ${Legion_BOUNDS_CHECKS}"
     )
   endif()
 
@@ -180,16 +212,23 @@ function(find_or_configure_legion)
 
 endfunction()
 
-if(NOT DEFINED legate_core_LEGION_BRANCH)
-  set(legate_core_LEGION_BRANCH control_replication)
-endif()
-
-if(NOT DEFINED legate_core_LEGION_REPOSITORY)
-  set(legate_core_LEGION_REPOSITORY https://gitlab.com/StanfordLegion/legion.git)
-endif()
+foreach(_var IN ITEMS "legate_core_LEGION_VERSION"
+                      "legate_core_LEGION_BRANCH"
+                      "legate_core_LEGION_REPOSITORY"
+                      "legate_core_EXCLUDE_LEGION_FROM_ALL")
+  if(DEFINED ${_var})
+    # Create a legate_core_LEGION_BRANCH variable in the current scope either from the existing
+    # current-scope variable, or the cache variable.
+    set(${_var} "${${_var}}")
+    # Remove legate_core_LEGION_BRANCH from the CMakeCache.txt. This ensures reconfiguring the same
+    # build dir without passing `-Dlegate_core_LEGION_BRANCH=` reverts to the value in versions.json
+    # instead of reusing the previous `-Dlegate_core_LEGION_BRANCH=` value.
+    unset(${_var} CACHE)
+  endif()
+endforeach()
 
 if(NOT DEFINED legate_core_LEGION_VERSION)
-  set(legate_core_LEGION_VERSION "${legate_core_VERSION_MAJOR}.${legate_core_VERSION_MINOR}.0")
+  set(legate_core_LEGION_VERSION "${legate_core_VERSION}")
 endif()
 
 find_or_configure_legion(VERSION          ${legate_core_LEGION_VERSION}
