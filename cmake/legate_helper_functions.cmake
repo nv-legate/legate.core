@@ -38,11 +38,16 @@ function(legate_default_cpp_install target)
           DESTINATION ${lib_dir}
 	  EXPORT ${LEGATE_OPT_EXPORT})
 
+  set(final_code_block
+    "set(${target}_BUILD_LIBDIR ${CMAKE_BINARY_DIR}/legate_${target})"
+  )
+
   rapids_export(
     INSTALL ${target}
     EXPORT_SET ${LEGATE_OPT_EXPORT}
     GLOBAL_TARGETS ${target}
     NAMESPACE legate::
+    FINAL_CODE_BLOCK final_code_block
   )
 
   # build export targets
@@ -51,6 +56,7 @@ function(legate_default_cpp_install target)
     EXPORT_SET ${LEGATE_OPT_EXPORT}
     GLOBAL_TARGETS ${target}
     NAMESPACE legate::
+    FINAL_CODE_BLOCK final_code_block
   )
 endfunction()
 
@@ -138,14 +144,19 @@ header: str = """
        @ONLY
   )
 
-  # cmake doesn't let you pipe the output of a
-  # custom command so you have to generate a script
-  # that writes to a file and THEN run that in a
-  # custom command
+  if (DEFINED ${target}_BUILD_LIBDIR)
+    # this must have been imported from an existing editable build
+    set(libdir ${${target}_BUILD_LIBDIR})
+  else()
+    # libraries are built in a common spot
+    set(libdir ${CMAKE_BINARY_DIR}/legate_${target})
+    message("libdir to binary dir")
+  endif()
   add_custom_target("generate_install_info_py" ALL
     COMMAND ${CMAKE_COMMAND}
       -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
       -Dtarget=${target}
+      -Dlibdir=${libdir}
       -P ${generate_script}
     OUTPUT ${install_info_py}
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
@@ -229,6 +240,9 @@ function(legate_add_cpp_subdirectory dir)
     if (NOT ${target}_FOUND)
       add_subdirectory(${dir} ${CMAKE_BINARY_DIR}/legate_${target})
       legate_default_cpp_install(${target} EXPORT ${LEGATE_OPT_EXPORT})
+    else()
+      # Make sure the libdir is visible to other functions
+      set(${target}_BUILD_LIBDIR "${${target}_BUILD_LIBDIR}" PARENT_SCOPE)
     endif()
   else()
     add_subdirectory(${dir} ${CMAKE_BINARY_DIR}/legate_${target})
