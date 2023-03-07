@@ -28,7 +28,10 @@ cmake_flags = [
     f"-Dlegate_core_ROOT:STRING={legate_dir}",
 ]
 
-os.environ["SKBUILD_CONFIGURE_OPTIONS"] = " ".join(cmake_flags)
+env_cmake_args = os.environ.get("CMAKE_ARGS")
+if env_cmake_args is not None:
+    cmake_flags.append(env_cmake_args)
+os.environ["CMAKE_ARGS"] = " ".join(cmake_flags)
 
 
 setup(
