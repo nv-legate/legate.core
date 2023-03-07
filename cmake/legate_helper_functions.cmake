@@ -47,7 +47,7 @@ function(legate_default_cpp_install target)
     EXPORT_SET ${LEGATE_OPT_EXPORT}
     GLOBAL_TARGETS ${target}
     NAMESPACE legate::
-    FINAL_CODE_BLOCK final_code_block
+    LANGUAGES ${ENABLED_LANGUAGES}
   )
 
   # build export targets
@@ -57,6 +57,7 @@ function(legate_default_cpp_install target)
     GLOBAL_TARGETS ${target}
     NAMESPACE legate::
     FINAL_CODE_BLOCK final_code_block
+    LANGUAGES ${ENABLED_LANGUAGES}
   )
 endfunction()
 
