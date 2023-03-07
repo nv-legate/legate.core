@@ -90,7 +90,7 @@ def get_libpath():
     }[platform.system()]
 
     def find_lib(libdir):
-        target = f"libhello{so_ext}*"
+        target = f"lib@target@{so_ext}*"
         search_path = Path(libdir)
         matches = [m for m in search_path.rglob(target)]
         if matches:
@@ -320,9 +320,9 @@ class Mapper : public legate::mapping::LegateMapper {
   const legate::mapping::MachineQueryInterface* machine_;
 };
 
-static const char* const library_name = "hello";
+static const char* const library_name = "@target@";
 
-Legion::Logger log_hello("hello");
+Legion::Logger log_@target@(library_name);
 
 /*static*/ legate::TaskRegistrar& Registry::get_registrar()
 {
@@ -392,16 +392,16 @@ class UserLibrary(Library):
         return self.name
 
     def get_shared_library(self) -> str:
-        from hello.install_info import libpath
+        from @target@.install_info import libpath
         return os.path.join(libpath, f"lib@target@{self.get_library_extension()}")
 
     def get_c_header(self) -> str:
-        from hello.install_info import header
+        from @target@.install_info import header
 
         return header
 
     def get_registration_callback(self) -> str:
-        return "hello_perform_registration"
+        return "@target@_perform_registration"
 
     def get_resource_configuration(self) -> ResourceConfig:
         assert self.shared_object is not None
