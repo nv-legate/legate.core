@@ -17,6 +17,8 @@ from dataclasses import dataclass
 from textwrap import indent
 from typing import Literal, Protocol, Tuple
 
+from packaging.version import Version as V
+
 # --- Types -------------------------------------------------------------------
 
 Req = str
@@ -49,6 +51,7 @@ class SectionConfig(Protocol):
 @dataclass(frozen=True)
 class CUDAConfig(SectionConfig):
     ctk_version: str
+    compilers: bool
 
     header = "cuda"
 
@@ -57,12 +60,21 @@ class CUDAConfig(SectionConfig):
         if self.ctk_version == "none":
             return ()
 
-        return (
+        deps = (
             f"cudatoolkit={self.ctk_version}",  # runtime
             "cutensor>=1.3.3",  # runtime
             "nccl",  # runtime
             "pynvml",  # tests
         )
+
+        # gcc 11.3 is incompatible with nvcc <= 11.5.
+        if self.compilers and (V(self.ctk_version) <= V("11.5")):
+            deps += (
+                "gcc_linux-64<=11.2",
+                "gxx_linux-64<=11.2",
+            )
+
+        return deps
 
     def __str__(self) -> str:
         if self.ctk_version == "none":
@@ -195,7 +207,7 @@ class EnvConfig:
 
     @property
     def cuda(self) -> CUDAConfig:
-        return CUDAConfig(self.ctk)
+        return CUDAConfig(self.ctk, self.compilers)
 
     @property
     def build(self) -> BuildConfig:
