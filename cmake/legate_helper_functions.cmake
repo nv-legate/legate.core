@@ -38,11 +38,16 @@ function(legate_default_cpp_install target)
           DESTINATION ${lib_dir}
 	  EXPORT ${LEGATE_OPT_EXPORT})
 
+  set(final_code_block
+    "set(${target}_BUILD_LIBDIR ${CMAKE_BINARY_DIR}/legate_${target})"
+  )
+
   rapids_export(
     INSTALL ${target}
     EXPORT_SET ${LEGATE_OPT_EXPORT}
     GLOBAL_TARGETS ${target}
     NAMESPACE legate::
+    LANGUAGES ${ENABLED_LANGUAGES}
   )
 
   # build export targets
@@ -51,6 +56,8 @@ function(legate_default_cpp_install target)
     EXPORT_SET ${LEGATE_OPT_EXPORT}
     GLOBAL_TARGETS ${target}
     NAMESPACE legate::
+    FINAL_CODE_BLOCK final_code_block
+    LANGUAGES ${ENABLED_LANGUAGES}
   )
 endfunction()
 
@@ -90,7 +97,7 @@ def get_libpath():
     }[platform.system()]
 
     def find_lib(libdir):
-        target = f"libhello{so_ext}*"
+        target = f"lib@target@{so_ext}*"
         search_path = Path(libdir)
         matches = [m for m in search_path.rglob(target)]
         if matches:
@@ -138,14 +145,19 @@ header: str = """
        @ONLY
   )
 
-  # cmake doesn't let you pipe the output of a
-  # custom command so you have to generate a script
-  # that writes to a file and THEN run that in a
-  # custom command
+  if (DEFINED ${target}_BUILD_LIBDIR)
+    # this must have been imported from an existing editable build
+    set(libdir ${${target}_BUILD_LIBDIR})
+  else()
+    # libraries are built in a common spot
+    set(libdir ${CMAKE_BINARY_DIR}/legate_${target})
+    message("libdir to binary dir")
+  endif()
   add_custom_target("generate_install_info_py" ALL
     COMMAND ${CMAKE_COMMAND}
       -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
       -Dtarget=${target}
+      -Dlibdir=${libdir}
       -P ${generate_script}
     OUTPUT ${install_info_py}
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
@@ -229,6 +241,9 @@ function(legate_add_cpp_subdirectory dir)
     if (NOT ${target}_FOUND)
       add_subdirectory(${dir} ${CMAKE_BINARY_DIR}/legate_${target})
       legate_default_cpp_install(${target} EXPORT ${LEGATE_OPT_EXPORT})
+    else()
+      # Make sure the libdir is visible to other functions
+      set(${target}_BUILD_LIBDIR "${${target}_BUILD_LIBDIR}" PARENT_SCOPE)
     endif()
   else()
     add_subdirectory(${dir} ${CMAKE_BINARY_DIR}/legate_${target})
@@ -320,9 +335,9 @@ class Mapper : public legate::mapping::LegateMapper {
   const legate::mapping::MachineQueryInterface* machine_;
 };
 
-static const char* const library_name = "hello";
+static const char* const library_name = "@target@";
 
-Legion::Logger log_hello("hello");
+Legion::Logger log_@target@(library_name);
 
 /*static*/ legate::TaskRegistrar& Registry::get_registrar()
 {
@@ -392,16 +407,16 @@ class UserLibrary(Library):
         return self.name
 
     def get_shared_library(self) -> str:
-        from hello.install_info import libpath
+        from @target@.install_info import libpath
         return os.path.join(libpath, f"lib@target@{self.get_library_extension()}")
 
     def get_c_header(self) -> str:
-        from hello.install_info import header
+        from @target@.install_info import header
 
         return header
 
     def get_registration_callback(self) -> str:
-        return "hello_perform_registration"
+        return "@target@_perform_registration"
 
     def get_resource_configuration(self) -> ResourceConfig:
         assert self.shared_object is not None
