@@ -52,6 +52,7 @@ class SectionConfig(Protocol):
 class CUDAConfig(SectionConfig):
     ctk_version: str
     compilers: bool
+    os: OSType
 
     header = "cuda"
 
@@ -68,7 +69,11 @@ class CUDAConfig(SectionConfig):
         )
 
         # gcc 11.3 is incompatible with nvcc <= 11.5.
-        if self.compilers and (V(self.ctk_version) <= V("11.5")):
+        if (
+            self.compilers
+            and self.os == "linux"
+            and (V(self.ctk_version) <= V("11.5"))
+        ):
             deps += (
                 "gcc_linux-64<=11.2",
                 "gxx_linux-64<=11.2",
@@ -207,7 +212,7 @@ class EnvConfig:
 
     @property
     def cuda(self) -> CUDAConfig:
-        return CUDAConfig(self.ctk, self.compilers)
+        return CUDAConfig(self.ctk, self.compilers, self.os)
 
     @property
     def build(self) -> BuildConfig:
