@@ -17,6 +17,7 @@
 #pragma once
 
 #include "core/data/store.h"
+#include "core/utilities/typedefs.h"
 
 #ifdef LEGATE_USE_CUDA
 #include <cuda_runtime_api.h>
@@ -24,9 +25,14 @@
 
 #include <sstream>
 
-namespace legate {
+/** @defgroup util Utilities
+ */
 
-using namespace Legion;
+/**
+ * @file
+ * @brief Debugging utilities
+ */
+namespace legate {
 
 #ifdef LEGATE_USE_CUDA
 
@@ -43,6 +49,16 @@ inline bool is_device_only_ptr(const void* ptr)
 
 #endif  // LEGATE_USE_CUDA
 
+/**
+ * @ingroup util
+ * @brief Converts the dense array into a string
+ *
+ * @param base Array to convert
+ * @param extents Extents of the array
+ * @param strides Strides for dimensions
+ *
+ * @return A string expressing the contents of the array
+ */
 template <typename T, int DIM>
 std::string print_dense_array(const T* base, const Point<DIM>& extents, size_t strides[DIM])
 {
@@ -94,6 +110,15 @@ std::string print_dense_array(const T* base, const Point<DIM>& extents, size_t s
   return ss.str();
 }
 
+/**
+ * @ingroup util
+ * @brief Converts the dense array into a string using an accessor
+ *
+ * @param accessor Accessor to an array
+ * @param rect Sub-rectangle within which the elements should be retrieved
+ *
+ * @return A string expressing the contents of the array
+ */
 template <int DIM, typename ACC>
 std::string print_dense_array(ACC accessor, const Rect<DIM>& rect)
 {
@@ -103,6 +128,14 @@ std::string print_dense_array(ACC accessor, const Rect<DIM>& rect)
   return print_dense_array(base, extents, strides);
 }
 
+/**
+ * @ingroup util
+ * @brief Converts the store to a string
+ *
+ * @param store Store to convert
+ *
+ * @return A string expressing the contents of the store
+ */
 std::string print_dense_array(const Store& store);
 
 }  // namespace legate

@@ -27,7 +27,6 @@ namespace legate {
 namespace comm {
 namespace coll {
 
-using namespace Legion;
 extern Logger log_coll;
 
 enum CollTag : int {

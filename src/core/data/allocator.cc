@@ -19,7 +19,7 @@
 
 namespace legate {
 
-ScopedAllocator::ScopedAllocator(Legion::Memory::Kind kind, bool scoped, size_t alignment)
+ScopedAllocator::ScopedAllocator(Memory::Kind kind, bool scoped, size_t alignment)
   : target_kind_(kind), scoped_(scoped), alignment_(alignment)
 {
 }

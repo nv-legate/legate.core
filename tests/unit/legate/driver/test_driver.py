@@ -21,7 +21,7 @@ import pytest
 from pytest_mock import MockerFixture
 
 import legate.driver.driver as m
-from legate.driver.command import CMD_PARTS
+from legate.driver.command import CMD_PARTS_LEGION
 from legate.driver.config import Config
 from legate.driver.launcher import RANK_ENV_VARS, Launcher
 from legate.util.colors import scrub
@@ -48,7 +48,7 @@ class TestDriver:
     def test_init(self, genconfig: GenConfig, launch: LauncherType) -> None:
         config = genconfig(["--launcher", launch])
 
-        driver = m.Driver(config, SYSTEM)
+        driver = m.LegateDriver(config, SYSTEM)
 
         assert driver.config is config
         assert driver.system is SYSTEM
@@ -58,9 +58,11 @@ class TestDriver:
     def test_cmd(self, genconfig: GenConfig, launch: LauncherType) -> None:
         config = genconfig(["--launcher", launch])
 
-        driver = m.Driver(config, SYSTEM)
+        driver = m.LegateDriver(config, SYSTEM)
 
-        parts = (part(config, SYSTEM, driver.launcher) for part in CMD_PARTS)
+        parts = (
+            part(config, SYSTEM, driver.launcher) for part in CMD_PARTS_LEGION
+        )
         expected_cmd = driver.launcher.cmd + sum(parts, ())
 
         assert driver.cmd == expected_cmd
@@ -69,7 +71,7 @@ class TestDriver:
     def test_env(self, genconfig: GenConfig, launch: LauncherType) -> None:
         config = genconfig(["--launcher", launch])
 
-        driver = m.Driver(config, SYSTEM)
+        driver = m.LegateDriver(config, SYSTEM)
 
         assert driver.env == driver.launcher.env
 
@@ -79,7 +81,7 @@ class TestDriver:
     ) -> None:
         config = genconfig(["--launcher", launch])
 
-        driver = m.Driver(config, SYSTEM)
+        driver = m.LegateDriver(config, SYSTEM)
 
         assert driver.custom_env_vars == driver.launcher.custom_env_vars
 
@@ -88,7 +90,7 @@ class TestDriver:
         self, genconfig: GenConfig, mocker: MockerFixture, launch: LauncherType
     ) -> None:
         config = genconfig(["--launcher", launch, "--dry-run"])
-        driver = m.Driver(config, SYSTEM)
+        driver = m.LegateDriver(config, SYSTEM)
 
         mocker.patch.object(m, "process_logs")
         mock_run = mocker.patch.object(m, "run")
@@ -102,7 +104,7 @@ class TestDriver:
         self, genconfig: GenConfig, mocker: MockerFixture, launch: LauncherType
     ) -> None:
         config = genconfig(["--launcher", launch])
-        driver = m.Driver(config, SYSTEM)
+        driver = m.LegateDriver(config, SYSTEM)
 
         mocker.patch.object(m, "process_logs")
         mock_run = mocker.patch.object(m, "run")
@@ -120,7 +122,7 @@ class TestDriver:
     ) -> None:
         # set --dry-run to avoid needing to mock anything
         config = genconfig(["--launcher", launch, "--verbose", "--dry-run"])
-        driver = m.Driver(config, SYSTEM)
+        driver = m.LegateDriver(config, SYSTEM)
 
         driver.run()
 
@@ -149,7 +151,7 @@ class TestDriver:
             ["--launcher", "none", "--verbose", "--dry-run"], multi_rank=(2, 2)
         )
         system = System()
-        driver = m.Driver(config, system)
+        driver = m.LegateDriver(config, system)
 
         driver.run()
 
@@ -176,7 +178,7 @@ class TestDriver:
 
         # set --dry-run to avoid needing to mock anything
         config = genconfig(["--launcher", launch, "--gdb", "--dry-run"])
-        driver = m.Driver(config, system)
+        driver = m.LegateDriver(config, system)
 
         driver.run()
 
@@ -205,7 +207,7 @@ class Test_print_verbose:
     def test_system_and_driver(self, capsys: Capsys) -> None:
         config = Config(["legate", "--no-replicate"])
         system = System()
-        driver = m.Driver(config, system)
+        driver = m.LegateDriver(config, system)
 
         m.print_verbose(system, driver)
 

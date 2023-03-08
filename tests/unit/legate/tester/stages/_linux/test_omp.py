@@ -21,9 +21,12 @@ import pytest
 
 from legate.tester.config import Config
 from legate.tester.stages._linux import omp as m
-from legate.tester.stages.util import UNPIN_ENV
+from legate.tester.stages.util import CUNUMERIC_TEST_ENV, UNPIN_ENV
 
 from .. import FakeSystem
+
+unpin_and_test = dict(UNPIN_ENV)
+unpin_and_test.update(CUNUMERIC_TEST_ENV)
 
 
 def test_default() -> None:
@@ -31,8 +34,8 @@ def test_default() -> None:
     s = FakeSystem(cpus=12)
     stage = m.OMP(c, s)
     assert stage.kind == "openmp"
-    assert stage.args == ["-cunumeric:test"]
-    assert stage.env(c, s) == UNPIN_ENV
+    assert stage.args == []
+    assert stage.env(c, s) == unpin_and_test
     assert stage.spec.workers > 0
 
     shard = (1, 2, 3)
@@ -44,8 +47,8 @@ def test_cpu_pin_strict() -> None:
     s = FakeSystem(cpus=12)
     stage = m.OMP(c, s)
     assert stage.kind == "openmp"
-    assert stage.args == ["-cunumeric:test"]
-    assert stage.env(c, s) == {}
+    assert stage.args == []
+    assert stage.env(c, s) == CUNUMERIC_TEST_ENV
     assert stage.spec.workers > 0
 
     shard = (1, 2, 3)
@@ -57,8 +60,8 @@ def test_cpu_pin_none() -> None:
     s = FakeSystem(cpus=12)
     stage = m.OMP(c, s)
     assert stage.kind == "openmp"
-    assert stage.args == ["-cunumeric:test"]
-    assert stage.env(c, s) == UNPIN_ENV
+    assert stage.args == []
+    assert stage.env(c, s) == unpin_and_test
     assert stage.spec.workers > 0
 
     shard = (1, 2, 3)
@@ -76,6 +79,8 @@ def test_shard_args(shard: tuple[int, ...], expected: str) -> None:
         f"{c.omps}",
         "--ompthreads",
         f"{c.ompthreads}",
+        "--numamem",
+        f"{c.numamem}",
         "--cpu-bind",
         expected,
     ]

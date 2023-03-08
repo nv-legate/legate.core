@@ -125,7 +125,7 @@ Legate has been tested on Linux and MacOS, although only a few flavors of Linux
 such as Ubuntu have been thoroughly tested. There is currently no support for
 Windows.
 
-### Python >= 3.8 (`--python` flag)
+### Python >= 3.9 (`--python` flag)
 
 In terms of Python compatibility, Legate *roughly* follows the timeline outlined
 in [NEP 29](https://numpy.org/neps/nep-0029-deprecation_policy.html).
@@ -189,6 +189,7 @@ in the environment file:
 - `git`
 - `make`
 - `ninja` (this is optional, but produces more informative build output)
+- `rust`
 - `scikit-build`
 
 ### OpenBLAS

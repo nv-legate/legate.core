@@ -227,7 +227,7 @@ class Tiling(PartitionBase):
         my_lo = self._offset
         my_hi = self._offset + self.tile_shape * self._color_shape
 
-        return my_lo <= offsets and offsets + extents <= my_hi
+        return all(my_lo <= offsets) and all(offsets + extents <= my_hi)
 
     def is_disjoint_for(self, launch_domain: Optional[Rect]) -> bool:
         return (
@@ -236,7 +236,7 @@ class Tiling(PartitionBase):
         )
 
     def has_color(self, color: Shape) -> bool:
-        return color >= 0 and color < self._color_shape
+        return all(color >= 0) and all(color < self._color_shape)
 
     @lru_cache
     def get_subregion_size(self, extents: Shape, color: Shape) -> Shape:
@@ -396,7 +396,7 @@ class Weighted(PartitionBase):
         return True
 
     def has_color(self, color: Shape) -> bool:
-        return color >= 0 and color < self._color_shape
+        return all(color >= 0) and all(color < self._color_shape)
 
     def translate(self, offset: Shape) -> None:
         raise NotImplementedError("This method shouldn't be invoked")

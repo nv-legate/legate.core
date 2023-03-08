@@ -21,21 +21,42 @@
 #include "core/task/exception.h"
 #include "core/utilities/typedefs.h"
 
+/** @defgroup runtime Runtime and library contexts
+ */
+
 namespace legate {
 
 extern uint32_t extract_env(const char* env_name,
                             const uint32_t default_value,
                             const uint32_t test_value);
 
-class Core {
+/**
+ * @ingroup runtime
+ * @brief A utility class that collects static members shared by all Legate libraries
+ */
+struct Core {
  public:
   static void parse_config(void);
   static void shutdown(void);
   static void show_progress(const Legion::Task* task,
                             Legion::Context ctx,
-                            Legion::Runtime* runtime,
-                            const char* task_name);
-  static void report_unexpected_exception(const char* task_name, const legate::TaskException& e);
+                            Legion::Runtime* runtime);
+  static void report_unexpected_exception(const Legion::Task* task, const legate::TaskException& e);
+
+ public:
+  /**
+   * @brief Type signature for registration callbacks
+   */
+  using RegistrationCallback = void (*)();
+
+  /**
+   * @brief Performs a registration callback. Libraries must perform
+   * registration of tasks and other components through this function.
+   *
+   * @tparam CALLBACK Registration callback to perform
+   */
+  template <RegistrationCallback CALLBACK>
+  static void perform_registration();
 
  public:
   // Configuration settings
@@ -47,3 +68,5 @@ class Core {
 };
 
 }  // namespace legate
+
+#include "core/runtime/runtime.inl"

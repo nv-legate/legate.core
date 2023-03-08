@@ -16,25 +16,48 @@
 
 #pragma once
 
+#include <memory>
+
 #include "legion.h"
+// Must be included after legion.h
+#include "legate_defines.h"
 
 #include "core/comm/communicator.h"
 #include "core/task/return.h"
+#include "core/utilities/typedefs.h"
+
+/**
+ * @file
+ * @brief Class definitions for legate::LibraryContext and legate::TaskContext
+ */
 
 namespace legate {
 
 namespace mapping {
 
-class BaseMapper;
+class LegateMapper;
 
 }  // namespace mapping
 
 class Store;
 class Scalar;
 
+/**
+ * @ingroup runtime
+ * @brief POD for library configuration.
+ */
 struct ResourceConfig {
+  /**
+   * @brief Maximum number of tasks that the library can register
+   */
   int64_t max_tasks{1000000};
+  /**
+   * @brief Maximum number of mappers that the library can register
+   */
   int64_t max_mappers{1};
+  /**
+   * @brief Maximum number of custom reduction operators that the library can register
+   */
   int64_t max_reduction_ops{0};
   int64_t max_projections{0};
   int64_t max_shardings{0};
@@ -68,16 +91,35 @@ class ResourceScope {
   int64_t max_{-1};
 };
 
+/**
+ * @ingroup runtime
+ * @brief A library context that provides APIs for registering components
+ */
 class LibraryContext {
  public:
-  LibraryContext(Legion::Runtime* runtime,
-                 const std::string& library_name,
-                 const ResourceConfig& config);
+  /**
+   * @brief Creates a library context from a library name and a configuration.
+   *
+   * A library is registered to the runtime only upon the first construction
+   * and the `config` object is referred to only when the registration happens.
+   * All the following constructions of `LibraryContext` only retrieve the
+   * metadata from the runtime without registration and ignore the `config`.
+   *
+   * @param library_name Library name
+   * @param config Resource configuration for the library. If the library is already
+   * registered, the value will be ignored.
+   */
+  LibraryContext(const std::string& library_name, const ResourceConfig& config);
 
  public:
   LibraryContext(const LibraryContext&) = default;
 
  public:
+  /**
+   * @brief Returns the name of the library
+   *
+   * @return Library name
+   */
   const std::string& get_library_name() const;
 
  public:
@@ -102,7 +144,68 @@ class LibraryContext {
   bool valid_sharding_id(Legion::ShardingID shard_id) const;
 
  public:
-  void register_mapper(mapping::BaseMapper* mapper, int64_t local_mapper_id = 0) const;
+  /**
+   * @brief Registers a library specific reduction operator.
+   *
+   * The type parameter `REDOP` points to a class that implements a reduction operator.
+   * Each reduction operator class has the following structure:
+   *
+   * @code{.cpp}
+   * struct RedOp {
+   *   using LHS = ...; // Type of the LHS values
+   *   using RHS = ...; // Type of the RHS values
+   *
+   *   static const RHS identity = ...; // Identity of the reduction operator
+   *   static const int32_t REDOP_ID = ... // Reduction operator id
+   *
+   *   template <bool EXCLUSIVE>
+   *   __CUDA_HD__ inline static void apply(LHS& lhs, RHS rhs)
+   *   {
+   *     ...
+   *   }
+   *   template <bool EXCLUSIVE>
+   *   __CUDA_HD__ inline static void fold(RHS& rhs1, RHS rhs2)
+   *   {
+   *     ...
+   *   }
+   * };
+   * @endcode
+   *
+   * Semantically, Legate performs reductions of values `V0`, ..., `Vn` to element `E` in the
+   * following way:
+   *
+   * @code{.cpp}
+   * RHS T = RedOp::identity;
+   * RedOp::fold(T, V0)
+   * ...
+   * RedOp::fold(T, Vn)
+   * RedOp::apply(E, T)
+   * @endcode
+   * I.e., Legate gathers all reduction contributions using `fold` and applies the accumulator
+   * to the element using `apply`.
+   *
+   * Oftentimes, the LHS and RHS of a reduction operator are the same type and `fold` and  `apply`
+   * perform the same computation, but that's not mandatory. For example, one may implement
+   * a reduction operator for subtraction, where the `fold` would sum up all RHS values whereas
+   * the `apply` would subtract the aggregate value from the LHS.
+   *
+   * The reduction operator id (`REDOP_ID`) can be local to the library but should be unique
+   * for each opeartor within the library.
+   *
+   * Finally, the contract for `apply` and `fold` is that they must update the
+   * reference atomically when the `EXCLUSIVE` is `false`.
+   */
+  template <typename REDOP>
+  void register_reduction_operator();
+  /**
+   * @brief Registers a library specific mapper. Transfers the ownership of the mapper to
+   * the runtime.
+   *
+   * @param mapper Mapper object
+   * @param local_mapper_id Id for the mapper. Used only when there is more than one mapper.
+   */
+  void register_mapper(std::unique_ptr<mapping::LegateMapper> mapper,
+                       int64_t local_mapper_id = 0) const;
 
  private:
   Legion::Runtime* runtime_;
@@ -114,8 +217,10 @@ class LibraryContext {
   ResourceScope shard_scope_;
 };
 
-// A thin context layer on top of the Legion runtime, primarily designed to hide verbosity
-// of the Legion API.
+/**
+ * @ingroup task
+ * @brief A task context that contains task arguments and communicators
+ */
 class TaskContext {
  public:
   TaskContext(const Legion::Task* task,
@@ -124,19 +229,69 @@ class TaskContext {
               Legion::Runtime* runtime);
 
  public:
+  /**
+   * @brief Returns input stores of the task
+   *
+   * @return Vector of input stores
+   */
   std::vector<Store>& inputs() { return inputs_; }
+  /**
+   * @brief Returns output stores of the task
+   *
+   * @return Vector of output stores
+   */
   std::vector<Store>& outputs() { return outputs_; }
+  /**
+   * @brief Returns reduction stores of the task
+   *
+   * @return Vector of reduction stores
+   */
   std::vector<Store>& reductions() { return reductions_; }
+  /**
+   * @brief Returns by-value arguments of the task
+   *
+   * @return Vector of scalar objects
+   */
   std::vector<Scalar>& scalars() { return scalars_; }
+  /**
+   * @brief Returns communicators of the task
+   *
+   * @return Vector of communicator objects
+   */
   std::vector<comm::Communicator>& communicators() { return comms_; }
 
  public:
+  /**
+   * @brief Indicates whether the task is parallelized
+   *
+   * @return true The task is a single task
+   * @return false The task is one in a set of multiple parallel tasks
+   */
   bool is_single_task() const;
+  /**
+   * @brief Indicates whether the task is allowed to raise an exception
+   *
+   * @return true The task can raise an exception
+   * @return false The task must not raise an exception
+   */
   bool can_raise_exception() const { return can_raise_exception_; }
-  Legion::DomainPoint get_task_index() const;
-  Legion::Domain get_launch_domain() const;
+  /**
+   * @brief Returns the point of the task. A 0D point will be returned for a single task.
+   *
+   * @return The point of the task
+   */
+  DomainPoint get_task_index() const;
+  /**
+   * @brief Returns the task group's launch domain. A single task returns an empty domain
+   *
+   * @return The task group's launch domain
+   */
+  Domain get_launch_domain() const;
 
  public:
+  /**
+   * @brief Makes all of unbound output stores of this task empty
+   */
   void make_all_unbound_stores_empty();
   ReturnValues pack_return_values() const;
   ReturnValues pack_return_values_with_exception(int32_t index,
@@ -159,3 +314,5 @@ class TaskContext {
 };
 
 }  // namespace legate
+
+#include "core/runtime/context.inl"

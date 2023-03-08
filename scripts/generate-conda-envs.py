@@ -156,12 +156,18 @@ class DocsConfig(SectionConfig):
     header = "docs"
 
     @property
+    def conda(self) -> Reqs:
+        return ("pandoc", "doxygen")
+
+    @property
     def pip(self) -> Reqs:
         return (
+            "ipython",
             "jinja2",
             "markdown<3.4.0",
-            "pydata-sphinx-theme",
+            "pydata-sphinx-theme>=0.13",
             "myst-parser",
+            "nbsphinx",
             "sphinx-copybutton",
             "sphinx>=4.4.0",
         )
@@ -214,7 +220,7 @@ class EnvConfig:
 
 # --- Setup -------------------------------------------------------------------
 
-PYTHON_VERSIONS = ("3.8", "3.9", "3.10")
+PYTHON_VERSIONS = ("3.9", "3.10", "3.11")
 
 CTK_VERSIONS = (
     "none",
@@ -239,7 +245,7 @@ channels:
   - conda-forge
 dependencies:
 
-  - python={python}
+  - python={python},!=3.9.7  # avoid https://bugs.python.org/issue45121
 
 {conda_sections}{pip}
 """
@@ -314,7 +320,6 @@ class BooleanFlag(Action):
 
 
 if __name__ == "__main__":
-
     import sys
 
     parser = ArgumentParser()

@@ -19,8 +19,6 @@
 #include "core/runtime/runtime.h"
 #include "legate_defines.h"
 
-using namespace Legion;
-
 namespace legate {
 
 Memory::Kind find_memory_kind_for_executing_processor(bool host_accessible)
@@ -36,6 +34,7 @@ Memory::Kind find_memory_kind_for_executing_processor(bool host_accessible)
     case Processor::Kind::OMP_PROC: {
       return Core::has_socket_mem ? Memory::Kind::SOCKET_MEM : Memory::Kind::SYSTEM_MEM;
     }
+    default: break;
   }
   LEGATE_ABORT;
   return Memory::Kind::SYSTEM_MEM;

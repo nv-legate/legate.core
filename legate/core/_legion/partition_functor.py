@@ -379,7 +379,7 @@ class PartitionByDomain(PartitionFunctor):
             assert num_domains <= color_space.get_volume()
             colors = ffi.new("legion_domain_point_t[%d]" % num_domains)
             domains = ffi.new("legion_domain_t[%d]" % num_domains)
-            for (i, (point, rect)) in enumerate(self.domains.items()):
+            for i, (point, rect) in enumerate(self.domains.items()):
                 colors[i] = point.raw()
                 domains[i] = rect.raw()
             return legion.legion_index_partition_create_by_domain(

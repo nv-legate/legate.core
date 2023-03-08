@@ -272,7 +272,6 @@ class TestOther:
 
 class TestConfig:
     def test_default_init(self) -> None:
-
         # Note this test does not clear the environment. Default values from
         # the defaults module can depend on the environment, but what matters
         # is that the generated config matches those values, whatever they are.
@@ -349,7 +348,6 @@ class TestConfig:
         assert colors.ENABLED is True
 
     def test_arg_conversions(self, mocker: MockerFixture) -> None:
-
         # This is kind of a dumb short-cut test, but if we believe that
         # object_to_dataclass works as advertised, then this test ensures that
         # it is being used for all the sub-configs that it should be used for
@@ -447,7 +445,8 @@ class TestConfig:
     def test_user_opts(self, args: tuple[str, ...]) -> None:
         c = m.Config(["legate"] + list(args) + ["foo.py", "-a", "1"])
 
-        assert c.user_opts == ("foo.py", "-a", "1")
+        assert c.user_opts == ("-a", "1")
+        assert c.user_script == "foo.py"
 
     def test_console_true(self) -> None:
         c = m.Config(["legate"])
@@ -458,5 +457,6 @@ class TestConfig:
     def test_console_false(self) -> None:
         c = m.Config(["legate", "--rlwrap", "--gpus", "2", "foo.py", "-a"])
 
-        assert c.user_opts == ("foo.py", "-a")
+        assert c.user_opts == ("-a",)
+        assert c.user_script == "foo.py"
         assert not c.console
