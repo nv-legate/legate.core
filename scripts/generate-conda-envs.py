@@ -237,7 +237,7 @@ class EnvConfig:
 
 # --- Setup -------------------------------------------------------------------
 
-PYTHON_VERSIONS = ("3.9", "3.10")
+PYTHON_VERSIONS = ("3.9", "3.10", "3.11")
 
 CTK_VERSIONS = (
     "none",
