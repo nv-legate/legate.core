@@ -127,7 +127,15 @@ def cmd_nsys(
 
     opts: CommandPart = ("nsys", "profile", "-t", targets, "-o", log_path)
     opts += tuple(extra)
-    if "-s" not in extra:
+
+    has_sample_flag = False
+    for option in extra:
+        flag = option.split("=")[0]
+        if flag == "-s" or flag == "--sample":
+            has_sample_flag = True
+            break
+
+    if not has_sample_flag:
         opts += ("-s", "none")
 
     return opts
