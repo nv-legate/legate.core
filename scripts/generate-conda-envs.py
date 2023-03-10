@@ -17,13 +17,16 @@ from dataclasses import dataclass
 from textwrap import indent
 from typing import Literal, Protocol, Tuple
 
-from packaging.version import Version as V
-
 # --- Types -------------------------------------------------------------------
 
 Req = str
 Reqs = Tuple[Req, ...]
 OSType = Literal["linux", "osx"]
+
+
+def V(version: str) -> tuple[int, ...]:
+    padded_version = (version.split(".") + ["0"])[:2]
+    return tuple(int(x) for x in padded_version)
 
 
 class SectionConfig(Protocol):
