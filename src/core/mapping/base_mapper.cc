@@ -1007,10 +1007,7 @@ void BaseMapper::legate_select_sources(
   for (uint32_t idx = 0; idx < collective_sources.size(); idx++) {
     std::vector<Legion::Mapping::PhysicalInstance> col_instances;
     collective_sources[idx].find_instances_nearest_memory(destination_memory, col_instances);
-#ifdef DEBUG_LEGATE
-    // there must exist at least one instance in the collective view
-    assert(!col_instances.empty());
-#endif
+    if (col_instances.empty()) continue;
     // we need only first instance if there are several
     const Legion::Mapping::PhysicalInstance& instance = col_instances[0];
     add_instance_to_band_ranking(
