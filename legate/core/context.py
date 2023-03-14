@@ -370,8 +370,8 @@ class Context:
     def create_manual_task(
         self,
         task_id: int,
+        launch_domain: Rect,
         mapper_id: int = 0,
-        launch_domain: Optional[Rect] = None,
     ) -> ManualTask:
         """
         Creates a manual task.
