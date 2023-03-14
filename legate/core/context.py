@@ -388,8 +388,7 @@ class Context:
             task. Used only when the library has more than one mapper.
 
         launch_domain : Rect, optional
-            Launch domain of the task. Ignored if the task is automatically
-            parallelized, mandatory otherwise.
+            Launch domain of the task.
 
         Returns
         -------
