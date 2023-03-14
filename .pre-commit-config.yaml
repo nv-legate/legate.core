@@ -18,7 +18,7 @@ repos:
           files: \.(cu|cuh|h|cc|inl)$
           types_or: []
     - repo: https://github.com/pre-commit/mirrors-mypy
-      rev: 'v1.0.1'
+      rev: 'v1.1.1'
       hooks:
         - id: mypy
           pass_filenames: false
