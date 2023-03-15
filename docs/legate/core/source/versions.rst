@@ -9,8 +9,8 @@ Summary of the versioning and release methodology used by Legate projects.
 Versioning method
 -----------------
 
-All Legate projects use the [CalVer](https://calver.org/) versioning method for
-all releases starting with June 2021 release.
+All Legate projects use the `CalVer`_ versioning method for all releases
+starting with June 2021 release.
 
 The Legate team is aware of the impacts that public API changes cause to users,
 so API & ABI compatibility is guaranteed within each `YY.MM` version.
@@ -34,3 +34,5 @@ There is no limit or time constraint of these releases as they are governed by
 the need to fix critical issues in the current release. Generally, hotfix/patch
 releases contain only one change and are typically bug fixes; new features
 should not be introduced in this way.
+
+.. _CalVer: https://calver.org/
