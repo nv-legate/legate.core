@@ -14,12 +14,18 @@
 #
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Protocol, Tuple
+from typing import TYPE_CHECKING, Optional, Protocol, Tuple
 
 import numpy as np
 
-from . import AffineTransform
-from .partition import Replicate, Restriction, Tiling
+from . import AffineTransform, Point, Rect, Transform as LegionTransform
+from .partition import (
+    AffineProjection,
+    DomainPartition,
+    Replicate,
+    Restriction,
+    Tiling,
+)
 from .projection import ProjExpr
 from .runtime import runtime
 from .shape import Shape
@@ -70,6 +76,9 @@ class TransformProto(Protocol):
         ...
 
     def get_inverse_transform(self, ndim: int) -> AffineTransform:
+        ...
+
+    def get_inverse_color_transform(self, ndim: int) -> LegionTransform:
         ...
 
 
@@ -160,6 +169,9 @@ class Shift(Transform):
         result.offset[self._dim] = -self._offset
         return result
 
+    def get_inverse_color_transform(self, ndim: int) -> LegionTransform:
+        raise NotImplementedError("Not implemented yet")
+
     def serialize(self, buf: BufferBuilder) -> None:
         code = runtime.get_transform_code(self.__class__.__name__)
         buf.pack_32bit_int(code)
@@ -204,6 +216,23 @@ class Promote(Transform):
                 partition.color_shape.drop(self._extra_dim),
                 partition.offset.drop(self._extra_dim),
             )
+        if isinstance(partition, DomainPartition):
+            # Project away the desired dimension.
+            all_axes = list(range(0, len(partition._shape)))
+            shape = partition._shape.drop(self._extra_dim)
+            axes: list[Optional[int]] = (
+                all_axes[: self._extra_dim]
+                + [None]
+                + [x - 1 for x in all_axes[self._extra_dim + 1 :]]
+            )
+
+            def tx_point(p: Point, exclusive: bool = False) -> Point:
+                return Point(Shape(p).drop(self._extra_dim))
+
+            result = AffineProjection(axes).project_partition(
+                partition, Rect(hi=shape), tx_point=tx_point
+            )
+            return result
         else:
             raise ValueError(
                 f"Unsupported partition: {type(partition).__name__}"
@@ -236,6 +265,31 @@ class Promote(Transform):
             )
         elif isinstance(partition, Replicate):
             return partition
+        elif isinstance(partition, DomainPartition):
+            # The idea here is to project all of the dimensions except
+            # the promoted one into a new affine projection. In the
+            # future, we could imagine caching these to avoid redundantly
+            # computing them.
+            all_axes = list(range(0, len(partition._shape)))
+            axes = all_axes[: self._extra_dim] + [
+                x + 1 for x in all_axes[self._extra_dim :]
+            ]
+            shape = list(partition._shape.extents)
+            new_shape = Shape(
+                shape[: self._extra_dim]
+                + [self._dim_size]
+                + shape[self._extra_dim :]
+            )
+
+            def tx_point(p: Point, exclusive: bool = False) -> Point:
+                return Point(
+                    Shape(p).insert(self._extra_dim, 1 if exclusive else 0)
+                )
+
+            result = AffineProjection(axes).project_partition(  # type: ignore
+                partition, Rect(hi=new_shape), tx_point=tx_point
+            )
+            return result
         else:
             raise ValueError(
                 f"Unsupported partition: {type(partition).__name__}"
@@ -250,6 +304,16 @@ class Promote(Transform):
     def get_inverse_transform(self, ndim: int) -> AffineTransform:
         parent_ndim = ndim - 1
         result = AffineTransform(parent_ndim, ndim, False)
+        parent_dim = 0
+        for child_dim in range(ndim):
+            if child_dim != self._extra_dim:
+                result.trans[parent_dim, child_dim] = 1
+                parent_dim += 1
+        return result
+
+    def get_inverse_color_transform(self, ndim: int) -> LegionTransform:
+        parent_ndim = ndim - 1
+        result = LegionTransform(parent_ndim, ndim)
         parent_dim = 0
         for child_dim in range(ndim):
             if child_dim != self._extra_dim:
@@ -356,6 +420,9 @@ class Project(Transform):
                 child_dim += 1
         return result
 
+    def get_inverse_color_transform(self, ndim: int) -> LegionTransform:
+        raise NotImplementedError("Not implemented yet")
+
     def serialize(self, buf: BufferBuilder) -> None:
         code = runtime.get_transform_code(self.__class__.__name__)
         buf.pack_32bit_int(code)
@@ -441,6 +508,9 @@ class Transpose(Transform):
         for dim in range(ndim):
             result.trans[self._axes[dim], dim] = 1
         return result
+
+    def get_inverse_color_transform(self, ndim: int) -> LegionTransform:
+        raise NotImplementedError("Not implemented yet")
 
     def serialize(self, buf: BufferBuilder) -> None:
         code = runtime.get_transform_code(self.__class__.__name__)
@@ -567,6 +637,9 @@ class Delinearize(Transform):
 
         return result
 
+    def get_inverse_color_transform(self, ndim: int) -> LegionTransform:
+        raise NotImplementedError("Not implemented yet")
+
     def serialize(self, buf: BufferBuilder) -> None:
         code = runtime.get_transform_code(self.__class__.__name__)
         buf.pack_32bit_int(code)
@@ -668,6 +741,11 @@ class TransformStack(TransformStackBase):
         parent = self._parent.get_inverse_transform(transform.M)
         return transform.compose(parent)
 
+    def get_inverse_color_transform(self, ndim: int) -> LegionTransform:
+        transform = self._transform.get_inverse_color_transform(ndim)
+        parent = self._parent.get_inverse_color_transform(transform.M)
+        return transform.compose(parent)
+
     def stack(self, transform: Transform) -> TransformStack:
         return TransformStack(transform, self)
 
@@ -726,6 +804,9 @@ class IdentityTransform(TransformStackBase):
 
     def get_inverse_transform(self, ndim: int) -> AffineTransform:
         return AffineTransform(ndim, ndim, True)
+
+    def get_inverse_color_transform(self, ndim: int) -> LegionTransform:
+        return LegionTransform(ndim, ndim, True)
 
     def stack(self, transform: Transform) -> TransformStack:
         return TransformStack(transform, self)

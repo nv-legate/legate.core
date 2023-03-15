@@ -27,9 +27,9 @@ from typing import (
 import legate.core.types as ty
 
 from . import Future, FutureMap, Rect
-from .constraints import PartSym
+from .constraints import Image, PartSym
 from .launcher import CopyLauncher, FillLauncher, TaskLauncher
-from .partition import REPLICATE, Weighted
+from .partition import REPLICATE, ImagePartition, Weighted
 from .shape import Shape
 from .store import Store, StorePartition
 from .utils import OrderedSet, capture_traceback_repr
@@ -157,6 +157,12 @@ class Operation(OperationProtocol):
         result.update(store for (store, _) in self._reductions)
         return result
 
+    def get_all_modified_stores(self) -> OrderedSet[Store]:
+        result: OrderedSet[Store] = OrderedSet()
+        result.update(self._outputs)
+        result.update(store for (store, _) in self._reductions)
+        return result
+
     def add_alignment(self, store1: Store, store2: Store) -> None:
         """
         Sets an alignment between stores. Equivalent to the following code:
@@ -215,6 +221,36 @@ class Operation(OperationProtocol):
         self._check_store(store)
         part = self._get_unique_partition(store)
         self.add_constraint(part.broadcast(axes=axes))
+
+    # add_image_constraint adds a constraint that the image of store1 is
+    # contained within the partition of store2.
+    def add_image_constraint(
+        self,
+        store1: Store,
+        store2: Store,
+        range: bool = False,
+        functor: Any = ImagePartition,
+        disjoint: bool = True,
+        complete: bool = True,
+    ) -> None:
+        self._check_store(store1)
+        self._check_store(store2)
+        # TODO (rohany): We only support point (and rect types if range) here.
+        #  It seems like rects should be added to legate.core's type system
+        #  rather than an external type system to understand this then.
+        part1 = self._get_unique_partition(store1)
+        part2 = self._get_unique_partition(store2)
+        image = Image(
+            store1,
+            store2,
+            part1,
+            self._context.mapper_id,
+            range=range,
+            functor=functor,
+            disjoint=disjoint,
+            complete=complete,
+        )
+        self.add_constraint(image <= part2)
 
     def add_constraint(self, constraint: Constraint) -> None:
         """
@@ -851,13 +887,16 @@ class ManualTask(Operation, Task):
             op_id=op_id,
         )
         self._launch_domain: Rect = launch_domain
-        self._input_projs: list[Union[ProjFn, None]] = []
+        # TODO (rohany): The int here is an explicit ID.
+        self._input_projs: list[Union[ProjFn, None, int]] = []
         self._output_projs: list[Union[ProjFn, None]] = []
         self._reduction_projs: list[Union[ProjFn, None]] = []
 
         self._input_parts: list[StorePartition] = []
         self._output_parts: list[StorePartition] = []
         self._reduction_parts: list[tuple[StorePartition, int]] = []
+
+        self._scalar_future_maps: list[FutureMap] = []
 
     @property
     def launch_ndim(self) -> int:
@@ -876,7 +915,7 @@ class ManualTask(Operation, Task):
     def add_input(
         self,
         arg: Union[Store, StorePartition],
-        proj: Optional[ProjFn] = None,
+        proj: Optional[Union[ProjFn, int]] = None,
     ) -> None:
         """
         Adds a store as input to the task
@@ -918,10 +957,9 @@ class ManualTask(Operation, Task):
         self._check_arg(arg)
         if isinstance(arg, Store):
             if arg.unbound:
-                raise NotImplementedError(
-                    "Unbound store cannot be used with "
-                    "manually parallelized task"
-                )
+                self._unbound_outputs.append(len(self._outputs))
+                self._outputs.append(arg)
+                return
             if arg.kind is Future:
                 self._scalar_outputs.append(len(self._outputs))
                 self._outputs.append(arg)
@@ -1005,6 +1043,16 @@ class ManualTask(Operation, Task):
             launcher.add_reduction(
                 part.store, req, tag=0, read_write=can_read_write
             )
+
+        for fm in self._scalar_future_maps:
+            launcher.add_future_map(fm)
+
+        # Add all unbound stores.
+        for store_idx in self._unbound_outputs:
+            store = self._outputs[store_idx]
+            fspace = self.context.runtime.create_field_space()
+            field_id = fspace.allocate_field(store.type)
+            launcher.add_unbound_output(store, fspace, field_id)
 
         self._add_scalar_args_to_launcher(launcher)
 

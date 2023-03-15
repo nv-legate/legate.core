@@ -34,7 +34,7 @@ from .allocation import (
     DistributedAllocation,
     InlineMappedAllocation,
 )
-from .partition import REPLICATE, PartitionBase, Restriction, Tiling
+from .partition import REPLICATE, PartitionBase, Restriction, Tiling, Weighted
 from .projection import execute_functor_symbolically
 from .runtime import runtime
 from .shape import Shape
@@ -59,7 +59,7 @@ if TYPE_CHECKING:
     from .context import Context
     from .launcher import Proj
     from .projection import ProjFn
-    from .transform import TransformStackBase
+    from .transform import Transform, TransformStackBase
 
 from math import prod
 
@@ -752,18 +752,28 @@ class Storage:
         runtime.partition_manager.reset_storage_key_partition(self._unique_id)
 
     def find_or_create_legion_partition(
-        self, functor: PartitionBase, complete: bool
+        self,
+        functor: PartitionBase,
+        complete: bool,
+        color_shape: Optional[Shape] = None,
+        color_transform: Optional[Transform] = None,
     ) -> Optional[LegionPartition]:
         if self.kind is not RegionField:
             return None
 
         assert isinstance(self.data, RegionField)
+        assert color_shape is None or color_transform is not None
 
         part, found = runtime.partition_manager.find_legion_partition(
             self._unique_id, functor
         )
-        if not found:
-            part = functor.construct(self.data.region, complete=complete)
+        if not found or color_shape is None:
+            part = functor.construct(
+                self.data.region,
+                complete=complete,
+                color_shape=color_shape,
+                color_transform=color_transform,  # type: ignore
+            )
             runtime.partition_manager.record_legion_partition(
                 self._unique_id, functor, part
             )
@@ -838,14 +848,17 @@ class StorePartition:
     def get_requirement(
         self,
         launch_ndim: int,
-        proj_fn: Optional[ProjFn] = None,
+        proj_fn: Optional[Union[ProjFn, int]] = None,
     ) -> Proj:
         part = self._storage_partition.find_or_create_legion_partition()
         if part is not None:
-            proj_id = self._store.compute_projection(proj_fn, launch_ndim)
-            if self._partition.needs_delinearization(launch_ndim):
-                assert proj_id == 0
-                proj_id = runtime.get_delinearize_functor()
+            if isinstance(proj_fn, int):
+                proj_id = proj_fn
+            else:
+                proj_id = self._store.compute_projection(proj_fn, launch_ndim)
+                if self._partition.needs_delinearization(launch_ndim):
+                    assert proj_id == 0
+                    proj_id = runtime.get_delinearize_functor()
         else:
             proj_id = 0
         return self._partition.requirement(part, proj_id)
@@ -900,6 +913,11 @@ class Store:
         # when no custom functor is given
         self._projection: Union[None, int] = None
         self._restrictions: Union[None, tuple[Restriction, ...]] = None
+        # We maintain a version on store objects to cache dependent
+        # partitions created from the store. Operations that write
+        # to stores will bump their version and invalidate dependent
+        # partitions that were created with this store as the source.
+        self._version = 0
 
         if self._shape is not None:
             if any(extent < 0 for extent in self._shape.extents):
@@ -1071,6 +1089,13 @@ class Store:
             If ``True``, the store is transformed
         """
         return not self._transform.bottom
+
+    @property
+    def version(self) -> int:
+        return self._version
+
+    def bump_version(self) -> None:
+        self._version += 1
 
     def attach_external_allocation(
         self, context: Context, alloc: Attachable, share: bool
@@ -1633,7 +1658,9 @@ class Store:
         else:
             partition = None
 
-        if partition is not None:
+        if partition is not None and (
+            not (self.transformed and isinstance(partition, Weighted))
+        ):
             partition = self._transform.convert_partition(partition)
             return partition
         else:
@@ -1686,15 +1713,28 @@ class Store:
         return self._restrictions
 
     def find_or_create_legion_partition(
-        self, partition: PartitionBase, complete: bool = False
+        self,
+        partition: PartitionBase,
+        complete: bool = False,
+        preserve_colors: bool = False,
     ) -> Optional[LegionPartition]:
         # Create a Legion partition for a given functor.
         # Before we do that, we need to map the partition back
         # to the original coordinate space.
-        return self._storage.find_or_create_legion_partition(
-            self._transform.invert_partition(partition),
-            complete=complete,
-        )
+        if preserve_colors:
+            return self._storage.find_or_create_legion_partition(
+                self._transform.invert_partition(partition),
+                complete=complete,
+                color_shape=partition.color_shape,
+                color_transform=self._transform.get_inverse_color_transform(  # type: ignore # noqa
+                    partition.color_shape.ndim,  # type: ignore
+                ),
+            )
+        else:
+            return self._storage.find_or_create_legion_partition(
+                self._transform.invert_partition(partition),
+                complete=complete,
+            )
 
     def partition(self, partition: PartitionBase) -> StorePartition:
         storage_partition = self._storage.partition(

@@ -17,7 +17,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any, Iterator, Optional, Protocol, Union
 
-from .partition import Restriction
+from .partition import ImagePartition, Replicate, Restriction
 
 if TYPE_CHECKING:
     from .partition import PartitionBase
@@ -217,6 +217,79 @@ class Scale(Expr):
     def unknowns(self) -> Iterator[PartSym]:
         for unknown in self._expr.unknowns():
             yield unknown
+
+
+class Image(Expr):
+    def __init__(
+        self,
+        source_store: Store,
+        dst_store: Store,
+        src_part_sym: Expr,
+        mapper: int,
+        range: bool = False,
+        functor: Any = ImagePartition,
+        disjoint: bool = True,
+        complete: bool = True,
+    ):
+        self._source_store = source_store
+        self._dst_store = dst_store
+        self._src_part_sym = src_part_sym
+        self._mapper = mapper
+        self._range = range
+        self._functor = functor
+        self._disjoint = disjoint
+        self._complete = complete
+
+    def subst(self, mapping: dict[PartSym, PartitionBase]) -> Expr:
+        return Image(
+            self._source_store,
+            self._dst_store,
+            self._src_part_sym.subst(mapping),
+            self._mapper,
+            range=self._range,
+            functor=self._functor,
+            disjoint=self._disjoint,
+            complete=self._complete,
+        )
+
+    @property
+    def ndim(self) -> int:
+        return self._src_part_sym.ndim
+
+    def reduce(self) -> Lit:
+        expr = self._src_part_sym.reduce()
+        assert isinstance(expr, Lit)
+        part = expr._part
+        if isinstance(part, Replicate):
+            return Lit(part)
+        return Lit(
+            self._functor(
+                self._source_store,
+                part,
+                self._mapper,
+                range=self._range,
+                disjoint=self._disjoint,
+                complete=self._complete,
+            )
+        )
+
+    def unknowns(self) -> Iterator[PartSym]:
+        for unknown in self._src_part_sym.unknowns():
+            yield unknown
+
+    def equals(self, other: object) -> bool:
+        return (
+            isinstance(other, Image)
+            and self._source_store == other._source_store
+            and self._dst_store == other._dst_store
+            # Careful! Overloaded equals operator.
+            and self._src_part_sym is other._src_part_sym
+            and self._range == other._range
+            and self._mapper == other._mapper
+            and self._functor == other._functor
+            and self._disjoint == other._disjoint
+            and self._complete == other._complete
+        )
 
 
 class Constraint:

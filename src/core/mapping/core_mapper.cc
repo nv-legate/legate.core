@@ -79,6 +79,10 @@ class CoreMapper : public Legion::Mapping::NullMapper {
                                const Legion::Task& task,
                                const SelectShardingFunctorInput& input,
                                SelectShardingFunctorOutput& output) override;
+  virtual void select_sharding_functor(const Legion::Mapping::MapperContext ctx,
+                                       const Legion::Fill& fill,
+                                       const SelectShardingFunctorInput& input,
+                                       SelectShardingFunctorOutput& output);
   void select_steal_targets(const Legion::Mapping::MapperContext ctx,
                             const SelectStealingInput& input,
                             SelectStealingOutput& output) override;
@@ -317,6 +321,16 @@ void CoreMapper::select_sharding_functor(const Legion::Mapping::MapperContext ct
   assert(context.valid_task_id(task.task_id));
   assert(task.regions.empty());
   const int launch_dim = task.index_domain.get_dim();
+  assert(launch_dim == 1);
+  output.chosen_functor = context.get_sharding_id(LEGATE_CORE_TOPLEVEL_TASK_SHARD_ID);
+}
+
+void CoreMapper::select_sharding_functor(const Legion::Mapping::MapperContext ctx,
+                                         const Legion::Fill& fill,
+                                         const SelectShardingFunctorInput& input,
+                                         SelectShardingFunctorOutput& output)
+{
+  const int launch_dim = fill.index_domain.get_dim();
   assert(launch_dim == 1);
   output.chosen_functor = context.get_sharding_id(LEGATE_CORE_TOPLEVEL_TASK_SHARD_ID);
 }

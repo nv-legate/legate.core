@@ -31,6 +31,7 @@ from . import ffi  # Make sure we only have one ffi instance
 from . import (
     Fence,
     FieldSpace,
+    Fill,
     Future,
     FutureMap,
     IndexSpace,
@@ -327,6 +328,20 @@ class FieldManager:
     def free_field(
         self, region: Region, field_id: int, ordered: bool = False
     ) -> None:
+        # When freeing this field, also issue a fill to invalidate any
+        # valid instances attached to this region. This allows us to reuse
+        # that space without having to make an instance allocation of the
+        # same size and shape.
+        buf = ffi.new("char[]", self.field_size)
+        fut = Future.from_buffer(self.runtime.legion_runtime, ffi.buffer(buf))
+        fill = Fill(
+            region,
+            region,
+            field_id,
+            fut,
+            mapper=self.runtime.core_context.mapper_id,
+        )
+        fill.launch(self.runtime.legion_runtime, self.runtime.legion_context)
         self.free_fields.append((region, field_id))
         region_manager = self.runtime.find_region_manager(region)
         if region_manager.decrease_active_field_count():
@@ -612,7 +627,7 @@ class PartitionManager:
             )
         self._piece_factors = list(reversed(factors))
         self._index_partitions: dict[
-            tuple[IndexSpace, PartitionBase], IndexPartition
+            tuple[IndexSpace, PartitionBase, Optional[Shape]], IndexPartition
         ] = {}
         # Maps storage id-partition pairs to Legion partitions
         self._legion_partitions: dict[
@@ -817,9 +832,12 @@ class PartitionManager:
         return not (num_tiles > 256 and num_tiles > 16 * self._num_pieces)
 
     def find_index_partition(
-        self, index_space: IndexSpace, functor: PartitionBase
+        self,
+        index_space: IndexSpace,
+        functor: PartitionBase,
+        color_shape: Optional[Shape] = None,
     ) -> Union[IndexPartition, None]:
-        key = (index_space, functor)
+        key = (index_space, functor, color_shape)
         return self._index_partitions.get(key)
 
     def record_index_partition(
@@ -827,8 +845,9 @@ class PartitionManager:
         index_space: IndexSpace,
         functor: PartitionBase,
         index_partition: IndexPartition,
+        color_shape: Optional[Shape] = None,
     ) -> None:
-        key = (index_space, functor)
+        key = (index_space, functor, color_shape)
         assert key not in self._index_partitions
         self._index_partitions[key] = index_partition
 
@@ -1259,9 +1278,13 @@ class Runtime:
             must_be_single = len(op.scalar_outputs) > 0
             partitioner = Partitioner([op], must_be_single=must_be_single)
             strategies.append(partitioner.partition_stores())
-
         for op, strategy in zip(ops, strategies):
             op.launch(strategy)
+            # We also need to bump the versions for each modified store.
+            # TODO (rohany): We also need a callback here to evict cached
+            #  partitions with old store values so that we don't leak these.
+            for store in op.get_all_modified_stores():
+                store.bump_version()
 
     def flush_scheduling_window(self) -> None:
         if len(self._outstanding_ops) == 0:

@@ -17,6 +17,7 @@ from __future__ import annotations
 from functools import reduce
 from typing import TYPE_CHECKING, Iterable, Iterator, Optional, Union, overload
 
+import numpy as np
 from typing_extensions import TypeAlias
 
 if TYPE_CHECKING:
@@ -27,9 +28,15 @@ ExtentLike: TypeAlias = Union["Shape", int, Iterable[int]]
 
 
 def _cast_tuple(value: int | Iterable[int], ndim: int) -> tuple[int, ...]:
-    if isinstance(value, int):
+    if isinstance(value, Shape):
+        return value.extents
+    elif isinstance(value, Iterable):
+        return tuple(value)
+    elif isinstance(value, int) or np.issubdtype(
+        type(value), np.integer
+    ):  # type: ignore
         return (value,) * ndim
-    return tuple(value)
+    return tuple(value)  # type: ignore
 
 
 class _ShapeComparisonResult(tuple[bool, ...]):
