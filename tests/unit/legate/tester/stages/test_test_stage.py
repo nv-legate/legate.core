@@ -33,7 +33,6 @@ s = FakeSystem()
 
 
 class MockTestStage(m.TestStage):
-
     kind: FeatureType = "eager"
 
     name = "mock"

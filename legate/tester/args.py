@@ -28,6 +28,7 @@ from . import (
     DEFAULT_GPU_DELAY,
     DEFAULT_GPU_MEMORY_BUDGET,
     DEFAULT_GPUS_PER_NODE,
+    DEFAULT_NUMAMEM,
     DEFAULT_OMPS_PER_NODE,
     DEFAULT_OMPTHREADS,
     FEATURES,
@@ -158,6 +159,15 @@ feature_opts.add_argument(
     type=int,
     default=DEFAULT_OMPTHREADS,
     help="Number of threads per OpenMP processor",
+)
+
+
+feature_opts.add_argument(
+    "--numamem",
+    dest="numamem",
+    type=int,
+    default=DEFAULT_NUMAMEM,
+    help="NUMA memory for OpenMP processors (MB)",
 )
 
 

@@ -24,6 +24,11 @@ Reqs = Tuple[Req, ...]
 OSType = Literal["linux", "osx"]
 
 
+def V(version: str) -> tuple[int, ...]:
+    padded_version = (version.split(".") + ["0"])[:2]
+    return tuple(int(x) for x in padded_version)
+
+
 class SectionConfig(Protocol):
     header: str
 
@@ -49,6 +54,8 @@ class SectionConfig(Protocol):
 @dataclass(frozen=True)
 class CUDAConfig(SectionConfig):
     ctk_version: str
+    compilers: bool
+    os: OSType
 
     header = "cuda"
 
@@ -57,12 +64,25 @@ class CUDAConfig(SectionConfig):
         if self.ctk_version == "none":
             return ()
 
-        return (
+        deps = (
             f"cudatoolkit={self.ctk_version}",  # runtime
             "cutensor>=1.3.3",  # runtime
             "nccl",  # runtime
             "pynvml",  # tests
         )
+
+        # gcc 11.3 is incompatible with nvcc <= 11.5.
+        if (
+            self.compilers
+            and self.os == "linux"
+            and (V(self.ctk_version) <= V("11.5"))
+        ):
+            deps += (
+                "gcc_linux-64<=11.2",
+                "gxx_linux-64<=11.2",
+            )
+
+        return deps
 
     def __str__(self) -> str:
         if self.ctk_version == "none":
@@ -75,6 +95,7 @@ class CUDAConfig(SectionConfig):
 class BuildConfig(SectionConfig):
     compilers: bool = True
     openmpi: bool = True
+    ucx: bool = True
 
     header = "build"
 
@@ -85,6 +106,7 @@ class BuildConfig(SectionConfig):
             "cmake>=3.24,!=3.25.0",
             "git",
             "make",
+            "rust",
             "ninja",
             "scikit-build>=0.13.1",
             "setuptools>=60",
@@ -94,11 +116,14 @@ class BuildConfig(SectionConfig):
             pkgs += ("c-compiler", "cxx-compiler")
         if self.openmpi:
             pkgs += ("openmpi",)
+        if self.ucx:
+            pkgs += ("ucx>=1.14",)
         return sorted(pkgs)
 
     def __str__(self) -> str:
         val = "-compilers" if self.compilers else ""
         val += "-openmpi" if self.openmpi else ""
+        val += "-ucx" if self.ucx else ""
         return val
 
 
@@ -151,12 +176,18 @@ class DocsConfig(SectionConfig):
     header = "docs"
 
     @property
+    def conda(self) -> Reqs:
+        return ("pandoc", "doxygen")
+
+    @property
     def pip(self) -> Reqs:
         return (
+            "ipython",
             "jinja2",
             "markdown<3.4.0",
-            "pydata-sphinx-theme",
+            "pydata-sphinx-theme>=0.13",
             "myst-parser",
+            "nbsphinx",
             "sphinx-copybutton",
             "sphinx>=4.4.0",
         )
@@ -170,6 +201,7 @@ class EnvConfig:
     ctk: str
     compilers: bool
     openmpi: bool
+    ucx: bool
 
     @property
     def sections(self) -> Tuple[SectionConfig, ...]:
@@ -183,11 +215,11 @@ class EnvConfig:
 
     @property
     def cuda(self) -> CUDAConfig:
-        return CUDAConfig(self.ctk)
+        return CUDAConfig(self.ctk, self.compilers, self.os)
 
     @property
     def build(self) -> BuildConfig:
-        return BuildConfig(self.compilers, self.openmpi)
+        return BuildConfig(self.compilers, self.openmpi, self.ucx)
 
     @property
     def runtime(self) -> RuntimeConfig:
@@ -208,7 +240,7 @@ class EnvConfig:
 
 # --- Setup -------------------------------------------------------------------
 
-PYTHON_VERSIONS = ("3.8", "3.9", "3.10")
+PYTHON_VERSIONS = ("3.9", "3.10", "3.11")
 
 CTK_VERSIONS = (
     "none",
@@ -233,7 +265,7 @@ channels:
   - conda-forge
 dependencies:
 
-  - python={python}
+  - python={python},!=3.9.7  # avoid https://bugs.python.org/issue45121
 
 {conda_sections}{pip}
 """
@@ -251,13 +283,14 @@ PIP_TEMPLATE = """\
 """
 
 ALL_CONFIGS = [
-    EnvConfig("test", python, "linux", ctk, compilers, openmpi)
+    EnvConfig("test", python, "linux", ctk, compilers, openmpi, ucx)
     for python in PYTHON_VERSIONS
     for ctk in CTK_VERSIONS
     for compilers in (True, False)
     for openmpi in (True, False)
+    for ucx in (True, False)
 ] + [
-    EnvConfig("test", python, "osx", "none", compilers, openmpi)
+    EnvConfig("test", python, "osx", "none", compilers, openmpi, False)
     for python in PYTHON_VERSIONS
     for compilers in (True, False)
     for openmpi in (True, False)
@@ -307,7 +340,6 @@ class BooleanFlag(Action):
 
 
 if __name__ == "__main__":
-
     import sys
 
     parser = ArgumentParser()
@@ -344,6 +376,13 @@ if __name__ == "__main__":
         default=None,
         help="Whether to include openmpi or not (default: both)",
     )
+    parser.add_argument(
+        "--ucx",
+        action=BooleanFlag,
+        dest="ucx",
+        default=None,
+        help="Whether to include UCX or not (default: both)",
+    )
 
     args = parser.parse_args(sys.argv[1:])
 
@@ -361,6 +400,8 @@ if __name__ == "__main__":
         configs = (x for x in configs if x.os == args.os)
     if args.openmpi is not None:
         configs = (x for x in configs if x.build.openmpi == args.openmpi)
+    if args.ucx is not None:
+        configs = (x for x in configs if x.build.ucx == args.ucx)
 
     for config in configs:
         conda_sections = indent(

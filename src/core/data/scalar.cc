@@ -71,7 +71,7 @@ size_t Scalar::size() const
   auto elem_size = type_dispatch(code_, elem_size_fn{});
   if (tuple_) {
     auto num_elements = *static_cast<const uint32_t*>(data_);
-    return sizeof(int32_t) + num_elements * elem_size;
+    return sizeof(uint32_t) + num_elements * elem_size;
   } else
     return elem_size;
 }

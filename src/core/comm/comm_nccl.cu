@@ -17,13 +17,13 @@
 #include "core/comm/comm_nccl.h"
 #include "core/cuda/cuda_help.h"
 #include "core/cuda/stream_pool.h"
+#include "core/data/buffer.h"
 #include "core/utilities/nvtx_help.h"
+#include "core/utilities/typedefs.h"
 #include "legate.h"
 
 #include <cuda.h>
 #include <nccl.h>
-
-using namespace Legion;
 
 namespace legate {
 namespace comm {
@@ -59,7 +59,7 @@ static ncclUniqueId init_nccl_id(const Legion::Task* task,
 {
   legate::nvtx::Range auto_range("core::comm::nccl::init_id");
 
-  Core::show_progress(task, context, runtime, task->get_task_name());
+  Core::show_progress(task, context, runtime);
 
   ncclUniqueId id;
   CHECK_NCCL(ncclGetUniqueId(&id));
@@ -74,7 +74,7 @@ static ncclComm_t* init_nccl(const Legion::Task* task,
 {
   legate::nvtx::Range auto_range("core::comm::nccl::init");
 
-  Core::show_progress(task, context, runtime, task->get_task_name());
+  Core::show_progress(task, context, runtime);
 
   assert(task->futures.size() == 1);
 
@@ -92,13 +92,8 @@ static ncclComm_t* init_nccl(const Legion::Task* task,
 
   // Perform a warm-up all-to-all
 
-  using namespace Legion;
-
-  DeferredBuffer<_Payload, 1> src_buffer(Memory::GPU_FB_MEM,
-                                         Domain(Rect<1>{Point<1>{0}, Point<1>{num_ranks - 1}}));
-
-  DeferredBuffer<_Payload, 1> tgt_buffer(Memory::GPU_FB_MEM,
-                                         Domain(Rect<1>{Point<1>{0}, Point<1>{num_ranks - 1}}));
+  auto src_buffer = create_buffer<_Payload>(num_ranks, Memory::Kind::GPU_FB_MEM);
+  auto tgt_buffer = create_buffer<_Payload>(num_ranks, Memory::Kind::GPU_FB_MEM);
 
   CHECK_NCCL(ncclGroupStart());
   for (auto idx = 0; idx < num_ranks; ++idx) {
@@ -119,7 +114,7 @@ static void finalize_nccl(const Legion::Task* task,
 {
   legate::nvtx::Range auto_range("core::comm::nccl::finalize");
 
-  Core::show_progress(task, context, runtime, task->get_task_name());
+  Core::show_progress(task, context, runtime);
 
   assert(task->futures.size() == 1);
   auto comm = task->futures[0].get_result<ncclComm_t*>();
@@ -131,24 +126,24 @@ void register_tasks(Legion::Machine machine,
                     Legion::Runtime* runtime,
                     const LibraryContext& context)
 {
-  const TaskID init_nccl_id_task_id  = context.get_task_id(LEGATE_CORE_INIT_NCCL_ID_TASK_ID);
+  auto init_nccl_id_task_id          = context.get_task_id(LEGATE_CORE_INIT_NCCL_ID_TASK_ID);
   const char* init_nccl_id_task_name = "core::comm::nccl::init_id";
   runtime->attach_name(
     init_nccl_id_task_id, init_nccl_id_task_name, false /*mutable*/, true /*local only*/);
 
-  const TaskID init_nccl_task_id  = context.get_task_id(LEGATE_CORE_INIT_NCCL_TASK_ID);
+  auto init_nccl_task_id          = context.get_task_id(LEGATE_CORE_INIT_NCCL_TASK_ID);
   const char* init_nccl_task_name = "core::comm::nccl::init";
   runtime->attach_name(
     init_nccl_task_id, init_nccl_task_name, false /*mutable*/, true /*local only*/);
 
-  const TaskID finalize_nccl_task_id  = context.get_task_id(LEGATE_CORE_FINALIZE_NCCL_TASK_ID);
+  auto finalize_nccl_task_id          = context.get_task_id(LEGATE_CORE_FINALIZE_NCCL_TASK_ID);
   const char* finalize_nccl_task_name = "core::comm::nccl::finalize";
   runtime->attach_name(
     finalize_nccl_task_id, finalize_nccl_task_name, false /*mutable*/, true /*local only*/);
 
   auto make_registrar = [&](auto task_id, auto* task_name, auto proc_kind) {
-    TaskVariantRegistrar registrar(task_id, task_name);
-    registrar.add_constraint(ProcessorConstraint(proc_kind));
+    Legion::TaskVariantRegistrar registrar(task_id, task_name);
+    registrar.add_constraint(Legion::ProcessorConstraint(proc_kind));
     registrar.set_leaf(true);
     registrar.global_registration = false;
     return registrar;

@@ -520,31 +520,56 @@ class Library:
 
     def get_name(self) -> str:
         """
-        Return a string name describing this library
+        Returns a name of the library
+
+        Returns
+        -------
+        str
+            Library name
         """
         raise NotImplementedError("Implement in derived classes")
 
-    def get_shared_library(self) -> Any:
+    def get_shared_library(self) -> Optional[str]:
         """
-        Return the name of the shared library
+        Returns the path to the shared library
+
+        Returns
+        -------
+        str or ``None``
+            Path to the shared library
         """
         raise NotImplementedError("Implement in derived classes")
 
     def get_c_header(self) -> str:
         """
-        Return a compiled C string header for this library
+        Returns a compiled C header string for the library
+
+        Returns
+        -------
+        str
+            C header string
         """
         raise NotImplementedError("Implement in derived classes")
 
     def get_registration_callback(self) -> str:
         """
-        Return the name of a C registration callback for this library
+        Returns the name of a C registration callback for the library
+
+        Returns
+        -------
+        str
+            The name of the C registration callback
         """
         raise NotImplementedError("Implement in derived classes")
 
     def get_resource_configuration(self) -> ResourceConfig:
         """
-        Return a ResourceConfig object that configures the library
+        Returns a ResourceConfig object that configures the library
+
+        Returns
+        -------
+        ResourceConfig
+            A ``ResourceConfig`` object
         """
         # Return the default configuration
         return ResourceConfig()

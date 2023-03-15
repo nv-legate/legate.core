@@ -20,13 +20,10 @@
 namespace legate {
 namespace mapping {
 
-using LegionTask = Legion::Task;
-using LegionCopy = Legion::Copy;
-
-using namespace Legion;
-using namespace Legion::Mapping;
-
-RegionField::RegionField(const RegionRequirement* req, int32_t dim, uint32_t idx, FieldID fid)
+RegionField::RegionField(const Legion::RegionRequirement* req,
+                         int32_t dim,
+                         uint32_t idx,
+                         Legion::FieldID fid)
   : req_(req), dim_(dim), idx_(idx), fid_(fid)
 {
 }
@@ -38,12 +35,13 @@ bool RegionField::can_colocate_with(const RegionField& other) const
   return my_req->region.get_tree_id() == other_req->region.get_tree_id();
 }
 
-Domain RegionField::domain(MapperRuntime* runtime, const MapperContext context) const
+Domain RegionField::domain(Legion::Mapping::MapperRuntime* runtime,
+                           const Legion::Mapping::MapperContext context) const
 {
   return runtime->get_index_space_domain(context, get_index_space());
 }
 
-IndexSpace RegionField::get_index_space() const { return req_->region.get_index_space(); }
+Legion::IndexSpace RegionField::get_index_space() const { return req_->region.get_index_space(); }
 
 FutureWrapper::FutureWrapper(uint32_t idx, const Domain& domain) : idx_(idx), domain_(domain) {}
 
@@ -139,10 +137,10 @@ Domain Store::domain() const
   return result;
 }
 
-Task::Task(const LegionTask* task,
+Task::Task(const Legion::Task* task,
            const LibraryContext& library,
-           MapperRuntime* runtime,
-           const MapperContext context)
+           Legion::Mapping::MapperRuntime* runtime,
+           const Legion::Mapping::MapperContext context)
   : task_(task), library_(library)
 {
   TaskDeserializer dez(task, runtime, context);
@@ -154,7 +152,9 @@ Task::Task(const LegionTask* task,
 
 int64_t Task::task_id() const { return library_.get_local_task_id(task_->task_id); }
 
-Copy::Copy(const LegionCopy* copy, MapperRuntime* runtime, const MapperContext context)
+Copy::Copy(const Legion::Copy* copy,
+           Legion::Mapping::MapperRuntime* runtime,
+           const Legion::Mapping::MapperContext context)
   : copy_(copy)
 {
   CopyDeserializer dez(copy->mapper_data,

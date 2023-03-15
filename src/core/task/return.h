@@ -17,6 +17,7 @@
 #pragma once
 
 #include <vector>
+#include "core/utilities/typedefs.h"
 
 namespace legate {
 
@@ -29,7 +30,7 @@ struct ReturnValue {
   ReturnValue& operator=(const ReturnValue&) = default;
 
  public:
-  static ReturnValue unpack(const void* ptr, size_t size, Legion::Memory::Kind memory_kind);
+  static ReturnValue unpack(const void* ptr, size_t size, Memory::Kind memory_kind);
 
  public:
   void* ptr();

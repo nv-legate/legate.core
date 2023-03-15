@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright 2022 NVIDIA Corporation
+# Copyright 2022-2023 NVIDIA Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,12 +14,30 @@
 # limitations under the License.
 #=============================================================================
 
+include_guard(GLOBAL)
+
 function(find_or_configure_legion)
   set(oneValueArgs VERSION REPOSITORY BRANCH EXCLUDE_FROM_ALL)
   cmake_parse_arguments(PKG "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
   include("${rapids-cmake-dir}/export/detail/parse_version.cmake")
   rapids_export_parse_version(${PKG_VERSION} Legion PKG_VERSION)
+
+  string(REGEX REPLACE "^0([0-9]+)?$" "\\1" Legion_major_version "${Legion_major_version}")
+  string(REGEX REPLACE "^0([0-9]+)?$" "\\1" Legion_minor_version "${Legion_minor_version}")
+  string(REGEX REPLACE "^0([0-9]+)?$" "\\1" Legion_patch_version "${Legion_patch_version}")
+
+  include("${rapids-cmake-dir}/cpm/detail/package_details.cmake")
+  rapids_cpm_package_details(Legion version git_repo git_branch shallow exclude_from_all)
+
+  set(version "${Legion_major_version}.${Legion_minor_version}.${Legion_patch_version}")
+  set(exclude_from_all ${PKG_EXCLUDE_FROM_ALL})
+  if(PKG_BRANCH)
+    set(git_branch "${PKG_BRANCH}")
+  endif()
+  if(PKG_REPOSITORY)
+    set(git_repo "${PKG_REPOSITORY}")
+  endif()
 
   set(Legion_CUDA_ARCH "")
   if(Legion_USE_CUDA)
@@ -47,14 +65,15 @@ function(find_or_configure_legion)
     if(Legion_DIR OR Legion_ROOT)
       set(_find_mode REQUIRED)
     endif()
-    rapids_find_package(Legion ${PKG_VERSION} EXACT CONFIG ${_find_mode} ${FIND_PKG_ARGS})
+    rapids_find_package(Legion ${version} EXACT CONFIG ${_find_mode} ${FIND_PKG_ARGS})
   endif()
 
   if(Legion_FOUND)
-    message(STATUS "CPM: using local package Legion@${PKG_VERSION}")
+    message(STATUS "CPM: using local package Legion@${version}")
   else()
+
     include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/cpm_helpers.cmake)
-    get_cpm_git_args(legion_cpm_git_args REPOSITORY ${PKG_REPOSITORY} BRANCH ${PKG_BRANCH})
+    get_cpm_git_args(legion_cpm_git_args REPOSITORY ${git_repo} BRANCH ${git_branch})
     if(NOT DEFINED Legion_PYTHON_EXTRA_INSTALL_ARGS)
       set(Legion_PYTHON_EXTRA_INSTALL_ARGS "--single-version-externally-managed --root=/")
     endif()
@@ -86,37 +105,40 @@ function(find_or_configure_legion)
       endif()
 
       # Get the `stubs/libcuda.so` path so we can set CMAKE_LIBRARY_PATH for FindCUDA.cmake
-
-      # Prefer users' CUDA_PATH envvar (if set)
-      set(_cuda_stubs "$ENV{CUDA_PATH}")
-      if(NOT _cuda_stubs)
-        if(DEFINED ENV{CUDA_LIB_PATH})
-          # Prefer users' CUDA_LIB_PATH envvar (if set)
-          list(APPEND _cuda_stubs "$ENV{CUDA_LIB_PATH}")
-          message(VERBOSE "legate.core: Path(s) to CUDA stubs: ${_cuda_stubs}")
-        elseif(EXISTS "${CUDAToolkit_LIBRARY_DIR}/stubs/libcuda.so")
-          # This might be the path to the `$CONDA_PREFIX/lib`
-          # If it is (and it has the libcuda.so driver stub),
-          # then we know we're using the cuda-toolkit package
-          # and should link to that driver stub instead of the
-          # one potentially in `/usr/local/cuda/lib[64]/stubs`
-          list(APPEND _cuda_stubs "${CUDAToolkit_LIBRARY_DIR}/stubs")
-          message(VERBOSE "legate.core: Path(s) to CUDA stubs: ${_cuda_stubs}")
-        elseif(DEFINED ENV{LIBRARY_PATH})
-          # LIBRARY_PATH is set automatically in the `nvidia/cuda` containers.
-          # Only use it if the conda env doesn't have the `stubs/libcuda.so` lib.
-          list(APPEND _cuda_stubs "$ENV{LIBRARY_PATH}")
-          message(VERBOSE "legate.core: Path(s) to CUDA stubs: ${_cuda_stubs}")
-        elseif(CMAKE_SIZEOF_VOID_P LESS 8)
-          # Otherwise assume stubs are relative to the CUDA toolkit root dir
-          list(APPEND _cuda_stubs "${CUDAToolkit_LIBRARY_ROOT}/lib/stubs")
-          message(VERBOSE "legate.core: Path(s) to CUDA stubs: ${_cuda_stubs}")
-        else()
-          # Otherwise assume stubs are relative to the CUDA toolkit root dir
-          list(APPEND _cuda_stubs "${CUDAToolkit_LIBRARY_ROOT}/lib64/stubs")
-          message(VERBOSE "legate.core: Path(s) to CUDA stubs: ${_cuda_stubs}")
-        endif()
+      set(_libdir "lib64")
+      if(CMAKE_SIZEOF_VOID_P LESS 8)
+        set(_libdir "lib")
       endif()
+
+      if(EXISTS "${CUDAToolkit_LIBRARY_DIR}/stubs/libcuda.so")
+        # This might be the path to the `$CONDA_PREFIX/lib`
+        # If it is (and it has the libcuda.so driver stub),
+        # then we know we're using the cuda-toolkit package
+        # and should link to that driver stub instead of the
+        # one potentially in `/usr/local/cuda/lib[64]/stubs`
+        list(APPEND _cuda_stubs "${CUDAToolkit_LIBRARY_DIR}/stubs")
+      elseif(EXISTS "${CUDAToolkit_TARGET_DIR}/${_libdir}/stubs/libcuda.so")
+        # Otherwise assume stubs are relative to the CUDA toolkit root dir
+        list(APPEND _cuda_stubs "${CUDAToolkit_TARGET_DIR}/${_libdir}/stubs")
+      elseif(EXISTS "${CUDAToolkit_LIBRARY_ROOT}/${_libdir}/stubs/libcuda.so")
+        list(APPEND _cuda_stubs "${CUDAToolkit_LIBRARY_ROOT}/${_libdir}/stubs")
+      elseif(DEFINED ENV{CUDA_PATH} AND EXISTS "$ENV{CUDA_PATH}/${_libdir}/stubs/libcuda.so")
+        # Use CUDA_PATH envvar (if set)
+        list(APPEND _cuda_stubs "$ENV{CUDA_PATH}/${_libdir}/stubs/libcuda.so")
+      elseif(DEFINED ENV{CUDA_LIB_PATH} AND EXISTS "$ENV{CUDA_LIB_PATH}/stubs/libcuda.so")
+        # Use CUDA_LIB_PATH envvar (if set)
+        list(APPEND _cuda_stubs "$ENV{CUDA_LIB_PATH}/stubs/libcuda.so")
+      elseif(DEFINED ENV{LIBRARY_PATH} AND
+            ("$ENV{LIBRARY_PATH}" STREQUAL "/usr/local/cuda/${_libdir}/stubs"))
+        # LIBRARY_PATH is set in the `nvidia/cuda` containers to /usr/local/cuda/lib64/stubs
+        list(APPEND _cuda_stubs "$ENV{LIBRARY_PATH}")
+      else()
+        message(FATAL_ERROR "Could not find the libcuda.so driver stub. "
+                            "Please reconfigure with -DCUDAToolkit_ROOT= "
+                            "set to a valid CUDA Toolkit installation.")
+      endif()
+
+      message(VERBOSE "legate.core: Path(s) to CUDA stubs: ${_cuda_stubs}")
 
       list(APPEND _legion_cuda_options "CUDA_NVCC_FLAGS ${_nvcc_flags}")
       list(APPEND _legion_cuda_options "CMAKE_CUDA_STANDARD ${_cuda_std}")
@@ -131,6 +153,8 @@ function(find_or_configure_legion)
       list(APPEND CMAKE_C_IMPLICIT_LINK_DIRECTORIES "${_cuda_stubs}")
       list(APPEND CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES "${_cuda_stubs}")
       list(APPEND CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES "${_cuda_stubs}")
+      set(legate_core_cuda_stubs_path "${_cuda_stubs}" PARENT_SCOPE)
+      set(legate_core_cuda_stubs_path "${_cuda_stubs}" CACHE STRING "" FORCE)
     endif()
 
     # Because legion sets these as cache variables, we need to force set this as a cache variable here
@@ -144,14 +168,19 @@ function(find_or_configure_legion)
     set(Legion_CUDA_ARCH ${Legion_CUDA_ARCH} CACHE STRING
       "Comma-separated list of CUDA architectures to build for (e.g. 60,70)" FORCE)
 
-    rapids_cpm_find(Legion ${PKG_VERSION} ${FIND_PKG_ARGS}
+    message(VERBOSE "legate.core: Legion version: ${version}")
+    message(VERBOSE "legate.core: Legion git_repo: ${git_repo}")
+    message(VERBOSE "legate.core: Legion git_branch: ${git_branch}")
+    message(VERBOSE "legate.core: Legion exclude_from_all: ${exclude_from_all}")
+
+    rapids_cpm_find(Legion ${version} ${FIND_PKG_ARGS}
         CPM_ARGS
           ${legion_cpm_git_args}
           FIND_PACKAGE_ARGUMENTS EXACT
-          EXCLUDE_FROM_ALL       ${PKG_EXCLUDE_FROM_ALL}
+          EXCLUDE_FROM_ALL       ${exclude_from_all}
           OPTIONS                ${_legion_cuda_options}
                                  "CMAKE_CXX_STANDARD ${_cxx_std}"
-                                 "Legion_VERSION ${PKG_VERSION}"
+                                 "Legion_VERSION ${version}"
                                  "Legion_BUILD_BINDINGS ON"
                                  "Legion_BUILD_APPS OFF"
                                  "Legion_BUILD_TESTS OFF"
@@ -159,6 +188,15 @@ function(find_or_configure_legion)
                                  "Legion_REDOP_HALF ON"
                                  "Legion_REDOP_COMPLEX ON"
                                  "Legion_GPU_REDUCTIONS OFF"
+                                 "Legion_BUILD_RUST_PROFILER ON"
+                                 "Legion_SPY ${Legion_SPY}"
+                                 "Legion_USE_LLVM ${Legion_USE_LLVM}"
+                                 "Legion_USE_HDF5 ${Legion_USE_HDF5}"
+                                 "Legion_USE_CUDA ${Legion_USE_CUDA}"
+                                 "Legion_NETWORKS ${Legion_NETWORKS}"
+                                 "Legion_USE_OpenMP ${Legion_USE_OpenMP}"
+                                 "Legion_USE_Python ${Legion_USE_Python}"
+                                 "Legion_BOUNDS_CHECKS ${Legion_BOUNDS_CHECKS}"
     )
   endif()
 
@@ -174,16 +212,23 @@ function(find_or_configure_legion)
 
 endfunction()
 
-if(NOT DEFINED legate_core_LEGION_BRANCH)
-  set(legate_core_LEGION_BRANCH control_replication)
-endif()
-
-if(NOT DEFINED legate_core_LEGION_REPOSITORY)
-  set(legate_core_LEGION_REPOSITORY https://gitlab.com/StanfordLegion/legion.git)
-endif()
+foreach(_var IN ITEMS "legate_core_LEGION_VERSION"
+                      "legate_core_LEGION_BRANCH"
+                      "legate_core_LEGION_REPOSITORY"
+                      "legate_core_EXCLUDE_LEGION_FROM_ALL")
+  if(DEFINED ${_var})
+    # Create a legate_core_LEGION_BRANCH variable in the current scope either from the existing
+    # current-scope variable, or the cache variable.
+    set(${_var} "${${_var}}")
+    # Remove legate_core_LEGION_BRANCH from the CMakeCache.txt. This ensures reconfiguring the same
+    # build dir without passing `-Dlegate_core_LEGION_BRANCH=` reverts to the value in versions.json
+    # instead of reusing the previous `-Dlegate_core_LEGION_BRANCH=` value.
+    unset(${_var} CACHE)
+  endif()
+endforeach()
 
 if(NOT DEFINED legate_core_LEGION_VERSION)
-  set(legate_core_LEGION_VERSION "${legate_core_VERSION_MAJOR}.${legate_core_VERSION_MINOR}.0")
+  set(legate_core_LEGION_VERSION "${legate_core_VERSION}")
 endif()
 
 find_or_configure_legion(VERSION          ${legate_core_LEGION_VERSION}

@@ -21,6 +21,7 @@ import pytest
 
 from legate.tester.config import Config
 from legate.tester.stages._linux import gpu as m
+from legate.tester.stages.util import CUNUMERIC_TEST_ENV
 
 from .. import FakeSystem
 
@@ -30,8 +31,8 @@ def test_default() -> None:
     s = FakeSystem()
     stage = m.GPU(c, s)
     assert stage.kind == "cuda"
-    assert stage.args == ["-cunumeric:test"]
-    assert stage.env(c, s) == {}
+    assert stage.args == []
+    assert stage.env(c, s) == CUNUMERIC_TEST_ENV
     assert stage.spec.workers > 0
 
 

@@ -20,6 +20,7 @@ from pathlib import Path
 import pytest
 
 import legate.driver.command as m
+from legate import install_info
 from legate.driver.launcher import RANK_ENV_VARS
 from legate.util.colors import scrub
 from legate.util.types import LauncherType
@@ -29,7 +30,10 @@ from .util import GenObjs
 
 
 def test___all__() -> None:
-    assert m.__all__ == ("CMD_PARTS",)
+    assert m.__all__ == (
+        "CMD_PARTS_LEGION",
+        "CMD_PARTS_CANONICAL",
+    )
 
 
 def test_LEGATE_GLOBAL_RANK_SUBSTITUTION() -> None:
@@ -37,7 +41,7 @@ def test_LEGATE_GLOBAL_RANK_SUBSTITUTION() -> None:
 
 
 def test_CMD_PARTS() -> None:
-    assert m.CMD_PARTS == (
+    assert m.CMD_PARTS_LEGION == (
         m.cmd_bind,
         m.cmd_rlwrap,
         m.cmd_gdb,
@@ -46,14 +50,16 @@ def test_CMD_PARTS() -> None:
         m.cmd_nsys,
         m.cmd_memcheck,
         m.cmd_legion,
-        m.cmd_nocr,
+        m.cmd_python_processor,
         m.cmd_module,
-        m.cmd_processor,
+        m.cmd_nocr,
+        m.cmd_local_field,
         m.cmd_kthreads,
         m.cmd_cpus,
         m.cmd_gpus,
         m.cmd_openmp,
         m.cmd_utility,
+        m.cmd_bgwork,
         m.cmd_mem,
         m.cmd_numamem,
         m.cmd_fbmem,
@@ -62,6 +68,8 @@ def test_CMD_PARTS() -> None:
         m.cmd_log_levels,
         m.cmd_log_file,
         m.cmd_eager_alloc,
+        m.cmd_ucx,
+        m.cmd_user_script,
         m.cmd_user_opts,
     )
 
@@ -187,7 +195,6 @@ class Test_cmd_bind:
 
 
 class Test_cmd_gdb:
-
     MULTI_RANK_WARN = (
         "WARNING: Legate does not support gdb for multi-rank runs"
     )
@@ -225,7 +232,6 @@ class Test_cmd_gdb:
 
 
 class Test_cmd_cuda_gdb:
-
     MULTI_RANK_WARN = (
         "WARNING: Legate does not support cuda-gdb for multi-rank runs"
     )
@@ -628,17 +634,25 @@ class Test_cmd_legion:
         assert result == (str(system.legion_paths.legion_python),)
 
 
-class Test_cmd_processor:
+class Test_cmd_python_processor:
     def test_default(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs([])
 
-        result = m.cmd_processor(config, system, launcher)
+        result = m.cmd_python_processor(config, system, launcher)
 
-        assert result == ("-ll:py", "1", "-lg:local", "0")
+        assert result == ("-ll:py", "1")
+
+
+class Test_cmd_local_field:
+    def test_default(self, genobjs: GenObjs) -> None:
+        config, system, launcher = genobjs([])
+
+        result = m.cmd_local_field(config, system, launcher)
+
+        assert result == ("-lg:local", "0")
 
 
 class Test_cmd_kthreads:
-
     DBG_OPTS = ("--gdb", "--cuda-gdb", "--freeze-on-error")
 
     def test_default(self, genobjs: GenObjs) -> None:
@@ -814,7 +828,7 @@ class Test_cmd_utility:
 
         result = m.cmd_utility(config, system, launcher)
 
-        assert result == ("-ll:util", "2", "-ll:bgwork", "2")
+        assert result == ("-ll:util", "2")
 
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("rank", ("0", "1", "2"))
@@ -853,7 +867,7 @@ class Test_cmd_utility:
 
         result = m.cmd_utility(config, system, launcher)
 
-        assert result == ("-ll:util", value, "-ll:bgwork", value)
+        assert result == ("-ll:util", value)
 
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     @pytest.mark.parametrize("value", ("2", "3", "10"))
@@ -866,7 +880,201 @@ class Test_cmd_utility:
 
         result = m.cmd_utility(config, system, launcher)
 
-        assert result == ("-ll:util", value, "-ll:bgwork", value)
+        assert result == ("-ll:util", value)
+
+
+class Test_cmd_bgwork:
+    def test_default_single_rank(self, genobjs: GenObjs) -> None:
+        config, system, launcher = genobjs([])
+
+        result = m.cmd_bgwork(config, system, launcher)
+
+        assert result == ()
+
+    def test_utility_1_single_rank(self, genobjs: GenObjs) -> None:
+        config, system, launcher = genobjs(["--utility", "1"])
+
+        result = m.cmd_bgwork(config, system, launcher)
+
+        assert result == ()
+
+    def test_utility_1_single_rank_and_ucx(self, genobjs: GenObjs) -> None:
+        config, system, launcher = genobjs(["--utility", "1"])
+
+        networks_orig = list(install_info.networks)
+        install_info.networks.append("ucx")
+        result = m.cmd_bgwork(config, system, launcher)
+        install_info.networks[:] = networks_orig[:]
+
+        assert result == ()
+
+    @pytest.mark.parametrize("value", ("2", "3", "10"))
+    def test_utiltity_n_single_rank(
+        self, genobjs: GenObjs, value: str
+    ) -> None:
+        config, system, launcher = genobjs(["--utility", value])
+
+        result = m.cmd_bgwork(config, system, launcher)
+
+        assert result == ()
+
+    @pytest.mark.parametrize("value", ("2", "3", "10"))
+    def test_utiltity_n_single_rank_and_ucx(
+        self, genobjs: GenObjs, value: str
+    ) -> None:
+        config, system, launcher = genobjs(["--utility", value])
+
+        networks_orig = list(install_info.networks)
+        install_info.networks.append("ucx")
+        result = m.cmd_bgwork(config, system, launcher)
+        install_info.networks[:] = networks_orig[:]
+
+        assert result == ()
+
+    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
+    @pytest.mark.parametrize("rank", ("0", "1", "2"))
+    def test_default_multi_rank(
+        self, genobjs: GenObjs, rank: str, rank_var: dict[str, str]
+    ) -> None:
+        config, system, launcher = genobjs(
+            [], multi_rank=(2, 2), rank_env={rank_var: rank}
+        )
+
+        result = m.cmd_bgwork(config, system, launcher)
+
+        assert result == ("-ll:bgwork", "2")
+
+    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
+    @pytest.mark.parametrize("rank", ("0", "1", "2"))
+    def test_default_multi_rank_and_ucx(
+        self, genobjs: GenObjs, rank: str, rank_var: dict[str, str]
+    ) -> None:
+        config, system, launcher = genobjs(
+            [], multi_rank=(2, 2), rank_env={rank_var: rank}
+        )
+
+        networks_orig = list(install_info.networks)
+        install_info.networks.append("ucx")
+        result = m.cmd_bgwork(config, system, launcher)
+        install_info.networks[:] = networks_orig[:]
+
+        assert result == ("-ll:bgwork", "2", "-ll:bgworkpin", "1")
+
+    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
+    @pytest.mark.parametrize("rank", ("0", "1", "2"))
+    def test_utility_1_multi_rank_no_launcher(
+        self, genobjs: GenObjs, rank: str, rank_var: dict[str, str]
+    ) -> None:
+        config, system, launcher = genobjs(
+            ["--utility", "1"], multi_rank=(2, 2), rank_env={rank_var: rank}
+        )
+
+        result = m.cmd_bgwork(config, system, launcher)
+
+        assert result == ("-ll:bgwork", "2")
+
+    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
+    @pytest.mark.parametrize("rank", ("0", "1", "2"))
+    def test_utility_1_multi_rank_no_launcher_and_ucx(
+        self, genobjs: GenObjs, rank: str, rank_var: dict[str, str]
+    ) -> None:
+        config, system, launcher = genobjs(
+            ["--utility", "1"], multi_rank=(2, 2), rank_env={rank_var: rank}
+        )
+
+        networks_orig = list(install_info.networks)
+        install_info.networks.append("ucx")
+        result = m.cmd_bgwork(config, system, launcher)
+        install_info.networks[:] = networks_orig[:]
+
+        assert result == ("-ll:bgwork", "2", "-ll:bgworkpin", "1")
+
+    @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
+    def test_utility_1_multi_rank_with_launcher(
+        self, genobjs: GenObjs, launch: str
+    ) -> None:
+        config, system, launcher = genobjs(
+            ["--utility", "1", "--launcher", launch], multi_rank=(2, 2)
+        )
+
+        result = m.cmd_bgwork(config, system, launcher)
+
+        assert result == ("-ll:bgwork", "2")
+
+    @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
+    def test_utility_1_multi_rank_with_launcher_and_ucx(
+        self, genobjs: GenObjs, launch: str
+    ) -> None:
+        config, system, launcher = genobjs(
+            ["--utility", "1", "--launcher", launch], multi_rank=(2, 2)
+        )
+
+        networks_orig = list(install_info.networks)
+        install_info.networks.append("ucx")
+        result = m.cmd_bgwork(config, system, launcher)
+        install_info.networks[:] = networks_orig[:]
+
+        assert result == ("-ll:bgwork", "2", "-ll:bgworkpin", "1")
+
+    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
+    @pytest.mark.parametrize("rank", ("0", "1", "2"))
+    @pytest.mark.parametrize("value", ("2", "3", "10"))
+    def test_utility_n_multi_rank_no_launcher(
+        self, genobjs: GenObjs, value: str, rank: str, rank_var: dict[str, str]
+    ) -> None:
+        config, system, launcher = genobjs(
+            ["--utility", value], multi_rank=(2, 2), rank_env={rank_var: rank}
+        )
+
+        result = m.cmd_bgwork(config, system, launcher)
+
+        assert result == ("-ll:bgwork", value)
+
+    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
+    @pytest.mark.parametrize("rank", ("0", "1", "2"))
+    @pytest.mark.parametrize("value", ("2", "3", "10"))
+    def test_utility_n_multi_rank_no_launcher_and_ucx(
+        self, genobjs: GenObjs, value: str, rank: str, rank_var: dict[str, str]
+    ) -> None:
+        config, system, launcher = genobjs(
+            ["--utility", value], multi_rank=(2, 2), rank_env={rank_var: rank}
+        )
+
+        networks_orig = list(install_info.networks)
+        install_info.networks.append("ucx")
+        result = m.cmd_bgwork(config, system, launcher)
+        install_info.networks[:] = networks_orig[:]
+
+        assert result == ("-ll:bgwork", value, "-ll:bgworkpin", "1")
+
+    @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
+    @pytest.mark.parametrize("value", ("2", "3", "10"))
+    def test_utility_n_multi_rank_with_launcher(
+        self, genobjs: GenObjs, value: str, launch: str
+    ) -> None:
+        config, system, launcher = genobjs(
+            ["--utility", value, "--launcher", launch], multi_rank=(2, 2)
+        )
+
+        result = m.cmd_bgwork(config, system, launcher)
+
+        assert result == ("-ll:bgwork", value)
+
+    @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
+    @pytest.mark.parametrize("value", ("2", "3", "10"))
+    def test_utility_n_multi_rank_with_launcher_and_ucx(
+        self, genobjs: GenObjs, value: str, launch: str
+    ) -> None:
+        config, system, launcher = genobjs(
+            ["--utility", value, "--launcher", launch], multi_rank=(2, 2)
+        )
+
+        networks_orig = list(install_info.networks)
+        install_info.networks.append("ucx")
+        result = m.cmd_bgwork(config, system, launcher)
+        install_info.networks[:] = networks_orig[:]
+
+        assert result == ("-ll:bgwork", value, "-ll:bgworkpin", "1")
 
 
 class Test_cmd_sysmem:
@@ -1172,7 +1380,7 @@ class Test_cmd_log_file:
         result = m.cmd_log_file(config, system, launcher)
 
         logfile = str(config.logging.logdir / "legate_%.log")
-        assert result == ("-logfile", logfile)
+        assert result == ("-logfile", logfile, "-errlevel", "4")
 
     def test_flag_with_dir(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs(
@@ -1182,7 +1390,7 @@ class Test_cmd_log_file:
         result = m.cmd_log_file(config, system, launcher)
 
         logfile = str(Path("foo") / "legate_%.log")
-        assert result == ("-logfile", logfile)
+        assert result == ("-logfile", logfile, "-errlevel", "4")
 
 
 class Test_cmd_eager_alloc:
@@ -1196,7 +1404,6 @@ class Test_cmd_eager_alloc:
 
 
 class Test_cmd_user_opts:
-
     USER_OPTS: tuple[list[str], ...] = (
         [],
         ["foo"],
@@ -1209,7 +1416,9 @@ class Test_cmd_user_opts:
     def test_basic(self, genobjs: GenObjs, opts: list[str]) -> None:
         config, system, launcher = genobjs(opts, fake_module=None)
 
-        result = m.cmd_user_opts(config, system, launcher)
+        user_opts = m.cmd_user_opts(config, system, launcher)
+        user_script = m.cmd_user_script(config, system, launcher)
+        result = user_script + user_opts
 
         assert result == tuple(opts)
 
@@ -1218,7 +1427,9 @@ class Test_cmd_user_opts:
         args = ["--verbose", "--rlwrap", "--gpus", "2"] + opts
         config, system, launcher = genobjs(args, fake_module=None)
 
-        result = m.cmd_user_opts(config, system, launcher)
+        user_opts = m.cmd_user_opts(config, system, launcher)
+        user_script = m.cmd_user_script(config, system, launcher)
+        result = user_script + user_opts
 
         assert result == tuple(opts)
 

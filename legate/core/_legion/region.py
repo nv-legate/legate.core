@@ -28,7 +28,6 @@ if TYPE_CHECKING:
 
 
 class Region:
-
     handle: Any
 
     def __init__(

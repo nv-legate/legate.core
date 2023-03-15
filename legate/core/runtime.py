@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING, Any, Deque, List, Optional, TypeVar, Union
 
 from legion_top import add_cleanup_item, top_level
 
-from ..util.args import ArgSpec, Argument, parse_library_command_args
+from ..settings import settings
 from . import ffi  # Make sure we only have one ffi instance
 from . import (
     Fence,
@@ -79,49 +79,6 @@ _sizeof_size_t = ffi.sizeof("size_t")
 assert _sizeof_size_t == 4 or _sizeof_size_t == 8
 
 _LEGATE_FIELD_ID_BASE = 1000
-
-ARGS = [
-    Argument(
-        "consensus",
-        ArgSpec(
-            action="store_true",
-            default=False,
-            dest="consensus",
-            help="Turn on consensus match on single node (for testing).",
-        ),
-    ),
-    Argument(
-        "cycle-check",
-        ArgSpec(
-            action="store_true",
-            default=False,
-            dest="cycle_check",
-            help=(
-                "Check for reference cycles involving RegionField objects on "
-                "script exit (developer option). When such cycles arise "
-                "during execution, they stop used RegionFields from getting "
-                "collected and reused for new Stores, thus increasing memory "
-                "pressure. By default this check will miss any RegionField "
-                "cycles the garbage collector collected during execution; "
-                "run gc.disable() at the beginning of the program to avoid "
-                "this."
-            ),
-        ),
-    ),
-    Argument(
-        "future-leak-check",
-        ArgSpec(
-            action="store_true",
-            default=False,
-            dest="future_leak_check",
-            help=(
-                "Check for reference cycles keeping Future/FutureMap objects "
-                "alive after Legate runtime exit (developer option). Such "
-                "leaks can result in Legion runtime shutdown hangs."
-            ),
-        ),
-    ),
-]
 
 
 # A helper class for doing field management with control replication
@@ -980,8 +937,6 @@ class Runtime:
         focus on implementing their domain logic.
         """
 
-        self._args = parse_library_command_args("legate", ARGS)
-
         # Record whether we need to run finalize tasks
         # Key off whether we are being loaded in a context or not
         try:
@@ -1066,7 +1021,7 @@ class Runtime:
         )
         self._field_manager_class = (
             ConsensusMatchingFieldManager
-            if self._num_nodes > 1 or self._args.consensus
+            if self._num_nodes > 1 or settings.consensus()
             else FieldManager
         )
         self._max_lru_length = int(
@@ -1151,14 +1106,38 @@ class Runtime:
 
     @property
     def num_cpus(self) -> int:
+        """
+        Returns the total number of CPUs in the system
+
+        Returns
+        -------
+        int
+            Number of CPUs
+        """
         return self._num_cpus
 
     @property
     def num_omps(self) -> int:
+        """
+        Returns the total number of OpenMP processors in the system
+
+        Returns
+        -------
+        int
+            Number of OpenMP processors
+        """
         return self._num_omps
 
     @property
     def num_gpus(self) -> int:
+        """
+        Returns the total number of GPUs in the system
+
+        Returns
+        -------
+        int
+            Number of GPUs
+        """
         return self._num_gpus
 
     @property
@@ -1183,6 +1162,19 @@ class Runtime:
         return self._field_match_manager
 
     def register_library(self, library: Library) -> Context:
+        """
+        Registers a library to the runtime.
+
+        Parameters
+        ----------
+        library : Library
+            Library object
+
+        Returns
+        -------
+        Context
+            A new context for the library
+        """
         from .context import Context
 
         libname = library.get_name()
@@ -1379,6 +1371,23 @@ class Runtime:
         )
 
     def create_future(self, data: Any, size: int) -> Future:
+        """
+        Creates a future from a buffer holding a scalar value. The value is
+        copied to the future.
+
+        Parameters
+        ----------
+        data : buffer
+            Buffer that holds a scalar value
+
+        size : int
+            Size of the value
+
+        Returns
+        -------
+        Future
+            A new future
+        """
         future = Future()
         future.set_value(self.legion_runtime, data, size)
         return future
@@ -1714,7 +1723,7 @@ runtime: Runtime = Runtime(core_library)
 
 def _cleanup_legate_runtime() -> None:
     global runtime
-    future_leak_check = runtime._args.future_leak_check
+    future_leak_check = settings.future_leak_check()
     runtime.destroy()
     del runtime
     gc.collect()
@@ -1744,7 +1753,7 @@ class _CycleCheckWrapper(ModuleType):
         find_cycles(False)
 
 
-if runtime._args.cycle_check:
+if settings.cycle_check():
     # The first thing that legion_top does after executing the user script
     # is to remove the newly created "__main__" module. We intercept this
     # deletion operation to perform our check.
@@ -1764,4 +1773,11 @@ def legate_add_library(library: Library) -> None:
 
 
 def get_legate_runtime() -> Runtime:
+    """
+    Returns the Legate runtime
+
+    Returns
+    -------
+        Legate runtime object
+    """
     return runtime

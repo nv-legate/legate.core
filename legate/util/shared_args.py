@@ -83,7 +83,8 @@ LAUNCHER = Argument(
         choices=LAUNCHERS,
         default="none",
         help='launcher program to use (set to "none" for local runs, or if '
-        "the launch has already happened by the time legate is invoked)",
+        "the launch has already happened by the time legate is invoked), "
+        "[legate-only, not supported with standard Python invocation]",
     ),
 )
 
@@ -97,7 +98,8 @@ LAUNCHER_EXTRA = Argument(
         required=False,
         help="additional argument to pass to the launcher (can appear more "
         "than once). Multiple arguments may be provided together in a quoted "
-        "string (arguments with spaces inside must be additionally quoted)",
+        "string (arguments with spaces inside must be additionally quoted), "
+        "[legate-only, not supported with standard Python invocation]",
     ),
 )
 

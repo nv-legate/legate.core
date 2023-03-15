@@ -386,7 +386,7 @@ class FutureMap:
         num_futures = len(futures)
         points = ffi.new("legion_domain_point_t[%d]" % num_futures)
         futures_ = ffi.new("legion_future_t[%d]" % num_futures)
-        for (i, (point, future)) in enumerate(futures.items()):
+        for i, (point, future) in enumerate(futures.items()):
             points[i] = point.raw()
             futures_[i] = future.handle
         handle = legion.legion_future_map_construct_from_futures(

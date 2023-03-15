@@ -23,9 +23,7 @@ by running the same code that runs on a desktop or a laptop at scale.
 Using this technology, computational and data scientists can develop and test
 programs on moderately sized data sets on local machines and then immediately
 scale up to larger data sets deployed on many nodes in the cloud or on a
-supercomputer without any code modifications. In visual terms:
-
-<img src="docs/figures/vision.png" alt="drawing" width="700"/>
+supercomputer without any code modifications.
 
 The Legate project is built upon two foundational principles:
 
@@ -223,8 +221,12 @@ Legate Core is available [on conda](https://anaconda.org/legate/legate-core):
 conda install -c nvidia -c conda-forge -c legate legate-core
 ```
 
-The conda package is compatible with CUDA >= 11.4 (CUDA driver version >= r470),
-and Volta or later GPU architectures.
+Only linux-64 packages are available at the moment.
+
+The default package contains GPU support, and is compatible with CUDA >= 11.4
+(CUDA driver version >= r470), and Volta or later GPU architectures. There are
+also CPU-only packages available, and will be automatically selected by `conda`
+when installing on a machine without GPUs.
 
 See [BUILD.md](BUILD.md) for instructions on building Legate Core from source.
 
@@ -417,7 +419,7 @@ Memory:
 
 * *Does Legate only work on NVIDIA hardware?*
   No, Legate will run on any processor supported by Legion (e.g. x86, ARM, and
-  PowerPC CPUs), and any network supported by GASNet (e.g. Infiniband,
+  PowerPC CPUs), and any network supported by GASNet or UCX (e.g. Infiniband,
   Cray, Omnipath, and (ROC-)Ethernet based interconnects).
 
 * *What languages does the Legate Core API have bindings for?*
@@ -461,15 +463,14 @@ See the discussion of contributing in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Documentation
 
-A complete list of available features can is provided in the [API
-reference](https://nv-legate.github.io/legate.core/api.html).
+A complete list of available features can is found in the [Legate Core
+documentation](https://nv-legate.github.io/legate.core).
 
 ## Next Steps
 
 We recommend starting by experimenting with at least one Legate application
 library to test out performance and see how Legate works. If you are interested
 in building your own Legate application library, we recommend that you
-investigate our [Legate Hello World application
-library](https://github.com/nv-legate/legate.hello) that provides a small
-example of how to get started developing your own drop-in replacement library
-on top of Legion using the Legate Core library.
+investigate our [Legate Hello World application library](examples/hello) that
+provides a small example of how to get started developing your own drop-in
+replacement library on top of Legion using the Legate Core library.

@@ -241,11 +241,13 @@ def install(
     hdf,
     llvm,
     spy,
+    build_docs,
     conduit,
     nccl_dir,
     cmake_exe,
     cmake_generator,
     gasnet_dir,
+    ucx_dir,
     cuda_dir,
     maxdim,
     maxfields,
@@ -287,11 +289,13 @@ def install(
         print("hdf:", hdf)
         print("llvm:", llvm)
         print("spy:", spy)
+        print("build_docs:", build_docs)
         print("conduit:", conduit)
         print("nccl_dir:", nccl_dir)
         print("cmake_exe:", cmake_exe)
         print("cmake_generator:", cmake_generator)
         print("gasnet_dir:", gasnet_dir)
+        print("ucx_dir:", ucx_dir)
         print("cuda_dir:", cuda_dir)
         print("maxdim:", maxdim)
         print("maxfields:", maxfields)
@@ -322,18 +326,21 @@ def install(
     print("Using python lib and version: {}, {}".format(pylib_name, pyversion))
 
     def validate_path(path):
-        if path is not None and (path := str(path)) != "":
-            if not os.path.isabs(path):
-                path = join(legate_core_dir, path)
-            if exists(path := realpath(path)):
-                return path
-        return None
+        if path is None or (path := str(path)) == "":
+            return None
+        if not os.path.isabs(path):
+            path = join(legate_core_dir, path)
+        if not exists(path := realpath(path)):
+            print(f"Error: path does not exist: {path}")
+            sys.exit(1)
+        return path
 
     cuda_dir = validate_path(cuda_dir)
     nccl_dir = validate_path(nccl_dir)
     legion_dir = validate_path(legion_dir)
     legion_src_dir = validate_path(legion_src_dir)
     gasnet_dir = validate_path(gasnet_dir)
+    ucx_dir = validate_path(ucx_dir)
     thrust_dir = validate_path(thrust_dir)
 
     if verbose:
@@ -343,6 +350,7 @@ def install(
         print("legion_dir: ", legion_dir)
         print("legion_src_dir: ", legion_src_dir)
         print("gasnet_dir: ", gasnet_dir)
+        print("ucx_dir: ", ucx_dir)
         print("thrust_dir: ", thrust_dir)
 
     if thread_count is None:
@@ -408,14 +416,8 @@ def install(
     # Also use preexisting CMAKE_ARGS from conda if set
     cmake_flags = cmd_env.get("CMAKE_ARGS", "").split(" ")
 
-    if cmake_generator:
-        if " " not in cmake_generator:
-            cmake_flags += [f"-G{cmake_generator}"]
-        else:
-            cmake_flags += [f"-G'{cmake_generator}'"]
-
     if debug or verbose:
-        cmake_flags += ["--log-level=%s" % ("DEBUG" if debug else "VERBOSE")]
+        cmake_flags += [f"--log-level={'DEBUG' if debug else 'VERBOSE'}"]
 
     cmake_flags += f"""\
 -DCMAKE_BUILD_TYPE={(
@@ -443,31 +445,43 @@ def install(
 """.splitlines()
 
     if nccl_dir:
-        cmake_flags += ["-DNCCL_DIR=%s" % nccl_dir]
+        cmake_flags += [f"-DNCCL_DIR={nccl_dir}"]
     if gasnet_dir:
-        cmake_flags += ["-DGASNet_ROOT_DIR=%s" % gasnet_dir]
+        cmake_flags += [f"-DGASNet_ROOT_DIR={gasnet_dir}"]
+    if ucx_dir:
+        cmake_flags += [f"-DUCX_ROOT={ucx_dir}"]
     if conduit:
-        cmake_flags += ["-DGASNet_CONDUIT=%s" % conduit]
+        cmake_flags += [f"-DGASNet_CONDUIT={conduit}"]
     if cuda_dir:
-        cmake_flags += ["-DCUDA_TOOLKIT_ROOT_DIR=%s" % cuda_dir]
+        cmake_flags += [f"-DCUDAToolkit_ROOT={cuda_dir}"]
     if thrust_dir:
-        cmake_flags += ["-DThrust_ROOT=%s" % thrust_dir]
+        cmake_flags += [f"-DThrust_ROOT={thrust_dir}"]
     if legion_dir:
-        cmake_flags += ["-DLegion_ROOT=%s" % legion_dir]
+        cmake_flags += [f"-DLegion_ROOT={legion_dir}"]
     elif legion_src_dir:
-        cmake_flags += ["-DCPM_Legion_SOURCE=%s" % legion_src_dir]
+        cmake_flags += [f"-DCPM_Legion_SOURCE={legion_src_dir}"]
     else:
         cmake_flags += ["-DCPM_DOWNLOAD_Legion=ON"]
     if legion_url:
-        cmake_flags += ["-Dlegate_core_LEGION_REPOSITORY=%s" % legion_url]
+        cmake_flags += [f"-Dlegate_core_LEGION_REPOSITORY={legion_url}"]
     if legion_branch:
-        cmake_flags += ["-Dlegate_core_LEGION_BRANCH=%s" % legion_branch]
+        cmake_flags += [f"-Dlegate_core_LEGION_BRANCH={legion_branch}"]
+    if build_docs:
+        cmake_flags += ["-Dlegate_core_BUILD_DOCS=ON"]
 
     cmake_flags += extra_flags
+    build_flags = [f"-j{str(thread_count)}"]
+    if verbose:
+        if cmake_generator == "Unix Makefiles":
+            build_flags += ["VERBOSE=1"]
+        else:
+            build_flags += ["--verbose"]
+
     cmd_env.update(
         {
-            "SKBUILD_BUILD_OPTIONS": f"-j{str(thread_count)}",
             "CMAKE_ARGS": " ".join(cmake_flags),
+            "CMAKE_GENERATOR": cmake_generator,
+            "SKBUILD_BUILD_OPTIONS": " ".join(build_flags),
         }
     )
 
@@ -530,7 +544,7 @@ def driver():
         dest="networks",
         action="append",
         required=False,
-        choices=["gasnet1", "gasnetex", "mpi"],
+        choices=["gasnet1", "gasnetex", "ucx", "mpi"],
         default=[],
         help="Realm networking backend to use for multi-node execution.",
     )
@@ -541,6 +555,14 @@ def driver():
         required=False,
         default=os.environ.get("GASNET"),
         help="Path to GASNet installation directory.",
+    )
+    parser.add_argument(
+        "--with-ucx",
+        dest="ucx_dir",
+        metavar="DIR",
+        required=False,
+        default=os.environ.get("UCX_ROOT"),
+        help="Path to UCX installation directory.",
     )
     parser.add_argument(
         "--cuda",
@@ -574,7 +596,7 @@ def driver():
         "--march",
         dest="march",
         required=False,
-        default="native",
+        default=("haswell" if platform.machine() == "x86_64" else "native"),
         help="Specify the target CPU architecture.",
     )
     parser.add_argument(
@@ -601,6 +623,14 @@ def driver():
         required=False,
         default=os.environ.get("USE_SPY", "0") == "1",
         help="Build Legate with detailed Legion Spy enabled.",
+    )
+    parser.add_argument(
+        "--docs",
+        dest="build_docs",
+        action="store_true",
+        required=False,
+        default=False,
+        help="Build Doxygen docs.",
     )
     parser.add_argument(
         "--conduit",
@@ -634,7 +664,10 @@ def driver():
         "--cmake-generator",
         dest="cmake_generator",
         required=False,
-        default=(None if shutil.which("ninja") is None else "Ninja"),
+        default=os.environ.get(
+            "CMAKE_GENERATOR",
+            "Unix Makefiles" if shutil.which("ninja") is None else "Ninja",
+        ),
         choices=["Ninja", "Unix Makefiles", None],
         help="The CMake makefiles generator",
     )
@@ -717,14 +750,14 @@ def driver():
         "--legion-url",
         dest="legion_url",
         required=False,
-        default="https://gitlab.com/StanfordLegion/legion.git",
+        default=None,
         help="Legion git URL to build Legate with.",
     )
     parser.add_argument(
         "--legion-branch",
         dest="legion_branch",
         required=False,
-        default="control_replication",
+        default=None,
         help="Legion branch to build Legate with.",
     )
     args, unknown = parser.parse_known_args()
@@ -742,7 +775,7 @@ def driver():
         )
         print("to specify the CMake executable if it is not on PATH.")
         print()
-        print("Attempted to execute: %s" % args.cmake_exe)
+        print(f"Attempted to execute: {args.cmake_exe}")
         sys.exit(1)
 
     install(unknown=unknown, **vars(args))

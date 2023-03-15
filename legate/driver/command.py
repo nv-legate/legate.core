@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from .. import install_info
 from ..util.ui import warn
 
 if TYPE_CHECKING:
@@ -24,7 +25,7 @@ if TYPE_CHECKING:
     from .config import ConfigProtocol
     from .launcher import Launcher
 
-__all__ = ("CMD_PARTS",)
+__all__ = ("CMD_PARTS_LEGION", "CMD_PARTS_CANONICAL")
 
 
 # this will be replaced by bind.sh with the actual computed rank at runtime
@@ -182,11 +183,18 @@ def cmd_legion(
     return (str(system.legion_paths.legion_python),)
 
 
-def cmd_processor(
+def cmd_python_processor(
     config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
-    # We always need one python processor per rank and no local fields
-    return ("-ll:py", "1", "-lg:local", "0")
+    # We always need one python processor per rank
+    return ("-ll:py", "1")
+
+
+def cmd_local_field(
+    config: ConfigProtocol, system: System, launcher: Launcher
+) -> CommandPart:
+    # We always need no local fields
+    return ("-lg:local", "0")
 
 
 def cmd_kthreads(
@@ -251,24 +259,35 @@ def cmd_openmp(
     )
 
 
-def cmd_utility(
+def cmd_bgwork(
     config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
-    utility = config.core.utility
     ranks = config.multi_node.ranks
+    utility = config.core.utility
 
-    if utility == 1:
-        return ()
-
-    opts: CommandPart = ("-ll:util", str(utility))
+    opts: CommandPart = ()
 
     # If we are running multi-rank then make the number of active
     # message handler threads equal to our number of utility
     # processors in order to prevent head-of-line blocking
     if ranks > 1:
-        opts += ("-ll:bgwork", str(utility))
+        opts += ("-ll:bgwork", str(max(utility, 2)))
+
+    if ranks > 1 and "ucx" in install_info.networks:
+        opts += ("-ll:bgworkpin", "1")
 
     return opts
+
+
+def cmd_utility(
+    config: ConfigProtocol, system: System, launcher: Launcher
+) -> CommandPart:
+    utility = config.core.utility
+
+    if utility == 1:
+        return ()
+
+    return ("-ll:util", str(utility))
 
 
 def cmd_mem(
@@ -347,7 +366,7 @@ def cmd_log_file(
     log_to_file = config.logging.log_to_file
 
     if log_to_file:
-        return ("-logfile", str(log_dir / "legate_%.log"))
+        return ("-logfile", str(log_dir / "legate_%.log"), "-errlevel", "4")
 
     return ()
 
@@ -360,33 +379,35 @@ def cmd_eager_alloc(
     return ("-lg:eager_alloc_percentage", str(eager_alloc))
 
 
+def cmd_ucx(
+    config: ConfigProtocol, system: System, launcher: Launcher
+) -> CommandPart:
+    return ("-ucx:tls_host", "rc,tcp,cuda_copy,cuda_ipc,sm,self")
+
+
+def cmd_user_script(
+    config: ConfigProtocol, system: System, launcher: Launcher
+) -> CommandPart:
+    return () if config.user_script is None else (config.user_script,)
+
+
 def cmd_user_opts(
     config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
     return config.user_opts
 
 
-CMD_PARTS = (
-    cmd_bind,
-    cmd_rlwrap,
-    cmd_gdb,
-    cmd_cuda_gdb,
-    cmd_nvprof,
-    cmd_nsys,
-    # Add memcheck right before the binary
-    cmd_memcheck,
-    # Now we're ready to build the actual command to run
-    cmd_legion,
+_CMD_PARTS_SHARED = (
     # This has to go before script name
     cmd_nocr,
-    cmd_module,
-    cmd_processor,
+    cmd_local_field,
     cmd_kthreads,
     # Translate the requests to Realm command line parameters
     cmd_cpus,
     cmd_gpus,
     cmd_openmp,
     cmd_utility,
+    cmd_bgwork,
     cmd_mem,
     cmd_numamem,
     cmd_fbmem,
@@ -395,6 +416,42 @@ CMD_PARTS = (
     cmd_log_levels,
     cmd_log_file,
     cmd_eager_alloc,
-    # Append user flags so they can override whatever we provided
-    cmd_user_opts,
+    cmd_ucx,
+)
+
+CMD_PARTS_LEGION = (
+    (
+        cmd_bind,
+        cmd_rlwrap,
+        cmd_gdb,
+        cmd_cuda_gdb,
+        cmd_nvprof,
+        cmd_nsys,
+        # Add memcheck right before the binary
+        cmd_memcheck,
+        # Now we're ready to build the actual command to run
+        cmd_legion,
+        # This has to go before script name
+        cmd_python_processor,
+        cmd_module,
+    )
+    + _CMD_PARTS_SHARED
+    + (
+        # User script
+        cmd_user_script,
+        # Append user flags so they can override whatever we provided
+        cmd_user_opts,
+    )
+)
+
+CMD_PARTS_CANONICAL = (
+    (
+        # User script
+        cmd_user_script,
+    )
+    + _CMD_PARTS_SHARED
+    + (
+        # Append user flags so they can override whatever we provided
+        cmd_user_opts,
+    )
 )

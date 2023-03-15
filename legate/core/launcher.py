@@ -928,7 +928,7 @@ class TaskLauncher:
         if self._sharding_space is not None:
             task.set_sharding_space(self._sharding_space)
 
-        for (req, fields) in self._req_analyzer.requirements:
+        for req, fields in self._req_analyzer.requirements:
             req.proj.add(task, req, fields, _index_task_calls)
         for future in self._future_args:
             task.add_future(future)
@@ -937,7 +937,7 @@ class TaskLauncher:
             arrival, wait = runtime.get_barriers(volume)
             task.add_future(arrival)
             task.add_future(wait)
-        for (out_req, fields) in self._out_analyzer.requirements:
+        for out_req, fields in self._out_analyzer.requirements:
             out_req.add(task, fields)
         for comm in self._comms:
             task.add_point_future(ArgumentMap(future_map=comm))
@@ -966,11 +966,11 @@ class TaskLauncher:
             tag=self._tag,
             provenance=self._provenance,
         )
-        for (req, fields) in self._req_analyzer.requirements:
+        for req, fields in self._req_analyzer.requirements:
             req.proj.add_single(task, req, fields, _single_task_calls)
         for future in self._future_args:
             task.add_future(future)
-        for (out_req, fields) in self._out_analyzer.requirements:
+        for out_req, fields in self._out_analyzer.requirements:
             out_req.add_single(task, fields)
         if (
             not self._has_side_effect
@@ -1178,7 +1178,7 @@ class CopyLauncher:
         def add_requirements(
             requirements: list[tuple[RegionReq, int]]
         ) -> None:
-            for (req, field) in requirements:
+            for req, field in requirements:
                 req.proj.add(copy, req, field, _index_copy_calls)
 
         add_requirements(self._input_reqs.requirements)
@@ -1209,7 +1209,7 @@ class CopyLauncher:
         def add_requirements(
             requirements: list[tuple[RegionReq, int]]
         ) -> None:
-            for (req, field) in requirements:
+            for req, field in requirements:
                 req.proj.add_single(copy, req, field, _single_copy_calls)
 
         add_requirements(self._input_reqs.requirements)

@@ -17,7 +17,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ..test_stage import TestStage
-from ..util import Shard, StageSpec, adjust_workers
+from ..util import EAGER_ENV, Shard, StageSpec, adjust_workers
 
 if TYPE_CHECKING:
     from ....util.types import ArgList, EnvDict
@@ -47,12 +47,7 @@ class Eager(TestStage):
         self._init(config, system)
 
     def env(self, config: Config, system: TestSystem) -> EnvDict:
-        # Raise min chunk sizes for deferred codepaths to force eager execution
-        env = {
-            "CUNUMERIC_MIN_CPU_CHUNK": "2000000000",
-            "CUNUMERIC_MIN_OMP_CHUNK": "2000000000",
-            "CUNUMERIC_MIN_GPU_CHUNK": "2000000000",
-        }
+        env = dict(EAGER_ENV)
         return env
 
     def shard_args(self, shard: Shard, config: Config) -> ArgList:

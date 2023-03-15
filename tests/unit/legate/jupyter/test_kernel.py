@@ -20,7 +20,7 @@ from dataclasses import asdict
 from pytest_mock import MockerFixture
 
 import legate.jupyter.kernel as m
-from legate.driver import Driver
+from legate.driver import LegateDriver
 from legate.jupyter.config import Config
 from legate.util.system import System
 
@@ -41,7 +41,7 @@ system = System()
 class Test_generate_kernel_spec:
     def test_defatul(self) -> None:
         config = Config([])
-        driver = Driver(config, system)
+        driver = LegateDriver(config, system)
 
         spec = m.generate_kernel_spec(driver, config)
 
@@ -77,7 +77,7 @@ class Test_install_kernel_spec:
         config = Config(
             ["legate-jupyter", "--name", "____fake_test_kernel_123abc_____"]
         )
-        driver = Driver(config, system)
+        driver = LegateDriver(config, system)
 
         spec = m.generate_kernel_spec(driver, config)
 
@@ -112,7 +112,7 @@ class Test_install_kernel_spec:
                 "____fake_test_kernel_123abc_____",
             ]
         )
-        driver = Driver(config, system)
+        driver = LegateDriver(config, system)
 
         spec = m.generate_kernel_spec(driver, config)
 
@@ -148,7 +148,7 @@ class Test_install_kernel_spec:
                 "____fake_test_kernel_123abc_____",
             ]
         )
-        driver = Driver(config, system)
+        driver = LegateDriver(config, system)
 
         spec = m.generate_kernel_spec(driver, config)
 
