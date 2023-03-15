@@ -23,7 +23,6 @@ from typing import (
     Protocol,
     TypeVar,
     Union,
-    cast,
 )
 
 import numpy as np
@@ -368,16 +367,14 @@ class Context:
 
         return wrapper
 
-    def create_task(
+    def create_manual_task(
         self,
         task_id: int,
+        launch_domain: Rect,
         mapper_id: int = 0,
-        manual: bool = False,
-        launch_domain: Optional[Rect] = None,
-    ) -> Union[AutoTask, ManualTask]:
+    ) -> ManualTask:
         """
-        Creates a task. The type of the returned task is determined by the
-        value of ``manual``.
+        Creates a manual task.
 
         Parameters
         ----------
@@ -390,78 +387,28 @@ class Context:
             Id of the mapper that should determine mapping policies for the
             task. Used only when the library has more than one mapper.
 
-        manual : bool
-            Indicates whether the task should be manually parallelized;
-            if ``True``, the task is parallelized manually by the caller.
-
         launch_domain : Rect, optional
-            Launch domain of the task. Ignored if the task is automatically
-            parallelized, mandatory otherwise.
+            Launch domain of the task.
 
         Returns
         -------
         AutoTask or ManualTask
             A new task
         """
-        from .operation import AutoTask, ManualTask
 
-        unique_op_id = self.get_unique_op_id()
-        if not manual:
-            return AutoTask(self, task_id, mapper_id, unique_op_id)
-        else:
-            if launch_domain is None:
-                raise RuntimeError(
-                    "Launch domain must be specified for "
-                    "manual parallelization"
-                )
-            return ManualTask(
-                self,
-                task_id,
-                launch_domain,
-                mapper_id,
-                unique_op_id,
-            )
-
-    def create_manual_task(
-        self,
-        task_id: int,
-        mapper_id: int = 0,
-        launch_domain: Optional[Rect] = None,
-    ) -> ManualTask:
-        """
-        Type safe version of ``Context.create_task``. Always returns a
-        `ManualTask`.
-
-        Parameters
-        ----------
-        task_id : int
-            Task id
-
-        mapper_id : int, optional
-            Mapper id
-
-        launch_domain : Rect, optional
-            Launch domain of the task.
-
-        Returns
-        -------
-        AutoTask
-            A new auto-parallelized task
-
-        See Also
-        --------
-        Context.create_task
-        """
         from .operation import ManualTask
 
-        return cast(
-            ManualTask,
-            self.create_task(
-                task_id=task_id,
-                mapper_id=mapper_id,
-                manual=True,
-                launch_domain=launch_domain,
-            ),
+        unique_op_id = self.get_unique_op_id()
+        if launch_domain is None:
+            raise RuntimeError(
+                "Launch domain must be specified for manual parallelization"
+            )
+        return ManualTask(
+            self,
+            task_id,
+            launch_domain,
+            mapper_id,
+            unique_op_id,
         )
 
     def create_auto_task(
@@ -470,24 +417,23 @@ class Context:
         mapper_id: int = 0,
     ) -> AutoTask:
         """
-        Type safe version of ``Context.create_task``. Always returns an
-        `AutoTask`.
+        Creates an auto task.
 
         Parameters
         ----------
         task_id : int
-            Task id
+            Task id. Scoped locally within the context; i.e., different
+            libraries can use the same task id. There must be a task
+            implementation corresponding to the task id.
 
         mapper_id : int, optional
-            Mapper id
-
-        launch_domain : Rect, optional
-            Launch domain of the task.
+            Id of the mapper that should determine mapping policies for the
+            task. Used only when the library has more than one mapper.
 
         Returns
         -------
         AutoTask
-            A new manually parallelized task
+            A new automatically parallelized task
 
         See Also
         --------
@@ -496,14 +442,8 @@ class Context:
 
         from .operation import AutoTask
 
-        return cast(
-            AutoTask,
-            self.create_task(
-                task_id=task_id,
-                mapper_id=mapper_id,
-                manual=False,
-            ),
-        )
+        unique_op_id = self.get_unique_op_id()
+        return AutoTask(self, task_id, mapper_id, unique_op_id)
 
     def create_copy(self, mapper_id: int = 0) -> Copy:
         """
