@@ -244,10 +244,9 @@ VAL FutureWrapper::scalar() const
 }
 
 template <typename T, int32_t DIM>
-Buffer<T, DIM> OutputRegionField::create_output_buffer(const Point<DIM>& extents,
-                                                       bool return_buffer)
+Buffer<T, DIM> UnboundRegionField::create_output_buffer(const Point<DIM>& extents, bool bind_buffer)
 {
-  if (return_buffer) {
+  if (bind_buffer) {
 #ifdef DEBUG_LEGATE
     assert(!bound_);
 #endif
@@ -255,11 +254,11 @@ Buffer<T, DIM> OutputRegionField::create_output_buffer(const Point<DIM>& extents
     update_num_elements(extents[0]);
     bound_ = true;
   }
-  return out_.create_buffer<T, DIM>(extents, fid_, nullptr, return_buffer);
+  return out_.create_buffer<T, DIM>(extents, fid_, nullptr, bind_buffer);
 }
 
 template <typename T, int32_t DIM>
-void OutputRegionField::return_data(Buffer<T, DIM>& buffer, const Point<DIM>& extents)
+void UnboundRegionField::bind_data(Buffer<T, DIM>& buffer, const Point<DIM>& extents)
 {
 #ifdef DEBUG_LEGATE
   assert(!bound_);
@@ -399,14 +398,13 @@ AccessorRD<OP, EXCLUSIVE, DIM> Store::reduce_accessor(const Rect<DIM>& bounds) c
 }
 
 template <typename T, int32_t DIM>
-Buffer<T, DIM> Store::create_output_buffer(const Point<DIM>& extents,
-                                           bool return_buffer /*= false*/)
+Buffer<T, DIM> Store::create_output_buffer(const Point<DIM>& extents, bool bind_buffer /*= false*/)
 {
 #ifdef DEBUG_LEGATE
   check_valid_return();
   check_buffer_dimension(DIM);
 #endif
-  return output_field_.create_output_buffer<T, DIM>(extents, return_buffer);
+  return unbound_field_.create_output_buffer<T, DIM>(extents, bind_buffer);
 }
 
 template <int32_t DIM>
@@ -439,13 +437,13 @@ VAL Store::scalar() const
 }
 
 template <typename T, int32_t DIM>
-void Store::return_data(Buffer<T, DIM>& buffer, const Point<DIM>& extents)
+void Store::bind_data(Buffer<T, DIM>& buffer, const Point<DIM>& extents)
 {
 #ifdef DEBUG_LEGATE
   check_valid_return();
   check_buffer_dimension(DIM);
 #endif
-  output_field_.return_data(buffer, extents);
+  unbound_field_.bind_data(buffer, extents);
 }
 
 }  // namespace legate

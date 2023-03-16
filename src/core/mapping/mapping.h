@@ -131,6 +131,29 @@ struct DimOrdering {
 
  public:
   DimOrdering() {}
+  DimOrdering(Kind kind, std::vector<int32_t>&& dims = {});
+
+ public:
+  /**
+   * @brief Creates a C ordering object
+   *
+   * @return A `DimOrdering` object
+   */
+  static DimOrdering c_order();
+  /**
+   * @brief Creates a Fortran ordering object
+   *
+   * @return A `DimOrdering` object
+   */
+  static DimOrdering fortran_order();
+  /**
+   * @brief Creates a custom ordering object
+   *
+   * @param dims A vector that stores the order of dimensions.
+   *
+   * @return A `DimOrdering` object
+   */
+  static DimOrdering custom_order(std::vector<int32_t>&& dims);
 
  public:
   DimOrdering(const DimOrdering&)            = default;
@@ -151,17 +174,17 @@ struct DimOrdering {
   /**
    * @brief Sets the dimension ordering to C
    */
-  void c_order();
+  void set_c_order();
   /**
    * @brief Sets the dimension ordering to Fortran
    */
-  void fortran_order();
+  void set_fortran_order();
   /**
    * @brief Sets a custom dimension ordering
    *
    * @param dims A vector that stores the order of dimensions.
    */
-  void custom_order(std::vector<int32_t>&& dims);
+  void set_custom_order(std::vector<int32_t>&& dims);
 
  public:
   /**
