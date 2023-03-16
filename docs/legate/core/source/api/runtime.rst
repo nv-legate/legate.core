@@ -50,7 +50,6 @@ runtime, the runtime gives back a context object unique to the library.
    :toctree: generated/
 
    context.Context.create_store
-   context.Context.create_task
    context.Context.create_manual_task
    context.Context.create_auto_task
    context.Context.create_copy
