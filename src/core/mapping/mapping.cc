@@ -23,6 +23,20 @@
 namespace legate {
 namespace mapping {
 
+DimOrdering::DimOrdering(Kind _kind, std::vector<int32_t>&& _dims)
+  : kind(_kind), dims(std::forward<decltype(dims)>(_dims))
+{
+}
+
+/*static*/ DimOrdering DimOrdering::c_order() { return DimOrdering(Kind::C); }
+
+/*static*/ DimOrdering DimOrdering::fortran_order() { return DimOrdering(Kind::FORTRAN); }
+
+/*static*/ DimOrdering DimOrdering::custom_order(std::vector<int32_t>&& dims)
+{
+  return DimOrdering(Kind::CUSTOM, std::forward<decltype(dims)>(dims));
+}
+
 Memory::Kind get_memory_kind(StoreTarget target)
 {
   switch (target) {
@@ -66,11 +80,11 @@ void DimOrdering::populate_dimension_ordering(const Store& store,
   }
 }
 
-void DimOrdering::c_order() { kind = Kind::C; }
+void DimOrdering::set_c_order() { kind = Kind::C; }
 
-void DimOrdering::fortran_order() { kind = Kind::FORTRAN; }
+void DimOrdering::set_fortran_order() { kind = Kind::FORTRAN; }
 
-void DimOrdering::custom_order(std::vector<int32_t>&& dims)
+void DimOrdering::set_custom_order(std::vector<int32_t>&& dims)
 {
   kind = Kind::CUSTOM;
   dims = std::forward<std::vector<int32_t>&&>(dims);

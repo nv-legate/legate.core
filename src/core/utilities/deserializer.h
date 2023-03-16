@@ -86,7 +86,7 @@ class TaskDeserializer : public BaseDeserializer<TaskDeserializer> {
   void _unpack(Store& value);
   void _unpack(FutureWrapper& value);
   void _unpack(RegionField& value);
-  void _unpack(OutputRegionField& value);
+  void _unpack(UnboundRegionField& value);
   void _unpack(comm::Communicator& value);
   void _unpack(Legion::PhaseBarrier& barrier);
 
