@@ -248,9 +248,11 @@ to this:
 import cunumeric as np
 ```
 After this, you can use the `legate` driver script in the `bin` directory of
-your installation to run any Python program. **Note that the default python
-interpreter (`python`) will not work with programs that use Legate libraries, you
-need to use this custom driver script.**
+your installation to run any Python program.
+
+You can also use the standard Python interpreter, but in that case configuration
+options can only be passed through the environment (see below), and some options
+are not available (check the output of legate --help for more details).
 
 For example, to run your script in the default configuration (4 CPUs cores and
 4 GB of memory) just run:
