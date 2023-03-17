@@ -362,15 +362,15 @@ class Test_cmd_nsys:
             "none",
         )
 
-    # spaces are necessary before the arguments to work around
+    # spaces are necessary before arguments to work around
     # argparse inability to consume arguments with -- correctly
     @pytest.mark.parametrize(
         "nsys_extra",
         (
             " --sample=cpu",
-            " --backtrace=lbr -s cpu",
-            " --sample cpu",
-            " -s=cpu",
+            "--backtrace=lbr -s cpu",
+            "--sample cpu",
+            "-s cpu",
         ),
     )
     def test_explicit_sample(self, genobjs: GenObjs, nsys_extra: str) -> None:
