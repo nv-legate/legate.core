@@ -367,14 +367,17 @@ class Test_cmd_nsys:
     @pytest.mark.parametrize(
         "nsys_extra",
         (
-            " --sample=cpu",
-            "--backtrace=lbr -s cpu",
-            "--sample cpu",
-            "-s cpu",
+            ["--nsys-extra=--sample=cpu"],
+            ["--nsys-extra", "--backtrace=lbr -s cpu"],
+            ["--nsys-extra", "--sample cpu"],
+            ["--nsys-extra", "-s cpu"],
+            ["--nsys-extra=--sample", "--nsys-extra", "cpu"],
         ),
     )
-    def test_explicit_sample(self, genobjs: GenObjs, nsys_extra: str) -> None:
-        args = ["--nsys", "--nsys-extra", nsys_extra]
+    def test_explicit_sample(
+        self, genobjs: GenObjs, nsys_extra: list[str]
+    ) -> None:
+        args = ["--nsys"] + nsys_extra
         config, system, launcher = genobjs(args)
         result = m.cmd_nsys(config, system, launcher)
 
