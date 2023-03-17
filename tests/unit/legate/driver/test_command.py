@@ -362,8 +362,6 @@ class Test_cmd_nsys:
             "none",
         )
 
-    # spaces are necessary before arguments to work around
-    # argparse inability to consume arguments with -- correctly
     @pytest.mark.parametrize(
         "nsys_extra",
         (
