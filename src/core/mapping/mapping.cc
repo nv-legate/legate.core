@@ -101,6 +101,13 @@ bool InstanceMappingPolicy::operator!=(const InstanceMappingPolicy& other) const
   return !operator==(other);
 }
 
+bool InstanceMappingPolicy::subsumes(const InstanceMappingPolicy& other) const
+{
+  // the allocation policy doesn't concern the instance layout
+  return target == other.target && layout == other.layout && ordering == other.ordering &&
+         (exact || !other.exact);
+}
+
 void InstanceMappingPolicy::populate_layout_constraints(
   const Store& store, Legion::LayoutConstraintSet& layout_constraints) const
 {

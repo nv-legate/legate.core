@@ -82,9 +82,7 @@ bool InstanceSet::find_instance(Region region,
   assert(ifinder != instances_.end());
 
   auto& spec = ifinder->second;
-  // TODO: policies don't need to be exactly the same but the policy of the existing instance
-  // only needs to subsume the requested policy
-  if (spec.policy == policy) {
+  if (spec.policy.subsumes(policy)) {
     result = spec.instance;
     return true;
   } else

@@ -249,6 +249,19 @@ struct InstanceMappingPolicy {
   bool operator==(const InstanceMappingPolicy&) const;
   bool operator!=(const InstanceMappingPolicy&) const;
 
+ public:
+  /**
+   * @brief Indicates whether this policy subsumes a given policy
+   *
+   * Policy `A` subsumes policy `B`, if every instance created under `B` satisfies `A` as well.
+   *
+   * @param other Policy to check the subsumption against
+   *
+   * @return true If this policy subsumes `other`
+   * @return false Otherwise
+   */
+  bool subsumes(const InstanceMappingPolicy& other) const;
+
  private:
   friend class StoreMapping;
   void populate_layout_constraints(const Store& store,
