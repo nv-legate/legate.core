@@ -14,6 +14,7 @@
 #
 from __future__ import annotations
 
+import argparse
 from typing import TYPE_CHECKING
 
 from .. import install_info
@@ -125,17 +126,20 @@ def cmd_nsys(
     targets = config.profiling.nsys_targets
     extra = config.profiling.nsys_extra
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-s", "--sample")
+    parser.add_argument("-t", "--targets")
+    nsys_parsed_args, unparsed = parser.parse_known_args(extra)
+
+    if nsys_parsed_args.targets:
+        raise RuntimeError(
+            "please pass targets as arguments to --nsys"
+            "rather than using --nsys-extra"
+        )
+
     opts: CommandPart = ("nsys", "profile", "-t", targets, "-o", log_path)
     opts += tuple(extra)
-
-    has_sample_flag = False
-    for option in extra:
-        flag = option.split("=")[0]
-        if flag == "-s" or flag == "--sample":
-            has_sample_flag = True
-            break
-
-    if not has_sample_flag:
+    if not nsys_parsed_args.sample:
         opts += ("-s", "none")
 
     return opts

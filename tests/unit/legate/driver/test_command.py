@@ -14,6 +14,7 @@
 #
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -360,6 +361,28 @@ class Test_cmd_nsys:
             "-s",
             "none",
         )
+
+    # spaces are necessary before the arguments to work around
+    # argparse inability to consume arguments with -- correctly
+    @pytest.mark.parametrize(
+        "nsys_extra",
+        (
+            " --sample=cpu",
+            " --backtrace=lbr -s cpu",
+            " --sample cpu",
+            " -s=cpu",
+        ),
+    )
+    def test_explicit_sample(self, genobjs: GenObjs, nsys_extra: str) -> None:
+        args = ["--nsys", "--nsys-extra", nsys_extra]
+        config, system, launcher = genobjs(args)
+        result = m.cmd_nsys(config, system, launcher)
+
+        parser = argparse.ArgumentParser()
+        parser.add_argument("-s", "--sample")
+        parsed_args, unparsed = parser.parse_known_args(result)
+
+        assert parsed_args.sample == "cpu"
 
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     def test_multi_rank_with_launcher(
