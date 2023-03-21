@@ -332,6 +332,7 @@ class FieldManager:
         discard.launch(
             self.runtime.legion_runtime,
             self.runtime.legion_context,
+            unordered=not ordered,
         )
         self.free_fields.append((region, field_id))
         region_manager = self.runtime.find_region_manager(region)

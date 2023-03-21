@@ -1532,9 +1532,9 @@ class Discard(Dispatchable[None]):
         Parameters
         ----------
         region : Region
-            The logical region on which to relax restricted coherence
+            The logical region whose fields to discard
         fields : int or FieldID or List[int] or List[FieldID]
-            The fields to perform the attach on
+            The fields to discard
         """
         self.launcher = legion.legion_discard_launcher_create(
             region.handle,
@@ -1558,9 +1558,26 @@ class Discard(Dispatchable[None]):
         self,
         runtime: legion.legion_runtime_t,
         context: legion.legion_context_t,
+        unordered: bool = False,
         **kwargs: Any,
     ) -> None:
         """
         Dispatch the discard operation to the runtime
+
+        Parameters
+        ----------
+        runtime : legion_runtime_t
+            Legion runtime
+        context : legion_context_T
+            Legion context
+        unordered : bool
+            Indicates whether the discard operation should be performed in an
+            unordered manner, necessay when the operation is issued in a
+            destructor.
         """
-        legion.legion_discard_launcher_execute(runtime, context, self.launcher)
+        if unordered:
+            _pending_unordered[context].append((self, Discard))
+        else:
+            legion.legion_discard_launcher_execute(
+                runtime, context, self.launcher
+            )
