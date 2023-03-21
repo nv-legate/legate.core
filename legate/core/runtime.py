@@ -607,8 +607,8 @@ class PartitionManager:
             pieces = pieces // 11
         if pieces > 1:
             raise ValueError(
-                "legate.numpy currently doesn't support processor "
-                + "counts with large prime factors greater than 11"
+                "Legate currently doesn't support processor counts with prime "
+                "factors greater than 11"
             )
         self._piece_factors = list(reversed(factors))
         self._index_partitions: dict[
@@ -1120,6 +1120,30 @@ class Runtime:
             Number of GPUs
         """
         return self._num_gpus
+
+    @property
+    def num_procs(self) -> int:
+        """
+        Returns the total number of processors used to launch tasks
+
+        Legate heuristically decides the target processor kind by checking
+        availability of processors in the following order: GPU > OpenMP > CPU.
+        This property returns the count of the processors that Legate will
+        choose to try to run tasks. Note that Legate can still pick other
+        processor types if the task doesn't have a task variant for the
+        runtime's preferred processor kind.
+
+        Returns
+        -------
+        int
+            Number of processors
+        """
+        if self.num_gpus > 0:
+            return self.num_gpus
+        elif self.num_omps > 0:
+            return self.num_omps
+        else:
+            return self.num_cpus
 
     @property
     def core_task_variant_id(self) -> int:

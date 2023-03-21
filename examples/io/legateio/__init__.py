@@ -14,4 +14,4 @@
 #
 
 from .library import user_lib
-from .legateio import read
+from .legateio import read_file, read_file_parallel, IOArray

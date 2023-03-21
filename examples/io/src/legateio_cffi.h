@@ -19,8 +19,10 @@
 
 enum LegateIOOpCode {
   _OP_CODE_BASE = 0,
-  WRITE         = 1,
-  READ          = 2,
+  WRITE_FILE    = 1,
+  READ_FILE     = 2,
+  WRITE_DATASET = 3,
+  READ_DATASET  = 4,
 };
 
 #endif  // __LEGATE_IO_C_H__

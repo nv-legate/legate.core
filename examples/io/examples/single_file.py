@@ -14,7 +14,22 @@
 #
 
 import cunumeric as np
-from legateio import read
+from legateio import IOArray, read_file, read_file_parallel
 
-a = read("test.txt", "int")
-print(np.asarray(a))
+import legate.core as lg
+
+runtime = lg.get_legate_runtime()
+
+arr = np.arange(10)
+c1 = IOArray.from_legate_data_interface(arr.__legate_data_interface__)
+c1.to_file("test.dat")
+runtime.issue_execution_fence()
+
+c2 = read_file("test.dat", lg.int64)
+print(np.asarray(c2))
+
+c3 = read_file_parallel("test.dat", lg.int64, parallelism=2)
+print(np.asarray(c3))
+
+c3 = read_file_parallel("test.dat", lg.int64)
+print(np.asarray(c3))
