@@ -20,6 +20,8 @@ add_library(
   legateio
   legateio.cc
   legateio.h
+  read_dataset.cc
+  write_dataset.cc
   read_file.cc
   write_file.cc
   ${TEMPLATE_SOURCES}

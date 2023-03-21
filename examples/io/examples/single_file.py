@@ -26,10 +26,10 @@ c1.to_file("test.dat")
 runtime.issue_execution_fence()
 
 c2 = read_file("test.dat", lg.int64)
-print(np.asarray(c2))
+assert np.array_equal(arr, np.asarray(c2))
 
 c3 = read_file_parallel("test.dat", lg.int64, parallelism=2)
-print(np.asarray(c3))
+assert np.array_equal(arr, np.asarray(c3))
 
-c3 = read_file_parallel("test.dat", lg.int64)
-print(np.asarray(c3))
+c4 = read_file_parallel("test.dat", lg.int64)
+assert np.array_equal(arr, np.asarray(c4))

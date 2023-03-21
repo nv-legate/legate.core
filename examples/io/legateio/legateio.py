@@ -13,6 +13,8 @@
 # limitations under the License.
 #
 
+import os
+import struct
 from enum import IntEnum
 from typing import Any, Optional
 
@@ -27,6 +29,29 @@ from .library import user_context as context, user_lib
 class LegateIOOpCode(IntEnum):
     READ_FILE = user_lib.cffi.READ_FILE
     WRITE_FILE = user_lib.cffi.WRITE_FILE
+    READ_DATASET = user_lib.cffi.READ_DATASET
+    WRITE_DATASET = user_lib.cffi.WRITE_DATASET
+
+
+_CODES_TO_DTYPES = dict(
+    (context.type_system[t].code, t)
+    for t in (
+        ty.bool_,
+        ty.int8,
+        ty.int16,
+        ty.int32,
+        ty.int64,
+        ty.uint8,
+        ty.uint16,
+        ty.uint32,
+        ty.uint64,
+        ty.float16,
+        ty.float32,
+        ty.float64,
+        ty.complex64,
+        ty.complex128,
+    )
+)
 
 
 class IOArray:
@@ -62,6 +87,15 @@ class IOArray:
         task.add_broadcast(self._store)
         task.execute()
 
+    def to_dataset(self, dirname: str) -> None:
+        os.mkdir(dirname)
+
+        task = context.create_auto_task(LegateIOOpCode.WRITE_DATASET)
+
+        task.add_input(self._store)
+        task.add_scalar_arg(dirname, ty.string)
+        task.execute()
+
 
 def read_file(filename: str, dtype: pa.lib.DataType) -> IOArray:
     output = context.create_store(dtype, shape=None, ndim=1)
@@ -88,6 +122,32 @@ def read_file_parallel(
 
     task.add_output(output)
     task.add_scalar_arg(filename, ty.string)
+    task.execute()
+
+    return IOArray(output, dtype)
+
+
+def _read_header(dirname: str) -> tuple[int, ...]:
+    with open(os.path.join(dirname, ".header"), "rb") as f:
+        data = f.read()
+        (
+            code,
+            dim,
+        ) = struct.unpack("ii", data[:8])
+        return code, struct.unpack(f"{dim}q", data[8:])
+
+
+def read_dataset(dirname: str) -> IOArray:
+    code, launch_shape = _read_header(dirname)
+    dtype = _CODES_TO_DTYPES[code]
+    output = context.create_store(dtype, shape=None, ndim=len(launch_shape))
+    task = context.create_manual_task(
+        LegateIOOpCode.READ_DATASET,
+        launch_domain=Rect(launch_shape),
+    )
+
+    task.add_output(output)
+    task.add_scalar_arg(dirname, ty.string)
     task.execute()
 
     return IOArray(output, dtype)
