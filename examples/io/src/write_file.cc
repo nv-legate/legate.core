@@ -35,6 +35,7 @@ struct write_fn {
     auto code   = input.code<int64_t>();
     size_t size = shape.volume();
 
+    // Store the type code and the number of elements in the array at the beginning of the file
     std::ofstream out(filename, std::ios::binary | std::ios::out | std::ios::trunc);
     out.write(reinterpret_cast<const char*>(&code), sizeof(int64_t));
     out.write(reinterpret_cast<const char*>(&size), sizeof(size_t));

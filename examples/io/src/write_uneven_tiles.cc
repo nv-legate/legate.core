@@ -38,6 +38,7 @@ struct header_write_fn {
     legate::Rect<DIM> rect(launch_domain);
     auto extents = rect.hi - rect.lo + legate::Point<DIM>::ONES();
 
+    // The header contains the type code and the launch shape
     out.write(reinterpret_cast<const char*>(&type_code), sizeof(int32_t));
     out.write(reinterpret_cast<const char*>(&launch_domain.dim), sizeof(int32_t));
     for (int32_t idx = 0; idx < DIM; ++idx)
@@ -57,6 +58,10 @@ class WriteUnevenTilesTask : public Task<WriteUnevenTilesTask, WRITE_UNEVEN_TILE
     auto launch_domain = context.get_launch_domain();
     auto task_index    = context.get_task_index();
     auto is_first_task = context.is_single_task() || task_index == launch_domain.lo();
+
+    // When the task is a single task, both the launch domain and the task index are 0D. Since we
+    // want to use them in the header data and also generating file names for the chunks, we update
+    // them such that they are of an index task with a launch domain of volume 1.
     if (context.is_single_task()) {
       launch_domain     = legate::Domain();
       task_index        = legate::DomainPoint();
@@ -64,6 +69,7 @@ class WriteUnevenTilesTask : public Task<WriteUnevenTilesTask, WRITE_UNEVEN_TILE
       task_index.dim    = input.dim();
     }
 
+    // Only the first task needs to dump the header
     if (is_first_task) {
       auto header = fs::path(dirname) / ".header";
       logger.print() << "Write to " << header;

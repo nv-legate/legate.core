@@ -24,19 +24,42 @@ import legate.core as lg
 def test(n: int, filename: str):
     runtime = lg.get_legate_runtime()
 
-    arr = np.arange(n)
-    c1 = IOArray.from_legate_data_interface(arr.__legate_data_interface__)
+    # Use cuNumeric to generate an array to dump to a file
+    src = np.arange(n).astype("int8")
+
+    # Construct an IOArray from the cuNumeric. They are aliased to the same
+    # store after this call.
+    c1 = IOArray.from_legate_data_interface(src.__legate_data_interface__)
+
+    # Dump the IOArray to a file
     c1.to_file(filename)
+
+    # Issue an execution fence to make sure the writer task finishes before
+    # any of the downstream tasks start.
+    #
+    # Unlike data dependencies on stores that the runtime discovers and
+    # enforces, the producer-consumer relationship mediated by some file IO is
+    # invisible to the runtime. Issuing a fence between the producer and
+    # consumer is one way to make the relationship visible. Another way is to
+    # add a proper data dependence between the two, for example, by making the
+    # producer return a scalar output that is later consumed by the consumer.
     runtime.issue_execution_fence()
 
-    c2 = read_file(filename, lg.int64)
-    assert np.array_equal(arr, np.asarray(c2))
+    # Read the file into a IOArray
+    c2 = read_file(filename, lg.int8)
+    # Convert the IOArray to a cuNumeric ndarray so we can use cuNumeric for
+    # equality check
+    arr = np.asarray(c2)
+    assert np.array_equal(src, arr)
 
-    c3 = read_file_parallel(filename, lg.int64, parallelism=2)
-    assert np.array_equal(arr, np.asarray(c3))
+    # Read the file into a IOArray with a fixed degree of parallelism
+    c3 = read_file_parallel(filename, lg.int8, parallelism=2)
+    assert np.array_equal(src, np.asarray(c3))
 
-    c4 = read_file_parallel(filename, lg.int64)
-    assert np.array_equal(arr, np.asarray(c4))
+    # Read the file into a IOArray with the library-chosen degree of
+    # parallelism
+    c4 = read_file_parallel(filename, lg.int8)
+    assert np.array_equal(src, np.asarray(c4))
 
 
 if __name__ == "__main__":

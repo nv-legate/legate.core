@@ -36,6 +36,7 @@ void write_header(std::ofstream& out,
 {
   assert(shape.size() == tile_shape.size());
   int32_t dim = shape.size();
+  // Dump the type code, the array's shape and the tile shape to the header
   out.write(reinterpret_cast<const char*>(&type_code), sizeof(int32_t));
   out.write(reinterpret_cast<const char*>(&dim), sizeof(int32_t));
   for (auto& v : shape) out.write(reinterpret_cast<const char*>(&v), sizeof(int32_t));
@@ -56,11 +57,11 @@ class WriteEvenTilesTask : public Task<WriteEvenTilesTask, WRITE_EVEN_TILES> {
     auto launch_domain = context.get_launch_domain();
     auto task_index    = context.get_task_index();
     auto is_first_task = context.is_single_task() || task_index == launch_domain.lo();
+    // The task index needs to be updated if this was a single task so we can use it to correctly
+    // name the output file.
     if (context.is_single_task()) {
-      launch_domain     = legate::Domain();
-      task_index        = legate::DomainPoint();
-      launch_domain.dim = input.dim();
-      task_index.dim    = input.dim();
+      task_index     = legate::DomainPoint();
+      task_index.dim = input.dim();
     }
 
     if (is_first_task) {

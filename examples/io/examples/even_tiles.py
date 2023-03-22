@@ -34,16 +34,26 @@ def test(
 
     runtime = lg.get_legate_runtime()
 
+    # Use cuNumeric to generate a random array to dump to a dataset
     arr = np.random.randint(low=1, high=9, size=shape).astype("int8")
 
     if print_input:
         print(arr)
 
+    # Construct an IOArray from the cuNumeric
     c1 = IOArray.from_legate_data_interface(arr.__legate_data_interface__)
+
+    # Dump the IOArray to a dataset of uneven tiles
     c1.to_even_tiles(dataset_name, tile)
+
     runtime.issue_execution_fence(block=True)
 
+    # Read the dataset into an IOArray
     c2 = read_even_tiles(dataset_name)
+
+    # Convert the IOArray into a cuNumeric ndarray and perform a binary
+    # operation, just to confirm in the profile that the partition from the
+    # reader tasks is reused in the downstream tasks.
     c2 = np.asarray(c2) * 1
     assert np.array_equal(c2, arr)
 

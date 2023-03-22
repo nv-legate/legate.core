@@ -43,6 +43,8 @@ struct read_fn {
     for (int32_t idx = 0; idx < DIM; ++idx)
       in.read(reinterpret_cast<char*>(&extents[idx]), sizeof(legate::coord_t));
 
+    // Since the shape is already fixed on the Python side, the sub-store's extents should be the
+    // same as what's stored in the file
     assert(shape.hi - shape.lo + legate::Point<DIM>::ONES() == extents);
 
     logger.print() << "Read a sub-array of rect " << shape << " from " << path;
@@ -64,6 +66,8 @@ class ReadEvenTilesTask : public Task<ReadEvenTilesTask, READ_EVEN_TILES> {
     auto dirname = context.scalars()[0].value<std::string>();
     auto& output = context.outputs()[0];
 
+    // The task index needs to be updated if this was a single task so we can use it to correctly
+    // name the output file.
     auto task_index = context.get_task_index();
     if (context.is_single_task()) {
       task_index     = legate::DomainPoint();
@@ -71,7 +75,6 @@ class ReadEvenTilesTask : public Task<ReadEvenTilesTask, READ_EVEN_TILES> {
     }
 
     auto path = get_unique_path_for_task_index(task_index, dirname);
-
     legate::double_dispatch(output.dim(), output.code(), detail::read_fn{}, output, path);
   }
 };

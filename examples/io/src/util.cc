@@ -45,11 +45,14 @@ struct write_fn {
     logger.print() << "Write a sub-array " << shape << " to " << path;
 
     std::ofstream out(path, std::ios::binary | std::ios::out | std::ios::trunc);
+    // Each file for a chunk starts with the extents
     for (int32_t idx = 0; idx < DIM; ++idx)
       out.write(reinterpret_cast<const char*>(&extents[idx]), sizeof(legate::coord_t));
 
     if (empty) return;
     auto acc = store.read_accessor<VAL, DIM>();
+    // The iteration order here should be consistent with that in the reader task, otherwise
+    // the read data can be transposed.
     for (legate::PointInRectIterator it(shape, false /*fortran_order*/); it.valid(); ++it) {
       auto ptr = acc.ptr(*it);
       out.write(reinterpret_cast<const char*>(ptr), sizeof(VAL));

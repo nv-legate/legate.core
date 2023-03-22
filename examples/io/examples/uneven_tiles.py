@@ -24,17 +24,26 @@ import legate.core as lg
 def test(shape: tuple[int, ...], dataset_name: str, print_input: bool):
     runtime = lg.get_legate_runtime()
 
-    arr = np.random.randint(low=1, high=9, size=shape).astype("int8")
+    # Use cuNumeric to generate a random array to dump to a dataset
+    src = np.random.randint(low=1, high=9, size=shape).astype("int8")
 
     if print_input:
-        print(arr)
+        print(src)
 
-    c1 = IOArray.from_legate_data_interface(arr.__legate_data_interface__)
+    # Construct an IOArray from the cuNumeric
+    c1 = IOArray.from_legate_data_interface(src.__legate_data_interface__)
+
+    # Dump the IOArray to a dataset of uneven tiles
     c1.to_uneven_tiles(dataset_name)
+
+    # Issue an execution fence and block on it. This is necessary because
+    # the Python code for read_uneven_tiles needs to see the header that
+    # becomes available only when the first writer task finishes.
     runtime.issue_execution_fence(block=True)
 
+    # Read the dataset into an IOArray
     c2 = read_uneven_tiles(dataset_name)
-    assert np.array_equal(np.asarray(c2), arr)
+    assert np.array_equal(np.asarray(c2), src)
 
 
 if __name__ == "__main__":
