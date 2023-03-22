@@ -44,8 +44,8 @@ def test(
     runtime.issue_execution_fence(block=True)
 
     c2 = read_even_tiles(dataset_name)
-    c3 = np.asarray(c2) + 1
-    assert np.array_equal(c3, arr + 1)
+    c2 = np.asarray(c2) * 1
+    assert np.array_equal(c2, arr)
 
 
 if __name__ == "__main__":

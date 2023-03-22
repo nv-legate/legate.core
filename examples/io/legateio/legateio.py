@@ -200,4 +200,6 @@ def read_even_tiles(dirname: str) -> IOArray:
     task.add_scalar_arg(dirname, ty.string)
     task.execute()
 
+    output.set_key_partition(output_partition.partition)
+
     return IOArray(output, dtype)
