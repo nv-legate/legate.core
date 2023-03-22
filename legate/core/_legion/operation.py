@@ -1517,3 +1517,67 @@ class Release(Dispatchable[None]):
         Dispatch the release operation to the runtime
         """
         legion.legion_release_launcher_execute(runtime, context, self.launcher)
+
+
+class Discard(Dispatchable[None]):
+    def __init__(
+        self,
+        region: Region,
+        fields: FieldListLike,
+    ) -> None:
+        """
+        A Discard operation will discard all valid instances for a given list
+        of region fields.
+
+        Parameters
+        ----------
+        region : Region
+            The logical region whose fields to discard
+        fields : int or FieldID or List[int] or List[FieldID]
+            The fields to discard
+        """
+        self.launcher = legion.legion_discard_launcher_create(
+            region.handle,
+            region.handle,
+        )
+        self._launcher = ffi.gc(
+            self.launcher, legion.legion_discard_launcher_destroy
+        )
+        fields_list = fields if isinstance(fields, list) else [fields]
+        for field in fields_list:
+            legion.legion_discard_launcher_add_field(
+                self.launcher,
+                ffi.cast(
+                    "legion_field_id_t",
+                    field.fid if isinstance(field, FieldID) else field,
+                ),
+            )
+
+    @dispatch
+    def launch(
+        self,
+        runtime: legion.legion_runtime_t,
+        context: legion.legion_context_t,
+        unordered: bool = False,
+        **kwargs: Any,
+    ) -> None:
+        """
+        Dispatch the discard operation to the runtime
+
+        Parameters
+        ----------
+        runtime : legion_runtime_t
+            Legion runtime
+        context : legion_context_T
+            Legion context
+        unordered : bool
+            Indicates whether the discard operation should be performed in an
+            unordered manner, necessay when the operation is issued in a
+            destructor.
+        """
+        if unordered:
+            _pending_unordered[context].append((self, Discard))
+        else:
+            legion.legion_discard_launcher_execute(
+                runtime, context, self.launcher
+            )
