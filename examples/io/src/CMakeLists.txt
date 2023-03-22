@@ -24,6 +24,7 @@ add_library(
   write_dataset.cc
   read_file.cc
   write_file.cc
+  util.cc
   ${TEMPLATE_SOURCES}
 )
 

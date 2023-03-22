@@ -13,23 +13,50 @@
 # limitations under the License.
 #
 
+import argparse
+
 import cunumeric as np
 from legateio import IOArray, read_file, read_file_parallel
 
 import legate.core as lg
 
-runtime = lg.get_legate_runtime()
 
-arr = np.arange(10)
-c1 = IOArray.from_legate_data_interface(arr.__legate_data_interface__)
-c1.to_file("test.dat")
-runtime.issue_execution_fence()
+def test(n: int, filename: str):
+    runtime = lg.get_legate_runtime()
 
-c2 = read_file("test.dat", lg.int64)
-assert np.array_equal(arr, np.asarray(c2))
+    arr = np.arange(n)
+    c1 = IOArray.from_legate_data_interface(arr.__legate_data_interface__)
+    c1.to_file(filename)
+    runtime.issue_execution_fence()
 
-c3 = read_file_parallel("test.dat", lg.int64, parallelism=2)
-assert np.array_equal(arr, np.asarray(c3))
+    c2 = read_file(filename, lg.int64)
+    assert np.array_equal(arr, np.asarray(c2))
 
-c4 = read_file_parallel("test.dat", lg.int64)
-assert np.array_equal(arr, np.asarray(c4))
+    c3 = read_file_parallel(filename, lg.int64, parallelism=2)
+    assert np.array_equal(arr, np.asarray(c3))
+
+    c4 = read_file_parallel(filename, lg.int64)
+    assert np.array_equal(arr, np.asarray(c4))
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-n",
+        "--num",
+        type=int,
+        default=10,
+        dest="n",
+        help="Number of elements",
+    )
+    parser.add_argument(
+        "-f",
+        "--file",
+        type=str,
+        default="test.dat",
+        dest="filename",
+        help="File name",
+    )
+    args, _ = parser.parse_known_args()
+
+    test(args.n, args.filename)

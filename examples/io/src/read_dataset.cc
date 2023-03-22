@@ -19,6 +19,7 @@
 
 #include "legate_library.h"
 #include "legateio.h"
+#include "util.h"
 
 namespace fs = std::filesystem;
 
@@ -66,14 +67,7 @@ class ReadDatasetTask : public Task<ReadDatasetTask, READ_DATASET> {
       task_index.dim = output.dim();
     }
 
-    std::stringstream ss;
-    for (int32_t idx = 0; idx < task_index.dim; ++idx) {
-      if (idx != 0) ss << ".";
-      ss << task_index[idx];
-    }
-    auto filename = ss.str();
-
-    auto path = fs::path(dirname) / filename;
+    auto path = get_unique_path_for_task_index(task_index, dirname);
 
     legate::double_dispatch(output.dim(), output.code(), detail::read_fn{}, output, path);
   }
