@@ -27,49 +27,48 @@ namespace detail {
 
 struct write_fn {
   template <legate::LegateTypeCode CODE>
-  void operator()(const legate::Store& input, const std::string& filename)
-  {
+  void operator()(const legate::Store &input, const std::string &filename) {
     using VAL = legate::legate_type_of<CODE>;
 
-    auto shape  = input.shape<1>();
-    auto code   = input.code<int64_t>();
+    auto shape = input.shape<1>();
+    auto code = input.code<int64_t>();
     size_t size = shape.volume();
 
-    // Store the type code and the number of elements in the array at the beginning of the file
-    std::ofstream out(filename, std::ios::binary | std::ios::out | std::ios::trunc);
-    out.write(reinterpret_cast<const char*>(&code), sizeof(int64_t));
-    out.write(reinterpret_cast<const char*>(&size), sizeof(size_t));
+    // Store the type code and the number of elements in the array at the
+    // beginning of the file
+    std::ofstream out(filename,
+                      std::ios::binary | std::ios::out | std::ios::trunc);
+    out.write(reinterpret_cast<const char *>(&code), sizeof(int64_t));
+    out.write(reinterpret_cast<const char *>(&size), sizeof(size_t));
 
     auto acc = input.read_accessor<VAL, 1>();
     for (legate::PointInRectIterator it(shape); it.valid(); ++it) {
       auto ptr = acc.ptr(*it);
-      out.write(reinterpret_cast<const char*>(ptr), sizeof(VAL));
+      out.write(reinterpret_cast<const char *>(ptr), sizeof(VAL));
     }
   }
 };
 
-}  // namespace detail
+} // namespace detail
 
 class WriteFileTask : public Task<WriteFileTask, WRITE_FILE> {
- public:
-  static void cpu_variant(legate::TaskContext& context)
-  {
+public:
+  static void cpu_variant(legate::TaskContext &context) {
     auto filename = context.scalars()[0].value<std::string>();
-    auto& input   = context.inputs()[0];
+    auto &input = context.inputs()[0];
     logger.print() << "Write to " << filename;
 
     legate::type_dispatch(input.code(), detail::write_fn{}, input, filename);
   }
 };
 
-}  // namespace legateio
+} // namespace legateio
 
-namespace  // unnamed
+namespace // unnamed
 {
 
-static void __attribute__((constructor)) register_tasks()
-{
+static void __attribute__((constructor)) register_tasks() {
   legateio::WriteFileTask::register_variants();
 }
 
-}  // namespace
+} // namespace

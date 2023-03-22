@@ -29,8 +29,7 @@ namespace detail {
 
 struct read_fn {
   template <legate::LegateTypeCode CODE, int32_t DIM>
-  void operator()(legate::Store& output, const fs::path& path)
-  {
+  void operator()(legate::Store &output, const fs::path &path) {
     using VAL = legate::legate_type_of<CODE>;
 
     std::ifstream in(path, std::ios::binary | std::ios::in);
@@ -38,18 +37,22 @@ struct read_fn {
     // Read the header of each file to extract the extents
     legate::Point<DIM> extents;
     for (int32_t idx = 0; idx < DIM; ++idx)
-      in.read(reinterpret_cast<char*>(&extents[idx]), sizeof(legate::coord_t));
+      in.read(reinterpret_cast<char *>(&extents[idx]), sizeof(legate::coord_t));
 
-    logger.print() << "Read a sub-array of extents " << extents << " from " << path;
+    logger.print() << "Read a sub-array of extents " << extents << " from "
+                   << path;
 
     // Use the extents to create an output buffer
     auto buf = output.create_output_buffer<VAL, DIM>(extents);
-    legate::Rect<DIM> shape(legate::Point<DIM>::ZEROES(), extents - legate::Point<DIM>::ONES());
+    legate::Rect<DIM> shape(legate::Point<DIM>::ZEROES(),
+                            extents - legate::Point<DIM>::ONES());
     if (!shape.empty())
-      // Read the file data. The iteration order here should be the same as in the writer task
-      for (legate::PointInRectIterator it(shape, false /*fortran_order*/); it.valid(); ++it) {
+      // Read the file data. The iteration order here should be the same as in
+      // the writer task
+      for (legate::PointInRectIterator it(shape, false /*fortran_order*/);
+           it.valid(); ++it) {
         auto ptr = buf.ptr(*it);
-        in.read(reinterpret_cast<char*>(ptr), sizeof(VAL));
+        in.read(reinterpret_cast<char *>(ptr), sizeof(VAL));
       }
 
     // Finally, bind the output buffer to the store
@@ -57,36 +60,36 @@ struct read_fn {
   }
 };
 
-}  // namespace detail
+} // namespace detail
 
-class ReadUnevenTilesTask : public Task<ReadUnevenTilesTask, READ_UNEVEN_TILES> {
- public:
-  static void cpu_variant(legate::TaskContext& context)
-  {
+class ReadUnevenTilesTask
+    : public Task<ReadUnevenTilesTask, READ_UNEVEN_TILES> {
+public:
+  static void cpu_variant(legate::TaskContext &context) {
     auto dirname = context.scalars()[0].value<std::string>();
-    auto& output = context.outputs()[0];
+    auto &output = context.outputs()[0];
 
     auto task_index = context.get_task_index();
-    // The task index needs to be updated if this was a single task so we can use it to correctly
-    // name the input file.
+    // The task index needs to be updated if this was a single task so we can
+    // use it to correctly name the input file.
     if (context.is_single_task()) {
-      task_index     = legate::DomainPoint();
+      task_index = legate::DomainPoint();
       task_index.dim = output.dim();
     }
 
     auto path = get_unique_path_for_task_index(task_index, dirname);
-    legate::double_dispatch(output.dim(), output.code(), detail::read_fn{}, output, path);
+    legate::double_dispatch(output.dim(), output.code(), detail::read_fn{},
+                            output, path);
   }
 };
 
-}  // namespace legateio
+} // namespace legateio
 
-namespace  // unnamed
+namespace // unnamed
 {
 
-static void __attribute__((constructor)) register_tasks()
-{
+static void __attribute__((constructor)) register_tasks() {
   legateio::ReadUnevenTilesTask::register_variants();
 }
 
-}  // namespace
+} // namespace

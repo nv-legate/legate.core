@@ -23,4 +23,4 @@ namespace legateio {
 
 extern Legion::Logger logger;
 
-}  // namespace legateio
+} // namespace legateio
