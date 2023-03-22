@@ -21,7 +21,7 @@
 #include "legateio.h"
 #include "util.h"
 
-#include "core/utilities/dispatch.h"
+#include "core/utilities/span.h"
 
 namespace fs = std::filesystem;
 
@@ -29,30 +29,29 @@ namespace legateio {
 
 namespace detail {
 
-struct header_write_fn {
-  template <int32_t DIM>
-  void operator()(std::ofstream& out,
-                  const legate::Domain& launch_domain,
-                  legate::LegateTypeCode type_code)
-  {
-    legate::Rect<DIM> rect(launch_domain);
-    auto extents = rect.hi - rect.lo + legate::Point<DIM>::ONES();
-
-    out.write(reinterpret_cast<const char*>(&type_code), sizeof(int32_t));
-    out.write(reinterpret_cast<const char*>(&launch_domain.dim), sizeof(int32_t));
-    for (int32_t idx = 0; idx < DIM; ++idx)
-      out.write(reinterpret_cast<const char*>(&extents[idx]), sizeof(legate::coord_t));
-  }
-};
+void write_header(std::ofstream& out,
+                  legate::LegateTypeCode type_code,
+                  const legate::Span<const int32_t>& shape,
+                  const legate::Span<const int32_t>& tile_shape)
+{
+  assert(shape.size() == tile_shape.size());
+  int32_t dim = shape.size();
+  out.write(reinterpret_cast<const char*>(&type_code), sizeof(int32_t));
+  out.write(reinterpret_cast<const char*>(&dim), sizeof(int32_t));
+  for (auto& v : shape) out.write(reinterpret_cast<const char*>(&v), sizeof(int32_t));
+  for (auto& v : tile_shape) out.write(reinterpret_cast<const char*>(&v), sizeof(int32_t));
+}
 
 }  // namespace detail
 
-class WriteUnevenTilesTask : public Task<WriteUnevenTilesTask, WRITE_UNEVEN_TILES> {
+class WriteEvenTilesTask : public Task<WriteEvenTilesTask, WRITE_EVEN_TILES> {
  public:
   static void cpu_variant(legate::TaskContext& context)
   {
-    auto dirname = context.scalars()[0].value<std::string>();
-    auto& input  = context.inputs()[0];
+    auto dirname                           = context.scalars()[0].value<std::string>();
+    legate::Span<const int32_t> shape      = context.scalars()[1].values<int32_t>();
+    legate::Span<const int32_t> tile_shape = context.scalars()[2].values<int32_t>();
+    auto& input                            = context.inputs()[0];
 
     auto launch_domain = context.get_launch_domain();
     auto task_index    = context.get_task_index();
@@ -68,8 +67,7 @@ class WriteUnevenTilesTask : public Task<WriteUnevenTilesTask, WRITE_UNEVEN_TILE
       auto header = fs::path(dirname) / ".header";
       logger.print() << "Write to " << header;
       std::ofstream out(header, std::ios::binary | std::ios::out | std::ios::trunc);
-      legate::dim_dispatch(
-        launch_domain.dim, detail::header_write_fn{}, out, launch_domain, input.code());
+      detail::write_header(out, input.code(), shape, tile_shape);
     }
 
     auto path = get_unique_path_for_task_index(task_index, dirname);
@@ -84,7 +82,7 @@ namespace  // unnamed
 
 static void __attribute__((constructor)) register_tasks()
 {
-  legateio::WriteUnevenTilesTask::register_variants();
+  legateio::WriteEvenTilesTask::register_variants();
 }
 
 }  // namespace

@@ -14,11 +14,50 @@
  *
  */
 
+#include <fstream>
+
+#include "legateio.h"
 #include "util.h"
+
+#include "core/utilities/dispatch.h"
+#include "core/utilities/type_traits.h"
 
 namespace fs = std::filesystem;
 
 namespace legateio {
+
+namespace detail {
+
+struct write_fn {
+  template <legate::LegateTypeCode CODE, int32_t DIM>
+  void operator()(const legate::Store& store, const fs::path& path)
+  {
+    using VAL = legate::legate_type_of<CODE>;
+
+    auto shape = store.shape<DIM>();
+    auto empty = shape.empty();
+    auto extents =
+      empty ? legate::Point<DIM>::ZEROES() : shape.hi - shape.lo + legate::Point<DIM>::ONES();
+
+    int32_t dim  = DIM;
+    int32_t code = store.code<int32_t>();
+
+    logger.print() << "Write a sub-array " << shape << " to " << path;
+
+    std::ofstream out(path, std::ios::binary | std::ios::out | std::ios::trunc);
+    for (int32_t idx = 0; idx < DIM; ++idx)
+      out.write(reinterpret_cast<const char*>(&extents[idx]), sizeof(legate::coord_t));
+
+    if (empty) return;
+    auto acc = store.read_accessor<VAL, DIM>();
+    for (legate::PointInRectIterator it(shape, false /*fortran_order*/); it.valid(); ++it) {
+      auto ptr = acc.ptr(*it);
+      out.write(reinterpret_cast<const char*>(ptr), sizeof(VAL));
+    }
+  }
+};
+
+}  // namespace detail
 
 std::filesystem::path get_unique_path_for_task_index(legate::DomainPoint& task_index,
                                                      const std::string& dirname)
@@ -31,6 +70,11 @@ std::filesystem::path get_unique_path_for_task_index(legate::DomainPoint& task_i
   auto filename = ss.str();
 
   return fs::path(dirname) / filename;
+}
+
+void write_to_file(const std::filesystem::path& path, const legate::Store& store)
+{
+  legate::double_dispatch(store.dim(), store.code(), detail::write_fn{}, store, path);
 }
 
 }  // namespace legateio

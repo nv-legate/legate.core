@@ -1002,8 +1002,8 @@ class ManualTask(Operation, Task):
         for opart, proj_fn in zip(self._output_parts, self._output_projs):
             if opart is None:
                 continue
-            req = part.get_requirement(self.launch_ndim, proj_fn)
-            launcher.add_output(part.store, req, tag=0)
+            req = opart.get_requirement(self.launch_ndim, proj_fn)
+            launcher.add_output(opart.store, req, tag=0)
 
         for (part, redop), proj_fn in zip(
             self._reduction_parts, self._reduction_projs

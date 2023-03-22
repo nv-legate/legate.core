@@ -21,10 +21,12 @@ add_library(
   legateio.cc
   legateio.h
   read_file.cc
+  read_even_tiles.cc
   read_uneven_tiles.cc
   util.cc
   write_file.cc
   write_uneven_tiles.cc
+  write_even_tiles.cc
   ${TEMPLATE_SOURCES}
 )
 

@@ -18,11 +18,14 @@
 
 #include <filesystem>
 
+#include "core/data/store.h"
 #include "core/runtime/context.h"
 
 namespace legateio {
 
 std::filesystem::path get_unique_path_for_task_index(legate::DomainPoint& task_index,
                                                      const std::string& dirname);
+
+void write_to_file(const std::filesystem::path& path, const legate::Store& store);
 
 }  // namespace legateio

@@ -27,8 +27,10 @@ from .library import user_context as context, user_lib
 
 
 class LegateIOOpCode(IntEnum):
+    READ_EVEN_TILES = user_lib.cffi.READ_EVEN_TILES
     READ_FILE = user_lib.cffi.READ_FILE
     READ_UNEVEN_TILES = user_lib.cffi.READ_UNEVEN_TILES
+    WRITE_EVEN_TILES = user_lib.cffi.WRITE_EVEN_TILES
     WRITE_FILE = user_lib.cffi.WRITE_FILE
     WRITE_UNEVEN_TILES = user_lib.cffi.WRITE_UNEVEN_TILES
 
@@ -96,6 +98,23 @@ class IOArray:
         task.add_scalar_arg(dirname, ty.string)
         task.execute()
 
+    def to_even_tiles(self, dirname: str, tile_shape: tuple[int, ...]) -> None:
+        os.mkdir(dirname)
+
+        store_partition = self._store.partition_by_tiling(tile_shape)
+        launch_shape = store_partition.partition.color_shape
+
+        task = context.create_manual_task(
+            LegateIOOpCode.WRITE_EVEN_TILES,
+            launch_domain=Rect(launch_shape),
+        )
+
+        task.add_input(store_partition)
+        task.add_scalar_arg(dirname, ty.string)
+        task.add_scalar_arg(self._store.shape, (ty.int32,))
+        task.add_scalar_arg(tile_shape, (ty.int32,))
+        task.execute()
+
 
 def read_file(filename: str, dtype: pa.lib.DataType) -> IOArray:
     output = context.create_store(dtype, shape=None, ndim=1)
@@ -127,7 +146,7 @@ def read_file_parallel(
     return IOArray(output, dtype)
 
 
-def _read_header(dirname: str) -> tuple[int, ...]:
+def _read_header_uneven(dirname: str) -> tuple[int, ...]:
     with open(os.path.join(dirname, ".header"), "rb") as f:
         data = f.read()
         (
@@ -138,7 +157,7 @@ def _read_header(dirname: str) -> tuple[int, ...]:
 
 
 def read_uneven_tiles(dirname: str) -> IOArray:
-    code, launch_shape = _read_header(dirname)
+    code, launch_shape = _read_header_uneven(dirname)
     dtype = _CODES_TO_DTYPES[code]
     output = context.create_store(dtype, shape=None, ndim=len(launch_shape))
     task = context.create_manual_task(
@@ -147,6 +166,37 @@ def read_uneven_tiles(dirname: str) -> IOArray:
     )
 
     task.add_output(output)
+    task.add_scalar_arg(dirname, ty.string)
+    task.execute()
+
+    return IOArray(output, dtype)
+
+
+def _read_header_even(dirname: str) -> tuple[int, ...]:
+    with open(os.path.join(dirname, ".header"), "rb") as f:
+        data = f.read()
+        (
+            code,
+            dim,
+        ) = struct.unpack("ii", data[:8])
+        data = data[8:]
+        shape = struct.unpack(f"{dim}i", data[: 4 * dim])
+        tile_shape = struct.unpack(f"{dim}i", data[4 * dim :])
+        return code, shape, tile_shape
+
+
+def read_even_tiles(dirname: str) -> IOArray:
+    code, shape, tile_shape = _read_header_even(dirname)
+    dtype = _CODES_TO_DTYPES[code]
+    output = context.create_store(dtype, shape=shape)
+    output_partition = output.partition_by_tiling(tile_shape)
+    launch_shape = output_partition.partition.color_shape
+    task = context.create_manual_task(
+        LegateIOOpCode.READ_EVEN_TILES,
+        launch_domain=Rect(launch_shape),
+    )
+
+    task.add_output(output_partition)
     task.add_scalar_arg(dirname, ty.string)
     task.execute()
 
