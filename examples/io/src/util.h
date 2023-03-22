@@ -23,11 +23,9 @@
 
 namespace legateio {
 
-std::filesystem::path
-get_unique_path_for_task_index(legate::DomainPoint &task_index,
-                               const std::string &dirname);
+std::filesystem::path get_unique_path_for_task_index(legate::DomainPoint& task_index,
+                                                     const std::string& dirname);
 
-void write_to_file(const std::filesystem::path &path,
-                   const legate::Store &store);
+void write_to_file(const std::filesystem::path& path, const legate::Store& store);
 
-} // namespace legateio
+}  // namespace legateio

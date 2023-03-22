@@ -27,4 +27,4 @@ enum LegateIOOpCode {
   WRITE_UNEVEN_TILES,
 };
 
-#endif // __LEGATE_IO_C_H__
+#endif  // __LEGATE_IO_C_H__
