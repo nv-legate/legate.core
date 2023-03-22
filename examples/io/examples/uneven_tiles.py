@@ -22,6 +22,8 @@ import legate.core as lg
 
 
 def test(shape: tuple[int, ...], dataset_name: str, print_input: bool):
+    print(f"Input shape: {shape}")
+
     runtime = lg.get_legate_runtime()
 
     # Use cuNumeric to generate a random array to dump to a dataset

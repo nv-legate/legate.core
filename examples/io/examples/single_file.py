@@ -22,6 +22,8 @@ import legate.core as lg
 
 
 def test(n: int, filename: str):
+    print(f"Input shape: ({n},)")
+
     runtime = lg.get_legate_runtime()
 
     # Use cuNumeric to generate an array to dump to a file

@@ -23,14 +23,16 @@ import legate.core as lg
 
 def test(
     shape: tuple[int, ...],
-    tile: tuple[int, ...],
+    tile_shape: tuple[int, ...],
     dataset_name: str,
     print_input: bool,
 ):
-    if len(shape) != len(tile):
+    if len(shape) != len(tile_shape):
         raise ValueError(
-            f"Incompatible tile shape {tile} for data shape {shape}"
+            f"Incompatible tile shape {tile_shape} for data shape {shape}"
         )
+
+    print(f"Array shape: {shape}, tile shape: {tile_shape}")
 
     runtime = lg.get_legate_runtime()
 
@@ -44,7 +46,7 @@ def test(
     c1 = IOArray.from_legate_data_interface(arr.__legate_data_interface__)
 
     # Dump the IOArray to a dataset of uneven tiles
-    c1.to_even_tiles(dataset_name, tile)
+    c1.to_even_tiles(dataset_name, tile_shape)
 
     runtime.issue_execution_fence(block=True)
 
@@ -75,7 +77,7 @@ if __name__ == "__main__":
         type=int,
         nargs="+",
         default=(3, 3),
-        dest="tile",
+        dest="tile_shape",
         help="Tile shape",
     )
     parser.add_argument(
@@ -95,4 +97,4 @@ if __name__ == "__main__":
     )
     args, _ = parser.parse_known_args()
 
-    test(args.shape, args.tile, args.dataset_name, args.print_input)
+    test(args.shape, args.tile_shape, args.dataset_name, args.print_input)
