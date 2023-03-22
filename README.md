@@ -23,9 +23,7 @@ by running the same code that runs on a desktop or a laptop at scale.
 Using this technology, computational and data scientists can develop and test
 programs on moderately sized data sets on local machines and then immediately
 scale up to larger data sets deployed on many nodes in the cloud or on a
-supercomputer without any code modifications. In visual terms:
-
-<img src="docs/figures/vision.png" alt="drawing" width="700"/>
+supercomputer without any code modifications.
 
 The Legate project is built upon two foundational principles:
 
@@ -250,9 +248,11 @@ to this:
 import cunumeric as np
 ```
 After this, you can use the `legate` driver script in the `bin` directory of
-your installation to run any Python program. **Note that the default python
-interpreter (`python`) will not work with programs that use Legate libraries, you
-need to use this custom driver script.**
+your installation to run any Python program.
+
+You can also use the standard Python interpreter, but in that case configuration
+options can only be passed through the environment (see below), and some options
+are not available (check the output of legate --help for more details).
 
 For example, to run your script in the default configuration (4 CPUs cores and
 4 GB of memory) just run:
@@ -465,15 +465,14 @@ See the discussion of contributing in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Documentation
 
-A complete list of available features can is provided in the [API
-reference](https://nv-legate.github.io/legate.core/api.html).
+A complete list of available features can is found in the [Legate Core
+documentation](https://nv-legate.github.io/legate.core).
 
 ## Next Steps
 
 We recommend starting by experimenting with at least one Legate application
 library to test out performance and see how Legate works. If you are interested
 in building your own Legate application library, we recommend that you
-investigate our [Legate Hello World application
-library](https://github.com/nv-legate/legate.hello) that provides a small
-example of how to get started developing your own drop-in replacement library
-on top of Legion using the Legate Core library.
+investigate our [Legate Hello World application library](examples/hello) that
+provides a small example of how to get started developing your own drop-in
+replacement library on top of Legion using the Legate Core library.

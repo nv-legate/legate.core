@@ -145,6 +145,8 @@ uint32_t StoreMapping::requirement_index() const
   }
   return result;
 #else
+  static constexpr uint32_t invalid = -1U;
+  if (stores.empty()) return invalid;
   return stores.front().requirement_index();
 #endif
 }

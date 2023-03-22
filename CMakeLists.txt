@@ -62,7 +62,7 @@ endif()
 # - Download and initialize RAPIDS CMake helpers -----------------------------
 
 if(NOT EXISTS ${CMAKE_BINARY_DIR}/RAPIDS.cmake)
-  file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-22.08/RAPIDS.cmake
+  file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-23.04/RAPIDS.cmake
        ${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 endif()
 include(${CMAKE_BINARY_DIR}/RAPIDS.cmake)
@@ -72,7 +72,7 @@ include(rapids-cuda)
 include(rapids-export)
 include(rapids-find)
 
-set(legate_core_version 22.12.00)
+set(legate_core_version 23.03.00)
 
 # For now we want the optimization flags to match on both normal make and cmake
 # builds so we override the cmake defaults here for release, this changes
@@ -122,4 +122,9 @@ if(CMAKE_GENERATOR STREQUAL "Ninja")
     endforeach()
   endfunction()
   add_touch_legate_core_ninja_build_target()
+endif()
+
+option(legate_core_EXAMPLE_BUILD_TESTS OFF)
+if (legate_core_EXAMPLE_BUILD_TESTS)
+  add_subdirectory(examples)
 endif()

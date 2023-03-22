@@ -241,6 +241,7 @@ def install(
     hdf,
     llvm,
     spy,
+    build_docs,
     conduit,
     nccl_dir,
     cmake_exe,
@@ -288,6 +289,7 @@ def install(
         print("hdf:", hdf)
         print("llvm:", llvm)
         print("spy:", spy)
+        print("build_docs:", build_docs)
         print("conduit:", conduit)
         print("nccl_dir:", nccl_dir)
         print("cmake_exe:", cmake_exe)
@@ -451,7 +453,7 @@ def install(
     if conduit:
         cmake_flags += [f"-DGASNet_CONDUIT={conduit}"]
     if cuda_dir:
-        cmake_flags += [f"-DCUDA_TOOLKIT_ROOT_DIR={cuda_dir}"]
+        cmake_flags += [f"-DCUDAToolkit_ROOT={cuda_dir}"]
     if thrust_dir:
         cmake_flags += [f"-DThrust_ROOT={thrust_dir}"]
     if legion_dir:
@@ -464,6 +466,8 @@ def install(
         cmake_flags += [f"-Dlegate_core_LEGION_REPOSITORY={legion_url}"]
     if legion_branch:
         cmake_flags += [f"-Dlegate_core_LEGION_BRANCH={legion_branch}"]
+    if build_docs:
+        cmake_flags += ["-Dlegate_core_BUILD_DOCS=ON"]
 
     cmake_flags += extra_flags
     build_flags = [f"-j{str(thread_count)}"]
@@ -621,6 +625,14 @@ def driver():
         help="Build Legate with detailed Legion Spy enabled.",
     )
     parser.add_argument(
+        "--docs",
+        dest="build_docs",
+        action="store_true",
+        required=False,
+        default=False,
+        help="Build Doxygen docs.",
+    )
+    parser.add_argument(
         "--conduit",
         dest="conduit",
         action="store",
@@ -738,14 +750,14 @@ def driver():
         "--legion-url",
         dest="legion_url",
         required=False,
-        default="https://gitlab.com/StanfordLegion/legion.git",
+        default=None,
         help="Legion git URL to build Legate with.",
     )
     parser.add_argument(
         "--legion-branch",
         dest="legion_branch",
         required=False,
-        default="control_replication",
+        default=None,
         help="Legion branch to build Legate with.",
     )
     args, unknown = parser.parse_known_args()

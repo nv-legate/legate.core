@@ -1108,18 +1108,50 @@ class Runtime:
 
     @property
     def num_cpus(self) -> int:
+        """
+        Returns the total number of CPUs in the system
+
+        Returns
+        -------
+        int
+            Number of CPUs
+        """
         return self.machine.count("CPU")
 
     @property
     def num_omps(self) -> int:
+        """
+        Returns the total number of OpenMP processors in the system
+
+        Returns
+        -------
+        int
+            Number of OpenMP processors
+        """
         return self.machine.count("OMP")
 
     @property
     def num_gpus(self) -> int:
+        """
+        Returns the total number of GPUs in the system
+
+        Returns
+        -------
+        int
+            Number of GPUs
+        """
         return self.machine.count("GPU")
 
     @property
     def machine(self) -> Machine:
+        """
+        Returns the machine object for the current scope
+
+        Returns
+        -------
+        Machine
+            Machine object
+        """
         return self._machines[-1]
 
     def push_machine(self, machine: Machine) -> None:
@@ -1152,6 +1184,19 @@ class Runtime:
         return self._field_match_manager
 
     def register_library(self, library: Library) -> Context:
+        """
+        Registers a library to the runtime.
+
+        Parameters
+        ----------
+        library : Library
+            Library object
+
+        Returns
+        -------
+        Context
+            A new context for the library
+        """
         from .context import Context
 
         libname = library.get_name()
@@ -1365,6 +1410,23 @@ class Runtime:
         )
 
     def create_future(self, data: Any, size: int) -> Future:
+        """
+        Creates a future from a buffer holding a scalar value. The value is
+        copied to the future.
+
+        Parameters
+        ----------
+        data : buffer
+            Buffer that holds a scalar value
+
+        size : int
+            Size of the value
+
+        Returns
+        -------
+        Future
+            A new future
+        """
         future = Future()
         future.set_value(self.legion_runtime, data, size)
         return future
@@ -1750,6 +1812,13 @@ def legate_add_library(library: Library) -> None:
 
 
 def get_legate_runtime() -> Runtime:
+    """
+    Returns the Legate runtime
+
+    Returns
+    -------
+        Legate runtime object
+    """
     return runtime
 
 

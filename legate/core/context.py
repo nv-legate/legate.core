@@ -23,7 +23,6 @@ from typing import (
     Protocol,
     TypeVar,
     Union,
-    cast,
 )
 
 import numpy as np
@@ -160,6 +159,14 @@ class Context:
 
     @property
     def runtime(self) -> Runtime:
+        """
+        Returns the runtime
+
+        Returns
+        -------
+        Runtime
+            The runtime object
+        """
         return self._runtime
 
     @property
@@ -192,6 +199,15 @@ class Context:
 
     @property
     def annotation(self) -> LibraryAnnotations:
+        """
+        Returns the current set of annotations. Provenance string is one
+        entry in the set.
+
+        Returns
+        -------
+        LibraryAnnotations
+            Library annotations
+        """
         return self._annotations[-1]
 
     def get_all_annotations(self) -> str:
@@ -199,6 +215,15 @@ class Context:
 
     @property
     def provenance(self) -> Optional[str]:
+        """
+        Returns the current provenance string. Attached to every operation
+        issued with the context.
+
+        Returns
+        -------
+        str or None
+            Provenance string
+        """
         return self.annotation.provenance
 
     def get_task_id(self, task_id: int) -> int:
@@ -226,6 +251,25 @@ class Context:
     def get_tunable(
         self, tunable_id: int, dtype: DataType, mapper_id: int = 0
     ) -> npt.NDArray[Any]:
+        """
+        Queries a tunable parameter to the mapper.
+
+        Parameters
+        ----------
+        tunable_id : int
+            Tunable id. Local to each mapper.
+
+        dtype : DataType
+            Value type
+
+        mapper_id : int
+            Id of the mapper that should handle the tunable query
+
+        Returns
+        -------
+        np.ndarray
+            A NumPy array holding the value of the tunable parameter
+        """
         dt = np.dtype(dtype.to_pandas_dtype())
         mapper_id = self.get_mapper_id(mapper_id)
         fut = Future(
@@ -244,16 +288,38 @@ class Context:
         return self._runtime.get_unique_op_id()
 
     def set_provenance(self, provenance: str) -> None:
+        """
+        Sets a new provenance string
+
+        Parameters
+        ----------
+        provenance : str
+            Provenance string
+        """
         self._annotations[-1].set_provenance(provenance)
 
     def reset_provenance(self) -> None:
+        """
+        Clears the provenance string that is currently set
+        """
         self._annotations[-1].reset_provenance()
 
     def push_provenance(self, provenance: str) -> None:
+        """
+        Pushes a provenance string to the stack
+
+        Parameters
+        ----------
+        provenance : str
+            Provenance string
+        """
         self._annotations.append(LibraryAnnotations())
         self.set_provenance(provenance)
 
     def pop_provenance(self) -> None:
+        """
+        Pops the provenance string on top the stack
+        """
         if len(self._annotations) == 1:
             raise ValueError("Provenance stack underflow")
         self._annotations.pop(-1)
@@ -261,6 +327,25 @@ class Context:
     def track_provenance(
         self, func: AnyCallable, nested: bool = False
     ) -> AnyCallable:
+        """
+        Wraps a function with provenance tracking. Provenance of each operation
+        issued within the wrapped function will be tracked automatically.
+
+        Parameters
+        ----------
+        func : AnyCallable
+            Function to wrap
+
+        nested : bool
+            If ``True``, each invocation to a wrapped function within another
+            wrapped function updates the provenance string. Otherwise, the
+            provenance is tracked only for the outermost wrapped function.
+
+        Returns
+        -------
+        AnyCallable
+            Wrapped function
+        """
         if nested:
 
             def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -282,69 +367,100 @@ class Context:
 
         return wrapper
 
-    def create_task(
-        self,
-        task_id: int,
-        mapper_id: int = 0,
-        manual: Optional[bool] = False,
-        launch_domain: Optional[Rect] = None,
-    ) -> Union[AutoTask, ManualTask]:
-        from .operation import AutoTask, ManualTask
-
-        unique_op_id = self.get_unique_op_id()
-        if not manual:
-            return AutoTask(self, task_id, mapper_id, unique_op_id)
-        else:
-            if launch_domain is None:
-                raise RuntimeError(
-                    "Launch domain must be specified for "
-                    "manual parallelization"
-                )
-            return ManualTask(
-                self,
-                task_id,
-                launch_domain,
-                mapper_id,
-                unique_op_id,
-            )
-
     def create_manual_task(
         self,
         task_id: int,
+        launch_domain: Rect,
         mapper_id: int = 0,
-        launch_domain: Optional[Rect] = None,
     ) -> ManualTask:
+        """
+        Creates a manual task.
+
+        Parameters
+        ----------
+        task_id : int
+            Task id. Scoped locally within the context; i.e., different
+            libraries can use the same task id. There must be a task
+            implementation corresponding to the task id.
+
+        mapper_id : int, optional
+            Id of the mapper that should determine mapping policies for the
+            task. Used only when the library has more than one mapper.
+
+        launch_domain : Rect, optional
+            Launch domain of the task.
+
+        Returns
+        -------
+        AutoTask or ManualTask
+            A new task
+        """
+
         from .operation import ManualTask
 
-        return cast(
-            ManualTask,
-            self.create_task(
-                task_id=task_id,
-                mapper_id=mapper_id,
-                manual=True,
-                launch_domain=launch_domain,
-            ),
+        unique_op_id = self.get_unique_op_id()
+        if launch_domain is None:
+            raise RuntimeError(
+                "Launch domain must be specified for manual parallelization"
+            )
+        return ManualTask(
+            self,
+            task_id,
+            launch_domain,
+            mapper_id,
+            unique_op_id,
         )
 
     def create_auto_task(
         self,
         task_id: int,
         mapper_id: int = 0,
-        launch_domain: Optional[Rect] = None,
     ) -> AutoTask:
+        """
+        Creates an auto task.
+
+        Parameters
+        ----------
+        task_id : int
+            Task id. Scoped locally within the context; i.e., different
+            libraries can use the same task id. There must be a task
+            implementation corresponding to the task id.
+
+        mapper_id : int, optional
+            Id of the mapper that should determine mapping policies for the
+            task. Used only when the library has more than one mapper.
+
+        Returns
+        -------
+        AutoTask
+            A new automatically parallelized task
+
+        See Also
+        --------
+        Context.create_task
+        """
+
         from .operation import AutoTask
 
-        return cast(
-            AutoTask,
-            self.create_task(
-                task_id=task_id,
-                mapper_id=mapper_id,
-                manual=False,
-                launch_domain=launch_domain,
-            ),
-        )
+        unique_op_id = self.get_unique_op_id()
+        return AutoTask(self, task_id, mapper_id, unique_op_id)
 
     def create_copy(self, mapper_id: int = 0) -> Copy:
+        """
+        Creates a copy operation.
+
+        Parameters
+        ----------
+        mapper_id : int, optional
+            Id of the mapper that should determine mapping policies for the
+            copy. Used only when the library has more than one mapper.
+
+        Returns
+        -------
+        Copy
+            A new copy operation
+        """
+
         from .operation import Copy
 
         return Copy(self, mapper_id, self.get_unique_op_id())
@@ -352,6 +468,32 @@ class Context:
     def create_fill(
         self, lhs: Store, value: Store, mapper_id: int = 0
     ) -> Fill:
+        """
+        Creates a fill operation.
+
+        Parameters
+        ----------
+        lhs : Store
+            Store to fill
+
+        value : Store
+            Store holding the constant value to fill the ``lhs`` with
+
+        mapper_id : int, optional
+            Id of the mapper that should determine mapping policies for the
+            fill. Used only when the library has more than one mapper.
+
+        Returns
+        -------
+        Copy
+            A new fill operation
+
+        Raises
+        ------
+        ValueError
+            If the ``value`` is not scalar or the ``lhs`` is either unbound or
+            scalar
+        """
         from .operation import Fill
 
         return Fill(self, lhs, value, mapper_id, self.get_unique_op_id())
@@ -370,6 +512,34 @@ class Context:
         optimize_scalar: bool = False,
         ndim: Optional[int] = None,
     ) -> Store:
+        """
+        Creates a fresh store.
+
+        Parameters
+        ----------
+        ty : Dtype
+            Type of the elements
+
+        shape : Shape or tuple[int], optional
+            Shape of the store. The store becomes unbound if no shape is
+            given.
+
+        storage : RegionField or Future, optional
+            Optional storage to initialize the store with. Used only when the
+            store is constructed from a future holding a scalar value.
+
+        optimize_scalar : bool
+            If ``True``, the runtime will use a ``Future`` when the store's
+            size is 1
+
+        ndim : int, optional
+            Dimension of the store. Must be passed if the store is unbound.
+
+        Returns
+        -------
+        Store
+            A new store
+        """
         dtype = self.type_system[ty]
         return self._runtime.create_store(
             dtype,
@@ -386,11 +556,50 @@ class Context:
         return self._runtime.get_cpu_communicator()
 
     def issue_execution_fence(self, block: bool = False) -> None:
+        """
+        Issues an execution fence. A fence is a special operation that
+        guarantees that all upstream operations finish before any of the
+        downstream operations start. The caller can optionally block on
+        completion of all upstream operations.
+
+        Parameters
+        ----------
+        block : bool
+            If ``True``, the call blocks until all upstream operations finish.
+        """
         self._runtime.issue_execution_fence(block=block)
 
     def tree_reduce(
         self, task_id: int, store: Store, mapper_id: int = 0, radix: int = 4
     ) -> Store:
+        """
+        Performs a user-defined reduction by building a tree of reduction
+        tasks. At each step, the reducer task gets up to ``radix`` input stores
+        and is supposed to produce outputs in a single unbound store.
+
+        Parameters
+        ----------
+        task_id : int
+            Id of the reducer task
+
+        store : Store
+            Store to perform reductions on
+
+        mapper_id : int
+            Id of the mapper that should decide mapping policies for reducer
+            tasks
+
+        radix : int
+            Fan-in of each reducer task. If the store is partitioned into
+            :math:`N` sub-stores by the runtime, then the first level of
+            reduction tree has :math:`\\ceil{N / \\mathtt{radix}}` reducer
+            tasks.
+
+        Returns
+        -------
+        Store
+            Store that contains reduction results
+        """
         from .operation import Reduce
 
         result = self.create_store(store.type)
@@ -412,6 +621,31 @@ def track_provenance(
     context: Context,
     nested: bool = False,
 ) -> Callable[[AnyCallable], AnyCallable]:
+    """
+    Decorator that adds provenance tracking to functions. Provenance of each
+    operation issued within the wrapped function will be tracked automatically.
+
+    Parameters
+    ----------
+    context : Context
+        Context that the function uses to issue operations
+
+    nested : bool
+        If ``True``, each invocation to a wrapped function within another
+        wrapped function updates the provenance string. Otherwise, the
+        provenance is tracked only for the outermost wrapped function.
+
+    Returns
+    -------
+    Decorator
+        Function that takes a function and returns a one with provenance
+        tracking
+
+    See Also
+    --------
+    legate.core.context.Context.track_provenance
+    """
+
     def decorator(func: AnyCallable) -> AnyCallable:
         return context.track_provenance(func, nested=nested)
 
@@ -420,6 +654,16 @@ def track_provenance(
 
 class Annotation:
     def __init__(self, context: Context, pairs: dict[str, str]) -> None:
+        """
+        Constructs a new annotation object
+
+        Parameters
+        ----------
+        context : Context
+            Context to which the annotations should be added
+        pairs : dict[str, str]
+            Annotations as key-value pairs
+        """
         self._annotation = context.annotation
         self._pairs = pairs
 

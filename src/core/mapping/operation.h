@@ -25,6 +25,11 @@
 #include "core/mapping/store.h"
 #include "core/runtime/context.h"
 
+/**
+ * @file
+ * @brief Class definitions for operations and stores used in mapping
+ */
+
 namespace legate {
 namespace mapping {
 
@@ -44,6 +49,10 @@ class Mappable {
   uint32_t sharding_id_;
 };
 
+/**
+ * @ingroup mapping
+ * @brief A metadata class for tasks
+ */
 class Task : public Mappable {
  public:
   Task(const Legion::Task* task,
@@ -52,15 +61,47 @@ class Task : public Mappable {
        const Legion::Mapping::MapperContext context);
 
  public:
+  /**
+   * @brief Returns the task id
+   *
+   * @return Task id
+   */
   int64_t task_id() const;
 
  public:
+  /**
+   * @brief Returns metadata for the task's input stores
+   *
+   * @return Vector of store metadata objects
+   */
   const std::vector<Store>& inputs() const { return inputs_; }
+  /**
+   * @brief Returns metadata for the task's output stores
+   *
+   * @return Vector of store metadata objects
+   */
   const std::vector<Store>& outputs() const { return outputs_; }
+  /**
+   * @brief Returns metadata for the task's reduction stores
+   *
+   * @return Vector of store metadata objects
+   */
   const std::vector<Store>& reductions() const { return reductions_; }
+  /**
+   * @brief Returns the vector of the task's by-value arguments. Unlike `mapping::Store`
+   * objects that have no access to data in the stores, the returned `Scalar` objects
+   * contain valid arguments to the task
+   *
+   * @return Vector of `Scalar` objects
+   */
   const std::vector<Scalar>& scalars() const { return scalars_; }
 
  public:
+  /**
+   * @brief Returns the point of the task
+   *
+   * @return The point of the task
+   */
   DomainPoint point() const { return task_->index_point; }
 
  public:

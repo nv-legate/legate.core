@@ -24,6 +24,11 @@ Reqs = Tuple[Req, ...]
 OSType = Literal["linux", "osx"]
 
 
+def V(version: str) -> tuple[int, ...]:
+    padded_version = (version.split(".") + ["0"])[:2]
+    return tuple(int(x) for x in padded_version)
+
+
 class SectionConfig(Protocol):
     header: str
 
@@ -49,6 +54,8 @@ class SectionConfig(Protocol):
 @dataclass(frozen=True)
 class CUDAConfig(SectionConfig):
     ctk_version: str
+    compilers: bool
+    os: OSType
 
     header = "cuda"
 
@@ -57,12 +64,25 @@ class CUDAConfig(SectionConfig):
         if self.ctk_version == "none":
             return ()
 
-        return (
+        deps = (
             f"cudatoolkit={self.ctk_version}",  # runtime
             "cutensor>=1.3.3",  # runtime
             "nccl",  # runtime
             "pynvml",  # tests
         )
+
+        # gcc 11.3 is incompatible with nvcc <= 11.5.
+        if (
+            self.compilers
+            and self.os == "linux"
+            and (V(self.ctk_version) <= V("11.5"))
+        ):
+            deps += (
+                "gcc_linux-64<=11.2",
+                "gxx_linux-64<=11.2",
+            )
+
+        return deps
 
     def __str__(self) -> str:
         if self.ctk_version == "none":
@@ -157,7 +177,7 @@ class DocsConfig(SectionConfig):
 
     @property
     def conda(self) -> Reqs:
-        return ("pandoc",)
+        return ("pandoc", "doxygen")
 
     @property
     def pip(self) -> Reqs:
@@ -165,7 +185,7 @@ class DocsConfig(SectionConfig):
             "ipython",
             "jinja2",
             "markdown<3.4.0",
-            "pydata-sphinx-theme",
+            "pydata-sphinx-theme>=0.13",
             "myst-parser",
             "nbsphinx",
             "sphinx-copybutton",
@@ -195,7 +215,7 @@ class EnvConfig:
 
     @property
     def cuda(self) -> CUDAConfig:
-        return CUDAConfig(self.ctk)
+        return CUDAConfig(self.ctk, self.compilers, self.os)
 
     @property
     def build(self) -> BuildConfig:
@@ -220,7 +240,7 @@ class EnvConfig:
 
 # --- Setup -------------------------------------------------------------------
 
-PYTHON_VERSIONS = ("3.8", "3.9", "3.10")
+PYTHON_VERSIONS = ("3.9", "3.10", "3.11")
 
 CTK_VERSIONS = (
     "none",

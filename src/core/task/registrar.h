@@ -23,11 +23,64 @@
 #include "core/task/variant.h"
 #include "core/utilities/typedefs.h"
 
+/**
+ * @file
+ * @brief Class definition fo legate::TaskRegistrar
+ */
+
 namespace legate {
 
 class LibraryContext;
 class PendingTaskVariant;
 
+/**
+ * @ingroup task
+ * @brief A helper class for task variant registration.
+ *
+ * The `legate::TaskRegistrar` class is designed to simplify the boilerplate that client libraries
+ * need to register all its task variants. The following is a boilerplate that each library
+ * needs to write:
+ *
+ * @code{.cpp}
+ * struct MyLibrary {
+ *  public:
+ *   template <typename... Args>
+ *   static void record_variant(Args&&... args)
+ *   {
+ *     get_registrar().record_variant(std::forward<Args>(args)...);
+ *   }
+ *   static legate::TaskRegistrar& get_registrar();
+ * };
+ *
+ * template <typename T>
+ * struct MyLibraryTaskBase : public legate::LegateTask<T> {
+ *   using Registrar = MyLibrary;
+ *
+ *   ...
+ * };
+ * @endcode
+ *
+ * In the code above, the `MyLibrary` has a static member that returns a singleton
+ * `legate::TaskRegistrar` object, and another member `record_variant` that simply forwards all
+ * arguments to the registrar. Then, the `MyLibraryTaskBase` points to the class so Legate can find
+ * where task variants are registered.
+ *
+ * Once this registrar is set up in a library, each library task can simply register itself
+ * with the `LegateTask::register_variants` method like the following:
+ *
+ * @code{.cpp}
+ * // In a header
+ * struct MyLibraryTask : public MyLibraryTaskBase<MyLibraryTask> {
+ *   ...
+ * };
+ *
+ * // In a C++ file
+ * static void __attribute__((constructor)) register_tasks()
+ * {
+ *   MyLibraryTask::register_variants();
+ * }
+ * @endcode
+ */
 class TaskRegistrar {
  public:
   void record_variant(Legion::TaskID tid,
@@ -40,6 +93,12 @@ class TaskRegistrar {
                       const VariantOptions& options);
 
  public:
+  /**
+   * @brief Registers all tasks recorded in this registrar. Typically invoked in a registration
+   * callback of a library.
+   *
+   * @param context Context of the library that owns this registrar
+   */
   void register_all_tasks(const LibraryContext& context);
 
  private:

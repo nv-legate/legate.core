@@ -92,6 +92,11 @@ class FutureWrapper {
   Legion::Domain domain_{};
 };
 
+/**
+ * @ingroup mapping
+ * @brief A metadata class that mirrors the structure of legate::Store but contains
+ * only the data relevant to mapping
+ */
 class Store {
  public:
   Store() {}
@@ -105,7 +110,7 @@ class Store {
         LegateTypeCode code,
         int32_t redop_id,
         const RegionField& region_field,
-        bool is_output_store                        = false,
+        bool is_unbound_store                       = false,
         std::shared_ptr<TransformStack>&& transform = nullptr);
   // A special constructor to create a mapper view of a store from a region requirement
   Store(Legion::Mapping::MapperRuntime* runtime,
@@ -121,15 +126,51 @@ class Store {
   Store& operator=(Store&& other) = default;
 
  public:
+  /**
+   * @brief Indicates whether the store is backed by a future
+   *
+   * @return true The store is backed by a future
+   * @return false The store is backed by a region field
+   */
   bool is_future() const { return is_future_; }
-  bool unbound() const { return is_output_store_; }
+  /**
+   * @brief Indicates whether the store is unbound
+   *
+   * @return true The store is unbound
+   * @return false The store is a normal store
+   */
+  bool unbound() const { return is_unbound_store_; }
+  /**
+   * @brief Returns the store's dimension
+   *
+   * @return Store's dimension
+   */
   int32_t dim() const { return dim_; }
 
  public:
+  /**
+   * @brief Indicates whether the store is a reduction store
+   *
+   * @return true The store is a reduction store
+   * @return false The store is either an input or output store
+   */
   bool is_reduction() const { return redop_id_ > 0; }
+  /**
+   * @brief Returns the reduction operator id for the store
+   *
+   * @return Reduction oeprator id
+   */
   Legion::ReductionOpID redop() const { return redop_id_; }
 
  public:
+  /**
+   * @brief Indicates whether the store can colocate in an instance with a given store
+   *
+   * @param other Store against which the colocation is checked
+   *
+   * @return true The store can colocate with the input
+   * @return false The store cannot colocate with the input
+   */
   bool can_colocate_with(const Store& other) const;
   const RegionField& region_field() const;
   const FutureWrapper& future() const;
@@ -140,6 +181,11 @@ class Store {
   uint32_t future_index() const;
 
  public:
+  /**
+   * @brief Returns the store's domain
+   *
+   * @return Store's domain
+   */
   template <int32_t DIM>
   Legion::Rect<DIM> shape() const;
 
@@ -148,7 +194,7 @@ class Store {
 
  private:
   bool is_future_{false};
-  bool is_output_store_{false};
+  bool is_unbound_store_{false};
   int32_t dim_{-1};
   LegateTypeCode code_{MAX_TYPE_NUMBER};
   int32_t redop_id_{-1};
