@@ -28,9 +28,9 @@ from .library import user_context as context, user_lib
 
 class LegateIOOpCode(IntEnum):
     READ_FILE = user_lib.cffi.READ_FILE
+    READ_UNEVEN_TILES = user_lib.cffi.READ_UNEVEN_TILES
     WRITE_FILE = user_lib.cffi.WRITE_FILE
-    READ_DATASET = user_lib.cffi.READ_DATASET
-    WRITE_DATASET = user_lib.cffi.WRITE_DATASET
+    WRITE_UNEVEN_TILES = user_lib.cffi.WRITE_UNEVEN_TILES
 
 
 _CODES_TO_DTYPES = dict(
@@ -87,10 +87,10 @@ class IOArray:
         task.add_broadcast(self._store)
         task.execute()
 
-    def to_dataset(self, dirname: str) -> None:
+    def to_uneven_tiles(self, dirname: str) -> None:
         os.mkdir(dirname)
 
-        task = context.create_auto_task(LegateIOOpCode.WRITE_DATASET)
+        task = context.create_auto_task(LegateIOOpCode.WRITE_UNEVEN_TILES)
 
         task.add_input(self._store)
         task.add_scalar_arg(dirname, ty.string)
@@ -137,12 +137,12 @@ def _read_header(dirname: str) -> tuple[int, ...]:
         return code, struct.unpack(f"{dim}q", data[8:])
 
 
-def read_dataset(dirname: str) -> IOArray:
+def read_uneven_tiles(dirname: str) -> IOArray:
     code, launch_shape = _read_header(dirname)
     dtype = _CODES_TO_DTYPES[code]
     output = context.create_store(dtype, shape=None, ndim=len(launch_shape))
     task = context.create_manual_task(
-        LegateIOOpCode.READ_DATASET,
+        LegateIOOpCode.READ_UNEVEN_TILES,
         launch_domain=Rect(launch_shape),
     )
 

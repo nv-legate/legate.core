@@ -43,7 +43,7 @@ struct read_fn {
 
     auto buf = output.create_output_buffer<VAL, DIM>(extents);
     legate::Rect<DIM> shape(legate::Point<DIM>::ZEROES(), extents - legate::Point<DIM>::ONES());
-    for (legate::PointInRectIterator it(shape); it.valid(); ++it) {
+    for (legate::PointInRectIterator it(shape, false /*fortran_order*/); it.valid(); ++it) {
       auto ptr = buf.ptr(*it);
       in.read(reinterpret_cast<char*>(ptr), sizeof(VAL));
     }
@@ -54,7 +54,7 @@ struct read_fn {
 
 }  // namespace detail
 
-class ReadDatasetTask : public Task<ReadDatasetTask, READ_DATASET> {
+class ReadUnevenTilesTask : public Task<ReadUnevenTilesTask, READ_UNEVEN_TILES> {
  public:
   static void cpu_variant(legate::TaskContext& context)
   {
@@ -80,7 +80,7 @@ namespace  // unnamed
 
 static void __attribute__((constructor)) register_tasks()
 {
-  legateio::ReadDatasetTask::register_variants();
+  legateio::ReadUnevenTilesTask::register_variants();
 }
 
 }  // namespace

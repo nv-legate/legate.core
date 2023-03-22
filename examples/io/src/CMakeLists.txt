@@ -20,11 +20,11 @@ add_library(
   legateio
   legateio.cc
   legateio.h
-  read_dataset.cc
-  write_dataset.cc
   read_file.cc
-  write_file.cc
+  read_uneven_tiles.cc
   util.cc
+  write_file.cc
+  write_uneven_tiles.cc
   ${TEMPLATE_SOURCES}
 )
 

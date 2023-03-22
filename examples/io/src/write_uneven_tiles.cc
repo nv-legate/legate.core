@@ -67,7 +67,7 @@ struct write_fn {
 
     if (empty) return;
     auto acc = input.read_accessor<VAL, DIM>();
-    for (legate::PointInRectIterator it(shape); it.valid(); ++it) {
+    for (legate::PointInRectIterator it(shape, false /*fortran_order*/); it.valid(); ++it) {
       auto ptr = acc.ptr(*it);
       out.write(reinterpret_cast<const char*>(ptr), sizeof(VAL));
     }
@@ -76,7 +76,7 @@ struct write_fn {
 
 }  // namespace detail
 
-class WriteDatasetTask : public Task<WriteDatasetTask, WRITE_DATASET> {
+class WriteUnevenTilesTask : public Task<WriteUnevenTilesTask, WRITE_UNEVEN_TILES> {
  public:
   static void cpu_variant(legate::TaskContext& context)
   {
@@ -113,7 +113,7 @@ namespace  // unnamed
 
 static void __attribute__((constructor)) register_tasks()
 {
-  legateio::WriteDatasetTask::register_variants();
+  legateio::WriteUnevenTilesTask::register_variants();
 }
 
 }  // namespace
