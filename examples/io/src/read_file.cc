@@ -90,6 +90,7 @@ class ReadFileTask : public Task<ReadFileTask, READ_FILE> {
     int64_t num_readers = context.is_single_task() ? 1 : context.get_launch_domain().get_volume();
     logger.print() << "Read " << filename << " (" << my_id + 1 << "/" << num_readers << ")";
 
+    // type_dispatch converts the first argument to a non-type template argument
     legate::type_dispatch(output.code(), detail::read_fn{}, output, filename, my_id, num_readers);
   }
 };

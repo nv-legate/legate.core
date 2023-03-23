@@ -53,7 +53,7 @@ struct write_fn {
     auto acc = store.read_accessor<VAL, DIM>();
     // The iteration order here should be consistent with that in the reader task, otherwise
     // the read data can be transposed.
-    for (legate::PointInRectIterator it(shape, false /*fortran_order*/); it.valid(); ++it) {
+    for (legate::PointInRectIterator<DIM> it(shape, false /*fortran_order*/); it.valid(); ++it) {
       auto ptr = acc.ptr(*it);
       out.write(reinterpret_cast<const char*>(ptr), sizeof(VAL));
     }
@@ -62,9 +62,17 @@ struct write_fn {
 
 }  // namespace detail
 
-std::filesystem::path get_unique_path_for_task_index(legate::DomainPoint& task_index,
+std::filesystem::path get_unique_path_for_task_index(const legate::TaskContext& context,
+                                                     int32_t ndim,
                                                      const std::string& dirname)
 {
+  auto task_index = context.get_task_index();
+  // If this was a single task, we use (0, ..., 0) for the task index
+  if (context.is_single_task()) {
+    task_index     = legate::DomainPoint();
+    task_index.dim = ndim;
+  }
+
   std::stringstream ss;
   for (int32_t idx = 0; idx < task_index.dim; ++idx) {
     if (idx != 0) ss << ".";
@@ -75,8 +83,12 @@ std::filesystem::path get_unique_path_for_task_index(legate::DomainPoint& task_i
   return fs::path(dirname) / filename;
 }
 
-void write_to_file(const std::filesystem::path& path, const legate::Store& store)
+void write_to_file(legate::TaskContext& task_context,
+                   const std::string& dirname,
+                   const legate::Store& store)
 {
+  auto path = get_unique_path_for_task_index(task_context, store.dim(), dirname);
+  // double_dispatch converts the first two arguments to non-type template arguments
   legate::double_dispatch(store.dim(), store.code(), detail::write_fn{}, store, path);
 }
 

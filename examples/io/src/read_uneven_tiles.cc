@@ -47,7 +47,7 @@ struct read_fn {
     legate::Rect<DIM> shape(legate::Point<DIM>::ZEROES(), extents - legate::Point<DIM>::ONES());
     if (!shape.empty())
       // Read the file data. The iteration order here should be the same as in the writer task
-      for (legate::PointInRectIterator it(shape, false /*fortran_order*/); it.valid(); ++it) {
+      for (legate::PointInRectIterator<DIM> it(shape, false /*fortran_order*/); it.valid(); ++it) {
         auto ptr = buf.ptr(*it);
         in.read(reinterpret_cast<char*>(ptr), sizeof(VAL));
       }
@@ -66,15 +66,8 @@ class ReadUnevenTilesTask : public Task<ReadUnevenTilesTask, READ_UNEVEN_TILES> 
     auto dirname = context.scalars()[0].value<std::string>();
     auto& output = context.outputs()[0];
 
-    auto task_index = context.get_task_index();
-    // The task index needs to be updated if this was a single task so we can use it to correctly
-    // name the input file.
-    if (context.is_single_task()) {
-      task_index     = legate::DomainPoint();
-      task_index.dim = output.dim();
-    }
-
-    auto path = get_unique_path_for_task_index(task_index, dirname);
+    auto path = get_unique_path_for_task_index(context, output.dim(), dirname);
+    // double_dispatch converts the first two arguments to non-type template arguments
     legate::double_dispatch(output.dim(), output.code(), detail::read_fn{}, output, path);
   }
 };

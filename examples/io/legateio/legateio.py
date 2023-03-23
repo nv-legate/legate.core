@@ -86,7 +86,7 @@ class IOArray:
 
         assert data["version"] == 1
         # For now, we assume that there's only one field in the container
-        field = next(iter(data["data"]))
+        field: pa.Field = next(iter(data["data"]))
         stores = data["data"][field].stores()
 
         # We only support non-nullable arrays
@@ -277,10 +277,7 @@ def read_file_parallel(
 def _read_header_uneven(path: str) -> tuple[int, ...]:
     with open(os.path.join(path, ".header"), "rb") as f:
         data = f.read()
-        (
-            code,
-            dim,
-        ) = struct.unpack("ii", data[:8])
+        (code, dim) = struct.unpack("ii", data[:8])
         return code, struct.unpack(f"{dim}q", data[8:])
 
 
@@ -347,10 +344,7 @@ def read_uneven_tiles(path: str) -> IOArray:
 def _read_header_even(path: str) -> tuple[int, ...]:
     with open(os.path.join(path, ".header"), "rb") as f:
         data = f.read()
-        (
-            code,
-            dim,
-        ) = struct.unpack("ii", data[:8])
+        (code, dim) = struct.unpack("ii", data[:8])
         data = data[8:]
         shape = struct.unpack(f"{dim}i", data[: 4 * dim])
         tile_shape = struct.unpack(f"{dim}i", data[4 * dim :])

@@ -29,8 +29,8 @@ def test(n: int, filename: str):
     # Use cuNumeric to generate an array to dump to a file
     src = np.arange(n).astype("int8")
 
-    # Construct an IOArray from the cuNumeric. They are aliased to the same
-    # store after this call.
+    # Construct an IOArray from the cuNumeric ndarray. They are aliased to the
+    # same store after this call.
     c1 = IOArray.from_legate_data_interface(src.__legate_data_interface__)
 
     # Dump the IOArray to a file
@@ -71,7 +71,7 @@ if __name__ == "__main__":
         "--num",
         type=int,
         default=10,
-        dest="n",
+        dest="num",
         help="Number of elements",
     )
     parser.add_argument(
@@ -79,9 +79,9 @@ if __name__ == "__main__":
         "--file",
         type=str,
         default="test.dat",
-        dest="filename",
+        dest="file",
         help="File name",
     )
     args, _ = parser.parse_known_args()
 
-    test(args.n, args.filename)
+    test(args.num, args.file)

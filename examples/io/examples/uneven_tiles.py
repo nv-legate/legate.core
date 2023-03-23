@@ -32,7 +32,7 @@ def test(shape: tuple[int, ...], dataset_name: str, print_input: bool):
     if print_input:
         print(src)
 
-    # Construct an IOArray from the cuNumeric
+    # Construct an IOArray from the cuNumeric ndarray
     c1 = IOArray.from_legate_data_interface(src.__legate_data_interface__)
 
     # Dump the IOArray to a dataset of uneven tiles
@@ -64,7 +64,7 @@ if __name__ == "__main__":
         "--dataset",
         type=str,
         default="test",
-        dest="dataset_name",
+        dest="dataset",
         help="Dataset name",
     )
     parser.add_argument(
@@ -76,4 +76,4 @@ if __name__ == "__main__":
     )
     args, _ = parser.parse_known_args()
 
-    test(args.shape, args.dataset_name, args.print_input)
+    test(args.shape, args.dataset, args.print_input)

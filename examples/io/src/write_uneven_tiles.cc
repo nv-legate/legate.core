@@ -59,18 +59,14 @@ class WriteUnevenTilesTask : public Task<WriteUnevenTilesTask, WRITE_UNEVEN_TILE
     auto task_index    = context.get_task_index();
     auto is_first_task = context.is_single_task() || task_index == launch_domain.lo();
 
-    // When the task is a single task, both the launch domain and the task index are 0D. Since we
-    // want to use them in the header data and also generating file names for the chunks, we update
-    // them such that they are of an index task with a launch domain of volume 1.
-    if (context.is_single_task()) {
-      launch_domain     = legate::Domain();
-      task_index        = legate::DomainPoint();
-      launch_domain.dim = input.dim();
-      task_index.dim    = input.dim();
-    }
-
     // Only the first task needs to dump the header
     if (is_first_task) {
+      // When the task is a single task, we create a launch domain of volume 1
+      if (context.is_single_task()) {
+        launch_domain     = legate::Domain();
+        launch_domain.dim = input.dim();
+      }
+
       auto header = fs::path(dirname) / ".header";
       logger.print() << "Write to " << header;
       std::ofstream out(header, std::ios::binary | std::ios::out | std::ios::trunc);
@@ -78,8 +74,7 @@ class WriteUnevenTilesTask : public Task<WriteUnevenTilesTask, WRITE_UNEVEN_TILE
         launch_domain.dim, detail::header_write_fn{}, out, launch_domain, input.code());
     }
 
-    auto path = get_unique_path_for_task_index(task_index, dirname);
-    write_to_file(path, input);
+    write_to_file(context, dirname, input);
   }
 };
 

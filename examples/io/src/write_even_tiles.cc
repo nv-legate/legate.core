@@ -57,12 +57,6 @@ class WriteEvenTilesTask : public Task<WriteEvenTilesTask, WRITE_EVEN_TILES> {
     auto launch_domain = context.get_launch_domain();
     auto task_index    = context.get_task_index();
     auto is_first_task = context.is_single_task() || task_index == launch_domain.lo();
-    // The task index needs to be updated if this was a single task so we can use it to correctly
-    // name the output file.
-    if (context.is_single_task()) {
-      task_index     = legate::DomainPoint();
-      task_index.dim = input.dim();
-    }
 
     if (is_first_task) {
       auto header = fs::path(dirname) / ".header";
@@ -71,8 +65,7 @@ class WriteEvenTilesTask : public Task<WriteEvenTilesTask, WRITE_EVEN_TILES> {
       detail::write_header(out, input.code(), shape, tile_shape);
     }
 
-    auto path = get_unique_path_for_task_index(task_index, dirname);
-    write_to_file(path, input);
+    write_to_file(context, dirname, input);
   }
 };
 

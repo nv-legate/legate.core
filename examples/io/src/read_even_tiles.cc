@@ -50,7 +50,7 @@ struct read_fn {
     logger.print() << "Read a sub-array of rect " << shape << " from " << path;
 
     auto acc = output.write_accessor<VAL, DIM>();
-    for (legate::PointInRectIterator it(shape, false /*fortran_order*/); it.valid(); ++it) {
+    for (legate::PointInRectIterator<DIM> it(shape, false /*fortran_order*/); it.valid(); ++it) {
       auto ptr = acc.ptr(*it);
       in.read(reinterpret_cast<char*>(ptr), sizeof(VAL));
     }
@@ -66,15 +66,8 @@ class ReadEvenTilesTask : public Task<ReadEvenTilesTask, READ_EVEN_TILES> {
     auto dirname = context.scalars()[0].value<std::string>();
     auto& output = context.outputs()[0];
 
-    // The task index needs to be updated if this was a single task so we can use it to correctly
-    // name the output file.
-    auto task_index = context.get_task_index();
-    if (context.is_single_task()) {
-      task_index     = legate::DomainPoint();
-      task_index.dim = output.dim();
-    }
-
-    auto path = get_unique_path_for_task_index(task_index, dirname);
+    auto path = get_unique_path_for_task_index(context, output.dim(), dirname);
+    // double_dispatch converts the first two arguments to non-type template arguments
     legate::double_dispatch(output.dim(), output.code(), detail::read_fn{}, output, path);
   }
 };

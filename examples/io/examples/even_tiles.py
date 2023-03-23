@@ -42,10 +42,10 @@ def test(
     if print_input:
         print(arr)
 
-    # Construct an IOArray from the cuNumeric
+    # Construct an IOArray from the cuNumeric ndarray
     c1 = IOArray.from_legate_data_interface(arr.__legate_data_interface__)
 
-    # Dump the IOArray to a dataset of uneven tiles
+    # Dump the IOArray to a dataset of even tiles
     c1.to_even_tiles(dataset_name, tile_shape)
 
     runtime.issue_execution_fence(block=True)
@@ -85,7 +85,7 @@ if __name__ == "__main__":
         "--dataset",
         type=str,
         default="test",
-        dest="dataset_name",
+        dest="dataset",
         help="Dataset name",
     )
     parser.add_argument(
@@ -97,4 +97,4 @@ if __name__ == "__main__":
     )
     args, _ = parser.parse_known_args()
 
-    test(args.shape, args.tile_shape, args.dataset_name, args.print_input)
+    test(args.shape, args.tile_shape, args.dataset, args.print_input)
