@@ -27,7 +27,7 @@ namespace fs = std::filesystem;
 
 namespace legateio {
 
-namespace detail {
+namespace {
 
 struct header_write_fn {
   template <int32_t DIM>
@@ -46,7 +46,7 @@ struct header_write_fn {
   }
 };
 
-}  // namespace detail
+}  // namespace
 
 class WriteUnevenTilesTask : public Task<WriteUnevenTilesTask, WRITE_UNEVEN_TILES> {
  public:
@@ -70,8 +70,7 @@ class WriteUnevenTilesTask : public Task<WriteUnevenTilesTask, WRITE_UNEVEN_TILE
       auto header = fs::path(dirname) / ".header";
       logger.print() << "Write to " << header;
       std::ofstream out(header, std::ios::binary | std::ios::out | std::ios::trunc);
-      legate::dim_dispatch(
-        launch_domain.dim, detail::header_write_fn{}, out, launch_domain, input.code());
+      legate::dim_dispatch(launch_domain.dim, header_write_fn{}, out, launch_domain, input.code());
     }
 
     write_to_file(context, dirname, input);
@@ -80,8 +79,7 @@ class WriteUnevenTilesTask : public Task<WriteUnevenTilesTask, WRITE_UNEVEN_TILE
 
 }  // namespace legateio
 
-namespace  // unnamed
-{
+namespace {
 
 static void __attribute__((constructor)) register_tasks()
 {

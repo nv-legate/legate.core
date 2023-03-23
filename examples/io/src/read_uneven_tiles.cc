@@ -25,7 +25,6 @@ namespace fs = std::filesystem;
 
 namespace legateio {
 
-namespace detail {
 namespace {
 
 struct read_fn {
@@ -59,7 +58,6 @@ struct read_fn {
 };
 
 }  // namespace
-}  // namespace detail
 
 class ReadUnevenTilesTask : public Task<ReadUnevenTilesTask, READ_UNEVEN_TILES> {
  public:
@@ -70,14 +68,13 @@ class ReadUnevenTilesTask : public Task<ReadUnevenTilesTask, READ_UNEVEN_TILES> 
 
     auto path = get_unique_path_for_task_index(context, output.dim(), dirname);
     // double_dispatch converts the first two arguments to non-type template arguments
-    legate::double_dispatch(output.dim(), output.code(), detail::read_fn{}, output, path);
+    legate::double_dispatch(output.dim(), output.code(), read_fn{}, output, path);
   }
 };
 
 }  // namespace legateio
 
-namespace  // unnamed
-{
+namespace {
 
 static void __attribute__((constructor)) register_tasks()
 {

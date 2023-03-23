@@ -23,7 +23,6 @@
 
 namespace legateio {
 
-namespace detail {
 namespace {
 
 struct write_fn {
@@ -42,7 +41,7 @@ struct write_fn {
     out.write(reinterpret_cast<const char*>(&size), sizeof(size_t));
 
     auto acc = input.read_accessor<VAL, 1>();
-    for (legate::PointInRectIterator it(shape); it.valid(); ++it) {
+    for (legate::PointInRectIterator<1> it(shape); it.valid(); ++it) {
       auto ptr = acc.ptr(*it);
       out.write(reinterpret_cast<const char*>(ptr), sizeof(VAL));
     }
@@ -50,7 +49,6 @@ struct write_fn {
 };
 
 }  // namespace
-}  // namespace detail
 
 class WriteFileTask : public Task<WriteFileTask, WRITE_FILE> {
  public:
@@ -60,14 +58,13 @@ class WriteFileTask : public Task<WriteFileTask, WRITE_FILE> {
     auto& input   = context.inputs()[0];
     logger.print() << "Write to " << filename;
 
-    legate::type_dispatch(input.code(), detail::write_fn{}, input, filename);
+    legate::type_dispatch(input.code(), write_fn{}, input, filename);
   }
 };
 
 }  // namespace legateio
 
-namespace  // unnamed
-{
+namespace {
 
 static void __attribute__((constructor)) register_tasks()
 {

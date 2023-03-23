@@ -26,7 +26,6 @@ namespace fs = std::filesystem;
 
 namespace legateio {
 
-namespace detail {
 namespace {
 
 struct write_fn {
@@ -62,7 +61,6 @@ struct write_fn {
 };
 
 }  // namespace
-}  // namespace detail
 
 std::filesystem::path get_unique_path_for_task_index(const legate::TaskContext& context,
                                                      int32_t ndim,
@@ -91,7 +89,7 @@ void write_to_file(legate::TaskContext& task_context,
 {
   auto path = get_unique_path_for_task_index(task_context, store.dim(), dirname);
   // double_dispatch converts the first two arguments to non-type template arguments
-  legate::double_dispatch(store.dim(), store.code(), detail::write_fn{}, store, path);
+  legate::double_dispatch(store.dim(), store.code(), write_fn{}, store, path);
 }
 
 }  // namespace legateio

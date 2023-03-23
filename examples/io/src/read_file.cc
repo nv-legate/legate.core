@@ -21,7 +21,6 @@
 
 namespace legateio {
 
-namespace detail {
 namespace {
 
 struct read_fn {
@@ -77,7 +76,6 @@ struct read_fn {
 };
 
 }  // namespace
-}  // namespace detail
 
 class ReadFileTask : public Task<ReadFileTask, READ_FILE> {
  public:
@@ -93,14 +91,13 @@ class ReadFileTask : public Task<ReadFileTask, READ_FILE> {
     logger.print() << "Read " << filename << " (" << my_id + 1 << "/" << num_readers << ")";
 
     // type_dispatch converts the first argument to a non-type template argument
-    legate::type_dispatch(output.code(), detail::read_fn{}, output, filename, my_id, num_readers);
+    legate::type_dispatch(output.code(), read_fn{}, output, filename, my_id, num_readers);
   }
 };
 
 }  // namespace legateio
 
-namespace  // unnamed
-{
+namespace {
 
 static void __attribute__((constructor)) register_tasks()
 {

@@ -27,7 +27,7 @@ namespace fs = std::filesystem;
 
 namespace legateio {
 
-namespace detail {
+namespace {
 
 void write_header(std::ofstream& out,
                   legate::LegateTypeCode type_code,
@@ -43,7 +43,7 @@ void write_header(std::ofstream& out,
   for (auto& v : tile_shape) out.write(reinterpret_cast<const char*>(&v), sizeof(int32_t));
 }
 
-}  // namespace detail
+}  // namespace
 
 class WriteEvenTilesTask : public Task<WriteEvenTilesTask, WRITE_EVEN_TILES> {
  public:
@@ -62,7 +62,7 @@ class WriteEvenTilesTask : public Task<WriteEvenTilesTask, WRITE_EVEN_TILES> {
       auto header = fs::path(dirname) / ".header";
       logger.print() << "Write to " << header;
       std::ofstream out(header, std::ios::binary | std::ios::out | std::ios::trunc);
-      detail::write_header(out, input.code(), shape, tile_shape);
+      write_header(out, input.code(), shape, tile_shape);
     }
 
     write_to_file(context, dirname, input);
@@ -71,8 +71,7 @@ class WriteEvenTilesTask : public Task<WriteEvenTilesTask, WRITE_EVEN_TILES> {
 
 }  // namespace legateio
 
-namespace  // unnamed
-{
+namespace {
 
 static void __attribute__((constructor)) register_tasks()
 {
