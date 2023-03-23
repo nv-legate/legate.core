@@ -114,7 +114,7 @@ the concept of an [Array](https://arrow.apache.org/docs/cpp/api/array.html)
 from Arrow. The `LegateArray` class supports many of the same methods as
 the Arrow Array interface (we'll continue to add methods to improve
 compatibility). The main difference is that instead of obtaining
-[Buffer](https://arrow.apache.org/docs/cpp/api/memory.html#_CPPv4N5arrow6Buffer)
+[Buffer](https://arrow.apache.org/docs/cpp/api/memory.html#buffers)
 objects from arrays to describe allocations of data that back the array, the
 Legate Core API introduces a new primitive called a `LegateStore` which
 provides a new interface for reasoning about partitioned and distributed
@@ -157,7 +157,7 @@ the ecosystem and ensures that Legate library developers are more productive.
 ## How Does Legate Work?
 
 Our implementation of the Legate Core API is built on top of the
-[Legion](http://legion.stanford.edu) programming model and runtime system.
+[Legion](https://legion.stanford.edu/) programming model and runtime system.
 Legion was originally designed for large HPC applications that target
 supercomputers and consequently applications written in the Legion programming
 model tend to both perform and scale well on large clusters of both CPUs and
@@ -376,10 +376,10 @@ Jupyter kernel spec Legate_SM_GPU (Legate_SM_GPU) has been installed
 
 You will need to start a Jupyter server, then you can use a Jupyter notebook
 from any browser. Please refer to the following two sections from the README of
-the Legion Jupyter Notebook extension:
+the [Legion Jupyter Notebook extension](https://github.com/StanfordLegion/legion/tree/master/jupyter_notebook)
 
-* [Start the Jupyter Notebook server](https://github.com/StanfordLegion/legion/tree/master/jupyter_notebook#start-the-jupyter-notebook-server)
-* [Use the Jupyter Notebook in the browser](https://github.com/StanfordLegion/legion/tree/master/jupyter_notebook#use-the-jupyter-notebook-in-the-browser)
+* Start the Jupyter Notebook server
+* Use the Jupyter Notebook in the browser
 
 ### Configuring the Jupyter Notebook
 

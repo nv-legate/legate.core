@@ -25,8 +25,8 @@ specific cluster is not covered, you may be able to adapt an existing workflow.
 ## Getting dependencies through conda
 
 The primary method of retrieving dependencies for Legate Core and downstream
-libraries is through [conda](https://conda.io). You will need an installation of
-conda to follow the instructions below.
+libraries is through [conda](https://docs.conda.io/en/latest/). You will need
+an installation of conda to follow the instructions below.
 
 Please use the `scripts/generate-conda-envs.py` script to create a conda
 environment file listing all the packages that are required to build, run and
@@ -103,7 +103,8 @@ For example this would be an installation for a
 ```
 
 Alternatively, here is an install line for the
-[Piz-Daint](https://www.cscs.ch/computers/dismissed/piz-daint-piz-dora/) supercomputer:
+[Piz-Daint](https://www.cscs.ch/computers/decommissioned/piz-daint-piz-dora/)
+supercomputer:
 
 ```shell
 ./install.py --network gasnet1 --conduit aries --cuda --arch pascal
