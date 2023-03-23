@@ -60,7 +60,7 @@ void TaskDeserializer::_unpack(Store& value)
   } else {
     auto redop_id = unpack<int32_t>();
     assert(redop_id == -1);
-    auto out = unpack<OutputRegionField>();
+    auto out = unpack<UnboundRegionField>();
     value    = Store(dim, code, std::move(out), std::move(transform));
   }
 }
@@ -97,13 +97,13 @@ void TaskDeserializer::_unpack(RegionField& value)
   value = RegionField(dim, regions_[idx], fid);
 }
 
-void TaskDeserializer::_unpack(OutputRegionField& value)
+void TaskDeserializer::_unpack(UnboundRegionField& value)
 {
   auto dim = unpack<int32_t>();
   auto idx = unpack<uint32_t>();
   auto fid = unpack<int32_t>();
 
-  value = OutputRegionField(outputs_[idx], fid);
+  value = UnboundRegionField(outputs_[idx], fid);
 }
 
 void TaskDeserializer::_unpack(comm::Communicator& value)

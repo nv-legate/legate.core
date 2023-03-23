@@ -52,6 +52,7 @@ from . import (
     types as ty,
 )
 from ._legion.env import LEGATE_MAX_FIELDS
+from ._legion.operation import Discard
 from ._legion.util import Dispatchable
 from .allocation import Attachable
 from .communicator import CPUCommunicator, NCCLCommunicator
@@ -340,6 +341,12 @@ class FieldManager:
     def free_field(
         self, region: Region, field_id: int, ordered: bool = False
     ) -> None:
+        discard = Discard(region, field_id)
+        discard.launch(
+            self.runtime.legion_runtime,
+            self.runtime.legion_context,
+            unordered=not ordered,
+        )
         self.free_fields.append((region, field_id))
         region_manager = self.runtime.find_region_manager(region)
         if region_manager.decrease_active_field_count():
