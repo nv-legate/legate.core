@@ -14,7 +14,8 @@
 #
 from __future__ import annotations
 
-from argparse import Action, ArgumentParser, Namespace
+import sys
+from argparse import SUPPRESS, Action, ArgumentParser, Namespace
 from dataclasses import dataclass, fields
 from typing import (
     Any,
@@ -22,6 +23,7 @@ from typing import (
     Iterable,
     Iterator,
     Literal,
+    NoReturn,
     Sequence,
     Type,
     TypeVar,
@@ -29,6 +31,8 @@ from typing import (
 )
 
 from typing_extensions import TypeAlias
+
+from . import info
 
 
 class _UnsetType:
@@ -141,3 +145,21 @@ class ExtendAction(Action, Generic[T]):
             items.append(values)
         # removing any duplicates before storing
         setattr(namespace, self.dest, list(set(items)))
+
+
+class InfoAction(Action):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        kwargs["metavar"] = None
+        kwargs["nargs"] = 0
+        kwargs["default"] = SUPPRESS
+        super().__init__(*args, **kwargs)
+
+    def __call__(
+        self,
+        parser: ArgumentParser,
+        namespace: Namespace,
+        values: Union[str, Sequence[T], None],
+        option_string: Union[str, None] = None,
+    ) -> NoReturn:
+        info.print_build_info()
+        sys.exit()

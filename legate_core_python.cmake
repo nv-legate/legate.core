@@ -46,6 +46,10 @@ endif()
 add_custom_target("generate_install_info_py" ALL
   COMMAND ${CMAKE_COMMAND}
           -DLegion_NETWORKS="${Legion_NETWORKS}"
+          -DGASNet_CONDUIT="${GASNet_CONDUIT}"
+          -DLegion_USE_CUDA="${Legion_USE_CUDA}"
+          -DLegion_USE_OpenMP="${Legion_USE_OpenMP}"
+          -DCMAKE_BUILD_TYPE="${CMAKE_BUILD_TYPE}"
           -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
           -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/generate_install_info_py.cmake"
   COMMENT "Generate install_info.py"
