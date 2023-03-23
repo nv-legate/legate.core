@@ -24,6 +24,7 @@
 namespace legateio {
 
 namespace detail {
+namespace {
 
 struct write_fn {
   template <legate::LegateTypeCode CODE>
@@ -48,6 +49,7 @@ struct write_fn {
   }
 };
 
+}  // namespace
 }  // namespace detail
 
 class WriteFileTask : public Task<WriteFileTask, WRITE_FILE> {

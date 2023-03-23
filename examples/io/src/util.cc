@@ -27,6 +27,7 @@ namespace fs = std::filesystem;
 namespace legateio {
 
 namespace detail {
+namespace {
 
 struct write_fn {
   template <legate::LegateTypeCode CODE, int32_t DIM>
@@ -60,6 +61,7 @@ struct write_fn {
   }
 };
 
+}  // namespace
 }  // namespace detail
 
 std::filesystem::path get_unique_path_for_task_index(const legate::TaskContext& context,

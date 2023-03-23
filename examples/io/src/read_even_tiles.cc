@@ -26,6 +26,7 @@ namespace fs = std::filesystem;
 namespace legateio {
 
 namespace detail {
+namespace {
 
 struct read_fn {
   template <legate::LegateTypeCode CODE, int32_t DIM>
@@ -57,6 +58,7 @@ struct read_fn {
   }
 };
 
+}  // namespace
 }  // namespace detail
 
 class ReadEvenTilesTask : public Task<ReadEvenTilesTask, READ_EVEN_TILES> {

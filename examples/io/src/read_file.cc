@@ -22,6 +22,7 @@
 namespace legateio {
 
 namespace detail {
+namespace {
 
 struct read_fn {
   template <legate::LegateTypeCode CODE>
@@ -75,6 +76,7 @@ struct read_fn {
   }
 };
 
+}  // namespace
 }  // namespace detail
 
 class ReadFileTask : public Task<ReadFileTask, READ_FILE> {
