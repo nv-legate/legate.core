@@ -23,7 +23,7 @@ def print_build_info() -> None:
   build_type : {info.build_type}
   use_openmp : {info.use_openmp}
   use_cuda   : {info.use_cuda}
-  networks   : {','.join(info.networks) if info.networks else 'None'}
+  networks   : {','.join(info.networks) if info.networks else ''}
   conduit    : {info.conduit}
 """
     )
