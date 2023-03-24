@@ -856,7 +856,7 @@ class ManualTask(Operation, Task):
         self._reduction_projs: list[Union[ProjFn, None]] = []
 
         self._input_parts: list[StorePartition] = []
-        self._output_parts: list[StorePartition] = []
+        self._output_parts: list[Union[StorePartition, None]] = []
         self._reduction_parts: list[tuple[StorePartition, int]] = []
 
     @property
@@ -917,15 +917,22 @@ class ManualTask(Operation, Task):
         """
         self._check_arg(arg)
         if isinstance(arg, Store):
-            if arg.unbound:
-                raise NotImplementedError(
-                    "Unbound store cannot be used with "
-                    "manually parallelized task"
-                )
             if arg.kind is Future:
                 self._scalar_outputs.append(len(self._outputs))
-                self._outputs.append(arg)
-            self._output_parts.append(arg.partition(REPLICATE))
+            elif arg.unbound:
+                if arg.ndim != self.launch_ndim:
+                    raise NotImplementedError(
+                        "Unbound store with an incompatible number of "
+                        "dimensions cannot be used with manually parallelized "
+                        "task"
+                    )
+                self._unbound_outputs.append(len(self._outputs))
+            self._outputs.append(arg)
+            if arg.unbound:
+                # FIXME: Need better placeholders for unbound stores
+                self._output_parts.append(None)
+            else:
+                self._output_parts.append(arg.partition(REPLICATE))
         else:
             self._output_parts.append(arg)
         self._output_projs.append(proj)
@@ -992,9 +999,11 @@ class ManualTask(Operation, Task):
             req = part.get_requirement(self.launch_ndim, proj_fn)
             launcher.add_input(part.store, req, tag=0)
 
-        for part, proj_fn in zip(self._output_parts, self._output_projs):
-            req = part.get_requirement(self.launch_ndim, proj_fn)
-            launcher.add_output(part.store, req, tag=0)
+        for opart, proj_fn in zip(self._output_parts, self._output_projs):
+            if opart is None:
+                continue
+            req = opart.get_requirement(self.launch_ndim, proj_fn)
+            launcher.add_output(opart.store, req, tag=0)
 
         for (part, redop), proj_fn in zip(
             self._reduction_parts, self._reduction_projs
@@ -1005,6 +1014,15 @@ class ManualTask(Operation, Task):
             launcher.add_reduction(
                 part.store, req, tag=0, read_write=can_read_write
             )
+
+        for store, proj_fn in zip(self._outputs, self._output_projs):
+            if not store.unbound:
+                continue
+            # TODO: Need an interface for clients to specify isomorphism
+            # bewteen unbound stores
+            fspace = self._context.runtime.create_field_space()
+            field_id = fspace.allocate_field(store.type)
+            launcher.add_unbound_output(store, fspace, field_id)
 
         self._add_scalar_args_to_launcher(launcher)
 

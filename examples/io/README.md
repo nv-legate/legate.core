@@ -1,0 +1,28 @@
+<!--
+Copyright 2023 NVIDIA Corporation
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+-->
+
+# Legate IO example
+
+This tutorial illustrates how one can build an I/O library in Legate using the
+following three scenarios:
+
+1. I/O with a single file (`write_file`, `read_file`, `read_file_parallel`)
+2. I/O with a dataset of uneven tiles (`write_uneven_tiles`, `read_uneven_tiles`)
+3. I/O with a dataset of even tiles (`write_even_tiles`, `read_even_tiles`)
+
+This tutorial also teaches you how to make a domain library container interoperate
+with other libraries via Legate data interface.

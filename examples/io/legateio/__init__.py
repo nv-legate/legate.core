@@ -1,4 +1,3 @@
-#=============================================================================
 # Copyright 2023 NVIDIA Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,11 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#=============================================================================
+#
 
-# We abuse find package for testing purposes here to
-# 'find' the current build tree to test package builds
-set(legate_core_ROOT ${CMAKE_BINARY_DIR})
-
-add_subdirectory(hello)
-add_subdirectory(io)
+from .library import user_lib
+from .legateio import (
+    read_even_tiles,
+    read_file,
+    read_file_parallel,
+    read_uneven_tiles,
+    IOArray,
+)

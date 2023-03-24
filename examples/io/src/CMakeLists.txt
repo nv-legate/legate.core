@@ -14,9 +14,28 @@
 # limitations under the License.
 #=============================================================================
 
-# We abuse find package for testing purposes here to
-# 'find' the current build tree to test package builds
-set(legate_core_ROOT ${CMAKE_BINARY_DIR})
+legate_cpp_library_template(legateio TEMPLATE_SOURCES)
 
-add_subdirectory(hello)
-add_subdirectory(io)
+add_library(
+  legateio
+  legateio.cc
+  legateio.h
+  read_file.cc
+  read_even_tiles.cc
+  read_uneven_tiles.cc
+  util.cc
+  write_file.cc
+  write_uneven_tiles.cc
+  write_even_tiles.cc
+  ${TEMPLATE_SOURCES}
+)
+
+target_include_directories(legateio
+  PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+  INTERFACE
+    $<INSTALL_INTERFACE:include>
+)
+
+target_link_libraries(legateio PRIVATE legate::core)
+

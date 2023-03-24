@@ -14,9 +14,17 @@
 # limitations under the License.
 #=============================================================================
 
-# We abuse find package for testing purposes here to
-# 'find' the current build tree to test package builds
-set(legate_core_ROOT ${CMAKE_BINARY_DIR})
+cmake_minimum_required(VERSION 3.22.1 FATAL_ERROR)
 
-add_subdirectory(hello)
-add_subdirectory(io)
+project(legateio VERSION 1.0 LANGUAGES C CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(BUILD_SHARED_LIBS ON)
+
+find_package(legate_core REQUIRED)
+
+legate_add_cpp_subdirectory(src TARGET legateio EXPORT legateio-export)
+
+legate_add_cffi(${CMAKE_CURRENT_SOURCE_DIR}/src/legateio_cffi.h TARGET legateio)
+legate_python_library_template(legateio)
+legate_default_python_install(legateio EXPORT legateio-export)
