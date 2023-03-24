@@ -28,6 +28,7 @@ from typing import (
 import numpy as np
 
 from . import Future, legion
+from ._legion.util import Logger
 from .resource import ResourceScope
 from .types import TypeSystem
 
@@ -153,9 +154,14 @@ class Context:
 
         self._libname = library.get_name()
         self._annotations: list[LibraryAnnotations] = [LibraryAnnotations()]
+        self._logger = Logger(library.get_name())
 
     def destroy(self) -> None:
         self._library.destroy()
+
+    @property
+    def logger(self) -> Logger:
+        return self._logger
 
     @property
     def runtime(self) -> Runtime:

@@ -416,3 +416,33 @@ class BufferBuilder:
 
     def get_size(self) -> int:
         return self.size
+
+
+class Logger:
+    def __init__(self, name: str) -> None:
+        self.handle = legion.legion_logger_create(name.encode("utf-8"))
+
+    def __del__(self) -> None:
+        legion.legion_logger_destroy(self.handle)
+        self.handle = None
+
+    def spew(self, msg: str) -> None:
+        legion.legion_logger_spew(self.handle, msg.encode("utf-8"))
+
+    def debug(self, msg: str) -> None:
+        legion.legion_logger_debug(self.handle, msg.encode("utf-8"))
+
+    def info(self, msg: str) -> None:
+        legion.legion_logger_info(self.handle, msg.encode("utf-8"))
+
+    def print(self, msg: str) -> None:
+        legion.legion_logger_print(self.handle, msg.encode("utf-8"))
+
+    def warning(self, msg: str) -> None:
+        legion.legion_logger_warning(self.handle, msg.encode("utf-8"))
+
+    def error(self, msg: str) -> None:
+        legion.legion_logger_error(self.handle, msg.encode("utf-8"))
+
+    def fatal(self, msg: str) -> None:
+        legion.legion_logger_fatal(self.handle, msg.encode("utf-8"))
