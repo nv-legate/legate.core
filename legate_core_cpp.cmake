@@ -448,7 +448,7 @@ Imported Targets:
 
 ]=])
 
-file(READ ${CMAKE_SOURCE_DIR}/cmake/legate_helper_functions.cmake helper_functions)
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/cmake/legate_helper_functions.cmake helper_functions)
 
 string(JOIN "\n" code_string
 [=[
