@@ -182,7 +182,7 @@ function(legate_default_python_install target)
     message(FATAL_ERROR "Need EXPORT name for legate_default_python_install")
   endif()
 
-  if (SKBUILD)
+  if (SKBUILD AND NOT TARGET legate::${target}_python)
     add_library(${target}_python INTERFACE)
     add_library(legate::${target}_python ALIAS ${target}_python)
     target_link_libraries(${target}_python INTERFACE legate::core legate::${target})
