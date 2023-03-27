@@ -202,7 +202,7 @@ function(legate_default_python_install target)
 endfunction()
 
 function(legate_add_cpp_subdirectory dir)
-  set(options)
+  set(options ALWAYS_BUILD)
   set(one_value_args EXPORT TARGET)
   set(multi_value_args)
   cmake_parse_arguments(
@@ -230,7 +230,7 @@ function(legate_add_cpp_subdirectory dir)
           BUILD_EXPORT_SET ${LEGATE_OPT_EXPORT}
           INSTALL_EXPORT_SET ${LEGATE_OPT_EXPORT})
 
-  if (SKBUILD)
+  if (SKBUILD AND NOT LEGATE_OPT_ALWAYS_BUILD)
     if (NOT DEFINED ${target}_ROOT)
       set(${target}_ROOT ${CMAKE_SOURCE_DIR}/build)
     endif()
