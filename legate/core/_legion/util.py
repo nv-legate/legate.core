@@ -423,6 +423,15 @@ class Logger:
         self.handle = legion.legion_logger_create(name.encode("utf-8"))
 
     def __del__(self) -> None:
+        self.destroy()
+
+    def destroy(self) -> None:
+        """
+        Eagerly destroy this object before the garbage collector does.
+        It is illegal to use the object after this call.
+        """
+        if self.handle is None:
+            return
         legion.legion_logger_destroy(self.handle)
         self.handle = None
 

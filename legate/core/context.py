@@ -157,6 +157,7 @@ class Context:
         self._logger = Logger(library.get_name())
 
     def destroy(self) -> None:
+        self._logger.destroy()
         self._library.destroy()
 
     @property
