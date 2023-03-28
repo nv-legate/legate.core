@@ -256,6 +256,7 @@ def install(
     check_bounds,
     clean_first,
     extra_flags,
+    build_examples,
     editable,
     build_isolation,
     thread_count,
@@ -468,6 +469,8 @@ def install(
         cmake_flags += [f"-Dlegate_core_LEGION_BRANCH={legion_branch}"]
     if build_docs:
         cmake_flags += ["-Dlegate_core_BUILD_DOCS=ON"]
+    if build_examples:
+        cmake_flags += ["-Dlegate_core_EXAMPLE_BUILD_TESTS=ON"]
 
     cmake_flags += extra_flags
     build_flags = [f"-j{str(thread_count)}"]
@@ -685,6 +688,13 @@ def driver():
         required=False,
         default=[],
         help="Extra CMake flags.",
+    )
+    parser.add_argument(
+        "--build-examples",
+        dest="build_examples",
+        action=BooleanFlag,
+        default=False,
+        help="Whether to build the examples",
     )
     parser.add_argument(
         "-j",
