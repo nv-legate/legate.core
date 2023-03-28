@@ -36,7 +36,7 @@ void LibraryContext::register_reduction_operator()
   Legion::Runtime::register_reduction_op<REDOP>(get_reduction_op_id(REDOP::REDOP_ID));
 }
 
-#else  // ifndef REALM_COMPILER_IS_NVCC
+#else   // ifndef REALM_COMPILER_IS_NVCC
 
 namespace detail {
 
