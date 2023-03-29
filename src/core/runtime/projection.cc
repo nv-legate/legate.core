@@ -48,7 +48,11 @@ class DelinearizationFunctor : public LegateProjectionFunctor {
 template <int32_t SRC_DIM, int32_t TGT_DIM>
 class AffineFunctor : public LegateProjectionFunctor {
  public:
-  AffineFunctor(Legion::Runtime* runtime, int32_t* dims, int32_t* weights, int32_t* offsets);
+  AffineFunctor(Legion::Runtime* runtime,
+                int32_t* dims,
+                int32_t* weights,
+                int32_t* offsets,
+                bool has_promotion);
 
  public:
   DomainPoint project_point(const DomainPoint& point, const Domain& launch_domain) const override;
@@ -116,16 +120,14 @@ DomainPoint DelinearizationFunctor::project_point(const DomainPoint& point,
 }
 
 template <int32_t SRC_DIM, int32_t TGT_DIM>
-AffineFunctor<SRC_DIM, TGT_DIM>::AffineFunctor(Legion::Runtime* runtime,
-                                               int32_t* dims,
-                                               int32_t* weights,
-                                               int32_t* offsets)
+AffineFunctor<SRC_DIM, TGT_DIM>::AffineFunctor(
+  Legion::Runtime* runtime, int32_t* dims, int32_t* weights, int32_t* offsets, bool has_promotion)
   : LegateProjectionFunctor(runtime), transform_(create_transform(dims, weights))
 {
   for (int32_t dim = 0; dim < TGT_DIM; ++dim) offsets_[dim] = offsets[dim];
 
   // mapping to a different dimension
-  if (SRC_DIM > TGT_DIM) {
+  if (has_promotion) {
     set_collective();
     return;
   }
@@ -220,9 +222,11 @@ struct create_affine_functor_fn {
                   int32_t* dims,
                   int32_t* weights,
                   int32_t* offsets,
-                  Legion::ProjectionID proj_id)
+                  Legion::ProjectionID proj_id,
+                  bool has_promotion)
   {
-    auto functor = new AffineFunctor<SRC_DIM, TGT_DIM>(runtime, dims, weights, offsets);
+    auto functor =
+      new AffineFunctor<SRC_DIM, TGT_DIM>(runtime, dims, weights, offsets, has_promotion);
 #ifdef DEBUG_LEGATE
     std::stringstream ss;
     ss << "Register projection functor: functor: " << functor << ", id: " << proj_id << ", ";
@@ -300,7 +304,8 @@ void legate_register_affine_projection_functor(int32_t src_ndim,
                                                int32_t* dims,
                                                int32_t* weights,
                                                int32_t* offsets,
-                                               legion_projection_id_t proj_id)
+                                               legion_projection_id_t proj_id,
+                                               bool has_promotion)
 {
   auto runtime = Legion::Runtime::get_runtime();
   legate::double_dispatch(src_ndim,
@@ -310,7 +315,8 @@ void legate_register_affine_projection_functor(int32_t src_ndim,
                           dims,
                           weights,
                           offsets,
-                          proj_id);
+                          proj_id,
+                          has_promotion);
 }
 
 void* legate_linearizing_point_transform_functor()

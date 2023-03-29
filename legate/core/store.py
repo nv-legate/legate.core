@@ -1665,18 +1665,22 @@ class Store:
         # partition
 
         # For the next common case, we cache the projection functor id
+
+        has_promotion = self._transform.has_promote()
         if proj_fn is None:
             if self._projection is None:
                 point = execute_functor_symbolically(self.ndim)
                 point = self._transform.invert_symbolic_point(point)
-                self._projection = runtime.get_projection(self.ndim, point)
+                self._projection = runtime.get_projection(
+                    self.ndim, point, has_promotion
+                )
             return self._projection
         # For more general cases, don't bother to cache anything
         else:
             assert launch_ndim is not None
             point = execute_functor_symbolically(launch_ndim, proj_fn)
             point = self._transform.invert_symbolic_point(point)
-            return runtime.get_projection(launch_ndim, point)
+            return runtime.get_projection(launch_ndim, point, has_promotion)
 
     def find_restrictions(self) -> tuple[Restriction, ...]:
         if self._restrictions is not None:

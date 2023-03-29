@@ -593,6 +593,9 @@ class TransformStackBase(TransformProto, Protocol):
     def invert_partition(self, partition: PartitionBase) -> PartitionBase:
         ...
 
+    def has_promote(self) -> bool:
+        ...
+
 
 class TransformStack(TransformStackBase):
     def __init__(
@@ -675,6 +678,9 @@ class TransformStack(TransformStackBase):
         self._transform.serialize(buf)
         self._parent.serialize(buf)
 
+    def has_promote(self) -> bool:
+        return isinstance(self._transform, Promote)
+
 
 class IdentityTransform(TransformStackBase):
     def __init__(self) -> None:
@@ -732,6 +738,9 @@ class IdentityTransform(TransformStackBase):
 
     def serialize(self, buf: BufferBuilder) -> None:
         buf.pack_32bit_int(-1)
+
+    def has_promote(self) -> bool:
+        return False
 
 
 identity = IdentityTransform()

@@ -1335,6 +1335,7 @@ class Runtime:
         dims_c: Any,
         weights_c: Any,
         offsets_c: Any,
+        has_promotion: bool,
     ) -> int:
         proj_id = self.core_context.get_projection_id(self._next_projection_id)
         self._next_projection_id += 1
@@ -1347,6 +1348,7 @@ class Runtime:
             weights_c,
             offsets_c,
             proj_id,
+            has_promotion,
         )
 
         shard_id = self.core_context.get_projection_id(self._next_sharding_id)
@@ -1360,7 +1362,12 @@ class Runtime:
 
         return proj_id
 
-    def get_projection(self, src_ndim: int, dims: tuple[ProjExpr, ...]) -> int:
+    def get_projection(
+        self,
+        src_ndim: int,
+        dims: tuple[ProjExpr, ...],
+        has_promotion: bool = False,
+    ) -> int:
         spec = (src_ndim, dims)
         if spec in self._registered_projections:
             return self._registered_projections[spec]
@@ -1370,7 +1377,9 @@ class Runtime:
             return 0
         else:
             return self._register_projection_functor(
-                spec, *pack_symbolic_projection_repr(src_ndim, dims)
+                spec,
+                *pack_symbolic_projection_repr(src_ndim, dims),
+                has_promotion=has_promotion,
             )
 
     def get_transform_code(self, name: str) -> int:

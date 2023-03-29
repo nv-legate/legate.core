@@ -123,7 +123,7 @@ void legate_shutdown(void);
 void legate_core_perform_registration(void);
 
 void legate_register_affine_projection_functor(
-  int32_t, int32_t, int32_t*, int32_t*, int32_t*, legion_projection_id_t);
+  int32_t, int32_t, int32_t*, int32_t*, int32_t*, legion_projection_id_t, bool);
 
 void legate_create_sharding_functor_using_projection(legion_sharding_id_t, legion_projection_id_t);
 
