@@ -635,8 +635,8 @@ class PartitionManager:
         remaining = factor_by(remaining, 11)
         if remaining > 1:
             raise ValueError(
-                "cuNumeric currently doesn't support processor "
-                + "counts with large prime factors greater than 11"
+                "Legate currently doesn't support processor "
+                "counts with large prime factors greater than 11"
             )
 
         factors = list(reversed(factors))
@@ -1168,6 +1168,30 @@ class Runtime:
         if len(self._machines) <= 1:
             raise RuntimeError("Machine stack underflow")
         self._machines.pop()
+
+    @property
+    def num_procs(self) -> int:
+        """
+        Returns the total number of processors used to launch tasks
+
+        Legate heuristically decides the target processor kind by checking
+        availability of processors in the following order: GPU > OpenMP > CPU.
+        This property returns the count of the processors that Legate will
+        choose to try to run tasks. Note that Legate can still pick other
+        processor types if the task doesn't have a task variant for the
+        runtime's preferred processor kind.
+
+        Returns
+        -------
+        int
+            Number of processors
+        """
+        if self.num_gpus > 0:
+            return self.num_gpus
+        elif self.num_omps > 0:
+            return self.num_omps
+        else:
+            return self.num_cpus
 
     @property
     def core_task_variant_id(self) -> int:

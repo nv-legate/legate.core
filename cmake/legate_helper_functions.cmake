@@ -153,7 +153,7 @@ header: str = """
     set(libdir ${CMAKE_BINARY_DIR}/legate_${target})
     message("libdir to binary dir")
   endif()
-  add_custom_target("generate_install_info_py" ALL
+  add_custom_target("${target}_generate_install_info_py" ALL
     COMMAND ${CMAKE_COMMAND}
       -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
       -Dtarget=${target}

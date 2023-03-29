@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Copyright 2021-2022 NVIDIA Corporation
+# Copyright 2023 NVIDIA Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,9 +35,9 @@ os.environ["CMAKE_ARGS"] = " ".join(cmake_flags)
 
 
 setup(
-    name="Legate Hello",
+    name="Legate IO Tutorial",
     version="0.1",
-    description="A Hello World for Legate",
+    description="An IO example for Legate",
     author="NVIDIA Corporation",
     license="Apache 2.0",
     classifiers=[
@@ -52,8 +52,9 @@ setup(
     ],
     packages=find_packages(
         where=".",
-        include=["hello", "hello.*"],
+        include=["legateio", "legateio.*"],
     ),
     include_package_data=True,
     zip_safe=False,
+    install_requires=["cunumeric", "pyarrow>=5"],
 )

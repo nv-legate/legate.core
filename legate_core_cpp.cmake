@@ -452,7 +452,7 @@ Imported Targets:
 
 ]=])
 
-file(READ ${CMAKE_SOURCE_DIR}/cmake/legate_helper_functions.cmake helper_functions)
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/cmake/legate_helper_functions.cmake helper_functions)
 
 string(JOIN "\n" code_string
 [=[
@@ -500,3 +500,8 @@ rapids_export(
   FINAL_CODE_BLOCK code_string
   LANGUAGES ${ENABLED_LANGUAES}
 )
+option(legate_core_EXAMPLE_BUILD_TESTS OFF)
+if (legate_core_EXAMPLE_BUILD_TESTS)
+  set(legate_core_ROOT ${CMAKE_CURRENT_BINARY_DIR})
+  add_subdirectory(examples)
+endif()
