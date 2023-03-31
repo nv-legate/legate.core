@@ -30,7 +30,8 @@ struct Transform {
 
 struct StoreTransform : public Transform {
   virtual ~StoreTransform() {}
-  virtual int32_t target_ndim(int32_t source_ndim) const = 0;
+  virtual int32_t target_ndim(int32_t source_ndim) const         = 0;
+  virtual void return_promoted_dims(std::vector<int32_t>&) const = 0;
 };
 
 struct TransformStack : public Transform {
@@ -51,6 +52,13 @@ struct TransformStack : public Transform {
  public:
   void dump() const;
 
+ public:
+  void return_promoted_dims(std::vector<int32_t>& dims)
+  {
+    if (nullptr != transform_) transform_->return_promoted_dims(dims);
+    if (nullptr != parent_) parent_->return_promoted_dims(dims);
+  }
+
  private:
   std::unique_ptr<StoreTransform> transform_{nullptr};
   std::shared_ptr<TransformStack> parent_{nullptr};
@@ -68,6 +76,9 @@ class Shift : public StoreTransform {
  public:
   virtual int32_t target_ndim(int32_t source_ndim) const override;
 
+ public:
+  virtual void return_promoted_dims(std::vector<int32_t>&) const override;
+
  private:
   int32_t dim_;
   int64_t offset_;
@@ -84,6 +95,9 @@ class Promote : public StoreTransform {
 
  public:
   virtual int32_t target_ndim(int32_t source_ndim) const override;
+
+ public:
+  virtual void return_promoted_dims(std::vector<int32_t>&) const override;
 
  private:
   int32_t extra_dim_;
@@ -103,6 +117,9 @@ class Project : public StoreTransform {
  public:
   virtual int32_t target_ndim(int32_t source_ndim) const override;
 
+ public:
+  virtual void return_promoted_dims(std::vector<int32_t>&) const override;
+
  private:
   int32_t dim_;
   int64_t coord_;
@@ -120,6 +137,9 @@ class Transpose : public StoreTransform {
  public:
   virtual int32_t target_ndim(int32_t source_ndim) const override;
 
+ public:
+  virtual void return_promoted_dims(std::vector<int32_t>&) const override;
+
  private:
   std::vector<int32_t> axes_;
 };
@@ -135,6 +155,9 @@ class Delinearize : public StoreTransform {
 
  public:
   virtual int32_t target_ndim(int32_t source_ndim) const override;
+
+ public:
+  virtual void return_promoted_dims(std::vector<int32_t>&) const override;
 
  private:
   int32_t dim_;

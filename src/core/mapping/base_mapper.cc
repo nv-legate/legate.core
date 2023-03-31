@@ -18,6 +18,7 @@
 #include <sstream>
 #include <unordered_map>
 
+#include "legion.h"
 #include "legion/legion_mapping.h"
 #include "mappers/mapping_utilities.h"
 
@@ -208,7 +209,22 @@ void BaseMapper::select_task_options(const Legion::Mapping::MapperContext ctx,
                                      const Legion::Task& task,
                                      TaskOptions& output)
 {
+  Task legate_task(&task, context, runtime, ctx);
 #ifdef LEGATE_USE_COLLECTIVE
+  std::vector<bool> collective_inputs;
+  for (size_t i = 0; i < legate_task.inputs().size(); i++) {
+    std::vector<int32_t> promoted_dims;
+    auto store = legate_task.inputs()[i];
+    store.return_promoted_dims(promoted_dims);
+    collective_inputs.push_back(false);
+    for (auto& d : promoted_dims) {
+      if ((task.index_domain.hi()[d] - task.index_domain.lo()[d]) > 1) {
+        collective_inputs[i] = true;
+        continue;
+      }
+    }
+  }
+
   for (uint32_t idx = 0; idx < task.regions.size(); ++idx) {
     auto& req = task.regions[idx];
     if (req.privilege & LEGION_WRITE_PRIV) continue;
@@ -217,6 +233,15 @@ void BaseMapper::select_task_options(const Legion::Mapping::MapperContext ctx,
     // not recorded by Legate Core. So, handle the case when these functors
     // are not present and allow for them to be missing.
     auto projection = find_legate_projection_functor(req.projection, true /* allow_mising */);
+    if (idx < legate_task.inputs().size() && (!legate_task.inputs()[idx].is_future())) {
+#ifdef DEBUG_LEGATE
+      assert(idx == legate_task.inputs()[idx].requirement_index());
+#endif
+      if (collective_inputs[idx] == true) {
+        output.check_collective_regions.insert(idx);
+        continue;
+      }
+    }
     if ((req.handle_type == LEGION_SINGULAR_PROJECTION) ||
         (projection != nullptr && projection->is_collective())) {
       output.check_collective_regions.insert(idx);
@@ -231,7 +256,6 @@ void BaseMapper::select_task_options(const Legion::Mapping::MapperContext ctx,
     options.push_back(TaskTarget::OMP);
   options.push_back(TaskTarget::CPU);
 
-  Task legate_task(&task, context, runtime, ctx);
   auto target = legate_mapper_->task_target(legate_task, options);
 
   dispatch(target, [&output](auto& procs) { output.initial_proc = procs.front(); });

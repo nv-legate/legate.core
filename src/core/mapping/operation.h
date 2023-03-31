@@ -204,6 +204,12 @@ class Store {
    */
   Domain domain() const;
 
+ public:
+  void return_promoted_dims(std::vector<int32_t>& dims)
+  {
+    if (nullptr != transform_) transform_->return_promoted_dims(dims);
+  }
+
  private:
   bool is_future_{false};
   bool is_output_store_{false};

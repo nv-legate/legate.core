@@ -124,21 +124,8 @@ AffineFunctor<SRC_DIM, TGT_DIM>::AffineFunctor(Legion::Runtime* runtime,
 {
   for (int32_t dim = 0; dim < TGT_DIM; ++dim) offsets_[dim] = offsets[dim];
 
-  // mapping to a different dimension
-  if (SRC_DIM > TGT_DIM) {
-    set_collective();
-    return;
-  }
-
-  // find if there is `-1` in the dimensions
   std::set<int32_t> unique;
-  for (int32_t dim = 0; dim < SRC_DIM; ++dim) {
-    if (dims[dim] == -1) {
-      set_collective();
-      return;
-    }
-    unique.insert(dims[dim]);
-  }
+  for (int32_t dim = 0; dim < SRC_DIM; ++dim) { unique.insert(dims[dim]); }
   // if there are repeated dimensions
   if (unique.size() != SRC_DIM) set_collective();
 }
