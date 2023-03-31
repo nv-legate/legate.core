@@ -83,6 +83,10 @@ class ProjExpr:
             raise ValueError("RHS must be an integer")
         return ProjExpr(self._dim, self._weight, self._offset + other)
 
+    def __floordiv__(self, other: int) -> ProjExpr:
+        if not isinstance(other, int):
+            raise ValueError("RHS must be an integer")
+        return ProjExpr(self._dim, self._weight, self._offset // other)
 
 # todo: (bev) use tuple[...] when feasible
 SymbolicPoint = Tuple[ProjExpr, ...]
