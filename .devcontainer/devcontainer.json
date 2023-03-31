@@ -1,0 +1,13 @@
+
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/javascript-node
+{
+    "name": "legate.core",
+    // More info: https://containers.dev/guide/dockerfile
+    "build": {
+        // Path that the Docker build should be run from relative to devcontainer.json.
+        "context": "..",
+        // Path is relative to the devcontainer.json file.
+        "dockerfile": "Dockerfile"
+    }
+}

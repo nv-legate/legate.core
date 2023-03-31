@@ -1,0 +1,81 @@
+name: Build legate.core devcontainer
+on:
+  workflow_dispatch:
+  push:
+    branches-ignore:
+      - gh-pages  # deployment target branch (this workflow should not exist on that branch anyway)
+  pull_request:
+    branches-ignore:
+      - gh-pages  # deployment target branch (this workflow should not exist on that branch anyway)
+env:
+  COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+  PROJECT: github-core-ci
+  REF: ${{ github.event.pull_request.head.ref || github.ref }}
+  EVENT_NAME: ${{ github.event_name }}
+  LABEL: ${{ github.event.pull_request.head.label }}
+  REPO_URL: ${{ github.event.pull_request.head.repo.html_url || github.event.repository.html_url }}
+  # Prevent output buffering
+  PYTHONUNBUFFERED: 1
+  IMAGE_NAME: ghcr.io/sandeepd-nv/legate.core.devcontainer.${{github.ref_name}}
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # runs-on: self-hosted
+    permissions:
+      packages: write
+
+    steps:
+      - name: Dump GitHub context
+        env:
+          GITHUB_CONTEXT: ${{ toJSON(github) }}
+        run: echo "$GITHUB_CONTEXT"
+      - name: Dump job context
+        env:
+          JOB_CONTEXT: ${{ toJSON(job) }}
+        run: echo "$JOB_CONTEXT"
+      - name: Dump steps context
+        env:
+          STEPS_CONTEXT: ${{ toJSON(steps) }}
+        run: echo "$STEPS_CONTEXT"
+      - name: Dump runner context
+        env:
+          RUNNER_CONTEXT: ${{ toJSON(runner) }}
+        run: echo "$RUNNER_CONTEXT"
+      - name: Dump strategy context
+        env:
+          STRATEGY_CONTEXT: ${{ toJSON(strategy) }}
+        run: echo "$STRATEGY_CONTEXT"
+      - name: Dump matrix context
+        env:
+          MATRIX_CONTEXT: ${{ toJSON(matrix) }}
+        run: echo "$MATRIX_CONTEXT"
+      
+      ####################################
+      # Actual build process starts here #
+      ####################################
+      
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2 
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pre-build dev container image
+        uses: devcontainers/ci@v0.3
+        with:
+          imageName: ${{ env.IMAGE_NAME }}
+          cacheFrom: ${{ env.IMAGE_NAME }}
+          push: always
+
+      - name: Build legate.core
+        uses: devcontainers/ci@v0.3
+        with:
+          imageName: ${{ env.IMAGE_NAME }}
+          cacheFrom: ${{ env.IMAGE_NAME }}
+          push: filter
+          eventFilterForPush: push
+          runCmd: ./install.py --cuda
