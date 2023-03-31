@@ -38,6 +38,16 @@ struct reduction_fn {
 
     for (legate::PointInRectIterator<DIM> it(shape, false /*fortran_order*/); it.valid(); ++it) {
       auto p = *it;
+      // Coordinates of the contracting dimension are ignored by red_acc via an affine
+      // transformation. For example, if the store was 3D and the second dimension was contracted,
+      // each point p will go through the following affine transformation to recover the point in
+      // the domain prior to the promotion:
+      //
+      //     | 1  0  0 |     | x |
+      //     |         |  *  | y |
+      //     | 0  0  1 |     | z |
+      //
+      // where the "*" operator denotes a matrix-vector multiplication.
       red_acc.reduce(p, in_acc[p]);
     }
   }
