@@ -1,0 +1,14 @@
+
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/javascript-node
+{
+    "name": "legate.core",
+    // More info: https://containers.dev/guide/dockerfile
+    "build": {
+        // Path is relataive to the devcontainer.json file.
+        "dockerfile": "Dockerfile"
+    },
+
+    // Use 'postCreateCommand' to run commands after the container is created.
+    "postCreateCommand": "bash scripts/devcontainer-post-create.sh"
+}
