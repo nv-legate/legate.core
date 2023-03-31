@@ -639,7 +639,8 @@ bool BaseMapper::map_legate_store(const Legion::Mapping::MapperContext ctx,
       return false;
     }
     if (!can_fail)
-      report_failed_mapping(mappable, mapping.requirement_index(), target_memory, redop, footprint);
+      report_failed_mapping(
+        ctx, mappable, mapping.requirement_index(), target_memory, redop, footprint);
     return true;
   }
 
@@ -676,7 +677,7 @@ bool BaseMapper::map_legate_store(const Legion::Mapping::MapperContext ctx,
     regions = group->get_regions();
   }
 
-  bool created     = false;
+  bool created     = true;
   bool success     = false;
   size_t footprint = 0;
 
@@ -739,12 +740,13 @@ bool BaseMapper::map_legate_store(const Legion::Mapping::MapperContext ctx,
   if (!can_fail) {
     auto req_indices = mapping.requirement_indices();
     for (auto req_idx : req_indices)
-      report_failed_mapping(mappable, req_idx, target_memory, redop, footprint);
+      report_failed_mapping(ctx, mappable, req_idx, target_memory, redop, footprint);
   }
   return true;
 }
 
-void BaseMapper::report_failed_mapping(const Legion::Mappable& mappable,
+void BaseMapper::report_failed_mapping(const Legion::Mapping::MapperContext ctx,
+                                       const Legion::Mappable& mappable,
                                        uint32_t index,
                                        Memory target_memory,
                                        Legion::ReductionOpID redop,
@@ -773,7 +775,7 @@ void BaseMapper::report_failed_mapping(const Legion::Mappable& mappable,
 
   logger.error("Mapper %s failed to allocate %zd bytes on memory " IDFMT
                " (of kind %s: %s) for %s of %s%s[%s] (UID %lld).\n"
-               "This means Legate was unable to reserve ouf of its memory pool the full amount "
+               "This means Legate was unable to reserve out of its memory pool the full amount "
                "required for the above operation. Here are some things to try:\n"
                "* Make sure your code is not impeding the garbage collection of Legate-backed "
                "objects, e.g. by storing references in caches, or creating reference cycles.\n"
@@ -797,6 +799,33 @@ void BaseMapper::report_failed_mapping(const Legion::Mappable& mappable,
                opname.c_str(),
                provenance.c_str(),
                mappable.get_unique_id());
+
+  std::vector<Legion::Mapping::PhysicalInstance> results;
+  runtime->find_physical_instances(ctx,
+                                   target_memory,
+                                   Legion::LayoutConstraintSet(),
+                                   std::vector<Legion::LogicalRegion>(),
+                                   results);
+  logger.error() << "At the point when the above operation would run, the above memory is "
+                 << "reserving space for the following PhysicalInstances:";
+  for (Legion::Mapping::PhysicalInstance inst : results) {
+    logger.error() << Legion::Mapping::Utilities::to_string(runtime, ctx, inst);
+    std::set<Legion::FieldID> fields;
+    size_t size;
+    const void* provenance;
+    inst.get_fields(fields);
+    for (Legion::FieldID fid : fields)
+      if (runtime->retrieve_semantic_information(
+            ctx,
+            inst.get_field_space(),
+            fid,
+            42,  // FIXME: use an actual enum for the semantic tag
+            provenance,
+            size,
+            true /* can_fail */))
+        logger.error() << "  backing a Store allocated at " << static_cast<const char*>(provenance);
+  }
+
   LEGATE_ABORT;
 }
 

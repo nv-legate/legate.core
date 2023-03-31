@@ -1489,6 +1489,7 @@ class Runtime:
         data: Optional[Union[RegionField, Future]] = None,
         optimize_scalar: bool = False,
         ndim: Optional[int] = None,
+        provenance: Optional[str] = None,
     ) -> Store:
         from .store import RegionField, Storage, Store
 
@@ -1530,6 +1531,7 @@ class Runtime:
             dtype,
             data=data,
             kind=kind,
+            provenance=provenance,
         )
         return Store(
             dtype,
@@ -1784,7 +1786,9 @@ class Runtime:
         self.field_managers[key] = field_mgr
         return field_mgr
 
-    def allocate_field(self, shape: Shape, dtype: Any) -> RegionField:
+    def allocate_field(
+        self, shape: Shape, dtype: Any, provenance: Optional[str]
+    ) -> RegionField:
         from .store import RegionField
 
         assert not self.destroyed
@@ -1792,6 +1796,17 @@ class Runtime:
         field_id = None
         field_mgr = self.find_or_create_field_manager(shape, dtype.size)
         region, field_id = field_mgr.allocate_field()
+        if provenance is not None:
+            buf = provenance.encode() + bytes([0])  # null-terminate
+            legion.legion_field_id_attach_semantic_information(
+                self.legion_runtime,
+                region.handle.field_space,
+                field_id,
+                42,  # FIXME: use an actual enum for the semantic tag
+                ffi.from_buffer(memoryview(buf)),
+                len(buf),
+                True,
+            )
         return RegionField.create(region, field_id, dtype.size, shape)
 
     def free_field(
