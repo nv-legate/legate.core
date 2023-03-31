@@ -88,6 +88,7 @@ class ProjExpr:
             raise ValueError("RHS must be an integer")
         return ProjExpr(self._dim, self._weight, self._offset // other)
 
+
 # todo: (bev) use tuple[...] when feasible
 SymbolicPoint = Tuple[ProjExpr, ...]
 
