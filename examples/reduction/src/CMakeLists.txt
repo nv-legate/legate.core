@@ -14,9 +14,25 @@
 # limitations under the License.
 #=============================================================================
 
-# We abuse find package for testing purposes here to
-# 'find' the current build tree to test package builds
+legate_cpp_library_template(reduction TEMPLATE_SOURCES)
 
-add_subdirectory(hello)
-add_subdirectory(io)
-add_subdirectory(reduction)
+add_library(
+  reduction
+  bincount.cc
+  categorize.cc
+  histogram.cc
+  matmul.cc
+  mul.cc
+  sum_over_axis.cc
+  ${TEMPLATE_SOURCES}
+)
+
+target_include_directories(reduction
+  PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+  INTERFACE
+    $<INSTALL_INTERFACE:include>
+)
+
+target_link_libraries(reduction PRIVATE legate::core)
+

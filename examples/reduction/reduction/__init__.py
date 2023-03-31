@@ -1,4 +1,3 @@
-#=============================================================================
 # Copyright 2023 NVIDIA Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,11 +11,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#=============================================================================
+#
 
-# We abuse find package for testing purposes here to
-# 'find' the current build tree to test package builds
-
-add_subdirectory(hello)
-add_subdirectory(io)
-add_subdirectory(reduction)
+from .library import user_lib, user_context
+from .reduction import (
+    bincount,
+    categorize,
+    histogram,
+    matmul,
+    multiply,
+    print_store,
+    sum_over_axis,
+    to_cunumeric_array,
+)
