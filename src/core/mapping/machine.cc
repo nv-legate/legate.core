@@ -19,28 +19,28 @@
 namespace legate {
 namespace mapping {
 
-TaskTarget to_target(Legion::Processor::Kind kind)
+TaskTarget to_target(Processor::Kind kind)
 {
   switch (kind) {
-    case Legion::Processor::Kind::TOC_PROC: return TaskTarget::GPU;
-    case Legion::Processor::Kind::OMP_PROC: return TaskTarget::OMP;
-    case Legion::Processor::Kind::LOC_PROC: return TaskTarget::CPU;
+    case Processor::Kind::TOC_PROC: return TaskTarget::GPU;
+    case Processor::Kind::OMP_PROC: return TaskTarget::OMP;
+    case Processor::Kind::LOC_PROC: return TaskTarget::CPU;
     default: LEGATE_ABORT;
   }
   assert(false);
   return TaskTarget::CPU;
 }
 
-Legion::Processor::Kind to_kind(TaskTarget target)
+Processor::Kind to_kind(TaskTarget target)
 {
   switch (target) {
-    case TaskTarget::GPU: return Legion::Processor::Kind::TOC_PROC;
-    case TaskTarget::OMP: return Legion::Processor::Kind::OMP_PROC;
-    case TaskTarget::CPU: return Legion::Processor::Kind::LOC_PROC;
+    case TaskTarget::GPU: return Processor::Kind::TOC_PROC;
+    case TaskTarget::OMP: return Processor::Kind::OMP_PROC;
+    case TaskTarget::CPU: return Processor::Kind::LOC_PROC;
     default: LEGATE_ABORT;
   }
   assert(false);
-  return Legion::Processor::Kind::LOC_PROC;
+  return Processor::Kind::LOC_PROC;
 }
 
 std::ostream& operator<<(std::ostream& stream, const TaskTarget& target)
@@ -61,6 +61,27 @@ std::ostream& operator<<(std::ostream& stream, const TaskTarget& target)
   }
   return stream;
 }
+
+ProcessorRange::ProcessorRange(uint32_t _lo, uint32_t _hi, uint32_t _per_node_count)
+  : lo(_lo), hi(_hi), per_node_count(_per_node_count)
+{
+  if (hi < lo) {
+    lo = 1;
+    hi = 0;
+  }
+}
+
+ProcessorRange ProcessorRange::operator&(const ProcessorRange& other) const
+{
+#ifdef DEBUG_LEGATE
+  assert(other.per_node_count == per_node_count);
+#endif
+  return ProcessorRange(std::max(lo, other.lo), std::min(hi, other.hi), per_node_count);
+}
+
+uint32_t ProcessorRange::count() const { return hi + 1 - lo; }
+
+bool ProcessorRange::empty() const { return hi < lo; }
 
 std::string ProcessorRange::to_string() const
 {
@@ -93,34 +114,6 @@ std::vector<TaskTarget> MachineDesc::valid_targets(std::set<TaskTarget>&& to_exc
   return std::move(result);
 }
 
-std::tuple<Span<const Legion::Processor>, uint32_t, uint32_t> MachineDesc::slice(
-  TaskTarget target,
-  const std::vector<Legion::Processor>& local_procs,
-  uint32_t num_nodes,
-  uint32_t node_id) const
-{
-  auto finder = processor_ranges.find(target);
-  if (processor_ranges.end() == finder)
-    return std::make_tuple(Span<const Legion::Processor>(nullptr, 0), uint32_t(1), uint32_t(0));
-
-  auto& range = finder->second;
-
-  // TODO: Let's assume nodes are homogeneous for now
-
-  uint32_t num_procs = local_procs.size();
-  uint32_t global_lo = num_procs * node_id;
-  uint32_t global_hi = global_lo + num_procs - 1;
-
-  uint32_t my_lo = std::max(range.lo, global_lo) - global_lo;
-  uint32_t my_hi = std::min(range.hi, global_hi) - global_lo;
-
-  uint32_t size   = range.hi - range.lo + 1;
-  uint32_t offset = (my_lo + global_lo) - range.lo;
-
-  return std::make_tuple(
-    Span<const Legion::Processor>(local_procs.data() + my_lo, my_hi - my_lo + 1), size, offset);
-}
-
 std::string MachineDesc::to_string() const
 {
   std::stringstream ss;
@@ -130,8 +123,32 @@ std::string MachineDesc::to_string() const
   return ss.str();
 }
 
+LocalProcessorRange::LocalProcessorRange() : offset_(0), total_proc_count_(0), procs_() {}
+
+LocalProcessorRange::LocalProcessorRange(const std::vector<Processor>& procs)
+  : offset_(0), total_proc_count_(procs.size()), procs_(procs.data(), procs.size())
+{
+}
+
+LocalProcessorRange::LocalProcessorRange(uint32_t offset,
+                                         uint32_t total_proc_count,
+                                         const Processor* local_procs,
+                                         size_t num_local_procs)
+  : offset_(offset), total_proc_count_(total_proc_count), procs_(local_procs, num_local_procs)
+{
+}
+
+const Processor& LocalProcessorRange::operator[](uint32_t idx) const
+{
+  auto local_idx = (idx % total_proc_count_) - offset_;
+#ifdef DEBUG_LEGATE
+  assert(local_idx < procs_.size());
+#endif
+  return procs_[local_idx];
+}
+
 Machine::Machine(Legion::Machine legion_machine)
-  : local_node(Legion::Processor::get_executing_processor().address_space()),
+  : local_node(Processor::get_executing_processor().address_space()),
     total_nodes(legion_machine.get_address_space_count())
 {
   Legion::Machine::ProcessorQuery procs(legion_machine);
@@ -139,15 +156,15 @@ Machine::Machine(Legion::Machine legion_machine)
   procs.local_address_space();
   for (auto proc : procs) {
     switch (proc.kind()) {
-      case Legion::Processor::LOC_PROC: {
+      case Processor::LOC_PROC: {
         cpus_.push_back(proc);
         continue;
       }
-      case Legion::Processor::TOC_PROC: {
+      case Processor::TOC_PROC: {
         gpus_.push_back(proc);
         continue;
       }
-      case Legion::Processor::OMP_PROC: {
+      case Processor::OMP_PROC: {
         omps_.push_back(proc);
         continue;
       }
@@ -183,6 +200,18 @@ Machine::Machine(Legion::Machine legion_machine)
   }
 }
 
+const std::vector<Processor>& Machine::procs(TaskTarget target) const
+{
+  switch (target) {
+    case TaskTarget::GPU: return gpus_;
+    case TaskTarget::OMP: return omps_;
+    case TaskTarget::CPU: return cpus_;
+    default: LEGATE_ABORT;
+  }
+  assert(false);
+  return cpus_;
+}
+
 size_t Machine::total_frame_buffer_size() const
 {
   // We assume that all memories of the same kind are symmetric in size
@@ -203,7 +232,41 @@ bool Machine::has_socket_memory() const
          socket_memories_.begin()->second.kind() == Legion::Memory::SOCKET_MEM;
 }
 
-Legion::Memory Machine::get_memory(Legion::Processor proc, StoreTarget target) const
+LocalProcessorRange Machine::slice(TaskTarget target,
+                                   const MachineDesc& machine_desc,
+                                   bool fallback_to_global /*=false*/) const
+{
+  const auto& local_procs = procs(target);
+
+  auto finder = machine_desc.processor_ranges.find(target);
+  if (machine_desc.processor_ranges.end() == finder) {
+    if (fallback_to_global)
+      return LocalProcessorRange(local_procs);
+    else
+      return LocalProcessorRange();
+  }
+
+  auto& global_range = finder->second;
+
+  uint32_t num_local_procs = local_procs.size();
+  uint32_t my_lo           = num_local_procs * local_node;
+  ProcessorRange my_range(my_lo, my_lo + num_local_procs - 1, global_range.per_node_count);
+
+  auto slice = global_range & my_range;
+  if (slice.empty()) {
+    if (fallback_to_global)
+      return LocalProcessorRange(local_procs);
+    else
+      return LocalProcessorRange();
+  }
+
+  return LocalProcessorRange(slice.lo - global_range.lo,
+                             global_range.count(),
+                             local_procs.data() + (slice.lo - my_lo),
+                             slice.count());
+}
+
+Legion::Memory Machine::get_memory(Processor proc, StoreTarget target) const
 {
   switch (target) {
     case StoreTarget::SYSMEM: return system_memory_;

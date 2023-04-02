@@ -298,15 +298,6 @@ class BaseMapper : public Legion::Mapping::Mapper, public MachineQueryInterface 
                                                 Processor::Kind kind);
 
  protected:
-  void slice_auto_task(const Legion::Mapping::MapperContext ctx,
-                       const Legion::Task& task,
-                       const Span<const Legion::Processor>& avail_procs,
-                       uint32_t size,
-                       uint32_t offset,
-                       const SliceTaskInput& input,
-                       SliceTaskOutput& output);
-
- protected:
   Legion::ShardingID find_sharding_functor_by_key_store_projection(
     const std::vector<Legion::RegionRequirement>& requirements);
 

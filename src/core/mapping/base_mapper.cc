@@ -165,19 +165,12 @@ void BaseMapper::select_task_options(const Legion::Mapping::MapperContext ctx,
     LEGATE_ABORT;
   }
 
-  auto target = legate_mapper_->task_target(legate_task, options);
-  machine->dispatch(target, [&](auto target, auto& procs) {
-    if (task.is_index_space || task.local_function) {
-      output.initial_proc = procs.front();
-      return;
-    }
-    Span<const Processor> avail_procs;
-    uint32_t size;
-    uint32_t offset;
-    std::tie(avail_procs, size, offset) =
-      machine_desc.slice(target, procs, machine->total_nodes, machine->local_node);
-    output.initial_proc = *avail_procs.begin();
-  });
+  auto target      = legate_mapper_->task_target(legate_task, options);
+  auto local_range = machine->slice(target, machine_desc);
+#ifdef DEBUG_LEGATE
+  assert(!local_range.empty());
+#endif
+  output.initial_proc = local_range.first();
 
   // We never want valid instances
   output.valid_instances = false;
@@ -191,14 +184,16 @@ void BaseMapper::premap_task(const Legion::Mapping::MapperContext ctx,
   // NO-op since we know that all our futures should be mapped in the system memory
 }
 
-void BaseMapper::slice_auto_task(const Legion::Mapping::MapperContext ctx,
-                                 const Legion::Task& task,
-                                 const Span<const Processor>& avail_procs,
-                                 uint32_t size,
-                                 uint32_t offset,
-                                 const SliceTaskInput& input,
-                                 SliceTaskOutput& output)
+void BaseMapper::slice_task(const Legion::Mapping::MapperContext ctx,
+                            const Legion::Task& task,
+                            const SliceTaskInput& input,
+                            SliceTaskOutput& output)
 {
+  Task legate_task(&task, context, runtime, ctx);
+
+  auto& machine_desc = legate_task.machine_desc();
+  auto local_range   = machine->slice(legate_task.target(), machine_desc);
+
   Legion::ProjectionID projection = 0;
   for (auto& req : task.regions)
     if (req.tag == LEGATE_CORE_KEY_STORE_TAG) {
@@ -221,32 +216,10 @@ void BaseMapper::slice_auto_task(const Legion::Mapping::MapperContext ctx,
   auto hi = key_functor->project_point(sharding_domain.hi(), sharding_domain);
   for (Domain::DomainPointIterator itr(input.domain); itr; itr++) {
     auto p   = key_functor->project_point(itr.p, sharding_domain);
-    auto idx = linearize(lo, hi, p) % size;
-#ifdef DEBUG_LEGATE
-    assert(idx >= offset);
-#endif
-    output.slices.push_back(TaskSlice(
-      Domain(itr.p, itr.p), avail_procs[idx - offset], false /*recurse*/, false /*stealable*/));
+    auto idx = linearize(lo, hi, p);
+    output.slices.push_back(
+      TaskSlice(Domain(itr.p, itr.p), local_range[idx], false /*recurse*/, false /*stealable*/));
   }
-}
-
-void BaseMapper::slice_task(const Legion::Mapping::MapperContext ctx,
-                            const Legion::Task& task,
-                            const SliceTaskInput& input,
-                            SliceTaskOutput& output)
-{
-  Task legate_task(&task, context, runtime, ctx);
-
-  auto& machine_desc = legate_task.machine_desc();
-  Span<const Processor> avail_procs;
-  uint32_t size;
-  uint32_t offset;
-  machine->dispatch(legate_task.target(), [&](auto target, auto& procs) {
-    std::tie(avail_procs, size, offset) =
-      machine_desc.slice(target, procs, machine->total_nodes, machine->local_node);
-  });
-
-  slice_auto_task(ctx, task, avail_procs, size, offset, input, output);
 }
 
 bool BaseMapper::has_variant(const Legion::Mapping::MapperContext ctx,
@@ -1005,19 +978,8 @@ void BaseMapper::map_copy(const Legion::Mapping::MapperContext ctx,
   }
   auto copy_target = valid_targets.front();
 
-  Span<const Processor> avail_procs;
-  uint32_t size;
-  uint32_t offset;
-  machine->dispatch(copy_target, [&](auto target, auto& procs) {
-    std::tie(avail_procs, size, offset) =
-      machine_desc.slice(target, procs, machine->total_nodes, machine->local_node);
-  });
-
-#ifdef DEBUG_LEGATE
-  assert(avail_procs.size() > 0);
-#endif
-
-  auto target_proc = avail_procs[0];
+  auto local_range = machine->slice(copy_target, machine_desc, true);
+  Processor target_proc;
   if (copy.is_index_space) {
     Domain sharding_domain = copy.index_domain;
     if (copy.sharding_space.exists())
@@ -1031,15 +993,9 @@ void BaseMapper::map_copy(const Legion::Mapping::MapperContext ctx,
     auto hi           = key_functor->project_point(sharding_domain.hi(), sharding_domain);
     auto p            = key_functor->project_point(copy.index_point, sharding_domain);
     auto idx          = linearize(lo, hi, p);
-    auto proc_id      = (idx % size) - offset;
-#ifdef DEBUG_LEGATE
-    // Modulo operation in the following shouldn't be necessary unless this was an indirect copy
-    // that falled back to CPUs
-    assert((proc_id >= 0 && proc_id < avail_procs.size()) ||
-           (indirect && copy_target != machine_desc.preferred_target));
-#endif
-    target_proc = avail_procs[proc_id % avail_procs.size()];
-  }
+    target_proc       = local_range[idx];
+  } else
+    target_proc = local_range.first();
 
   auto store_target = default_store_targets(target_proc.kind()).front();
 

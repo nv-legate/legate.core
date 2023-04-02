@@ -173,27 +173,35 @@ void CoreMapper::select_task_options(const Legion::Mapping::MapperContext ctx,
   }
 
   mapping::Task legate_task(&task, context, runtime, ctx);
-  auto& machine_desc = legate_task.machine_desc();
-
-  Span<const Processor> avail_procs;
-  uint32_t size;
-  uint32_t offset;
-
   assert(context.valid_task_id(task.task_id));
-  if (task.tag == LEGATE_CPU_VARIANT) {
-    std::tie(avail_procs, size, offset) = machine_desc.slice(
-      mapping::TaskTarget::CPU, machine->cpus(), machine->total_nodes, machine->local_node);
-  } else if (task.tag == LEGATE_OMP_VARIANT) {
-    std::tie(avail_procs, size, offset) = machine_desc.slice(
-      mapping::TaskTarget::OMP, machine->omps(), machine->total_nodes, machine->local_node);
-  } else {
-    assert(task.tag == LEGATE_GPU_VARIANT);
-    std::tie(avail_procs, size, offset) = machine_desc.slice(
-      mapping::TaskTarget::GPU, machine->gpus(), machine->total_nodes, machine->local_node);
+  TaskTarget target;
+  switch (task.tag) {
+    case LEGATE_GPU_VARIANT: {
+      target = mapping::TaskTarget::GPU;
+      break;
+    }
+    case LEGATE_OMP_VARIANT: {
+      target = mapping::TaskTarget::OMP;
+      break;
+    }
+    default: {
+#ifdef DEBUG_LEGATE
+      assert(LEGATE_CPU_VARIANT == task.tag);
+#endif
+      target = mapping::TaskTarget::CPU;
+      break;
+    }
   }
-  assert(avail_procs.size() > 0);
-  output.initial_proc = avail_procs[0];
+
+  auto local_range =
+    machine->slice(target, legate_task.machine_desc(), true /*fallback_to_global*/);
+#ifdef DEBUG_LEGATE
+  assert(!local_range.empty());
+#endif
+  output.initial_proc = local_range.first();
+#ifdef DEBUG_LEGATE
   assert(output.initial_proc.exists());
+#endif
 }
 
 void CoreMapper::slice_task(const Legion::Mapping::MapperContext ctx,
@@ -209,25 +217,15 @@ void CoreMapper::slice_task(const Legion::Mapping::MapperContext ctx,
   if (task.sharding_space.exists())
     sharding_domain = runtime->get_index_space_domain(ctx, task.sharding_space);
 
-  machine->dispatch(task.target_proc.kind(), [&](auto kind, auto& procs) {
-    mapping::Task legate_task(&task, context, runtime, ctx);
-    auto& machine_desc = legate_task.machine_desc();
-    Span<const Processor> avail_procs;
-    uint32_t size;
-    uint32_t offset;
-    std::tie(avail_procs, size, offset) = machine_desc.slice(
-      mapping::to_target(kind), procs, machine->total_nodes, machine->local_node);
+  mapping::Task legate_task(&task, context, runtime, ctx);
+  auto local_range = machine->slice(legate_task.target(), legate_task.machine_desc());
 
-    for (Domain::DomainPointIterator itr(input.domain); itr; itr++) {
-      const Point<1> point       = itr.p;
-      const uint32_t local_index = point[0] % size;
-      assert(local_index - offset < avail_procs.size());
-      output.slices.push_back(TaskSlice(Domain(itr.p, itr.p),
-                                        avail_procs[local_index - offset],
-                                        false /*recurse*/,
-                                        false /*stealable*/));
-    }
-  });
+  for (Domain::DomainPointIterator itr(input.domain); itr; itr++) {
+    const Point<1> point       = itr.p;
+    const uint32_t local_index = point[0];
+    output.slices.push_back(TaskSlice(
+      Domain(itr.p, itr.p), local_range[local_index], false /*recurse*/, false /*stealable*/));
+  }
 }
 
 void CoreMapper::map_task(const Legion::Mapping::MapperContext ctx,
