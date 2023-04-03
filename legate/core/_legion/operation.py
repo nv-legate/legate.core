@@ -1154,6 +1154,9 @@ class Attach(Dispatchable[PhysicalRegion]):
                 field.fid if isinstance(field, FieldID) else field,
             ),
             ffi.from_buffer(data),
+            # `not c_contiguous` implies `f_contiguous`; doing it this way so
+            # that 0d/1d arrays, which are both c_ and f_contiguous, are
+            # attached as C-ordered
             not data.c_contiguous,
         )
 
@@ -1322,6 +1325,9 @@ class IndexAttach(Dispatchable[ExternalResources]):
                 self.launcher,
                 sub_region.handle,
                 ffi.from_buffer(buf),
+                # `not c_contiguous` implies `f_contiguous`; doing it this way
+                # so that 0d/1d arrays, which are both c_ and f_contiguous, are
+                # attached as C-ordered
                 not buf.c_contiguous,
                 fields,
                 1,  # num_fields
