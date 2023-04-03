@@ -1145,7 +1145,7 @@ class Attach(Dispatchable[PhysicalRegion]):
         self._launcher = ffi.gc(
             self.launcher, legion.legion_attach_launcher_destroy
         )
-        if not data.c_contiguous and not data.f_contiguous:
+        if not data.contiguous:
             raise RuntimeError("Can only attach to C- or F-contiguous buffers")
         legion.legion_attach_launcher_add_cpu_soa_field(
             self.launcher,
@@ -1314,7 +1314,7 @@ class IndexAttach(Dispatchable[ExternalResources]):
         for sub_region, buf in shard_local_data.items():
             if sub_region.parent is not None:
                 assert sub_region.parent.parent is parent
-            if not buf.c_contiguous and not buf.f_contiguous:
+            if not buf.contiguous:
                 raise RuntimeError(
                     "Can only attach to C- or F-contiguous buffers"
                 )
