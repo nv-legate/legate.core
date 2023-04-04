@@ -473,6 +473,6 @@ documentation](https://nv-legate.github.io/legate.core).
 We recommend starting by experimenting with at least one Legate application
 library to test out performance and see how Legate works. If you are interested
 in building your own Legate application library, we recommend that you
-investigate our [Legate Hello World application library](https://github.com/nv-legate/legate.core/tree/branch-23.05/examples/hello) that
+investigate our [Legate Hello World application library](https://github.com/nv-legate/legate.core/tree/HEAD/examples/hello) that
 provides a small example of how to get started developing your own drop-in
 replacement library on top of Legion using the Legate Core library.
