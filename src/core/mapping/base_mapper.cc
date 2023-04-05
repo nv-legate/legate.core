@@ -133,7 +133,7 @@ BaseMapper::BaseMapper(std::unique_ptr<LegateMapper> legate_mapper,
     local_numa.best_affinity_to(local_omp);
     if (local_numa.count() > 0)  // if we have NUMA memories then use them
       local_numa_domains[local_omp] = local_numa.first();
-    else  // Otherwise we just use the local system memory
+    else                         // Otherwise we just use the local system memory
       local_numa_domains[local_omp] = local_system_memory;
   }
   generate_prime_factors();

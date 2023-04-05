@@ -14,6 +14,7 @@
 #
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -360,6 +361,29 @@ class Test_cmd_nsys:
             "-s",
             "none",
         )
+
+    @pytest.mark.parametrize(
+        "nsys_extra",
+        (
+            ["--nsys-extra=--sample=cpu"],
+            ["--nsys-extra", "--backtrace=lbr -s cpu"],
+            ["--nsys-extra", "--sample cpu"],
+            ["--nsys-extra", "-s cpu"],
+            ["--nsys-extra=--sample", "--nsys-extra", "cpu"],
+        ),
+    )
+    def test_explicit_sample(
+        self, genobjs: GenObjs, nsys_extra: list[str]
+    ) -> None:
+        args = ["--nsys"] + nsys_extra
+        config, system, launcher = genobjs(args)
+        result = m.cmd_nsys(config, system, launcher)
+
+        parser = argparse.ArgumentParser()
+        parser.add_argument("-s", "--sample")
+        parsed_args, unparsed = parser.parse_known_args(result)
+
+        assert parsed_args.sample == "cpu"
 
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     def test_multi_rank_with_launcher(

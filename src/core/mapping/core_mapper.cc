@@ -394,11 +394,11 @@ void CoreMapper::select_tunable_value(const Legion::Mapping::MapperContext ctx,
       return;
     }
     case LEGATE_CORE_TUNABLE_NUM_PIECES: {
-      if (!local_gpus.empty())  // If we have GPUs, use those
+      if (!local_gpus.empty())       // If we have GPUs, use those
         pack_tunable<int32_t>(local_gpus.size() * total_nodes, output);
       else if (!local_omps.empty())  // Otherwise use OpenMP procs
         pack_tunable<int32_t>(local_omps.size() * total_nodes, output);
-      else  // Otherwise use the CPUs
+      else                           // Otherwise use the CPUs
         pack_tunable<int32_t>(local_cpus.size() * total_nodes, output);
       return;
     }
