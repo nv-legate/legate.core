@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import struct
 from abc import abstractmethod
+from functools import cached_property
 from typing import TYPE_CHECKING, Any, Generic, List, Optional, TypeVar, Union
 
 import numpy as np
@@ -436,22 +437,57 @@ class Logger:
         self.handle = None
 
     def spew(self, msg: str) -> None:
-        legion.legion_logger_spew(self.handle, msg.encode("utf-8"))
+        if self.want_spew:
+            legion.legion_logger_spew(self.handle, msg.encode("utf-8"))
 
     def debug(self, msg: str) -> None:
-        legion.legion_logger_debug(self.handle, msg.encode("utf-8"))
+        if self.want_debug:
+            legion.legion_logger_debug(self.handle, msg.encode("utf-8"))
 
     def info(self, msg: str) -> None:
-        legion.legion_logger_info(self.handle, msg.encode("utf-8"))
+        if self.want_info:
+            legion.legion_logger_info(self.handle, msg.encode("utf-8"))
 
     def print(self, msg: str) -> None:
-        legion.legion_logger_print(self.handle, msg.encode("utf-8"))
+        if self.want_print:
+            legion.legion_logger_print(self.handle, msg.encode("utf-8"))
 
     def warning(self, msg: str) -> None:
-        legion.legion_logger_warning(self.handle, msg.encode("utf-8"))
+        if self.want_warning:
+            legion.legion_logger_warning(self.handle, msg.encode("utf-8"))
 
     def error(self, msg: str) -> None:
-        legion.legion_logger_error(self.handle, msg.encode("utf-8"))
+        if self.want_error:
+            legion.legion_logger_error(self.handle, msg.encode("utf-8"))
 
     def fatal(self, msg: str) -> None:
-        legion.legion_logger_fatal(self.handle, msg.encode("utf-8"))
+        if self.want_fatal:
+            legion.legion_logger_fatal(self.handle, msg.encode("utf-8"))
+
+    @cached_property
+    def want_spew(self) -> bool:
+        return legion.legion_logger_want_spew(self.handle)
+
+    @cached_property
+    def want_debug(self) -> bool:
+        return legion.legion_logger_want_debug(self.handle)
+
+    @cached_property
+    def want_info(self) -> bool:
+        return legion.legion_logger_want_info(self.handle)
+
+    @cached_property
+    def want_print(self) -> bool:
+        return legion.legion_logger_want_print(self.handle)
+
+    @cached_property
+    def want_warning(self) -> bool:
+        return legion.legion_logger_want_warning(self.handle)
+
+    @cached_property
+    def want_error(self) -> bool:
+        return legion.legion_logger_want_error(self.handle)
+
+    @cached_property
+    def want_fatal(self) -> bool:
+        return legion.legion_logger_want_fatal(self.handle)
