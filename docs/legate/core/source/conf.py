@@ -80,6 +80,8 @@ mathjax_path = "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
 
 pygments_style = "sphinx"
 
+myst_heading_anchors = 3
+
 
 def setup(app):
     app.add_css_file("params.css")
