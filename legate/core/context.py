@@ -58,7 +58,7 @@ def caller_frameinfo() -> str:
         if frame is not None:
             frame = frame.f_back
     if frame is None:
-        return ""
+        return "<unknown>"
     return f"{frame.f_code.co_filename}:{frame.f_lineno}"
 
 
