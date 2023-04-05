@@ -173,6 +173,7 @@ function(find_or_configure_legion)
     message(VERBOSE "legate.core: Legion git_branch: ${git_branch}")
     message(VERBOSE "legate.core: Legion exclude_from_all: ${exclude_from_all}")
 
+    set(ENV{CUDA_BIN_PATH} "${CUDAToolkit_LIBRARY_ROOT}")
     rapids_cpm_find(Legion ${version} ${FIND_PKG_ARGS}
         CPM_ARGS
           ${legion_cpm_git_args}
@@ -198,6 +199,10 @@ function(find_or_configure_legion)
                                  "Legion_USE_Python ${Legion_USE_Python}"
                                  "Legion_BOUNDS_CHECKS ${Legion_BOUNDS_CHECKS}"
     )
+  endif()
+
+  if (NOT CUDA_TOOLKIT_ROOT_DIR STREQUAL CUDAToolkit_LIBRARY_ROOT)
+    message(FATAL_ERROR "Legion CUDA root ${CUDA_TOOLKIT_ROOT_DIR} differs from Legate's CUDA root ${CUDAToolkit_LIBRARY_ROOT}")
   endif()
 
   set(Legion_USE_CUDA ${Legion_USE_CUDA} PARENT_SCOPE)

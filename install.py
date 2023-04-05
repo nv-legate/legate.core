@@ -23,6 +23,7 @@ import shutil
 import subprocess
 import sys
 from distutils import sysconfig
+from pathlib import Path
 
 # Flush output on newlines
 sys.stdout.reconfigure(line_buffering=True)
@@ -344,6 +345,14 @@ def install(
     ucx_dir = validate_path(ucx_dir)
     thrust_dir = validate_path(thrust_dir)
 
+    nvcc_matches = list(Path(cuda_dir).rglob("nvcc"))
+    if len(nvcc_matches) == 0:
+        sys.exit(f"No valid nvcc found in root {cuda_dir}")
+    elif len(nvcc_matches) > 1:
+        sys.exit(f"Multiple nvcc found in root {cuda_dir}: {nvcc_matches}")
+
+    cuda_compiler = nvcc_matches[0]
+
     if verbose:
         print("legate_core_dir: ", legate_core_dir)
         print("cuda_dir: ", cuda_dir)
@@ -454,7 +463,10 @@ def install(
     if conduit:
         cmake_flags += [f"-DGASNet_CONDUIT={conduit}"]
     if cuda_dir:
-        cmake_flags += [f"-DCUDAToolkit_ROOT={cuda_dir}"]
+        cmake_flags += [
+            f"-DCUDAToolkit_ROOT={cuda_dir}",
+            f"-DCMAKE_CUDA_COMPILER={cuda_compiler}",
+        ]
     if thrust_dir:
         cmake_flags += [f"-DThrust_ROOT={thrust_dir}"]
     if legion_dir:
