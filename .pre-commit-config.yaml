@@ -24,5 +24,9 @@ repos:
           pass_filenames: false
           args: ['legate', 'tests']
           additional_dependencies: [numpy,pytest,pytest_mock]
+
+ci:
+    autoupdate_schedule: quarterly
+
 default_language_version:
     python: python3
