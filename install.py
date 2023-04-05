@@ -345,13 +345,16 @@ def install(
     ucx_dir = validate_path(ucx_dir)
     thrust_dir = validate_path(thrust_dir)
 
-    nvcc_matches = list(Path(cuda_dir).rglob("nvcc"))
-    if len(nvcc_matches) == 0:
-        sys.exit(f"No valid nvcc found in root {cuda_dir}")
-    elif len(nvcc_matches) > 1:
-        sys.exit(f"Multiple nvcc found in root {cuda_dir}: {nvcc_matches}")
+    if cuda_dir is not None:
+        nvcc_matches = list(Path(cuda_dir).rglob("nvcc"))
+        if len(nvcc_matches) == 0:
+            sys.exit(f"No valid nvcc found in root {cuda_dir}")
+        elif len(nvcc_matches) > 1:
+            sys.exit(f"Multiple nvcc found in root {cuda_dir}: {nvcc_matches}")
 
-    cuda_compiler = nvcc_matches[0]
+        cuda_compiler = nvcc_matches[0]
+    else:
+        cuda_compiler = None
 
     if verbose:
         print("legate_core_dir: ", legate_core_dir)
@@ -465,6 +468,9 @@ def install(
     if cuda_dir:
         cmake_flags += [
             f"-DCUDAToolkit_ROOT={cuda_dir}",
+        ]
+    if cuda_compiler:
+        cmake_flags += [
             f"-DCMAKE_CUDA_COMPILER={cuda_compiler}",
         ]
     if thrust_dir:
