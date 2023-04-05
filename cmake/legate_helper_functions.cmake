@@ -351,12 +351,12 @@ void registration_callback()
   config.max_mappers       = 1;
   config.max_tasks         = 1024;
   config.max_reduction_ops = 8;
-  legate::LibraryContext context(library_name, config);
+  auto context = legate::Runtime::get_runtime()->create_library(library_name, config);
 
-  Registry::get_registrar().register_all_tasks(context);
+  Registry::get_registrar().register_all_tasks(*context);
 
   // Now we can register our mapper with the runtime
-  context.register_mapper(std::make_unique<Mapper>(), 0);
+  context->register_mapper(std::make_unique<Mapper>(), 0);
 }
 
 }  // namespace @target@
