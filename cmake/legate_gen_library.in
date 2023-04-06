@@ -1,0 +1,211 @@
+#! /usr/bin/env python
+
+from __future__ import annotations
+
+import os
+import stat
+import sys
+from pathlib import Path
+from typing import Union
+
+if len(sys.argv) != 2:
+  sys.exit("Must give a single argument with the library name")
+libname = sys.argv[1]
+
+cpp_source_template = """
+@cpp_source_template@
+"""
+
+cpp_header_template = """
+@cpp_header_template@
+"""
+
+python_template = """
+@python_template@
+"""
+
+
+cmake_toplevel_template = """
+#=============================================================================
+# Copyright 2023 NVIDIA Corporation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#=============================================================================
+
+cmake_minimum_required(VERSION 3.22.1 FATAL_ERROR)
+
+project($target VERSION 1.0 LANGUAGES C CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(BUILD_SHARED_LIBS ON)
+
+find_package(legate_core REQUIRED)
+
+legate_add_cpp_subdirectory(src TARGET $target EXPORT $target-export)
+
+legate_add_cffi(${CMAKE_CURRENT_SOURCE_DIR}/src/$target_cffi.h TARGET $target)
+legate_default_python_install($target EXPORT $target-export)
+"""
+
+cmake_src_template = """
+#=============================================================================
+# Copyright 2023 NVIDIA Corporation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#=============================================================================
+
+add_library(
+  $target
+  legate_library.h
+  legate_library.cc
+)
+
+target_include_directories($target
+  PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+  INTERFACE
+    $<INSTALL_INTERFACE:include>
+)
+
+target_link_libraries($target PRIVATE legate::core)
+"""
+
+setup_template = """
+#!/usr/bin/env python3
+
+# Copyright 2023 NVIDIA Corporation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+import os
+from pathlib import Path
+
+from setuptools import find_packages
+from skbuild import setup
+
+import legate.install_info as lg_install_info
+
+legate_dir = Path(lg_install_info.libpath).parent.as_posix()
+
+cmake_flags = [
+    f"-Dlegate_core_ROOT:STRING={legate_dir}",
+]
+
+env_cmake_args = os.environ.get("CMAKE_ARGS")
+if env_cmake_args is not None:
+    cmake_flags.append(env_cmake_args)
+os.environ["CMAKE_ARGS"] = " ".join(cmake_flags)
+
+
+setup(
+    name="Legate $target",
+    version="0.1",
+    description="$target for Legate",
+    author="NVIDIA Corporation",
+    license="Apache 2.0",
+    classifiers=[
+        "Intended Audience :: Developers",
+        "Topic :: Database",
+        "Topic :: Scientific/Engineering",
+        "License :: OSI Approved :: Apache Software License",
+        "Programming Language :: Python",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+    ],
+    packages=find_packages(
+        where=".",
+        include=["$target", "$target.*"],
+    ),
+    include_package_data=True,
+    zip_safe=False,
+)
+"""
+
+editable_script = """
+legate_root=`python -c 'import legate.install_info as i; from pathlib import Path; print(Path(i.libpath).parent.resolve())'`
+echo "Using Legate at $legate_root"
+cmake -S . -B build -D legate_core_ROOT=$legate_root
+cmake --build build
+python -m pip install -e . -vv
+"""
+
+install_script = """
+python -m pip install .
+"""
+
+def generate_file(libname: str, template: str, path: Union[Path,str], executable: bool = False):
+  target_path = Path(libname) / Path(path)
+  if not target_path.parent.is_dir():
+    target_path.parent.mkdir(parents=True)
+
+  text = template.replace("$target", libname)
+  text = text.replace("@" "target" "@", libname)
+  with open(target_path, "w") as f:
+    f.write(text)
+
+  if executable:
+    st = os.stat(target_path)
+    os.chmod(target_path, st.st_mode | stat.S_IRWXU)
+
+cffi_template = """
+/* Copyright 2023 NVIDIA Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
+enum $targetOpCode {
+};
+"""
+
+generate_file(libname, cpp_source_template, "src/legate_library.cc")
+generate_file(libname, cpp_header_template, "src/legate_library.h")
+generate_file(libname, python_template, Path(libname) / f"{libname}.py")
+generate_file(libname, "", Path(libname) / "__init__.py")
+generate_file(libname, setup_template, "setup.py")
+generate_file(libname, editable_script, "editable-install.sh", executable=True)
+generate_file(libname, install_script, "install.sh", executable=True)
+generate_file(libname, cmake_toplevel_template, "CMakeLists.txt")
+generate_file(libname, cmake_src_template, "src/CMakeLists.txt")
+generate_file(libname, cffi_template, f"src/{libname}_cffi.h")

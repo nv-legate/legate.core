@@ -464,6 +464,14 @@ Imported Targets:
 ]=])
 
 file(READ ${CMAKE_CURRENT_SOURCE_DIR}/cmake/legate_helper_functions.cmake helper_functions)
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/cmake/cpp_source_template cpp_source_template)
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/cmake/cpp_header_template cpp_header_template)
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/cmake/python_template python_template)
+
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/legate_gen_library.in
+               ${CMAKE_CURRENT_SOURCE_DIR}/legate_gen_library
+               FILE_PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
+               @ONLY)
 
 string(JOIN "\n" code_string
 [=[
@@ -481,6 +489,15 @@ if(Legion_NETWORKS)
   find_package(MPI REQUIRED COMPONENTS CXX)
 endif()
 ]=]
+"set(Legate_CPP_HEADER_TEMPLATE [=["
+"${cpp_header_template}"
+"]=])"
+"set(Legate_CPP_SOURCE_TEMPLATE [=["
+"${cpp_source_template}"
+"]=])"
+"set(Legate_PYTHON_TEMPLATE [=["
+"${python_template}"
+"]=])"
 "${helper_functions}"
 )
 
