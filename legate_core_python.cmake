@@ -59,6 +59,11 @@ add_library(legate_core_python INTERFACE)
 add_library(legate::core_python ALIAS legate_core_python)
 target_link_libraries(legate_core_python INTERFACE legate::core)
 
+include(rapids-cython)
+rapids_cython_init()
+
+add_subdirectory(legate/core/_lib)
+
 ##############################################################################
 # - install targets-----------------------------------------------------------
 
