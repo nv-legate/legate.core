@@ -29,6 +29,10 @@
 #define LEGATE_DEVICE_PREFIX
 #endif
 
+#ifndef LEGION_REDOP_COMPLEX
+#error "Legate needs Legion to be compiled with -DLEGION_REDOP_COMPLEX"
+#endif
+
 #ifndef LEGION_REDOP_HALF
 #error "Legate needs Legion to be compiled with -DLEGION_REDOP_HALF"
 #endif

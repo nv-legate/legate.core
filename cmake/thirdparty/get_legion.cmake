@@ -78,8 +78,6 @@ function(find_or_configure_legion)
 
     # TODO: The following should also be checked, but are not currently reported by Legion:
     # Legion_BUILD_BINDINGS
-    # Legion_REDOP_HALF
-    # Legion_REDOP_COMPLEX
   else()
 
     include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/cpm_helpers.cmake)
