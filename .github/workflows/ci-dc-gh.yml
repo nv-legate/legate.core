@@ -66,8 +66,8 @@ jobs:
       - name: Pre-build dev container image
         uses: devcontainers/ci@v0.3
         with:
-          imageName: ghcr.io/nv-legate/legate.core.devcontainer
-          cacheFrom: ghcr.io/nv-legate/legate.core.devcontainer
+          imageName: ghcr.io/sandeepd-nv/legate.core.devcontainer
+          cacheFrom: ghcr.io/sandeepd-nv/legate.core.devcontainer
           push: always
 
       # - name: Build legate.core
