@@ -70,6 +70,16 @@ function(find_or_configure_legion)
 
   if(Legion_FOUND)
     message(STATUS "CPM: using local package Legion@${version}")
+
+    # Check that required Legion options are set
+    if(NOT Legion_USE_Python)
+      message(FATAL_ERROR "Legion was not compiled with Legion_USE_Python")
+    endif()
+
+    # TODO: The following should also be checked, but are not currently reported by Legion:
+    # Legion_BUILD_BINDINGS
+    # Legion_REDOP_HALF
+    # Legion_REDOP_COMPLEX
   else()
 
     include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/cpm_helpers.cmake)
@@ -206,17 +216,6 @@ function(find_or_configure_legion)
   set(Legion_USE_CUDA ${Legion_USE_CUDA} PARENT_SCOPE)
   set(Legion_USE_OpenMP ${Legion_USE_OpenMP} PARENT_SCOPE)
   set(Legion_NETWORKS ${Legion_NETWORKS} PARENT_SCOPE)
-
-  # Check that required Legion options are set
-  # for cases where we used an existing Legion installation
-  if(NOT Legion_USE_Python)
-    message(FATAL_ERROR "Legion was not compiled with Legion_USE_Python")
-  endif()
-
-  # TODO: The following should also be checked, but are not currently reported by Legion:
-  # Legion_BUILD_BINDINGS
-  # Legion_REDOP_HALF
-  # Legion_REDOP_COMPLEX
 
   message(VERBOSE "Legion_USE_CUDA=${Legion_USE_CUDA}")
   message(VERBOSE "Legion_USE_OpenMP=${Legion_USE_OpenMP}")
