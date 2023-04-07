@@ -70,9 +70,9 @@ jobs:
           cacheFrom: ghcr.io/sandeepd-nv/legate.core.devcontainer
           push: always
 
-      # - name: Build legate.core
-      #   uses: devcontainers/ci@v0.3
-      #   with:
-      #     cacheFrom: ghcr.io/nv-legate/legate.core.devcontainer
-      #     push: never
-      #     runCmd: ./install.py --cuda
+      - name: Build legate.core
+        uses: devcontainers/ci@v0.3
+        with:
+          cacheFrom: ghcr.io/nv-legate/legate.core.devcontainer
+          push: never
+          runCmd: ./install.py --cuda
