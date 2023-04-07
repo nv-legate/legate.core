@@ -195,19 +195,28 @@ function(find_or_configure_legion)
                                  "Legion_USE_CUDA ${Legion_USE_CUDA}"
                                  "Legion_NETWORKS ${Legion_NETWORKS}"
                                  "Legion_USE_OpenMP ${Legion_USE_OpenMP}"
-                                 "Legion_USE_Python ${Legion_USE_Python}"
+                                 "Legion_USE_Python ON"
                                  "Legion_BOUNDS_CHECKS ${Legion_BOUNDS_CHECKS}"
     )
   endif()
 
   set(Legion_USE_CUDA ${Legion_USE_CUDA} PARENT_SCOPE)
   set(Legion_USE_OpenMP ${Legion_USE_OpenMP} PARENT_SCOPE)
-  set(Legion_USE_Python ${Legion_USE_Python} PARENT_SCOPE)
   set(Legion_NETWORKS ${Legion_NETWORKS} PARENT_SCOPE)
+
+  # Check that required Legion options are set
+  # for cases where we used an existing Legion installation
+  if(NOT Legion_USE_Python)
+    message(FATAL_ERROR "Legion was not compiled with Legion_USE_Python")
+  endif()
+
+  # TODO: The following should also be checked, but are not currently reported by Legion:
+  # Legion_BUILD_BINDINGS
+  # Legion_REDOP_HALF
+  # Legion_REDOP_COMPLEX
 
   message(VERBOSE "Legion_USE_CUDA=${Legion_USE_CUDA}")
   message(VERBOSE "Legion_USE_OpenMP=${Legion_USE_OpenMP}")
-  message(VERBOSE "Legion_USE_Python=${Legion_USE_Python}")
   message(VERBOSE "Legion_NETWORKS=${Legion_NETWORKS}")
 
 endfunction()

@@ -20,8 +20,6 @@ if [[ -n "$(which ninja)" ]]; then cmake_args+=" -GNinja"; fi
 cmake_args+="
 -D Legion_USE_CUDA=ON
 -D Legion_USE_OpenMP=ON
--D Legion_USE_Python=ON
--D Legion_BUILD_BINDINGS=ON
 -D CMAKE_CUDA_ARCHITECTURES=NATIVE
 ";
 

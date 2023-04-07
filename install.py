@@ -436,7 +436,6 @@ def install(
 -DLegion_USE_LLVM={("ON" if llvm else "OFF")}
 -DLegion_NETWORKS={";".join(networks)}
 -DLegion_USE_HDF5={("ON" if hdf else "OFF")}
--DLegion_USE_Python=ON
 -DLegion_Python_Version={pyversion}
 -DLegion_REDOP_COMPLEX=ON
 -DLegion_REDOP_HALF=ON
