@@ -10,5 +10,5 @@
     },
 
     // Use 'postCreateCommand' to run commands after the container is created.
-    "postCreateCommand": "bash scripts/devcontainer-post-create.sh"
+    "updateContentCommand": "bash scripts/devcontainer-update-content.sh"
 }
