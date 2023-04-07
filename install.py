@@ -743,14 +743,18 @@ def driver():
         dest="legion_dir",
         required=False,
         default=None,
-        help="Path to an existing Legion build directory.",
+        help="Path to an existing Legion build directory. A recent checkout "
+        "of the control_replication branch is required, configured with "
+        "Legion_BUILD_BINDINGS=ON, Legion_REDOP_HALF=ON, "
+        "Legion_REDOP_COMPLEX=ON, Legion_USE_Python=ON.",
     )
     parser.add_argument(
         "--legion-src-dir",
         dest="legion_src_dir",
         required=False,
         default=None,
-        help="Path to an existing Legion source directory.",
+        help="Path to an existing Legion source directory. A recent checkout "
+        "of the control_replication branch is required.",
     )
     parser.add_argument(
         "--legion-url",
