@@ -52,11 +52,24 @@ jobs:
       
       - name: Checkout
         uses: actions/checkout@v3
-      
-      - name: Build and run dev container task
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2 
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pre-build dev container image
         uses: devcontainers/ci@v0.3
         with:
-          imageName: ghcr.io/nv-legate/legate.core
-          cacheFrom: ghcr.io/nv-legate/legate.core
+          imageName: ghcr.io/nv-legate/legate.core.devcontainer
+          cacheFrom: ghcr.io/nv-legate/legate.core.devcontainer
           push: always
+
+      - name: Build legate.core
+        uses: devcontainers/ci@v0.3
+        with:
+          cacheFrom: ghcr.io/nv-legate/legate.core.devcontainer
+          push: never
           runCmd: ./install.py --cuda
