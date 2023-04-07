@@ -179,6 +179,7 @@ function(find_or_configure_legion)
           FIND_PACKAGE_ARGUMENTS EXACT
           EXCLUDE_FROM_ALL       ${exclude_from_all}
           OPTIONS                ${_legion_cuda_options}
+                                 "BUILD_SHARED_LIBS ON"
                                  "CMAKE_CXX_STANDARD ${_cxx_std}"
                                  "Legion_VERSION ${version}"
                                  "Legion_BUILD_BINDINGS ON"
@@ -197,6 +198,8 @@ function(find_or_configure_legion)
                                  "Legion_USE_OpenMP ${Legion_USE_OpenMP}"
                                  "Legion_USE_Python ON"
                                  "Legion_BOUNDS_CHECKS ${Legion_BOUNDS_CHECKS}"
+                                 "Legion_BUILD_JUPYTER ON"
+                                 "Legion_EMBED_GASNet_CONFIGURE_ARGS --with-ibv-max-hcas=8"
     )
   endif()
 

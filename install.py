@@ -420,11 +420,13 @@ def install(
     if debug or verbose:
         cmake_flags += [f"--log-level={'DEBUG' if debug else 'VERBOSE'}"]
 
+    # NOTE: Any unconditional Legion configuration settings should be added to
+    # cmake/thirdparty/get_legion.cmake, so that pure-cmake builds will also
+    # pick them up.
     cmake_flags += f"""\
 -DCMAKE_BUILD_TYPE={(
     "Debug" if debug else "RelWithDebInfo" if debug_release else "Release"
 )}
--DBUILD_SHARED_LIBS=ON
 -DBUILD_MARCH={march}
 -DCMAKE_CUDA_ARCHITECTURES={arch}
 -DLegion_MAX_DIM={str(maxdim)}
@@ -437,11 +439,6 @@ def install(
 -DLegion_NETWORKS={";".join(networks)}
 -DLegion_USE_HDF5={("ON" if hdf else "OFF")}
 -DLegion_Python_Version={pyversion}
--DLegion_REDOP_COMPLEX=ON
--DLegion_REDOP_HALF=ON
--DLegion_BUILD_BINDINGS=ON
--DLegion_BUILD_JUPYTER=ON
--DLegion_EMBED_GASNet_CONFIGURE_ARGS="--with-ibv-max-hcas=8"
 """.splitlines()
 
     if nccl_dir:
