@@ -388,7 +388,6 @@ set(file_template
 [=[
 from legate.core import (
     Library,
-    ResourceConfig,
     get_legate_runtime,
 )
 import os
@@ -417,16 +416,6 @@ class UserLibrary(Library):
 
     def get_registration_callback(self) -> str:
         return "@target@_perform_registration"
-
-    def get_resource_configuration(self) -> ResourceConfig:
-        assert self.shared_object is not None
-        config = ResourceConfig()
-        config.max_tasks = 1024
-        config.max_mappers = 1
-        config.max_reduction_ops = 8
-        config.max_projections = 0
-        config.max_shardings = 0
-        return config
 
     def initialize(self, shared_object: Any) -> None:
         self.shared_object = shared_object

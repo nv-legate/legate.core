@@ -29,6 +29,7 @@ from typing import (
 import numpy as np
 
 from . import Future, legion
+from ._lib.context import Context as CppContext  # type: ignore[import]
 from .types import TypeSystem
 
 if TYPE_CHECKING:
@@ -114,10 +115,6 @@ class Context:
         self._type_system = TypeSystem(inherit_core_types)
 
         name = library.get_name()
-
-        from legate.core._lib.context import (  # type: ignore[import]
-            Context as CppContext,
-        )
 
         self._context = CppContext(name, False)
 
