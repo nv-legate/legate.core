@@ -27,11 +27,11 @@ std::string generate_task_name(const std::type_info&);
 void task_wrapper(
   VariantImpl, const char*, const void*, size_t, const void*, size_t, Legion::Processor);
 
-}  // namespace detail
+};  // namespace detail
 
 template <typename T>
 template <VariantImpl VARIANT_IMPL>
-/*static*/ void Task<T>::legate_task_wrapper(
+/*static*/ void LegateTask<T>::legate_task_wrapper(
   const void* args, size_t arglen, const void* userdata, size_t userlen, Legion::Processor p)
 {
   detail::task_wrapper(VARIANT_IMPL, task_name(), args, arglen, userdata, userlen, p);
@@ -39,11 +39,12 @@ template <VariantImpl VARIANT_IMPL>
 
 template <typename T>
 template <VariantImpl VARIANT_IMPL>
-/*static*/ void Task<T>::register_variant(Legion::ExecutionConstraintSet& execution_constraints,
-                                          Legion::TaskLayoutConstraintSet& layout_constraints,
-                                          LegateVariantCode var,
-                                          Legion::Processor::Kind kind,
-                                          const VariantOptions& options)
+/*static*/ void LegateTask<T>::register_variant(
+  Legion::ExecutionConstraintSet& execution_constraints,
+  Legion::TaskLayoutConstraintSet& layout_constraints,
+  LegateVariantCode var,
+  Legion::Processor::Kind kind,
+  const VariantOptions& options)
 {
   // Construct the code descriptor for this task so that the library
   // can register it later when it is ready
@@ -55,7 +56,7 @@ template <VariantImpl VARIANT_IMPL>
 }
 
 template <typename T>
-/*static*/ void Task<T>::register_variants(
+/*static*/ void LegateTask<T>::register_variants(
   const std::map<LegateVariantCode, VariantOptions>& all_options)
 {
   // Make a copy of the map of options so that we can do find-or-create on it
@@ -69,7 +70,7 @@ template <typename T>
 }
 
 template <typename T>
-/*static*/ const char* Task<T>::task_name()
+/*static*/ const char* LegateTask<T>::task_name()
 {
   static std::string result = detail::generate_task_name(typeid(T));
   return result.c_str();
