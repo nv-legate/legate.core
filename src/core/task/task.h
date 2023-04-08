@@ -31,11 +31,6 @@ namespace legate {
 class TaskContext;
 
 /**
- * @brief Function signature for task variants. Each task variant must be a function of this type.
- */
-using VariantImpl = void (*)(TaskContext&);
-
-/**
  * @ingroup task
  * @brief A base class template for Legate task implementations.
  *
@@ -82,9 +77,7 @@ struct LegateTask {
 
   // A helper to register a single task variant
   template <VariantImpl VARIANT_IMPL>
-  static void register_variant(Legion::ExecutionConstraintSet& execution_constraints,
-                               Legion::TaskLayoutConstraintSet& layout_constraints,
-                               LegateVariantCode var,
+  static void register_variant(LegateVariantCode var,
                                Processor::Kind kind,
                                const VariantOptions& options);
 

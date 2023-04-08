@@ -150,11 +150,25 @@ void LibraryContext::register_mapper(std::unique_ptr<mapping::LegateMapper> mapp
                                      int64_t local_mapper_id) const
 {
   auto base_mapper = new legate::mapping::BaseMapper(
-    std::move(mapper), runtime_, Realm::Machine::get_machine(), *this);
+    std::move(mapper), runtime_, Realm::Machine::get_machine(), this);
   Legion::Mapping::Mapper* legion_mapper = base_mapper;
   if (Core::log_mapping_decisions)
     legion_mapper = new Legion::Mapping::LoggingWrapper(base_mapper, &base_mapper->logger);
   runtime_->add_mapper(get_mapper_id(local_mapper_id), legion_mapper);
+}
+
+void LibraryContext::record_task(int64_t local_task_id, std::unique_ptr<TaskInfo> task_info)
+{
+#ifdef DEBUG_LEGATE
+  log_legate.debug() << "[" << library_name_ << "] task " << local_task_id << ": " << *task_info;
+#endif
+  tasks_.emplace(std::make_pair(local_task_id, std::move(task_info)));
+}
+
+const TaskInfo* LibraryContext::find_task(int64_t local_task_id) const
+{
+  auto finder = tasks_.find(local_task_id);
+  return tasks_.end() == finder ? nullptr : finder->second.get();
 }
 
 TaskContext::TaskContext(const Legion::Task* task,

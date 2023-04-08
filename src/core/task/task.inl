@@ -39,20 +39,16 @@ template <VariantImpl VARIANT_IMPL>
 
 template <typename T>
 template <VariantImpl VARIANT_IMPL>
-/*static*/ void LegateTask<T>::register_variant(
-  Legion::ExecutionConstraintSet& execution_constraints,
-  Legion::TaskLayoutConstraintSet& layout_constraints,
-  LegateVariantCode var,
-  Legion::Processor::Kind kind,
-  const VariantOptions& options)
+/*static*/ void LegateTask<T>::register_variant(LegateVariantCode var,
+                                                Legion::Processor::Kind kind,
+                                                const VariantOptions& options)
 {
   // Construct the code descriptor for this task so that the library
   // can register it later when it is ready
   Legion::CodeDescriptor desc(legate_task_wrapper<VARIANT_IMPL>);
   auto task_id = T::TASK_ID;
 
-  T::Registrar::record_variant(
-    task_id, task_name(), desc, execution_constraints, layout_constraints, var, kind, options);
+  T::Registrar::record_variant(task_id, task_name(), desc, var, kind, options, VARIANT_IMPL);
 }
 
 template <typename T>

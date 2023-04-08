@@ -17,6 +17,7 @@
 #pragma once
 
 #include <memory>
+#include <unordered_map>
 
 #include "legion.h"
 // Must be included after legion.h
@@ -24,6 +25,7 @@
 
 #include "core/comm/communicator.h"
 #include "core/task/return.h"
+#include "core/task/task_info.h"
 #include "core/utilities/typedefs.h"
 
 /**
@@ -112,7 +114,8 @@ class LibraryContext {
   LibraryContext(const std::string& library_name, const ResourceConfig& config);
 
  public:
-  LibraryContext(const LibraryContext&) = default;
+  LibraryContext(const LibraryContext&) = delete;
+  LibraryContext(LibraryContext&&)      = default;
 
  public:
   /**
@@ -207,6 +210,10 @@ class LibraryContext {
   void register_mapper(std::unique_ptr<mapping::LegateMapper> mapper,
                        int64_t local_mapper_id = 0) const;
 
+ public:
+  void record_task(int64_t local_task_id, std::unique_ptr<TaskInfo> task_info);
+  const TaskInfo* find_task(int64_t local_task_id) const;
+
  private:
   Legion::Runtime* runtime_;
   const std::string library_name_;
@@ -215,6 +222,7 @@ class LibraryContext {
   ResourceScope redop_scope_;
   ResourceScope proj_scope_;
   ResourceScope shard_scope_;
+  std::unordered_map<int64_t, std::unique_ptr<TaskInfo>> tasks_;
 };
 
 /**

@@ -48,7 +48,7 @@ class CoreMapper : public Legion::Mapping::NullMapper {
  public:
   CoreMapper(Legion::Mapping::MapperRuntime* runtime,
              Legion::Machine machine,
-             const LibraryContext& context);
+             const LibraryContext* context);
 
   virtual ~CoreMapper();
 
@@ -116,7 +116,7 @@ class CoreMapper : public Legion::Mapping::NullMapper {
   const Legion::AddressSpace local_node;
   const size_t total_nodes;
   const char* const mapper_name;
-  LibraryContext context;
+  const LibraryContext* context;
 
  protected:
   const uint32_t min_gpu_chunk;
@@ -143,7 +143,7 @@ class CoreMapper : public Legion::Mapping::NullMapper {
 
 CoreMapper::CoreMapper(Legion::Mapping::MapperRuntime* rt,
                        Legion::Machine m,
-                       const LibraryContext& c)
+                       const LibraryContext* c)
   : NullMapper(rt, m),
     local_node(get_local_node()),
     total_nodes(get_total_nodes(m)),
@@ -259,7 +259,7 @@ void CoreMapper::select_task_options(const Legion::Mapping::MapperContext ctx,
                                      const Legion::Task& task,
                                      TaskOptions& output)
 {
-  assert(context.valid_task_id(task.task_id));
+  assert(context->valid_task_id(task.task_id));
   if (task.tag == LEGATE_CPU_VARIANT) {
     assert(!local_cpus.empty());
     output.initial_proc = local_cpus.front();
@@ -278,7 +278,7 @@ void CoreMapper::slice_task(const Legion::Mapping::MapperContext ctx,
                             const SliceTaskInput& input,
                             SliceTaskOutput& output)
 {
-  assert(context.valid_task_id(task.task_id));
+  assert(context->valid_task_id(task.task_id));
   output.slices.reserve(input.domain.get_volume());
 
   Domain sharding_domain = task.index_domain;
@@ -303,7 +303,7 @@ void CoreMapper::map_task(const Legion::Mapping::MapperContext ctx,
                           const MapTaskInput& input,
                           MapTaskOutput& output)
 {
-  assert(context.valid_task_id(task.task_id));
+  assert(context->valid_task_id(task.task_id));
   // Just put our target proc in the target processors for now
   output.target_procs.push_back(task.target_proc);
   output.chosen_variant = task.tag;
@@ -314,11 +314,11 @@ void CoreMapper::select_sharding_functor(const Legion::Mapping::MapperContext ct
                                          const SelectShardingFunctorInput& input,
                                          SelectShardingFunctorOutput& output)
 {
-  assert(context.valid_task_id(task.task_id));
+  assert(context->valid_task_id(task.task_id));
   assert(task.regions.empty());
   const int launch_dim = task.index_domain.get_dim();
   assert(launch_dim == 1);
-  output.chosen_functor = context.get_sharding_id(LEGATE_CORE_TOPLEVEL_TASK_SHARD_ID);
+  output.chosen_functor = context->get_sharding_id(LEGATE_CORE_TOPLEVEL_TASK_SHARD_ID);
 }
 
 void CoreMapper::select_steal_targets(const Legion::Mapping::MapperContext ctx,
@@ -477,11 +477,11 @@ void CoreMapper::select_tunable_value(const Legion::Mapping::MapperContext ctx,
 
 void register_legate_core_mapper(Legion::Machine machine,
                                  Legion::Runtime* runtime,
-                                 const LibraryContext& context)
+                                 const LibraryContext* context)
 {
   // Replace all the default mappers with our custom mapper for the Legate
   // top-level task and init task
-  runtime->add_mapper(context.get_mapper_id(0),
+  runtime->add_mapper(context->get_mapper_id(0),
                       new CoreMapper(runtime->get_mapper_runtime(), machine, context));
 }
 

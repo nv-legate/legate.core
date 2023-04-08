@@ -26,6 +26,12 @@
  */
 namespace legate {
 
+/**
+ * @brief Function signature for task variants. Each task variant must be a function of this type.
+ */
+class TaskContext;
+using VariantImpl = void (*)(TaskContext&);
+
 // Each scalar output store can take up to 12 bytes, so in the worst case there can be only up to
 // 341 scalar output stores.
 constexpr size_t LEGATE_MAX_SIZE_SCALAR_RETURN = 4096;
@@ -72,6 +78,8 @@ struct VariantOptions {
   VariantOptions& with_return_size(size_t return_size);
 };
 
+std::ostream& operator<<(std::ostream& os, const VariantOptions& options);
+
 namespace detail {
 
 template <typename T>
@@ -111,10 +119,8 @@ template <typename T, template <typename...> typename SELECTOR, bool HAS_VARIANT
 struct RegisterVariantImpl {
   static void register_variant(const VariantOptions& options)
   {
-    Legion::ExecutionConstraintSet execution_constraints;
-    Legion::TaskLayoutConstraintSet layout_constraints;
     T::BASE::template register_variant<SELECTOR<T>::variant>(
-      execution_constraints, layout_constraints, SELECTOR<T>::id, SELECTOR<T>::proc_kind, options);
+      SELECTOR<T>::id, SELECTOR<T>::proc_kind, options);
   }
 };
 

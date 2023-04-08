@@ -86,11 +86,10 @@ class TaskRegistrar {
   void record_variant(Legion::TaskID tid,
                       const char* task_name,
                       const Legion::CodeDescriptor& desc,
-                      Legion::ExecutionConstraintSet& execution_constraints,
-                      Legion::TaskLayoutConstraintSet& layout_constraints,
                       LegateVariantCode var,
                       Processor::Kind kind,
-                      const VariantOptions& options);
+                      const VariantOptions& options,
+                      VariantImpl body);
 
  public:
   /**
@@ -99,7 +98,7 @@ class TaskRegistrar {
    *
    * @param context Context of the library that owns this registrar
    */
-  void register_all_tasks(const LibraryContext& context);
+  void register_all_tasks(LibraryContext& context);
 
  private:
   std::vector<PendingTaskVariant*> pending_task_variants_;

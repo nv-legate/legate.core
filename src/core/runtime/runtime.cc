@@ -232,7 +232,7 @@ extern void register_exception_reduction_op(Legion::Runtime* runtime,
 
   register_legate_core_tasks(machine, runtime, *core_lib);
 
-  register_legate_core_mapper(machine, runtime, *core_lib);
+  register_legate_core_mapper(machine, runtime, core_lib);
 
   register_exception_reduction_op(runtime, *core_lib);
 

@@ -208,6 +208,7 @@ list(APPEND legate_core_SOURCES
   src/core/task/registrar.cc
   src/core/task/return.cc
   src/core/task/task.cc
+  src/core/task/task_info.cc
   src/core/task/variant.cc
   src/core/utilities/debug.cc
   src/core/utilities/deserializer.cc

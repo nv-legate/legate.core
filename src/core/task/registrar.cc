@@ -17,6 +17,7 @@
 #include "core/task/registrar.h"
 
 #include "core/runtime/context.h"
+#include "core/task/task_info.h"
 #include "core/utilities/typedefs.h"
 
 namespace legate {
@@ -32,29 +33,31 @@ struct PendingTaskVariant : public Legion::TaskVariantRegistrar {
                      const char* t_name,
                      const Legion::CodeDescriptor& desc,
                      LegateVariantCode v,
-                     size_t ret)
+                     const VariantOptions& _options,
+                     VariantImpl _body)
     : Legion::TaskVariantRegistrar(tid, global, var_name),
       task_name(t_name),
       descriptor(desc),
       var(v),
-      ret_size(ret)
+      options(_options),
+      body(_body)
   {
   }
 
   const char* task_name;
   Legion::CodeDescriptor descriptor;
   LegateVariantCode var;
-  size_t ret_size;
+  VariantOptions options;
+  VariantImpl body;
 };
 
 void TaskRegistrar::record_variant(Legion::TaskID tid,
                                    const char* task_name,
                                    const Legion::CodeDescriptor& desc,
-                                   Legion::ExecutionConstraintSet& execution_constraints,
-                                   Legion::TaskLayoutConstraintSet& layout_constraints,
                                    LegateVariantCode var,
                                    Processor::Kind kind,
-                                   const VariantOptions& options)
+                                   const VariantOptions& options,
+                                   VariantImpl body)
 {
   assert((kind == Processor::LOC_PROC) || (kind == Processor::TOC_PROC) ||
          (kind == Processor::OMP_PROC));
@@ -68,10 +71,9 @@ void TaskRegistrar::record_variant(Legion::TaskID tid,
                                           task_name,
                                           desc,
                                           var,
-                                          options.return_size);
+                                          options,
+                                          body);
 
-  registrar->execution_constraints.swap(execution_constraints);
-  registrar->layout_constraints.swap(layout_constraints);
   registrar->add_constraint(Legion::ProcessorConstraint(kind));
   registrar->set_leaf(options.leaf);
   registrar->set_inner(options.inner);
@@ -81,16 +83,32 @@ void TaskRegistrar::record_variant(Legion::TaskID tid,
   pending_task_variants_.push_back(registrar);
 }
 
-void TaskRegistrar::register_all_tasks(const LibraryContext& context)
+void TaskRegistrar::register_all_tasks(LibraryContext& context)
 {
   auto runtime = Legion::Runtime::get_runtime();
+  std::unordered_map<int64_t, std::unique_ptr<TaskInfo>> task_infos;
+  for (auto& task : pending_task_variants_) {
+    TaskInfo* info;
+    auto finder = task_infos.find(task->task_id);
+    if (task_infos.end() == finder) {
+      auto p_info = std::make_unique<TaskInfo>(task->task_name);
+      info        = p_info.get();
+      task_infos.emplace(std::make_pair(task->task_id, std::move(p_info)));
+    } else
+      info = finder->second.get();
+    info->add_variant(task->var, task->body, task->options);
+  }
+
+  for (auto& [task_id, task_info] : task_infos) context.record_task(task_id, std::move(task_info));
+
   // Do all our registrations
   for (auto& task : pending_task_variants_) {
     task->task_id =
       context.get_task_id(task->task_id);  // Convert a task local task id to a global id
     // Attach the task name too for debugging
     runtime->attach_name(task->task_id, task->task_name, false /*mutable*/, true /*local only*/);
-    runtime->register_task_variant(*task, task->descriptor, nullptr, 0, task->ret_size, task->var);
+    runtime->register_task_variant(
+      *task, task->descriptor, nullptr, 0, task->options.return_size, task->var);
     delete task;
   }
   pending_task_variants_.clear();
