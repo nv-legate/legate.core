@@ -24,7 +24,7 @@
 
 /**
  * @file
- * @brief Class definition fo legate::LegateTask
+ * @brief Class definition fo legate::Task
  */
 namespace legate {
 
@@ -39,8 +39,8 @@ using VariantImpl = void (*)(TaskContext&);
  * @ingroup task
  * @brief A base class template for Legate task implementations.
  *
- * Any Legate task class must inherit legate::LegateTask directly or transitively. The type
- * parameter `T` needs to be bound to a child Legate task class that inherits legate::LegateTask.
+ * Any Legate task class must inherit legate::Task directly or transitively. The type
+ * parameter `T` needs to be bound to a child Legate task class that inherits legate::Task.
  *
  * Curently, each task can have up to three variants and the variants need to be static member
  * functions of the class under the following names:
@@ -56,9 +56,9 @@ using VariantImpl = void (*)(TaskContext&);
  * registrar class. (See legate::TaskRegistrar for details.)
  */
 template <typename T>
-struct LegateTask {
+struct Task {
   // Exports the base class so we can access it via subclass T
-  using BASE = LegateTask<T>;
+  using BASE = Task<T>;
 
   /**
    * @brief Registers all task variants of the task. The client can optionally specify
