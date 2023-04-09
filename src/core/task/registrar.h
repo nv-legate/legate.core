@@ -31,7 +31,7 @@
 namespace legate {
 
 class LibraryContext;
-class PendingTaskVariant;
+class TaskInfo;
 
 /**
  * @ingroup task
@@ -83,13 +83,12 @@ class PendingTaskVariant;
  */
 class TaskRegistrar {
  public:
-  void record_variant(Legion::TaskID tid,
-                      const char* task_name,
-                      const Legion::CodeDescriptor& desc,
-                      LegateVariantCode var,
-                      Processor::Kind kind,
-                      const VariantOptions& options,
-                      VariantImpl body);
+  void record_variant(int64_t local_task_id,
+                      LegateVariantCode variant_id,
+                      const std::string& task_name,
+                      VariantImpl body,
+                      const Legion::CodeDescriptor& code_desc,
+                      const VariantOptions& options);
 
  public:
   /**
@@ -101,7 +100,7 @@ class TaskRegistrar {
   void register_all_tasks(LibraryContext& context);
 
  private:
-  std::vector<PendingTaskVariant*> pending_task_variants_;
+  std::unordered_map<int64_t, std::unique_ptr<TaskInfo>> pending_task_infos_;
 };
 
 }  // namespace legate

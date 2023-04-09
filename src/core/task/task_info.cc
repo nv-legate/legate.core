@@ -35,7 +35,7 @@ TaskInfo::TaskInfo(const std::string& task_name) : task_name_(task_name) {}
 
 void TaskInfo::add_variant(LegateVariantCode vid,
                            VariantImpl body,
-                           Legion::CodeDescriptor code_desc,
+                           const Legion::CodeDescriptor& code_desc,
                            const VariantOptions& options)
 {
 #ifdef DEBUG_LEGATE

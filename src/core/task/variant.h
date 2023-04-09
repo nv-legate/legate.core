@@ -98,31 +98,27 @@ struct GPUVariant : std::false_type {};
 
 template <typename T>
 struct CPUVariant<T, void_t<decltype(T::cpu_variant)>> : std::true_type {
-  static constexpr auto variant   = T::cpu_variant;
-  static constexpr auto id        = LEGATE_CPU_VARIANT;
-  static constexpr auto proc_kind = Processor::LOC_PROC;
+  static constexpr auto variant = T::cpu_variant;
+  static constexpr auto id      = LEGATE_CPU_VARIANT;
 };
 
 template <typename T>
 struct OMPVariant<T, void_t<decltype(T::omp_variant)>> : std::true_type {
-  static constexpr auto variant   = T::omp_variant;
-  static constexpr auto id        = LEGATE_OMP_VARIANT;
-  static constexpr auto proc_kind = Processor::OMP_PROC;
+  static constexpr auto variant = T::omp_variant;
+  static constexpr auto id      = LEGATE_OMP_VARIANT;
 };
 
 template <typename T>
 struct GPUVariant<T, void_t<decltype(T::gpu_variant)>> : std::true_type {
-  static constexpr auto variant   = T::gpu_variant;
-  static constexpr auto id        = LEGATE_GPU_VARIANT;
-  static constexpr auto proc_kind = Processor::TOC_PROC;
+  static constexpr auto variant = T::gpu_variant;
+  static constexpr auto id      = LEGATE_GPU_VARIANT;
 };
 
 template <typename T, template <typename...> typename SELECTOR, bool HAS_VARIANT>
 struct RegisterVariantImpl {
   static void register_variant(const VariantOptions& options)
   {
-    T::BASE::template register_variant<SELECTOR<T>::variant>(
-      SELECTOR<T>::id, SELECTOR<T>::proc_kind, options);
+    T::BASE::template register_variant<SELECTOR<T>::variant>(SELECTOR<T>::id, options);
   }
 };
 

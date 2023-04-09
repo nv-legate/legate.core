@@ -43,7 +43,7 @@ std::string generate_task_name(const std::type_info& ti)
 }
 
 void task_wrapper(VariantImpl variant_impl,
-                  const char* task_name,
+                  const std::string& task_name,
                   const void* args,
                   size_t arglen,
                   const void* userdata,

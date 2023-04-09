@@ -25,7 +25,7 @@ namespace detail {
 std::string generate_task_name(const std::type_info&);
 
 void task_wrapper(
-  VariantImpl, const char*, const void*, size_t, const void*, size_t, Legion::Processor);
+  VariantImpl, const std::string&, const void*, size_t, const void*, size_t, Legion::Processor);
 
 };  // namespace detail
 
@@ -39,16 +39,16 @@ template <VariantImpl VARIANT_IMPL>
 
 template <typename T>
 template <VariantImpl VARIANT_IMPL>
-/*static*/ void LegateTask<T>::register_variant(LegateVariantCode var,
-                                                Legion::Processor::Kind kind,
+/*static*/ void LegateTask<T>::register_variant(LegateVariantCode variant_id,
                                                 const VariantOptions& options)
 {
   // Construct the code descriptor for this task so that the library
   // can register it later when it is ready
-  Legion::CodeDescriptor desc(legate_task_wrapper<VARIANT_IMPL>);
+  Legion::CodeDescriptor code_desc(legate_task_wrapper<VARIANT_IMPL>);
+  // Note that we should store the task id in a variable as the `record_variant` in the next line
+  // would expect a reference of it.
   auto task_id = T::TASK_ID;
-
-  T::Registrar::record_variant(task_id, task_name(), desc, var, kind, options, VARIANT_IMPL);
+  T::Registrar::record_variant(task_id, variant_id, task_name(), VARIANT_IMPL, code_desc, options);
 }
 
 template <typename T>
@@ -66,10 +66,10 @@ template <typename T>
 }
 
 template <typename T>
-/*static*/ const char* LegateTask<T>::task_name()
+/*static*/ const std::string& LegateTask<T>::task_name()
 {
   static std::string result = detail::generate_task_name(typeid(T));
-  return result.c_str();
+  return result;
 }
 
 }  // namespace legate

@@ -77,11 +77,9 @@ struct LegateTask {
 
   // A helper to register a single task variant
   template <VariantImpl VARIANT_IMPL>
-  static void register_variant(LegateVariantCode var,
-                               Processor::Kind kind,
-                               const VariantOptions& options);
+  static void register_variant(LegateVariantCode variant_id, const VariantOptions& options);
 
-  static const char* task_name();
+  static const std::string& task_name();
 };
 
 }  // namespace legate

@@ -37,7 +37,7 @@ class TaskInfo {
  public:
   void add_variant(LegateVariantCode vid,
                    VariantImpl body,
-                   Legion::CodeDescriptor code_desc,
+                   const Legion::CodeDescriptor& code_desc,
                    const VariantOptions& options);
   const VariantInfo* find_variant(LegateVariantCode vid) const;
   bool has_variant(LegateVariantCode vid) const;
