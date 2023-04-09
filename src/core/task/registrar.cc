@@ -96,21 +96,15 @@ void TaskRegistrar::register_all_tasks(LibraryContext& context)
       task_infos.emplace(std::make_pair(task->task_id, std::move(p_info)));
     } else
       info = finder->second.get();
-    info->add_variant(task->var, task->body, task->options);
-  }
-
-  for (auto& [task_id, task_info] : task_infos) context.record_task(task_id, std::move(task_info));
-
-  // Do all our registrations
-  for (auto& task : pending_task_variants_) {
-    task->task_id =
-      context.get_task_id(task->task_id);  // Convert a task local task id to a global id
-    // Attach the task name too for debugging
-    runtime->attach_name(task->task_id, task->task_name, false /*mutable*/, true /*local only*/);
-    runtime->register_task_variant(
-      *task, task->descriptor, nullptr, 0, task->options.return_size, task->var);
+    info->add_variant(task->var, task->body, task->descriptor, task->options);
     delete task;
   }
+
+  for (auto& [local_task_id, task_info] : task_infos) {
+    task_info->register_task(context.get_task_id(local_task_id));
+    context.record_task(local_task_id, std::move(task_info));
+  }
+
   pending_task_variants_.clear();
 }
 

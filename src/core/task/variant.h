@@ -76,6 +76,8 @@ struct VariantOptions {
    * @param `return_size` A new maximum aggregate size for scalar output values
    */
   VariantOptions& with_return_size(size_t return_size);
+
+  void populate_registrar(Legion::TaskVariantRegistrar& registrar);
 };
 
 std::ostream& operator<<(std::ostream& os, const VariantOptions& options);

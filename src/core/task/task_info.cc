@@ -18,14 +18,30 @@
 
 namespace legate {
 
+namespace {
+
+const char* VARIANT_NAMES[] = {"(invalid)", "CPU", "GPU", "OMP"};
+
+const Processor::Kind VARIANT_PROC_KINDS[] = {
+  Processor::Kind::NO_KIND,
+  Processor::Kind::LOC_PROC,
+  Processor::Kind::TOC_PROC,
+  Processor::Kind::OMP_PROC,
+};
+
+}  // namespace
+
 TaskInfo::TaskInfo(const std::string& task_name) : task_name_(task_name) {}
 
-void TaskInfo::add_variant(LegateVariantCode vid, VariantImpl body, const VariantOptions& options)
+void TaskInfo::add_variant(LegateVariantCode vid,
+                           VariantImpl body,
+                           Legion::CodeDescriptor code_desc,
+                           const VariantOptions& options)
 {
 #ifdef DEBUG_LEGATE
   assert(variants_.find(vid) == variants_.end());
 #endif
-  variants_.emplace(std::make_pair(vid, VariantInfo{body, options}));
+  variants_.emplace(std::make_pair(vid, VariantInfo{body, code_desc, options}));
 }
 
 const VariantInfo* TaskInfo::find_variant(LegateVariantCode vid) const
@@ -39,6 +55,19 @@ bool TaskInfo::has_variant(LegateVariantCode vid) const
   return variants_.find(vid) != variants_.end();
 }
 
+void TaskInfo::register_task(Legion::TaskID task_id)
+{
+  auto runtime = Legion::Runtime::get_runtime();
+  runtime->attach_name(task_id, task_name_.c_str(), false /*mutable*/, true /*local_only*/);
+  for (auto& [vid, vinfo] : variants_) {
+    Legion::TaskVariantRegistrar registrar(task_id, false /*global*/, VARIANT_NAMES[vid]);
+    registrar.add_constraint(Legion::ProcessorConstraint(VARIANT_PROC_KINDS[vid]));
+    vinfo.options.populate_registrar(registrar);
+    runtime->register_task_variant(
+      registrar, vinfo.code_desc, nullptr, 0, vinfo.options.return_size, vid);
+  }
+}
+
 std::ostream& operator<<(std::ostream& os, const VariantInfo& info)
 {
   std::stringstream ss;
@@ -49,10 +78,9 @@ std::ostream& operator<<(std::ostream& os, const VariantInfo& info)
 
 std::ostream& operator<<(std::ostream& os, const TaskInfo& info)
 {
-  static const char* variant_names[] = {"(invalid)", "CPU", "GPU", "OMP"};
   std::stringstream ss;
   ss << info.name() << " {";
-  for (auto [vid, vi] : info.variants_) ss << variant_names[vid] << ":[" << vi << "],";
+  for (auto [vid, vinfo] : info.variants_) ss << VARIANT_NAMES[vid] << ":[" << vinfo << "],";
   ss << "}";
   os << std::move(ss).str();
   return os;

@@ -23,6 +23,7 @@ namespace legate {
 
 struct VariantInfo {
   VariantImpl body;
+  Legion::CodeDescriptor code_desc;
   VariantOptions options;
 };
 
@@ -34,9 +35,15 @@ class TaskInfo {
   const std::string& name() const { return task_name_; }
 
  public:
-  void add_variant(LegateVariantCode vid, VariantImpl body, const VariantOptions& options);
+  void add_variant(LegateVariantCode vid,
+                   VariantImpl body,
+                   Legion::CodeDescriptor code_desc,
+                   const VariantOptions& options);
   const VariantInfo* find_variant(LegateVariantCode vid) const;
   bool has_variant(LegateVariantCode vid) const;
+
+ public:
+  void register_task(Legion::TaskID task_id);
 
  private:
   friend std::ostream& operator<<(std::ostream& os, const TaskInfo& info);
