@@ -54,13 +54,3 @@ class UserLibrary(Library):
 
 user_lib = UserLibrary("registry")
 user_context = get_legate_runtime().register_library(user_lib)
-
-
-def hello() -> None:
-    task = user_context.create_auto_task(user_lib.shared_object.HELLO)
-    task.execute()
-
-
-def world() -> None:
-    task = user_context.create_auto_task(user_lib.shared_object.WORLD)
-    task.execute()

@@ -15,23 +15,53 @@
 
 # distutils: language = c++
 
+import cython
 from libcpp cimport bool
 from libcpp.string cimport string
 
 
-cdef extern from "core/runtime/context.h" namespace "legate":
+cdef extern from "core/legate_c.h" nogil:
+    ctypedef enum legate_core_variant_t:
+        pass
+
+cdef extern from "core/task/task_info.h" namespace "legate" nogil:
+    cdef cppclass TaskInfo:
+        bool has_variant(int)
+
+cdef extern from "core/runtime/context.h" namespace "legate" nogil:
     cdef cppclass LibraryContext:
         unsigned int get_task_id(long long)
         unsigned int get_mapper_id(long long)
         int get_reduction_op_id(long long)
         unsigned int get_projection_id(long long)
         unsigned int get_sharding_id(long long)
+        TaskInfo* find_task(long long)
 
-cdef extern from "core/runtime/runtime.h" namespace "legate":
+cdef extern from "core/runtime/runtime.h" namespace "legate" nogil:
     cdef cppclass Runtime:
         @staticmethod
         Runtime* get_runtime()
         LibraryContext* find_library(string, bool)
+
+
+cdef class CppTaskInfo:
+    cdef const TaskInfo* _task_info
+
+    @staticmethod
+    cdef CppTaskInfo from_ptr(const TaskInfo* p_task_info):
+        cdef CppTaskInfo result = CppTaskInfo.__new__(CppTaskInfo)
+        result._task_info = p_task_info
+        return result
+
+    @property
+    def valid(self) -> bool:
+        return self._task_info != NULL
+
+    def has_variant(self, int variant_id) -> bool:
+        return self._task_info.has_variant(
+            cython.cast(legate_core_variant_t, variant_id)
+        )
+
 
 cdef class Context:
     cdef LibraryContext* _context
@@ -53,3 +83,6 @@ cdef class Context:
 
     def get_sharding_id(self, long long local_shard_id) -> int:
         return self._context.get_sharding_id(local_shard_id)
+
+    def find_task(self, long long local_task_id) -> CppTaskInfo:
+        return CppTaskInfo.from_ptr(self._context.find_task(local_task_id))

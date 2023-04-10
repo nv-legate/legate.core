@@ -14,23 +14,20 @@
  *
  */
 
-#ifndef __REGISTER_C__
-#define __REGISTER_C__
+#include "library.h"
+#include "registry_cffi.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+namespace rg {
 
-enum RegistryOpCode {
-  HELLO = 0,
-  WORLD = 1,
-  NO_VARIANT = 2,
-};
+class NoVariantTask : public Task<NoVariantTask, NO_VARIANT> {};
 
-void perform_registration(void);
+} // namespace rg
 
-#ifdef __cplusplus
+namespace // unnamed
+{
+
+static void __attribute__((constructor)) register_tasks() {
+  rg::NoVariantTask::register_variants();
 }
-#endif
 
-#endif // __REGISTER_C__
+} // namespace

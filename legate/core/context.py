@@ -116,7 +116,7 @@ class Context:
 
         name = library.get_name()
 
-        self._context = CppContext(name, False)
+        self._cpp_context = CppContext(name, False)
 
         self._libname = library.get_name()
         self._annotations: list[LibraryAnnotations] = [LibraryAnnotations()]
@@ -194,26 +194,26 @@ class Context:
         return self.annotation.provenance
 
     def get_task_id(self, task_id: int) -> int:
-        return self._context.get_task_id(task_id)
+        return self._cpp_context.get_task_id(task_id)
 
     @property
     def mapper_id(self) -> int:
         return self.get_mapper_id(0)
 
     def get_mapper_id(self, mapper_id: int) -> int:
-        return self._context.get_mapper_id(mapper_id)
+        return self._cpp_context.get_mapper_id(mapper_id)
 
     def get_reduction_op_id(self, redop_id: int) -> int:
-        return self._context.get_reduction_op_id(redop_id)
+        return self._cpp_context.get_reduction_op_id(redop_id)
 
     def get_projection_id(self, proj_id: int) -> int:
         if proj_id == 0:
             return proj_id
         else:
-            return self._context.get_projection_id(proj_id)
+            return self._cpp_context.get_projection_id(proj_id)
 
     def get_sharding_id(self, shard_id: int) -> int:
-        return self._context.get_sharding_id(shard_id)
+        return self._cpp_context.get_sharding_id(shard_id)
 
     def get_tunable(
         self, tunable_id: int, dtype: DataType, mapper_id: int = 0
@@ -334,6 +334,22 @@ class Context:
 
         return wrapper
 
+    def _check_task_id(self, task_id: int) -> None:
+        task_info = self._cpp_context.find_task(task_id)
+        if not task_info.valid:
+            raise ValueError(
+                f"Library '{self._libname}' does not have task {task_id}"
+            )
+        if not any(
+            task_info.has_variant(vid)
+            for vid in self._runtime.valid_variant_ids
+        ):
+            error_msg = (
+                f"Task {task_id} of library '{self._libname}' does not have "
+                "any valid variant for the current machine configuration. "
+            )
+            raise ValueError(error_msg)
+
     def create_manual_task(
         self,
         task_id: int,
@@ -365,11 +381,15 @@ class Context:
 
         from .operation import ManualTask
 
+        # Check if the task id is valid for this library and the task
+        # has the right variant
+        self._check_task_id(task_id)
         unique_op_id = self.get_unique_op_id()
         if launch_domain is None:
             raise RuntimeError(
                 "Launch domain must be specified for manual parallelization"
             )
+
         return ManualTask(
             self,
             task_id,
@@ -409,6 +429,9 @@ class Context:
 
         from .operation import AutoTask
 
+        # Check if the task id is valid for this library and the task
+        # has the right variant
+        self._check_task_id(task_id)
         unique_op_id = self.get_unique_op_id()
         return AutoTask(self, task_id, mapper_id, unique_op_id)
 

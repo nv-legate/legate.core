@@ -18,6 +18,7 @@ add_library(
   registry
   hello.cc
   world.cc
+  no_variant.cc
   library.cc
 )
 
