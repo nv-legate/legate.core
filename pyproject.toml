@@ -89,7 +89,7 @@ strict_equality = true
 
 warn_unused_configs = true
 
-exclude = ['tests/examples']
+exclude = ['tests/examples', 'tests/integration']
 
 [[tool.mypy.overrides]]
 # ignore certain auto-generated and utility files
