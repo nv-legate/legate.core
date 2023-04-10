@@ -211,7 +211,7 @@ class LibraryContext {
                        int64_t local_mapper_id = 0) const;
 
  public:
-  void record_task(int64_t local_task_id, std::unique_ptr<TaskInfo> task_info);
+  void register_task(int64_t local_task_id, std::unique_ptr<TaskInfo> task_info);
   const TaskInfo* find_task(int64_t local_task_id) const;
 
  private:

@@ -45,10 +45,8 @@ void TaskRegistrar::record_variant(int64_t local_task_id,
 
 void TaskRegistrar::register_all_tasks(LibraryContext& context)
 {
-  for (auto& [local_task_id, task_info] : pending_task_infos_) {
-    task_info->register_task(context.get_task_id(local_task_id));
-    context.record_task(local_task_id, std::move(task_info));
-  }
+  for (auto& [local_task_id, task_info] : pending_task_infos_)
+    context.register_task(local_task_id, std::move(task_info));
   pending_task_infos_.clear();
 }
 

@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "core/task/variant.h"
+#include "core/task/variant_options.h"
 #include "core/utilities/typedefs.h"
 
 namespace legate {

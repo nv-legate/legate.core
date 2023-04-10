@@ -16,7 +16,10 @@
 
 #pragma once
 
-#include "core/task/variant.h"
+#include "core/runtime/context.h"
+#include "core/task/task_info.h"
+#include "core/task/variant_helper.h"
+#include "core/task/variant_options.h"
 #include "core/utilities/typedefs.h"
 
 /** @defgroup task Task
@@ -27,8 +30,6 @@
  * @brief Class definition fo legate::LegateTask
  */
 namespace legate {
-
-class TaskContext;
 
 /**
  * @ingroup task
@@ -65,6 +66,9 @@ struct LegateTask {
   static void register_variants(
     const std::map<LegateVariantCode, VariantOptions>& all_options = {});
 
+  static void register_variants(
+    LibraryContext& context, const std::map<LegateVariantCode, VariantOptions>& all_options = {});
+
  private:
   template <typename, template <typename...> typename, bool>
   friend struct detail::RegisterVariantImpl;
@@ -78,6 +82,10 @@ struct LegateTask {
   // A helper to register a single task variant
   template <VariantImpl VARIANT_IMPL>
   static void register_variant(LegateVariantCode variant_id, const VariantOptions& options);
+  template <VariantImpl VARIANT_IMPL>
+  static void add_variant(TaskInfo* task_info,
+                          LegateVariantCode variant_id,
+                          const VariantOptions& options);
 
   static const std::string& task_name();
 };

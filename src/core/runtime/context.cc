@@ -157,11 +157,12 @@ void LibraryContext::register_mapper(std::unique_ptr<mapping::LegateMapper> mapp
   runtime_->add_mapper(get_mapper_id(local_mapper_id), legion_mapper);
 }
 
-void LibraryContext::record_task(int64_t local_task_id, std::unique_ptr<TaskInfo> task_info)
+void LibraryContext::register_task(int64_t local_task_id, std::unique_ptr<TaskInfo> task_info)
 {
 #ifdef DEBUG_LEGATE
   log_legate.debug() << "[" << library_name_ << "] task " << local_task_id << ": " << *task_info;
 #endif
+  task_info->register_task(get_task_id(local_task_id));
   tasks_.emplace(std::make_pair(local_task_id, std::move(task_info)));
 }
 

@@ -14,7 +14,7 @@
  *
  */
 
-#include "core/task/variant.h"
+#include "core/task/variant_options.h"
 
 namespace legate {
 

@@ -209,7 +209,7 @@ list(APPEND legate_core_SOURCES
   src/core/task/return.cc
   src/core/task/task.cc
   src/core/task/task_info.cc
-  src/core/task/variant.cc
+  src/core/task/variant_options.cc
   src/core/utilities/debug.cc
   src/core/utilities/deserializer.cc
   src/core/utilities/machine.cc
@@ -317,7 +317,7 @@ if (legate_core_BUILD_DOCS)
       # task
       src/core/task/task.h
       src/core/task/registrar.h
-      src/core/task/variant.h
+      src/core/task/variant_options.h
       src/core/task/exception.h
       src/core/cuda/stream_pool.h
       # data
@@ -422,7 +422,9 @@ install(
         src/core/task/return.h
         src/core/task/task.h
         src/core/task/task.inl
-        src/core/task/variant.h
+        src/core/task/task_info.h
+        src/core/task/variant_helper.h
+        src/core/task/variant_options.h
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/legate/core/task)
 
 install(
