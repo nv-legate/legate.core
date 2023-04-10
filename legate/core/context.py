@@ -54,11 +54,9 @@ class AnyCallable(Protocol):
 
 def caller_frameinfo() -> str:
     frame = inspect.currentframe()
-    for _ in range(2):
-        if frame is not None:
-            frame = frame.f_back
-    if frame is None:
+    if frame is None or frame.f_back is None or frame.f_back.f_back is None:
         return "<unknown>"
+    frame = frame.f_back.f_back
     return f"{frame.f_code.co_filename}:{frame.f_lineno}"
 
 
