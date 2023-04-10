@@ -38,59 +38,30 @@ template <VariantImpl VARIANT_IMPL>
 }
 
 template <typename T>
-template <VariantImpl VARIANT_IMPL>
-/*static*/ void LegateTask<T>::register_variant(LegateVariantCode variant_id,
-                                                const VariantOptions& options)
-{
-  // Construct the code descriptor for this task so that the library
-  // can register it later when it is ready
-  Legion::CodeDescriptor code_desc(legate_task_wrapper<VARIANT_IMPL>);
-  // Note that we should store the task id in a variable as the `record_variant` in the next line
-  // would expect a reference of it.
-  auto task_id = T::TASK_ID;
-  T::Registrar::record_variant(task_id, variant_id, task_name(), VARIANT_IMPL, code_desc, options);
-}
-
-template <typename T>
-template <VariantImpl VARIANT_IMPL>
-/*static*/ void LegateTask<T>::add_variant(TaskInfo* task_info,
-                                           LegateVariantCode variant_id,
-                                           const VariantOptions& options)
-{
-  // Construct the code descriptor for this task so that the library
-  // can register it later when it is ready
-  Legion::CodeDescriptor code_desc(legate_task_wrapper<VARIANT_IMPL>);
-  task_info->add_variant(variant_id, VARIANT_IMPL, code_desc, options);
-}
-
-template <typename T>
 /*static*/ void LegateTask<T>::register_variants(
   const std::map<LegateVariantCode, VariantOptions>& all_options)
 {
-  // Make a copy of the map of options so that we can do find-or-create on it
-  auto all_options_copy = all_options;
-  detail::RegisterVariant<T, detail::CPUVariant>::register_variant(
-    all_options_copy[LEGATE_CPU_VARIANT]);
-  detail::RegisterVariant<T, detail::OMPVariant>::register_variant(
-    all_options_copy[LEGATE_OMP_VARIANT]);
-  detail::RegisterVariant<T, detail::GPUVariant>::register_variant(
-    all_options_copy[LEGATE_GPU_VARIANT]);
+  auto task_info = create_task_info(all_options);
+  T::Registrar::get_registrar().record_task(T::TASK_ID, std::move(task_info));
 }
 
 template <typename T>
 /*static*/ void LegateTask<T>::register_variants(
   LibraryContext& context, const std::map<LegateVariantCode, VariantOptions>& all_options)
 {
-  auto task_info = std::make_unique<TaskInfo>(task_name());
-  // Make a copy of the map of options so that we can do find-or-create on it
-  auto all_options_copy = all_options;
-  detail::RegisterVariant<T, detail::CPUVariant>::add_variant(task_info.get(),
-                                                              all_options_copy[LEGATE_CPU_VARIANT]);
-  detail::RegisterVariant<T, detail::OMPVariant>::add_variant(task_info.get(),
-                                                              all_options_copy[LEGATE_OMP_VARIANT]);
-  detail::RegisterVariant<T, detail::GPUVariant>::add_variant(task_info.get(),
-                                                              all_options_copy[LEGATE_GPU_VARIANT]);
+  auto task_info = create_task_info(all_options);
   context.register_task(T::TASK_ID, std::move(task_info));
+}
+
+template <typename T>
+/*static*/ std::unique_ptr<TaskInfo> LegateTask<T>::create_task_info(
+  const std::map<LegateVariantCode, VariantOptions>& all_options)
+{
+  auto task_info = std::make_unique<TaskInfo>(task_name());
+  detail::VariantHelper<T, detail::CPUVariant>::record(task_info.get(), all_options);
+  detail::VariantHelper<T, detail::OMPVariant>::record(task_info.get(), all_options);
+  detail::VariantHelper<T, detail::GPUVariant>::record(task_info.get(), all_options);
+  return std::move(task_info);
 }
 
 template <typename T>

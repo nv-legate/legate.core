@@ -43,12 +43,6 @@ class TaskInfo;
  *
  * @code{.cpp}
  * struct MyLibrary {
- *  public:
- *   template <typename... Args>
- *   static void record_variant(Args&&... args)
- *   {
- *     get_registrar().record_variant(std::forward<Args>(args)...);
- *   }
  *   static legate::TaskRegistrar& get_registrar();
  * };
  *
@@ -61,9 +55,8 @@ class TaskInfo;
  * @endcode
  *
  * In the code above, the `MyLibrary` has a static member that returns a singleton
- * `legate::TaskRegistrar` object, and another member `record_variant` that simply forwards all
- * arguments to the registrar. Then, the `MyLibraryTaskBase` points to the class so Legate can find
- * where task variants are registered.
+ * `legate::TaskRegistrar` object. Then, the `MyLibraryTaskBase` points to the class so Legate can
+ * find where task variants are collected.
  *
  * Once this registrar is set up in a library, each library task can simply register itself
  * with the `LegateTask::register_variants` method like the following:
@@ -83,12 +76,7 @@ class TaskInfo;
  */
 class TaskRegistrar {
  public:
-  void record_variant(int64_t local_task_id,
-                      LegateVariantCode variant_id,
-                      const std::string& task_name,
-                      VariantImpl body,
-                      const Legion::CodeDescriptor& code_desc,
-                      const VariantOptions& options);
+  void record_task(int64_t local_task_id, std::unique_ptr<TaskInfo> task_info);
 
  public:
   /**
@@ -100,7 +88,7 @@ class TaskRegistrar {
   void register_all_tasks(LibraryContext& context);
 
  private:
-  std::unordered_map<int64_t, std::unique_ptr<TaskInfo>> pending_task_infos_;
+  std::vector<std::pair<int64_t, std::unique_ptr<TaskInfo>>> pending_task_infos_;
 };
 
 }  // namespace legate

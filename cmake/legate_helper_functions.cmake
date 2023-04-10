@@ -262,12 +262,6 @@ function(legate_cpp_library_template target output_sources_variable)
 namespace @target@ {
 
 struct Registry {
- public:
-  template <typename... Args>
-  static void record_variant(Args&&... args)
-  {
-    get_registrar().record_variant(std::forward<Args>(args)...);
-  }
   static legate::TaskRegistrar& get_registrar();
 };
 

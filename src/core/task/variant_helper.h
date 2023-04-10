@@ -56,38 +56,38 @@ struct GPUVariant<T, void_t<decltype(T::gpu_variant)>> : std::true_type {
 };
 
 template <typename T, template <typename...> typename SELECTOR, bool HAS_VARIANT>
-struct RegisterVariantImpl {
-  static void register_variant(const VariantOptions& options)
+struct VariantHelperImpl {
+  static void record(TaskInfo* task_info,
+                     const std::map<LegateVariantCode, VariantOptions>& all_options)
   {
-    T::BASE::template register_variant<SELECTOR<T>::variant>(SELECTOR<T>::id, options);
-  }
-  static void add_variant(TaskInfo* task_info, const VariantOptions& options)
-  {
-    T::BASE::template add_variant<SELECTOR<T>::variant>(task_info, SELECTOR<T>::id, options);
-  }
-};
-
-template <typename T, template <typename...> typename SELECTOR>
-struct RegisterVariantImpl<T, SELECTOR, false> {
-  static void register_variant(const VariantOptions& options)
-  {
-    // Do nothing
-  }
-  static void add_variant(TaskInfo* task_info, const VariantOptions& options)
-  {
-    // Do nothing
+    // Construct the code descriptor for this task so that the library
+    // can register it later when it is ready
+    constexpr auto VARIANT_IMPL = SELECTOR<T>::variant;
+    constexpr auto WRAPPER      = T::BASE::template legate_task_wrapper<VARIANT_IMPL>;
+    constexpr auto VARIANT_ID   = SELECTOR<T>::id;
+    auto finder                 = all_options.find(VARIANT_ID);
+    task_info->add_variant(VARIANT_ID,
+                           VARIANT_IMPL,
+                           Legion::CodeDescriptor(WRAPPER),
+                           finder != all_options.end() ? finder->second : VariantOptions{});
   }
 };
 
 template <typename T, template <typename...> typename SELECTOR>
-struct RegisterVariant {
-  static void register_variant(const VariantOptions& options)
+struct VariantHelperImpl<T, SELECTOR, false> {
+  static void record(TaskInfo* task_info,
+                     const std::map<LegateVariantCode, VariantOptions>& all_options)
   {
-    RegisterVariantImpl<T, SELECTOR, SELECTOR<T>::value>::register_variant(options);
+    // Do nothing
   }
-  static void add_variant(TaskInfo* task_info, const VariantOptions& options)
+};
+
+template <typename T, template <typename...> typename SELECTOR>
+struct VariantHelper {
+  static void record(TaskInfo* task_info,
+                     const std::map<LegateVariantCode, VariantOptions>& all_options)
   {
-    RegisterVariantImpl<T, SELECTOR, SELECTOR<T>::value>::add_variant(task_info, options);
+    VariantHelperImpl<T, SELECTOR, SELECTOR<T>::value>::record(task_info, all_options);
   }
 };
 

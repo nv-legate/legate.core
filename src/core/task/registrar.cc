@@ -22,25 +22,9 @@
 
 namespace legate {
 
-void TaskRegistrar::record_variant(int64_t local_task_id,
-                                   LegateVariantCode variant_id,
-                                   const std::string& task_name,
-                                   VariantImpl body,
-                                   const Legion::CodeDescriptor& code_desc,
-                                   const VariantOptions& options)
+void TaskRegistrar::record_task(int64_t local_task_id, std::unique_ptr<TaskInfo> task_info)
 {
-  TaskInfo* info{nullptr};
-  auto finder = pending_task_infos_.find(local_task_id);
-  if (pending_task_infos_.end() == finder) {
-    auto p_info = std::make_unique<TaskInfo>(task_name);
-    info        = p_info.get();
-    pending_task_infos_.emplace(std::make_pair(local_task_id, std::move(p_info)));
-  } else
-    info = finder->second.get();
-#ifdef DEBUG_LEGATE
-  assert(info != nullptr);
-#endif
-  info->add_variant(variant_id, body, code_desc, options);
+  pending_task_infos_.push_back(std::make_pair(local_task_id, std::move(task_info)));
 }
 
 void TaskRegistrar::register_all_tasks(LibraryContext& context)
