@@ -102,6 +102,7 @@ requirements:
   host:
     - zlib
     - python
+    - cython
     - llvm-openmp
     - scikit-build
     - numpy {{ numpy_version }}
