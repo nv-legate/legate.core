@@ -173,8 +173,8 @@ def get_legate_paths() -> LegatePaths:
         return LegatePaths(
             legate_dir=legate_dir,
             legate_build_dir=legate_build_dir,
-            bind_sh_path=Path(sys.argv[0]).parent / "bind.sh",
-            legate_lib_path=Path(sys.argv[0]).parents[1] / "lib",
+            bind_sh_path=legate_dir.parents[2] / "bin" / "bind.sh",
+            legate_lib_path=legate_dir.parents[2] / "lib",
         )
 
     cmake_cache_txt = legate_build_dir.joinpath("CMakeCache.txt")
@@ -269,7 +269,7 @@ def get_legion_paths(legate_paths: LegatePaths) -> LegionPaths:
 
     # If no local build dir found, assume legate installed into the python env
     if legate_build_dir is None:
-        return installed_legion_paths(Path(sys.argv[0]).parents[1])
+        return installed_legion_paths(legate_paths.legate_dir.parents[2])
 
     # If a legate build dir was found, read `Legion_SOURCE_DIR` and
     # `Legion_BINARY_DIR` from in CMakeCache.txt, return paths into the source
