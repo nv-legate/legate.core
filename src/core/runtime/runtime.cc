@@ -16,6 +16,7 @@
 
 #include "core/comm/comm.h"
 #include "core/mapping/core_mapper.h"
+#include "core/mapping/default_mapper.h"
 #include "core/runtime/context.h"
 #include "core/runtime/projection.h"
 #include "core/runtime/shard.h"
@@ -161,7 +162,8 @@ LibraryContext* Runtime::find_library(const std::string& library_name,
 }
 
 LibraryContext* Runtime::create_library(const std::string& library_name,
-                                        const ResourceConfig& config)
+                                        const ResourceConfig& config,
+                                        std::unique_ptr<mapping::LegateMapper> mapper)
 {
   if (libraries_.find(library_name) != libraries_.end()) {
     log_legate.error("Library %s already exists", library_name.c_str());
@@ -169,8 +171,9 @@ LibraryContext* Runtime::create_library(const std::string& library_name,
   }
 
   log_legate.debug("Library %s is created", library_name.c_str());
-  auto context             = std::make_unique<LibraryContext>(library_name, config);
-  auto raw_context         = context.get();
+  if (nullptr == mapper) mapper = std::make_unique<mapping::DefaultMapper>();
+  auto context     = std::make_unique<LibraryContext>(library_name, config, std::move(mapper));
+  auto raw_context = context.get();
   libraries_[library_name] = std::move(context);
   return raw_context;
 }
@@ -241,7 +244,7 @@ extern void register_exception_reduction_op(Legion::Runtime* runtime,
   register_legate_core_sharding_functors(runtime, *core_lib);
 
   auto fut = runtime->select_tunable_value(
-    Legion::Runtime::get_context(), LEGATE_CORE_TUNABLE_HAS_SOCKET_MEM, core_lib->get_mapper_id(0));
+    Legion::Runtime::get_context(), LEGATE_CORE_TUNABLE_HAS_SOCKET_MEM, core_lib->get_mapper_id());
   Core::has_socket_mem = fut.get_result<bool>();
 }
 

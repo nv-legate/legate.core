@@ -15,6 +15,7 @@
  */
 
 #include "core/mapping/operation.h"
+#include "core/runtime/context.h"
 #include "core/utilities/deserializer.h"
 
 namespace legate {

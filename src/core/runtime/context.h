@@ -24,6 +24,7 @@
 #include "legate_defines.h"
 
 #include "core/comm/communicator.h"
+#include "core/mapping/mapping.h"
 #include "core/task/return.h"
 #include "core/task/task_info.h"
 #include "core/utilities/typedefs.h"
@@ -34,12 +35,6 @@
  */
 
 namespace legate {
-
-namespace mapping {
-
-class LegateMapper;
-
-}  // namespace mapping
 
 class Store;
 class Scalar;
@@ -125,7 +120,9 @@ class LibraryContext {
    * @param config Resource configuration for the library. If the library is already
    * registered, the value will be ignored.
    */
-  LibraryContext(const std::string& library_name, const ResourceConfig& config);
+  LibraryContext(const std::string& library_name,
+                 const ResourceConfig& config,
+                 std::unique_ptr<mapping::LegateMapper> mapper);
 
  public:
   LibraryContext(const LibraryContext&) = delete;
@@ -141,21 +138,19 @@ class LibraryContext {
 
  public:
   Legion::TaskID get_task_id(int64_t local_task_id) const;
-  Legion::MapperID get_mapper_id(int64_t local_mapper_id) const;
+  Legion::MapperID get_mapper_id() const { return mapper_id_; }
   Legion::ReductionOpID get_reduction_op_id(int64_t local_redop_id) const;
   Legion::ProjectionID get_projection_id(int64_t local_proj_id) const;
   Legion::ShardingID get_sharding_id(int64_t local_shard_id) const;
 
  public:
   int64_t get_local_task_id(Legion::TaskID task_id) const;
-  int64_t get_local_mapper_id(Legion::MapperID mapper_id) const;
   int64_t get_local_reduction_op_id(Legion::ReductionOpID redop_id) const;
   int64_t get_local_projection_id(Legion::ProjectionID proj_id) const;
   int64_t get_local_sharding_id(Legion::ShardingID shard_id) const;
 
  public:
   bool valid_task_id(Legion::TaskID task_id) const;
-  bool valid_mapper_id(Legion::MapperID mapper_id) const;
   bool valid_reduction_op_id(Legion::ReductionOpID redop_id) const;
   bool valid_projection_id(Legion::ProjectionID proj_id) const;
   bool valid_sharding_id(Legion::ShardingID shard_id) const;
@@ -214,15 +209,6 @@ class LibraryContext {
    */
   template <typename REDOP>
   void register_reduction_operator();
-  /**
-   * @brief Registers a library specific mapper. Transfers the ownership of the mapper to
-   * the runtime.
-   *
-   * @param mapper Mapper object
-   * @param local_mapper_id Id for the mapper. Used only when there is more than one mapper.
-   */
-  void register_mapper(std::unique_ptr<mapping::LegateMapper> mapper,
-                       int64_t local_mapper_id = 0) const;
 
  public:
   void register_task(int64_t local_task_id, std::unique_ptr<TaskInfo> task_info);
@@ -232,10 +218,13 @@ class LibraryContext {
   Legion::Runtime* runtime_;
   const std::string library_name_;
   ResourceIdScope task_scope_;
-  ResourceIdScope mapper_scope_;
   ResourceIdScope redop_scope_;
   ResourceIdScope proj_scope_;
   ResourceIdScope shard_scope_;
+
+ private:
+  Legion::MapperID mapper_id_;
+  std::unique_ptr<mapping::LegateMapper> mapper_;
   std::unordered_map<int64_t, std::unique_ptr<TaskInfo>> tasks_;
 };
 

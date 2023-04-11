@@ -69,12 +69,12 @@ std::string log_mappable(const Legion::Mappable& mappable, bool prefix_only = fa
 
 }  // namespace
 
-BaseMapper::BaseMapper(std::unique_ptr<LegateMapper> legate_mapper,
+BaseMapper::BaseMapper(LegateMapper* legate_mapper,
                        Legion::Runtime* rt,
                        Legion::Machine m,
                        const LibraryContext* ctx)
   : Mapper(rt->get_mapper_runtime()),
-    legate_mapper_(std::move(legate_mapper)),
+    legate_mapper_(legate_mapper),
     legion_runtime(rt),
     machine(m),
     context(ctx),

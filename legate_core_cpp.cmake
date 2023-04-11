@@ -198,6 +198,7 @@ list(APPEND legate_core_SOURCES
   src/core/data/transform.cc
   src/core/mapping/base_mapper.cc
   src/core/mapping/core_mapper.cc
+  src/core/mapping/default_mapper.cc
   src/core/mapping/instance_manager.cc
   src/core/mapping/mapping.cc
   src/core/mapping/operation.cc
