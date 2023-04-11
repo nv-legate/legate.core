@@ -32,6 +32,18 @@
 
 namespace legate {
 
+InvalidTaskIdException::InvalidTaskIdException(const std::string& library_name,
+                                               int64_t offending_task_id,
+                                               int64_t max_task_id)
+{
+  std::stringstream ss;
+  ss << "Task id " << offending_task_id << " is invalid for library '" << library_name
+     << "' (max local task id: " << max_task_id << ")";
+  error_message = std::move(ss).str();
+}
+
+const char* InvalidTaskIdException::what() const throw() { return error_message.c_str(); }
+
 LibraryContext::LibraryContext(const std::string& library_name, const ResourceConfig& config)
   : runtime_(Legion::Runtime::get_runtime()), library_name_(library_name)
 {
@@ -159,10 +171,15 @@ void LibraryContext::register_mapper(std::unique_ptr<mapping::LegateMapper> mapp
 
 void LibraryContext::register_task(int64_t local_task_id, std::unique_ptr<TaskInfo> task_info)
 {
+  auto task_id = get_task_id(local_task_id);
+  if (!task_scope_.in_scope(task_id))
+    throw InvalidTaskIdException(library_name_, local_task_id, task_scope_.max());
+
 #ifdef DEBUG_LEGATE
-  log_legate.debug() << "[" << library_name_ << "] task " << local_task_id << ": " << *task_info;
+  log_legate.debug() << "[" << library_name_ << "] task " << local_task_id
+                     << " (global id: " << task_id << "), " << *task_info;
 #endif
-  task_info->register_task(get_task_id(local_task_id));
+  task_info->register_task(task_id);
   tasks_.emplace(std::make_pair(local_task_id, std::move(task_info)));
 }
 

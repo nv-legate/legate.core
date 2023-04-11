@@ -44,6 +44,19 @@ class LegateMapper;
 class Store;
 class Scalar;
 
+class InvalidTaskIdException : public std::exception {
+ public:
+  InvalidTaskIdException(const std::string& library_name,
+                         int64_t offending_task_id,
+                         int64_t max_task_id);
+
+ public:
+  virtual const char* what() const throw();
+
+ private:
+  std::string error_message;
+};
+
 /**
  * @ingroup runtime
  * @brief POD for library configuration.
@@ -52,7 +65,7 @@ struct ResourceConfig {
   /**
    * @brief Maximum number of tasks that the library can register
    */
-  int64_t max_tasks{1000000};
+  int64_t max_tasks{1024};
   /**
    * @brief Maximum number of mappers that the library can register
    */
@@ -87,6 +100,7 @@ class ResourceScope {
   {
     return base_ <= resource_id && resource_id < base_ + max_;
   }
+  int64_t max() const { return max_ - 1; }
 
  private:
   int64_t base_{-1};
