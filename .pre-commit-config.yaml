@@ -4,7 +4,7 @@ repos:
       hooks:
             - id: isort
     - repo: https://github.com/psf/black
-      rev: 23.1.0
+      rev: 23.3.0
       hooks:
             - id: black
     - repo: https://github.com/PyCQA/flake8
@@ -24,5 +24,9 @@ repos:
           pass_filenames: false
           args: ['legate', 'tests']
           additional_dependencies: [numpy,pytest,pytest_mock]
+
+ci:
+    autoupdate_schedule: quarterly
+
 default_language_version:
     python: python3
