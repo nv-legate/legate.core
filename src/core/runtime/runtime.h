@@ -29,7 +29,7 @@ namespace legate {
 
 namespace mapping {
 
-class LegateMapper;
+class Mapper;
 
 }  // namespace mapping
 
@@ -81,8 +81,8 @@ class Runtime {
  public:
   LibraryContext* find_library(const std::string& library_name, bool can_fail = false) const;
   LibraryContext* create_library(const std::string& library_name,
-                                 const ResourceConfig& config                  = ResourceConfig{},
-                                 std::unique_ptr<mapping::LegateMapper> mapper = nullptr);
+                                 const ResourceConfig& config            = ResourceConfig{},
+                                 std::unique_ptr<mapping::Mapper> mapper = nullptr);
 
  public:
   static Runtime* get_runtime();

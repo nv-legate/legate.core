@@ -40,7 +40,7 @@ enum class Strictness : bool {
 
 class BaseMapper : public Legion::Mapping::Mapper, public MachineQueryInterface {
  public:
-  BaseMapper(LegateMapper* legate_mapper,
+  BaseMapper(mapping::Mapper* legate_mapper,
              Legion::Runtime* rt,
              Legion::Machine machine,
              const LibraryContext* context);
@@ -344,7 +344,7 @@ class BaseMapper : public Legion::Mapping::Mapper, public MachineQueryInterface 
   }
 
  private:
-  LegateMapper* legate_mapper_;
+  mapping::Mapper* legate_mapper_;
 
  public:
   Legion::Runtime* const legion_runtime;

@@ -46,7 +46,7 @@ const char* InvalidTaskIdException::what() const throw() { return error_message.
 
 LibraryContext::LibraryContext(const std::string& library_name,
                                const ResourceConfig& config,
-                               std::unique_ptr<mapping::LegateMapper> mapper)
+                               std::unique_ptr<mapping::Mapper> mapper)
   : runtime_(Legion::Runtime::get_runtime()),
     library_name_(library_name),
     mapper_(std::move(mapper))

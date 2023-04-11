@@ -381,9 +381,9 @@ class MachineQueryInterface {
  *
  * The APIs give Legate libraries high-level control on task and store mappings
  */
-class LegateMapper {
+class Mapper {
  public:
-  virtual ~LegateMapper() {}
+  virtual ~Mapper() {}
   /**
    * @brief Sets a machine query interface. This call gives the mapper a chance
    * to cache the machine query interface.

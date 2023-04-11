@@ -62,10 +62,6 @@ struct ResourceConfig {
    */
   int64_t max_tasks{1024};
   /**
-   * @brief Maximum number of mappers that the library can register
-   */
-  int64_t max_mappers{1};
-  /**
    * @brief Maximum number of custom reduction operators that the library can register
    */
   int64_t max_reduction_ops{0};
@@ -122,7 +118,7 @@ class LibraryContext {
    */
   LibraryContext(const std::string& library_name,
                  const ResourceConfig& config,
-                 std::unique_ptr<mapping::LegateMapper> mapper);
+                 std::unique_ptr<mapping::Mapper> mapper);
 
  public:
   LibraryContext(const LibraryContext&) = delete;
@@ -224,7 +220,7 @@ class LibraryContext {
 
  private:
   Legion::MapperID mapper_id_;
-  std::unique_ptr<mapping::LegateMapper> mapper_;
+  std::unique_ptr<mapping::Mapper> mapper_;
   std::unordered_map<int64_t, std::unique_ptr<TaskInfo>> tasks_;
 };
 

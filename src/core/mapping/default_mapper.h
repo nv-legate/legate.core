@@ -21,7 +21,7 @@
 namespace legate {
 namespace mapping {
 
-class DefaultMapper : public LegateMapper {
+class DefaultMapper : public Mapper {
  public:
   virtual ~DefaultMapper() {}
 

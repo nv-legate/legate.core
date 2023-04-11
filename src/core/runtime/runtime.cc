@@ -163,7 +163,7 @@ LibraryContext* Runtime::find_library(const std::string& library_name,
 
 LibraryContext* Runtime::create_library(const std::string& library_name,
                                         const ResourceConfig& config,
-                                        std::unique_ptr<mapping::LegateMapper> mapper)
+                                        std::unique_ptr<mapping::Mapper> mapper)
 {
   if (libraries_.find(library_name) != libraries_.end()) {
     log_legate.error("Library %s already exists", library_name.c_str());
