@@ -223,8 +223,8 @@ conda install -c nvidia -c conda-forge -c legate legate-core
 
 Only linux-64 packages are available at the moment.
 
-The default package contains GPU support, and is compatible with CUDA >= 11.4
-(CUDA driver version >= r470), and Volta or later GPU architectures. There are
+The default package contains GPU support, and is compatible with CUDA >= 11.8
+(CUDA driver version >= r520), and Volta or later GPU architectures. There are
 also CPU-only packages available, and will be automatically selected by `conda`
 when installing on a machine without GPUs.
 
@@ -473,6 +473,6 @@ documentation](https://nv-legate.github.io/legate.core).
 We recommend starting by experimenting with at least one Legate application
 library to test out performance and see how Legate works. If you are interested
 in building your own Legate application library, we recommend that you
-investigate our [Legate Hello World application library](examples/hello) that
+investigate our [Legate Hello World application library](https://github.com/nv-legate/legate.core/tree/HEAD/examples/hello) that
 provides a small example of how to get started developing your own drop-in
 replacement library on top of Legion using the Legate Core library.

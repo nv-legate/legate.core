@@ -14,7 +14,7 @@
 #
 from __future__ import annotations
 
-import traceback
+import inspect
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -52,16 +52,11 @@ class AnyCallable(Protocol):
         ...
 
 
-def find_last_user_frame(libname: str) -> str:
-    for frame, _ in traceback.walk_stack(None):
-        if "__name__" not in frame.f_globals:
-            continue
-        if not any(
-            frame.f_globals["__name__"].startswith(prefix)
-            for prefix in (libname, "legate")
-        ):
-            break
-
+def caller_frameinfo() -> str:
+    frame = inspect.currentframe()
+    if frame is None or frame.f_back is None or frame.f_back.f_back is None:
+        return "<unknown>"
+    frame = frame.f_back.f_back
     return f"{frame.f_code.co_filename}:{frame.f_lineno}"
 
 
@@ -349,7 +344,7 @@ class Context:
         if nested:
 
             def wrapper(*args: Any, **kwargs: Any) -> Any:
-                self.push_provenance(find_last_user_frame(self._libname))
+                self.push_provenance(caller_frameinfo())
                 result = func(*args, **kwargs)
                 self.pop_provenance()
                 return result
@@ -358,7 +353,7 @@ class Context:
 
             def wrapper(*args: Any, **kwargs: Any) -> Any:
                 if self.provenance is None:
-                    self.set_provenance(find_last_user_frame(self._libname))
+                    self.set_provenance(caller_frameinfo())
                     result = func(*args, **kwargs)
                     self.reset_provenance()
                 else:

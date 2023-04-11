@@ -1161,6 +1161,8 @@ class Attach(Dispatchable[PhysicalRegion]):
         self._launcher = ffi.gc(
             self.launcher, legion.legion_attach_launcher_destroy
         )
+        if not data.contiguous:
+            raise RuntimeError("Can only attach to C- or F-contiguous buffers")
         legion.legion_attach_launcher_add_cpu_soa_field(
             self.launcher,
             ffi.cast(
@@ -1168,7 +1170,10 @@ class Attach(Dispatchable[PhysicalRegion]):
                 field.fid if isinstance(field, FieldID) else field,
             ),
             ffi.from_buffer(data),
-            data.f_contiguous,
+            # `not c_contiguous` implies `f_contiguous`; doing it this way so
+            # that 0d/1d arrays, which are both c_ and f_contiguous, are
+            # attached as C-ordered
+            not data.c_contiguous,
         )
 
     def set_restricted(self, restricted: bool) -> None:
@@ -1328,11 +1333,18 @@ class IndexAttach(Dispatchable[ExternalResources]):
         for sub_region, buf in shard_local_data.items():
             if sub_region.parent is not None:
                 assert sub_region.parent.parent is parent
+            if not buf.contiguous:
+                raise RuntimeError(
+                    "Can only attach to C- or F-contiguous buffers"
+                )
             legion.legion_index_attach_launcher_attach_array_soa(
                 self.launcher,
                 sub_region.handle,
                 ffi.from_buffer(buf),
-                buf.f_contiguous,
+                # `not c_contiguous` implies `f_contiguous`; doing it this way
+                # so that 0d/1d arrays, which are both c_ and f_contiguous, are
+                # attached as C-ordered
+                not buf.c_contiguous,
                 fields,
                 1,  # num_fields
                 mem,

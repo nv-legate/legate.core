@@ -467,6 +467,8 @@ class AttachmentManager:
     @staticmethod
     def attachment_key(buf: memoryview) -> tuple[int, int]:
         assert isinstance(buf, memoryview)
+        if not buf.contiguous:
+            raise RuntimeError("Cannot attach to non-contiguous buffer")
         ptr = ffi.cast("uintptr_t", ffi.from_buffer(buf))
         base_ptr = int(ptr)  # type: ignore[call-overload]
         return (base_ptr, buf.nbytes)
