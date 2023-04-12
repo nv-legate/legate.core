@@ -145,7 +145,6 @@ class TestPrioritizedSetting:
         ps: Any = m.PrioritizedSetting(
             "foo", env_var="LEGATE_FOO", convert=int, default=0
         )
-        ps._parent = FakeSettings
 
         # 0. global default
         assert ps() == 0

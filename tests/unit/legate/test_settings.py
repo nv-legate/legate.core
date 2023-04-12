@@ -40,11 +40,6 @@ class TestSettings:
         ps = getattr(m.settings, name)
         assert ps.env_var.startswith("LEGATE_")
 
-    @pytest.mark.parametrize("name", _expected_settings)
-    def test_parent(self, name: str) -> None:
-        ps = getattr(m.settings, name)
-        assert ps._parent == m.settings
-
     def test_types(self) -> None:
         assert m.settings.consensus.convert_type == "bool"
         assert m.settings.cycle_check.convert_type == "bool"
