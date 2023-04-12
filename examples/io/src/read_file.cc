@@ -81,8 +81,8 @@ class ReadFileTask : public Task<ReadFileTask, READ_FILE> {
  public:
   static void cpu_variant(legate::TaskContext& context)
   {
-    auto filename = context.scalars()[0].value<std::string>();
-    auto& output  = context.outputs()[0];
+    auto filename = context.scalars().at(0).value<std::string>();
+    auto& output  = context.outputs().at(0);
 
     // The task context contains metadata about the launch so each reader task can figure out
     // which part of the file it needs to read into the output.
