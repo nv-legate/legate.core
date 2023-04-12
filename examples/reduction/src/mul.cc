@@ -50,9 +50,9 @@ class MultiplyTask : public Task<MultiplyTask, MUL> {
  public:
   static void cpu_variant(legate::TaskContext& context)
   {
-    auto& rhs1 = context.inputs()[0];
-    auto& rhs2 = context.inputs()[1];
-    auto& lhs  = context.outputs()[0];
+    auto& rhs1 = context.inputs().at(0);
+    auto& rhs2 = context.inputs().at(1);
+    auto& lhs  = context.outputs().at(0);
 
     legate::double_dispatch(lhs.dim(), lhs.code(), mul_fn{}, lhs, rhs1, rhs2);
   }

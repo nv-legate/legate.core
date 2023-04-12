@@ -67,9 +67,9 @@ class HistogramTask : public Task<HistogramTask, HISTOGRAM> {
  public:
   static void cpu_variant(legate::TaskContext& context)
   {
-    auto& input  = context.inputs()[0];
-    auto& bins   = context.inputs()[1];
-    auto& result = context.reductions()[0];
+    auto& input  = context.inputs().at(0);
+    auto& bins   = context.inputs().at(1);
+    auto& result = context.reductions().at(0);
 
     legate::type_dispatch(input.code(), histogram_fn{}, result, input, bins);
   }

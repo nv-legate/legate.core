@@ -25,8 +25,8 @@ class BincountTask : public Task<BincountTask, BINCOUNT> {
  public:
   static void cpu_variant(legate::TaskContext& context)
   {
-    auto& input  = context.inputs()[0];
-    auto& output = context.reductions()[0];
+    auto& input  = context.inputs().at(0);
+    auto& output = context.reductions().at(0);
 
     auto in_shape  = input.shape<1>();
     auto out_shape = output.shape<1>();

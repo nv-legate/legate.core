@@ -59,8 +59,8 @@ class SumOverAxisTask : public Task<SumOverAxisTask, SUM_OVER_AXIS> {
  public:
   static void cpu_variant(legate::TaskContext& context)
   {
-    auto& input  = context.inputs()[0];
-    auto& ouptut = context.reductions()[0];
+    auto& input  = context.inputs().at(0);
+    auto& ouptut = context.reductions().at(0);
 
     legate::double_dispatch(input.dim(), input.code(), reduction_fn{}, ouptut, input);
   }
