@@ -17,4 +17,9 @@
 set(cython_sources context.pyx)
 set(linked_libraries legate::core)
 
-rapids_cython_create_modules(SOURCE_FILES "${cython_sources}" LINKED_LIBRARIES "${linked_libraries}" CXX)
+rapids_cython_create_modules(
+  CXX
+  ASSOCIATED_TARGETS legate_core
+  SOURCE_FILES "${cython_sources}"
+  LINKED_LIBRARIES "${linked_libraries}"
+)
