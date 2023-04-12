@@ -21,50 +21,52 @@
 namespace rg {
 
 class Mapper : public legate::mapping::LegateMapper {
-public:
+ public:
   Mapper() {}
 
-private:
-  Mapper(const Mapper &rhs) = delete;
-  Mapper &operator=(const Mapper &rhs) = delete;
+ private:
+  Mapper(const Mapper& rhs)            = delete;
+  Mapper& operator=(const Mapper& rhs) = delete;
 
   // Legate mapping functions
-public:
-  void
-  set_machine(const legate::mapping::MachineQueryInterface *machine) override {
+ public:
+  void set_machine(const legate::mapping::MachineQueryInterface* machine) override
+  {
     machine_ = machine;
   }
 
   legate::mapping::TaskTarget task_target(
-      const legate::mapping::Task &task,
-      const std::vector<legate::mapping::TaskTarget> &options) override {
+    const legate::mapping::Task& task,
+    const std::vector<legate::mapping::TaskTarget>& options) override
+  {
     return options.front();
   }
 
   std::vector<legate::mapping::StoreMapping> store_mappings(
-      const legate::mapping::Task &task,
-      const std::vector<legate::mapping::StoreTarget> &options) override {
+    const legate::mapping::Task& task,
+    const std::vector<legate::mapping::StoreTarget>& options) override
+  {
     return {};
   }
 
-  legate::Scalar tunable_value(legate::TunableID tunable_id) override {
-    return 0;
-  }
+  legate::Scalar tunable_value(legate::TunableID tunable_id) override { return 0; }
 
-private:
-  const legate::mapping::MachineQueryInterface *machine_;
+ private:
+  const legate::mapping::MachineQueryInterface* machine_;
 };
 
-static const char *const library_name = "registry";
+static const char* const library_name = "registry";
 
 Legion::Logger log_registry(library_name);
 
-/*static*/ legate::TaskRegistrar &Registry::get_registrar() {
+/*static*/ legate::TaskRegistrar& Registry::get_registrar()
+{
   static legate::TaskRegistrar registrar;
   return registrar;
 }
 
-void registration_callback() {
+void registration_callback()
+{
   auto context = legate::Runtime::get_runtime()->create_library(library_name);
 
   // Task registration via a registrar
@@ -75,11 +77,9 @@ void registration_callback() {
   context->register_mapper(std::make_unique<Mapper>(), 0);
 }
 
-} // namespace rg
+}  // namespace rg
 
 extern "C" {
 
-void perform_registration(void) {
-  legate::Core::perform_registration<rg::registration_callback>();
-}
+void perform_registration(void) { legate::Core::perform_registration<rg::registration_callback>(); }
 }

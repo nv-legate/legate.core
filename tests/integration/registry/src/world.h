@@ -22,7 +22,7 @@
 namespace rg {
 
 struct WorldTask : public Task<WorldTask, WORLD> {
-  static void cpu_variant(legate::TaskContext &context);
+  static void cpu_variant(legate::TaskContext& context);
 };
 
-} // namespace rg
+}  // namespace rg

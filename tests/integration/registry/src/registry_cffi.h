@@ -22,8 +22,8 @@ extern "C" {
 #endif
 
 enum RegistryOpCode {
-  HELLO = 0,
-  WORLD = 1,
+  HELLO      = 0,
+  WORLD      = 1,
   NO_VARIANT = 2,
 };
 
@@ -33,4 +33,4 @@ void perform_registration(void);
 }
 #endif
 
-#endif // __REGISTER_C__
+#endif  // __REGISTER_C__

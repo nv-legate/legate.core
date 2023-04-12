@@ -23,12 +23,13 @@ namespace rg {
 extern Legion::Logger log_registry;
 
 struct Registry {
-  static legate::TaskRegistrar &get_registrar();
+  static legate::TaskRegistrar& get_registrar();
 };
 
-template <typename T, int ID> struct Task : public legate::LegateTask<T> {
-  using Registrar = Registry;
+template <typename T, int ID>
+struct Task : public legate::LegateTask<T> {
+  using Registrar              = Registry;
   static constexpr int TASK_ID = ID;
 };
 
-} // namespace rg
+}  // namespace rg

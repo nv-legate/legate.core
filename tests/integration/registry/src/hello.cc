@@ -20,19 +20,15 @@
 namespace rg {
 
 class HelloTask : public Task<HelloTask, HELLO> {
-public:
-  static void cpu_variant(legate::TaskContext &context) {
-    log_registry.info() << "Hello";
-  }
+ public:
+  static void cpu_variant(legate::TaskContext& context) { log_registry.info() << "Hello"; }
 };
 
-} // namespace rg
+}  // namespace rg
 
-namespace // unnamed
+namespace  // unnamed
 {
 
-static void __attribute__((constructor)) register_tasks() {
-  rg::HelloTask::register_variants();
-}
+static void __attribute__((constructor)) register_tasks() { rg::HelloTask::register_variants(); }
 
-} // namespace
+}  // namespace

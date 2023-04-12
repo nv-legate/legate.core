@@ -21,13 +21,14 @@ namespace rg {
 
 class NoVariantTask : public Task<NoVariantTask, NO_VARIANT> {};
 
-} // namespace rg
+}  // namespace rg
 
-namespace // unnamed
+namespace  // unnamed
 {
 
-static void __attribute__((constructor)) register_tasks() {
+static void __attribute__((constructor)) register_tasks()
+{
   rg::NoVariantTask::register_variants();
 }
 
-} // namespace
+}  // namespace
