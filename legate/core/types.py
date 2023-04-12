@@ -83,7 +83,7 @@ complex128 = Complex128Dtype()
 string = pa.string()
 
 
-class _Dtype:
+class Dtype:
     def __init__(self, dtype: Any, size_in_bytes: int, code: int) -> None:
         self._dtype = dtype
         self._size_in_bytes = size_in_bytes
@@ -120,7 +120,7 @@ class _Dtype:
             )
         self._redop_ids[op] = redop_id
 
-    def copy_all_reduction_ops(self, other: _Dtype) -> None:
+    def copy_all_reduction_ops(self, other: Dtype) -> None:
         for op, redop_id in self._redop_ids.items():
             other.register_reduction_op(op, redop_id)
 
@@ -128,7 +128,7 @@ class _Dtype:
         return hash(self._dtype)
 
     def __eq__(self, other: object) -> bool:
-        if isinstance(other, _Dtype):
+        if isinstance(other, Dtype):
             return (
                 self._dtype == other._dtype
                 and self._size_in_bytes == other._size_in_bytes
@@ -141,7 +141,7 @@ class _Dtype:
         return str(self._dtype)
 
     def __repr__(self) -> str:
-        return f"_Dtype({self._dtype}, {self.size}, {self.code})"
+        return f"Dtype({self._dtype}, {self.size}, {self.code})"
 
 
 corelib = core_library._lib
@@ -166,22 +166,22 @@ class ReductionOp(IntEnum):
 # TODO: These should use the enum in legate_c.h
 
 _CORE_DTYPES = [
-    _Dtype(bool, 1, legion.LEGION_TYPE_BOOL),
-    _Dtype(bool_, 1, legion.LEGION_TYPE_BOOL),
-    _Dtype(int8, 1, legion.LEGION_TYPE_INT8),
-    _Dtype(int16, 2, legion.LEGION_TYPE_INT16),
-    _Dtype(int32, 4, legion.LEGION_TYPE_INT32),
-    _Dtype(int64, 8, legion.LEGION_TYPE_INT64),
-    _Dtype(uint8, 1, legion.LEGION_TYPE_UINT8),
-    _Dtype(uint16, 2, legion.LEGION_TYPE_UINT16),
-    _Dtype(uint32, 4, legion.LEGION_TYPE_UINT32),
-    _Dtype(uint64, 8, legion.LEGION_TYPE_UINT64),
-    _Dtype(float16, 2, legion.LEGION_TYPE_FLOAT16),
-    _Dtype(float32, 4, legion.LEGION_TYPE_FLOAT32),
-    _Dtype(float64, 8, legion.LEGION_TYPE_FLOAT64),
-    _Dtype(complex64, 8, legion.LEGION_TYPE_COMPLEX64),
-    _Dtype(complex128, 16, legion.LEGION_TYPE_COMPLEX128),
-    _Dtype(string, -1, legion.LEGION_TYPE_COMPLEX128 + 1),
+    Dtype(bool, 1, legion.LEGION_TYPE_BOOL),
+    Dtype(bool_, 1, legion.LEGION_TYPE_BOOL),
+    Dtype(int8, 1, legion.LEGION_TYPE_INT8),
+    Dtype(int16, 2, legion.LEGION_TYPE_INT16),
+    Dtype(int32, 4, legion.LEGION_TYPE_INT32),
+    Dtype(int64, 8, legion.LEGION_TYPE_INT64),
+    Dtype(uint8, 1, legion.LEGION_TYPE_UINT8),
+    Dtype(uint16, 2, legion.LEGION_TYPE_UINT16),
+    Dtype(uint32, 4, legion.LEGION_TYPE_UINT32),
+    Dtype(uint64, 8, legion.LEGION_TYPE_UINT64),
+    Dtype(float16, 2, legion.LEGION_TYPE_FLOAT16),
+    Dtype(float32, 4, legion.LEGION_TYPE_FLOAT32),
+    Dtype(float64, 8, legion.LEGION_TYPE_FLOAT64),
+    Dtype(complex64, 8, legion.LEGION_TYPE_COMPLEX64),
+    Dtype(complex128, 16, legion.LEGION_TYPE_COMPLEX128),
+    Dtype(string, -1, legion.LEGION_TYPE_COMPLEX128 + 1),
 ]
 
 
@@ -189,7 +189,7 @@ _CORE_DTYPE_MAP = dict([(dtype.type, dtype) for dtype in _CORE_DTYPES])
 
 
 def _register_reduction_ops(
-    dtypes: list[_Dtype], ops: Iterable[ReductionOp]
+    dtypes: list[Dtype], ops: Iterable[ReductionOp]
 ) -> None:
     for dtype in dtypes:
         for op in ops:
@@ -223,23 +223,23 @@ class TypeSystem:
     def __contains__(self, ty: Any) -> bool:
         return ty in self._types
 
-    def __getitem__(self, ty: Any) -> _Dtype:
+    def __getitem__(self, ty: Any) -> Dtype:
         if ty not in self._types:
             raise KeyError(f"{ty} is not a valid type in this type system")
         return self._types[ty]
 
-    def add_type(self, ty: Any, size_in_bytes: int, code: int) -> _Dtype:
+    def add_type(self, ty: Any, size_in_bytes: int, code: int) -> Dtype:
         if ty in self._types:
             raise KeyError(f"{ty} is already in this type system")
-        dtype = _Dtype(ty, size_in_bytes, code)
+        dtype = Dtype(ty, size_in_bytes, code)
         self._types[ty] = dtype
         return dtype
 
     def make_alias(
         self, alias: Any, src_type: Any, copy_reduction_ops: bool = True
-    ) -> _Dtype:
+    ) -> Dtype:
         dtype = self[src_type]
-        copy = _Dtype(alias, dtype.size, dtype.code)
+        copy = Dtype(alias, dtype.size, dtype.code)
         if copy_reduction_ops:
             dtype.copy_all_reduction_ops(copy)
         self._types[alias] = copy

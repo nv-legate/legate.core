@@ -46,7 +46,7 @@ from .transform import (
     Transpose,
     identity,
 )
-from .types import _Dtype
+from .types import Dtype
 
 if TYPE_CHECKING:
     from . import (
@@ -204,7 +204,7 @@ class RegionField:
             field_type = self.region.field_space.get_type(self.field.field_id)
             field_size = (
                 field_type.size
-                if isinstance(field_type, _Dtype)
+                if isinstance(field_type, Dtype)
                 else field_type
             )
             shard_local_data = {}
@@ -857,7 +857,7 @@ class StorePartition:
 class Store:
     def __init__(
         self,
-        dtype: _Dtype,
+        dtype: Dtype,
         storage: Storage,
         transform: Optional[TransformStackBase] = None,
         shape: Optional[Shape] = None,
@@ -977,18 +977,15 @@ class Store:
         return prod(self.shape) if self.ndim > 0 else 1
 
     @property
-    def type(self) -> _Dtype:
+    def type(self) -> Dtype:
         """
         Returns the element type of the store.
 
         Returns
         -------
-        _Dtype
+        Dtype
           Type of elements in the store
         """
-        return self._dtype
-
-    def get_dtype(self) -> _Dtype:
         return self._dtype
 
     @property
