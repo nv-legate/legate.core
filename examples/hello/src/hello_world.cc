@@ -25,7 +25,7 @@ class HelloWorldTask : public Task<HelloWorldTask, HELLO_WORLD> {
  public:
   static void cpu_variant(legate::TaskContext& context)
   {
-    std::string message = context.scalars()[0].value<std::string>();
+    std::string message = context.scalars().at(0).value<std::string>();
     std::cout << message << std::endl;
   }
 };

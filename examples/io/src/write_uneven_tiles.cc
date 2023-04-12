@@ -52,8 +52,8 @@ class WriteUnevenTilesTask : public Task<WriteUnevenTilesTask, WRITE_UNEVEN_TILE
  public:
   static void cpu_variant(legate::TaskContext& context)
   {
-    auto dirname = context.scalars()[0].value<std::string>();
-    auto& input  = context.inputs()[0];
+    auto dirname = context.scalars().at(0).value<std::string>();
+    auto& input  = context.inputs().at(0);
 
     auto launch_domain = context.get_launch_domain();
     auto task_index    = context.get_task_index();
