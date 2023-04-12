@@ -55,8 +55,16 @@ struct GPUVariant<T, void_t<decltype(T::gpu_variant)>> : std::true_type {
   static constexpr auto id      = LEGATE_GPU_VARIANT;
 };
 
-template <typename T, template <typename...> typename SELECTOR, bool HAS_VARIANT>
-struct VariantHelperImpl {
+template <typename T, template <typename...> typename SELECTOR, bool VALID = SELECTOR<T>::value>
+struct VariantHelper {
+  static void record(TaskInfo* task_info,
+                     const std::map<LegateVariantCode, VariantOptions>& all_options)
+  {
+  }
+};
+
+template <typename T, template <typename...> typename SELECTOR>
+struct VariantHelper<T, SELECTOR, true> {
   static void record(TaskInfo* task_info,
                      const std::map<LegateVariantCode, VariantOptions>& all_options)
   {
@@ -70,24 +78,6 @@ struct VariantHelperImpl {
                            VARIANT_IMPL,
                            Legion::CodeDescriptor(WRAPPER),
                            finder != all_options.end() ? finder->second : VariantOptions{});
-  }
-};
-
-template <typename T, template <typename...> typename SELECTOR>
-struct VariantHelperImpl<T, SELECTOR, false> {
-  static void record(TaskInfo* task_info,
-                     const std::map<LegateVariantCode, VariantOptions>& all_options)
-  {
-    // Do nothing
-  }
-};
-
-template <typename T, template <typename...> typename SELECTOR>
-struct VariantHelper {
-  static void record(TaskInfo* task_info,
-                     const std::map<LegateVariantCode, VariantOptions>& all_options)
-  {
-    VariantHelperImpl<T, SELECTOR, SELECTOR<T>::value>::record(task_info, all_options);
   }
 };
 

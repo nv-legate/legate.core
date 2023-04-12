@@ -84,7 +84,7 @@ struct LegateTask {
 
  private:
   template <typename, template <typename...> typename, bool>
-  friend struct detail::VariantHelperImpl;
+  friend struct detail::VariantHelper;
 
   // A wrapper that wraps all Legate task variant implementations. Provides
   // common functionalities and instrumentations

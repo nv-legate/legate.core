@@ -47,18 +47,18 @@ const char* InvalidTaskIdException::what() const throw() { return error_message.
 LibraryContext::LibraryContext(const std::string& library_name, const ResourceConfig& config)
   : runtime_(Legion::Runtime::get_runtime()), library_name_(library_name)
 {
-  task_scope_ = ResourceScope(
+  task_scope_ = ResourceIdScope(
     runtime_->generate_library_task_ids(library_name.c_str(), config.max_tasks), config.max_tasks);
   mapper_scope_ =
-    ResourceScope(runtime_->generate_library_mapper_ids(library_name.c_str(), config.max_mappers),
-                  config.max_mappers);
-  redop_scope_ = ResourceScope(
+    ResourceIdScope(runtime_->generate_library_mapper_ids(library_name.c_str(), config.max_mappers),
+                    config.max_mappers);
+  redop_scope_ = ResourceIdScope(
     runtime_->generate_library_reduction_ids(library_name.c_str(), config.max_reduction_ops),
     config.max_reduction_ops);
-  proj_scope_ = ResourceScope(
+  proj_scope_ = ResourceIdScope(
     runtime_->generate_library_projection_ids(library_name.c_str(), config.max_projections),
     config.max_projections);
-  shard_scope_ = ResourceScope(
+  shard_scope_ = ResourceIdScope(
     runtime_->generate_library_sharding_ids(library_name.c_str(), config.max_shardings),
     config.max_shardings);
 }
@@ -173,7 +173,7 @@ void LibraryContext::register_task(int64_t local_task_id, std::unique_ptr<TaskIn
 {
   auto task_id = get_task_id(local_task_id);
   if (!task_scope_.in_scope(task_id))
-    throw InvalidTaskIdException(library_name_, local_task_id, task_scope_.max());
+    throw InvalidTaskIdException(library_name_, local_task_id, task_scope_.size() - 1);
 
 #ifdef DEBUG_LEGATE
   log_legate.debug() << "[" << library_name_ << "] task " << local_task_id

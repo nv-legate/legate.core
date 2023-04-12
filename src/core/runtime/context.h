@@ -78,13 +78,13 @@ struct ResourceConfig {
   int64_t max_shardings{0};
 };
 
-class ResourceScope {
+class ResourceIdScope {
  public:
-  ResourceScope() = default;
-  ResourceScope(int64_t base, int64_t max) : base_(base), max_(max) {}
+  ResourceIdScope() = default;
+  ResourceIdScope(int64_t base, int64_t size) : base_(base), size_(size) {}
 
  public:
-  ResourceScope(const ResourceScope&) = default;
+  ResourceIdScope(const ResourceIdScope&) = default;
 
  public:
   int64_t translate(int64_t local_resource_id) const { return base_ + local_resource_id; }
@@ -98,13 +98,13 @@ class ResourceScope {
   bool valid() const { return base_ != -1; }
   bool in_scope(int64_t resource_id) const
   {
-    return base_ <= resource_id && resource_id < base_ + max_;
+    return base_ <= resource_id && resource_id < base_ + size_;
   }
-  int64_t max() const { return max_ - 1; }
+  int64_t size() const { return size_; }
 
  private:
   int64_t base_{-1};
-  int64_t max_{-1};
+  int64_t size_{-1};
 };
 
 /**
@@ -231,11 +231,11 @@ class LibraryContext {
  private:
   Legion::Runtime* runtime_;
   const std::string library_name_;
-  ResourceScope task_scope_;
-  ResourceScope mapper_scope_;
-  ResourceScope redop_scope_;
-  ResourceScope proj_scope_;
-  ResourceScope shard_scope_;
+  ResourceIdScope task_scope_;
+  ResourceIdScope mapper_scope_;
+  ResourceIdScope redop_scope_;
+  ResourceIdScope proj_scope_;
+  ResourceIdScope shard_scope_;
   std::unordered_map<int64_t, std::unique_ptr<TaskInfo>> tasks_;
 };
 
