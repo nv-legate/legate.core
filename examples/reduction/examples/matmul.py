@@ -16,8 +16,6 @@
 import argparse
 
 import cunumeric as np
-
-import legate.core.types as ty
 from reduction import (
     matmul,
     multiply,
@@ -26,6 +24,8 @@ from reduction import (
     to_cunumeric_array,
     user_context,
 )
+
+import legate.core.types as ty
 
 
 def test(m: int, n: int, k: int, print_stores: bool, matmul_only: bool):
