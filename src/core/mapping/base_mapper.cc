@@ -880,13 +880,6 @@ void BaseMapper::legate_select_sources(
     ranking.push_back(it->first);
 }
 
-void BaseMapper::speculate(const Legion::Mapping::MapperContext ctx,
-                           const Legion::Task& task,
-                           SpeculativeOutput& output)
-{
-  output.speculate = false;
-}
-
 void BaseMapper::report_profiling(const Legion::Mapping::MapperContext ctx,
                                   const Legion::Task& task,
                                   const TaskProfilingInfo& input)
@@ -1046,13 +1039,6 @@ void BaseMapper::select_copy_sources(const Legion::Mapping::MapperContext ctx,
     ctx, input.target, input.source_instances, input.collective_views, output.chosen_ranking);
 }
 
-void BaseMapper::speculate(const Legion::Mapping::MapperContext ctx,
-                           const Legion::Copy& copy,
-                           SpeculativeOutput& output)
-{
-  output.speculate = false;
-}
-
 void BaseMapper::report_profiling(const Legion::Mapping::MapperContext ctx,
                                   const Legion::Copy& copy,
                                   const CopyProfilingInfo& input)
@@ -1103,13 +1089,6 @@ void BaseMapper::map_acquire(const Legion::Mapping::MapperContext ctx,
   // Nothing to do
 }
 
-void BaseMapper::speculate(const Legion::Mapping::MapperContext ctx,
-                           const Legion::Acquire& acquire,
-                           SpeculativeOutput& output)
-{
-  output.speculate = false;
-}
-
 void BaseMapper::report_profiling(const Legion::Mapping::MapperContext ctx,
                                   const Legion::Acquire& acquire,
                                   const AcquireProfilingInfo& input)
@@ -1141,13 +1120,6 @@ void BaseMapper::select_release_sources(const Legion::Mapping::MapperContext ctx
 {
   legate_select_sources(
     ctx, input.target, input.source_instances, input.collective_views, output.chosen_ranking);
-}
-
-void BaseMapper::speculate(const Legion::Mapping::MapperContext ctx,
-                           const Legion::Release& release,
-                           SpeculativeOutput& output)
-{
-  output.speculate = false;
 }
 
 void BaseMapper::report_profiling(const Legion::Mapping::MapperContext ctx,

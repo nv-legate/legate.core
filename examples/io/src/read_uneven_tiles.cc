@@ -63,8 +63,8 @@ class ReadUnevenTilesTask : public Task<ReadUnevenTilesTask, READ_UNEVEN_TILES> 
  public:
   static void cpu_variant(legate::TaskContext& context)
   {
-    auto dirname = context.scalars()[0].value<std::string>();
-    auto& output = context.outputs()[0];
+    auto dirname = context.scalars().at(0).value<std::string>();
+    auto& output = context.outputs().at(0);
 
     auto path = get_unique_path_for_task_index(context, output.dim(), dirname);
     // double_dispatch converts the first two arguments to non-type template arguments

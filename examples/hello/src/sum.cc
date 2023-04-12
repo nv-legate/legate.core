@@ -23,7 +23,7 @@ class SumTask : public Task<SumTask, SUM> {
  public:
   static void cpu_variant(legate::TaskContext& context)
   {
-    legate::Store& input        = context.inputs()[0];
+    legate::Store& input        = context.inputs().at(0);
     legate::Rect<1> input_shape = input.shape<1>();  // should be a 1-Dim array
     auto in                     = input.read_accessor<float, 1>();
 
@@ -42,7 +42,7 @@ class SumTask : public Task<SumTask, SUM> {
       will make sure to combine all their buffers into the single final result.
     */
     using Reduce          = Legion::SumReduction<float>;
-    legate::Store& output = context.reductions()[0];
+    legate::Store& output = context.reductions().at(0);
     auto sum              = output.reduce_accessor<Reduce, true, 1>();
     // Best-practice is to validate types
     assert(output.code() == FLOAT_LT);

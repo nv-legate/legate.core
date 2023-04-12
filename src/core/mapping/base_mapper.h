@@ -96,9 +96,6 @@ class BaseMapper : public Legion::Mapping::Mapper, public MachineQueryInterface 
                                    const Legion::Task& task,
                                    const SelectTaskSrcInput& input,
                                    SelectTaskSrcOutput& output) override;
-  virtual void speculate(const Legion::Mapping::MapperContext ctx,
-                         const Legion::Task& task,
-                         SpeculativeOutput& output) override;
   virtual void report_profiling(const Legion::Mapping::MapperContext ctx,
                                 const Legion::Task& task,
                                 const TaskProfilingInfo& input) override;
@@ -129,9 +126,6 @@ class BaseMapper : public Legion::Mapping::Mapper, public MachineQueryInterface 
                                    const Legion::Copy& copy,
                                    const SelectCopySrcInput& input,
                                    SelectCopySrcOutput& output) override;
-  virtual void speculate(const Legion::Mapping::MapperContext ctx,
-                         const Legion::Copy& copy,
-                         SpeculativeOutput& output) override;
   virtual void report_profiling(const Legion::Mapping::MapperContext ctx,
                                 const Legion::Copy& copy,
                                 const CopyProfilingInfo& input) override;
@@ -158,9 +152,6 @@ class BaseMapper : public Legion::Mapping::Mapper, public MachineQueryInterface 
                            const Legion::Acquire& acquire,
                            const MapAcquireInput& input,
                            MapAcquireOutput& output) override;
-  virtual void speculate(const Legion::Mapping::MapperContext ctx,
-                         const Legion::Acquire& acquire,
-                         SpeculativeOutput& output) override;
   virtual void report_profiling(const Legion::Mapping::MapperContext ctx,
                                 const Legion::Acquire& acquire,
                                 const AcquireProfilingInfo& input) override;
@@ -178,9 +169,6 @@ class BaseMapper : public Legion::Mapping::Mapper, public MachineQueryInterface 
                                       const Legion::Release& release,
                                       const SelectReleaseSrcInput& input,
                                       SelectReleaseSrcOutput& output) override;
-  virtual void speculate(const Legion::Mapping::MapperContext ctx,
-                         const Legion::Release& release,
-                         SpeculativeOutput& output) override;
   virtual void report_profiling(const Legion::Mapping::MapperContext ctx,
                                 const Legion::Release& release,
                                 const ReleaseProfilingInfo& input) override;
