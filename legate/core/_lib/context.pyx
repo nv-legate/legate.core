@@ -13,8 +13,6 @@
 # limitations under the License.
 #
 
-# distutils: language = c++
-
 import cython
 from libcpp cimport bool
 from libcpp.string cimport string
@@ -66,7 +64,7 @@ cdef class CppTaskInfo:
 cdef class Context:
     cdef LibraryContext* _context
 
-    def __init__(self, str library_name, bool can_fail=False) -> None:
+    def __cinit__(self, str library_name, bool can_fail=False):
         self._context = Runtime.get_runtime().find_library(library_name.encode(), can_fail)
 
     def get_task_id(self, long long local_task_id) -> int:
