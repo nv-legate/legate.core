@@ -138,7 +138,7 @@ Domain Store::domain() const
 }
 
 Task::Task(const Legion::Task* task,
-           const LibraryContext& library,
+           const LibraryContext* library,
            Legion::Mapping::MapperRuntime* runtime,
            const Legion::Mapping::MapperContext context)
   : task_(task), library_(library)
@@ -150,7 +150,7 @@ Task::Task(const Legion::Task* task,
   scalars_    = dez.unpack<std::vector<Scalar>>();
 }
 
-int64_t Task::task_id() const { return library_.get_local_task_id(task_->task_id); }
+int64_t Task::task_id() const { return library_->get_local_task_id(task_->task_id); }
 
 Copy::Copy(const Legion::Copy* copy,
            Legion::Mapping::MapperRuntime* runtime,

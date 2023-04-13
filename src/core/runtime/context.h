@@ -17,6 +17,7 @@
 #pragma once
 
 #include <memory>
+#include <unordered_map>
 
 #include "legion.h"
 // Must be included after legion.h
@@ -24,6 +25,7 @@
 
 #include "core/comm/communicator.h"
 #include "core/task/return.h"
+#include "core/task/task_info.h"
 #include "core/utilities/typedefs.h"
 
 /**
@@ -42,6 +44,19 @@ class LegateMapper;
 class Store;
 class Scalar;
 
+class InvalidTaskIdException : public std::exception {
+ public:
+  InvalidTaskIdException(const std::string& library_name,
+                         int64_t offending_task_id,
+                         int64_t max_task_id);
+
+ public:
+  virtual const char* what() const throw();
+
+ private:
+  std::string error_message;
+};
+
 /**
  * @ingroup runtime
  * @brief POD for library configuration.
@@ -50,7 +65,7 @@ struct ResourceConfig {
   /**
    * @brief Maximum number of tasks that the library can register
    */
-  int64_t max_tasks{1000000};
+  int64_t max_tasks{1024};
   /**
    * @brief Maximum number of mappers that the library can register
    */
@@ -63,13 +78,13 @@ struct ResourceConfig {
   int64_t max_shardings{0};
 };
 
-class ResourceScope {
+class ResourceIdScope {
  public:
-  ResourceScope() = default;
-  ResourceScope(int64_t base, int64_t max) : base_(base), max_(max) {}
+  ResourceIdScope() = default;
+  ResourceIdScope(int64_t base, int64_t size) : base_(base), size_(size) {}
 
  public:
-  ResourceScope(const ResourceScope&) = default;
+  ResourceIdScope(const ResourceIdScope&) = default;
 
  public:
   int64_t translate(int64_t local_resource_id) const { return base_ + local_resource_id; }
@@ -83,12 +98,13 @@ class ResourceScope {
   bool valid() const { return base_ != -1; }
   bool in_scope(int64_t resource_id) const
   {
-    return base_ <= resource_id && resource_id < base_ + max_;
+    return base_ <= resource_id && resource_id < base_ + size_;
   }
+  int64_t size() const { return size_; }
 
  private:
   int64_t base_{-1};
-  int64_t max_{-1};
+  int64_t size_{-1};
 };
 
 /**
@@ -112,7 +128,8 @@ class LibraryContext {
   LibraryContext(const std::string& library_name, const ResourceConfig& config);
 
  public:
-  LibraryContext(const LibraryContext&) = default;
+  LibraryContext(const LibraryContext&) = delete;
+  LibraryContext(LibraryContext&&)      = default;
 
  public:
   /**
@@ -207,14 +224,19 @@ class LibraryContext {
   void register_mapper(std::unique_ptr<mapping::LegateMapper> mapper,
                        int64_t local_mapper_id = 0) const;
 
+ public:
+  void register_task(int64_t local_task_id, std::unique_ptr<TaskInfo> task_info);
+  const TaskInfo* find_task(int64_t local_task_id) const;
+
  private:
   Legion::Runtime* runtime_;
   const std::string library_name_;
-  ResourceScope task_scope_;
-  ResourceScope mapper_scope_;
-  ResourceScope redop_scope_;
-  ResourceScope proj_scope_;
-  ResourceScope shard_scope_;
+  ResourceIdScope task_scope_;
+  ResourceIdScope mapper_scope_;
+  ResourceIdScope redop_scope_;
+  ResourceIdScope proj_scope_;
+  ResourceIdScope shard_scope_;
+  std::unordered_map<int64_t, std::unique_ptr<TaskInfo>> tasks_;
 };
 
 /**

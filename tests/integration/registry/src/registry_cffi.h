@@ -14,24 +14,23 @@
  *
  */
 
-#include "core/task/registrar.h"
+#ifndef __REGISTER_C__
+#define __REGISTER_C__
 
-#include "core/runtime/context.h"
-#include "core/task/task_info.h"
-#include "core/utilities/typedefs.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-namespace legate {
+enum RegistryOpCode {
+  HELLO      = 0,
+  WORLD      = 1,
+  NO_VARIANT = 2,
+};
 
-void TaskRegistrar::record_task(int64_t local_task_id, std::unique_ptr<TaskInfo> task_info)
-{
-  pending_task_infos_.push_back(std::make_pair(local_task_id, std::move(task_info)));
+void perform_registration(void);
+
+#ifdef __cplusplus
 }
+#endif
 
-void TaskRegistrar::register_all_tasks(LibraryContext& context)
-{
-  for (auto& [local_task_id, task_info] : pending_task_infos_)
-    context.register_task(local_task_id, std::move(task_info));
-  pending_task_infos_.clear();
-}
-
-}  // namespace legate
+#endif  // __REGISTER_C__

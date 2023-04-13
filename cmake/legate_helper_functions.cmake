@@ -293,12 +293,6 @@ function(legate_cpp_library_template target output_sources_variable)
 namespace @target@ {
 
 struct Registry {
- public:
-  template <typename... Args>
-  static void record_variant(Args&&... args)
-  {
-    get_registrar().record_variant(std::forward<Args>(args)...);
-  }
   static legate::TaskRegistrar& get_registrar();
 };
 
@@ -398,12 +392,12 @@ void registration_callback()
   config.max_mappers       = 1;
   config.max_tasks         = 1024;
   config.max_reduction_ops = 8;
-  legate::LibraryContext context(library_name, config);
+  auto context = legate::Runtime::get_runtime()->create_library(library_name, config);
 
-  Registry::get_registrar().register_all_tasks(context);
+  Registry::get_registrar().register_all_tasks(*context);
 
   // Now we can register our mapper with the runtime
-  context.register_mapper(std::make_unique<Mapper>(), 0);
+  context->register_mapper(std::make_unique<Mapper>(), 0);
 }
 
 }  // namespace @target@
@@ -450,7 +444,6 @@ set(file_template
 
 from legate.core import (
     Library,
-    ResourceConfig,
     get_legate_runtime,
 )
 import os
@@ -479,16 +472,6 @@ class UserLibrary(Library):
 
     def get_registration_callback(self) -> str:
         return "@target@_perform_registration"
-
-    def get_resource_configuration(self) -> ResourceConfig:
-        assert self.shared_object is not None
-        config = ResourceConfig()
-        config.max_tasks = 1024
-        config.max_mappers = 1
-        config.max_reduction_ops = 8
-        config.max_projections = 0
-        config.max_shardings = 0
-        return config
 
     def initialize(self, shared_object: Any) -> None:
         self.shared_object = shared_object

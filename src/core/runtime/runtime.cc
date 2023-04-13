@@ -144,6 +144,43 @@ static void extract_scalar_task(
   LEGATE_ABORT;
 }
 
+Runtime::Runtime() {}
+
+LibraryContext* Runtime::find_library(const std::string& library_name,
+                                      bool can_fail /*=false*/) const
+{
+  auto finder = libraries_.find(library_name);
+  if (libraries_.end() == finder) {
+    if (!can_fail) {
+      log_legate.error("Library %s does not exist", library_name.c_str());
+      LEGATE_ABORT;
+    } else
+      return nullptr;
+  }
+  return finder->second.get();
+}
+
+LibraryContext* Runtime::create_library(const std::string& library_name,
+                                        const ResourceConfig& config)
+{
+  if (libraries_.find(library_name) != libraries_.end()) {
+    log_legate.error("Library %s already exists", library_name.c_str());
+    LEGATE_ABORT;
+  }
+
+  log_legate.debug("Library %s is created", library_name.c_str());
+  auto context             = std::make_unique<LibraryContext>(library_name, config);
+  auto raw_context         = context.get();
+  libraries_[library_name] = std::move(context);
+  return raw_context;
+}
+
+/*static*/ Runtime* Runtime::get_runtime()
+{
+  static Runtime runtime;
+  return &runtime;
+}
+
 void register_legate_core_tasks(Legion::Machine machine,
                                 Legion::Runtime* runtime,
                                 const LibraryContext& context)
@@ -191,20 +228,20 @@ extern void register_exception_reduction_op(Legion::Runtime* runtime,
   // We register one sharding functor for each new projection functor
   config.max_shardings     = LEGATE_CORE_MAX_FUNCTOR_ID;
   config.max_reduction_ops = LEGATE_CORE_MAX_REDUCTION_OP_ID;
-  LibraryContext context(core_library_name, config);
+  auto core_lib            = Runtime::get_runtime()->create_library(core_library_name, config);
 
-  register_legate_core_tasks(machine, runtime, context);
+  register_legate_core_tasks(machine, runtime, *core_lib);
 
-  register_legate_core_mapper(machine, runtime, context);
+  register_legate_core_mapper(machine, runtime, core_lib);
 
-  register_exception_reduction_op(runtime, context);
+  register_exception_reduction_op(runtime, *core_lib);
 
-  register_legate_core_projection_functors(runtime, context);
+  register_legate_core_projection_functors(runtime, *core_lib);
 
-  register_legate_core_sharding_functors(runtime, context);
+  register_legate_core_sharding_functors(runtime, *core_lib);
 
   auto fut = runtime->select_tunable_value(
-    Legion::Runtime::get_context(), LEGATE_CORE_TUNABLE_HAS_SOCKET_MEM, context.get_mapper_id(0));
+    Legion::Runtime::get_context(), LEGATE_CORE_TUNABLE_HAS_SOCKET_MEM, core_lib->get_mapper_id(0));
   Core::has_socket_mem = fut.get_result<bool>();
 }
 

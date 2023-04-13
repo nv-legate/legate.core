@@ -14,24 +14,21 @@
  *
  */
 
-#include "core/task/registrar.h"
+#include "library.h"
+#include "registry_cffi.h"
 
-#include "core/runtime/context.h"
-#include "core/task/task_info.h"
-#include "core/utilities/typedefs.h"
+namespace rg {
 
-namespace legate {
+class HelloTask : public Task<HelloTask, HELLO> {
+ public:
+  static void cpu_variant(legate::TaskContext& context) { log_registry.info() << "Hello"; }
+};
 
-void TaskRegistrar::record_task(int64_t local_task_id, std::unique_ptr<TaskInfo> task_info)
+}  // namespace rg
+
+namespace  // unnamed
 {
-  pending_task_infos_.push_back(std::make_pair(local_task_id, std::move(task_info)));
-}
 
-void TaskRegistrar::register_all_tasks(LibraryContext& context)
-{
-  for (auto& [local_task_id, task_info] : pending_task_infos_)
-    context.register_task(local_task_id, std::move(task_info));
-  pending_task_infos_.clear();
-}
+static void __attribute__((constructor)) register_tasks() { rg::HelloTask::register_variants(); }
 
-}  // namespace legate
+}  // namespace
