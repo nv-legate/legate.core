@@ -334,6 +334,7 @@ class TestConfig:
             gasnet_trace=False,
             dataflow=False,
             event=False,
+            collective=False,
         )
 
         assert c.info == m.Info(
