@@ -22,21 +22,6 @@ typing. (See :meth:`legate.core.runtime.Runtime.register_library`.)
    Library.get_shared_library
    Library.get_c_header
    Library.get_registration_callback
-   Library.get_resource_configuration
-
-
-Resource configuration
-----------------------
-
-A ``ResourceConfig`` object describes the maximum number of handles that a
-library uses.
-
-.. autosummary::
-   :toctree: generated/
-
-   ResourceConfig.max_tasks
-   ResourceConfig.max_reduction_ops
-   ResourceConfig.max_mappers
 
 
 Context
