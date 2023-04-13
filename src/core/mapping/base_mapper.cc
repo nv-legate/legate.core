@@ -218,7 +218,7 @@ void BaseMapper::select_task_options(const Legion::Mapping::MapperContext ctx,
     store.return_promoted_dims(promoted_dims);
     collective_inputs.push_back(false);
     for (auto& d : promoted_dims) {
-      if ((task.index_domain.hi()[d] - task.index_domain.lo()[d]) > 1) {
+      if ((task.index_domain.hi()[d] - task.index_domain.lo()[d]) >= 1) {
         collective_inputs[i] = true;
         continue;
       }
