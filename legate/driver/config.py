@@ -128,6 +128,7 @@ class Debugging(DataclassMixin):
     gasnet_trace: bool
     dataflow: bool
     event: bool
+    collective: bool
 
 
 @dataclass(frozen=True)
@@ -218,7 +219,7 @@ class Config:
     def _fixup_log_to_file(self, args: Namespace) -> None:
         # Spy output is dumped to the same place as other logging, so we must
         # redirect all logging to a file, even if the user didn't ask for it.
-        if args.dataflow or args.event:
+        if args.dataflow or args.event or args.collective:
             if args.user_logging_levels is not None and not args.log_to_file:
                 print(
                     warn(
