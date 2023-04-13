@@ -56,7 +56,7 @@ class Mappable {
 class Task : public Mappable {
  public:
   Task(const Legion::Task* task,
-       const LibraryContext& library,
+       const LibraryContext* library,
        Legion::Mapping::MapperRuntime* runtime,
        const Legion::Mapping::MapperContext context);
 
@@ -108,7 +108,7 @@ class Task : public Mappable {
   TaskTarget target() const;
 
  private:
-  const LibraryContext& library_;
+  const LibraryContext* library_;
   const Legion::Task* task_;
 
  private:

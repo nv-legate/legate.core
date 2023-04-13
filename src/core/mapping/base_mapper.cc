@@ -72,7 +72,7 @@ std::string log_mappable(const Legion::Mappable& mappable, bool prefix_only = fa
 BaseMapper::BaseMapper(std::unique_ptr<LegateMapper> legate_mapper,
                        Legion::Runtime* rt,
                        Legion::Machine m,
-                       const LibraryContext& ctx)
+                       const LibraryContext* ctx)
   : Mapper(rt->get_mapper_runtime()),
     legate_mapper_(std::move(legate_mapper)),
     legion_runtime(rt),
@@ -84,7 +84,7 @@ BaseMapper::BaseMapper(std::unique_ptr<LegateMapper> legate_mapper,
     machine(std::make_unique<Machine>(m))
 {
   std::stringstream ss;
-  ss << context.get_library_name() << " on Node " << machine->local_node;
+  ss << context->get_library_name() << " on Node " << machine->local_node;
   mapper_name = ss.str();
 
   legate_mapper_->set_machine(this);
@@ -107,7 +107,7 @@ BaseMapper::~BaseMapper()
       logger.print(
         "%s used %ld bytes of %s memory %llx with "
         "%ld total bytes (%.2g%%)",
-        context.get_library_name().c_str(),
+        context->get_library_name().c_str(),
         pair.second,
         memory_kinds[mem.kind()],
         mem.id,
@@ -120,7 +120,7 @@ BaseMapper::~BaseMapper()
 std::string BaseMapper::create_logger_name() const
 {
   std::stringstream ss;
-  ss << context.get_library_name() << ".mapper";
+  ss << context->get_library_name() << ".mapper";
   return ss.str();
 }
 

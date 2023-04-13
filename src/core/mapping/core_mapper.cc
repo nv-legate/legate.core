@@ -52,7 +52,7 @@ class CoreMapper : public Legion::Mapping::NullMapper {
  public:
   CoreMapper(Legion::Mapping::MapperRuntime* runtime,
              Legion::Machine machine,
-             const LibraryContext& context);
+             const LibraryContext* context);
 
   virtual ~CoreMapper();
 
@@ -97,7 +97,7 @@ class CoreMapper : public Legion::Mapping::NullMapper {
                             SelectTunableOutput& output) override;
 
  public:
-  LibraryContext context;
+  const LibraryContext* context;
   std::unique_ptr<Machine> machine;
 
  protected:
@@ -117,7 +117,7 @@ class CoreMapper : public Legion::Mapping::NullMapper {
 
 CoreMapper::CoreMapper(Legion::Mapping::MapperRuntime* rt,
                        Legion::Machine m,
-                       const LibraryContext& c)
+                       const LibraryContext* c)
   : NullMapper(rt, m),
     context(c),
     machine(std::make_unique<Machine>(m)),
@@ -140,7 +140,7 @@ CoreMapper::CoreMapper(Legion::Mapping::MapperRuntime* rt,
     max_lru_length(extract_env("LEGATE_MAX_LRU_LENGTH", 5, 1))
 {
   std::stringstream ss;
-  ss << context.get_library_name() << " on Node " << machine->local_node;
+  ss << context->get_library_name() << " on Node " << machine->local_node;
   mapper_name = ss.str();
 }
 
@@ -173,7 +173,7 @@ void CoreMapper::select_task_options(const Legion::Mapping::MapperContext ctx,
   }
 
   mapping::Task legate_task(&task, context, runtime, ctx);
-  assert(context.valid_task_id(task.task_id));
+  assert(context->valid_task_id(task.task_id));
   TaskTarget target;
   switch (task.tag) {
     case LEGATE_GPU_VARIANT: {
@@ -209,7 +209,7 @@ void CoreMapper::slice_task(const Legion::Mapping::MapperContext ctx,
                             const SliceTaskInput& input,
                             SliceTaskOutput& output)
 {
-  assert(context.valid_task_id(task.task_id));
+  assert(context->valid_task_id(task.task_id));
   output.slices.reserve(input.domain.get_volume());
 
   // Control-replicated because we've already been sharded
@@ -233,7 +233,7 @@ void CoreMapper::map_task(const Legion::Mapping::MapperContext ctx,
                           const MapTaskInput& input,
                           MapTaskOutput& output)
 {
-  assert(context.valid_task_id(task.task_id));
+  assert(context->valid_task_id(task.task_id));
   // Just put our target proc in the target processors for now
   output.target_procs.push_back(task.target_proc);
   output.chosen_variant = task.tag;
@@ -400,11 +400,11 @@ void CoreMapper::select_tunable_value(const Legion::Mapping::MapperContext ctx,
 
 void register_legate_core_mapper(Legion::Machine machine,
                                  Legion::Runtime* runtime,
-                                 const LibraryContext& context)
+                                 const LibraryContext* context)
 {
   // Replace all the default mappers with our custom mapper for the Legate
   // top-level task and init task
-  runtime->add_mapper(context.get_mapper_id(0),
+  runtime->add_mapper(context->get_mapper_id(0),
                       new mapping::CoreMapper(runtime->get_mapper_runtime(), machine, context));
 }
 

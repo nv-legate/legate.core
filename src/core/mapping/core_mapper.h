@@ -24,6 +24,6 @@ namespace legate {
 
 void register_legate_core_mapper(Legion::Machine machine,
                                  Legion::Runtime* runtime,
-                                 const LibraryContext& context);
+                                 const LibraryContext* context);
 
 }  // namespace legate

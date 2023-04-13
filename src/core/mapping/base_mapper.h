@@ -39,7 +39,7 @@ class BaseMapper : public Legion::Mapping::Mapper, public MachineQueryInterface 
   BaseMapper(std::unique_ptr<LegateMapper> legate_mapper,
              Legion::Runtime* rt,
              Legion::Machine machine,
-             const LibraryContext& context);
+             const LibraryContext* context);
   virtual ~BaseMapper();
 
  private:
@@ -303,7 +303,7 @@ class BaseMapper : public Legion::Mapping::Mapper, public MachineQueryInterface 
  public:
   Legion::Runtime* const legion_runtime;
   const Legion::Machine legion_machine;
-  const LibraryContext context;
+  const LibraryContext* context;
   Legion::Logger logger;
 
  private:

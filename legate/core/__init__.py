@@ -90,7 +90,6 @@ from .legate import (
     Library,
 )
 from .machine import Machine
-from .resource import ResourceConfig
 from .runtime import (
     get_legate_runtime,
     get_legion_context,
