@@ -14,7 +14,7 @@
 #
 import cunumeric as np  # type: ignore
 import pytest
-from integration import _get_legate_store, collective_test  # , user_lib
+from collective import _get_legate_store, collective_test  # , user_lib
 
 
 def test_no_collective() -> None:

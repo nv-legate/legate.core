@@ -43,7 +43,6 @@ from . import (
     types as ty,
 )
 from ._legion.env import LEGATE_MAX_FIELDS
-from ._legion.operation import Discard
 from ._legion.util import Dispatchable
 from .allocation import Attachable
 from .communicator import CPUCommunicator, NCCLCommunicator
@@ -328,12 +327,6 @@ class FieldManager:
     def free_field(
         self, region: Region, field_id: int, ordered: bool = False
     ) -> None:
-        discard = Discard(region, field_id)
-        discard.launch(
-            self.runtime.legion_runtime,
-            self.runtime.legion_context,
-            unordered=not ordered,
-        )
         self.free_fields.append((region, field_id))
         region_manager = self.runtime.find_region_manager(region)
         if region_manager.decrease_active_field_count():
@@ -991,6 +984,18 @@ class Runtime:
                 ty.int32,
             )
         )
+        self._valid_variant_ids = tuple(
+            vid
+            for cnt, vid in zip(
+                (self._num_gpus, self._num_omps, self._num_cpus),
+                (
+                    self.core_library.LEGATE_GPU_VARIANT,
+                    self.core_library.LEGATE_OMP_VARIANT,
+                    self.core_library.LEGATE_CPU_VARIANT,
+                ),
+            )
+            if cnt > 0
+        )
         self._num_nodes = int(
             self._core_context.get_tunable(
                 legion.LEGATE_CORE_TUNABLE_NUM_NODES,
@@ -1162,6 +1167,10 @@ class Runtime:
             return self.core_library.LEGATE_OMP_VARIANT
         else:
             return self.core_library.LEGATE_CPU_VARIANT
+
+    @property
+    def valid_variant_ids(self) -> tuple[int, ...]:
+        return self._valid_variant_ids
 
     @property
     def attachment_manager(self) -> AttachmentManager:

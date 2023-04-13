@@ -14,17 +14,9 @@
 # limitations under the License.
 #=============================================================================
 
-cmake_minimum_required(VERSION 3.22.1 FATAL_ERROR)
+# We abuse find package for testing purposes here to
+# 'find' the current build tree to test package builds
 
-project(integration VERSION 1.0 LANGUAGES C CXX)
+add_subdirectory(registry)
+add_subdirectory(collective)
 
-set(CMAKE_CXX_STANDARD 17)
-set(BUILD_SHARED_LIBS ON)
-
-find_package(legate_core REQUIRED)
-
-legate_add_cpp_subdirectory(src TARGET integration EXPORT integration-export)
-
-legate_add_cffi(${CMAKE_CURRENT_SOURCE_DIR}/src/integration_cffi.h TARGET integration)
-legate_python_library_template(integration)
-legate_default_python_install(integration EXPORT integration-export)

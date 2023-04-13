@@ -20,8 +20,6 @@ from typing import TYPE_CHECKING, Any, Iterator, Optional, TypedDict, Union
 import pyarrow
 from typing_extensions import Protocol
 
-from .resource import ResourceConfig
-
 if TYPE_CHECKING:
     from .store import Store
 
@@ -561,18 +559,6 @@ class Library:
             The name of the C registration callback
         """
         raise NotImplementedError("Implement in derived classes")
-
-    def get_resource_configuration(self) -> ResourceConfig:
-        """
-        Returns a ResourceConfig object that configures the library
-
-        Returns
-        -------
-        ResourceConfig
-            A ``ResourceConfig`` object
-        """
-        # Return the default configuration
-        return ResourceConfig()
 
     def initialize(self, shared_lib: Any) -> None:
         """

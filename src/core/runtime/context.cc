@@ -32,21 +32,33 @@
 
 namespace legate {
 
+InvalidTaskIdException::InvalidTaskIdException(const std::string& library_name,
+                                               int64_t offending_task_id,
+                                               int64_t max_task_id)
+{
+  std::stringstream ss;
+  ss << "Task id " << offending_task_id << " is invalid for library '" << library_name
+     << "' (max local task id: " << max_task_id << ")";
+  error_message = std::move(ss).str();
+}
+
+const char* InvalidTaskIdException::what() const throw() { return error_message.c_str(); }
+
 LibraryContext::LibraryContext(const std::string& library_name, const ResourceConfig& config)
   : runtime_(Legion::Runtime::get_runtime()), library_name_(library_name)
 {
-  task_scope_ = ResourceScope(
+  task_scope_ = ResourceIdScope(
     runtime_->generate_library_task_ids(library_name.c_str(), config.max_tasks), config.max_tasks);
   mapper_scope_ =
-    ResourceScope(runtime_->generate_library_mapper_ids(library_name.c_str(), config.max_mappers),
-                  config.max_mappers);
-  redop_scope_ = ResourceScope(
+    ResourceIdScope(runtime_->generate_library_mapper_ids(library_name.c_str(), config.max_mappers),
+                    config.max_mappers);
+  redop_scope_ = ResourceIdScope(
     runtime_->generate_library_reduction_ids(library_name.c_str(), config.max_reduction_ops),
     config.max_reduction_ops);
-  proj_scope_ = ResourceScope(
+  proj_scope_ = ResourceIdScope(
     runtime_->generate_library_projection_ids(library_name.c_str(), config.max_projections),
     config.max_projections);
-  shard_scope_ = ResourceScope(
+  shard_scope_ = ResourceIdScope(
     runtime_->generate_library_sharding_ids(library_name.c_str(), config.max_shardings),
     config.max_shardings);
 }
@@ -150,11 +162,31 @@ void LibraryContext::register_mapper(std::unique_ptr<mapping::LegateMapper> mapp
                                      int64_t local_mapper_id) const
 {
   auto base_mapper = new legate::mapping::BaseMapper(
-    std::move(mapper), runtime_, Realm::Machine::get_machine(), *this);
+    std::move(mapper), runtime_, Realm::Machine::get_machine(), this);
   Legion::Mapping::Mapper* legion_mapper = base_mapper;
   if (Core::log_mapping_decisions)
     legion_mapper = new Legion::Mapping::LoggingWrapper(base_mapper, &base_mapper->logger);
   runtime_->add_mapper(get_mapper_id(local_mapper_id), legion_mapper);
+}
+
+void LibraryContext::register_task(int64_t local_task_id, std::unique_ptr<TaskInfo> task_info)
+{
+  auto task_id = get_task_id(local_task_id);
+  if (!task_scope_.in_scope(task_id))
+    throw InvalidTaskIdException(library_name_, local_task_id, task_scope_.size() - 1);
+
+#ifdef DEBUG_LEGATE
+  log_legate.debug() << "[" << library_name_ << "] task " << local_task_id
+                     << " (global id: " << task_id << "), " << *task_info;
+#endif
+  task_info->register_task(task_id);
+  tasks_.emplace(std::make_pair(local_task_id, std::move(task_info)));
+}
+
+const TaskInfo* LibraryContext::find_task(int64_t local_task_id) const
+{
+  auto finder = tasks_.find(local_task_id);
+  return tasks_.end() == finder ? nullptr : finder->second.get();
 }
 
 TaskContext::TaskContext(const Legion::Task* task,

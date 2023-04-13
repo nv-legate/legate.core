@@ -1,3 +1,4 @@
+#=============================================================================
 # Copyright 2023 NVIDIA Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,7 +12,22 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
+#=============================================================================
 
-from .library import user_lib, user_context  # type: ignore
-from .integration import collective_test, _get_legate_store
+add_library(
+  registry
+  hello.cc
+  world.cc
+  no_variant.cc
+  library.cc
+)
+
+target_include_directories(registry
+  PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+  INTERFACE
+    $<INSTALL_INTERFACE:include>
+)
+
+target_link_libraries(registry PRIVATE legate::core)
+

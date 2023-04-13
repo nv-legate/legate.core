@@ -1,9 +1,9 @@
 #pragma once
 
-#include "integration_cffi.h"
+#include "collective_cffi.h"
 #include "legate_library.h"
 
-namespace integration {
+namespace collective {
 
 extern Legion::Logger logger;
 

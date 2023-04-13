@@ -17,8 +17,8 @@
 import os
 from pathlib import Path
 
-from setuptools import find_packages  # type: ignore
-from skbuild import setup  # type: ignore
+from setuptools import find_packages
+from skbuild import setup
 
 import legate.install_info as lg_install_info
 
@@ -35,9 +35,9 @@ os.environ["CMAKE_ARGS"] = " ".join(cmake_flags)
 
 
 setup(
-    name="Legate Integration Tests",
+    name="Task registration test",
     version="0.1",
-    description="Integration Tests for Legate",
+    description="Task registration test",
     author="NVIDIA Corporation",
     license="Apache 2.0",
     classifiers=[
@@ -52,7 +52,7 @@ setup(
     ],
     packages=find_packages(
         where=".",
-        include=["integration", "integration.*"],
+        include=["registry", "registry.*"],
     ),
     include_package_data=True,
     zip_safe=False,

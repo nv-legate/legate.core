@@ -28,6 +28,12 @@
 
 namespace legate {
 
+/**
+ * @brief Function signature for task variants. Each task variant must be a function of this type.
+ */
+class TaskContext;
+using VariantImpl = void (*)(TaskContext&);
+
 // C enum typedefs
 using LegateVariantCode = legate_core_variant_t;
 using LegateTypeCode    = legate_core_type_code_t;

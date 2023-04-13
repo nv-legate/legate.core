@@ -54,8 +54,8 @@ class WriteFileTask : public Task<WriteFileTask, WRITE_FILE> {
  public:
   static void cpu_variant(legate::TaskContext& context)
   {
-    auto filename = context.scalars()[0].value<std::string>();
-    auto& input   = context.inputs()[0];
+    auto filename = context.scalars().at(0).value<std::string>();
+    auto& input   = context.inputs().at(0);
     logger.print() << "Write to " << filename;
 
     legate::type_dispatch(input.code(), write_fn{}, input, filename);
