@@ -89,7 +89,7 @@ from .legate import (
     Array,
     Library,
 )
-from .machine import Machine
+from .machine import Machine, ProcessorKind
 from .runtime import (
     get_legate_runtime,
     get_legion_context,

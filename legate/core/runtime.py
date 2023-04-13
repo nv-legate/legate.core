@@ -58,7 +58,7 @@ from .communicator import CPUCommunicator, NCCLCommunicator
 from .corelib import core_library
 from .cycle_detector import find_cycles
 from .exception import PendingException
-from .machine import Machine
+from .machine import Machine, ProcessorKind
 from .projection import is_identity_projection, pack_symbolic_projection_repr
 from .restriction import Restriction
 from .shape import Shape
@@ -1130,7 +1130,7 @@ class Runtime:
         int
             Number of CPUs
         """
-        return self.machine.count("CPU")
+        return self.machine.count(ProcessorKind.CPU)
 
     @property
     def num_omps(self) -> int:
@@ -1142,7 +1142,7 @@ class Runtime:
         int
             Number of OpenMP processors
         """
-        return self.machine.count("OMP")
+        return self.machine.count(ProcessorKind.OMP)
 
     @property
     def num_gpus(self) -> int:
@@ -1154,7 +1154,7 @@ class Runtime:
         int
             Number of GPUs
         """
-        return self.machine.count("GPU")
+        return self.machine.count(ProcessorKind.GPU)
 
     @property
     def machine(self) -> Machine:

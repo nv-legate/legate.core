@@ -19,29 +19,15 @@ import struct
 import pytest
 
 from legate.core import BufferBuilder
-from legate.core.machine import (
-    Machine,
-    ProcessorKind,
-    ProcessorRange,
-    sanitize_kind,
-)
+from legate.core.machine import Machine, ProcessorKind, ProcessorRange
 
 
 class TestProcessorKind:
     def test_names(self) -> None:
         assert set(k.name for k in ProcessorKind) == {"GPU", "OMP", "CPU"}
 
-    @pytest.mark.parametrize("kind", ["GPU", "OMp", "cpu"])
-    def test_sanitize_str(self, kind: str) -> None:
-        assert sanitize_kind(kind).name == kind.upper()
-
-    @pytest.mark.parametrize("kind", set(ProcessorKind))
-    def test_sanitize_enum(self, kind: ProcessorKind) -> None:
-        assert sanitize_kind(kind) is kind
-
-    def test_sanitize_invalid(self) -> None:
-        with pytest.raises(ValueError, match="Invalid processor kind: tpu"):
-            sanitize_kind("tpu")
+    def test_values(self) -> None:
+        assert list(ProcessorKind) == [1, 2, 3]
 
 
 class TestProcessorRange:
@@ -147,12 +133,12 @@ class TestMachine:
         m = Machine([])
         assert m.preferred_kind == ProcessorKind.CPU
         assert len(m) == 0
-        assert len(m.get_processor_range("cpu")) == 0
+        assert len(m.get_processor_range(ProcessorKind.CPU)) == 0
         err_msg = "Illegal to get a node range of an empty processor range"
         with pytest.raises(ValueError, match=err_msg):
             m.get_node_range()
         with pytest.raises(ValueError, match=err_msg):
-            m.get_node_range("gpu")
+            m.get_node_range(ProcessorKind.GPU)
 
     def test_eq(self) -> None:
         m1 = Machine(RANGES[:-1])
@@ -175,46 +161,53 @@ class TestMachine:
         assert m.preferred_kind == RANGES[n - 1].kind
         assert len(m) == len(RANGES[n - 1])
 
+    @pytest.mark.parametrize("n", range(1, len(RANGES) + 1))
+    def test_kinds(self, n: int) -> None:
+        m = Machine(RANGES[:n])
+        assert m.kinds == tuple(r.kind for r in RANGES[:n])
+
     def test_get_processor_range(self) -> None:
         m = Machine(RANGES[:-1])
         assert m.get_processor_range(ProcessorKind.CPU) == RANGES[0]
         assert m.get_processor_range(ProcessorKind.OMP) == RANGES[1]
-        assert m.get_processor_range("cpu") == RANGES[0]
-        assert m.get_processor_range("omp") == RANGES[1]
         assert m.get_processor_range() == RANGES[1]
         assert len(m.get_processor_range(ProcessorKind.GPU)) == 0
-        assert len(m.get_processor_range("gpu")) == 0
 
     def test_get_node_range(self) -> None:
         m = Machine(RANGES)
-        assert m.get_node_range("cpu") == (0, 0)
-        assert m.get_node_range("omp") == (0, 1)
-        assert m.get_node_range("gpu") == (1, 2)
-        assert m.get_node_range() == m.get_node_range("gpu")
+        assert m.get_node_range(ProcessorKind.CPU) == (0, 0)
+        assert m.get_node_range(ProcessorKind.OMP) == (0, 1)
+        assert m.get_node_range(ProcessorKind.GPU) == (1, 2)
+        assert m.get_node_range() == m.get_node_range(ProcessorKind.GPU)
 
-    def test_only_remove(self) -> None:
+    def test_only(self) -> None:
         m = Machine(RANGES)
-        assert len(m.only("gpu")) == len(RANGES[-1])
-        assert len(m.remove("gpu")) == len(RANGES[-2])
-        assert m.only("gpu").only("gpu") == m.only("gpu")
-        assert m.remove("gpu").remove("gpu") == m.remove("gpu")
-        assert len(m.only("gpu").get_processor_range("cpu")) == 0
-        assert m.only("gpu").get_processor_range("gpu") == RANGES[-1]
-        assert len(m.remove("gpu").get_processor_range("gpu")) == 0
-        assert m.remove("gpu").get_processor_range("omp") == RANGES[1]
+        gpu = ProcessorKind.GPU
+        cpu = ProcessorKind.CPU
+        omp = ProcessorKind.OMP
+        assert len(m.only(gpu)) == len(RANGES[-1])
+        assert m.only(gpu).only(gpu) == m.only(gpu)
+        assert len(m.only(gpu).get_processor_range(cpu)) == 0
+        assert m.only(gpu).get_processor_range(gpu) == RANGES[-1]
+        assert len(m.only(gpu, cpu)) == len(RANGES[-1])
+        assert len(m.only(gpu, cpu).only(gpu)) == len(RANGES[-1])
+        assert len(m.only(gpu, cpu).only(cpu)) == len(RANGES[0])
+        assert len(m.only(gpu, cpu).only(omp)) == 0
 
     def test_count(self) -> None:
         m = Machine(RANGES)
-        assert m.count("cpu") == len(RANGES[0])
-        assert m.count("omp") == len(RANGES[1])
-        assert m.count("gpu") == len(RANGES[2])
+        assert m.count(ProcessorKind.CPU) == len(RANGES[0])
+        assert m.count(ProcessorKind.OMP) == len(RANGES[1])
+        assert m.count(ProcessorKind.GPU) == len(RANGES[2])
 
     def test_get_item(self) -> None:
         m = Machine(RANGES)
-        assert m["gpu"] == Machine([RANGES[-1]])
-        assert m["gpu", 1:2] == Machine([RANGES[-1].slice(slice(1, 2))])
+        assert m[ProcessorKind.GPU] == Machine([RANGES[-1]])
+        assert m[ProcessorKind.GPU, 1:2] == Machine(
+            [RANGES[-1].slice(slice(1, 2))]
+        )
 
-        m = m.only("gpu")
+        m = m.only(ProcessorKind.GPU)
         assert m[1] == Machine([RANGES[-1].slice(slice(1, 2))])
         assert m[1:] == Machine([RANGES[-1].slice(slice(1, None))])
         assert m[:2] == Machine([RANGES[-1].slice(slice(2))])
@@ -232,6 +225,8 @@ class TestMachine:
         assert Machine([]).empty
         assert Machine([EMPTY_RANGE]).empty
         assert not Machine(RANGES).empty
+        assert Machine([]).kinds == tuple()
+        assert Machine([EMPTY_RANGE]).kinds == tuple()
 
     def test_pack(self) -> None:
         buf = BufferBuilder()
@@ -297,3 +292,9 @@ class TestMachine:
         with pytest.raises(ValueError, match=err_msg):
             with Machine([empty_rng]):
                 pass
+
+
+if __name__ == "__main__":
+    import sys
+
+    sys.exit(pytest.main(sys.argv))
