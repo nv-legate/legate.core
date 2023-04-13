@@ -335,6 +335,7 @@ class TestConfig:
             dataflow=False,
             event=False,
             collective=False,
+            spy_assert_warning=False,
         )
 
         assert c.info == m.Info(

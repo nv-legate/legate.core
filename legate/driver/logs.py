@@ -151,6 +151,9 @@ class DebuggingHandler(LogHandler):
         if self.config.debugging.collective:
             cmd += ("--collective",)
 
+        if self.config.debugging.spy_assert_warning:
+            cmd += ("--assert-warning",)
+
         cmd += tuple(f"legate_{n}.log" for n in range(ranks))
 
         return self.run_processing_cmd(cmd, "spy")

@@ -129,6 +129,7 @@ class Debugging(DataclassMixin):
     dataflow: bool
     event: bool
     collective: bool
+    spy_assert_warning: bool
 
 
 @dataclass(frozen=True)
