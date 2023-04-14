@@ -135,7 +135,7 @@ header: str = """
 """
 ]=])
   set(install_info_py_in ${CMAKE_BINARY_DIR}/legate_${target}/install_info.py.in)
-  set(install_info_py ${CMAKE_SOURCE_DIR}/${target}/install_info.py)
+  set(install_info_py ${CMAKE_CURRENT_SOURCE_DIR}/${target}/install_info.py)
   file(WRITE ${install_info_py_in} "${install_info_in}")
 
   set(generate_script_content
@@ -483,5 +483,5 @@ user_lib = UserLibrary("@target@")
 user_context = get_legate_runtime().register_library(user_lib)
 ]=])
   string(CONFIGURE "${file_template}" file_content @ONLY)
-  file(WRITE ${CMAKE_SOURCE_DIR}/${target}/library.py "${file_content}")
+  file(WRITE ${CMAKE_CURRENT_SOURCE_DIR}/${target}/library.py "${file_content}")
 endfunction()
