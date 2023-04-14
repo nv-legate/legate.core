@@ -481,7 +481,7 @@ void register_legate_core_mapper(Legion::Machine machine,
 {
   // Replace all the default mappers with our custom mapper for the Legate
   // top-level task and init task
-  runtime->add_mapper(context->get_mapper_id(0),
+  runtime->add_mapper(context->get_mapper_id(),
                       new CoreMapper(runtime->get_mapper_runtime(), machine, context));
 }
 

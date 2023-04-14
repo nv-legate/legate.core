@@ -27,6 +27,12 @@
 
 namespace legate {
 
+namespace mapping {
+
+class Mapper;
+
+}  // namespace mapping
+
 extern uint32_t extract_env(const char* env_name,
                             const uint32_t default_value,
                             const uint32_t test_value);
@@ -75,7 +81,8 @@ class Runtime {
  public:
   LibraryContext* find_library(const std::string& library_name, bool can_fail = false) const;
   LibraryContext* create_library(const std::string& library_name,
-                                 const ResourceConfig& config = ResourceConfig{});
+                                 const ResourceConfig& config            = ResourceConfig{},
+                                 std::unique_ptr<mapping::Mapper> mapper = nullptr);
 
  public:
   static Runtime* get_runtime();
