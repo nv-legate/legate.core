@@ -990,36 +990,6 @@ class Runtime:
             )
         )
 
-        self._num_cpus = int(
-            self._core_context.get_tunable(
-                legion.LEGATE_CORE_TUNABLE_TOTAL_CPUS,
-                ty.int32,
-            )
-        )
-        self._num_omps = int(
-            self._core_context.get_tunable(
-                legion.LEGATE_CORE_TUNABLE_TOTAL_OMPS,
-                ty.int32,
-            )
-        )
-        self._num_gpus = int(
-            self._core_context.get_tunable(
-                legion.LEGATE_CORE_TUNABLE_TOTAL_GPUS,
-                ty.int32,
-            )
-        )
-        self._valid_variant_ids = tuple(
-            vid
-            for cnt, vid in zip(
-                (self._num_gpus, self._num_omps, self._num_cpus),
-                (
-                    self.core_library.LEGATE_GPU_VARIANT,
-                    self.core_library.LEGATE_OMP_VARIANT,
-                    self.core_library.LEGATE_CPU_VARIANT,
-                ),
-            )
-            if cnt > 0
-        )
         self._num_nodes = int(
             self._core_context.get_tunable(
                 legion.LEGATE_CORE_TUNABLE_NUM_NODES,
@@ -1095,6 +1065,13 @@ class Runtime:
 
         self._pending_exceptions: list[PendingException] = []
 
+        # TODO: We can make this a true loading-time constant with Cython
+        self._variant_ids = {
+            ProcessorKind.GPU: self.core_library.LEGATE_GPU_VARIANT,
+            ProcessorKind.OMP: self.core_library.LEGATE_OMP_VARIANT,
+            ProcessorKind.CPU: self.core_library.LEGATE_CPU_VARIANT,
+        }
+
     @property
     def legion_runtime(self) -> legion.legion_runtime_t:
         if self._legion_runtime is None:
@@ -1121,40 +1098,8 @@ class Runtime:
         return self._empty_argmap
 
     @property
-    def num_cpus(self) -> int:
-        """
-        Returns the total number of CPUs in the system
-
-        Returns
-        -------
-        int
-            Number of CPUs
-        """
-        return self.machine.count(ProcessorKind.CPU)
-
-    @property
-    def num_omps(self) -> int:
-        """
-        Returns the total number of OpenMP processors in the system
-
-        Returns
-        -------
-        int
-            Number of OpenMP processors
-        """
-        return self.machine.count(ProcessorKind.OMP)
-
-    @property
-    def num_gpus(self) -> int:
-        """
-        Returns the total number of GPUs in the system
-
-        Returns
-        -------
-        int
-            Number of GPUs
-        """
-        return self.machine.count(ProcessorKind.GPU)
+    def variant_ids(self) -> dict[ProcessorKind, int]:
+        return self._variant_ids
 
     @property
     def machine(self) -> Machine:
@@ -1177,41 +1122,8 @@ class Runtime:
         self._machines.pop()
 
     @property
-    def num_procs(self) -> int:
-        """
-        Returns the total number of processors used to launch tasks
-
-        Legate heuristically decides the target processor kind by checking
-        availability of processors in the following order: GPU > OpenMP > CPU.
-        This property returns the count of the processors that Legate will
-        choose to try to run tasks. Note that Legate can still pick other
-        processor types if the task doesn't have a task variant for the
-        runtime's preferred processor kind.
-
-        Returns
-        -------
-        int
-            Number of processors
-        """
-        if self.num_gpus > 0:
-            return self.num_gpus
-        elif self.num_omps > 0:
-            return self.num_omps
-        else:
-            return self.num_cpus
-
-    @property
     def core_task_variant_id(self) -> int:
-        if self.num_gpus > 0:
-            return self.core_library.LEGATE_GPU_VARIANT
-        elif self.num_omps > 0:
-            return self.core_library.LEGATE_OMP_VARIANT
-        else:
-            return self.core_library.LEGATE_CPU_VARIANT
-
-    @property
-    def valid_variant_ids(self) -> tuple[int, ...]:
-        return self._valid_variant_ids
+        return self._variant_ids[self.machine.preferred_kind]
 
     @property
     def attachment_manager(self) -> AttachmentManager:
@@ -1341,10 +1253,14 @@ class Runtime:
         for op in ops:
             must_be_single = len(op.scalar_outputs) > 0
             partitioner = Partitioner([op], must_be_single=must_be_single)
-            strategies.append(partitioner.partition_stores())
+            # TODO: When we start partitioning a batch of operations, changes
+            # of machine configuration would delineat the batches
+            with op.target_machine:
+                strategies.append(partitioner.partition_stores())
 
         for op, strategy in zip(ops, strategies):
-            op.launch(strategy)
+            with op.target_machine:
+                op.launch(strategy)
 
     def flush_scheduling_window(self) -> None:
         if len(self._outstanding_ops) == 0:

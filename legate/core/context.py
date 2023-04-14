@@ -39,6 +39,7 @@ if TYPE_CHECKING:
     from ._legion.util import Dispatchable
     from .communicator import Communicator
     from .legate import Library
+    from .machine import Machine
     from .operation import AutoTask, Copy, Fill, ManualTask
     from .runtime import Runtime
     from .shape import Shape
@@ -328,21 +329,26 @@ class Context:
 
         return wrapper
 
-    def _check_task_id(self, task_id: int) -> None:
+    def _check_task_id(self, task_id: int) -> Machine:
         task_info = self._cpp_context.find_task(task_id)
         if not task_info.valid:
             raise ValueError(
                 f"Library '{self._libname}' does not have task {task_id}"
             )
-        if not any(
-            task_info.has_variant(vid)
-            for vid in self._runtime.valid_variant_ids
-        ):
+
+        machine = self._runtime.machine.filter_ranges(
+            task_info, self._runtime.variant_ids
+        )
+
+        if machine.empty:
             error_msg = (
-                f"Task {task_id} of library '{self._libname}' does not have "
-                "any valid variant for the current machine configuration. "
+                f"Task {task_id} ({task_info.name}) of library "
+                f"'{self._libname}' does not have any valid variant for "
+                "the current machine configuration."
             )
             raise ValueError(error_msg)
+
+        return machine
 
     def create_manual_task(
         self,
@@ -369,7 +375,7 @@ class Context:
 
         Returns
         -------
-        AutoTask or ManualTask
+        ManualTask
             A new task
         """
 
@@ -377,7 +383,7 @@ class Context:
 
         # Check if the task id is valid for this library and the task
         # has the right variant
-        self._check_task_id(task_id)
+        machine = self._check_task_id(task_id)
         unique_op_id = self.get_unique_op_id()
         if launch_domain is None:
             raise RuntimeError(
@@ -390,6 +396,7 @@ class Context:
             launch_domain,
             mapper_id,
             unique_op_id,
+            machine,
         )
 
     def create_auto_task(
@@ -425,9 +432,9 @@ class Context:
 
         # Check if the task id is valid for this library and the task
         # has the right variant
-        self._check_task_id(task_id)
+        machine = self._check_task_id(task_id)
         unique_op_id = self.get_unique_op_id()
-        return AutoTask(self, task_id, mapper_id, unique_op_id)
+        return AutoTask(self, task_id, mapper_id, unique_op_id, machine)
 
     def create_copy(self, mapper_id: int = 0) -> Copy:
         """
@@ -447,7 +454,12 @@ class Context:
 
         from .operation import Copy
 
-        return Copy(self, mapper_id, self.get_unique_op_id())
+        return Copy(
+            self,
+            mapper_id,
+            self.get_unique_op_id(),
+            self._runtime.machine,
+        )
 
     def create_fill(
         self, lhs: Store, value: Store, mapper_id: int = 0
@@ -480,7 +492,14 @@ class Context:
         """
         from .operation import Fill
 
-        return Fill(self, lhs, value, mapper_id, self.get_unique_op_id())
+        return Fill(
+            self,
+            lhs,
+            value,
+            mapper_id,
+            self.get_unique_op_id(),
+            self._runtime.machine,
+        )
 
     def dispatch(self, op: Dispatchable[T]) -> T:
         return self._runtime.dispatch(op)
@@ -594,7 +613,14 @@ class Context:
         self.runtime.flush_scheduling_window()
 
         # A single Reduce operation is mapepd to a whole reduction tree
-        task = Reduce(self, task_id, radix, mapper_id, unique_op_id)
+        task = Reduce(
+            self,
+            task_id,
+            radix,
+            mapper_id,
+            unique_op_id,
+            self._runtime.machine,
+        )
         task.add_input(store)
         task.add_output(result)
         task.execute()

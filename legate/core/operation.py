@@ -39,6 +39,7 @@ if TYPE_CHECKING:
     from .constraints import Constraint
     from .context import Context
     from .launcher import Proj
+    from .machine import Machine
     from .projection import ProjFn, ProjOut, SymbolicPoint
     from .solver import Strategy
     from .types import DTType
@@ -123,11 +124,13 @@ class Operation(OperationProtocol):
         context: Context,
         mapper_id: int,
         op_id: int,
+        target_machine: Machine,
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
         self._context = context
         self._mapper_id = mapper_id
+        self._target_machine = target_machine
         self._op_id = op_id
         self._inputs: list[Store] = []
         self._outputs: list[Store] = []
@@ -149,6 +152,10 @@ class Operation(OperationProtocol):
     @property
     def provenance(self) -> Optional[str]:
         return self._provenance
+
+    @property
+    def target_machine(self) -> Machine:
+        return self._target_machine
 
     def get_all_stores(self) -> OrderedSet[Store]:
         result: OrderedSet[Store] = OrderedSet()
@@ -632,12 +639,14 @@ class AutoTask(AutoOperation, Task):
         task_id: int,
         mapper_id: int,
         op_id: int,
+        target_machine: Machine,
     ) -> None:
         super().__init__(
             context=context,
             task_id=task_id,
             mapper_id=mapper_id,
             op_id=op_id,
+            target_machine=target_machine,
         )
         self._reusable_stores: list[Tuple[Store, PartSym]] = []
         self._reuse_map: dict[int, Store] = {}
@@ -843,12 +852,14 @@ class ManualTask(Operation, Task):
         launch_domain: Rect,
         mapper_id: int,
         op_id: int,
+        target_machine: Machine,
     ) -> None:
         super().__init__(
             context=context,
             task_id=task_id,
             mapper_id=mapper_id,
             op_id=op_id,
+            target_machine=target_machine,
         )
         self._launch_domain: Rect = launch_domain
         self._input_projs: list[Union[ProjFn, None]] = []
@@ -1046,8 +1057,14 @@ class Copy(AutoOperation):
         context: Context,
         mapper_id: int,
         op_id: int,
+        target_machine: Machine,
     ) -> None:
-        super().__init__(context=context, mapper_id=mapper_id, op_id=op_id)
+        super().__init__(
+            context=context,
+            mapper_id=mapper_id,
+            op_id=op_id,
+            target_machine=target_machine,
+        )
         self._source_indirects: list[Store] = []
         self._target_indirects: list[Store] = []
         self._source_indirect_parts: list[PartSym] = []
@@ -1347,8 +1364,14 @@ class Fill(AutoOperation):
         value: Store,
         mapper_id: int,
         op_id: int,
+        target_machine: Machine,
     ) -> None:
-        super().__init__(context=context, mapper_id=mapper_id, op_id=op_id)
+        super().__init__(
+            context=context,
+            mapper_id=mapper_id,
+            op_id=op_id,
+            target_machine=target_machine,
+        )
         if not value.scalar:
             raise ValueError("Fill value must be a scalar Store")
         if lhs.unbound:
@@ -1427,11 +1450,13 @@ class Reduce(AutoOperation):
         radix: int,
         mapper_id: int,
         op_id: int,
+        target_machine: Machine,
     ) -> None:
         super().__init__(
             context=context,
             mapper_id=mapper_id,
             op_id=op_id,
+            target_machine=target_machine,
         )
         self._runtime = context.runtime
         self._radix = radix

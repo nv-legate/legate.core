@@ -19,6 +19,7 @@ from abc import ABC, abstractmethod, abstractproperty
 from typing import TYPE_CHECKING
 
 from . import FutureMap, Point, Rect
+from .machine import ProcessorKind
 
 if TYPE_CHECKING:
     from .machine import ProcessorRange
@@ -134,10 +135,6 @@ class CPUCommunicator(Communicator):
         )
         self._init_cpucoll = library.LEGATE_CORE_INIT_CPUCOLL_TASK_ID
         self._finalize_cpucoll = library.LEGATE_CORE_FINALIZE_CPUCOLL_TASK_ID
-        if runtime.num_omps > 0:
-            self._tag = library.LEGATE_OMP_VARIANT
-        else:
-            self._tag = library.LEGATE_CPU_VARIANT
         self._needs_barrier = False
 
     def destroy(self) -> None:
@@ -158,6 +155,13 @@ class CPUCommunicator(Communicator):
     @property
     def needs_barrier(self) -> bool:
         return self._needs_barrier
+
+    @property
+    def _tag(self) -> int:
+        if self._runtime.machine.count(ProcessorKind.OMP) > 0:
+            return self._runtime.variant_ids[ProcessorKind.OMP]
+        else:
+            return self._runtime.variant_ids[ProcessorKind.CPU]
 
     def _initialize(self, volume: int) -> FutureMap:
         from .launcher import TaskLauncher as Task

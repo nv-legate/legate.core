@@ -167,6 +167,19 @@ class Machine:
     def count(self, kind: ProcessorKind) -> int:
         return len(self._get_range(kind))
 
+    def filter_ranges(
+        self, task_info: Any, variant_ids: dict[ProcessorKind, int]
+    ) -> Machine:
+        valid_kinds = tuple(
+            kind
+            for kind in self.kinds
+            if task_info.has_variant(variant_ids[kind])
+        )
+        if valid_kinds == self.kinds:
+            return self
+        else:
+            return self.only(*valid_kinds)
+
     def __getitem__(self, key: Union[str, slice, int, ProcSlice]) -> Machine:
         if isinstance(key, ProcessorKind):
             return self.only(key)
@@ -214,6 +227,8 @@ class Machine:
         return result
 
     def __and__(self, other: Machine) -> Machine:
+        if self is other:
+            return self
         result: list[ProcessorRange] = []
         for kind, r in self._proc_ranges.items():
             if kind not in other._proc_ranges:
