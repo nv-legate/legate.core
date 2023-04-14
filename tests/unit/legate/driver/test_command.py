@@ -50,6 +50,7 @@ def test_CMD_PARTS() -> None:
         m.cmd_nvprof,
         m.cmd_nsys,
         m.cmd_memcheck,
+        m.cmd_valgrind,
         m.cmd_legion,
         m.cmd_python_processor,
         m.cmd_module,
@@ -539,6 +540,22 @@ class Test_cmd_memcheck:
         result = m.cmd_memcheck(config, system, launcher)
 
         assert result == ("compute-sanitizer",)
+
+
+class Test_cmd_valgrind:
+    def test_default(self, genobjs: GenObjs) -> None:
+        config, system, launcher = genobjs([])
+
+        result = m.cmd_valgrind(config, system, launcher)
+
+        assert result == ()
+
+    def test_with_option(self, genobjs: GenObjs) -> None:
+        config, system, launcher = genobjs(["--valgrind"])
+
+        result = m.cmd_valgrind(config, system, launcher)
+
+        assert result == ("valgrind",)
 
 
 class Test_cmd_nocr:

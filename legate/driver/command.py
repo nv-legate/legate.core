@@ -145,6 +145,14 @@ def cmd_nsys(
     return opts
 
 
+def cmd_valgrind(
+    config: ConfigProtocol, system: System, launcher: Launcher
+) -> CommandPart:
+    valgrind = config.debugging.valgrind
+
+    return () if not valgrind else ("valgrind",)
+
+
 def cmd_memcheck(
     config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
@@ -441,6 +449,8 @@ CMD_PARTS_LEGION = (
         cmd_nsys,
         # Add memcheck right before the binary
         cmd_memcheck,
+        # Add valgrind right before the binary
+        cmd_valgrind,
         # Now we're ready to build the actual command to run
         cmd_legion,
         # This has to go before script name
