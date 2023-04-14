@@ -9,7 +9,7 @@ class CollectiveTestTask : public Task<CollectiveTestTask, COLLECTIVE> {
  public:
   static void cpu_variant(legate::TaskContext& context)
   {
-    // FIXME print rects
+    // this task should be empty since we are only testing mapper logic
   }
 };
 

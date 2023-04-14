@@ -14,4 +14,8 @@
 #
 
 from .library import user_lib, user_context  # type: ignore
-from .collective import collective_test, _get_legate_store
+from .collective import (
+    collective_test,
+    create_int64_store,
+    collective_test_matvec,
+)

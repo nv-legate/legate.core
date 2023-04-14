@@ -16,8 +16,8 @@
 from enum import IntEnum
 from typing import Any, Tuple
 
-# import legate.core.types as ty
-from legate.core import Rect, Store  # , get_legate_runtime
+import legate.core.types as ty
+from legate.core import Rect, ReductionOp, Store
 
 from .library import user_context as context, user_lib  # type: ignore
 
@@ -26,38 +26,16 @@ class OpCode(IntEnum):
     COLLECTIVE = user_lib.cffi.COLLECTIVE
 
 
-def _get_legate_store(input: Any) -> Store:
-    """Extracts a Legate store from any object
-       implementing the legete data interface
-
-    Args:
-        input (Any): The input object
-
-    Returns:
-        Store: The extracted Legate store
-    """
-    if isinstance(input, Store):
-        return input
-    data = input.__legate_data_interface__["data"]
-    field = next(iter(data))
-    array = data[field]
-    _, store = array.stores()
+def create_int64_store(shape: Tuple[Any, ...]) -> Store:
+    store = context.create_store(ty.int64, shape=shape)
+    # call empty function on the store to make Legion to think
+    # that we initialized the store
+    task = context.create_auto_task(
+        OpCode.COLLECTIVE,
+    )
+    task.add_output(store)
+    task.execute()
     return store
-
-
-# def create_int64_store(shape:Tuple[Any,...])->Store:
-#    store =  context.create_store(ty.int64, shape=shape)
-#    #call empty function on the store to make Legion think
-#    # that we initialized the store
-#    task = context.create_manual_task(
-#        OpCode.COLLECTIVE,
-#        launch_domain=Rect(launch_shape),
-#    )
-#    task.add_output(store)
-#    # we use errors from the mapper to check correct behavior
-#    task.throws_exception(RuntimeError)
-#    task.execute()
-#    return store
 
 
 def _broadcast(store: Store, shape: Tuple[Any, ...]) -> Store:
@@ -93,4 +71,19 @@ def collective_test(
     )
     task.add_input(store_partition)
     # we use errors from the mapper to check correct behavior
+    task.execute()
+
+
+def collective_test_matvec(rhs1: Store, rhs2: Store, lhs: Store) -> None:
+    shape = rhs1.shape
+    rhs2 = rhs2.promote(0, shape[0])
+    lhs = lhs.promote(1, shape[1])
+    task = context.create_auto_task(
+        OpCode.COLLECTIVE,
+    )
+    task.add_reduction(lhs, ReductionOp.ADD)
+    task.add_input(rhs1)
+    task.add_input(rhs2)
+    task.add_alignment(lhs, rhs1)
+    task.add_alignment(lhs, rhs2)
     task.execute()
