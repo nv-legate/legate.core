@@ -12,15 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import cunumeric as np  # type: ignore
 import pytest
-from collective import _get_legate_store, collective_test  # , user_lib
+
+from collective import (
+    collective_test,
+    collective_test_matvec,
+    create_int64_store,
+)
 
 
 def test_no_collective() -> None:
-    store = np.ones(shape=(100, 10), dtype=int)
+    store = create_int64_store(shape=(100, 10))
     collective_test(
-        _get_legate_store(store),
+        store,
         (
             100,
             10,
@@ -33,15 +37,9 @@ def test_no_collective() -> None:
 
 
 def test_broadcast() -> None:
-    store = np.ones(
-        shape=(
-            1,
-            10,
-        ),
-        dtype=int,
-    )
+    store = create_int64_store(shape=(1, 10))
     collective_test(
-        _get_legate_store(store),
+        store,
         (
             100,
             10,
@@ -53,12 +51,16 @@ def test_broadcast() -> None:
     )
 
 
-def test_partial_overlap() -> None:
-    a = np.ones(shape=(100, 100))
-    b = np.ones(shape=(100,))
-    a.dot(b)
-    # store = np.ones(shape = (100,10,), dtype = int)
-    # collective_test(_get_legate_store(store), (100, 10,), (10,10,))
+def test_overlap() -> None:
+    a = create_int64_store(
+        shape=(
+            100,
+            100,
+        )
+    )
+    b = create_int64_store(shape=(100))
+    c = create_int64_store(shape=(100))
+    collective_test_matvec(a, b, c)
 
 
 if __name__ == "__main__":
