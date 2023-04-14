@@ -26,14 +26,11 @@ class DefaultMapper : public Mapper {
   virtual ~DefaultMapper() {}
 
  public:
-  void set_machine(const MachineQueryInterface* machine);
-  TaskTarget task_target(const Task& task, const std::vector<TaskTarget>& options);
+  void set_machine(const MachineQueryInterface* machine) override;
+  TaskTarget task_target(const Task& task, const std::vector<TaskTarget>& options) override;
   std::vector<StoreMapping> store_mappings(const Task& task,
-                                           const std::vector<StoreTarget>& options);
-  virtual Scalar tunable_value(TunableID tunable_id);
-
- private:
-  const MachineQueryInterface* machine_;
+                                           const std::vector<StoreTarget>& options) override;
+  Scalar tunable_value(TunableID tunable_id) override;
 };
 
 }  // namespace mapping

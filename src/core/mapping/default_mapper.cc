@@ -19,7 +19,8 @@
 namespace legate {
 namespace mapping {
 
-void DefaultMapper::set_machine(const MachineQueryInterface* machine) { machine_ = machine; }
+// Default mapper doesn't use the machine query interface
+void DefaultMapper::set_machine(const MachineQueryInterface* machine) {}
 
 TaskTarget DefaultMapper::task_target(const Task& task, const std::vector<TaskTarget>& options)
 {
