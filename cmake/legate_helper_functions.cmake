@@ -343,7 +343,7 @@ void registration_callback()
 {
   auto context = legate::Runtime::get_runtime()->create_library(library_name);
 
-  Registry::get_registrar().register_all_tasks(*context);
+  Registry::get_registrar().register_all_tasks(context);
 }
 
 }  // namespace @target@
