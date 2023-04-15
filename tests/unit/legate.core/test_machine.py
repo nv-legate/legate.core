@@ -19,7 +19,12 @@ import struct
 import pytest
 
 from legate.core import BufferBuilder
-from legate.core.machine import Machine, ProcessorKind, ProcessorRange
+from legate.core.machine import (
+    EmptyMachineError,
+    Machine,
+    ProcessorKind,
+    ProcessorRange,
+)
 
 
 class TestProcessorKind:
@@ -289,7 +294,7 @@ class TestMachine:
         rng = machine.get_processor_range()
         empty_rng = ProcessorRange.create(rng.kind, rng.per_node_count, 1, 0)
         err_msg = "Empty machines cannot be used for resource scoping"
-        with pytest.raises(ValueError, match=err_msg):
+        with pytest.raises(EmptyMachineError, match=err_msg):
             with Machine([empty_rng]):
                 pass
 

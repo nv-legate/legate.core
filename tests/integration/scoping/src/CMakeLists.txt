@@ -14,8 +14,17 @@
 # limitations under the License.
 #=============================================================================
 
-# We abuse find package for testing purposes here to
-# 'find' the current build tree to test package builds
+add_library(
+  scoping
+  library.cc
+)
 
-add_subdirectory(registry)
-add_subdirectory(scoping)
+target_include_directories(scoping
+  PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+  INTERFACE
+    $<INSTALL_INTERFACE:include>
+)
+
+target_link_libraries(scoping PRIVATE legate::core)
+

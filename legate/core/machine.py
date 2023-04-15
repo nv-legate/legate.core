@@ -25,6 +25,10 @@ if TYPE_CHECKING:
     from .runtime import Runtime
 
 
+class EmptyMachineError(Exception):
+    pass
+
+
 # Make this consistent with TaskTarget in mapping.h
 @unique
 class ProcessorKind(IntEnum):
@@ -259,7 +263,7 @@ class Machine:
 
         new_machine = runtime.machine & self
         if new_machine.empty:
-            raise ValueError(
+            raise EmptyMachineError(
                 "Empty machines cannot be used for resource scoping"
             )
         runtime.push_machine(new_machine)
