@@ -239,6 +239,8 @@ class TestDebugging:
             "gasnet_trace",
             "dataflow",
             "event",
+            "collective",
+            "spy_assert_warning",
         }
 
     def test_mixin(self) -> None:
