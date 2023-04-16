@@ -80,7 +80,7 @@ struct LegateTask {
    * use the default set of options
    */
   static void register_variants(
-    LibraryContext& context, const std::map<LegateVariantCode, VariantOptions>& all_options = {});
+    LibraryContext* context, const std::map<LegateVariantCode, VariantOptions>& all_options = {});
 
  private:
   template <typename, template <typename...> typename, bool>
