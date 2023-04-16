@@ -35,9 +35,9 @@ void registration_callback()
   auto context = legate::Runtime::get_runtime()->create_library(library_name);
 
   // Task registration via a registrar
-  Registry::get_registrar().register_all_tasks(*context);
+  Registry::get_registrar().register_all_tasks(context);
   // Immediate task registration
-  WorldTask::register_variants(*context);
+  WorldTask::register_variants(context);
 }
 
 }  // namespace rg

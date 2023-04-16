@@ -91,24 +91,25 @@ static void finalize_cpucoll(const Legion::Task* task,
 
 void register_tasks(Legion::Machine machine,
                     Legion::Runtime* runtime,
-                    const LibraryContext& context)
+                    const LibraryContext* context)
 {
   const auto& command_args = Legion::Runtime::get_input_args();
   coll::collInit(command_args.argc, command_args.argv);
 
-  auto init_cpucoll_mapping_task_id = context.get_task_id(LEGATE_CORE_INIT_CPUCOLL_MAPPING_TASK_ID);
+  auto init_cpucoll_mapping_task_id =
+    context->get_task_id(LEGATE_CORE_INIT_CPUCOLL_MAPPING_TASK_ID);
   const char* init_cpucoll_mapping_task_name = "core::comm::cpu::init_mapping";
   runtime->attach_name(init_cpucoll_mapping_task_id,
                        init_cpucoll_mapping_task_name,
                        false /*mutable*/,
                        true /*local only*/);
 
-  auto init_cpucoll_task_id          = context.get_task_id(LEGATE_CORE_INIT_CPUCOLL_TASK_ID);
+  auto init_cpucoll_task_id          = context->get_task_id(LEGATE_CORE_INIT_CPUCOLL_TASK_ID);
   const char* init_cpucoll_task_name = "core::comm::cpu::init";
   runtime->attach_name(
     init_cpucoll_task_id, init_cpucoll_task_name, false /*mutable*/, true /*local only*/);
 
-  auto finalize_cpucoll_task_id = context.get_task_id(LEGATE_CORE_FINALIZE_CPUCOLL_TASK_ID);
+  auto finalize_cpucoll_task_id = context->get_task_id(LEGATE_CORE_FINALIZE_CPUCOLL_TASK_ID);
   const char* finalize_cpucoll_task_name = "core::comm::cpu::finalize";
   runtime->attach_name(
     finalize_cpucoll_task_id, finalize_cpucoll_task_name, false /*mutable*/, true /*local only*/);

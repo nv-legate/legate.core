@@ -25,7 +25,7 @@ namespace comm {
 
 void register_tasks(Legion::Machine machine,
                     Legion::Runtime* runtime,
-                    const LibraryContext& context)
+                    const LibraryContext* context)
 {
 #ifdef LEGATE_USE_CUDA
   nccl::register_tasks(machine, runtime, context);
