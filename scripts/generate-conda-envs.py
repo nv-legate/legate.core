@@ -104,6 +104,7 @@ class BuildConfig(SectionConfig):
         pkgs = (
             # 3.25.0 triggers gitlab.kitware.com/cmake/cmake/-/issues/24119
             "cmake>=3.24,!=3.25.0",
+            "cython",
             "git",
             "make",
             "rust",
@@ -111,6 +112,7 @@ class BuildConfig(SectionConfig):
             "scikit-build>=0.13.1",
             "setuptools>=60",
             "zlib",
+            "numba",
         )
         if self.compilers:
             pkgs += ("c-compiler", "cxx-compiler")

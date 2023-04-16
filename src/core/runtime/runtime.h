@@ -18,6 +18,7 @@
 
 #include "legion.h"
 
+#include "core/runtime/context.h"
 #include "core/task/exception.h"
 #include "core/utilities/typedefs.h"
 
@@ -25,6 +26,12 @@
  */
 
 namespace legate {
+
+namespace mapping {
+
+class Mapper;
+
+}  // namespace mapping
 
 extern uint32_t extract_env(const char* env_name,
                             const uint32_t default_value,
@@ -65,6 +72,23 @@ struct Core {
   static bool synchronize_stream_view;
   static bool log_mapping_decisions;
   static bool has_socket_mem;
+};
+
+class Runtime {
+ private:
+  Runtime();
+
+ public:
+  LibraryContext* find_library(const std::string& library_name, bool can_fail = false) const;
+  LibraryContext* create_library(const std::string& library_name,
+                                 const ResourceConfig& config            = ResourceConfig{},
+                                 std::unique_ptr<mapping::Mapper> mapper = nullptr);
+
+ public:
+  static Runtime* get_runtime();
+
+ private:
+  std::map<std::string, std::unique_ptr<LibraryContext>> libraries_{};
 };
 
 }  // namespace legate

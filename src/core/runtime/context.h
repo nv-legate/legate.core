@@ -17,13 +17,16 @@
 #pragma once
 
 #include <memory>
+#include <unordered_map>
 
 #include "legion.h"
 // Must be included after legion.h
 #include "legate_defines.h"
 
 #include "core/comm/communicator.h"
+#include "core/mapping/mapping.h"
 #include "core/task/return.h"
+#include "core/task/task_info.h"
 #include "core/utilities/typedefs.h"
 
 /**
@@ -33,14 +36,21 @@
 
 namespace legate {
 
-namespace mapping {
-
-class LegateMapper;
-
-}  // namespace mapping
-
 class Store;
 class Scalar;
+
+class InvalidTaskIdException : public std::exception {
+ public:
+  InvalidTaskIdException(const std::string& library_name,
+                         int64_t offending_task_id,
+                         int64_t max_task_id);
+
+ public:
+  virtual const char* what() const throw();
+
+ private:
+  std::string error_message;
+};
 
 /**
  * @ingroup runtime
@@ -50,11 +60,7 @@ struct ResourceConfig {
   /**
    * @brief Maximum number of tasks that the library can register
    */
-  int64_t max_tasks{1000000};
-  /**
-   * @brief Maximum number of mappers that the library can register
-   */
-  int64_t max_mappers{1};
+  int64_t max_tasks{1024};
   /**
    * @brief Maximum number of custom reduction operators that the library can register
    */
@@ -63,13 +69,13 @@ struct ResourceConfig {
   int64_t max_shardings{0};
 };
 
-class ResourceScope {
+class ResourceIdScope {
  public:
-  ResourceScope() = default;
-  ResourceScope(int64_t base, int64_t max) : base_(base), max_(max) {}
+  ResourceIdScope() = default;
+  ResourceIdScope(int64_t base, int64_t size) : base_(base), size_(size) {}
 
  public:
-  ResourceScope(const ResourceScope&) = default;
+  ResourceIdScope(const ResourceIdScope&) = default;
 
  public:
   int64_t translate(int64_t local_resource_id) const { return base_ + local_resource_id; }
@@ -83,12 +89,13 @@ class ResourceScope {
   bool valid() const { return base_ != -1; }
   bool in_scope(int64_t resource_id) const
   {
-    return base_ <= resource_id && resource_id < base_ + max_;
+    return base_ <= resource_id && resource_id < base_ + size_;
   }
+  int64_t size() const { return size_; }
 
  private:
   int64_t base_{-1};
-  int64_t max_{-1};
+  int64_t size_{-1};
 };
 
 /**
@@ -109,10 +116,13 @@ class LibraryContext {
    * @param config Resource configuration for the library. If the library is already
    * registered, the value will be ignored.
    */
-  LibraryContext(const std::string& library_name, const ResourceConfig& config);
+  LibraryContext(const std::string& library_name,
+                 const ResourceConfig& config,
+                 std::unique_ptr<mapping::Mapper> mapper);
 
  public:
-  LibraryContext(const LibraryContext&) = default;
+  LibraryContext(const LibraryContext&) = delete;
+  LibraryContext(LibraryContext&&)      = default;
 
  public:
   /**
@@ -124,21 +134,19 @@ class LibraryContext {
 
  public:
   Legion::TaskID get_task_id(int64_t local_task_id) const;
-  Legion::MapperID get_mapper_id(int64_t local_mapper_id) const;
+  Legion::MapperID get_mapper_id() const { return mapper_id_; }
   Legion::ReductionOpID get_reduction_op_id(int64_t local_redop_id) const;
   Legion::ProjectionID get_projection_id(int64_t local_proj_id) const;
   Legion::ShardingID get_sharding_id(int64_t local_shard_id) const;
 
  public:
   int64_t get_local_task_id(Legion::TaskID task_id) const;
-  int64_t get_local_mapper_id(Legion::MapperID mapper_id) const;
   int64_t get_local_reduction_op_id(Legion::ReductionOpID redop_id) const;
   int64_t get_local_projection_id(Legion::ProjectionID proj_id) const;
   int64_t get_local_sharding_id(Legion::ShardingID shard_id) const;
 
  public:
   bool valid_task_id(Legion::TaskID task_id) const;
-  bool valid_mapper_id(Legion::MapperID mapper_id) const;
   bool valid_reduction_op_id(Legion::ReductionOpID redop_id) const;
   bool valid_projection_id(Legion::ProjectionID proj_id) const;
   bool valid_sharding_id(Legion::ShardingID shard_id) const;
@@ -197,24 +205,23 @@ class LibraryContext {
    */
   template <typename REDOP>
   void register_reduction_operator();
-  /**
-   * @brief Registers a library specific mapper. Transfers the ownership of the mapper to
-   * the runtime.
-   *
-   * @param mapper Mapper object
-   * @param local_mapper_id Id for the mapper. Used only when there is more than one mapper.
-   */
-  void register_mapper(std::unique_ptr<mapping::LegateMapper> mapper,
-                       int64_t local_mapper_id = 0) const;
+
+ public:
+  void register_task(int64_t local_task_id, std::unique_ptr<TaskInfo> task_info);
+  const TaskInfo* find_task(int64_t local_task_id) const;
 
  private:
   Legion::Runtime* runtime_;
   const std::string library_name_;
-  ResourceScope task_scope_;
-  ResourceScope mapper_scope_;
-  ResourceScope redop_scope_;
-  ResourceScope proj_scope_;
-  ResourceScope shard_scope_;
+  ResourceIdScope task_scope_;
+  ResourceIdScope redop_scope_;
+  ResourceIdScope proj_scope_;
+  ResourceIdScope shard_scope_;
+
+ private:
+  Legion::MapperID mapper_id_;
+  std::unique_ptr<mapping::Mapper> mapper_;
+  std::unordered_map<int64_t, std::unique_ptr<TaskInfo>> tasks_;
 };
 
 /**
