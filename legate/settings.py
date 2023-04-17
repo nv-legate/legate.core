@@ -25,17 +25,6 @@ from .util.settings import (
 __all__ = ("settings",)
 
 
-def _extract_define(name: str) -> str:
-    from .install_info import env_defaults_header as header
-
-    lines = (line for line in header.split("\n") if line.startswith("#define"))
-    for line in lines:
-        tokens = line.split(" ")
-        if tokens[1].strip() == name:
-            return tokens[2].strip()
-    raise RuntimeError()
-
-
 class LegateRuntimeSettings(Settings):
     consensus: PrioritizedSetting[bool] = PrioritizedSetting(
         "consensus",
@@ -90,8 +79,8 @@ class LegateRuntimeSettings(Settings):
     min_gpu_chunk: EnvOnlySetting[int] = EnvOnlySetting(
         "min_gpu_chunk",
         "LEGATE_MIN_GPU_CHUNK",
-        default=int(_extract_define("MIN_GPU_CHUNK_DEFAULT")),
-        test_default=int(_extract_define("MIN_GPU_CHUNK_TEST")),
+        default=1048576,  # 1 << 20
+        test_default=2,
         convert=convert_int,
         help="""
         Minimum chunk size to enable GPU execution.
@@ -103,8 +92,8 @@ class LegateRuntimeSettings(Settings):
     min_cpu_chunk: EnvOnlySetting[int] = EnvOnlySetting(
         "min_cpu_chunk",
         "LEGATE_MIN_CPU_CHUNK",
-        default=int(_extract_define("MIN_CPU_CHUNK_DEFAULT")),
-        test_default=int(_extract_define("MIN_CPU_CHUNK_TEST")),
+        default=16384,  # 1 << 14
+        test_default=2,
         convert=convert_int,
         help="""
         Minimum chunk size to enable CPU execution.
@@ -116,8 +105,8 @@ class LegateRuntimeSettings(Settings):
     min_omp_chunk: EnvOnlySetting[int] = EnvOnlySetting(
         "min_omp_chunk",
         "LEGATE_MIN_OMP_CHUNK",
-        default=int(_extract_define("MIN_OMP_CHUNK_DEFAULT")),
-        test_default=int(_extract_define("MIN_OMP_CHUNK_TEST")),
+        default=131072,  # 1 << 17
+        test_default=2,
         convert=convert_int,
         help="""
         Minimum chunk size to enable CPU execution.
@@ -129,8 +118,8 @@ class LegateRuntimeSettings(Settings):
     window_size: EnvOnlySetting[int] = EnvOnlySetting(
         "window_size",
         "LEGATE_WINDOW_SIZE",
-        default=int(_extract_define("WINDOW_SIZE_DEFAULT")),
-        test_default=int(_extract_define("WINDOW_SIZE_TEST")),
+        default=1,
+        test_default=1,
         convert=convert_int,
         help="""
         Window size.
@@ -142,8 +131,8 @@ class LegateRuntimeSettings(Settings):
     max_pending_exceptions: EnvOnlySetting[int] = EnvOnlySetting(
         "max_pending_exceptions",
         "LEGATE_MAX_PENDING_EXCEPTIONS",
-        default=int(_extract_define("MAX_PENDING_EXCEPTIONS_DEFAULT")),
-        test_default=int(_extract_define("MAX_PENDING_EXCEPTIONS_TEST")),
+        default=64,
+        test_default=1,
         convert=convert_int,
         help="""
         Maximum number of pending exceptions.
@@ -155,8 +144,8 @@ class LegateRuntimeSettings(Settings):
     precise_exception_trace: EnvOnlySetting[bool] = EnvOnlySetting(
         "precise_exception_trace",
         "LEGATE_PRECISE_EXCEPTION_TRACE",
-        default=bool(_extract_define("PRECISE_EXCEPTION_TRACE_DEFAULT")),
-        test_default=bool(_extract_define("PRECISE_EXCEPTION_TRACE_TEST")),
+        default=False,
+        test_default=False,
         convert=convert_bool,
         help="""
         Whether to enable precise exception traces.
@@ -168,8 +157,8 @@ class LegateRuntimeSettings(Settings):
     field_reuse_frac: EnvOnlySetting[int] = EnvOnlySetting(
         "field_reuse_frac",
         "LEGATE_FIELD_REUSE_FRAC",
-        default=int(_extract_define("FIELD_REUSE_FRAC_DEFAULT")),
-        test_default=int(_extract_define("FIELD_REUSE_FRAC_TEST")),
+        default=256,
+        test_default=256,
         convert=convert_int,
         help="""
         Field re-use fraction.
@@ -181,8 +170,8 @@ class LegateRuntimeSettings(Settings):
     field_reuse_freq: EnvOnlySetting[int] = EnvOnlySetting(
         "field_reuse_freq",
         "LEGATE_FIELD_REUSE_FREQ",
-        default=int(_extract_define("FIELD_REUSE_FREQ_DEFAULT")),
-        test_default=int(_extract_define("FIELD_REUSE_FREQ_TEST")),
+        default=32,
+        test_default=32,
         convert=convert_int,
         help="""
         Field re-use frequency.
@@ -194,8 +183,8 @@ class LegateRuntimeSettings(Settings):
     max_lru_length: EnvOnlySetting[int] = EnvOnlySetting(
         "max_lru_length",
         "LEGATE_MAX_LRU_LENGTH",
-        default=int(_extract_define("MAX_LRU_LENGTH_DEFAULT")),
-        test_default=int(_extract_define("MAX_LRU_LENGTH_TEST")),
+        default=5,
+        test_default=1,
         convert=convert_int,
         help="""
         Maximum LRU cache size.
