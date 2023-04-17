@@ -430,3 +430,9 @@ class Weighted(PartitionBase):
                 index_space, self, index_partition
             )
         return region.get_child(index_partition)
+
+    def import_partition(self, partition: LegionPartition) -> None:
+        index_partition = partition.index_partition
+        runtime.partition_manager.record_index_partition(
+            index_partition.parent, self, index_partition
+        )

@@ -683,6 +683,14 @@ class OutputAnalyzer(RequirementIndexer):
             for field_id, store in group:
                 req.update_storage(store, field_id)
 
+    def collect_partitions(self) -> dict[Store, LegionPartition]:
+        result = dict()
+        for req, group in self._groups.items():
+            for _, store in group:
+                assert req.output_region
+                result[store] = req.output_region.get_partition()
+        return result
+
 
 # A simple analyzer that does not coalesce requirements
 class CopyReqAnalyzer(RequirementIndexer):
@@ -975,12 +983,15 @@ class TaskLauncher:
             task.set_point(self._point)
         return task
 
-    def execute(self, launch_domain: Rect) -> FutureMap:
+    def execute(
+        self, launch_domain: Rect
+    ) -> tuple[FutureMap, dict[Store, LegionPartition]]:
         task = self.build_task(launch_domain, BufferBuilder())
         result = self._context.dispatch(task)
         assert isinstance(result, FutureMap)
         self._out_analyzer.update_storages()
-        return result
+        out_partitions = self._out_analyzer.collect_partitions()
+        return result, out_partitions
 
     def execute_single(self) -> Future:
         argbuf = BufferBuilder()
