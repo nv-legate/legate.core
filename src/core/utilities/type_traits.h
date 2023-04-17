@@ -200,6 +200,11 @@ struct is_floating_point {
   static constexpr bool value = std::is_floating_point<legate_type_of<CODE>>::value;
 };
 
+template <>
+struct is_floating_point<LegateTypeCode::HALF_LT> {
+  static constexpr bool value = true;
+};
+
 /**
  * @ingroup util
  * @brief A predicate that holds if the type code is of a complex type

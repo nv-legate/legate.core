@@ -32,6 +32,7 @@ class OpCode(IntEnum):
     MATMUL = user_lib.cffi.MATMUL
     MUL = user_lib.cffi.MUL
     SUM_OVER_AXIS = user_lib.cffi.SUM_OVER_AXIS
+    UNIQUE = user_lib.cffi.UNIQUE
 
 
 class _Wrapper:
@@ -266,3 +267,40 @@ def histogram(input: Store, bins: Store) -> Store:
     task.execute()
 
     return result
+
+
+def unique(input: Store, radix: int = 4) -> Store:
+    """
+    Finds unique elements in the input and returns them in a store
+
+    Parameters
+    ----------
+    input : Store
+        Input
+
+    Returns
+    -------
+    Store
+        Result that contains only the unique elements of the input
+    """
+
+    if input.ndim > 1:
+        raise ValueError("`unique` accepts only 1D stores")
+
+    dtype = input.type.type
+    if num.dtype(dtype.to_pandas_dtype()).kind in ("f", "c"):
+        raise ValueError(
+            "`unique` doesn't support floating point or complex numbers"
+        )
+
+    # Create an unbound store to collect local results
+    result = context.create_store(dtype, shape=None, ndim=1)
+
+    task = context.create_auto_task(OpCode.UNIQUE)
+    task.add_input(input)
+    task.add_output(result)
+
+    task.execute()
+
+    # Perform global reduction using a reduction tree
+    return context.tree_reduce(OpCode.UNIQUE, result, radix=radix)

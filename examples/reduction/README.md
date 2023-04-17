@@ -18,10 +18,11 @@ limitations under the License.
 # Reduction examples
 
 This tutorial explains how one can write reduction code in various scenarios.
-Specifically, the tutorial contains these two examples:
+Specifically, the tutorial contains these three examples:
 
 1. Dimension-wise reductions
 2. All-reduce reductions
+3. Set reductions
 
 The tutorial also covers matrix multiplication, which is a variant of the
 dimension-wise reduction.

@@ -25,6 +25,7 @@ enum OpCode {
   MATMUL,
   MUL,
   SUM_OVER_AXIS,
+  UNIQUE,
 };
 
 #endif  // __REDUCTION_C_H__

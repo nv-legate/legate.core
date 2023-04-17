@@ -24,6 +24,7 @@ add_library(
   matmul.cc
   mul.cc
   sum_over_axis.cc
+  unique.cc
   ${TEMPLATE_SOURCES}
 )
 

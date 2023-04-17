@@ -23,4 +23,5 @@ from .reduction import (
     print_store,
     sum_over_axis,
     to_cunumeric_array,
+    unique,
 )
