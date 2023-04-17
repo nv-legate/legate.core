@@ -54,3 +54,5 @@ ON, OFF = True, False
 use_cuda: bool = @Legion_USE_CUDA@
 
 use_openmp: bool = @Legion_USE_OpenMP@
+
+env_defaults_header: str = """@env_defaults_header@"""

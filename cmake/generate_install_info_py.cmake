@@ -24,6 +24,17 @@ execute_process(
   COMMAND_ERROR_IS_FATAL ANY
 )
 
+execute_process(
+  COMMAND ${CMAKE_C_COMPILER}
+    -E -dM
+    -I "${CMAKE_CURRENT_LIST_DIR}/../src/"
+    -P "${CMAKE_CURRENT_LIST_DIR}/../src/env_defaults.h"
+  ECHO_ERROR_VARIABLE
+  OUTPUT_VARIABLE env_defaults_header
+  COMMAND_ERROR_IS_FATAL ANY
+)
+
+
 set(libpath "")
 configure_file(
   "${CMAKE_CURRENT_LIST_DIR}/../legate/install_info.py.in"

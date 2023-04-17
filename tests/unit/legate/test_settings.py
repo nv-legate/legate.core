@@ -17,12 +17,22 @@ from __future__ import annotations
 import pytest
 
 import legate.settings as m
-from legate.util.settings import PrioritizedSetting
+from legate.util.settings import EnvOnlySetting, PrioritizedSetting
 
 _expected_settings = (
     "consensus",
     "cycle_check",
     "future_leak_check",
+    "test",
+    "min_gpu_chunk",
+    "min_cpu_chunk",
+    "min_omp_chunk",
+    "window_size",
+    "max_pending_exceptions",
+    "precise_exception_trace",
+    "field_reuse_frac",
+    "field_reuse_freq",
+    "max_lru_length",
 )
 
 
@@ -31,7 +41,7 @@ class TestSettings:
         settings = [
             k
             for k, v in m.settings.__class__.__dict__.items()
-            if isinstance(v, PrioritizedSetting)
+            if isinstance(v, (PrioritizedSetting, EnvOnlySetting))
         ]
         assert set(settings) == set(_expected_settings)
 

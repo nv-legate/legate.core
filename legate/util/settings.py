@@ -167,9 +167,11 @@ class SettingBase:
     def __init__(
         self,
         name: str,
+        default: Unset[T] = _Unset,
         convert: Any | None = None,
         help: str = "",
     ) -> None:
+        self._default = default
         self._convert = convert if convert else convert_str
         self._help = help
         self._name = name
@@ -181,6 +183,10 @@ class SettingBase:
     @property
     def help(self) -> str:
         return self._help
+
+    @property
+    def default(self) -> Unset[T]:
+        return self._default
 
     @property
     def convert_type(self) -> str:
@@ -229,8 +235,7 @@ class PrioritizedSetting(Generic[T], SettingBase):
         convert: Any | None = None,
         help: str = "",
     ) -> None:
-        super().__init__(name, convert, help)
-        self._default = default
+        super().__init__(name, default, convert, help)
         self._env_var = env_var
         self._user_value = _Unset
 
@@ -313,10 +318,6 @@ class PrioritizedSetting(Generic[T], SettingBase):
     def env_var(self) -> str | None:
         return self._env_var
 
-    @property
-    def default(self) -> Unset[T]:
-        return self._default
-
 
 class EnvOnlySetting(Generic[T], SettingBase):
     """Return a value for a global environment variable setting.
@@ -329,17 +330,24 @@ class EnvOnlySetting(Generic[T], SettingBase):
         self,
         name: str,
         env_var: str,
+        default: Unset[T] = _Unset,
+        test_default: Unset[T] = _Unset,
         convert: Any | None = None,
         help: str = "",
     ) -> None:
-        super().__init__(name, convert, help)
+        super().__init__(name, default, convert, help)
+        self._test_default = test_default
         self._env_var = env_var
 
     def __call__(self) -> T | None:
         if self._env_var in os.environ:
             return self._convert(os.environ[self._env_var])
 
-        return None  # XXXXX
+        # unfortunate
+        test = convert_bool(os.environ.get("LEGATE_TEST", False))
+        value = self._test_default if test else self.default
+
+        return self._convert(value)
 
     def __get__(self, instance: Any, owner: type[Any]) -> EnvOnlySetting[T]:
         return self
