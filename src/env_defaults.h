@@ -14,6 +14,11 @@
  *
  */
 
+// These values are copied manually in legate.settings and there is a Python
+// unit test that will maintain that these values and the Python settings
+// values agree. If these values are modified, the corresponding Python values
+// must also be updated.
+
 // 1 << 20 (need actual number for python to parse)
 #define MIN_GPU_CHUNK_DEFAULT 1048576
 #define MIN_GPU_CHUNK_TEST 2

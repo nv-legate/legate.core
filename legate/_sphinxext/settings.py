@@ -74,26 +74,22 @@ class SettingsDirective(SphinxDirective):
         for x in obj.__class__.__dict__.values():
             if isinstance(x, PrioritizedSetting):
                 default = "(Unset)" if x.default is _Unset else repr(x.default)
-                setting = {
-                    "name": x.name,
-                    "env_var": x.env_var,
-                    "type": x.convert_type,
-                    "help": textwrap.dedent(x.help),
-                    "default": default,
-                }
-                settings.append(setting)
             elif isinstance(x, EnvOnlySetting):
                 default = repr(x.default)
                 if x._test_default is not _Unset:
                     default += f" (test-mode default: {x._test_default!r})"
-                setting = {
+            else:
+                continue
+
+            settings.append(
+                {
                     "name": x.name,
                     "env_var": x.env_var,
                     "type": x.convert_type,
                     "help": textwrap.dedent(x.help),
                     "default": default,
                 }
-                settings.append(setting)
+            )
 
         rst_text = SETTINGS_DETAIL.render(
             name=obj_name, module_name=module_name, settings=settings
