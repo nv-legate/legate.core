@@ -345,9 +345,11 @@ class EnvOnlySetting(Generic[T], SettingBase):
 
         # unfortunate
         test = convert_bool(os.environ.get("LEGATE_TEST", False))
-        value = self._test_default if test else self.default
 
-        return self._convert(value)
+        if test and self.test_default is not _Unset:
+            return self._convert(self.test_default)
+
+        return self._convert(self.default)
 
     def __get__(self, instance: Any, owner: type[Any]) -> EnvOnlySetting[T]:
         return self
@@ -355,6 +357,10 @@ class EnvOnlySetting(Generic[T], SettingBase):
     @property
     def env_var(self) -> str | None:
         return self._env_var
+
+    @property
+    def test_default(self) -> Unset[T]:
+        return self._test_default
 
 
 class Settings:

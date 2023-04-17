@@ -14,10 +14,13 @@
 #
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 import legate.settings as m
-from legate.util.settings import EnvOnlySetting, PrioritizedSetting
+from legate.util.fs import read_c_define
+from legate.util.settings import EnvOnlySetting, PrioritizedSetting, _Unset
 
 _expected_settings = (
     "consensus",
@@ -34,6 +37,8 @@ _expected_settings = (
     "field_reuse_freq",
     "max_lru_length",
 )
+
+ENV_HEADER = Path(__file__).parents[3] / "src" / "env_defaults.h"
 
 
 class TestSettings:
@@ -56,6 +61,20 @@ class TestSettings:
         assert m.settings.future_leak_check.convert_type == "bool"
 
 
+_settings_with_test_defaults = (
+    "min_gpu_chunk",
+    "min_cpu_chunk",
+    "min_omp_chunk",
+    "window_size",
+    # skipping due to LEGATE_DEBUG conditioning
+    # "max_pending_exceptions",
+    "precise_exception_trace",
+    "field_reuse_frac",
+    "field_reuse_freq",
+    "max_lru_length",
+)
+
+
 class TestDefaults:
     def test_consensus(self) -> None:
         assert m.settings.consensus.default is False
@@ -65,3 +84,21 @@ class TestDefaults:
 
     def test_future_leak_check(self) -> None:
         assert m.settings.future_leak_check.default is False
+
+    def test_test(self) -> None:
+        assert m.settings.test.default is False
+        assert m.settings.test.test_default is _Unset
+
+    @pytest.mark.parametrize("name", _settings_with_test_defaults)
+    def test_default(self, name: str) -> None:
+        setting = getattr(m.settings, name)
+        define = setting.env_var.removeprefix("LEGATE_") + "_DEFAULT"
+        expected = setting._convert(read_c_define(ENV_HEADER, define))
+        assert setting.default == expected
+
+    @pytest.mark.parametrize("name", _settings_with_test_defaults)
+    def test_test_default(self, name: str) -> None:
+        setting = getattr(m.settings, name)
+        define = setting.env_var.removeprefix("LEGATE_") + "_TEST"
+        expected = setting._convert(read_c_define(ENV_HEADER, define))
+        assert setting.test_default == expected
