@@ -1645,7 +1645,8 @@ class Runtime:
         )
         launcher.add_future_map(future)
         launcher.add_scalar_arg(idx, ty.int32)
-        return launcher.execute(launch_domain)
+        (result, _) = launcher.execute(launch_domain)
+        return result
 
     def reduce_future_map(
         self, future_map: Union[Future, FutureMap], redop: int

@@ -26,7 +26,7 @@ from typing import (
 
 import legate.core.types as ty
 
-from . import Future, FutureMap, Rect
+from . import Future, FutureMap, Partition as LegionPartition, Rect
 from .constraints import PartSym
 from .launcher import CopyLauncher, FillLauncher, TaskLauncher
 from .partition import REPLICATE, Weighted
@@ -477,6 +477,7 @@ class Task(TaskProtocol):
     def _demux_scalar_stores_future_map(
         self,
         result: FutureMap,
+        out_partitions: dict[Store, LegionPartition],
         launch_domain: Rect,
     ) -> None:
         num_unbound_outs = len(self.unbound_outputs)
@@ -505,6 +506,7 @@ class Task(TaskProtocol):
                 # TODO: need to track partitions for N-D unbound stores
                 if output.ndim == 1:
                     partition = Weighted(launch_shape, result)
+                    partition.import_partition(out_partitions[output])
                     output.set_key_partition(partition)
             elif self.can_raise_exception:
                 runtime.record_pending_exception(
@@ -527,6 +529,7 @@ class Task(TaskProtocol):
                     result, idx, launch_domain
                 )
                 partition = Weighted(launch_shape, weights)
+                partition.import_partition(out_partitions[output])
                 output.set_key_partition(partition)
                 idx += 1
             for red_idx in self.scalar_reductions:
@@ -550,6 +553,7 @@ class Task(TaskProtocol):
     def _demux_scalar_stores(
         self,
         result: Union[Future, FutureMap],
+        out_partitions: dict[Store, LegionPartition],
         launch_domain: Union[Rect, None],
     ) -> None:
         if launch_domain is None:
@@ -561,7 +565,9 @@ class Task(TaskProtocol):
                 future = result.get_future(launch_domain.lo)
                 self._demux_scalar_stores_future(future)
             else:
-                self._demux_scalar_stores_future_map(result, launch_domain)
+                self._demux_scalar_stores_future_map(
+                    result, out_partitions, launch_domain
+                )
 
     def add_nccl_communicator(self) -> None:
         """
@@ -810,12 +816,14 @@ class AutoTask(AutoOperation, Task):
         self._add_communicators(launcher, launch_domain)
 
         result: Union[Future, FutureMap]
+        out_partitions: dict[Store, LegionPartition]
         if launch_domain is not None:
-            result = launcher.execute(launch_domain)
+            result, out_partitions = launcher.execute(launch_domain)
         else:
             result = launcher.execute_single()
+            out_partitions = dict()
 
-        self._demux_scalar_stores(result, launch_domain)
+        self._demux_scalar_stores(result, out_partitions, launch_domain)
 
 
 class ManualTask(Operation, Task):
@@ -1015,9 +1023,9 @@ class ManualTask(Operation, Task):
 
         self._add_communicators(launcher, self._launch_domain)
 
-        result = launcher.execute(self._launch_domain)
+        result, out_partitions = launcher.execute(self._launch_domain)
 
-        self._demux_scalar_stores(result, self._launch_domain)
+        self._demux_scalar_stores(result, out_partitions, self._launch_domain)
 
 
 class Copy(AutoOperation):
@@ -1431,10 +1439,8 @@ class Reduce(AutoOperation):
     def launch(self, strategy: Strategy) -> None:
         assert len(self._inputs) == 1 and len(self._outputs) == 1
 
-        result = self._outputs[0]
-
-        output = self._inputs[0]
-        opart = output.partition(strategy.get_partition(self._input_parts[0]))
+        input = self._inputs[0]
+        ipart = input.partition(strategy.get_partition(self._input_parts[0]))
 
         done = False
         launch_domain = None
@@ -1449,9 +1455,6 @@ class Reduce(AutoOperation):
         )
 
         while not done:
-            input = output
-            ipart = opart
-
             tag = self.context.core_library.LEGATE_CORE_TREE_REDUCE_TAG
             launcher = TaskLauncher(
                 self.context,
@@ -1463,21 +1466,26 @@ class Reduce(AutoOperation):
             for proj_fn in proj_fns:
                 launcher.add_input(input, ipart.get_requirement(1, proj_fn))
 
-            output = self._context.create_store(input.type)
+            num_tasks = (fan_in + self._radix - 1) // self._radix
+            fan_in = num_tasks
+            done = fan_in == 1
+
+            if done:
+                output = self._outputs[0]
+            else:
+                output = self._context.create_store(input.type)
             fspace = self._runtime.create_field_space()
             field_id = fspace.allocate_field(input.type)
             launcher.add_unbound_output(output, fspace, field_id)
 
-            num_tasks = (fan_in + self._radix - 1) // self._radix
             launch_domain = Rect([num_tasks])
-            weights = launcher.execute(launch_domain)
+            weights, out_partitions = launcher.execute(launch_domain)
 
             launch_shape = Shape(c + 1 for c in launch_domain.hi)
             weighted = Weighted(launch_shape, weights)
+            weighted.import_partition(out_partitions[output])
             output.set_key_partition(weighted)
             opart = output.partition(weighted)
 
-            fan_in = num_tasks
-            done = fan_in == 1
-
-        result.set_storage(output.storage)
+            input = output
+            ipart = opart
