@@ -46,7 +46,7 @@ inline std::string Scalar::value() const
 {
   // Getting a span of a temporary scalar is illegal in general,
   // but we know this is safe as the span's pointer is held by this object.
-  auto span = Scalar(true, LegateTypeCode::INT8_LT, data_).values<char>();
+  auto span = Scalar(true, Type::INT8, data_).values<char>();
   return std::string(span.begin(), span.end());
 }
 

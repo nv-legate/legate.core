@@ -429,6 +429,10 @@ install(
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/legate/core/task)
 
 install(
+  FILES src/core/type/type_info.h
+        src/core/type/type_traits.h
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/legate/core/utilities)
+install(
   FILES src/core/utilities/debug.h
         src/core/utilities/deserializer.h
         src/core/utilities/deserializer.inl
@@ -436,7 +440,6 @@ install(
         src/core/utilities/machine.h
         src/core/utilities/nvtx_help.h
         src/core/utilities/span.h
-        src/core/utilities/type_traits.h
         src/core/utilities/typedefs.h
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/legate/core/utilities)
 

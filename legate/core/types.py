@@ -181,7 +181,7 @@ _CORE_DTYPES = [
     Dtype(float64, 8, legion.LEGION_TYPE_FLOAT64),
     Dtype(complex64, 8, legion.LEGION_TYPE_COMPLEX64),
     Dtype(complex128, 16, legion.LEGION_TYPE_COMPLEX128),
-    Dtype(string, -1, legion.LEGION_TYPE_COMPLEX128 + 1),
+    Dtype(string, -1, legion.LEGION_TYPE_COMPLEX128 + 3),
 ]
 
 

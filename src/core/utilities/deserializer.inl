@@ -23,16 +23,16 @@ BaseDeserializer<Deserializer>::BaseDeserializer(const int8_t* args, size_t argl
 }
 
 template <typename Deserializer>
-void BaseDeserializer<Deserializer>::_unpack(LegateTypeCode& value)
+void BaseDeserializer<Deserializer>::_unpack(Type& value)
 {
-  value = static_cast<LegateTypeCode>(unpack<int32_t>());
+  value = static_cast<Type>(unpack<int32_t>());
 }
 
 template <typename Deserializer>
 void BaseDeserializer<Deserializer>::_unpack(Scalar& value)
 {
   auto tuple = unpack<bool>();
-  auto code  = unpack<LegateTypeCode>();
+  auto code  = unpack<Type>();
   value      = Scalar(tuple, code, args_.ptr());
   args_      = args_.subspan(value.size());
 }

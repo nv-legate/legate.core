@@ -75,6 +75,7 @@ typedef enum legate_core_variant_t {
 
 // Match these to numpy_field_type_offsets in legate/numpy/config.py
 typedef enum legate_core_type_code_t {
+  // Buil-in primitive types
   BOOL_LT       = LEGION_TYPE_BOOL,
   INT8_LT       = LEGION_TYPE_INT8,
   INT16_LT      = LEGION_TYPE_INT16,
@@ -89,9 +90,15 @@ typedef enum legate_core_type_code_t {
   DOUBLE_LT     = LEGION_TYPE_FLOAT64,
   COMPLEX64_LT  = LEGION_TYPE_COMPLEX64,
   COMPLEX128_LT = LEGION_TYPE_COMPLEX128,
-  STRING_LT     = COMPLEX128_LT + 1,
-  MAX_TYPE_NUMBER,
+  // Compound types
+  FIXED_ARRAY_LT,
+  STRUCT_LT,
+  // Variable size types
+  STRING_LT,
+  INVALID_LT = -1,
 } legate_core_type_code_t;
+
+#define MAX_TYPE_NUMBER (COMPLEX128_LT + 1)
 
 typedef enum legate_core_transform_t {
   LEGATE_CORE_TRANSFORM_SHIFT = 100,

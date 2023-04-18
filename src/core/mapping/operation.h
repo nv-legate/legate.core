@@ -112,13 +112,13 @@ class Store {
  public:
   Store() {}
   Store(int32_t dim,
-        LegateTypeCode code,
+        Type code,
         FutureWrapper future,
         std::shared_ptr<TransformStack>&& transform = nullptr);
   Store(Legion::Mapping::MapperRuntime* runtime,
         const Legion::Mapping::MapperContext context,
         int32_t dim,
-        LegateTypeCode code,
+        Type code,
         int32_t redop_id,
         const RegionField& region_field,
         bool is_output_store                        = false,
@@ -210,7 +210,7 @@ class Store {
   bool is_future_{false};
   bool is_output_store_{false};
   int32_t dim_{-1};
-  LegateTypeCode code_{MAX_TYPE_NUMBER};
+  Type code_{Type::INVALID};
   int32_t redop_id_{-1};
 
  private:

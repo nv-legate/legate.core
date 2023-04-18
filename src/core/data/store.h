@@ -19,6 +19,7 @@
 #include "core/data/buffer.h"
 #include "core/data/transform.h"
 #include "core/task/return.h"
+#include "core/type/type_info.h"
 #include "core/utilities/machine.h"
 #include "core/utilities/typedefs.h"
 #include "legate_defines.h"
@@ -271,17 +272,17 @@ class Store {
  public:
   Store() {}
   Store(int32_t dim,
-        int32_t code,
+        Type code,
         int32_t redop_id,
         FutureWrapper future,
         std::shared_ptr<TransformStack>&& transform = nullptr);
   Store(int32_t dim,
-        int32_t code,
+        Type code,
         int32_t redop_id,
         RegionField&& region_field,
         std::shared_ptr<TransformStack>&& transform = nullptr);
   Store(int32_t dim,
-        int32_t code,
+        Type code,
         UnboundRegionField&& unbound_field,
         std::shared_ptr<TransformStack>&& transform = nullptr);
 
@@ -322,7 +323,7 @@ class Store {
    *
    * @return The store's type code
    */
-  template <typename TYPE_CODE = LegateTypeCode>
+  template <typename TYPE_CODE = Type>
   TYPE_CODE code() const
   {
     return static_cast<TYPE_CODE>(code_);
@@ -542,7 +543,7 @@ class Store {
   bool is_future_{false};
   bool is_unbound_store_{false};
   int32_t dim_{-1};
-  int32_t code_{-1};
+  Type code_{Type::INVALID};
   int32_t redop_id_{-1};
 
  private:

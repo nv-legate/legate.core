@@ -44,7 +44,7 @@ void TaskDeserializer::_unpack(Store& value)
   auto is_future        = unpack<bool>();
   auto is_output_region = unpack<bool>();
   auto dim              = unpack<int32_t>();
-  auto code             = unpack<LegateTypeCode>();
+  auto code             = unpack<Type>();
 
   auto transform = unpack_transform();
 
@@ -140,7 +140,7 @@ void TaskDeserializer::_unpack(Store& value)
   auto is_future        = unpack<bool>();
   auto is_output_region = unpack<bool>();
   auto dim              = unpack<int32_t>();
-  auto code             = unpack<LegateTypeCode>();
+  auto code             = unpack<Type>();
 
   auto transform = unpack_transform();
 
@@ -214,7 +214,7 @@ void CopyDeserializer::_unpack(Store& value)
   auto is_future        = unpack<bool>();
   auto is_output_region = unpack<bool>();
   auto dim              = unpack<int32_t>();
-  auto code             = unpack<LegateTypeCode>();
+  auto code             = unpack<Type>();
 
   auto transform = unpack_transform();
 

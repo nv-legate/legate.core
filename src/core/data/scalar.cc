@@ -24,10 +24,7 @@ Scalar::Scalar(const Scalar& other) : own_(other.own_), tuple_(other.tuple_), co
   copy(other);
 }
 
-Scalar::Scalar(bool tuple, LegateTypeCode code, const void* data)
-  : tuple_(tuple), code_(code), data_(data)
-{
-}
+Scalar::Scalar(bool tuple, Type code, const void* data) : tuple_(tuple), code_(code), data_(data) {}
 
 Scalar::~Scalar()
 {
@@ -57,7 +54,7 @@ void Scalar::copy(const Scalar& other)
 }
 
 struct elem_size_fn {
-  template <LegateTypeCode CODE>
+  template <Type CODE>
   size_t operator()()
   {
     return sizeof(legate_type_of<CODE>);
@@ -66,8 +63,7 @@ struct elem_size_fn {
 
 size_t Scalar::size() const
 {
-  if (LegateTypeCode::STRING_LT == code_)
-    return sizeof(uint32_t) + *static_cast<const uint32_t*>(data_);
+  if (Type::STRING == code_) return sizeof(uint32_t) + *static_cast<const uint32_t*>(data_);
   auto elem_size = type_dispatch(code_, elem_size_fn{});
   if (tuple_) {
     auto num_elements = *static_cast<const uint32_t*>(data_);

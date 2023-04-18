@@ -49,7 +49,7 @@ FutureWrapper::FutureWrapper(uint32_t idx, const Domain& domain) : idx_(idx), do
 Domain FutureWrapper::domain() const { return domain_; }
 
 Store::Store(int32_t dim,
-             LegateTypeCode code,
+             Type code,
              FutureWrapper future,
              std::shared_ptr<TransformStack>&& transform)
   : is_future_(true),
@@ -65,7 +65,7 @@ Store::Store(int32_t dim,
 Store::Store(Legion::Mapping::MapperRuntime* runtime,
              const Legion::Mapping::MapperContext context,
              int32_t dim,
-             LegateTypeCode code,
+             Type code,
              int32_t redop_id,
              const RegionField& region_field,
              bool is_output_store,
@@ -88,7 +88,7 @@ Store::Store(Legion::Mapping::MapperRuntime* runtime,
   : is_future_(false),
     is_output_store_(false),
     dim_(requirement->region.get_dim()),
-    code_(LegateTypeCode::MAX_TYPE_NUMBER),
+    code_(Type::INVALID),
     redop_id_(-1),
     runtime_(runtime),
     context_(context)

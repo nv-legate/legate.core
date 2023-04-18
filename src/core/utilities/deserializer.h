@@ -24,8 +24,8 @@
 #include "core/data/scalar.h"
 #include "core/data/store.h"
 #include "core/mapping/operation.h"
+#include "core/type/type_traits.h"
 #include "core/utilities/span.h"
-#include "core/utilities/type_traits.h"
 #include "core/utilities/typedefs.h"
 #include "legate_defines.h"
 
@@ -46,7 +46,7 @@ class BaseDeserializer {
   }
 
  public:
-  template <typename T, std::enable_if_t<legate_type_code_of<T> != MAX_TYPE_NUMBER>* = nullptr>
+  template <typename T, std::enable_if_t<legate_type_code_of<T> != Type::INVALID>* = nullptr>
   void _unpack(T& value)
   {
     value = *reinterpret_cast<const T*>(args_.ptr());
@@ -62,7 +62,7 @@ class BaseDeserializer {
   }
 
  public:
-  void _unpack(LegateTypeCode& value);
+  void _unpack(Type& value);
   void _unpack(Scalar& value);
 
  protected:

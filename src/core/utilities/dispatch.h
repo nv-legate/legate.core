@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "core/utilities/typedefs.h"
+#include "core/type/type_info.h"
 
 /**
  * @file
@@ -27,57 +27,55 @@ namespace legate {
 template <int DIM>
 struct inner_type_dispatch_fn {
   template <typename Functor, typename... Fnargs>
-  constexpr decltype(auto) operator()(LegateTypeCode code, Functor f, Fnargs&&... args)
+  constexpr decltype(auto) operator()(Type code, Functor f, Fnargs&&... args)
   {
     switch (code) {
-      case LegateTypeCode::BOOL_LT: {
-        return f.template operator()<LegateTypeCode::BOOL_LT, DIM>(std::forward<Fnargs>(args)...);
+      case Type::BOOL: {
+        return f.template operator()<Type::BOOL, DIM>(std::forward<Fnargs>(args)...);
       }
-      case LegateTypeCode::INT8_LT: {
-        return f.template operator()<LegateTypeCode::INT8_LT, DIM>(std::forward<Fnargs>(args)...);
+      case Type::INT8: {
+        return f.template operator()<Type::INT8, DIM>(std::forward<Fnargs>(args)...);
       }
-      case LegateTypeCode::INT16_LT: {
-        return f.template operator()<LegateTypeCode::INT16_LT, DIM>(std::forward<Fnargs>(args)...);
+      case Type::INT16: {
+        return f.template operator()<Type::INT16, DIM>(std::forward<Fnargs>(args)...);
       }
-      case LegateTypeCode::INT32_LT: {
-        return f.template operator()<LegateTypeCode::INT32_LT, DIM>(std::forward<Fnargs>(args)...);
+      case Type::INT32: {
+        return f.template operator()<Type::INT32, DIM>(std::forward<Fnargs>(args)...);
       }
-      case LegateTypeCode::INT64_LT: {
-        return f.template operator()<LegateTypeCode::INT64_LT, DIM>(std::forward<Fnargs>(args)...);
+      case Type::INT64: {
+        return f.template operator()<Type::INT64, DIM>(std::forward<Fnargs>(args)...);
       }
-      case LegateTypeCode::UINT8_LT: {
-        return f.template operator()<LegateTypeCode::UINT8_LT, DIM>(std::forward<Fnargs>(args)...);
+      case Type::UINT8: {
+        return f.template operator()<Type::UINT8, DIM>(std::forward<Fnargs>(args)...);
       }
-      case LegateTypeCode::UINT16_LT: {
-        return f.template operator()<LegateTypeCode::UINT16_LT, DIM>(std::forward<Fnargs>(args)...);
+      case Type::UINT16: {
+        return f.template operator()<Type::UINT16, DIM>(std::forward<Fnargs>(args)...);
       }
-      case LegateTypeCode::UINT32_LT: {
-        return f.template operator()<LegateTypeCode::UINT32_LT, DIM>(std::forward<Fnargs>(args)...);
+      case Type::UINT32: {
+        return f.template operator()<Type::UINT32, DIM>(std::forward<Fnargs>(args)...);
       }
-      case LegateTypeCode::UINT64_LT: {
-        return f.template operator()<LegateTypeCode::UINT64_LT, DIM>(std::forward<Fnargs>(args)...);
+      case Type::UINT64: {
+        return f.template operator()<Type::UINT64, DIM>(std::forward<Fnargs>(args)...);
       }
-      case LegateTypeCode::HALF_LT: {
-        return f.template operator()<LegateTypeCode::HALF_LT, DIM>(std::forward<Fnargs>(args)...);
+      case Type::HALF: {
+        return f.template operator()<Type::HALF, DIM>(std::forward<Fnargs>(args)...);
       }
-      case LegateTypeCode::FLOAT_LT: {
-        return f.template operator()<LegateTypeCode::FLOAT_LT, DIM>(std::forward<Fnargs>(args)...);
+      case Type::FLOAT: {
+        return f.template operator()<Type::FLOAT, DIM>(std::forward<Fnargs>(args)...);
       }
-      case LegateTypeCode::DOUBLE_LT: {
-        return f.template operator()<LegateTypeCode::DOUBLE_LT, DIM>(std::forward<Fnargs>(args)...);
+      case Type::DOUBLE: {
+        return f.template operator()<Type::DOUBLE, DIM>(std::forward<Fnargs>(args)...);
       }
-      case LegateTypeCode::COMPLEX64_LT: {
-        return f.template operator()<LegateTypeCode::COMPLEX64_LT, DIM>(
-          std::forward<Fnargs>(args)...);
+      case Type::COMPLEX64: {
+        return f.template operator()<Type::COMPLEX64, DIM>(std::forward<Fnargs>(args)...);
       }
-      case LegateTypeCode::COMPLEX128_LT: {
-        return f.template operator()<LegateTypeCode::COMPLEX128_LT, DIM>(
-          std::forward<Fnargs>(args)...);
+      case Type::COMPLEX128: {
+        return f.template operator()<Type::COMPLEX128, DIM>(std::forward<Fnargs>(args)...);
       }
       default: break;
     }
     assert(false);
-    return f.template operator()<LegateTypeCode::BOOL_LT, DIM>(std::forward<Fnargs>(args)...);
+    return f.template operator()<Type::BOOL, DIM>(std::forward<Fnargs>(args)...);
   }
 };
 
@@ -151,7 +149,7 @@ struct inner_dim_dispatch_fn {
  * @return The functor's return value
  */
 template <typename Functor, typename... Fnargs>
-constexpr decltype(auto) double_dispatch(int dim, LegateTypeCode code, Functor f, Fnargs&&... args)
+constexpr decltype(auto) double_dispatch(int dim, Type code, Functor f, Fnargs&&... args)
 {
   switch (dim) {
 #if LEGATE_MAX_DIM >= 1
@@ -353,55 +351,55 @@ constexpr decltype(auto) dim_dispatch(int dim, Functor f, Fnargs&&... args)
  * @return The functor's return value
  */
 template <typename Functor, typename... Fnargs>
-constexpr decltype(auto) type_dispatch(LegateTypeCode code, Functor f, Fnargs&&... args)
+constexpr decltype(auto) type_dispatch(Type code, Functor f, Fnargs&&... args)
 {
   switch (code) {
-    case LegateTypeCode::BOOL_LT: {
-      return f.template operator()<LegateTypeCode::BOOL_LT>(std::forward<Fnargs>(args)...);
+    case Type::BOOL: {
+      return f.template operator()<Type::BOOL>(std::forward<Fnargs>(args)...);
     }
-    case LegateTypeCode::INT8_LT: {
-      return f.template operator()<LegateTypeCode::INT8_LT>(std::forward<Fnargs>(args)...);
+    case Type::INT8: {
+      return f.template operator()<Type::INT8>(std::forward<Fnargs>(args)...);
     }
-    case LegateTypeCode::INT16_LT: {
-      return f.template operator()<LegateTypeCode::INT16_LT>(std::forward<Fnargs>(args)...);
+    case Type::INT16: {
+      return f.template operator()<Type::INT16>(std::forward<Fnargs>(args)...);
     }
-    case LegateTypeCode::INT32_LT: {
-      return f.template operator()<LegateTypeCode::INT32_LT>(std::forward<Fnargs>(args)...);
+    case Type::INT32: {
+      return f.template operator()<Type::INT32>(std::forward<Fnargs>(args)...);
     }
-    case LegateTypeCode::INT64_LT: {
-      return f.template operator()<LegateTypeCode::INT64_LT>(std::forward<Fnargs>(args)...);
+    case Type::INT64: {
+      return f.template operator()<Type::INT64>(std::forward<Fnargs>(args)...);
     }
-    case LegateTypeCode::UINT8_LT: {
-      return f.template operator()<LegateTypeCode::UINT8_LT>(std::forward<Fnargs>(args)...);
+    case Type::UINT8: {
+      return f.template operator()<Type::UINT8>(std::forward<Fnargs>(args)...);
     }
-    case LegateTypeCode::UINT16_LT: {
-      return f.template operator()<LegateTypeCode::UINT16_LT>(std::forward<Fnargs>(args)...);
+    case Type::UINT16: {
+      return f.template operator()<Type::UINT16>(std::forward<Fnargs>(args)...);
     }
-    case LegateTypeCode::UINT32_LT: {
-      return f.template operator()<LegateTypeCode::UINT32_LT>(std::forward<Fnargs>(args)...);
+    case Type::UINT32: {
+      return f.template operator()<Type::UINT32>(std::forward<Fnargs>(args)...);
     }
-    case LegateTypeCode::UINT64_LT: {
-      return f.template operator()<LegateTypeCode::UINT64_LT>(std::forward<Fnargs>(args)...);
+    case Type::UINT64: {
+      return f.template operator()<Type::UINT64>(std::forward<Fnargs>(args)...);
     }
-    case LegateTypeCode::HALF_LT: {
-      return f.template operator()<LegateTypeCode::HALF_LT>(std::forward<Fnargs>(args)...);
+    case Type::HALF: {
+      return f.template operator()<Type::HALF>(std::forward<Fnargs>(args)...);
     }
-    case LegateTypeCode::FLOAT_LT: {
-      return f.template operator()<LegateTypeCode::FLOAT_LT>(std::forward<Fnargs>(args)...);
+    case Type::FLOAT: {
+      return f.template operator()<Type::FLOAT>(std::forward<Fnargs>(args)...);
     }
-    case LegateTypeCode::DOUBLE_LT: {
-      return f.template operator()<LegateTypeCode::DOUBLE_LT>(std::forward<Fnargs>(args)...);
+    case Type::DOUBLE: {
+      return f.template operator()<Type::DOUBLE>(std::forward<Fnargs>(args)...);
     }
-    case LegateTypeCode::COMPLEX64_LT: {
-      return f.template operator()<LegateTypeCode::COMPLEX64_LT>(std::forward<Fnargs>(args)...);
+    case Type::COMPLEX64: {
+      return f.template operator()<Type::COMPLEX64>(std::forward<Fnargs>(args)...);
     }
-    case LegateTypeCode::COMPLEX128_LT: {
-      return f.template operator()<LegateTypeCode::COMPLEX128_LT>(std::forward<Fnargs>(args)...);
+    case Type::COMPLEX128: {
+      return f.template operator()<Type::COMPLEX128>(std::forward<Fnargs>(args)...);
     }
     default: break;
   }
   assert(false);
-  return f.template operator()<LegateTypeCode::BOOL_LT>(std::forward<Fnargs>(args)...);
+  return f.template operator()<Type::BOOL>(std::forward<Fnargs>(args)...);
 }
 
 }  // namespace legate

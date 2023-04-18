@@ -209,7 +209,7 @@ void FutureWrapper::initialize_with_identity(int32_t redop_id)
 ReturnValue FutureWrapper::pack() const { return ReturnValue(buffer_, field_size_); }
 
 Store::Store(int32_t dim,
-             int32_t code,
+             Type code,
              int32_t redop_id,
              FutureWrapper future,
              std::shared_ptr<TransformStack>&& transform)
@@ -225,7 +225,7 @@ Store::Store(int32_t dim,
 }
 
 Store::Store(int32_t dim,
-             int32_t code,
+             Type code,
              int32_t redop_id,
              RegionField&& region_field,
              std::shared_ptr<TransformStack>&& transform)
@@ -243,7 +243,7 @@ Store::Store(int32_t dim,
 }
 
 Store::Store(int32_t dim,
-             int32_t code,
+             Type code,
              UnboundRegionField&& unbound_field,
              std::shared_ptr<TransformStack>&& transform)
   : is_future_(false),

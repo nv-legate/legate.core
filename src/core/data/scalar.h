@@ -16,8 +16,8 @@
 
 #pragma once
 
+#include "core/type/type_traits.h"
 #include "core/utilities/span.h"
-#include "core/utilities/type_traits.h"
 #include "core/utilities/typedefs.h"
 
 /**
@@ -53,7 +53,7 @@ class Scalar {
    * @param code Type code of the scalar(s)
    * @param data Allocation containing the data.
    */
-  Scalar(bool tuple, LegateTypeCode code, const void* data);
+  Scalar(bool tuple, Type code, const void* data);
   ~Scalar();
 
  public:
@@ -125,7 +125,7 @@ class Scalar {
  private:
   bool own_{false};
   bool tuple_{false};
-  LegateTypeCode code_{MAX_TYPE_NUMBER};
+  Type code_{Type::INVALID};
   const void* data_;
 };
 

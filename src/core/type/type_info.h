@@ -14,31 +14,31 @@
  *
  */
 
-#include "core/utilities/debug.h"
+#pragma once
 
-#include "core/type/type_traits.h"
-#include "core/utilities/dispatch.h"
+#include "core/legate_c.h"
 
 namespace legate {
 
-namespace {  // anonymous
-
-struct print_dense_array_fn {
-  template <Type CODE, int DIM>
-  std::string operator()(const Store& store)
-  {
-    using T        = legate_type_of<CODE>;
-    Rect<DIM> rect = store.shape<DIM>();
-    return print_dense_array(store.read_accessor<T>(rect), rect);
-  }
+enum class Type : int32_t {
+  BOOL        = BOOL_LT,
+  INT8        = INT8_LT,
+  INT16       = INT16_LT,
+  INT32       = INT32_LT,
+  INT64       = INT64_LT,
+  UINT8       = UINT8_LT,
+  UINT16      = UINT16_LT,
+  UINT32      = UINT32_LT,
+  UINT64      = UINT64_LT,
+  HALF        = HALF_LT,
+  FLOAT       = FLOAT_LT,
+  DOUBLE      = DOUBLE_LT,
+  COMPLEX64   = COMPLEX64_LT,
+  COMPLEX128  = COMPLEX128_LT,
+  FIXED_ARRAY = FIXED_ARRAY_LT,
+  STRUCT      = STRUCT_LT,
+  STRING      = STRING_LT,
+  INVALID     = INVALID_LT,
 };
-
-}  // namespace
-
-std::string print_dense_array(const Store& store)
-{
-  assert(store.is_readable());
-  return double_dispatch(store.dim(), store.code(), print_dense_array_fn{}, store);
-}
 
 }  // namespace legate
