@@ -108,10 +108,7 @@ def convert_bool(value: bool | str) -> bool:
     """Convert a string to True or False.
 
     If a boolean is passed in, it is returned as-is. Otherwise the function
-    maps the following strings, ignoring case:
-
-    * "yes", "1", "on", "true" -> True
-    * "no", "0", "off", "false" -> False
+    maps the strings "0" -> False and "1" -> True.
 
     Args:
         value (str):
@@ -128,12 +125,12 @@ def convert_bool(value: bool | str) -> bool:
         return value
 
     val = value.lower()
-    if val in ("yes", "1", "on", "true"):
+    if val == "1":
         return True
-    if val in ("no", "0", "off", "false"):
+    if val == "0":
         return False
 
-    raise ValueError(f"Cannot convert {value} to boolean value")
+    raise ValueError(f"Cannot convert {value!r} to bool, use '0' or '1'")
 
 
 def convert_str_seq(
