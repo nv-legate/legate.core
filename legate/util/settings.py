@@ -130,7 +130,7 @@ def convert_bool(value: bool | str) -> bool:
     if val == "0":
         return False
 
-    raise ValueError(f"Cannot convert {value!r} to bool, use '0' or '1'")
+    raise ValueError(f'Cannot convert {value!r} to bool, use "0" or "1"')
 
 
 def convert_str_seq(
@@ -192,7 +192,7 @@ class SettingBase:
         if self._convert is convert_int:
             return "int"
         if self._convert is convert_bool:
-            return "bool"
+            return 'bool ("0" or "1")'
         if self._convert is convert_str_seq:
             return "tuple[str, ...]"
         raise RuntimeError("unreachable")
