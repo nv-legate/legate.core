@@ -57,14 +57,14 @@ struct inner_type_dispatch_fn {
       case Type::UINT64: {
         return f.template operator()<Type::UINT64, DIM>(std::forward<Fnargs>(args)...);
       }
-      case Type::HALF: {
-        return f.template operator()<Type::HALF, DIM>(std::forward<Fnargs>(args)...);
+      case Type::FLOAT16: {
+        return f.template operator()<Type::FLOAT16, DIM>(std::forward<Fnargs>(args)...);
       }
-      case Type::FLOAT: {
-        return f.template operator()<Type::FLOAT, DIM>(std::forward<Fnargs>(args)...);
+      case Type::FLOAT32: {
+        return f.template operator()<Type::FLOAT32, DIM>(std::forward<Fnargs>(args)...);
       }
-      case Type::DOUBLE: {
-        return f.template operator()<Type::DOUBLE, DIM>(std::forward<Fnargs>(args)...);
+      case Type::FLOAT64: {
+        return f.template operator()<Type::FLOAT64, DIM>(std::forward<Fnargs>(args)...);
       }
       case Type::COMPLEX64: {
         return f.template operator()<Type::COMPLEX64, DIM>(std::forward<Fnargs>(args)...);
@@ -381,14 +381,14 @@ constexpr decltype(auto) type_dispatch(Type code, Functor f, Fnargs&&... args)
     case Type::UINT64: {
       return f.template operator()<Type::UINT64>(std::forward<Fnargs>(args)...);
     }
-    case Type::HALF: {
-      return f.template operator()<Type::HALF>(std::forward<Fnargs>(args)...);
+    case Type::FLOAT16: {
+      return f.template operator()<Type::FLOAT16>(std::forward<Fnargs>(args)...);
     }
-    case Type::FLOAT: {
-      return f.template operator()<Type::FLOAT>(std::forward<Fnargs>(args)...);
+    case Type::FLOAT32: {
+      return f.template operator()<Type::FLOAT32>(std::forward<Fnargs>(args)...);
     }
-    case Type::DOUBLE: {
-      return f.template operator()<Type::DOUBLE>(std::forward<Fnargs>(args)...);
+    case Type::FLOAT64: {
+      return f.template operator()<Type::FLOAT64>(std::forward<Fnargs>(args)...);
     }
     case Type::COMPLEX64: {
       return f.template operator()<Type::COMPLEX64>(std::forward<Fnargs>(args)...);

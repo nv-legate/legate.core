@@ -52,11 +52,11 @@ namespace legate {
 template <class>
 PREFIX constexpr Type legate_type_code_of = Type::INVALID;
 template <>
-PREFIX constexpr Type legate_type_code_of<__half> = Type::HALF;
+PREFIX constexpr Type legate_type_code_of<__half> = Type::FLOAT16;
 template <>
-PREFIX constexpr Type legate_type_code_of<float> = Type::FLOAT;
+PREFIX constexpr Type legate_type_code_of<float> = Type::FLOAT32;
 template <>
-PREFIX constexpr Type legate_type_code_of<double> = Type::DOUBLE;
+PREFIX constexpr Type legate_type_code_of<double> = Type::FLOAT64;
 template <>
 PREFIX constexpr Type legate_type_code_of<int8_t> = Type::INT8;
 template <>
@@ -123,15 +123,15 @@ struct LegateTypeOf<Type::UINT64> {
   using type = uint64_t;
 };
 template <>
-struct LegateTypeOf<Type::HALF> {
+struct LegateTypeOf<Type::FLOAT16> {
   using type = __half;
 };
 template <>
-struct LegateTypeOf<Type::FLOAT> {
+struct LegateTypeOf<Type::FLOAT32> {
   using type = float;
 };
 template <>
-struct LegateTypeOf<Type::DOUBLE> {
+struct LegateTypeOf<Type::FLOAT64> {
   using type = double;
 };
 template <>

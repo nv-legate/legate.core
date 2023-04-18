@@ -20,8 +20,9 @@ from typing import Any, Iterable, Type, Union
 import numpy as np
 import pyarrow as pa
 
+import legate.core._lib.types as typecodes  # type: ignore[import]
+
 from . import legion
-from .corelib import core_library
 
 DTType = Union[Type[bool], pa.lib.DataType]
 
@@ -144,9 +145,6 @@ class Dtype:
         return f"Dtype({self._dtype}, {self.size}, {self.code})"
 
 
-corelib = core_library._lib
-
-
 # TODO: We should redefine these in Legate and use them instead
 
 
@@ -166,22 +164,22 @@ class ReductionOp(IntEnum):
 # TODO: These should use the enum in legate_c.h
 
 _CORE_DTYPES = [
-    Dtype(bool, 1, legion.LEGION_TYPE_BOOL),
-    Dtype(bool_, 1, legion.LEGION_TYPE_BOOL),
-    Dtype(int8, 1, legion.LEGION_TYPE_INT8),
-    Dtype(int16, 2, legion.LEGION_TYPE_INT16),
-    Dtype(int32, 4, legion.LEGION_TYPE_INT32),
-    Dtype(int64, 8, legion.LEGION_TYPE_INT64),
-    Dtype(uint8, 1, legion.LEGION_TYPE_UINT8),
-    Dtype(uint16, 2, legion.LEGION_TYPE_UINT16),
-    Dtype(uint32, 4, legion.LEGION_TYPE_UINT32),
-    Dtype(uint64, 8, legion.LEGION_TYPE_UINT64),
-    Dtype(float16, 2, legion.LEGION_TYPE_FLOAT16),
-    Dtype(float32, 4, legion.LEGION_TYPE_FLOAT32),
-    Dtype(float64, 8, legion.LEGION_TYPE_FLOAT64),
-    Dtype(complex64, 8, legion.LEGION_TYPE_COMPLEX64),
-    Dtype(complex128, 16, legion.LEGION_TYPE_COMPLEX128),
-    Dtype(string, -1, legion.LEGION_TYPE_COMPLEX128 + 3),
+    Dtype(bool, 1, typecodes.BOOL),
+    Dtype(bool_, 1, typecodes.BOOL),
+    Dtype(int8, 1, typecodes.INT8),
+    Dtype(int16, 2, typecodes.INT16),
+    Dtype(int32, 4, typecodes.INT32),
+    Dtype(int64, 8, typecodes.INT64),
+    Dtype(uint8, 1, typecodes.UINT8),
+    Dtype(uint16, 2, typecodes.UINT16),
+    Dtype(uint32, 4, typecodes.UINT32),
+    Dtype(uint64, 8, typecodes.UINT64),
+    Dtype(float16, 2, typecodes.FLOAT16),
+    Dtype(float32, 4, typecodes.FLOAT32),
+    Dtype(float64, 8, typecodes.FLOAT64),
+    Dtype(complex64, 8, typecodes.COMPLEX64),
+    Dtype(complex128, 16, typecodes.COMPLEX128),
+    Dtype(string, -1, typecodes.STRING),
 ]
 
 
