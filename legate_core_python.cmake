@@ -40,6 +40,8 @@ if(NOT legate_core_FOUND)
   set(Legion_USE_Python ON)
   set(Legion_BUILD_BINDINGS ON)
   add_subdirectory(. "${CMAKE_CURRENT_SOURCE_DIR}/build")
+  get_target_property(cython_lib_dir legate_core LIBRARY_OUTPUT_DIRECTORY)
+  set(cython_lib_dir "${CMAKE_CURRENT_SOURCE_DIR}/build/${cython_lib_dir}")
   set(SKBUILD ON)
 endif()
 
@@ -58,6 +60,15 @@ add_custom_target("generate_install_info_py" ALL
 add_library(legate_core_python INTERFACE)
 add_library(legate::core_python ALIAS legate_core_python)
 target_link_libraries(legate_core_python INTERFACE legate::core)
+
+include(rapids-cython)
+rapids_cython_init()
+
+add_subdirectory(legate/core/_lib)
+
+if(DEFINED cython_lib_dir)
+  rapids_cython_add_rpath_entries(TARGET legate_core PATHS "${cython_lib_dir}")
+endif()
 
 ##############################################################################
 # - install targets-----------------------------------------------------------

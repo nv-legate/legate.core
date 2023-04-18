@@ -69,12 +69,12 @@ std::string log_mappable(const Legion::Mappable& mappable, bool prefix_only = fa
 
 }  // namespace
 
-BaseMapper::BaseMapper(std::unique_ptr<LegateMapper> legate_mapper,
+BaseMapper::BaseMapper(mapping::Mapper* legate_mapper,
                        Legion::Runtime* rt,
                        Legion::Machine m,
-                       const LibraryContext& ctx)
+                       const LibraryContext* ctx)
   : Mapper(rt->get_mapper_runtime()),
-    legate_mapper_(std::move(legate_mapper)),
+    legate_mapper_(legate_mapper),
     legion_runtime(rt),
     machine(m),
     context(ctx),
@@ -145,7 +145,7 @@ BaseMapper::~BaseMapper()
 {
   // Compute the size of all our remaining instances in each memory
   const char* show_usage = getenv("LEGATE_SHOW_USAGE");
-  if (show_usage != nullptr) {
+  if (show_usage != nullptr && atoi(show_usage) > 0) {
     auto mem_sizes             = local_instances->aggregate_instance_sizes();
     const char* memory_kinds[] = {
 #define MEM_NAMES(name, desc) desc,
@@ -158,7 +158,7 @@ BaseMapper::~BaseMapper()
       logger.print(
         "%s used %ld bytes of %s memory %llx with "
         "%ld total bytes (%.2g%%)",
-        context.get_library_name().c_str(),
+        context->get_library_name().c_str(),
         pair.second,
         memory_kinds[mem.kind()],
         mem.id,
@@ -186,14 +186,14 @@ BaseMapper::~BaseMapper()
 std::string BaseMapper::create_name(Legion::AddressSpace node) const
 {
   std::stringstream ss;
-  ss << context.get_library_name() << " on Node " << node;
+  ss << context->get_library_name() << " on Node " << node;
   return ss.str();
 }
 
 std::string BaseMapper::create_logger_name() const
 {
   std::stringstream ss;
-  ss << context.get_library_name() << ".mapper";
+  ss << context->get_library_name() << ".mapper";
   return ss.str();
 }
 
@@ -1031,13 +1031,6 @@ void BaseMapper::legate_select_sources(
     ranking.push_back(it->first);
 }
 
-void BaseMapper::speculate(const Legion::Mapping::MapperContext ctx,
-                           const Legion::Task& task,
-                           SpeculativeOutput& output)
-{
-  output.speculate = false;
-}
-
 void BaseMapper::report_profiling(const Legion::Mapping::MapperContext ctx,
                                   const Legion::Task& task,
                                   const TaskProfilingInfo& input)
@@ -1203,13 +1196,6 @@ void BaseMapper::select_copy_sources(const Legion::Mapping::MapperContext ctx,
     ctx, input.target, input.source_instances, input.collective_views, output.chosen_ranking);
 }
 
-void BaseMapper::speculate(const Legion::Mapping::MapperContext ctx,
-                           const Legion::Copy& copy,
-                           SpeculativeOutput& output)
-{
-  output.speculate = false;
-}
-
 void BaseMapper::report_profiling(const Legion::Mapping::MapperContext ctx,
                                   const Legion::Copy& copy,
                                   const CopyProfilingInfo& input)
@@ -1260,13 +1246,6 @@ void BaseMapper::map_acquire(const Legion::Mapping::MapperContext ctx,
   // Nothing to do
 }
 
-void BaseMapper::speculate(const Legion::Mapping::MapperContext ctx,
-                           const Legion::Acquire& acquire,
-                           SpeculativeOutput& output)
-{
-  output.speculate = false;
-}
-
 void BaseMapper::report_profiling(const Legion::Mapping::MapperContext ctx,
                                   const Legion::Acquire& acquire,
                                   const AcquireProfilingInfo& input)
@@ -1298,13 +1277,6 @@ void BaseMapper::select_release_sources(const Legion::Mapping::MapperContext ctx
 {
   legate_select_sources(
     ctx, input.target, input.source_instances, input.collective_views, output.chosen_ranking);
-}
-
-void BaseMapper::speculate(const Legion::Mapping::MapperContext ctx,
-                           const Legion::Release& release,
-                           SpeculativeOutput& output)
-{
-  output.speculate = false;
 }
 
 void BaseMapper::report_profiling(const Legion::Mapping::MapperContext ctx,

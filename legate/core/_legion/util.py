@@ -55,7 +55,7 @@ def legate_task_progress(
     """
 
     from .future import Future, FutureMap
-    from .operation import Detach, Discard
+    from .operation import Detach
     from .region import OutputRegion, PhysicalRegion, Region
     from .space import FieldSpace, IndexSpace
     from .task import ArgumentMap
@@ -88,10 +88,6 @@ def legate_task_progress(
                 )
             elif type is PhysicalRegion:
                 handle.unmap(runtime, context, unordered=False)
-            elif type is Discard:
-                legion.legion_discard_launcher_execute(
-                    runtime, context, handle.launcher
-                )
             elif type is Detach:
                 detach = handle[0]
                 future = handle[1]

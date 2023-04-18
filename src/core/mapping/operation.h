@@ -21,7 +21,6 @@
 
 #include "core/data/scalar.h"
 #include "core/data/transform.h"
-#include "core/runtime/context.h"
 
 /**
  * @file
@@ -29,6 +28,9 @@
  */
 
 namespace legate {
+
+class LibraryContext;
+
 namespace mapping {
 
 class RegionField {
@@ -230,7 +232,7 @@ class Store {
 class Task {
  public:
   Task(const Legion::Task* task,
-       const LibraryContext& library,
+       const LibraryContext* library,
        Legion::Mapping::MapperRuntime* runtime,
        const Legion::Mapping::MapperContext context);
 
@@ -279,7 +281,7 @@ class Task {
   DomainPoint point() const { return task_->index_point; }
 
  private:
-  const LibraryContext& library_;
+  const LibraryContext* library_;
   const Legion::Task* task_;
 
  private:

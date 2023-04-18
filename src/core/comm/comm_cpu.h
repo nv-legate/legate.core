@@ -25,7 +25,7 @@ namespace cpu {
 
 void register_tasks(Legion::Machine machine,
                     Legion::Runtime* runtime,
-                    const LibraryContext& context);
+                    const LibraryContext* context);
 
 }  // namespace cpu
 }  // namespace comm

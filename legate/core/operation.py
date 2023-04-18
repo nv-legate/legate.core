@@ -46,7 +46,6 @@ if TYPE_CHECKING:
 
 class OperationProtocol(Protocol):
     _context: Context
-    _mapper_id: int
     _op_id: int
     _inputs: list[Store]
     _outputs: list[Store]
@@ -66,10 +65,6 @@ class OperationProtocol(Protocol):
     @property
     def context(self) -> Context:
         return self._context
-
-    @property
-    def mapper_id(self) -> int:
-        return self._mapper_id
 
     @property
     def can_raise_exception(self) -> bool:
@@ -121,13 +116,11 @@ class Operation(OperationProtocol):
     def __init__(
         self,
         context: Context,
-        mapper_id: int,
         op_id: int,
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
         self._context = context
-        self._mapper_id = mapper_id
         self._op_id = op_id
         self._inputs: list[Store] = []
         self._outputs: list[Store] = []
@@ -600,13 +593,10 @@ class AutoOperation(Operation):
     def __init__(
         self,
         context: Context,
-        mapper_id: int,
         op_id: int,
         **kwargs: Any,
     ) -> None:
-        super().__init__(
-            context=context, mapper_id=mapper_id, op_id=op_id, **kwargs
-        )
+        super().__init__(context=context, op_id=op_id, **kwargs)
 
         self._input_parts: list[PartSym] = []
         self._output_parts: list[PartSym] = []
@@ -630,13 +620,11 @@ class AutoTask(AutoOperation, Task):
         self,
         context: Context,
         task_id: int,
-        mapper_id: int,
         op_id: int,
     ) -> None:
         super().__init__(
             context=context,
             task_id=task_id,
-            mapper_id=mapper_id,
             op_id=op_id,
         )
         self._reusable_stores: list[Tuple[Store, PartSym]] = []
@@ -768,7 +756,6 @@ class AutoTask(AutoOperation, Task):
         launcher = TaskLauncher(
             self.context,
             self._task_id,
-            self.mapper_id,
             side_effect=self._side_effect,
             provenance=self.provenance,
         )
@@ -841,13 +828,11 @@ class ManualTask(Operation, Task):
         context: Context,
         task_id: int,
         launch_domain: Rect,
-        mapper_id: int,
         op_id: int,
     ) -> None:
         super().__init__(
             context=context,
             task_id=task_id,
-            mapper_id=mapper_id,
             op_id=op_id,
         )
         self._launch_domain: Rect = launch_domain
@@ -988,7 +973,6 @@ class ManualTask(Operation, Task):
         launcher = TaskLauncher(
             self.context,
             self._task_id,
-            self.mapper_id,
             tag=tag,
             error_on_interference=False,
             side_effect=self._side_effect,
@@ -1044,10 +1028,9 @@ class Copy(AutoOperation):
     def __init__(
         self,
         context: Context,
-        mapper_id: int,
         op_id: int,
     ) -> None:
-        super().__init__(context=context, mapper_id=mapper_id, op_id=op_id)
+        super().__init__(context=context, op_id=op_id)
         self._source_indirects: list[Store] = []
         self._target_indirects: list[Store] = []
         self._source_indirect_parts: list[PartSym] = []
@@ -1271,7 +1254,6 @@ class Copy(AutoOperation):
             self.context,
             source_oor=self._source_indirect_out_of_range,
             target_oor=self._target_indirect_out_of_range,
-            mapper_id=self.mapper_id,
             provenance=self.provenance,
         )
 
@@ -1345,10 +1327,9 @@ class Fill(AutoOperation):
         context: Context,
         lhs: Store,
         value: Store,
-        mapper_id: int,
         op_id: int,
     ) -> None:
-        super().__init__(context=context, mapper_id=mapper_id, op_id=op_id)
+        super().__init__(context=context, op_id=op_id)
         if not value.scalar:
             raise ValueError("Fill value must be a scalar Store")
         if lhs.unbound:
@@ -1401,7 +1382,6 @@ class Fill(AutoOperation):
             lhs,
             lhs_proj,
             self._inputs[0],
-            mapper_id=self.mapper_id,
             provenance=self.provenance,
         )
         if strategy.launch_domain is not None:
@@ -1425,12 +1405,10 @@ class Reduce(AutoOperation):
         context: Context,
         task_id: int,
         radix: int,
-        mapper_id: int,
         op_id: int,
     ) -> None:
         super().__init__(
             context=context,
-            mapper_id=mapper_id,
             op_id=op_id,
         )
         self._runtime = context.runtime
@@ -1478,7 +1456,6 @@ class Reduce(AutoOperation):
             launcher = TaskLauncher(
                 self.context,
                 self._task_id,
-                self.mapper_id,
                 tag=tag,
                 provenance=self.provenance,
             )

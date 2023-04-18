@@ -711,7 +711,6 @@ class TaskLauncher:
         self,
         context: Context,
         task_id: int,
-        mapper_id: int = 0,
         tag: int = 0,
         error_on_interference: bool = True,
         side_effect: bool = False,
@@ -719,9 +718,9 @@ class TaskLauncher:
     ) -> None:
         assert type(tag) != bool
         self._context = context
+        self._mapper_id = context.mapper_id
         self._core_types = runtime.core_context.type_system
         self._task_id = task_id
-        self._mapper_id = mapper_id
         self._inputs: list[LauncherArg] = []
         self._outputs: list[LauncherArg] = []
         self._reductions: list[LauncherArg] = []
@@ -747,16 +746,8 @@ class TaskLauncher:
         return self._task_id
 
     @property
-    def library_mapper_id(self) -> int:
-        return self._mapper_id
-
-    @property
     def legion_task_id(self) -> int:
         return self._context.get_task_id(self._task_id)
-
-    @property
-    def legion_mapper_id(self) -> int:
-        return self._context.get_mapper_id(self._mapper_id)
 
     def __del__(self) -> None:
         del self._req_analyzer
@@ -921,7 +912,7 @@ class TaskLauncher:
             self._context.empty_argmap,
             argbuf.get_string(),
             argbuf.get_size(),
-            mapper=self.legion_mapper_id,
+            mapper=self._mapper_id,
             tag=self._tag,
             provenance=self._provenance,
         )
@@ -962,7 +953,7 @@ class TaskLauncher:
             self.legion_task_id,
             argbuf.get_string(),
             argbuf.get_size(),
-            mapper=self.legion_mapper_id,
+            mapper=self._mapper_id,
             tag=self._tag,
             provenance=self._provenance,
         )
@@ -1004,13 +995,12 @@ class CopyLauncher:
         context: Context,
         source_oor: bool = True,
         target_oor: bool = True,
-        mapper_id: int = 0,
         tag: int = 0,
         provenance: Optional[str] = None,
     ) -> None:
         assert type(tag) != bool
         self._context = context
-        self._mapper_id = mapper_id
+        self._mapper_id = context.mapper_id
         self._inputs: list[LauncherArg] = []
         self._outputs: list[LauncherArg] = []
         self._reductions: list[LauncherArg] = []
@@ -1026,14 +1016,6 @@ class CopyLauncher:
         self._source_oor = source_oor
         self._target_oor = target_oor
         self._provenance = provenance
-
-    @property
-    def library_mapper_id(self) -> int:
-        return self._mapper_id
-
-    @property
-    def legion_mapper_id(self) -> int:
-        return self._context.get_mapper_id(self._mapper_id)
 
     def add_store(
         self,
@@ -1170,7 +1152,7 @@ class CopyLauncher:
 
         copy = IndexCopy(
             launch_domain,
-            mapper=self.legion_mapper_id,
+            mapper=self._mapper_id,
             tag=self._tag,
             provenance=self._provenance,
         )
@@ -1201,7 +1183,7 @@ class CopyLauncher:
         pack_args(argbuf, self._target_indirects)
 
         copy = SingleCopy(
-            mapper=self.legion_mapper_id,
+            mapper=self._mapper_id,
             tag=self._tag,
             provenance=self._provenance,
         )
@@ -1244,27 +1226,18 @@ class FillLauncher:
         lhs: Store,
         lhs_proj: Proj,
         value: Store,
-        mapper_id: int = 0,
         tag: int = 0,
         provenance: Optional[str] = None,
     ) -> None:
         self._context = context
+        self._mapper_id = context.mapper_id
         self._lhs = lhs
         self._lhs_proj = lhs_proj
         self._value = value
-        self._mapper_id = mapper_id
         self._tag = tag
         self._sharding_space: Union[IndexSpace, None] = None
         self._point: Union[Point, None] = None
         self._provenance = provenance
-
-    @property
-    def library_mapper_id(self) -> int:
-        return self._mapper_id
-
-    @property
-    def legion_mapper_id(self) -> int:
-        return self._context.get_mapper_id(self._mapper_id)
 
     def set_sharding_space(self, space: IndexSpace) -> None:
         self._sharding_space = space
@@ -1283,7 +1256,7 @@ class FillLauncher:
             self._lhs.storage.region.get_root(),
             self._lhs.storage.field.field_id,
             self._value.storage,
-            self.legion_mapper_id,
+            self._mapper_id,
             self._tag,
             launch_domain.to_domain(),
             self._provenance,
@@ -1301,7 +1274,7 @@ class FillLauncher:
             self._lhs.storage.region.get_root(),
             self._lhs.storage.field.field_id,
             self._value.storage,
-            self.legion_mapper_id,
+            self._mapper_id,
             self._tag,
             self._provenance,
         )
