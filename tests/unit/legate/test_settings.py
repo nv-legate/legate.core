@@ -56,9 +56,9 @@ class TestSettings:
         assert ps.env_var.startswith("LEGATE_")
 
     def test_types(self) -> None:
-        assert m.settings.consensus.convert_type == "bool"
-        assert m.settings.cycle_check.convert_type == "bool"
-        assert m.settings.future_leak_check.convert_type == "bool"
+        assert m.settings.consensus.convert_type == 'bool ("0" or "1")'
+        assert m.settings.cycle_check.convert_type == 'bool ("0" or "1")'
+        assert m.settings.future_leak_check.convert_type == 'bool ("0" or "1")'
 
 
 _settings_with_test_defaults = (
