@@ -33,7 +33,7 @@ uint32_t extract_env(const char* env_name, const uint32_t default_value, const u
   const char* env_value = getenv(env_name);
   if (nullptr == env_value) {
     const char* legate_test = getenv("LEGATE_TEST");
-    if (legate_test != nullptr)
+    if (legate_test != nullptr && atoi(legate_test) > 0)
       return test_value;
     else
       return default_value;
