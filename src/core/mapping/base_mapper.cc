@@ -211,42 +211,38 @@ void BaseMapper::select_task_options(const Legion::Mapping::MapperContext ctx,
 {
   Task legate_task(&task, context, runtime, ctx);
 #ifdef LEGATE_USE_COLLECTIVE
-  std::vector<bool> collective_inputs;
   for (size_t i = 0; i < legate_task.inputs().size(); i++) {
-    std::vector<int32_t> promoted_dims;
     auto store = legate_task.inputs()[i];
+    if (store.is_future()) continue;
+    auto idx = store.requirement_index();
+    auto req = task.regions[idx];
+    if (req.privilege & LEGION_WRITE_PRIV) continue;
+    std::vector<int32_t> promoted_dims;
     store.return_promoted_dims(promoted_dims);
-    collective_inputs.push_back(false);
     for (auto& d : promoted_dims) {
       if ((task.index_domain.hi()[d] - task.index_domain.lo()[d]) >= 1) {
-        collective_inputs[i] = true;
-        continue;
-      }
-    }
-  }
-
-  for (uint32_t idx = 0; idx < task.regions.size(); ++idx) {
-    auto& req = task.regions[idx];
-    if (req.privilege & LEGION_WRITE_PRIV) continue;
-    // Look up the projection for the input region. There are cases where
-    // Legate libraries register their own projection functors that are
-    // not recorded by Legate Core. So, handle the case when these functors
-    // are not present and allow for them to be missing.
-    auto projection = find_legate_projection_functor(req.projection, true /* allow_mising */);
-    if (idx < legate_task.inputs().size() && (!legate_task.inputs()[idx].is_future())) {
-#ifdef DEBUG_LEGATE
-      assert(idx == legate_task.inputs()[idx].requirement_index());
-#endif
-      if (collective_inputs[idx] == true) {
+        std::cout << "IRINA DEBUG adding collective for promoted instance " << idx << "  for task "
+                  << task.get_task_name() << ", store is future ? " << store.is_future()
+                  << std::endl;
         output.check_collective_regions.insert(idx);
         continue;
       }
     }
-    if ((req.handle_type == LEGION_SINGULAR_PROJECTION) ||
-        (projection != nullptr && projection->is_collective())) {
-      output.check_collective_regions.insert(idx);
-    }
   }
+  for (size_t i = 0; i < legate_task.reductions().size(); i++) {
+    auto store = legate_task.reductions()[i];
+    if (store.is_future()) continue;
+    auto idx = legate_task.reductions()[i].requirement_index();
+    auto req = task.regions[idx];
+    if (req.privilege & LEGION_WRITE_PRIV) continue;
+    auto projection = find_legate_projection_functor(req.projection, true /* allow_mising */);
+    if ((req.handle_type == LEGION_SINGULAR_PROJECTION) ||
+        ((projection != nullptr) && (projection != 0)))
+      std::cout << "IRINA DEBUG adding collective for reduction instance" << idx << "  for task "
+                << task.get_task_name() << std::endl;
+    output.check_collective_regions.insert(idx);
+  }
+
 #endif
 
   std::vector<TaskTarget> options;

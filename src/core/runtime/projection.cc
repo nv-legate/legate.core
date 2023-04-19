@@ -123,11 +123,6 @@ AffineFunctor<SRC_DIM, TGT_DIM>::AffineFunctor(Legion::Runtime* runtime,
   : LegateProjectionFunctor(runtime), transform_(create_transform(dims, weights))
 {
   for (int32_t dim = 0; dim < TGT_DIM; ++dim) offsets_[dim] = offsets[dim];
-
-  std::set<int32_t> unique;
-  for (int32_t dim = 0; dim < SRC_DIM; ++dim) { unique.insert(dims[dim]); }
-  // if there are repeated dimensions
-  if (unique.size() != SRC_DIM) set_collective();
 }
 
 template <int32_t SRC_DIM, int32_t TGT_DIM>
