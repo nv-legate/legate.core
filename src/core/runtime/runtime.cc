@@ -22,6 +22,7 @@
 #include "core/runtime/shard.h"
 #include "core/task/exception.h"
 #include "core/task/task.h"
+#include "core/type/type_info.h"
 #include "core/utilities/deserializer.h"
 #include "core/utilities/machine.h"
 #include "core/utilities/nvtx_help.h"
@@ -186,27 +187,40 @@ LibraryContext* Runtime::create_library(const std::string& library_name,
 
 uint32_t Runtime::get_type_uid() { return next_type_uid_++; }
 
-void Runtime::record_reduction_operator(int32_t type_uid, int32_t op_id, int32_t legion_op_id)
+void Runtime::record_reduction_operator(int32_t type_uid, int32_t op_kind, int32_t legion_op_id)
 {
-  auto key    = std::make_pair(type_uid, op_id);
+#ifdef DEBUG_LEGATE
+  log_legate.debug("Record reduction op (type_uid: %d, op_kind: %d, legion_op_id: %d)",
+                   type_uid,
+                   op_kind,
+                   legion_op_id);
+#endif
+  auto key    = std::make_pair(type_uid, op_kind);
   auto finder = reduction_ops_.find(key);
   if (finder != reduction_ops_.end()) {
     std::stringstream ss;
-    ss << "Reduction op " << op_id << " already exists for type " << type_uid;
+    ss << "Reduction op " << op_kind << " already exists for type " << type_uid;
     throw std::invalid_argument(std::move(ss).str());
   }
   reduction_ops_.emplace(std::make_pair(key, legion_op_id));
 }
 
-int32_t Runtime::find_reduction_operator(int32_t type_uid, int32_t op_id) const
+int32_t Runtime::find_reduction_operator(int32_t type_uid, int32_t op_kind) const
 {
-  auto key    = std::make_pair(type_uid, op_id);
+  auto key    = std::make_pair(type_uid, op_kind);
   auto finder = reduction_ops_.find(key);
   if (reduction_ops_.end() == finder) {
+#ifdef DEBUG_LEGATE
+    log_legate.debug("Can't find reduction op (type_uid: %d, op_kind: %d)", type_uid, op_kind);
+#endif
     std::stringstream ss;
-    ss << "Reduction op " << op_id << " does not exist for type " << type_uid;
+    ss << "Reduction op " << op_kind << " does not exist for type " << type_uid;
     throw std::invalid_argument(std::move(ss).str());
   }
+#ifdef DEBUG_LEGATE
+  log_legate.debug(
+    "Found reduction op %d (type_uid: %d, op_kind: %d)", finder->second, type_uid, op_kind);
+#endif
   return finder->second;
 }
 
@@ -250,6 +264,51 @@ void register_legate_core_tasks(Legion::Machine machine,
   comm::register_tasks(machine, runtime, context);
 }
 
+#define BUILTIN_REDOP_ID(OP, TYPE_CODE) \
+  (LEGION_REDOP_BASE + (OP)*LEGION_TYPE_TOTAL + (static_cast<int32_t>(TYPE_CODE)))
+
+#define RECORD(OP, TYPE_CODE) \
+  PrimitiveType(TYPE_CODE).record_reduction_operator(OP, BUILTIN_REDOP_ID(OP, TYPE_CODE));
+
+#define RECORD_INT(OP)           \
+  RECORD(OP, Type::Code::BOOL)   \
+  RECORD(OP, Type::Code::INT8)   \
+  RECORD(OP, Type::Code::INT16)  \
+  RECORD(OP, Type::Code::INT32)  \
+  RECORD(OP, Type::Code::INT64)  \
+  RECORD(OP, Type::Code::UINT8)  \
+  RECORD(OP, Type::Code::UINT16) \
+  RECORD(OP, Type::Code::UINT32) \
+  RECORD(OP, Type::Code::UINT64)
+
+#define RECORD_FLOAT(OP)          \
+  RECORD(OP, Type::Code::FLOAT16) \
+  RECORD(OP, Type::Code::FLOAT32) \
+  RECORD(OP, Type::Code::FLOAT64)
+
+#define RECORD_COMPLEX(OP) RECORD(OP, Type::Code::COMPLEX64)
+
+#define RECORD_ALL(OP) \
+  RECORD_INT(OP)       \
+  RECORD_FLOAT(OP)     \
+  RECORD_COMPLEX(OP)
+
+void register_builtin_reduction_ops()
+{
+  RECORD_ALL(ADD_LT)
+  RECORD_ALL(SUB_LT)
+  RECORD_ALL(MUL_LT)
+  RECORD_ALL(DIV_LT)
+  RECORD_INT(MAX_LT)
+  RECORD_FLOAT(MAX_LT)
+  RECORD_INT(MIN_LT)
+  RECORD_FLOAT(MIN_LT)
+  RECORD_INT(OR_LT)
+  RECORD_INT(AND_LT)
+  RECORD_INT(XOR_LT)
+  RECORD(ADD_LT, Type::Code::COMPLEX128)
+}
+
 extern void register_exception_reduction_op(Legion::Runtime* runtime,
                                             const LibraryContext* context);
 
@@ -268,6 +327,8 @@ extern void register_exception_reduction_op(Legion::Runtime* runtime,
   register_legate_core_tasks(machine, runtime, core_lib);
 
   register_legate_core_mapper(machine, runtime, core_lib);
+
+  register_builtin_reduction_ops();
 
   register_exception_reduction_op(runtime, core_lib);
 

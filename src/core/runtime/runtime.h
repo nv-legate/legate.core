@@ -86,8 +86,8 @@ class Runtime {
 
  public:
   uint32_t get_type_uid();
-  void record_reduction_operator(int32_t type_uid, int32_t op_id, int32_t legion_op_id);
-  int32_t find_reduction_operator(int32_t type_uid, int32_t op_id) const;
+  void record_reduction_operator(int32_t type_uid, int32_t op_kind, int32_t legion_op_id);
+  int32_t find_reduction_operator(int32_t type_uid, int32_t op_kind) const;
 
  public:
   static Runtime* get_runtime();

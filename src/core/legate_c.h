@@ -98,7 +98,7 @@ typedef enum legate_core_type_code_t {
   INVALID_LT = -1,
 } legate_core_type_code_t;
 
-typedef enum legate_core_reduction_op_t {
+typedef enum legate_core_reduction_op_kind_t {
   ADD_LT = LEGION_REDOP_KIND_SUM,
   SUB_LT = LEGION_REDOP_KIND_DIFF,
   MUL_LT = LEGION_REDOP_KIND_PROD,
@@ -108,7 +108,7 @@ typedef enum legate_core_reduction_op_t {
   OR_LT  = LEGION_REDOP_KIND_OR,
   AND_LT = LEGION_REDOP_KIND_AND,
   XOR_LT = LEGION_REDOP_KIND_XOR,
-} legate_core_reduction_op_t;
+} legate_core_reduction_op_kind_t;
 
 #define MAX_TYPE_NUMBER (COMPLEX128_LT + 1)
 

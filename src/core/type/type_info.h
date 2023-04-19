@@ -98,6 +98,28 @@ class Type {
    */
   virtual std::string to_string() const = 0;
 
+  /**
+   * @brief Records a reduction operator.
+   *
+   * The global ID of the reduction operator is issued when that operator is registered
+   * to the runtime.
+   *
+   * @param op_kind Reduction operator kind
+   * @param global_op_id Global reduction operator ID
+   */
+  void record_reduction_operator(int32_t op_kind, int32_t global_op_id) const;
+
+  /**
+   * @brief Finds the global operator ID for a given reduction operator kind.
+   *
+   * Raises an exception if no reduction operator has been registered for the kind.
+   *
+   * @param op_kind Reduction operator kind
+   *
+   * @return Global reduction operator ID
+   */
+  int32_t find_reduction_operator(int32_t op_kind) const;
+
   const Code code;
 };
 
@@ -247,26 +269,24 @@ std::unique_ptr<Type> string_type();
  * @ingroup types
  * @brief Creates a metadata object for a fixed-size array type
  *
- * @param uid Unique ID
  * @param element_type Type of the array elements
  * @param N Size of the array
  *
  * @return Type object
  */
-std::unique_ptr<Type> fixed_array_type(int32_t uid, std::unique_ptr<Type> element_type, uint32_t N);
+std::unique_ptr<Type> fixed_array_type(std::unique_ptr<Type> element_type, uint32_t N);
 
 /**
  * @ingroup types
  * @brief Creates a metadata object for a struct type
  *
- * @param uid Unique ID
  * @param field_types A vector of field types
  *
  * @return Type object
  */
-std::unique_ptr<Type> struct_type(int32_t uid, std::vector<std::unique_ptr<Type>>&& field_types);
+std::unique_ptr<Type> struct_type(std::vector<std::unique_ptr<Type>>&& field_types);
 
 // The caller transfers ownership of the Type objects
-std::unique_ptr<Type> struct_type_raw_ptrs(int32_t uid, std::vector<Type*> field_types);
+std::unique_ptr<Type> struct_type_raw_ptrs(std::vector<Type*> field_types);
 
 }  // namespace legate

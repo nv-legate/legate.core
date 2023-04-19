@@ -41,7 +41,6 @@ if TYPE_CHECKING:
     from .launcher import Proj
     from .projection import ProjFn, ProjOut, SymbolicPoint
     from .solver import Strategy
-    from .types import DTType
 
 
 class OperationProtocol(Protocol):
@@ -108,7 +107,7 @@ class OperationProtocol(Protocol):
 
 class TaskProtocol(OperationProtocol, Protocol):
     _task_id: int
-    _scalar_args: list[tuple[Any, Union[DTType, tuple[DTType]]]]
+    _scalar_args: list[tuple[Any, Union[ty.Dtype, tuple[ty.Dtype]]]]
     _comm_args: list[Communicator]
 
 
@@ -304,7 +303,9 @@ class Task(TaskProtocol):
     ) -> None:
         super().__init__(**kwargs)
         self._task_id = task_id
-        self._scalar_args: list[tuple[Any, Union[DTType, tuple[DTType]]]] = []
+        self._scalar_args: list[
+            tuple[Any, Union[ty.Dtype, tuple[ty.Dtype]]]
+        ] = []
         self._comm_args: list[Communicator] = []
         self._exn_types: list[type] = []
         self._tb_repr: Union[None, str] = None
@@ -376,7 +377,7 @@ class Task(TaskProtocol):
         return f"{libname}.Task(tid:{self._task_id}, uid:{self._op_id})"
 
     def add_scalar_arg(
-        self, value: Any, dtype: Union[DTType, tuple[DTType]]
+        self, value: Any, dtype: Union[ty.Dtype, tuple[ty.Dtype]]
     ) -> None:
         """
         Adds a by-value argument to the task
@@ -389,12 +390,12 @@ class Task(TaskProtocol):
             Data type descriptor for the scalar value. A descriptor ``(T,)``
             means that the value is a tuple of elements of type ``T``.
         """
-
+        if not isinstance(dtype, (ty.Dtype, tuple)):
+            raise ValueError(f"Unsupported type: {dtype}")
         self._scalar_args.append((value, dtype))
 
-    def add_dtype_arg(self, dtype: DTType) -> None:
-        code = self._context.type_system[dtype].code
-        self._scalar_args.append((code, ty.int32))
+    def add_dtype_arg(self, dtype: ty.Dtype) -> None:
+        self._scalar_args.append((dtype.code, ty.int32))
 
     def throws_exception(self, exn_type: type) -> None:
         """

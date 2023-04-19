@@ -17,6 +17,7 @@
 #include <numeric>
 #include <unordered_map>
 
+#include "core/runtime/runtime.h"
 #include "core/type/type_info.h"
 #include "core/type/type_traits.h"
 
@@ -61,6 +62,16 @@ const std::unordered_map<Type::Code, std::string> TYPE_NAMES = {
 }  // namespace
 
 Type::Type(Code c) : code(c) {}
+
+void Type::record_reduction_operator(int32_t op_kind, int32_t global_op_id) const
+{
+  Runtime::get_runtime()->record_reduction_operator(uid(), op_kind, global_op_id);
+}
+
+int32_t Type::find_reduction_operator(int32_t op_kind) const
+{
+  return Runtime::get_runtime()->find_reduction_operator(uid(), op_kind);
+}
 
 PrimitiveType::PrimitiveType(Code code) : Type(code), size_(SIZEOF.at(code)) {}
 
@@ -144,22 +155,25 @@ std::unique_ptr<Type> primitive_type(Type::Code code)
 
 std::unique_ptr<Type> string_type() { return std::make_unique<StringType>(); }
 
-std::unique_ptr<Type> fixed_array_type(int32_t uid, std::unique_ptr<Type> element_type, uint32_t N)
+std::unique_ptr<Type> fixed_array_type(std::unique_ptr<Type> element_type, uint32_t N)
 {
-  return std::make_unique<FixedArrayType>(uid, std::move(element_type), N);
+  return std::make_unique<FixedArrayType>(
+    Runtime::get_runtime()->get_type_uid(), std::move(element_type), N);
 }
 
-std::unique_ptr<Type> struct_type(int32_t uid, std::vector<std::unique_ptr<Type>>&& field_types)
+std::unique_ptr<Type> struct_type(std::vector<std::unique_ptr<Type>>&& field_types)
 {
   return std::make_unique<StructType>(
-    uid, std::forward<std::vector<std::unique_ptr<Type>>>(field_types));
+    Runtime::get_runtime()->get_type_uid(),
+    std::forward<std::vector<std::unique_ptr<Type>>>(field_types));
 }
 
-std::unique_ptr<Type> struct_type_raw_ptrs(int32_t uid, std::vector<Type*> _field_types)
+std::unique_ptr<Type> struct_type_raw_ptrs(std::vector<Type*> _field_types)
 {
   std::vector<std::unique_ptr<Type>> field_types;
   for (auto field_type : _field_types) field_types.emplace_back(field_type);
-  return std::make_unique<StructType>(uid, std::move(field_types));
+  return std::make_unique<StructType>(Runtime::get_runtime()->get_type_uid(),
+                                      std::move(field_types));
 }
 
 }  // namespace legate

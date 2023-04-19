@@ -20,6 +20,7 @@ from libcpp.string cimport string
 from libcpp.vector cimport vector
 
 import cython
+import numpy as np
 
 
 cdef extern from "core/legate_c.h" nogil:
@@ -43,7 +44,7 @@ cdef extern from "core/legate_c.h" nogil:
         _STRING "STRING_LT"
         _INVALID "INVALID_LT"
 
-    ctypedef enum legate_core_reduction_op_t:
+    ctypedef enum legate_core_reduction_op_kind_t:
         _ADD "ADD_LT"
         _SUB "SUB_LT"
         _MUL "MUL_LT"
@@ -73,15 +74,33 @@ STRUCT      = legate_core_type_code_t._STRUCT
 STRING      = legate_core_type_code_t._STRING
 INVALID     = legate_core_type_code_t._INVALID
 
-ADD = legate_core_reduction_op_t._ADD
-SUB = legate_core_reduction_op_t._SUB
-MUL = legate_core_reduction_op_t._MUL
-DIV = legate_core_reduction_op_t._DIV
-MAX = legate_core_reduction_op_t._MAX
-MIN = legate_core_reduction_op_t._MIN
-OR  = legate_core_reduction_op_t._OR
-AND = legate_core_reduction_op_t._AND
-XOR = legate_core_reduction_op_t._XOR
+ADD = legate_core_reduction_op_kind_t._ADD
+SUB = legate_core_reduction_op_kind_t._SUB
+MUL = legate_core_reduction_op_kind_t._MUL
+DIV = legate_core_reduction_op_kind_t._DIV
+MAX = legate_core_reduction_op_kind_t._MAX
+MIN = legate_core_reduction_op_kind_t._MIN
+OR  = legate_core_reduction_op_kind_t._OR
+AND = legate_core_reduction_op_kind_t._AND
+XOR = legate_core_reduction_op_kind_t._XOR
+
+_NUMPY_DTYPES = {
+    BOOL : np.dtype(np.bool_),
+    INT8 : np.dtype(np.int8),
+    INT16 : np.dtype(np.int16),
+    INT32 : np.dtype(np.int32),
+    INT64 : np.dtype(np.int64),
+    UINT8 : np.dtype(np.uint8),
+    UINT16 : np.dtype(np.uint16),
+    UINT32 : np.dtype(np.uint32),
+    UINT64 : np.dtype(np.uint64),
+    FLOAT16 : np.dtype(np.float16),
+    FLOAT32 : np.dtype(np.float32),
+    FLOAT64 : np.dtype(np.float64),
+    COMPLEX64 : np.dtype(np.complex64),
+    COMPLEX128 : np.dtype(np.complex128),
+    STRING : np.dtype(np.str_),
+}
 
 
 cdef extern from "core/type/type_info.h" namespace "legate" nogil:
@@ -94,6 +113,7 @@ cdef extern from "core/type/type_info.h" namespace "legate" nogil:
         bool variable_size()
         unique_ptr[Type] clone()
         string to_string()
+        int find_reduction_operator(int) except+
 
     cdef cppclass FixedArrayType(Type):
         unsigned int num_elements()
@@ -105,9 +125,11 @@ cdef extern from "core/type/type_info.h" namespace "legate" nogil:
 
     cdef unique_ptr[Type] primitive_type(int code)
 
-    cdef unique_ptr[Type] fixed_array_type(int uid, unique_ptr[Type] element_type, unsigned int N)
+    cdef unique_ptr[Type] string_type()
 
-    cdef unique_ptr[Type] struct_type_raw_ptrs(int uid, vector[Type*] field_types)
+    cdef unique_ptr[Type] fixed_array_type(unique_ptr[Type] element_type, unsigned int N)
+
+    cdef unique_ptr[Type] struct_type_raw_ptrs(vector[Type*] field_types)
 
 
 cdef class DataType:
@@ -124,17 +146,21 @@ cdef class DataType:
         return DataType.from_ptr(primitive_type(<Type.Code> code))
 
     @staticmethod
-    def fixed_array_type(int uid, DataType element_type, unsigned N) -> DataType:
-        return DataType.from_ptr(fixed_array_type(uid, element_type._type.get().clone(), N))
+    def string_type() -> DataType:
+        return DataType.from_ptr(string_type())
 
     @staticmethod
-    def struct_type(int uid, list field_types) -> DataType:
+    def fixed_array_type(DataType element_type, unsigned N) -> DataType:
+        return DataType.from_ptr(fixed_array_type(element_type._type.get().clone(), N))
+
+    @staticmethod
+    def struct_type(list field_types) -> DataType:
         cdef vector[Type*] types
         for field_type in field_types:
             types.push_back(
                 cython.cast(DataType, field_type)._type.get().clone().release()
             )
-        return DataType.from_ptr(struct_type_raw_ptrs(uid, types))
+        return DataType.from_ptr(struct_type_raw_ptrs(types))
 
     @property
     def code(self) -> int:
@@ -151,6 +177,9 @@ cdef class DataType:
     @property
     def variable_size(self) -> bool:
         return self._type.get().variable_size()
+
+    def reduction_op_id(self, int op_kind) -> int:
+        return self._type.get().find_reduction_operator(op_kind)
 
     def __repr__(self) -> str:
         return self._type.get().to_string().decode()
@@ -186,3 +215,28 @@ cdef class DataType:
             )
         cdef StructType* ptr = <StructType*> self._type.get()
         return DataType.from_ptr(ptr.field_type(field_idx).clone())
+
+    def to_numpy_dtype(self):
+        code = self.code
+        if code in _NUMPY_DTYPES:
+            return _NUMPY_DTYPES[code]
+        elif code == FIXED_ARRAY:
+            arr_type = (
+                self.element_type().to_numpy_dtype(), self.num_elements()
+            )
+            # Return a singleton struct type, as NumPy would flatten away
+            # nested arrays
+            return np.dtype({"names": ("_0",), "formats": (arr_type,)})
+        elif code == STRUCT:
+            num_fields = self.num_fields()
+            names = tuple(
+                f"_{field_idx}" for field_idx in range(num_fields)
+            )
+            formats = tuple(
+                self.field_type(field_idx).to_numpy_dtype()
+                for field_idx in range(num_fields)
+            )
+            return np.dtype({"names": names, "formats": formats})
+
+        else:
+            raise ValueError(f"Invalid type code: {code}")

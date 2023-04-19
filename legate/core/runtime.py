@@ -1413,13 +1413,16 @@ class Runtime:
 
     def create_store(
         self,
-        dtype: Any,
+        dtype: ty.Dtype,
         shape: Optional[Union[Shape, tuple[int, ...]]] = None,
         data: Optional[Union[RegionField, Future]] = None,
         optimize_scalar: bool = False,
         ndim: Optional[int] = None,
     ) -> Store:
         from .store import RegionField, Storage, Store
+
+        if not isinstance(dtype, ty.Dtype):
+            raise ValueError(f"Unsupported type: {dtype}")
 
         if ndim is not None and shape is not None:
             raise ValueError("ndim cannot be used with shape")

@@ -98,6 +98,7 @@ from .runtime import (
 from .store import Store
 
 from .types import (
+    array_type,
     bool_,
     int8,
     int16,
@@ -112,6 +113,8 @@ from .types import (
     float64,
     complex64,
     complex128,
+    struct_type,
+    Dtype,
     ReductionOp,
 )
 from .io import CustomSplit, TiledSplit, ingest

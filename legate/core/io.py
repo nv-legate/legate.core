@@ -33,9 +33,8 @@ from .shape import Shape
 from .store import DistributedAllocation, RegionField, Store
 
 if TYPE_CHECKING:
-    from pyarrow import DataType
-
     from . import Partition
+    from .types import Dtype
 
 
 legion_runtime = runtime.legion_runtime
@@ -136,7 +135,7 @@ class TiledSplit(DataSplit):
 
 
 def ingest(
-    dtype: DataType,
+    dtype: Dtype,
     shape: Union[int, tuple[int, ...]],
     colors: tuple[int, ...],
     data_split: DataSplit,
@@ -153,7 +152,7 @@ def ingest(
 
     Parameters
     ----------
-    dtype : pyarrow.DataType
+    dtype : Dtype
         Type of the data to ingest
 
     shape : int | Tuple[int]

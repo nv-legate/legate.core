@@ -22,6 +22,7 @@ from typing_extensions import Protocol
 
 if TYPE_CHECKING:
     from .store import Store
+    from .types import Dtype
 
 
 class LegateDataInterfaceItem(TypedDict):
@@ -38,7 +39,7 @@ class LegateDataInterface(Protocol):
 class Array:
     def __init__(
         self,
-        dtype: pyarrow.DataType,
+        dtype: Dtype,
         stores: list[Optional[Store]],
         children: Optional[list[Array]] = None,
     ) -> None:
@@ -48,7 +49,7 @@ class Array:
 
         Parameters
         ----------
-        dtype : pyarrow.DataType
+        dtype : Dtype
             The type for the constructed array
         stores : List[Store]
             List of storage objects
@@ -63,19 +64,8 @@ class Array:
         self._stores = stores
         self._children = children or []
 
-        if dtype.num_fields != len(self._children):
-            raise ValueError(
-                "Type's expected number of children "
-                "({0}) did not match the passed number "
-                "({1}).".format(dtype.num_fields, len(self._children))
-            )
-
-        if dtype.num_buffers != len(self._stores):
-            raise ValueError(
-                "Type's expected number of Store objects "
-                "({0}) did not match the passed number "
-                "({1}).".format(dtype.num_buffers, len(self._stores))
-            )
+        if len(self._children) > 0:
+            raise NotImplementedError("Nested arrays are not implemented yet")
 
     def stores(self) -> list[Optional[Store]]:
         """
@@ -89,16 +79,16 @@ class Array:
 
     @staticmethod
     def from_stores(
-        dtype: pyarrow.DataType,
+        dtype: Dtype,
         stores: list[Optional[Store]],
         children: Optional[list[Array]] = None,
     ) -> Array:
         """
-        Construct an Array from a DataType and a list of Store objects
+        Construct an Array from a Dtype and a list of Store objects
 
         Parameters
         ----------
-        dtype : DataType
+        dtype : Dtype
             The type for the constructed array
         stores : List[Store]
             List of storage objects
@@ -113,7 +103,7 @@ class Array:
 
     @property
     def type(self) -> pyarrow.DataType:
-        return self._type
+        return pyarrow.from_numpy_dtype(self._type.to_numpy_dtype())
 
     def __len__(self) -> int:
         raise NotImplementedError("Array.__len__")

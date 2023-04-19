@@ -49,7 +49,7 @@ if TYPE_CHECKING:
     from ._legion.util import FieldListLike
     from .context import Context
     from .store import RegionField, Store
-    from .types import DTType
+    from .types import Dtype
 
 
 LegionOp = Union[IndexTask, SingleTask, IndexCopy, SingleCopy]
@@ -69,7 +69,7 @@ class Permission(IntEnum):
 Serializer = Callable[[BufferBuilder, Any], None]
 
 _SERIALIZERS: dict[Any, Serializer] = {
-    bool: BufferBuilder.pack_bool,
+    ty.bool_: BufferBuilder.pack_bool,
     ty.int8: BufferBuilder.pack_8bit_int,
     ty.int16: BufferBuilder.pack_16bit_int,
     ty.int32: BufferBuilder.pack_32bit_int,
@@ -118,12 +118,10 @@ class LauncherArg(Protocol):
 class ScalarArg:
     def __init__(
         self,
-        core_types: ty.TypeSystem,
         value: Any,
-        dtype: Union[DTType, tuple[DTType]],
+        dtype: Union[Dtype, tuple[Dtype]],
         untyped: bool = True,
     ) -> None:
-        self._core_types = core_types
         self._value = value
         self._dtype = dtype
         self._untyped = untyped
@@ -140,7 +138,7 @@ class ScalarArg:
 
         if self._untyped:
             buf.pack_bool(is_tuple)
-            buf.pack_32bit_int(self._core_types[dtype].code)
+            buf.pack_32bit_int(dtype.code)
 
         _pack(buf, self._value, dtype, is_tuple)
 
@@ -719,7 +717,6 @@ class TaskLauncher:
         assert type(tag) != bool
         self._context = context
         self._mapper_id = context.mapper_id
-        self._core_types = runtime.core_context.type_system
         self._task_id = task_id
         self._inputs: list[LauncherArg] = []
         self._outputs: list[LauncherArg] = []
@@ -759,12 +756,10 @@ class TaskLauncher:
     def add_scalar_arg(
         self,
         value: Any,
-        dtype: Union[DTType, tuple[DTType]],
+        dtype: Union[Dtype, tuple[Dtype]],
         untyped: bool = True,
     ) -> None:
-        self._scalars.append(
-            ScalarArg(self._core_types, value, dtype, untyped)
-        )
+        self._scalars.append(ScalarArg(value, dtype, untyped))
 
     def add_store(
         self,
