@@ -27,55 +27,55 @@ namespace legate {
 template <int DIM>
 struct inner_type_dispatch_fn {
   template <typename Functor, typename... Fnargs>
-  constexpr decltype(auto) operator()(Type code, Functor f, Fnargs&&... args)
+  constexpr decltype(auto) operator()(Type::Code code, Functor f, Fnargs&&... args)
   {
     switch (code) {
-      case Type::BOOL: {
-        return f.template operator()<Type::BOOL, DIM>(std::forward<Fnargs>(args)...);
+      case Type::Code::BOOL: {
+        return f.template operator()<Type::Code::BOOL, DIM>(std::forward<Fnargs>(args)...);
       }
-      case Type::INT8: {
-        return f.template operator()<Type::INT8, DIM>(std::forward<Fnargs>(args)...);
+      case Type::Code::INT8: {
+        return f.template operator()<Type::Code::INT8, DIM>(std::forward<Fnargs>(args)...);
       }
-      case Type::INT16: {
-        return f.template operator()<Type::INT16, DIM>(std::forward<Fnargs>(args)...);
+      case Type::Code::INT16: {
+        return f.template operator()<Type::Code::INT16, DIM>(std::forward<Fnargs>(args)...);
       }
-      case Type::INT32: {
-        return f.template operator()<Type::INT32, DIM>(std::forward<Fnargs>(args)...);
+      case Type::Code::INT32: {
+        return f.template operator()<Type::Code::INT32, DIM>(std::forward<Fnargs>(args)...);
       }
-      case Type::INT64: {
-        return f.template operator()<Type::INT64, DIM>(std::forward<Fnargs>(args)...);
+      case Type::Code::INT64: {
+        return f.template operator()<Type::Code::INT64, DIM>(std::forward<Fnargs>(args)...);
       }
-      case Type::UINT8: {
-        return f.template operator()<Type::UINT8, DIM>(std::forward<Fnargs>(args)...);
+      case Type::Code::UINT8: {
+        return f.template operator()<Type::Code::UINT8, DIM>(std::forward<Fnargs>(args)...);
       }
-      case Type::UINT16: {
-        return f.template operator()<Type::UINT16, DIM>(std::forward<Fnargs>(args)...);
+      case Type::Code::UINT16: {
+        return f.template operator()<Type::Code::UINT16, DIM>(std::forward<Fnargs>(args)...);
       }
-      case Type::UINT32: {
-        return f.template operator()<Type::UINT32, DIM>(std::forward<Fnargs>(args)...);
+      case Type::Code::UINT32: {
+        return f.template operator()<Type::Code::UINT32, DIM>(std::forward<Fnargs>(args)...);
       }
-      case Type::UINT64: {
-        return f.template operator()<Type::UINT64, DIM>(std::forward<Fnargs>(args)...);
+      case Type::Code::UINT64: {
+        return f.template operator()<Type::Code::UINT64, DIM>(std::forward<Fnargs>(args)...);
       }
-      case Type::FLOAT16: {
-        return f.template operator()<Type::FLOAT16, DIM>(std::forward<Fnargs>(args)...);
+      case Type::Code::FLOAT16: {
+        return f.template operator()<Type::Code::FLOAT16, DIM>(std::forward<Fnargs>(args)...);
       }
-      case Type::FLOAT32: {
-        return f.template operator()<Type::FLOAT32, DIM>(std::forward<Fnargs>(args)...);
+      case Type::Code::FLOAT32: {
+        return f.template operator()<Type::Code::FLOAT32, DIM>(std::forward<Fnargs>(args)...);
       }
-      case Type::FLOAT64: {
-        return f.template operator()<Type::FLOAT64, DIM>(std::forward<Fnargs>(args)...);
+      case Type::Code::FLOAT64: {
+        return f.template operator()<Type::Code::FLOAT64, DIM>(std::forward<Fnargs>(args)...);
       }
-      case Type::COMPLEX64: {
-        return f.template operator()<Type::COMPLEX64, DIM>(std::forward<Fnargs>(args)...);
+      case Type::Code::COMPLEX64: {
+        return f.template operator()<Type::Code::COMPLEX64, DIM>(std::forward<Fnargs>(args)...);
       }
-      case Type::COMPLEX128: {
-        return f.template operator()<Type::COMPLEX128, DIM>(std::forward<Fnargs>(args)...);
+      case Type::Code::COMPLEX128: {
+        return f.template operator()<Type::Code::COMPLEX128, DIM>(std::forward<Fnargs>(args)...);
       }
       default: break;
     }
     assert(false);
-    return f.template operator()<Type::BOOL, DIM>(std::forward<Fnargs>(args)...);
+    return f.template operator()<Type::Code::BOOL, DIM>(std::forward<Fnargs>(args)...);
   }
 };
 
@@ -149,7 +149,7 @@ struct inner_dim_dispatch_fn {
  * @return The functor's return value
  */
 template <typename Functor, typename... Fnargs>
-constexpr decltype(auto) double_dispatch(int dim, Type code, Functor f, Fnargs&&... args)
+constexpr decltype(auto) double_dispatch(int dim, Type::Code code, Functor f, Fnargs&&... args)
 {
   switch (dim) {
 #if LEGATE_MAX_DIM >= 1
@@ -351,55 +351,55 @@ constexpr decltype(auto) dim_dispatch(int dim, Functor f, Fnargs&&... args)
  * @return The functor's return value
  */
 template <typename Functor, typename... Fnargs>
-constexpr decltype(auto) type_dispatch(Type code, Functor f, Fnargs&&... args)
+constexpr decltype(auto) type_dispatch(Type::Code code, Functor f, Fnargs&&... args)
 {
   switch (code) {
-    case Type::BOOL: {
-      return f.template operator()<Type::BOOL>(std::forward<Fnargs>(args)...);
+    case Type::Code::BOOL: {
+      return f.template operator()<Type::Code::BOOL>(std::forward<Fnargs>(args)...);
     }
-    case Type::INT8: {
-      return f.template operator()<Type::INT8>(std::forward<Fnargs>(args)...);
+    case Type::Code::INT8: {
+      return f.template operator()<Type::Code::INT8>(std::forward<Fnargs>(args)...);
     }
-    case Type::INT16: {
-      return f.template operator()<Type::INT16>(std::forward<Fnargs>(args)...);
+    case Type::Code::INT16: {
+      return f.template operator()<Type::Code::INT16>(std::forward<Fnargs>(args)...);
     }
-    case Type::INT32: {
-      return f.template operator()<Type::INT32>(std::forward<Fnargs>(args)...);
+    case Type::Code::INT32: {
+      return f.template operator()<Type::Code::INT32>(std::forward<Fnargs>(args)...);
     }
-    case Type::INT64: {
-      return f.template operator()<Type::INT64>(std::forward<Fnargs>(args)...);
+    case Type::Code::INT64: {
+      return f.template operator()<Type::Code::INT64>(std::forward<Fnargs>(args)...);
     }
-    case Type::UINT8: {
-      return f.template operator()<Type::UINT8>(std::forward<Fnargs>(args)...);
+    case Type::Code::UINT8: {
+      return f.template operator()<Type::Code::UINT8>(std::forward<Fnargs>(args)...);
     }
-    case Type::UINT16: {
-      return f.template operator()<Type::UINT16>(std::forward<Fnargs>(args)...);
+    case Type::Code::UINT16: {
+      return f.template operator()<Type::Code::UINT16>(std::forward<Fnargs>(args)...);
     }
-    case Type::UINT32: {
-      return f.template operator()<Type::UINT32>(std::forward<Fnargs>(args)...);
+    case Type::Code::UINT32: {
+      return f.template operator()<Type::Code::UINT32>(std::forward<Fnargs>(args)...);
     }
-    case Type::UINT64: {
-      return f.template operator()<Type::UINT64>(std::forward<Fnargs>(args)...);
+    case Type::Code::UINT64: {
+      return f.template operator()<Type::Code::UINT64>(std::forward<Fnargs>(args)...);
     }
-    case Type::FLOAT16: {
-      return f.template operator()<Type::FLOAT16>(std::forward<Fnargs>(args)...);
+    case Type::Code::FLOAT16: {
+      return f.template operator()<Type::Code::FLOAT16>(std::forward<Fnargs>(args)...);
     }
-    case Type::FLOAT32: {
-      return f.template operator()<Type::FLOAT32>(std::forward<Fnargs>(args)...);
+    case Type::Code::FLOAT32: {
+      return f.template operator()<Type::Code::FLOAT32>(std::forward<Fnargs>(args)...);
     }
-    case Type::FLOAT64: {
-      return f.template operator()<Type::FLOAT64>(std::forward<Fnargs>(args)...);
+    case Type::Code::FLOAT64: {
+      return f.template operator()<Type::Code::FLOAT64>(std::forward<Fnargs>(args)...);
     }
-    case Type::COMPLEX64: {
-      return f.template operator()<Type::COMPLEX64>(std::forward<Fnargs>(args)...);
+    case Type::Code::COMPLEX64: {
+      return f.template operator()<Type::Code::COMPLEX64>(std::forward<Fnargs>(args)...);
     }
-    case Type::COMPLEX128: {
-      return f.template operator()<Type::COMPLEX128>(std::forward<Fnargs>(args)...);
+    case Type::Code::COMPLEX128: {
+      return f.template operator()<Type::Code::COMPLEX128>(std::forward<Fnargs>(args)...);
     }
     default: break;
   }
   assert(false);
-  return f.template operator()<Type::BOOL>(std::forward<Fnargs>(args)...);
+  return f.template operator()<Type::Code::BOOL>(std::forward<Fnargs>(args)...);
 }
 
 }  // namespace legate

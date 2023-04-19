@@ -24,7 +24,7 @@ namespace legate {
 namespace {  // anonymous
 
 struct print_dense_array_fn {
-  template <Type CODE, int DIM>
+  template <Type::Code CODE, int DIM>
   std::string operator()(const Store& store)
   {
     using T        = legate_type_of<CODE>;

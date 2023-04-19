@@ -145,7 +145,13 @@ static void extract_scalar_task(
   LEGATE_ABORT;
 }
 
-Runtime::Runtime() {}
+namespace {
+
+constexpr uint32_t CUSTOM_TYPE_UID_BASE = 1000;
+
+}  // namespace
+
+Runtime::Runtime() : next_type_uid_(CUSTOM_TYPE_UID_BASE) {}
 
 LibraryContext* Runtime::find_library(const std::string& library_name,
                                       bool can_fail /*=false*/) const
@@ -176,6 +182,32 @@ LibraryContext* Runtime::create_library(const std::string& library_name,
   auto raw_context = context.get();
   libraries_[library_name] = std::move(context);
   return raw_context;
+}
+
+uint32_t Runtime::get_type_uid() { return next_type_uid_++; }
+
+void Runtime::record_reduction_operator(int32_t type_uid, int32_t op_id, int32_t legion_op_id)
+{
+  auto key    = std::make_pair(type_uid, op_id);
+  auto finder = reduction_ops_.find(key);
+  if (finder != reduction_ops_.end()) {
+    std::stringstream ss;
+    ss << "Reduction op " << op_id << " already exists for type " << type_uid;
+    throw std::invalid_argument(std::move(ss).str());
+  }
+  reduction_ops_.emplace(std::make_pair(key, legion_op_id));
+}
+
+int32_t Runtime::find_reduction_operator(int32_t type_uid, int32_t op_id) const
+{
+  auto key    = std::make_pair(type_uid, op_id);
+  auto finder = reduction_ops_.find(key);
+  if (reduction_ops_.end() == finder) {
+    std::stringstream ss;
+    ss << "Reduction op " << op_id << " does not exist for type " << type_uid;
+    throw std::invalid_argument(std::move(ss).str());
+  }
+  return finder->second;
 }
 
 /*static*/ Runtime* Runtime::get_runtime()

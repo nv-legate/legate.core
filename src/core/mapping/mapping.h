@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <functional>
+
 #include "core/mapping/operation.h"
 #include "core/utilities/typedefs.h"
 
@@ -280,7 +282,7 @@ struct StoreMapping {
   /**
    * @brief Stores to which the `policy` should be applied
    */
-  std::vector<Store> stores{};
+  std::vector<std::reference_wrapper<const Store>> stores{};
   /**
    * @brief Instance mapping policy
    */

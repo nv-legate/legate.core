@@ -53,7 +53,7 @@ class Scalar {
    * @param code Type code of the scalar(s)
    * @param data Allocation containing the data.
    */
-  Scalar(bool tuple, Type code, const void* data);
+  Scalar(bool tuple, std::unique_ptr<Type> type, const void* data);
   ~Scalar();
 
  public:
@@ -125,7 +125,7 @@ class Scalar {
  private:
   bool own_{false};
   bool tuple_{false};
-  Type code_{Type::INVALID};
+  std::unique_ptr<Type> type_{nullptr};
   const void* data_;
 };
 

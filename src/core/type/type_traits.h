@@ -38,7 +38,7 @@
 
 namespace legate {
 
-// This maps a type to its Type
+// This maps a type to its type code
 #if defined(__clang__) && !defined(__NVCC__)
 #define PREFIX static
 #else
@@ -50,96 +50,96 @@ namespace legate {
  * @brief A template constexpr that converts types to type codes
  */
 template <class>
-PREFIX constexpr Type legate_type_code_of = Type::INVALID;
+PREFIX constexpr Type::Code legate_type_code_of = Type::Code::INVALID;
 template <>
-PREFIX constexpr Type legate_type_code_of<__half> = Type::FLOAT16;
+PREFIX constexpr Type::Code legate_type_code_of<__half> = Type::Code::FLOAT16;
 template <>
-PREFIX constexpr Type legate_type_code_of<float> = Type::FLOAT32;
+PREFIX constexpr Type::Code legate_type_code_of<float> = Type::Code::FLOAT32;
 template <>
-PREFIX constexpr Type legate_type_code_of<double> = Type::FLOAT64;
+PREFIX constexpr Type::Code legate_type_code_of<double> = Type::Code::FLOAT64;
 template <>
-PREFIX constexpr Type legate_type_code_of<int8_t> = Type::INT8;
+PREFIX constexpr Type::Code legate_type_code_of<int8_t> = Type::Code::INT8;
 template <>
-PREFIX constexpr Type legate_type_code_of<int16_t> = Type::INT16;
+PREFIX constexpr Type::Code legate_type_code_of<int16_t> = Type::Code::INT16;
 template <>
-PREFIX constexpr Type legate_type_code_of<int32_t> = Type::INT32;
+PREFIX constexpr Type::Code legate_type_code_of<int32_t> = Type::Code::INT32;
 template <>
-PREFIX constexpr Type legate_type_code_of<int64_t> = Type::INT64;
+PREFIX constexpr Type::Code legate_type_code_of<int64_t> = Type::Code::INT64;
 template <>
-PREFIX constexpr Type legate_type_code_of<uint8_t> = Type::UINT8;
+PREFIX constexpr Type::Code legate_type_code_of<uint8_t> = Type::Code::UINT8;
 template <>
-PREFIX constexpr Type legate_type_code_of<uint16_t> = Type::UINT16;
+PREFIX constexpr Type::Code legate_type_code_of<uint16_t> = Type::Code::UINT16;
 template <>
-PREFIX constexpr Type legate_type_code_of<uint32_t> = Type::UINT32;
+PREFIX constexpr Type::Code legate_type_code_of<uint32_t> = Type::Code::UINT32;
 template <>
-PREFIX constexpr Type legate_type_code_of<uint64_t> = Type::UINT64;
+PREFIX constexpr Type::Code legate_type_code_of<uint64_t> = Type::Code::UINT64;
 template <>
-PREFIX constexpr Type legate_type_code_of<bool> = Type::BOOL;
+PREFIX constexpr Type::Code legate_type_code_of<bool> = Type::Code::BOOL;
 template <>
-PREFIX constexpr Type legate_type_code_of<complex<float>> = Type::COMPLEX64;
+PREFIX constexpr Type::Code legate_type_code_of<complex<float>> = Type::Code::COMPLEX64;
 template <>
-PREFIX constexpr Type legate_type_code_of<complex<double>> = Type::COMPLEX128;
+PREFIX constexpr Type::Code legate_type_code_of<complex<double>> = Type::Code::COMPLEX128;
 
 #undef PREFIX
 
-template <Type CODE>
+template <Type::Code CODE>
 struct LegateTypeOf {
   using type = void;
 };
 template <>
-struct LegateTypeOf<Type::BOOL> {
+struct LegateTypeOf<Type::Code::BOOL> {
   using type = bool;
 };
 template <>
-struct LegateTypeOf<Type::INT8> {
+struct LegateTypeOf<Type::Code::INT8> {
   using type = int8_t;
 };
 template <>
-struct LegateTypeOf<Type::INT16> {
+struct LegateTypeOf<Type::Code::INT16> {
   using type = int16_t;
 };
 template <>
-struct LegateTypeOf<Type::INT32> {
+struct LegateTypeOf<Type::Code::INT32> {
   using type = int32_t;
 };
 template <>
-struct LegateTypeOf<Type::INT64> {
+struct LegateTypeOf<Type::Code::INT64> {
   using type = int64_t;
 };
 template <>
-struct LegateTypeOf<Type::UINT8> {
+struct LegateTypeOf<Type::Code::UINT8> {
   using type = uint8_t;
 };
 template <>
-struct LegateTypeOf<Type::UINT16> {
+struct LegateTypeOf<Type::Code::UINT16> {
   using type = uint16_t;
 };
 template <>
-struct LegateTypeOf<Type::UINT32> {
+struct LegateTypeOf<Type::Code::UINT32> {
   using type = uint32_t;
 };
 template <>
-struct LegateTypeOf<Type::UINT64> {
+struct LegateTypeOf<Type::Code::UINT64> {
   using type = uint64_t;
 };
 template <>
-struct LegateTypeOf<Type::FLOAT16> {
+struct LegateTypeOf<Type::Code::FLOAT16> {
   using type = __half;
 };
 template <>
-struct LegateTypeOf<Type::FLOAT32> {
+struct LegateTypeOf<Type::Code::FLOAT32> {
   using type = float;
 };
 template <>
-struct LegateTypeOf<Type::FLOAT64> {
+struct LegateTypeOf<Type::Code::FLOAT64> {
   using type = double;
 };
 template <>
-struct LegateTypeOf<Type::COMPLEX64> {
+struct LegateTypeOf<Type::Code::COMPLEX64> {
   using type = complex<float>;
 };
 template <>
-struct LegateTypeOf<Type::COMPLEX128> {
+struct LegateTypeOf<Type::Code::COMPLEX128> {
   using type = complex<double>;
 };
 
@@ -147,14 +147,14 @@ struct LegateTypeOf<Type::COMPLEX128> {
  * @ingroup util
  * @brief A template that converts type codes to types
  */
-template <Type CODE>
+template <Type::Code CODE>
 using legate_type_of = typename LegateTypeOf<CODE>::type;
 
 /**
  * @ingroup util
  * @brief A predicate that holds if the type code is of an integral type
  */
-template <Type CODE>
+template <Type::Code CODE>
 struct is_integral {
   static constexpr bool value = std::is_integral<legate_type_of<CODE>>::value;
 };
@@ -163,7 +163,7 @@ struct is_integral {
  * @ingroup util
  * @brief A predicate that holds if the type code is of a signed integral type
  */
-template <Type CODE>
+template <Type::Code CODE>
 struct is_signed {
   static constexpr bool value = std::is_signed<legate_type_of<CODE>>::value;
 };
@@ -172,7 +172,7 @@ struct is_signed {
  * @ingroup util
  * @brief A predicate that holds if the type code is of an unsigned integral type
  */
-template <Type CODE>
+template <Type::Code CODE>
 struct is_unsigned {
   static constexpr bool value = std::is_unsigned<legate_type_of<CODE>>::value;
 };
@@ -181,13 +181,13 @@ struct is_unsigned {
  * @ingroup util
  * @brief A predicate that holds if the type code is of a floating point type
  */
-template <Type CODE>
+template <Type::Code CODE>
 struct is_floating_point {
   static constexpr bool value = std::is_floating_point<legate_type_of<CODE>>::value;
 };
 
 template <>
-struct is_floating_point<Type::FLOAT16> {
+struct is_floating_point<Type::Code::FLOAT16> {
   static constexpr bool value = true;
 };
 
@@ -195,14 +195,14 @@ struct is_floating_point<Type::FLOAT16> {
  * @ingroup util
  * @brief A predicate that holds if the type code is of a complex type
  */
-template <Type CODE>
+template <Type::Code CODE>
 struct is_complex : std::false_type {};
 
 template <>
-struct is_complex<Type::COMPLEX64> : std::true_type {};
+struct is_complex<Type::Code::COMPLEX64> : std::true_type {};
 
 template <>
-struct is_complex<Type::COMPLEX128> : std::true_type {};
+struct is_complex<Type::Code::COMPLEX128> : std::true_type {};
 
 /**
  * @ingroup util

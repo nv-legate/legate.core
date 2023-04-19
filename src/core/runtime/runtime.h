@@ -85,10 +85,19 @@ class Runtime {
                                  std::unique_ptr<mapping::Mapper> mapper = nullptr);
 
  public:
+  uint32_t get_type_uid();
+  void record_reduction_operator(int32_t type_uid, int32_t op_id, int32_t legion_op_id);
+  int32_t find_reduction_operator(int32_t type_uid, int32_t op_id) const;
+
+ public:
   static Runtime* get_runtime();
 
  private:
   std::map<std::string, std::unique_ptr<LibraryContext>> libraries_{};
+
+ private:
+  uint32_t next_type_uid_;
+  std::map<std::pair<int32_t, int32_t>, int32_t> reduction_ops_{};
 };
 
 }  // namespace legate

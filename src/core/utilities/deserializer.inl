@@ -23,17 +23,11 @@ BaseDeserializer<Deserializer>::BaseDeserializer(const int8_t* args, size_t argl
 }
 
 template <typename Deserializer>
-void BaseDeserializer<Deserializer>::_unpack(Type& value)
-{
-  value = static_cast<Type>(unpack<int32_t>());
-}
-
-template <typename Deserializer>
 void BaseDeserializer<Deserializer>::_unpack(Scalar& value)
 {
   auto tuple = unpack<bool>();
-  auto code  = unpack<Type>();
-  value      = Scalar(tuple, code, args_.ptr());
+  auto type  = unpack_type();
+  value      = Scalar(tuple, std::move(type), args_.ptr());
   args_      = args_.subspan(value.size());
 }
 
@@ -81,6 +75,45 @@ std::shared_ptr<TransformStack> BaseDeserializer<Deserializer>::unpack_transform
     }
   }
   assert(false);
+  return nullptr;
+}
+
+template <typename Deserializer>
+std::unique_ptr<Type> BaseDeserializer<Deserializer>::unpack_type()
+{
+  auto code = static_cast<Type::Code>(unpack<int32_t>());
+  switch (code) {
+    case Type::Code::FIXED_ARRAY: {
+      auto uid  = unpack<int32_t>();
+      auto N    = unpack<uint32_t>();
+      auto type = unpack_type();
+      return std::make_unique<FixedArrayType>(uid, std::move(type), N);
+    }
+    case Type::Code::STRUCT: {
+      auto uid        = unpack<int32_t>();
+      auto num_fields = unpack<uint32_t>();
+      std::vector<std::unique_ptr<Type>> field_types(num_fields);
+      for (auto& field_type : field_types) field_type = unpack_type();
+      return std::make_unique<StructType>(uid, std::move(field_types));
+    }
+    case Type::Code::BOOL:
+    case Type::Code::INT8:
+    case Type::Code::INT16:
+    case Type::Code::INT32:
+    case Type::Code::INT64:
+    case Type::Code::UINT8:
+    case Type::Code::UINT16:
+    case Type::Code::UINT32:
+    case Type::Code::UINT64:
+    case Type::Code::FLOAT16:
+    case Type::Code::FLOAT32:
+    case Type::Code::FLOAT64:
+    case Type::Code::COMPLEX64:
+    case Type::Code::COMPLEX128: {
+      return std::make_unique<PrimitiveType>(code);
+    }
+  }
+  LEGATE_ABORT;
   return nullptr;
 }
 

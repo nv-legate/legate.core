@@ -211,6 +211,7 @@ list(APPEND legate_core_SOURCES
   src/core/task/task.cc
   src/core/task/task_info.cc
   src/core/task/variant_options.cc
+  src/core/type/type_info.cc
   src/core/utilities/debug.cc
   src/core/utilities/deserializer.cc
   src/core/utilities/machine.cc

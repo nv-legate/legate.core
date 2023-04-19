@@ -272,17 +272,17 @@ class Store {
  public:
   Store() {}
   Store(int32_t dim,
-        Type code,
+        std::unique_ptr<Type> type,
         int32_t redop_id,
         FutureWrapper future,
         std::shared_ptr<TransformStack>&& transform = nullptr);
   Store(int32_t dim,
-        Type code,
+        std::unique_ptr<Type> type,
         int32_t redop_id,
         RegionField&& region_field,
         std::shared_ptr<TransformStack>&& transform = nullptr);
   Store(int32_t dim,
-        Type code,
+        std::unique_ptr<Type> type,
         UnboundRegionField&& unbound_field,
         std::shared_ptr<TransformStack>&& transform = nullptr);
 
@@ -323,10 +323,10 @@ class Store {
    *
    * @return The store's type code
    */
-  template <typename TYPE_CODE = Type>
+  template <typename TYPE_CODE = Type::Code>
   TYPE_CODE code() const
   {
-    return static_cast<TYPE_CODE>(code_);
+    return static_cast<TYPE_CODE>(type_->code);
   }
 
  public:
@@ -543,7 +543,7 @@ class Store {
   bool is_future_{false};
   bool is_unbound_store_{false};
   int32_t dim_{-1};
-  Type code_{Type::INVALID};
+  std::unique_ptr<Type> type_{nullptr};
   int32_t redop_id_{-1};
 
  private:

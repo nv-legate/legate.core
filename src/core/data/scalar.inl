@@ -17,7 +17,7 @@
 namespace legate {
 
 template <typename T>
-Scalar::Scalar(T value) : own_(true), tuple_(false), code_(legate_type_code_of<T>)
+Scalar::Scalar(T value) : own_(true), tuple_(false), type_(primitive_type(legate_type_code_of<T>))
 {
   auto buffer = malloc(sizeof(T));
   memcpy(buffer, &value, sizeof(T));
@@ -26,7 +26,7 @@ Scalar::Scalar(T value) : own_(true), tuple_(false), code_(legate_type_code_of<T
 
 template <typename T>
 Scalar::Scalar(const std::vector<T>& values)
-  : own_(true), tuple_(true), code_(legate_type_code_of<T>)
+  : own_(true), tuple_(true), type_(primitive_type(legate_type_code_of<T>))
 {
   auto data_size                  = sizeof(T) * values.size();
   auto buffer                     = malloc(sizeof(uint32_t) + data_size);
@@ -46,7 +46,7 @@ inline std::string Scalar::value() const
 {
   // Getting a span of a temporary scalar is illegal in general,
   // but we know this is safe as the span's pointer is held by this object.
-  auto span = Scalar(true, Type::INT8, data_).values<char>();
+  auto span = Scalar(true, primitive_type(Type::Code::INT8), data_).values<char>();
   return std::string(span.begin(), span.end());
 }
 

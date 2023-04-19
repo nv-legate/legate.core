@@ -46,7 +46,7 @@ class BaseDeserializer {
   }
 
  public:
-  template <typename T, std::enable_if_t<legate_type_code_of<T> != Type::INVALID>* = nullptr>
+  template <typename T, std::enable_if_t<legate_type_code_of<T> != Type::Code::INVALID>* = nullptr>
   void _unpack(T& value)
   {
     value = *reinterpret_cast<const T*>(args_.ptr());
@@ -62,11 +62,11 @@ class BaseDeserializer {
   }
 
  public:
-  void _unpack(Type& value);
   void _unpack(Scalar& value);
 
  protected:
   std::shared_ptr<TransformStack> unpack_transform();
+  std::unique_ptr<Type> unpack_type();
 
  protected:
   bool first_task_;
