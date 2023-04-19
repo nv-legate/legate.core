@@ -220,6 +220,7 @@ void BaseMapper::select_task_options(const Legion::Mapping::MapperContext ctx,
     std::vector<int32_t> promoted_dims;
     store.return_promoted_dims(promoted_dims);
     for (auto& d : promoted_dims) {
+      if (d < 0) continue;
       if ((task.index_domain.hi()[d] - task.index_domain.lo()[d]) >= 1) {
         std::cout << "IRINA DEBUG adding collective for promoted instance " << idx << "  for task "
                   << task.get_task_name() << ", store is future ? " << store.is_future()

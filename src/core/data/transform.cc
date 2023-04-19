@@ -189,8 +189,9 @@ int32_t Promote::target_ndim(int32_t source_ndim) const { return source_ndim - 1
 
 void Promote::return_promoted_dims(std::vector<int32_t>& dims) const
 {
-  dims.push_back(extra_dim_);
-};
+  auto finder = std::find(dims.begin(), dims.end(), (-extra_dim_ - 1));
+  if (finder == dims.end()) { dims.push_back(extra_dim_); }
+}
 Project::Project(int32_t dim, int64_t coord) : dim_(dim), coord_(coord) {}
 
 Domain Project::transform(const Domain& input) const
@@ -245,7 +246,10 @@ void Project::print(std::ostream& out) const
 
 int32_t Project::target_ndim(int32_t source_ndim) const { return source_ndim + 1; }
 
-void Project::return_promoted_dims(std::vector<int32_t>&) const {};
+void Project::return_promoted_dims(std::vector<int32_t>& dims) const
+{
+  dims.push_back((-dim_ - 1));
+}
 
 Transpose::Transpose(std::vector<int32_t>&& axes) : axes_(std::move(axes)) {}
 
