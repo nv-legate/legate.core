@@ -145,20 +145,17 @@ class Dtype:
         return f"Dtype({self._dtype}, {self.size}, {self.code})"
 
 
-# TODO: We should redefine these in Legate and use them instead
-
-
 @unique
 class ReductionOp(IntEnum):
-    ADD = legion.LEGION_REDOP_KIND_SUM
-    SUB = legion.LEGION_REDOP_KIND_DIFF
-    MUL = legion.LEGION_REDOP_KIND_PROD
-    DIV = legion.LEGION_REDOP_KIND_DIV
-    MAX = legion.LEGION_REDOP_KIND_MAX
-    MIN = legion.LEGION_REDOP_KIND_MIN
-    OR = legion.LEGION_REDOP_KIND_OR
-    AND = legion.LEGION_REDOP_KIND_AND
-    XOR = legion.LEGION_REDOP_KIND_XOR
+    ADD = typecodes.ADD
+    SUB = typecodes.SUB
+    MUL = typecodes.MUL
+    DIV = typecodes.DIV
+    MAX = typecodes.MAX
+    MIN = typecodes.MIN
+    OR = typecodes.OR
+    AND = typecodes.AND
+    XOR = typecodes.XOR
 
 
 # TODO: These should use the enum in legate_c.h
