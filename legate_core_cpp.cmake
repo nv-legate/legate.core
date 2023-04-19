@@ -316,6 +316,8 @@ if (legate_core_BUILD_DOCS)
   if(Doxygen_FOUND)
     set(legate_core_DOC_SOURCES "")
     list(APPEND legate_core_DOC_SOURCES
+      # type
+      src/core/type/type_info.h
       # task
       src/core/task/task.h
       src/core/task/registrar.h
