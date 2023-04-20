@@ -65,6 +65,7 @@ class TestSystem(System):
         *,
         dry_run: bool = False,
     ) -> None:
+        super().__init__()
         self.manager = multiprocessing.Manager()
         self.dry_run: bool = dry_run
 

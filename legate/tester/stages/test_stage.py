@@ -279,6 +279,13 @@ class TestStage(Protocol):
     def _env(self, config: Config, system: TestSystem) -> EnvDict:
         env = dict(config.env)
         env.update(self.env(config, system))
+
+        # special case for LEGATE_CONFIG -- if users have specified this on
+        # their own we still want to see the value since it will affect the
+        # test invocation directly.
+        if "LEGATE_CONFIG" in system.env:
+            env["LEGATE_CONFIG"] = system.env["LEGATE_CONFIG"]
+
         return env
 
     def _init(self, config: Config, system: TestSystem) -> None:
