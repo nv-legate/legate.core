@@ -493,7 +493,7 @@ class Storage:
         self,
         extents: Optional[Shape],
         level: int,
-        dtype: Any,
+        dtype: Dtype,
         data: Optional[Union[RegionField, Future]] = None,
         kind: type = RegionField,
         parent: Optional[StoragePartition] = None,
@@ -556,7 +556,7 @@ class Storage:
         return self._kind
 
     @property
-    def dtype(self) -> Any:
+    def dtype(self) -> Dtype:
         return self._dtype
 
     @property
@@ -1552,7 +1552,7 @@ class Store:
         buf.pack_bool(self.kind is Future)
         buf.pack_bool(self.unbound)
         buf.pack_32bit_int(self.ndim)
-        buf.pack_32bit_int(self._dtype.code)
+        self.type.serialize(buf)
         self._transform.serialize(buf)
 
     def get_key_partition(self) -> Optional[PartitionBase]:

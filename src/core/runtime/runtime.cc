@@ -154,6 +154,11 @@ constexpr uint32_t CUSTOM_TYPE_UID_BASE = 1000;
 
 Runtime::Runtime() : next_type_uid_(CUSTOM_TYPE_UID_BASE) {}
 
+Runtime::~Runtime()
+{
+  for (auto& [_, context] : libraries_) delete context;
+}
+
 LibraryContext* Runtime::find_library(const std::string& library_name,
                                       bool can_fail /*=false*/) const
 {
@@ -165,7 +170,7 @@ LibraryContext* Runtime::find_library(const std::string& library_name,
     } else
       return nullptr;
   }
-  return finder->second.get();
+  return finder->second;
 }
 
 LibraryContext* Runtime::create_library(const std::string& library_name,
@@ -179,10 +184,9 @@ LibraryContext* Runtime::create_library(const std::string& library_name,
 
   log_legate.debug("Library %s is created", library_name.c_str());
   if (nullptr == mapper) mapper = std::make_unique<mapping::DefaultMapper>();
-  auto context     = std::make_unique<LibraryContext>(library_name, config, std::move(mapper));
-  auto raw_context = context.get();
-  libraries_[library_name] = std::move(context);
-  return raw_context;
+  auto context             = new LibraryContext(library_name, config, std::move(mapper));
+  libraries_[library_name] = context;
+  return context;
 }
 
 uint32_t Runtime::get_type_uid() { return next_type_uid_++; }
@@ -229,6 +233,12 @@ int32_t Runtime::find_reduction_operator(int32_t type_uid, int32_t op_kind) cons
   static Runtime runtime;
   return &runtime;
 }
+
+void Runtime::enter_callback() { in_callback_ = true; }
+
+void Runtime::exit_callback() { in_callback_ = false; }
+
+bool Runtime::is_in_callback() const { return in_callback_; }
 
 void register_legate_core_tasks(Legion::Machine machine,
                                 Legion::Runtime* runtime,

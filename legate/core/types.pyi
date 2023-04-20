@@ -17,6 +17,8 @@ from typing import Any
 
 import numpy as np
 
+from ._legion.util import BufferBuilder
+
 class ReductionOp:
     ADD: int
     SUB: int
@@ -48,6 +50,7 @@ class Dtype:
     def num_fields(self) -> int: ...
     def field_type(self, field_idx: int) -> Dtype: ...
     def to_numpy_dtype(self) -> np.dtype[Any]: ...
+    def serialize(self, buf: BufferBuilder) -> None: ...
 
 bool_: Dtype
 int8: Dtype

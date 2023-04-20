@@ -18,7 +18,9 @@
 
 #include "legion.h"
 
-#include "core/runtime/context.h"
+#include <memory>
+
+#include "core/runtime/resource.h"
 #include "core/task/exception.h"
 #include "core/utilities/typedefs.h"
 
@@ -26,6 +28,8 @@
  */
 
 namespace legate {
+
+class LibraryContext;
 
 namespace mapping {
 
@@ -77,6 +81,7 @@ struct Core {
 class Runtime {
  private:
   Runtime();
+  ~Runtime();
 
  public:
   LibraryContext* find_library(const std::string& library_name, bool can_fail = false) const;
@@ -90,10 +95,18 @@ class Runtime {
   int32_t find_reduction_operator(int32_t type_uid, int32_t op_kind) const;
 
  public:
+  void enter_callback();
+  void exit_callback();
+  bool is_in_callback() const;
+
+ public:
   static Runtime* get_runtime();
 
  private:
-  std::map<std::string, std::unique_ptr<LibraryContext>> libraries_{};
+  bool in_callback_{false};
+
+ private:
+  std::map<std::string, LibraryContext*> libraries_{};
 
  private:
   uint32_t next_type_uid_;

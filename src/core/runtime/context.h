@@ -25,6 +25,8 @@
 
 #include "core/comm/communicator.h"
 #include "core/mapping/mapping.h"
+#include "core/runtime/resource.h"
+#include "core/runtime/runtime.h"
 #include "core/task/return.h"
 #include "core/task/task_info.h"
 #include "core/utilities/typedefs.h"
@@ -50,52 +52,6 @@ class InvalidTaskIdException : public std::exception {
 
  private:
   std::string error_message;
-};
-
-/**
- * @ingroup runtime
- * @brief POD for library configuration.
- */
-struct ResourceConfig {
-  /**
-   * @brief Maximum number of tasks that the library can register
-   */
-  int64_t max_tasks{1024};
-  /**
-   * @brief Maximum number of custom reduction operators that the library can register
-   */
-  int64_t max_reduction_ops{0};
-  int64_t max_projections{0};
-  int64_t max_shardings{0};
-};
-
-class ResourceIdScope {
- public:
-  ResourceIdScope() = default;
-  ResourceIdScope(int64_t base, int64_t size) : base_(base), size_(size) {}
-
- public:
-  ResourceIdScope(const ResourceIdScope&) = default;
-
- public:
-  int64_t translate(int64_t local_resource_id) const { return base_ + local_resource_id; }
-  int64_t invert(int64_t resource_id) const
-  {
-    assert(in_scope(resource_id));
-    return resource_id - base_;
-  }
-
- public:
-  bool valid() const { return base_ != -1; }
-  bool in_scope(int64_t resource_id) const
-  {
-    return base_ <= resource_id && resource_id < base_ + size_;
-  }
-  int64_t size() const { return size_; }
-
- private:
-  int64_t base_{-1};
-  int64_t size_{-1};
 };
 
 /**
@@ -204,7 +160,7 @@ class LibraryContext {
    * reference atomically when the `EXCLUSIVE` is `false`.
    */
   template <typename REDOP>
-  void register_reduction_operator();
+  int32_t register_reduction_operator();
 
  public:
   void register_task(int64_t local_task_id, std::unique_ptr<TaskInfo> task_info);

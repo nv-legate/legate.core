@@ -319,6 +319,12 @@ class Store {
    */
   int32_t dim() const { return dim_; }
   /**
+   * @brief Returns the type metadata of the store
+   *
+   * @return The store's type metadata
+   */
+  const Type* type() const { return type_.get(); }
+  /**
    * @brief Returns the type code of the store
    *
    * @return The store's type code

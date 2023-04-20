@@ -240,3 +240,17 @@ cdef class DataType:
 
         else:
             raise ValueError(f"Invalid type code: {code}")
+
+    def serialize(self, buf) -> None:
+        code = self.code
+        buf.pack_32bit_int(code)
+        if code == FIXED_ARRAY:
+            buf.pack_32bit_int(self.uid)
+            buf.pack_32bit_int(self.num_elements())
+            self.element_type().serialize(buf)
+        elif code == STRUCT:
+            num_fields = self.num_fields()
+            buf.pack_32bit_int(self.uid)
+            buf.pack_32bit_int(num_fields)
+            for field_idx in range(num_fields):
+                self.field_type(field_idx).serialize(buf)

@@ -28,11 +28,28 @@ namespace legate {
 
 /**
  * @ingroup types
+ * @brief Enum for reduction operator kinds
+ */
+enum class ReductionOpKind : int32_t {
+  ADD = ADD_LT, /*!< Addition */
+  SUB = SUB_LT, /*!< Subtraction */
+  MUL = MUL_LT, /*!< Multiplication */
+  DIV = DIV_LT, /*!< Division */
+  MAX = MAX_LT, /*!< Binary maximum operator */
+  MIN = MIN_LT, /*!< Binary minimum operator */
+  OR  = OR_LT,  /*!< Bitwise OR */
+  AND = AND_LT, /*!< Bitwse AND */
+  XOR = XOR_LT, /*!< Bitwas XOR */
+};
+
+/**
+ * @ingroup types
  * @brief A base class for data type metadata
  */
 class Type {
  public:
   /**
+   * @ingroup types
    * @brief Enum for type codes
    */
   enum class Code : int32_t {
