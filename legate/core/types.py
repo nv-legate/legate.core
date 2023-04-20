@@ -56,5 +56,5 @@ def array_type(element_type: Dtype, N: int) -> Dtype:
     return Dtype.fixed_array_type(element_type, N)
 
 
-def struct_type(field_types: list[Dtype]) -> Dtype:
-    return Dtype.struct_type(field_types)
+def struct_type(field_types: list[Dtype], align: bool = False) -> Dtype:
+    return Dtype.struct_type(field_types, align)

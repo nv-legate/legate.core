@@ -87,6 +87,13 @@ class Type {
   virtual uint32_t size() const = 0;
 
   /**
+   * @brief Alignment of the type
+   *
+   * @return Alignment in bytes
+   */
+  virtual uint32_t alignment() const = 0;
+
+  /**
    * @brief Unique ID of the data type
    *
    * @return Unique ID
@@ -153,6 +160,7 @@ class PrimitiveType : public Type {
    */
   PrimitiveType(Code code);
   uint32_t size() const override { return size_; }
+  uint32_t alignment() const override { return size_; }
   int32_t uid() const override;
   bool variable_size() const override { return false; }
   std::unique_ptr<Type> clone() const override;
@@ -171,6 +179,7 @@ class StringType : public Type {
   StringType();
   bool variable_size() const override { return true; }
   uint32_t size() const override { return 0; }
+  uint32_t alignment() const override { return 0; }
   int32_t uid() const override;
   std::unique_ptr<Type> clone() const override;
   std::string to_string() const override;
@@ -202,8 +211,9 @@ class FixedArrayType : public ExtensionType {
    * @param element_type Type of the array elements
    * @param N Size of the array
    */
-  FixedArrayType(int32_t uid, std::unique_ptr<Type> element_type, uint32_t N);
+  FixedArrayType(int32_t uid, std::unique_ptr<Type> element_type, uint32_t N) noexcept(false);
   uint32_t size() const override { return size_; }
+  uint32_t alignment() const override { return element_type_->alignment(); }
   bool variable_size() const override { return false; }
   std::unique_ptr<Type> clone() const override;
   std::string to_string() const override;
@@ -237,9 +247,14 @@ class StructType : public ExtensionType {
    *
    * @param uid Unique ID
    * @param field_types A vector of field types
+   * @param align Optional boolean flag indicating whether the struct fields should be aligned.
+   *              false by default.
    */
-  StructType(int32_t uid, std::vector<std::unique_ptr<Type>>&& field_types);
-  uint32_t size() const override;
+  StructType(int32_t uid,
+             std::vector<std::unique_ptr<Type>>&& field_types,
+             bool align = false) noexcept(false);
+  uint32_t size() const override { return size_; }
+  uint32_t alignment() const override { return alignment_; }
   bool variable_size() const override { return false; }
   std::unique_ptr<Type> clone() const override;
   std::string to_string() const override;
@@ -257,9 +272,20 @@ class StructType : public ExtensionType {
    * @return Element type
    */
   const Type* field_type(uint32_t field_idx) const;
+  /**
+   * @brief Indiciates whether the fields are aligned
+   *
+   * @return true Fields are aligned
+   * @return false Fields are compact
+   */
+  bool aligned() const { return aligned_; }
 
  private:
+  bool aligned_;
+  uint32_t size_;
+  uint32_t alignment_;
   std::vector<std::unique_ptr<Type>> field_types_{};
+  std::vector<uint32_t> offsets_{};
 };
 
 /**
@@ -291,7 +317,8 @@ std::unique_ptr<Type> string_type();
  *
  * @return Type object
  */
-std::unique_ptr<Type> fixed_array_type(std::unique_ptr<Type> element_type, uint32_t N);
+std::unique_ptr<Type> fixed_array_type(std::unique_ptr<Type> element_type,
+                                       uint32_t N) noexcept(false);
 
 /**
  * @ingroup types
@@ -301,9 +328,11 @@ std::unique_ptr<Type> fixed_array_type(std::unique_ptr<Type> element_type, uint3
  *
  * @return Type object
  */
-std::unique_ptr<Type> struct_type(std::vector<std::unique_ptr<Type>>&& field_types);
+std::unique_ptr<Type> struct_type(std::vector<std::unique_ptr<Type>>&& field_types,
+                                  bool align = false) noexcept(false);
 
 // The caller transfers ownership of the Type objects
-std::unique_ptr<Type> struct_type_raw_ptrs(std::vector<Type*> field_types);
+std::unique_ptr<Type> struct_type_raw_ptrs(std::vector<Type*> field_types,
+                                           bool align = false) noexcept(false);
 
 }  // namespace legate

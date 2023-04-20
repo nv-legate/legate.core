@@ -59,6 +59,8 @@ const std::unordered_map<Type::Code, std::string> TYPE_NAMES = {
   {Type::Code::COMPLEX128, "complex128"},
 };
 
+const char* _VARIABLE_SIZE_ERROR_MESSAGE = "Variable-size element type cannot be used";
+
 }  // namespace
 
 Type::Type(Code c) : code(c) {}
@@ -83,12 +85,15 @@ std::string PrimitiveType::to_string() const { return TYPE_NAMES.at(code); }
 
 ExtensionType::ExtensionType(int32_t uid, Type::Code code) : Type(code), uid_(uid) {}
 
-FixedArrayType::FixedArrayType(int32_t uid, std::unique_ptr<Type> element_type, uint32_t N)
+FixedArrayType::FixedArrayType(int32_t uid,
+                               std::unique_ptr<Type> element_type,
+                               uint32_t N) noexcept(false)
   : ExtensionType(uid, Type::Code::FIXED_ARRAY),
     element_type_(std::move(element_type)),
     N_(N),
     size_(element_type_->size() * N)
 {
+  if (element_type_->variable_size()) throw std::invalid_argument(_VARIABLE_SIZE_ERROR_MESSAGE);
 }
 
 std::unique_ptr<Type> FixedArrayType::clone() const
@@ -103,24 +108,45 @@ std::string FixedArrayType::to_string() const
   return std::move(ss).str();
 }
 
-StructType::StructType(int32_t uid, std::vector<std::unique_ptr<Type>>&& field_types)
+StructType::StructType(int32_t uid,
+                       std::vector<std::unique_ptr<Type>>&& field_types,
+                       bool align) noexcept(false)
   : ExtensionType(uid, Type::Code::STRUCT),
+    aligned_(align),
+    alignment_(1),
+    size_(0),
     field_types_(std::forward<decltype(field_types_)>(field_types))
 {
-}
+  offsets_.reserve(field_types_.size());
+  if (aligned_) {
+    static constexpr auto align_offset = [](uint32_t offset, uint32_t align) {
+      return (offset + (align - 1)) & -align;
+    };
 
-uint32_t StructType::size() const
-{
-  uint32_t size = 0;
-  for (auto& field_type : field_types_) size += field_type->size();
-  return size;
+    for (auto& field_type : field_types_) {
+      if (field_type->variable_size()) throw std::invalid_argument(_VARIABLE_SIZE_ERROR_MESSAGE);
+      uint32_t _my_align = field_type->alignment();
+      alignment_         = std::max(_my_align, alignment_);
+
+      uint32_t offset = align_offset(size_, _my_align);
+      offsets_.push_back(offset);
+      size_ = offset + field_type->size();
+    }
+    size_ = align_offset(size_, alignment_);
+  } else {
+    for (auto& field_type : field_types_) {
+      if (field_type->variable_size()) throw std::invalid_argument(_VARIABLE_SIZE_ERROR_MESSAGE);
+      offsets_.push_back(size_);
+      size_ += field_type->size();
+    }
+  }
 }
 
 std::unique_ptr<Type> StructType::clone() const
 {
   std::vector<std::unique_ptr<Type>> field_types;
   for (auto& field_type : field_types_) field_types.push_back(field_type->clone());
-  return std::make_unique<StructType>(uid_, std::move(field_types));
+  return std::make_unique<StructType>(uid_, std::move(field_types), aligned_);
 }
 
 std::string StructType::to_string() const
@@ -129,7 +155,7 @@ std::string StructType::to_string() const
   ss << "{";
   for (uint32_t idx = 0; idx < field_types_.size(); ++idx) {
     if (idx > 0) ss << ",";
-    ss << field_types_.at(idx)->to_string();
+    ss << field_types_.at(idx)->to_string() << ":" << offsets_.at(idx);
   }
   ss << "}";
   return std::move(ss).str();
@@ -155,25 +181,28 @@ std::unique_ptr<Type> primitive_type(Type::Code code)
 
 std::unique_ptr<Type> string_type() { return std::make_unique<StringType>(); }
 
-std::unique_ptr<Type> fixed_array_type(std::unique_ptr<Type> element_type, uint32_t N)
+std::unique_ptr<Type> fixed_array_type(std::unique_ptr<Type> element_type,
+                                       uint32_t N) noexcept(false)
 {
   return std::make_unique<FixedArrayType>(
     Runtime::get_runtime()->get_type_uid(), std::move(element_type), N);
 }
 
-std::unique_ptr<Type> struct_type(std::vector<std::unique_ptr<Type>>&& field_types)
+std::unique_ptr<Type> struct_type(std::vector<std::unique_ptr<Type>>&& field_types,
+                                  bool align) noexcept(false)
 {
-  return std::make_unique<StructType>(
-    Runtime::get_runtime()->get_type_uid(),
-    std::forward<std::vector<std::unique_ptr<Type>>>(field_types));
+  return std::make_unique<StructType>(Runtime::get_runtime()->get_type_uid(),
+                                      std::forward<std::vector<std::unique_ptr<Type>>>(field_types),
+                                      align);
 }
 
-std::unique_ptr<Type> struct_type_raw_ptrs(std::vector<Type*> _field_types)
+std::unique_ptr<Type> struct_type_raw_ptrs(std::vector<Type*> _field_types,
+                                           bool align) noexcept(false)
 {
   std::vector<std::unique_ptr<Type>> field_types;
   for (auto field_type : _field_types) field_types.emplace_back(field_type);
-  return std::make_unique<StructType>(Runtime::get_runtime()->get_type_uid(),
-                                      std::move(field_types));
+  return std::make_unique<StructType>(
+    Runtime::get_runtime()->get_type_uid(), std::move(field_types), align);
 }
 
 }  // namespace legate

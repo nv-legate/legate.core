@@ -109,6 +109,7 @@ cdef extern from "core/type/type_info.h" namespace "legate" nogil:
             pass
         int code
         unsigned int size()
+        unsigned int alignment()
         int uid()
         bool variable_size()
         unique_ptr[Type] clone()
@@ -122,45 +123,52 @@ cdef extern from "core/type/type_info.h" namespace "legate" nogil:
     cdef cppclass StructType(Type):
         unsigned int num_fields()
         const Type* field_type(unsigned int)
+        bool aligned()
 
     cdef unique_ptr[Type] primitive_type(int code)
 
     cdef unique_ptr[Type] string_type()
 
-    cdef unique_ptr[Type] fixed_array_type(unique_ptr[Type] element_type, unsigned int N)
+    cdef unique_ptr[Type] fixed_array_type(
+        unique_ptr[Type] element_type, unsigned int N
+    ) except+
 
-    cdef unique_ptr[Type] struct_type_raw_ptrs(vector[Type*] field_types)
+    cdef unique_ptr[Type] struct_type_raw_ptrs(
+        vector[Type*] field_types, bool
+    ) except+
 
 
 cdef class DataType:
     cdef unique_ptr[Type] _type
 
     @staticmethod
-    cdef DataType from_ptr(unique_ptr[Type] ty):
+    cdef DataType from_ptr(Type* ty):
         cdef DataType dtype = DataType.__new__(DataType)
-        dtype._type.reset(ty.release())
+        dtype._type.reset(ty)
         return dtype
 
     @staticmethod
     def primitive_type(int code) -> DataType:
-        return DataType.from_ptr(primitive_type(<Type.Code> code))
+        return DataType.from_ptr(primitive_type(<Type.Code> code).release())
 
     @staticmethod
     def string_type() -> DataType:
-        return DataType.from_ptr(string_type())
+        return DataType.from_ptr(string_type().release())
 
     @staticmethod
     def fixed_array_type(DataType element_type, unsigned N) -> DataType:
-        return DataType.from_ptr(fixed_array_type(element_type._type.get().clone(), N))
+        return DataType.from_ptr(
+            fixed_array_type(element_type._type.get().clone(), N).release()
+        )
 
     @staticmethod
-    def struct_type(list field_types) -> DataType:
+    def struct_type(list field_types, bool align) -> DataType:
         cdef vector[Type*] types
         for field_type in field_types:
             types.push_back(
                 cython.cast(DataType, field_type)._type.get().clone().release()
             )
-        return DataType.from_ptr(struct_type_raw_ptrs(types))
+        return DataType.from_ptr(struct_type_raw_ptrs(types, align).release())
 
     @property
     def code(self) -> int:
@@ -169,6 +177,10 @@ cdef class DataType:
     @property
     def size(self) -> int:
         return self._type.get().size()
+
+    @property
+    def alignment(self) -> int:
+        return self._type.get().alignment()
 
     @property
     def uid(self) -> int:
@@ -198,7 +210,7 @@ cdef class DataType:
                 "`element_type` is defined only for a fixed array type"
             )
         cdef FixedArrayType* ptr = <FixedArrayType*> self._type.get()
-        return DataType.from_ptr(ptr.element_type().clone())
+        return DataType.from_ptr(ptr.element_type().clone().release())
 
     def num_fields(self) -> int:
         if self.code != STRUCT:
@@ -214,7 +226,15 @@ cdef class DataType:
                 "`field_type` is defined only for a struct type"
             )
         cdef StructType* ptr = <StructType*> self._type.get()
-        return DataType.from_ptr(ptr.field_type(field_idx).clone())
+        return DataType.from_ptr(ptr.field_type(field_idx).clone().release())
+
+    def aligned(self) -> bool:
+        if self.code != STRUCT:
+            raise ValueError(
+                "`aligned` is defined only for a struct type"
+            )
+        cdef StructType* ptr = <StructType*> self._type.get()
+        return ptr.aligned()
 
     def to_numpy_dtype(self):
         code = self.code
@@ -236,7 +256,9 @@ cdef class DataType:
                 self.field_type(field_idx).to_numpy_dtype()
                 for field_idx in range(num_fields)
             )
-            return np.dtype({"names": names, "formats": formats})
+            return np.dtype(
+                {"names": names, "formats": formats}, align=self.aligned()
+            )
 
         else:
             raise ValueError(f"Invalid type code: {code}")
