@@ -237,6 +237,12 @@ def cmd_gpus(
 ) -> CommandPart:
     gpus = config.core.gpus
 
+    if gpus > 0 and not install_info.use_cuda:
+        raise RuntimeError(
+            "--gpus was requested, but this build does not have CUDA "
+            "support enabled"
+        )
+
     # Make sure that we skip busy GPUs
     return () if gpus == 0 else ("-ll:gpu", str(gpus), "-cuda:skipbusy")
 
@@ -247,6 +253,12 @@ def cmd_openmp(
     openmp = config.core.openmp
     ompthreads = config.core.ompthreads
     numamem = config.memory.numamem
+
+    if openmp > 0 and not install_info.use_openmp:
+        raise RuntimeError(
+            "--omps was requested, but this build does not have OpenMP "
+            "support enabled"
+        )
 
     if openmp == 0:
         return ()

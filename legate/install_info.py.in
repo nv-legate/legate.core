@@ -49,6 +49,7 @@ conduit: str = "@GASNet_CONDUIT@"
 
 build_type: str = "@CMAKE_BUILD_TYPE@"
 
+# this is to support simpler templating from cmake
 ON, OFF = True, False
 
 use_cuda: bool = @Legion_USE_CUDA@
