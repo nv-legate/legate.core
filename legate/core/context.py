@@ -28,6 +28,7 @@ from typing import (
 import numpy as np
 
 from . import Future, legion
+from ._legion.util import Logger
 from ._lib.context import Context as CppContext  # type: ignore[import]
 
 if TYPE_CHECKING:
@@ -112,11 +113,17 @@ class Context:
 
         self._libname = library.get_name()
         self._annotations: list[LibraryAnnotations] = [LibraryAnnotations()]
+        self._logger = Logger(library.get_name())
 
         self._mapper_id = self._cpp_context.get_mapper_id()
 
     def destroy(self) -> None:
+        self._logger.destroy()
         self._library.destroy()
+
+    @property
+    def logger(self) -> Logger:
+        return self._logger
 
     @property
     def runtime(self) -> Runtime:

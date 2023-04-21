@@ -257,7 +257,8 @@ class Launcher:
             env["LEGION_FREEZE_ON_ERROR"] = "1"
 
         # Debugging options
-        env["REALM_BACKTRACE"] = "1"
+        if system.env.get("PYTHONFAULTHANDLER", "") == "":
+            env["REALM_BACKTRACE"] = "1"
 
         if config.debugging.gasnet_trace:
             env["GASNET_TRACEFILE"] = str(

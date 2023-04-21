@@ -16,6 +16,7 @@
 
 #include "mappers/null_mapper.h"
 
+#include "env_defaults.h"
 #include "legate.h"
 
 #include "core/mapping/core_mapper.h"
@@ -149,23 +150,22 @@ CoreMapper::CoreMapper(Legion::Mapping::MapperRuntime* rt,
     total_nodes(get_total_nodes(m)),
     mapper_name(create_name(local_node)),
     context(c),
-    min_gpu_chunk(extract_env("LEGATE_MIN_GPU_CHUNK", 1 << 20, 2)),
-    min_cpu_chunk(extract_env("LEGATE_MIN_CPU_CHUNK", 1 << 14, 2)),
-    min_omp_chunk(extract_env("LEGATE_MIN_OMP_CHUNK", 1 << 17, 2)),
-    window_size(extract_env("LEGATE_WINDOW_SIZE", 1, 1)),
-    max_pending_exceptions(
-      extract_env("LEGATE_MAX_PENDING_EXCEPTIONS",
-#ifdef DEBUG_LEGATE
-                  // In debug mode, the default is always block on tasks that can throw exceptions
-                  1,
-#else
-                  64,
-#endif
-                  1)),
-    precise_exception_trace(static_cast<bool>(extract_env("LEGATE_PRECISE_EXCEPTION_TRACE", 0, 0))),
-    field_reuse_frac(extract_env("LEGATE_FIELD_REUSE_FRAC", 256, 256)),
-    field_reuse_freq(extract_env("LEGATE_FIELD_REUSE_FREQ", 32, 32)),
-    max_lru_length(extract_env("LEGATE_MAX_LRU_LENGTH", 5, 1)),
+    min_gpu_chunk(extract_env("LEGATE_MIN_GPU_CHUNK", MIN_GPU_CHUNK_DEFAULT, MIN_GPU_CHUNK_TEST)),
+    min_cpu_chunk(extract_env("LEGATE_MIN_CPU_CHUNK", MIN_CPU_CHUNK_DEFAULT, MIN_CPU_CHUNK_TEST)),
+    min_omp_chunk(extract_env("LEGATE_MIN_OMP_CHUNK", MIN_OMP_CHUNK_DEFAULT, MIN_OMP_CHUNK_TEST)),
+    window_size(extract_env("LEGATE_WINDOW_SIZE", WINDOW_SIZE_DEFAULT, WINDOW_SIZE_TEST)),
+    max_pending_exceptions(extract_env("LEGATE_MAX_PENDING_EXCEPTIONS",
+                                       MAX_PENDING_EXCEPTIONS_DEFAULT,
+                                       MAX_PENDING_EXCEPTIONS_TEST)),
+    precise_exception_trace(static_cast<bool>(extract_env("LEGATE_PRECISE_EXCEPTION_TRACE",
+                                                          PRECISE_EXCEPTION_TRACE_DEFAULT,
+                                                          PRECISE_EXCEPTION_TRACE_TEST))),
+    field_reuse_frac(
+      extract_env("LEGATE_FIELD_REUSE_FRAC", FIELD_REUSE_FRAC_DEFAULT, FIELD_REUSE_FRAC_TEST)),
+    field_reuse_freq(
+      extract_env("LEGATE_FIELD_REUSE_FREQ", FIELD_REUSE_FREQ_DEFAULT, FIELD_REUSE_FREQ_TEST)),
+    max_lru_length(
+      extract_env("LEGATE_MAX_LRU_LENGTH", MAX_LRU_LENGTH_DEFAULT, MAX_LRU_LENGTH_TEST)),
     has_socket_mem(false)
 {
   // Query to find all our local processors

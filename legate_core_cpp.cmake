@@ -507,6 +507,7 @@ rapids_export(
   LANGUAGES ${ENABLED_LANGUAES}
 )
 option(legate_core_EXAMPLE_BUILD_TESTS OFF)
+include(cmake/legate_helper_functions.cmake)
 if (legate_core_EXAMPLE_BUILD_TESTS)
   set(legate_core_ROOT ${CMAKE_CURRENT_BINARY_DIR})
   add_subdirectory(examples)
