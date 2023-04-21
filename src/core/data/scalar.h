@@ -49,11 +49,10 @@ class Scalar {
    * @brief Creates a shared `Scalar` with an existing allocation. The caller is responsible
    * for passing in a sufficiently big allocation.
    *
-   * @param tuple If true, the allocation contains a tuple of scalars.
    * @param code Type code of the scalar(s)
    * @param data Allocation containing the data.
    */
-  Scalar(bool tuple, std::unique_ptr<Type> type, const void* data);
+  Scalar(std::unique_ptr<Type> type, const void* data);
   ~Scalar();
 
  public:
@@ -83,18 +82,17 @@ class Scalar {
 
  public:
   /**
-   * @brief Indicates if the `Scalar` object represents a tuple
+   * @brief Returns the data type of the scalar
    *
-   * @return true The `Scalar` is a tuple
-   * @return false The `Scalar` is a scalar
+   * @return Data type
    */
-  bool is_tuple() const { return tuple_; }
+  const Type* type() const { return type_.get(); }
   /**
    * @brief Returns the size of allocation for the `Scalar`.
    *
    * @return The size of allocation
    */
-  size_t size() const;
+  size_t size() const { return type_->size(); }
 
  public:
   /**
@@ -124,7 +122,6 @@ class Scalar {
 
  private:
   bool own_{false};
-  bool tuple_{false};
   std::unique_ptr<Type> type_{nullptr};
   const void* data_;
 };

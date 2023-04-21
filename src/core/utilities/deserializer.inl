@@ -25,10 +25,9 @@ BaseDeserializer<Deserializer>::BaseDeserializer(const int8_t* args, size_t argl
 template <typename Deserializer>
 void BaseDeserializer<Deserializer>::_unpack(Scalar& value)
 {
-  auto tuple = unpack<bool>();
-  auto type  = unpack_type();
-  value      = Scalar(tuple, std::move(type), args_.ptr());
-  args_      = args_.subspan(value.size());
+  auto type = unpack_type();
+  value     = Scalar(std::move(type), args_.ptr());
+  args_     = args_.subspan(value.size());
 }
 
 template <typename Deserializer>
