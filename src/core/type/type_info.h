@@ -335,4 +335,8 @@ std::unique_ptr<Type> struct_type(std::vector<std::unique_ptr<Type>>&& field_typ
 std::unique_ptr<Type> struct_type_raw_ptrs(std::vector<Type*> field_types,
                                            bool align = false) noexcept(false);
 
+std::ostream& operator<<(std::ostream&, const Type::Code&);
+
+std::ostream& operator<<(std::ostream&, const Type&);
+
 }  // namespace legate

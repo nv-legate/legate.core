@@ -51,4 +51,12 @@ void Scalar::copy(const Scalar& other)
     data_ = other.data_;
 }
 
+size_t Scalar::size() const
+{
+  if (type_->code == Type::Code::STRING)
+    return *static_cast<const uint32_t*>(data_) + sizeof(uint32_t);
+  else
+    return type_->size();
+}
+
 }  // namespace legate

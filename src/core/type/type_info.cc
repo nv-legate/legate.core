@@ -205,4 +205,16 @@ std::unique_ptr<Type> struct_type_raw_ptrs(std::vector<Type*> _field_types,
     Runtime::get_runtime()->get_type_uid(), std::move(field_types), align);
 }
 
+std::ostream& operator<<(std::ostream& ostream, const Type::Code& code)
+{
+  ostream << static_cast<int32_t>(code);
+  return ostream;
+}
+
+std::ostream& operator<<(std::ostream& ostream, const Type& type)
+{
+  ostream << type.to_string();
+  return ostream;
+}
+
 }  // namespace legate

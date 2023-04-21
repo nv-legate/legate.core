@@ -92,7 +92,7 @@ class Scalar {
    *
    * @return The size of allocation
    */
-  size_t size() const { return type_->size(); }
+  size_t size() const;
 
  public:
   /**

@@ -111,6 +111,9 @@ std::unique_ptr<Type> BaseDeserializer<Deserializer>::unpack_type()
     case Type::Code::COMPLEX128: {
       return std::make_unique<PrimitiveType>(code);
     }
+    case Type::Code::STRING: {
+      return std::make_unique<StringType>();
+    }
   }
   LEGATE_ABORT;
   return nullptr;
