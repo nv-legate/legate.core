@@ -32,7 +32,9 @@ class ReductionOp(IntEnum):
     XOR = ext.XOR
 
 
-Dtype = ext.DataType
+Dtype = ext.Dtype
+FixedArrayDtype = ext.FixedArrayDtype
+StructDtype = ext.StructDtype
 
 
 bool_ = Dtype.primitive_type(ext.BOOL)
@@ -52,9 +54,9 @@ complex128 = Dtype.primitive_type(ext.COMPLEX128)
 string = Dtype.string_type()
 
 
-def array_type(element_type: Dtype, N: int) -> Dtype:
+def array_type(element_type: Dtype, N: int) -> FixedArrayDtype:
     return Dtype.fixed_array_type(element_type, N)
 
 
-def struct_type(field_types: list[Dtype], align: bool = False) -> Dtype:
+def struct_type(field_types: list[Dtype], align: bool = False) -> StructDtype:
     return Dtype.struct_type(field_types, align)

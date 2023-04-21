@@ -138,37 +138,49 @@ cdef extern from "core/type/type_info.h" namespace "legate" nogil:
     ) except+
 
 
-cdef class DataType:
+cdef Dtype from_ptr(Type* ty):
+    if <int> ty.code == FIXED_ARRAY:
+        return FixedArrayDtype.from_ptr(ty)
+    elif <int> ty.code == STRUCT:
+        return StructDtype.from_ptr(ty)
+    else:
+        return Dtype.from_ptr(ty)
+
+cdef class Dtype:
     cdef unique_ptr[Type] _type
 
     @staticmethod
-    cdef DataType from_ptr(Type* ty):
-        cdef DataType dtype = DataType.__new__(DataType)
+    cdef Dtype from_ptr(Type* ty):
+        cdef Dtype dtype = Dtype.__new__(Dtype)
         dtype._type.reset(ty)
         return dtype
 
     @staticmethod
-    def primitive_type(int code) -> DataType:
-        return DataType.from_ptr(primitive_type(<Type.Code> code).release())
+    def primitive_type(int code) -> Dtype:
+        return Dtype.from_ptr(primitive_type(<Type.Code> code).release())
 
     @staticmethod
-    def string_type() -> DataType:
-        return DataType.from_ptr(string_type().release())
+    def string_type() -> Dtype:
+        return Dtype.from_ptr(string_type().release())
 
     @staticmethod
-    def fixed_array_type(DataType element_type, unsigned N) -> DataType:
-        return DataType.from_ptr(
+    def fixed_array_type(
+        Dtype element_type, unsigned N
+    ) -> FixedArrayDtype:
+        return FixedArrayDtype.from_ptr(
             fixed_array_type(element_type._type.get().clone(), N).release()
         )
 
     @staticmethod
-    def struct_type(list field_types, bool align) -> DataType:
+    def struct_type(list field_types, bool align) -> StructDtype:
         cdef vector[Type*] types
         for field_type in field_types:
             types.push_back(
-                cython.cast(DataType, field_type)._type.get().clone().release()
+                cython.cast(Dtype, field_type)._type.get().clone().release()
             )
-        return DataType.from_ptr(struct_type_raw_ptrs(types, align).release())
+        return StructDtype.from_ptr(
+            struct_type_raw_ptrs(types, align).release()
+        )
 
     @property
     def code(self) -> int:
@@ -196,83 +208,86 @@ cdef class DataType:
     def __repr__(self) -> str:
         return self._type.get().to_string().decode()
 
-    def num_elements(self) -> int:
-        if self.code != FIXED_ARRAY:
-            raise ValueError(
-                "`num_elements` is defined only for a fixed array type"
-            )
-        cdef FixedArrayType* ptr = <FixedArrayType*> self._type.get()
-        return ptr.num_elements()
-
-    def element_type(self) -> DataType:
-        if self.code != FIXED_ARRAY:
-            raise ValueError(
-                "`element_type` is defined only for a fixed array type"
-            )
-        cdef FixedArrayType* ptr = <FixedArrayType*> self._type.get()
-        return DataType.from_ptr(ptr.element_type().clone().release())
-
-    def num_fields(self) -> int:
-        if self.code != STRUCT:
-            raise ValueError(
-                "`num_fields` is defined only for a struct type"
-            )
-        cdef StructType* ptr = <StructType*> self._type.get()
-        return ptr.num_fields()
-
-    def field_type(self, int field_idx) -> DataType:
-        if self.code != STRUCT:
-            raise ValueError(
-                "`field_type` is defined only for a struct type"
-            )
-        cdef StructType* ptr = <StructType*> self._type.get()
-        return DataType.from_ptr(ptr.field_type(field_idx).clone().release())
-
-    def aligned(self) -> bool:
-        if self.code != STRUCT:
-            raise ValueError(
-                "`aligned` is defined only for a struct type"
-            )
-        cdef StructType* ptr = <StructType*> self._type.get()
-        return ptr.aligned()
-
     def to_numpy_dtype(self):
         code = self.code
         if code in _NUMPY_DTYPES:
-            return _NUMPY_DTYPES[code]
-        elif code == FIXED_ARRAY:
-            arr_type = (
-                self.element_type().to_numpy_dtype(), self.num_elements()
-            )
-            # Return a singleton struct type, as NumPy would flatten away
-            # nested arrays
-            return np.dtype({"names": ("_0",), "formats": (arr_type,)})
-        elif code == STRUCT:
-            num_fields = self.num_fields()
-            names = tuple(
-                f"_{field_idx}" for field_idx in range(num_fields)
-            )
-            formats = tuple(
-                self.field_type(field_idx).to_numpy_dtype()
-                for field_idx in range(num_fields)
-            )
-            return np.dtype(
-                {"names": names, "formats": formats}, align=self.aligned()
-            )
-
+            return _NUMPY_DTYPES[self.code]
         else:
             raise ValueError(f"Invalid type code: {code}")
 
     def serialize(self, buf) -> None:
-        code = self.code
-        buf.pack_32bit_int(code)
-        if code == FIXED_ARRAY:
-            buf.pack_32bit_int(self.uid)
-            buf.pack_32bit_int(self.num_elements())
-            self.element_type().serialize(buf)
-        elif code == STRUCT:
-            num_fields = self.num_fields()
-            buf.pack_32bit_int(self.uid)
-            buf.pack_32bit_int(num_fields)
-            for field_idx in range(num_fields):
-                self.field_type(field_idx).serialize(buf)
+        buf.pack_32bit_int(self.code)
+
+
+cdef class FixedArrayDtype(Dtype):
+    @staticmethod
+    cdef FixedArrayDtype from_ptr(Type* ty):
+        cdef FixedArrayDtype dtype = FixedArrayDtype.__new__(
+            FixedArrayDtype
+        )
+        dtype._type.reset(ty)
+        return dtype
+
+    def num_elements(self) -> int:
+        cdef FixedArrayType* ty = <FixedArrayType*> self._type.get()
+        return ty.num_elements()
+
+    def element_type(self) -> Dtype:
+        cdef FixedArrayType* ty = <FixedArrayType*> self._type.get()
+        return from_ptr(ty.element_type().clone().release())
+
+    def to_numpy_dtype(self):
+        arr_type = (
+            self.element_type().to_numpy_dtype(), self.num_elements()
+        )
+        # Return a singleton struct type, as NumPy would flatten away
+        # nested arrays
+        return np.dtype({"names": ("_0",), "formats": (arr_type,)})
+
+    def serialize(self, buf) -> None:
+        buf.pack_32bit_int(self.code)
+        buf.pack_32bit_int(self.uid)
+        buf.pack_32bit_int(self.num_elements())
+        self.element_type().serialize(buf)
+
+
+cdef class StructDtype(Dtype):
+    @staticmethod
+    cdef StructDtype from_ptr(Type* ty):
+        cdef StructDtype dtype = StructDtype.__new__(StructDtype)
+        dtype._type.reset(ty)
+        return dtype
+
+    def num_fields(self) -> int:
+        cdef StructType* ty = <StructType*> self._type.get()
+        return ty.num_fields()
+
+    def field_type(self, int field_idx) -> Dtype:
+        cdef StructType* ty = <StructType*> self._type.get()
+        field_type = ty.field_type(field_idx).clone().release()
+        return from_ptr(field_type)
+
+    def aligned(self) -> bool:
+        cdef StructType* ty = <StructType*> self._type.get()
+        return ty.aligned()
+
+    def to_numpy_dtype(self):
+        num_fields = self.num_fields()
+        names = tuple(
+            f"_{field_idx}" for field_idx in range(num_fields)
+        )
+        formats = tuple(
+            self.field_type(field_idx).to_numpy_dtype()
+            for field_idx in range(num_fields)
+        )
+        return np.dtype(
+            {"names": names, "formats": formats}, align=self.aligned()
+        )
+
+    def serialize(self, buf) -> None:
+        buf.pack_32bit_int(self.code)
+        num_fields = self.num_fields()
+        buf.pack_32bit_int(self.uid)
+        buf.pack_32bit_int(num_fields)
+        for field_idx in range(num_fields):
+            self.field_type(field_idx).serialize(buf)
