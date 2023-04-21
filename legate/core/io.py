@@ -26,7 +26,7 @@ from . import (
     Rect,
     legion,
 )
-from .legate import Array, Table
+from .legate import Array, LegateDataInterface, Table
 from .partition import Tiling
 from .runtime import runtime
 from .shape import Shape
@@ -141,7 +141,7 @@ def ingest(
     data_split: DataSplit,
     get_buffer: Callable[[Point], memoryview],
     get_local_colors: Optional[Callable[[], Iterable[Point]]] = None,
-) -> Table:
+) -> LegateDataInterface:
     """
     Construct a single-column Table backed by a collection of buffers
     distributed across the machine.
@@ -253,5 +253,4 @@ def ingest(
     alloc = DistributedAllocation(partition, shard_local_buffers)
     store.attach_external_allocation(runtime.core_context, alloc, False)
     # first store is the (non-existent) mask
-    array = Array(dtype, [None, store])
-    return Table.from_arrays([array], ["ingested"])
+    return Table.from_arrays(["ingested"], [Array(dtype, [None, store])])

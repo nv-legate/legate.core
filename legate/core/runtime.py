@@ -426,8 +426,10 @@ class AttachmentManager:
             tuple[Attachable, Union[Detach, IndexDetach]]
         ] = list()
         self._pending_detachments: dict[Future, Attachable] = dict()
+        self._destroyed = False
 
     def destroy(self) -> None:
+        self._destroyed = True
         gc.collect()
         while self._deferred_detachments:
             self.perform_detachments()
@@ -506,6 +508,10 @@ class AttachmentManager:
     def _remove_attachment(self, buf: memoryview) -> None:
         key = self.attachment_key(buf)
         if key not in self._attachments:
+            # If the manager is already destroyed, ignore the detachment
+            # attempt
+            if self._destroyed:
+                return
             raise RuntimeError("Unable to find attachment to remove")
         del self._attachments[key]
 
