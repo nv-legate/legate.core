@@ -416,6 +416,7 @@ install(
 install(
   FILES src/core/runtime/context.h
         src/core/runtime/context.inl
+        src/core/runtime/resource.h
         src/core/runtime/runtime.h
         src/core/runtime/runtime.inl
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/legate/core/runtime)
@@ -434,7 +435,7 @@ install(
 install(
   FILES src/core/type/type_info.h
         src/core/type/type_traits.h
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/legate/core/utilities)
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/legate/core/type)
 install(
   FILES src/core/utilities/debug.h
         src/core/utilities/deserializer.h
