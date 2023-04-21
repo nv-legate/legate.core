@@ -34,6 +34,7 @@ from .allocation import (
     DistributedAllocation,
     InlineMappedAllocation,
 )
+from .legate import Array, Field as LegateField
 from .partition import REPLICATE, PartitionBase, Restriction, Tiling
 from .projection import execute_functor_symbolically
 from .runtime import runtime
@@ -58,6 +59,7 @@ if TYPE_CHECKING:
     )
     from .context import Context
     from .launcher import Proj
+    from .legate import LegateDataInterfaceItem
     from .projection import ProjFn
     from .transform import TransformStackBase
 
@@ -1068,6 +1070,15 @@ class Store:
             If ``True``, the store is transformed
         """
         return not self._transform.bottom
+
+    @property
+    def __legate_data_interface__(self) -> LegateDataInterfaceItem:
+        array = Array(self.type, [None, self])
+        result: LegateDataInterfaceItem = {
+            "version": 1,
+            "data": {LegateField("store", self.type): array},
+        }
+        return result
 
     def attach_external_allocation(
         self, context: Context, alloc: Attachable, share: bool
