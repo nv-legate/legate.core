@@ -818,7 +818,9 @@ class AutoTask(AutoOperation, Task):
         result: Union[Future, FutureMap]
         out_partitions: dict[Store, LegionPartition]
         if launch_domain is not None:
-            result, out_partitions = launcher.execute(launch_domain)
+            res = launcher.execute(launch_domain)
+            result = res.future_map
+            out_partitions = res.output_partitions
         else:
             result = launcher.execute_single()
             out_partitions = dict()
@@ -1023,9 +1025,11 @@ class ManualTask(Operation, Task):
 
         self._add_communicators(launcher, self._launch_domain)
 
-        result, out_partitions = launcher.execute(self._launch_domain)
+        result = launcher.execute(self._launch_domain)
 
-        self._demux_scalar_stores(result, out_partitions, self._launch_domain)
+        self._demux_scalar_stores(
+            result.future_map, result.output_partitions, self._launch_domain
+        )
 
 
 class Copy(AutoOperation):
@@ -1479,11 +1483,11 @@ class Reduce(AutoOperation):
             launcher.add_unbound_output(output, fspace, field_id)
 
             launch_domain = Rect([num_tasks])
-            weights, out_partitions = launcher.execute(launch_domain)
+            result = launcher.execute(launch_domain)
 
             launch_shape = Shape(c + 1 for c in launch_domain.hi)
-            weighted = Weighted(launch_shape, weights)
-            weighted.import_partition(out_partitions[output])
+            weighted = Weighted(launch_shape, result.future_map)
+            weighted.import_partition(result.output_partitions[output])
             output.set_key_partition(weighted)
             opart = output.partition(weighted)
 
