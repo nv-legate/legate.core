@@ -527,7 +527,10 @@ void BaseMapper::map_task(const Legion::Mapping::MapperContext ctx,
 #ifdef DEBUG_LEGATE
   assert(mapped_futures.size() <= task.futures.size());
   // The launching code should be packing all Store-backing Futures first.
-  if (mapped_futures.size() > 0) assert(mapped_futures.size() == mapped_futures.back() + 1);
+  if (mapped_futures.size() > 0) {
+    uint32_t max_mapped_fut = *mapped_futures.rbegin();
+    assert(mapped_futures.size() == max_mapped_fut + 1);
+  }
 #endif
 
   // Map future-backed stores
