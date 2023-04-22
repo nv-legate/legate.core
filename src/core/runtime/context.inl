@@ -51,7 +51,7 @@ int32_t LibraryContext::register_reduction_operator(int32_t redop_id)
   else {
     runtime->enter_callback();
     Legion::Runtime::perform_registration_callback(
-      detail::register_reduction_callback<REDOP>(),
+      detail::register_reduction_callback<REDOP>,
       Legion::UntypedBuffer(&legion_redop_id, sizeof(int32_t)),
       true /*global*/);
     runtime->exit_callback();
