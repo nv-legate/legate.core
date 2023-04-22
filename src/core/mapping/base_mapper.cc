@@ -379,11 +379,13 @@ void BaseMapper::map_task(const Legion::Mapping::MapperContext ctx,
   generate_default_mappings(legate_task.outputs(), false);
   generate_default_mappings(legate_task.reductions(), false);
 #ifdef DEBUG_LEGATE
-  assert(mapped_futures.size() == task.futures.size());
+  assert(mapped_futures.size() <= task.futures.size());
+  // The launching code should be packing all Store-backing Futures first.
+  if (mapped_futures.size() > 0) assert(mapped_futures.size() == mapped_futures.back() + 1);
 #endif
 
   // Map future-backed stores
-  output.future_locations.resize(task.futures.size());
+  output.future_locations.resize(mapped_futures.size());
   for (auto& mapping : for_futures) {
     auto fut_idx       = mapping.store().future_index();
     StoreTarget target = mapping.policy.target;
