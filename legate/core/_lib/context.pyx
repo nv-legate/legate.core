@@ -30,7 +30,7 @@ cdef extern from "core/task/task_info.h" namespace "legate" nogil:
 cdef extern from "core/runtime/context.h" namespace "legate" nogil:
     cdef cppclass LibraryContext:
         unsigned int get_task_id(long long)
-        unsigned int get_mapper_id(long long)
+        unsigned int get_mapper_id()
         int get_reduction_op_id(long long)
         unsigned int get_projection_id(long long)
         unsigned int get_sharding_id(long long)
@@ -75,8 +75,8 @@ cdef class Context:
     def get_task_id(self, long long local_task_id) -> int:
         return self._context.get_task_id(local_task_id)
 
-    def get_mapper_id(self, long long local_mapper_id) -> int:
-        return self._context.get_mapper_id(local_mapper_id)
+    def get_mapper_id(self) -> int:
+        return self._context.get_mapper_id()
 
     def get_reduction_op_id(self, long long local_redop_id) -> int:
         return self._context.get_reduction_op_id(local_redop_id)

@@ -36,6 +36,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx_copybutton",
     "myst_parser",
+    "legate._sphinxext.settings",
 ]
 
 suppress_warnings = ["ref.myst"]

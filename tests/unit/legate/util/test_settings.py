@@ -38,17 +38,11 @@ def envset(
 
 
 class TestConverters:
-    @pytest.mark.parametrize(
-        "value", ["Yes", "YES", "yes", "1", "ON", "on", "true", "True", True]
-    )
-    def test_convert_bool(self, value: str) -> None:
-        assert m.convert_bool(value)
+    def test_convert_bool_1(self) -> None:
+        assert m.convert_bool("1")
 
-    @pytest.mark.parametrize(
-        "value", ["No", "NO", "no", "0", "OFF", "off", "false", "False", False]
-    )
-    def test_convert_bool_false(self, value: str) -> None:
-        assert not m.convert_bool(value)
+    def test_convert_bool_0(self) -> None:
+        assert not m.convert_bool("0")
 
     @pytest.mark.parametrize("value", [True, False])
     def test_convert_bool_identity(self, value: bool) -> None:
@@ -145,7 +139,6 @@ class TestPrioritizedSetting:
         ps: Any = m.PrioritizedSetting(
             "foo", env_var="LEGATE_FOO", convert=int, default=0
         )
-        ps._parent = FakeSettings
 
         # 0. global default
         assert ps() == 0

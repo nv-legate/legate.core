@@ -135,7 +135,7 @@ header: str = """
 """
 ]=])
   set(install_info_py_in ${CMAKE_BINARY_DIR}/legate_${target}/install_info.py.in)
-  set(install_info_py ${CMAKE_SOURCE_DIR}/${target}/install_info.py)
+  set(install_info_py ${CMAKE_CURRENT_SOURCE_DIR}/${target}/install_info.py)
   file(WRITE ${install_info_py_in} "${install_info_in}")
 
   set(generate_script_content
@@ -326,55 +326,8 @@ struct Task : public legate::LegateTask<T> {
  */
 
 #include "legate_library.h"
-#include "core/mapping/mapping.h"
 
 namespace @target@ {
-
-class Mapper : public legate::mapping::LegateMapper {
- public:
-  Mapper(){}
-
- private:
-  Mapper(const Mapper& rhs)            = delete;
-  Mapper& operator=(const Mapper& rhs) = delete;
-
-  // Legate mapping functions
- public:
-  void set_machine(const legate::mapping::MachineQueryInterface* machine) override {
-    machine_ = machine;
-  }
-
-  legate::mapping::TaskTarget task_target(
-    const legate::mapping::Task& task,
-    const std::vector<legate::mapping::TaskTarget>& options) override {
-    return *options.begin();
-  }
-
-  std::vector<legate::mapping::StoreMapping> store_mappings(
-    const legate::mapping::Task& task,
-    const std::vector<legate::mapping::StoreTarget>& options) override {
-    using legate::mapping::StoreMapping;
-    std::vector<StoreMapping> mappings;
-    auto& inputs  = task.inputs();
-    auto& outputs = task.outputs();
-    for (auto& input : inputs) {
-      mappings.push_back(StoreMapping::default_mapping(input, options.front()));
-      mappings.back().policy.exact = true;
-    }
-    for (auto& output : outputs) {
-      mappings.push_back(StoreMapping::default_mapping(output, options.front()));
-      mappings.back().policy.exact = true;
-    }
-    return std::move(mappings);
-  }
-
-  legate::Scalar tunable_value(legate::TunableID tunable_id) override {
-    return 0;
-  }
-
- private:
-  const legate::mapping::MachineQueryInterface* machine_;
-};
 
 static const char* const library_name = "@target@";
 
@@ -388,16 +341,9 @@ Legion::Logger log_@target@(library_name);
 
 void registration_callback()
 {
-  legate::ResourceConfig config;
-  config.max_mappers       = 1;
-  config.max_tasks         = 1024;
-  config.max_reduction_ops = 8;
-  auto context = legate::Runtime::get_runtime()->create_library(library_name, config);
+  auto context = legate::Runtime::get_runtime()->create_library(library_name);
 
-  Registry::get_registrar().register_all_tasks(*context);
-
-  // Now we can register our mapper with the runtime
-  context->register_mapper(std::make_unique<Mapper>(), 0);
+  Registry::get_registrar().register_all_tasks(context);
 }
 
 }  // namespace @target@
@@ -483,5 +429,5 @@ user_lib = UserLibrary("@target@")
 user_context = get_legate_runtime().register_library(user_lib)
 ]=])
   string(CONFIGURE "${file_template}" file_content @ONLY)
-  file(WRITE ${CMAKE_SOURCE_DIR}/${target}/library.py "${file_content}")
+  file(WRITE ${CMAKE_CURRENT_SOURCE_DIR}/${target}/library.py "${file_content}")
 endfunction()

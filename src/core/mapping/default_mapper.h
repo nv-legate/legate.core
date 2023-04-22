@@ -14,24 +14,24 @@
  *
  */
 
-#include "core/task/registrar.h"
+#include "core/mapping/mapping.h"
 
-#include "core/runtime/context.h"
-#include "core/task/task_info.h"
-#include "core/utilities/typedefs.h"
+#pragma once
 
 namespace legate {
+namespace mapping {
 
-void TaskRegistrar::record_task(int64_t local_task_id, std::unique_ptr<TaskInfo> task_info)
-{
-  pending_task_infos_.push_back(std::make_pair(local_task_id, std::move(task_info)));
-}
+class DefaultMapper : public Mapper {
+ public:
+  virtual ~DefaultMapper() {}
 
-void TaskRegistrar::register_all_tasks(LibraryContext* context)
-{
-  for (auto& [local_task_id, task_info] : pending_task_infos_)
-    context->register_task(local_task_id, std::move(task_info));
-  pending_task_infos_.clear();
-}
+ public:
+  void set_machine(const MachineQueryInterface* machine) override;
+  TaskTarget task_target(const Task& task, const std::vector<TaskTarget>& options) override;
+  std::vector<StoreMapping> store_mappings(const Task& task,
+                                           const std::vector<StoreTarget>& options) override;
+  Scalar tunable_value(TunableID tunable_id) override;
+};
 
+}  // namespace mapping
 }  // namespace legate

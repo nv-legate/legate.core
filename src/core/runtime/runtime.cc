@@ -16,6 +16,7 @@
 
 #include "core/comm/comm.h"
 #include "core/mapping/core_mapper.h"
+#include "core/mapping/default_mapper.h"
 #include "core/runtime/context.h"
 #include "core/runtime/projection.h"
 #include "core/runtime/shard.h"
@@ -161,7 +162,8 @@ LibraryContext* Runtime::find_library(const std::string& library_name,
 }
 
 LibraryContext* Runtime::create_library(const std::string& library_name,
-                                        const ResourceConfig& config)
+                                        const ResourceConfig& config,
+                                        std::unique_ptr<mapping::Mapper> mapper)
 {
   if (libraries_.find(library_name) != libraries_.end()) {
     log_legate.error("Library %s already exists", library_name.c_str());
@@ -169,8 +171,9 @@ LibraryContext* Runtime::create_library(const std::string& library_name,
   }
 
   log_legate.debug("Library %s is created", library_name.c_str());
-  auto context             = std::make_unique<LibraryContext>(library_name, config);
-  auto raw_context         = context.get();
+  if (nullptr == mapper) mapper = std::make_unique<mapping::DefaultMapper>();
+  auto context     = std::make_unique<LibraryContext>(library_name, config, std::move(mapper));
+  auto raw_context = context.get();
   libraries_[library_name] = std::move(context);
   return raw_context;
 }
@@ -183,9 +186,9 @@ LibraryContext* Runtime::create_library(const std::string& library_name,
 
 void register_legate_core_tasks(Legion::Machine machine,
                                 Legion::Runtime* runtime,
-                                const LibraryContext& context)
+                                const LibraryContext* context)
 {
-  auto extract_scalar_task_id          = context.get_task_id(LEGATE_CORE_EXTRACT_SCALAR_TASK_ID);
+  auto extract_scalar_task_id          = context->get_task_id(LEGATE_CORE_EXTRACT_SCALAR_TASK_ID);
   const char* extract_scalar_task_name = "core::extract_scalar";
   runtime->attach_name(
     extract_scalar_task_id, extract_scalar_task_name, false /*mutable*/, true /*local only*/);
@@ -216,7 +219,7 @@ void register_legate_core_tasks(Legion::Machine machine,
 }
 
 extern void register_exception_reduction_op(Legion::Runtime* runtime,
-                                            const LibraryContext& context);
+                                            const LibraryContext* context);
 
 /*static*/ void core_registration_callback(Legion::Machine machine,
                                            Legion::Runtime* runtime,
@@ -230,18 +233,18 @@ extern void register_exception_reduction_op(Legion::Runtime* runtime,
   config.max_reduction_ops = LEGATE_CORE_MAX_REDUCTION_OP_ID;
   auto core_lib            = Runtime::get_runtime()->create_library(core_library_name, config);
 
-  register_legate_core_tasks(machine, runtime, *core_lib);
+  register_legate_core_tasks(machine, runtime, core_lib);
 
   register_legate_core_mapper(machine, runtime, core_lib);
 
-  register_exception_reduction_op(runtime, *core_lib);
+  register_exception_reduction_op(runtime, core_lib);
 
-  register_legate_core_projection_functors(runtime, *core_lib);
+  register_legate_core_projection_functors(runtime, core_lib);
 
-  register_legate_core_sharding_functors(runtime, *core_lib);
+  register_legate_core_sharding_functors(runtime, core_lib);
 
   auto fut = runtime->select_tunable_value(
-    Legion::Runtime::get_context(), LEGATE_CORE_TUNABLE_HAS_SOCKET_MEM, core_lib->get_mapper_id(0));
+    Legion::Runtime::get_context(), LEGATE_CORE_TUNABLE_HAS_SOCKET_MEM, core_lib->get_mapper_id());
   Core::has_socket_mem = fut.get_result<bool>();
 }
 

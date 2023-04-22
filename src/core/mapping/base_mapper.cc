@@ -69,12 +69,12 @@ std::string log_mappable(const Legion::Mappable& mappable, bool prefix_only = fa
 
 }  // namespace
 
-BaseMapper::BaseMapper(std::unique_ptr<LegateMapper> legate_mapper,
+BaseMapper::BaseMapper(mapping::Mapper* legate_mapper,
                        Legion::Runtime* rt,
                        Legion::Machine m,
                        const LibraryContext* ctx)
   : Mapper(rt->get_mapper_runtime()),
-    legate_mapper_(std::move(legate_mapper)),
+    legate_mapper_(legate_mapper),
     legion_runtime(rt),
     legion_machine(m),
     context(ctx),
@@ -94,7 +94,7 @@ BaseMapper::~BaseMapper()
 {
   // Compute the size of all our remaining instances in each memory
   const char* show_usage = getenv("LEGATE_SHOW_USAGE");
-  if (show_usage != nullptr) {
+  if (show_usage != nullptr && atoi(show_usage) > 0) {
     auto mem_sizes             = local_instances->aggregate_instance_sizes();
     const char* memory_kinds[] = {
 #define MEM_NAMES(name, desc) desc,
@@ -316,7 +316,14 @@ void BaseMapper::map_task(const Legion::Mapping::MapperContext ctx,
 
   for (auto& mapping : mappings) {
     if (mapping.for_future()) {
-      mapped_futures.insert(mapping.store().future_index());
+      auto fut_idx = mapping.store().future_index();
+      // Only need to map Future-backed Stores corresponding to inputs (i.e. one of task.futures)
+      if (fut_idx >= task.futures.size()) continue;
+      if (mapped_futures.count(fut_idx) > 0) {
+        logger.error("Mapper %s returned duplicate store mappings", get_mapper_name());
+        LEGATE_ABORT;
+      }
+      mapped_futures.insert(fut_idx);
       for_futures.push_back(std::move(mapping));
     } else if (mapping.for_unbound_store()) {
       mapped_regions.insert(mapping.store().unique_region_field_id());
@@ -352,6 +359,8 @@ void BaseMapper::map_task(const Legion::Mapping::MapperContext ctx,
       auto mapping = StoreMapping::default_mapping(store, default_option, exact);
       if (store.is_future()) {
         auto fut_idx = store.future_index();
+        // Only need to map Future-backed Stores corresponding to inputs (i.e. one of task.futures)
+        if (fut_idx >= task.futures.size()) continue;
         if (mapped_futures.find(fut_idx) != mapped_futures.end()) continue;
         mapped_futures.insert(fut_idx);
         for_futures.push_back(std::move(mapping));
@@ -369,18 +378,20 @@ void BaseMapper::map_task(const Legion::Mapping::MapperContext ctx,
   generate_default_mappings(legate_task.inputs(), false);
   generate_default_mappings(legate_task.outputs(), false);
   generate_default_mappings(legate_task.reductions(), false);
+#ifdef DEBUG_LEGATE
+  assert(mapped_futures.size() == task.futures.size());
+#endif
 
   // Map future-backed stores
-  auto map_futures = [&](auto& mappings) {
-    for (auto& mapping : mappings) {
-      StoreTarget target = mapping.policy.target;
+  output.future_locations.resize(task.futures.size());
+  for (auto& mapping : for_futures) {
+    auto fut_idx       = mapping.store().future_index();
+    StoreTarget target = mapping.policy.target;
 #ifdef LEGATE_NO_FUTURES_ON_FB
-      if (target == StoreTarget::FBMEM) target = StoreTarget::ZCMEM;
+    if (target == StoreTarget::FBMEM) target = StoreTarget::ZCMEM;
 #endif
-      output.future_locations.push_back(machine->get_memory(task.target_proc, target));
-    }
-  };
-  map_futures(for_futures);
+    output.future_locations[fut_idx] = machine->get_memory(task.target_proc, target);
+  }
 
   // Map unbound stores
   auto map_unbound_stores = [&](auto& mappings) {

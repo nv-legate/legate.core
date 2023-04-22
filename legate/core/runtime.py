@@ -1635,7 +1635,7 @@ class Runtime:
                 self.legion_context,
                 self.legion_runtime,
                 redop,
-                mapper=self.core_context.get_mapper_id(0),
+                mapper=self.core_context.mapper_id,
             )
 
     def reduce_exception_future_map(
@@ -1650,7 +1650,7 @@ class Runtime:
                 self.legion_context,
                 self.legion_runtime,
                 self.core_context.get_reduction_op_id(redop),
-                mapper=self.core_context.get_mapper_id(0),
+                mapper=self.core_context.mapper_id,
                 tag=self.core_library.LEGATE_CORE_JOIN_EXCEPTION_TAG,
             )
 

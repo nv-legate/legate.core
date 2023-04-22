@@ -323,9 +323,9 @@ void ReturnValues::finalize(Legion::Context legion_context) const
   return_buffer.finalize(legion_context);
 }
 
-void register_exception_reduction_op(Legion::Runtime* runtime, const LibraryContext& context)
+void register_exception_reduction_op(Legion::Runtime* runtime, const LibraryContext* context)
 {
-  auto redop_id = context.get_reduction_op_id(LEGATE_CORE_JOIN_EXCEPTION_OP);
+  auto redop_id = context->get_reduction_op_id(LEGATE_CORE_JOIN_EXCEPTION_OP);
   auto* redop   = Realm::ReductionOpUntyped::create_reduction_op<JoinReturnedException>();
   Legion::Runtime::register_reduction_op(
     redop_id, redop, returned_exception_init, returned_exception_fold);

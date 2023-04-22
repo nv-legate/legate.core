@@ -340,6 +340,21 @@ class TestLauncherEnv:
 
         assert env["REALM_BACKTRACE"] == "1"
 
+    def test_realm_backtrace_with_faulthandler(
+        self,
+        genconfig: GenConfig,
+        monkeypatch: pytest.MonkeyPatch,
+        launch: LauncherType,
+    ) -> None:
+        monkeypatch.setenv("PYTHONFAULTHANDLER", "1")
+
+        system = System()
+        config = genconfig(["--launcher", launch])
+
+        env = m.Launcher.create(config, system).env
+
+        assert "REALM_BACKTRACE" not in env
+
     def test_gasnet_trace(
         self, genconfig: GenConfig, launch: LauncherType
     ) -> None:

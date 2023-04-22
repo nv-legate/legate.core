@@ -31,6 +31,9 @@
  */
 
 namespace legate {
+
+class LibraryContext;
+
 namespace mapping {
 
 class Mappable {
