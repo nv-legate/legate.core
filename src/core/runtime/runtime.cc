@@ -306,17 +306,20 @@ void register_legate_core_tasks(Legion::Machine machine,
 void register_builtin_reduction_ops()
 {
   RECORD_ALL(ADD_LT)
+  RECORD(ADD_LT, Type::Code::COMPLEX128)
   RECORD_ALL(SUB_LT)
   RECORD_ALL(MUL_LT)
   RECORD_ALL(DIV_LT)
+
   RECORD_INT(MAX_LT)
   RECORD_FLOAT(MAX_LT)
+
   RECORD_INT(MIN_LT)
   RECORD_FLOAT(MIN_LT)
+
   RECORD_INT(OR_LT)
   RECORD_INT(AND_LT)
   RECORD_INT(XOR_LT)
-  RECORD(ADD_LT, Type::Code::COMPLEX128)
 }
 
 extern void register_exception_reduction_op(Legion::Runtime* runtime,

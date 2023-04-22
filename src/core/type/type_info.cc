@@ -161,10 +161,7 @@ std::string StructType::to_string() const
   return std::move(ss).str();
 }
 
-const Type* StructType::field_type(uint32_t field_idx) const
-{
-  return field_types_.at(field_idx).get();
-}
+const Type& StructType::field_type(uint32_t field_idx) const { return *field_types_.at(field_idx); }
 
 StringType::StringType() : Type(Type::Code::STRING) {}
 

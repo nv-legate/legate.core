@@ -58,7 +58,8 @@ class BaseDeserializer {
   void _unpack(std::vector<T>& values)
   {
     auto size = unpack<uint32_t>();
-    for (uint32_t idx = 0; idx < size; ++idx) values.push_back(unpack<T>());
+    values.reserve(size);
+    for (uint32_t idx = 0; idx < size; ++idx) values.emplace_back(unpack<T>());
   }
 
  public:

@@ -91,8 +91,11 @@ std::unique_ptr<Type> BaseDeserializer<Deserializer>::unpack_type()
     case Type::Code::STRUCT: {
       auto uid        = unpack<int32_t>();
       auto num_fields = unpack<uint32_t>();
-      std::vector<std::unique_ptr<Type>> field_types(num_fields);
-      for (auto& field_type : field_types) field_type = unpack_type();
+
+      std::vector<std::unique_ptr<Type>> field_types;
+      field_types.reserve(num_fields);
+      for (uint32_t idx = 0; idx < num_fields; ++idx) field_types.emplace_back(unpack_type());
+
       return std::make_unique<StructType>(uid, std::move(field_types));
     }
     case Type::Code::BOOL:

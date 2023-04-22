@@ -110,8 +110,6 @@ typedef enum legate_core_reduction_op_kind_t {
   XOR_LT = LEGION_REDOP_KIND_XOR,
 } legate_core_reduction_op_kind_t;
 
-#define MAX_TYPE_NUMBER (COMPLEX128_LT + 1)
-
 typedef enum legate_core_transform_t {
   LEGATE_CORE_TRANSFORM_SHIFT = 100,
   LEGATE_CORE_TRANSFORM_PROMOTE,

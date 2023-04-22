@@ -120,7 +120,6 @@ class LibraryContext {
    *   using RHS = ...; // Type of the RHS values
    *
    *   static const RHS identity = ...; // Identity of the reduction operator
-   *   static const int32_t REDOP_ID = ... // Reduction operator id
    *
    *   template <bool EXCLUSIVE>
    *   __CUDA_HD__ inline static void apply(LHS& lhs, RHS rhs)
@@ -158,9 +157,14 @@ class LibraryContext {
    *
    * Finally, the contract for `apply` and `fold` is that they must update the
    * reference atomically when the `EXCLUSIVE` is `false`.
+   *
+   * @tparam REDOP Reduction operator to register
+   * @param redop_id Library-local reduction operator ID
+   *
+   * @return Global reduction operator ID
    */
   template <typename REDOP>
-  int32_t register_reduction_operator();
+  int32_t register_reduction_operator(int32_t redop_id);
 
  public:
   void register_task(int64_t local_task_id, std::unique_ptr<TaskInfo> task_info);

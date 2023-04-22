@@ -323,7 +323,7 @@ class Store {
    *
    * @return The store's type metadata
    */
-  const Type* type() const { return type_.get(); }
+  const Type& type() const { return *type_; }
   /**
    * @brief Returns the type code of the store
    *

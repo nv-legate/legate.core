@@ -506,12 +506,12 @@ class AttachmentManager:
                 self._add_attachment(buf, False, region_field)
 
     def _remove_attachment(self, buf: memoryview) -> None:
+        # If the manager is already destroyed, ignore the detachment
+        # attempt
+        if self._destroyed:
+            return
         key = self.attachment_key(buf)
         if key not in self._attachments:
-            # If the manager is already destroyed, ignore the detachment
-            # attempt
-            if self._destroyed:
-                return
             raise RuntimeError("Unable to find attachment to remove")
         del self._attachments[key]
 

@@ -228,7 +228,7 @@ class FixedArrayType : public ExtensionType {
    *
    * @return Element type
    */
-  const Type* element_type() const { return element_type_.get(); }
+  const Type& element_type() const { return *element_type_; }
 
  private:
   const std::unique_ptr<Type> element_type_;
@@ -271,7 +271,7 @@ class StructType : public ExtensionType {
    *
    * @return Element type
    */
-  const Type* field_type(uint32_t field_idx) const;
+  const Type& field_type(uint32_t field_idx) const;
   /**
    * @brief Indiciates whether the fields are aligned
    *

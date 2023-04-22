@@ -118,11 +118,11 @@ cdef extern from "core/type/type_info.h" namespace "legate" nogil:
 
     cdef cppclass FixedArrayType(Type):
         unsigned int num_elements()
-        const Type* element_type()
+        const Type& element_type()
 
     cdef cppclass StructType(Type):
         unsigned int num_fields()
-        const Type* field_type(unsigned int)
+        const Type& field_type(unsigned int)
         bool aligned()
 
     cdef unique_ptr[Type] primitive_type(int code)
