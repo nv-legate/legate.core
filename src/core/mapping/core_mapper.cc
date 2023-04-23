@@ -99,7 +99,7 @@ class CoreMapper : public Legion::Mapping::NullMapper {
 
  public:
   const LibraryContext* context;
-  std::unique_ptr<Machine> machine;
+  Machine machine;
 
  protected:
   const uint32_t min_gpu_chunk;
@@ -121,7 +121,7 @@ CoreMapper::CoreMapper(Legion::Mapping::MapperRuntime* rt,
                        const LibraryContext* c)
   : NullMapper(rt, m),
     context(c),
-    machine(std::make_unique<Machine>(m)),
+    machine(m),
     min_gpu_chunk(extract_env("LEGATE_MIN_GPU_CHUNK", MIN_GPU_CHUNK_DEFAULT, MIN_GPU_CHUNK_TEST)),
     min_cpu_chunk(extract_env("LEGATE_MIN_CPU_CHUNK", MIN_CPU_CHUNK_DEFAULT, MIN_CPU_CHUNK_TEST)),
     min_omp_chunk(extract_env("LEGATE_MIN_OMP_CHUNK", MIN_OMP_CHUNK_DEFAULT, MIN_OMP_CHUNK_TEST)),
@@ -140,7 +140,7 @@ CoreMapper::CoreMapper(Legion::Mapping::MapperRuntime* rt,
       extract_env("LEGATE_MAX_LRU_LENGTH", MAX_LRU_LENGTH_DEFAULT, MAX_LRU_LENGTH_TEST))
 {
   std::stringstream ss;
-  ss << context->get_library_name() << " on Node " << machine->local_node;
+  ss << context->get_library_name() << " on Node " << machine.local_node;
   mapper_name = ss.str();
 }
 
@@ -160,12 +160,12 @@ void CoreMapper::select_task_options(const Legion::Mapping::MapperContext ctx,
   if (task.is_index_space || task.local_function) {
     Processor proc = Processor::NO_PROC;
     if (task.tag == LEGATE_CPU_VARIANT) {
-      proc = machine->cpus().front();
+      proc = machine.cpus().front();
     } else if (task.tag == LEGATE_OMP_VARIANT) {
-      proc = machine->omps().front();
+      proc = machine.omps().front();
     } else {
       assert(task.tag == LEGATE_GPU_VARIANT);
-      proc = machine->gpus().front();
+      proc = machine.gpus().front();
     }
     output.initial_proc = proc;
     assert(output.initial_proc.exists());
@@ -193,8 +193,7 @@ void CoreMapper::select_task_options(const Legion::Mapping::MapperContext ctx,
     }
   }
 
-  auto local_range =
-    machine->slice(target, legate_task.machine_desc(), true /*fallback_to_global*/);
+  auto local_range = machine.slice(target, legate_task.machine_desc(), true /*fallback_to_global*/);
 #ifdef DEBUG_LEGATE
   assert(!local_range.empty());
 #endif
@@ -218,7 +217,7 @@ void CoreMapper::slice_task(const Legion::Mapping::MapperContext ctx,
     sharding_domain = runtime->get_index_space_domain(ctx, task.sharding_space);
 
   mapping::Task legate_task(&task, context, runtime, ctx);
-  auto local_range = machine->slice(legate_task.target(), legate_task.machine_desc());
+  auto local_range = machine.slice(legate_task.target(), legate_task.machine_desc());
 
   for (Domain::DomainPointIterator itr(input.domain); itr; itr++) {
     const Point<1> point       = itr.p;
@@ -284,7 +283,7 @@ void CoreMapper::map_future_map_reduction(const Legion::Mapping::MapperContext c
 {
   output.serdez_upper_bound = LEGATE_MAX_SIZE_SCALAR_RETURN;
 
-  if (machine->has_gpus()) {
+  if (machine.has_gpus()) {
     // TODO: It's been reported that blindly mapping target instances of future map reductions
     // to framebuffers hurts performance. Until we find a better mapping policy, we guard
     // the current policy with a macro.
@@ -293,16 +292,14 @@ void CoreMapper::map_future_map_reduction(const Legion::Mapping::MapperContext c
     // If this was joining exceptions, we should put instances on a host-visible memory
     // because they need serdez
     if (input.tag == LEGATE_CORE_JOIN_EXCEPTION_TAG)
-      output.destination_memories.push_back(machine->zerocopy_memory());
+      output.destination_memories.push_back(machine.zerocopy_memory());
     else
-      for (auto& pair : machine->frame_buffers())
-        output.destination_memories.push_back(pair.second);
+      for (auto& pair : machine.frame_buffers()) output.destination_memories.push_back(pair.second);
 #else
-    output.destination_memories.push_back(machine->zerocopy_memory());
+    output.destination_memories.push_back(machine.zerocopy_memory());
 #endif
-  } else if (machine->has_socket_memory())
-    for (auto& pair : machine->socket_memories())
-      output.destination_memories.push_back(pair.second);
+  } else if (machine.has_socket_memory())
+    for (auto& pair : machine.socket_memories()) output.destination_memories.push_back(pair.second);
 }
 
 void CoreMapper::select_tunable_value(const Legion::Mapping::MapperContext ctx,
@@ -312,36 +309,36 @@ void CoreMapper::select_tunable_value(const Legion::Mapping::MapperContext ctx,
 {
   switch (input.tunable_id) {
     case LEGATE_CORE_TUNABLE_TOTAL_CPUS: {
-      pack_tunable<int32_t>(machine->total_cpu_count(), output);  // assume symmetry
+      pack_tunable<int32_t>(machine.total_cpu_count(), output);  // assume symmetry
       return;
     }
     case LEGATE_CORE_TUNABLE_TOTAL_GPUS: {
-      pack_tunable<int32_t>(machine->total_gpu_count(), output);  // assume symmetry
+      pack_tunable<int32_t>(machine.total_gpu_count(), output);  // assume symmetry
       return;
     }
     case LEGATE_CORE_TUNABLE_TOTAL_OMPS: {
-      pack_tunable<int32_t>(machine->total_omp_count(), output);  // assume symmetry
+      pack_tunable<int32_t>(machine.total_omp_count(), output);  // assume symmetry
       return;
     }
     case LEGATE_CORE_TUNABLE_NUM_PIECES: {
-      if (machine->has_gpus())       // If we have GPUs, use those
-        pack_tunable<int32_t>(machine->total_gpu_count(), output);
-      else if (machine->has_omps())  // Otherwise use OpenMP procs
-        pack_tunable<int32_t>(machine->total_omp_count(), output);
-      else                           // Otherwise use the CPUs
-        pack_tunable<int32_t>(machine->total_cpu_count(), output);
+      if (machine.has_gpus())       // If we have GPUs, use those
+        pack_tunable<int32_t>(machine.total_gpu_count(), output);
+      else if (machine.has_omps())  // Otherwise use OpenMP procs
+        pack_tunable<int32_t>(machine.total_omp_count(), output);
+      else                          // Otherwise use the CPUs
+        pack_tunable<int32_t>(machine.total_cpu_count(), output);
       return;
     }
     case LEGATE_CORE_TUNABLE_NUM_NODES: {
-      pack_tunable<int32_t>(machine->total_nodes, output);
+      pack_tunable<int32_t>(machine.total_nodes, output);
       return;
     }
     case LEGATE_CORE_TUNABLE_MIN_SHARD_VOLUME: {
       // TODO: make these profile guided
-      if (machine->has_gpus())
+      if (machine.has_gpus())
         // Make sure we can get at least 1M elements on each GPU
         pack_tunable<int64_t>(min_gpu_chunk, output);
-      else if (machine->has_omps())
+      else if (machine.has_omps())
         // Make sure we get at least 128K elements on each OpenMP
         pack_tunable<int64_t>(min_omp_chunk, output);
       else
@@ -350,7 +347,7 @@ void CoreMapper::select_tunable_value(const Legion::Mapping::MapperContext ctx,
       return;
     }
     case LEGATE_CORE_TUNABLE_HAS_SOCKET_MEM: {
-      pack_tunable<bool>(machine->has_socket_memory(), output);
+      pack_tunable<bool>(machine.has_socket_memory(), output);
       return;
     }
     case LEGATE_CORE_TUNABLE_WINDOW_SIZE: {
@@ -368,9 +365,9 @@ void CoreMapper::select_tunable_value(const Legion::Mapping::MapperContext ctx,
     case LEGATE_CORE_TUNABLE_FIELD_REUSE_SIZE: {
       // Multiply this by the total number of nodes and then scale by the frac
       const uint64_t global_mem_size =
-        machine->has_gpus() ? machine->total_frame_buffer_size()
-                            : (machine->has_socket_memory() ? machine->total_socket_memory_size()
-                                                            : machine->system_memory().capacity());
+        machine.has_gpus() ? machine.total_frame_buffer_size()
+                           : (machine.has_socket_memory() ? machine.total_socket_memory_size()
+                                                          : machine.system_memory().capacity());
       const uint64_t field_reuse_size = global_mem_size / field_reuse_frac;
       pack_tunable<uint64_t>(field_reuse_size, output);
       return;
@@ -385,7 +382,7 @@ void CoreMapper::select_tunable_value(const Legion::Mapping::MapperContext ctx,
     }
     case LEGATE_CORE_TUNABLE_NCCL_NEEDS_BARRIER: {
 #ifdef LEGATE_USE_CUDA
-      pack_tunable<bool>(machine->has_gpus() && comm::nccl::needs_barrier(), output);
+      pack_tunable<bool>(machine.has_gpus() && comm::nccl::needs_barrier(), output);
 #else
       pack_tunable<bool>(false, output);
 #endif
