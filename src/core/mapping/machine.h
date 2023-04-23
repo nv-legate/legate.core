@@ -49,7 +49,7 @@ struct MachineDesc {
 
   ProcessorRange processor_range() const;
   std::vector<TaskTarget> valid_targets() const;
-  std::vector<TaskTarget> valid_targets(std::set<TaskTarget>&& to_exclude) const;
+  std::vector<TaskTarget> valid_targets_except(std::set<TaskTarget>&& to_exclude) const;
   std::string to_string() const;
 };
 

@@ -682,8 +682,8 @@ class PartitionManager:
         elif all(ext <= 1 for ext in shape):
             return None
         # Check to see if we already did the math
-        elif key in self._launch_spaces:
-            return self._launch_spaces[key]
+        elif (match := self._launch_spaces.get(key)) is not None:
+            return match
         # Prune out any dimensions that are 1
         temp_shape: tuple[int, ...] = ()
         temp_dims: tuple[int, ...] = ()
@@ -1635,7 +1635,7 @@ class Runtime:
                 self.legion_context,
                 self.legion_runtime,
                 redop,
-                mapper=self.core_context.get_mapper_id(0),
+                mapper=self.core_context.mapper_id,
             )
 
     def reduce_exception_future_map(
@@ -1650,7 +1650,7 @@ class Runtime:
                 self.legion_context,
                 self.legion_runtime,
                 self.core_context.get_reduction_op_id(redop),
-                mapper=self.core_context.get_mapper_id(0),
+                mapper=self.core_context.mapper_id,
                 tag=self.core_library.LEGATE_CORE_JOIN_EXCEPTION_TAG,
             )
 

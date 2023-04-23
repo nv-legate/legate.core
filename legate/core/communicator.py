@@ -38,8 +38,9 @@ class Communicator(ABC):
     def _get_1d_handle(self, volume: int) -> FutureMap:
         proc_range = self._runtime.machine.get_processor_range()
         key = (volume, proc_range)
-        if key in self._handles:
-            return self._handles[key]
+        comm = self._handles.get(key)
+        if comm is not None:
+            return comm
         comm = self._initialize(volume)
         self._handles[key] = comm
         return comm
@@ -49,11 +50,12 @@ class Communicator(ABC):
     ) -> FutureMap:
         proc_range = self._runtime.machine.get_processor_range()
         key = (launch_domain, proc_range)
-        if key in self._nd_handles:
-            return self._nd_handles[key]
-        comm = self._runtime.delinearize_future_map(comm, launch_domain)
-        self._nd_handles[key] = comm
-        return comm
+        match = self._nd_handles.get(key)
+        if match is not None:
+            return match
+        match = self._runtime.delinearize_future_map(comm, launch_domain)
+        self._nd_handles[key] = match
+        return match
 
     def get_handle(self, launch_domain: Rect) -> FutureMap:
         comm = self._get_1d_handle(launch_domain.get_volume())

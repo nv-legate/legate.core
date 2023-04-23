@@ -28,6 +28,7 @@ from typing import (
 import numpy as np
 
 from . import Future, legion
+from ._legion.util import Logger
 from ._lib.context import Context as CppContext  # type: ignore[import]
 from .types import TypeSystem
 
@@ -115,9 +116,17 @@ class Context:
 
         self._libname = library.get_name()
         self._annotations: list[LibraryAnnotations] = [LibraryAnnotations()]
+        self._logger = Logger(library.get_name())
+
+        self._mapper_id = self._cpp_context.get_mapper_id()
 
     def destroy(self) -> None:
+        self._logger.destroy()
         self._library.destroy()
+
+    @property
+    def logger(self) -> Logger:
+        return self._logger
 
     @property
     def runtime(self) -> Runtime:
@@ -138,10 +147,6 @@ class Context:
     @property
     def core_library(self) -> Any:
         return self._runtime.core_library
-
-    @property
-    def first_mapper_id(self) -> Union[int, None]:
-        return self.get_mapper_id(0)
 
     @property
     def first_redop_id(self) -> Union[int, None]:
@@ -193,10 +198,7 @@ class Context:
 
     @property
     def mapper_id(self) -> int:
-        return self.get_mapper_id(0)
-
-    def get_mapper_id(self, mapper_id: int) -> int:
-        return self._cpp_context.get_mapper_id(mapper_id)
+        return self._mapper_id
 
     def get_reduction_op_id(self, redop_id: int) -> int:
         return self._cpp_context.get_reduction_op_id(redop_id)
@@ -211,7 +213,7 @@ class Context:
         return self._cpp_context.get_sharding_id(shard_id)
 
     def get_tunable(
-        self, tunable_id: int, dtype: DataType, mapper_id: int = 0
+        self, tunable_id: int, dtype: DataType
     ) -> npt.NDArray[Any]:
         """
         Queries a tunable parameter to the mapper.
@@ -224,22 +226,18 @@ class Context:
         dtype : DataType
             Value type
 
-        mapper_id : int
-            Id of the mapper that should handle the tunable query
-
         Returns
         -------
         np.ndarray
             A NumPy array holding the value of the tunable parameter
         """
         dt = np.dtype(dtype.to_pandas_dtype())
-        mapper_id = self.get_mapper_id(mapper_id)
         fut = Future(
             legion.legion_runtime_select_tunable_value(
                 self._runtime.legion_runtime,
                 self._runtime.legion_context,
                 tunable_id,
-                mapper_id,
+                self.mapper_id,
                 0,
             )
         )
@@ -329,7 +327,11 @@ class Context:
 
         return wrapper
 
-    def _check_task_id(self, task_id: int) -> Machine:
+    def _slice_machine_for_task(self, task_id: int) -> Machine:
+        """
+        Narrows down the current machine by cutting out processors
+        for which the task has no variant
+        """
         task_info = self._cpp_context.find_task(task_id)
         if not task_info.valid:
             raise ValueError(
@@ -354,7 +356,6 @@ class Context:
         self,
         task_id: int,
         launch_domain: Rect,
-        mapper_id: int = 0,
     ) -> ManualTask:
         """
         Creates a manual task.
@@ -365,10 +366,6 @@ class Context:
             Task id. Scoped locally within the context; i.e., different
             libraries can use the same task id. There must be a task
             implementation corresponding to the task id.
-
-        mapper_id : int, optional
-            Id of the mapper that should determine mapping policies for the
-            task. Used only when the library has more than one mapper.
 
         launch_domain : Rect, optional
             Launch domain of the task.
@@ -383,7 +380,7 @@ class Context:
 
         # Check if the task id is valid for this library and the task
         # has the right variant
-        machine = self._check_task_id(task_id)
+        machine = self._slice_machine_for_task(task_id)
         unique_op_id = self.get_unique_op_id()
         if launch_domain is None:
             raise RuntimeError(
@@ -394,7 +391,6 @@ class Context:
             self,
             task_id,
             launch_domain,
-            mapper_id,
             unique_op_id,
             machine,
         )
@@ -402,7 +398,6 @@ class Context:
     def create_auto_task(
         self,
         task_id: int,
-        mapper_id: int = 0,
     ) -> AutoTask:
         """
         Creates an auto task.
@@ -413,10 +408,6 @@ class Context:
             Task id. Scoped locally within the context; i.e., different
             libraries can use the same task id. There must be a task
             implementation corresponding to the task id.
-
-        mapper_id : int, optional
-            Id of the mapper that should determine mapping policies for the
-            task. Used only when the library has more than one mapper.
 
         Returns
         -------
@@ -432,19 +423,13 @@ class Context:
 
         # Check if the task id is valid for this library and the task
         # has the right variant
-        machine = self._check_task_id(task_id)
+        machine = self._slice_machine_for_task(task_id)
         unique_op_id = self.get_unique_op_id()
-        return AutoTask(self, task_id, mapper_id, unique_op_id, machine)
+        return AutoTask(self, task_id, unique_op_id, machine)
 
-    def create_copy(self, mapper_id: int = 0) -> Copy:
+    def create_copy(self) -> Copy:
         """
         Creates a copy operation.
-
-        Parameters
-        ----------
-        mapper_id : int, optional
-            Id of the mapper that should determine mapping policies for the
-            copy. Used only when the library has more than one mapper.
 
         Returns
         -------
@@ -456,13 +441,14 @@ class Context:
 
         return Copy(
             self,
-            mapper_id,
             self.get_unique_op_id(),
             self._runtime.machine,
         )
 
     def create_fill(
-        self, lhs: Store, value: Store, mapper_id: int = 0
+        self,
+        lhs: Store,
+        value: Store,
     ) -> Fill:
         """
         Creates a fill operation.
@@ -474,10 +460,6 @@ class Context:
 
         value : Store
             Store holding the constant value to fill the ``lhs`` with
-
-        mapper_id : int, optional
-            Id of the mapper that should determine mapping policies for the
-            fill. Used only when the library has more than one mapper.
 
         Returns
         -------
@@ -496,7 +478,6 @@ class Context:
             self,
             lhs,
             value,
-            mapper_id,
             self.get_unique_op_id(),
             self._runtime.machine,
         )
@@ -572,9 +553,7 @@ class Context:
         """
         self._runtime.issue_execution_fence(block=block)
 
-    def tree_reduce(
-        self, task_id: int, store: Store, mapper_id: int = 0, radix: int = 4
-    ) -> Store:
+    def tree_reduce(self, task_id: int, store: Store, radix: int = 4) -> Store:
         """
         Performs a user-defined reduction by building a tree of reduction
         tasks. At each step, the reducer task gets up to ``radix`` input stores
@@ -587,10 +566,6 @@ class Context:
 
         store : Store
             Store to perform reductions on
-
-        mapper_id : int
-            Id of the mapper that should decide mapping policies for reducer
-            tasks
 
         radix : int
             Fan-in of each reducer task. If the store is partitioned into
@@ -617,7 +592,6 @@ class Context:
             self,
             task_id,
             radix,
-            mapper_id,
             unique_op_id,
             self._runtime.machine,
         )

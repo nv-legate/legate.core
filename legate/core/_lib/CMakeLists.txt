@@ -23,3 +23,7 @@ rapids_cython_create_modules(
   SOURCE_FILES "${cython_sources}"
   LINKED_LIBRARIES "${linked_libraries}"
 )
+
+foreach(target IN LISTS RAPIDS_CYTHON_CREATED_TARGETS)
+  target_compile_features(${target} PRIVATE cxx_std_17)
+endforeach()

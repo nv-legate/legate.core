@@ -31,6 +31,12 @@ from ..util.types import EnvDict
 __all__ = ("TestSystem",)
 
 
+def _quote(s: str) -> str:
+    if " " in s:
+        return repr(s)
+    return s
+
+
 @dataclass
 class ProcessResult:
     #: The command invovation, including relevant environment vars
@@ -65,6 +71,7 @@ class TestSystem(System):
         *,
         dry_run: bool = False,
     ) -> None:
+        super().__init__()
         self.manager = multiprocessing.Manager()
         self.dry_run: bool = dry_run
 
@@ -98,7 +105,7 @@ class TestSystem(System):
         env = env or {}
 
         envstr = (
-            " ".join(f"{k}={v}" for k, v in env.items())
+            " ".join(f"{k}={_quote(v)}" for k, v in env.items())
             + min(len(env), 1) * " "
         )
 

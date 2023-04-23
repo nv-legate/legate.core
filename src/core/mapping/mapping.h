@@ -33,7 +33,9 @@ namespace mapping {
 
 class Task;
 
-// NOTE: codes are chosen to reflect the precendece between the processor kinds
+// NOTE: codes are chosen to reflect the precedence between the processor kinds in choosing target
+// processors for tasks.
+
 /**
  * @ingroup mapping
  * @brief An enum class for task targets
@@ -385,9 +387,9 @@ class MachineQueryInterface {
  *
  * The APIs give Legate libraries high-level control on task and store mappings
  */
-class LegateMapper {
+class Mapper {
  public:
-  virtual ~LegateMapper() {}
+  virtual ~Mapper() {}
   /**
    * @brief Sets a machine query interface. This call gives the mapper a chance
    * to cache the machine query interface.

@@ -106,7 +106,7 @@ std::vector<TaskTarget> MachineDesc::valid_targets() const
   return std::move(result);
 }
 
-std::vector<TaskTarget> MachineDesc::valid_targets(std::set<TaskTarget>&& to_exclude) const
+std::vector<TaskTarget> MachineDesc::valid_targets_except(std::set<TaskTarget>&& to_exclude) const
 {
   std::vector<TaskTarget> result;
   for (auto& [target, _] : processor_ranges)
