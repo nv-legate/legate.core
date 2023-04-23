@@ -33,7 +33,9 @@ namespace mapping {
 
 class Task;
 
-// NOTE: codes are chosen to reflect the precendece between the processor kinds
+// NOTE: codes are chosen to reflect the precedence between the processor kinds in choosing target
+// processors for tasks.
+
 /**
  * @ingroup mapping
  * @brief An enum class for task targets

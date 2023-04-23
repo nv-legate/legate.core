@@ -327,7 +327,11 @@ class Context:
 
         return wrapper
 
-    def _check_task_id(self, task_id: int) -> Machine:
+    def _slice_machine_for_task(self, task_id: int) -> Machine:
+        """
+        Narrows down the current machine by cutting out processors
+        for which the task has no variant
+        """
         task_info = self._cpp_context.find_task(task_id)
         if not task_info.valid:
             raise ValueError(
@@ -376,7 +380,7 @@ class Context:
 
         # Check if the task id is valid for this library and the task
         # has the right variant
-        machine = self._check_task_id(task_id)
+        machine = self._slice_machine_for_task(task_id)
         unique_op_id = self.get_unique_op_id()
         if launch_domain is None:
             raise RuntimeError(
@@ -419,7 +423,7 @@ class Context:
 
         # Check if the task id is valid for this library and the task
         # has the right variant
-        machine = self._check_task_id(task_id)
+        machine = self._slice_machine_for_task(task_id)
         unique_op_id = self.get_unique_op_id()
         return AutoTask(self, task_id, unique_op_id, machine)
 

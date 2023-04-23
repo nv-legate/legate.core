@@ -682,8 +682,8 @@ class PartitionManager:
         elif all(ext <= 1 for ext in shape):
             return None
         # Check to see if we already did the math
-        elif key in self._launch_spaces:
-            return self._launch_spaces[key]
+        elif (match := self._launch_spaces.get(key)) is not None:
+            return match
         # Prune out any dimensions that are 1
         temp_shape: tuple[int, ...] = ()
         temp_dims: tuple[int, ...] = ()

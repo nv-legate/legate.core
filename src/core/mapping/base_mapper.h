@@ -53,10 +53,10 @@ class BaseMapper : public Legion::Mapping::Mapper, public MachineQueryInterface 
 
  public:
   // MachineQueryInterface
-  virtual const std::vector<Processor>& cpus() const override { return machine->cpus(); }
-  virtual const std::vector<Processor>& gpus() const override { return machine->gpus(); }
-  virtual const std::vector<Processor>& omps() const override { return machine->omps(); }
-  virtual uint32_t total_nodes() const override { return machine->total_nodes; }
+  virtual const std::vector<Processor>& cpus() const override { return machine.cpus(); }
+  virtual const std::vector<Processor>& gpus() const override { return machine.gpus(); }
+  virtual const std::vector<Processor>& omps() const override { return machine.omps(); }
+  virtual uint32_t total_nodes() const override { return machine.total_nodes; }
 
  public:
   virtual const char* get_mapper_name() const override;
@@ -289,14 +289,6 @@ class BaseMapper : public Legion::Mapping::Mapper, public MachineQueryInterface 
   Legion::ShardingID find_sharding_functor_by_key_store_projection(
     const std::vector<Legion::RegionRequirement>& requirements);
 
- protected:
-  static inline bool physical_sort_func(
-    const std::pair<Legion::Mapping::PhysicalInstance, unsigned>& left,
-    const std::pair<Legion::Mapping::PhysicalInstance, unsigned>& right)
-  {
-    return (left.second < right.second);
-  }
-
  private:
   mapping::Mapper* legate_mapper_;
 
@@ -316,7 +308,7 @@ class BaseMapper : public Legion::Mapping::Mapper, public MachineQueryInterface 
  protected:
   InstanceManager* local_instances;
   ReductionInstanceManager* reduction_instances;
-  std::unique_ptr<Machine> machine;
+  Machine machine;
 };
 
 }  // namespace mapping
