@@ -222,9 +222,6 @@ void BaseMapper::select_task_options(const Legion::Mapping::MapperContext ctx,
     for (auto& d : promoted_dims) {
       if (d < 0) continue;
       if ((task.index_domain.hi()[d] - task.index_domain.lo()[d]) >= 1) {
-        std::cout << "IRINA DEBUG adding collective for promoted instance " << idx << "  for task "
-                  << task.get_task_name() << ", store is future ? " << store.is_future()
-                  << std::endl;
         output.check_collective_regions.insert(idx);
         continue;
       }
@@ -238,10 +235,9 @@ void BaseMapper::select_task_options(const Legion::Mapping::MapperContext ctx,
     if (req.privilege & LEGION_WRITE_PRIV) continue;
     auto projection = find_legate_projection_functor(req.projection, true /* allow_mising */);
     if ((req.handle_type == LEGION_SINGULAR_PROJECTION) ||
-        ((projection != nullptr) && (projection != 0)))
-      std::cout << "IRINA DEBUG adding collective for reduction instance" << idx << "  for task "
-                << task.get_task_name() << std::endl;
-    output.check_collective_regions.insert(idx);
+        ((projection != nullptr) && (projection != 0))) {
+      output.check_collective_regions.insert(idx);
+    }
   }
 
 #endif
