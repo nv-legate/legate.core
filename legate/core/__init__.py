@@ -84,16 +84,17 @@ from ._legion import (
 
 # Import select types for Legate library construction
 from .allocation import DistributedAllocation
-from .context import Annotation, track_provenance
 from .legate import (
     Array,
     Library,
 )
 from .runtime import (
+    Annotation,
     get_legate_runtime,
     get_legion_context,
     get_legion_runtime,
     legate_add_library,
+    track_provenance,
 )
 from .store import Store
 
