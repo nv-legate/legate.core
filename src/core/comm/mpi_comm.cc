@@ -70,7 +70,7 @@ MPINetwork::MPINetwork(int argc, char* argv[])
   CHECK_MPI(MPI_Initialized(&init_flag));
   if (!init_flag) {
     MPI_Init_thread(0, 0, MPI_THREAD_MULTIPLE, &provided);
-    self_mpi_init = true;
+    self_init_mpi = true;
   }
   int mpi_thread_model;
   MPI_Query_thread(&mpi_thread_model);
