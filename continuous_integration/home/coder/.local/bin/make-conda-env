@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+
+make_conda_env() {
+    set -e;
+
+    local cuda_version="${CUDA_VERSION:-${CUDA_VERSION_MAJOR}.${CUDA_VERSION_MINOR}}";
+    cuda_version="$(echo "${cuda_version}" | cut -d'.' -f3 --complement)";
+
+    local python_version="${PYTHON_VERSION:-}";
+
+    if [ -z "${python_version}" ]; then
+        python_version="$(python3 --version 2>&1 | cut -d' ' -f2 | cut -d'.' -f3 --complement)";
+    fi
+
+    local yaml_file=~/"$(         \
+        ~/legate/scripts/generate-conda-envs.py \
+            --os linux                          \
+            --compilers                         \
+            --ctk ${cuda_version}               \
+            --python ${python_version}          \
+            --openmpi                           \
+            --no-ucx                            \
+        | head -n1 | cut -d' ' -f3              \
+    )"
+
+    cp "${yaml_file}" /tmp/out/
+
+    mamba env create -n legate -f "${yaml_file}";
+
+    mamba install -y -n legate -c conda-forge boa;
+
+    { set +x; } 2>/dev/null;
+
+    conda activate legate;
+}
+
+. /opt/conda/etc/profile.d/conda.sh;
+. /opt/conda/etc/profile.d/mamba.sh;
+
+make_conda_env "$@";
