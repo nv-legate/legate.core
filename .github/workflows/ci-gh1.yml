@@ -32,7 +32,6 @@ jobs:
       - name: Checkout legate.core (= this repo)
         uses: actions/checkout@v3
         with:
-          repository: nv-legate/legate.core
           fetch-depth: 0
           path: legate
 
