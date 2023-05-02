@@ -139,6 +139,7 @@ class RuntimeConfig(SectionConfig):
             "cffi",
             "llvm-openmp",
             "numpy>=1.22",
+            "libblas=*=*openblas*",
             "openblas=*=*openmp*",
             "opt_einsum",
             "pyarrow>=5",
