@@ -223,6 +223,10 @@ class TaskContext {
   /**
    * @brief Returns communicators of the task
    *
+   * If a task launch ends up emitting only a single point task, that task will not get passed a
+   * communicator, even if one was requested at task launching time. Therefore, most tasks using
+   * communicators should be prepared to handle the case where the returned vector is empty.
+   *
    * @return Vector of communicator objects
    */
   std::vector<comm::Communicator>& communicators() { return comms_; }
