@@ -226,8 +226,7 @@ void BaseMapper::select_task_options(const Legion::Mapping::MapperContext ctx,
       }
     }
   }
-  for (size_t i = 0; i < legate_task.reductions().size(); i++) {
-    auto store = legate_task.reductions()[i];
+  for (auto& store : legate_task.reductions()) {
     if (store.is_future()) continue;
     auto idx = store.requirement_index();
     auto req = task.regions[idx];
