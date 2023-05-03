@@ -113,6 +113,7 @@ class BuildConfig(SectionConfig):
             "setuptools>=60",
             "zlib",
             "numba",
+            "valgrind",
         )
         if self.compilers:
             pkgs += ("c-compiler", "cxx-compiler")

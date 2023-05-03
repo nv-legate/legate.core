@@ -124,6 +124,7 @@ class Debugging(DataclassMixin):
     gdb: bool
     cuda_gdb: bool
     memcheck: bool
+    valgrind: bool
     freeze_on_error: bool
     gasnet_trace: bool
     dataflow: bool

@@ -265,6 +265,14 @@ debugging.add_argument(
     help="run Legate with cuda-memcheck, "
     "[legate-only, not supported with standard Python invocation]",
 )
+debugging.add_argument(
+    "--valgrind",
+    dest="valgrind",
+    action="store_true",
+    required=False,
+    help="run Legate with valgrind, "
+    "[legate-only, not supported with standard Python invocation]",
+)
 
 
 debugging.add_argument(

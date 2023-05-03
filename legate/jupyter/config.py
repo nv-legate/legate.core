@@ -86,7 +86,7 @@ class Config:
         self.profiling = Profiling(False, False, False, False, "", [])
         self.logging = Logging(None, Path(), False, False)
         self.debugging = Debugging(
-            False, False, False, False, False, False, False
+            False, False, False, False, False, False, False, False
         )
         self.info = Info(False, False, self.verbose > 0, False)
         self.other = Other(None, False, False)
