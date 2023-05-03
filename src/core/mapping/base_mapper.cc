@@ -222,7 +222,7 @@ void BaseMapper::select_task_options(const Legion::Mapping::MapperContext ctx,
       if (d < 0) continue;
       if ((task.index_domain.hi()[d] - task.index_domain.lo()[d]) >= 1) {
         output.check_collective_regions.insert(idx);
-        continue;
+        break;
       }
     }
   }
