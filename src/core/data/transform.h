@@ -53,10 +53,10 @@ struct TransformStack : public Transform {
   void dump() const;
 
  public:
-  void return_promoted_dims(std::vector<int32_t>& dims)
+  void return_promoted_dims(std::vector<int32_t>& dims) const
   {
-    if (nullptr != transform_) transform_->return_promoted_dims(dims);
     if (nullptr != parent_) parent_->return_promoted_dims(dims);
+    if (nullptr != transform_) transform_->return_promoted_dims(dims);
   }
 
  private:

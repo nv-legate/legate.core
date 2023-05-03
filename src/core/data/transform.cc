@@ -189,7 +189,8 @@ int32_t Promote::target_ndim(int32_t source_ndim) const { return source_ndim - 1
 
 void Promote::return_promoted_dims(std::vector<int32_t>& dims) const
 {
-  auto finder = std::find(dims.begin(), dims.end(), (-extra_dim_ - 1));
+  // avoid pushing 2 times
+  auto finder = std::find(dims.begin(), dims.end(), (extra_dim_));
   if (finder == dims.end()) { dims.push_back(extra_dim_); }
 }
 
@@ -249,7 +250,8 @@ int32_t Project::target_ndim(int32_t source_ndim) const { return source_ndim + 1
 
 void Project::return_promoted_dims(std::vector<int32_t>& dims) const
 {
-  dims.push_back((-dim_ - 1));
+  auto finder = std::find(dims.begin(), dims.end(), (dim_));
+  if (finder != dims.end()) { dims.erase(finder); }
 }
 
 Transpose::Transpose(std::vector<int32_t>&& axes) : axes_(std::move(axes)) {}
@@ -314,7 +316,18 @@ void Transpose::print(std::ostream& out) const
 
 int32_t Transpose::target_ndim(int32_t source_ndim) const { return source_ndim; }
 
-void Transpose::return_promoted_dims(std::vector<int32_t>&) const {};
+void Transpose::return_promoted_dims(std::vector<int32_t>& dims) const
+{
+  for (size_t i = 0; i < axes_.size(); i++) {
+    if (i != axes_[i]) {
+      auto finder_dims = std::find(dims.begin(), dims.end(), (i));
+      if (finder_dims != dims.end()) {
+        auto finder_axes   = std::find(axes_.begin(), axes_.end(), (i));
+        dims[*finder_dims] = *finder_axes;
+      }
+    }
+  }
+};
 
 Delinearize::Delinearize(int32_t dim, std::vector<int64_t>&& sizes)
   : dim_(dim), sizes_(std::move(sizes)), strides_(sizes_.size(), 1), volume_(1)
