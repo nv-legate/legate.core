@@ -316,7 +316,8 @@ debugging.add_argument(
     dest="spy_assert_warning",
     action="store_true",
     required=False,
-    help="Treat warnings as errors for the Legion Spy output",
+    help="Treat warnings as errors during processing of Legion Spy logs "
+    "(developer option)",
 )
 
 
