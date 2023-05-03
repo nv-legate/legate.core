@@ -113,6 +113,7 @@ class BuildConfig(SectionConfig):
             "setuptools>=60",
             "zlib",
             "numba",
+            "valgrind",
         )
         if self.compilers:
             pkgs += ("c-compiler", "cxx-compiler")
@@ -139,6 +140,7 @@ class RuntimeConfig(SectionConfig):
             "cffi",
             "llvm-openmp",
             "numpy>=1.22",
+            "libblas=*=*openblas*",
             "openblas=*=*openmp*",
             "opt_einsum",
             "pyarrow>=5",

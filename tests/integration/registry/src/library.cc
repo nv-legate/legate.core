@@ -20,41 +20,6 @@
 
 namespace rg {
 
-class Mapper : public legate::mapping::LegateMapper {
- public:
-  Mapper() {}
-
- private:
-  Mapper(const Mapper& rhs)            = delete;
-  Mapper& operator=(const Mapper& rhs) = delete;
-
-  // Legate mapping functions
- public:
-  void set_machine(const legate::mapping::MachineQueryInterface* machine) override
-  {
-    machine_ = machine;
-  }
-
-  legate::mapping::TaskTarget task_target(
-    const legate::mapping::Task& task,
-    const std::vector<legate::mapping::TaskTarget>& options) override
-  {
-    return options.front();
-  }
-
-  std::vector<legate::mapping::StoreMapping> store_mappings(
-    const legate::mapping::Task& task,
-    const std::vector<legate::mapping::StoreTarget>& options) override
-  {
-    return {};
-  }
-
-  legate::Scalar tunable_value(legate::TunableID tunable_id) override { return 0; }
-
- private:
-  const legate::mapping::MachineQueryInterface* machine_;
-};
-
 static const char* const library_name = "registry";
 
 Legion::Logger log_registry(library_name);
@@ -70,11 +35,9 @@ void registration_callback()
   auto context = legate::Runtime::get_runtime()->create_library(library_name);
 
   // Task registration via a registrar
-  Registry::get_registrar().register_all_tasks(*context);
+  Registry::get_registrar().register_all_tasks(context);
   // Immediate task registration
-  WorldTask::register_variants(*context);
-
-  context->register_mapper(std::make_unique<Mapper>(), 0);
+  WorldTask::register_variants(context);
 }
 
 }  // namespace rg

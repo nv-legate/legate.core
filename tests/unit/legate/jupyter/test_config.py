@@ -101,6 +101,7 @@ class TestConfig:
             gdb=False,
             cuda_gdb=False,
             memcheck=False,
+            valgrind=False,
             freeze_on_error=False,
             gasnet_trace=False,
             dataflow=False,

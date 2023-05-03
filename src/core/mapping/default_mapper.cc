@@ -14,24 +14,30 @@
  *
  */
 
-#include "core/task/registrar.h"
-
-#include "core/runtime/context.h"
-#include "core/task/task_info.h"
-#include "core/utilities/typedefs.h"
+#include "core/mapping/default_mapper.h"
 
 namespace legate {
+namespace mapping {
 
-void TaskRegistrar::record_task(int64_t local_task_id, std::unique_ptr<TaskInfo> task_info)
+// Default mapper doesn't use the machine query interface
+void DefaultMapper::set_machine(const MachineQueryInterface* machine) {}
+
+TaskTarget DefaultMapper::task_target(const Task& task, const std::vector<TaskTarget>& options)
 {
-  pending_task_infos_.push_back(std::make_pair(local_task_id, std::move(task_info)));
+  return options.front();
 }
 
-void TaskRegistrar::register_all_tasks(LibraryContext* context)
+std::vector<StoreMapping> DefaultMapper::store_mappings(const Task& task,
+                                                        const std::vector<StoreTarget>& options)
 {
-  for (auto& [local_task_id, task_info] : pending_task_infos_)
-    context->register_task(local_task_id, std::move(task_info));
-  pending_task_infos_.clear();
+  return {};
 }
 
+Scalar DefaultMapper::tunable_value(TunableID tunable_id)
+{
+  LEGATE_ABORT;
+  return Scalar(0);
+}
+
+}  // namespace mapping
 }  // namespace legate

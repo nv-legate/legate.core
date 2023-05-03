@@ -21,7 +21,6 @@
 
 #include "core/data/scalar.h"
 #include "core/data/transform.h"
-#include "core/runtime/context.h"
 
 /**
  * @file
@@ -29,6 +28,9 @@
  */
 
 namespace legate {
+
+class LibraryContext;
+
 namespace mapping {
 
 class RegionField {

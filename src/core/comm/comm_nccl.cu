@@ -124,19 +124,19 @@ static void finalize_nccl(const Legion::Task* task,
 
 void register_tasks(Legion::Machine machine,
                     Legion::Runtime* runtime,
-                    const LibraryContext& context)
+                    const LibraryContext* context)
 {
-  auto init_nccl_id_task_id          = context.get_task_id(LEGATE_CORE_INIT_NCCL_ID_TASK_ID);
+  auto init_nccl_id_task_id          = context->get_task_id(LEGATE_CORE_INIT_NCCL_ID_TASK_ID);
   const char* init_nccl_id_task_name = "core::comm::nccl::init_id";
   runtime->attach_name(
     init_nccl_id_task_id, init_nccl_id_task_name, false /*mutable*/, true /*local only*/);
 
-  auto init_nccl_task_id          = context.get_task_id(LEGATE_CORE_INIT_NCCL_TASK_ID);
+  auto init_nccl_task_id          = context->get_task_id(LEGATE_CORE_INIT_NCCL_TASK_ID);
   const char* init_nccl_task_name = "core::comm::nccl::init";
   runtime->attach_name(
     init_nccl_task_id, init_nccl_task_name, false /*mutable*/, true /*local only*/);
 
-  auto finalize_nccl_task_id          = context.get_task_id(LEGATE_CORE_FINALIZE_NCCL_TASK_ID);
+  auto finalize_nccl_task_id          = context->get_task_id(LEGATE_CORE_FINALIZE_NCCL_TASK_ID);
   const char* finalize_nccl_task_name = "core::comm::nccl::finalize";
   runtime->attach_name(
     finalize_nccl_task_id, finalize_nccl_task_name, false /*mutable*/, true /*local only*/);
