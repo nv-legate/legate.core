@@ -229,7 +229,7 @@ void BaseMapper::select_task_options(const Legion::Mapping::MapperContext ctx,
   for (size_t i = 0; i < legate_task.reductions().size(); i++) {
     auto store = legate_task.reductions()[i];
     if (store.is_future()) continue;
-    auto idx = legate_task.reductions()[i].requirement_index();
+    auto idx = store.requirement_index();
     auto req = task.regions[idx];
     if (req.privilege & LEGION_WRITE_PRIV) continue;
     auto projection = find_legate_projection_functor(req.projection, true /* allow_mising */);
