@@ -211,8 +211,7 @@ void BaseMapper::select_task_options(const Legion::Mapping::MapperContext ctx,
 {
   Task legate_task(&task, context, runtime, ctx);
 #ifdef LEGATE_USE_COLLECTIVE
-  for (size_t i = 0; i < legate_task.inputs().size(); i++) {
-    auto store = legate_task.inputs()[i];
+  for (auto& store : legate_task.inputs()) {
     if (store.is_future()) continue;
     auto idx = store.requirement_index();
     auto req = task.regions[idx];
