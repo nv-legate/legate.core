@@ -192,6 +192,7 @@ void Promote::return_promoted_dims(std::vector<int32_t>& dims) const
   auto finder = std::find(dims.begin(), dims.end(), (-extra_dim_ - 1));
   if (finder == dims.end()) { dims.push_back(extra_dim_); }
 }
+
 Project::Project(int32_t dim, int64_t coord) : dim_(dim), coord_(coord) {}
 
 Domain Project::transform(const Domain& input) const
