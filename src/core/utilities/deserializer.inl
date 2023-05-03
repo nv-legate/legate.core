@@ -117,6 +117,10 @@ std::unique_ptr<Type> BaseDeserializer<Deserializer>::unpack_type()
     case Type::Code::STRING: {
       return std::make_unique<StringType>();
     }
+    default: {
+      LEGATE_ABORT;
+      break;
+    }
   }
   LEGATE_ABORT;
   return nullptr;
