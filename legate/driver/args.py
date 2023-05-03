@@ -309,7 +309,8 @@ debugging.add_argument(
     dest="collective",
     action="store_true",
     required=False,
-    help="Generate Legion collective check output",
+    help="Check that Legate made optimal use of collective views "
+    "(developer option)",
 )
 debugging.add_argument(
     "--spy-assert-warning",
