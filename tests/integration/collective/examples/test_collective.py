@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 import pytest
+
 from collective import (
     collective_test,
     collective_test_matvec,
@@ -60,6 +61,47 @@ def test_overlap() -> None:
     b = create_int64_store(shape=(100))
     c = create_int64_store(shape=(100))
     collective_test_matvec(a, b, c)
+
+
+def test_transpose() -> None:
+    a = create_int64_store(shape=(200,))
+
+    a = a.slice(0, slice(None, 100))
+    a = a.promote(0, 100)
+    a = a.transpose(
+        [
+            1,
+            0,
+        ]
+    )
+    collective_test(
+        a,
+        (100, 100),
+        (
+            10,
+            10,
+        ),
+    )
+
+
+def test_project() -> None:
+    a = create_int64_store(
+        shape=(
+            100,
+            100,
+        )
+    )
+
+    a = a.promote(0, 100)
+    a = a.project(0, 1)
+    collective_test(
+        a,
+        (100, 100),
+        (
+            10,
+            10,
+        ),
+    )
 
 
 if __name__ == "__main__":
