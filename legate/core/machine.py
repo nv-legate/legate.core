@@ -233,11 +233,11 @@ class Machine:
     def __and__(self, other: Machine) -> Machine:
         if self is other:
             return self
-        result: list[ProcessorRange] = []
-        for kind, r in self._proc_ranges.items():
-            if kind not in other._proc_ranges:
-                continue
-            result.append(r & other._proc_ranges[kind])
+        result = [
+            r & other._proc_ranges[kind]
+            for kind, r in self._proc_ranges.items()
+            if kind in other._proc_ranges
+        ]
         return Machine(result)
 
     @property

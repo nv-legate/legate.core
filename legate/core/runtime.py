@@ -617,17 +617,15 @@ class PartitionManager:
 
         remaining = num_pieces
 
-        def factor_by(remaining: int, val: int) -> int:
+        def record_factors(remaining: int, val: int) -> int:
             while remaining % val == 0:
                 factors.append(val)
                 remaining = remaining // val
             return remaining
 
-        remaining = factor_by(remaining, 2)
-        remaining = factor_by(remaining, 3)
-        remaining = factor_by(remaining, 5)
-        remaining = factor_by(remaining, 7)
-        remaining = factor_by(remaining, 11)
+        for factor in (2, 3, 5, 7, 11):
+            remaining = record_factors(remaining, factor)
+
         if remaining > 1:
             raise ValueError(
                 "Legate currently doesn't support processor "
