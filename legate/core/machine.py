@@ -42,18 +42,26 @@ class ProcessorKind(IntEnum):
 class ProcessorRange:
     # the kind is being used just in compatibility checks
     kind: ProcessorKind
-    per_node_count: int
     low: int
     high: int
+    per_node_count: int
 
     @staticmethod
     def create(
-        kind: ProcessorKind, per_node_count: int, low: int, high: int
+        kind: ProcessorKind,
+        *,
+        low: int,
+        high: int,
+        per_node_count: int,
     ) -> ProcessorRange:
         if high < low:
             low = 1
             high = 0
-        return ProcessorRange(kind, per_node_count, low, high)
+        return ProcessorRange(kind, low, high, per_node_count)
+
+    @staticmethod
+    def create_empty_range(kind: ProcessorKind) -> ProcessorRange:
+        return ProcessorRange(kind, 1, 0, 1)
 
     @property
     def empty(self) -> bool:
@@ -71,9 +79,9 @@ class ProcessorRange:
         assert self.per_node_count == other.per_node_count
         return ProcessorRange.create(
             self.kind,
-            self.per_node_count,
-            max(self.low, other.low),
-            min(self.high, other.high),
+            low=max(self.low, other.low),
+            high=min(self.high, other.high),
+            per_node_count=self.per_node_count,
         )
 
     def slice(self, sl: slice) -> ProcessorRange:
@@ -94,7 +102,10 @@ class ProcessorRange:
                 new_high = self.low + max(0, sl.stop + sz)
 
         return ProcessorRange.create(
-            self.kind, self.per_node_count, new_low, new_high
+            self.kind,
+            low=new_low,
+            high=new_high,
+            per_node_count=self.per_node_count,
         )
 
     def get_node_range(self) -> tuple[int, int]:
@@ -116,9 +127,9 @@ class ProcessorRange:
             )
 
     def pack(self, buf: BufferBuilder) -> None:
-        buf.pack_32bit_uint(self.per_node_count)
         buf.pack_32bit_uint(self.low)
         buf.pack_32bit_uint(self.high)
+        buf.pack_32bit_uint(self.per_node_count)
 
 
 ProcSlice = Tuple[ProcessorKind, slice]
@@ -167,7 +178,7 @@ class Machine:
 
     def _get_range(self, kind: ProcessorKind) -> ProcessorRange:
         if kind not in self._proc_ranges:
-            return ProcessorRange.create(kind, 1, 1, 0)
+            return ProcessorRange.create_empty_range(kind)
         return self._proc_ranges[kind]
 
     def only(self, *kinds: ProcessorKind) -> Machine:
@@ -224,7 +235,10 @@ class Machine:
                 runtime.core_context.get_tunable(tunable_id, ty.int32)
             )
             return ProcessorRange.create(
-                kind, num_procs // num_nodes, 0, num_procs - 1
+                kind,
+                low=0,
+                high=num_procs - 1,
+                per_node_count=num_procs // num_nodes,
             )
 
         result = Machine([create_range(kind) for kind in ProcessorKind])
