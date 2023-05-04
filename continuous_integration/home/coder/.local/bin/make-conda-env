@@ -33,7 +33,7 @@ make_conda_env() {
 
     { set +x; } 2>/dev/null;
 
-    conda activate legate;
+    conda activate "${DEFAULT_CONDA_ENV:-legate}" 2>/dev/null;
 }
 
 . /opt/conda/etc/profile.d/conda.sh;
