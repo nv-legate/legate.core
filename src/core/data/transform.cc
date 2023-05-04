@@ -190,7 +190,8 @@ int32_t Promote::target_ndim(int32_t source_ndim) const { return source_ndim - 1
 void Promote::return_promoted_dims(std::vector<int32_t>& dims) const
 {
   // avoid pushing 2 times
-  for (auto& dim : dims) if (dim >= extra_dim_) dim++;
+  for (auto& dim : dims)
+    if (dim >= extra_dim_) dim++;
   dims.push_back(extra_dim_);
 }
 
