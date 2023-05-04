@@ -110,14 +110,7 @@ class TestProcessorRange:
         with pytest.raises(ValueError, match=err_msg):
             r1 & r2
 
-    def test_empty_slice(self) -> None:
-        r = ProcessorRange.create(
-            ProcessorKind.GPU, low=2, high=5, per_node_count=1
-        )
-        assert len(r.slice(slice(0, 0))) == 0
-        assert len(r.slice(slice(None, 0))) == 0
-        assert len(r.slice(slice(4, None))) == 0
-
+    def test_empty_slice_empty_range(self) -> None:
         r = ProcessorRange.create(
             ProcessorKind.GPU, low=3, high=1, per_node_count=1
         )
@@ -125,15 +118,15 @@ class TestProcessorRange:
         assert len(r.slice(slice(None, 0))) == 0
         assert len(r.slice(slice(4, None))) == 0
 
-    def test_nonempty_slice(self) -> None:
+    def test_empty_slice_nonempty_range(self) -> None:
         r = ProcessorRange.create(
             ProcessorKind.GPU, low=2, high=5, per_node_count=1
         )
-        assert len(r.slice(slice(None))) == len(r)
-        for i in range(len(r)):
-            assert len(r.slice(slice(i))) == i
-            assert len(r.slice(slice(i, None))) == len(r) - i
+        assert len(r.slice(slice(0, 0))) == 0
+        assert len(r.slice(slice(None, 0))) == 0
+        assert len(r.slice(slice(4, None))) == 0
 
+    def test_nonempty_slice_empty_range(self) -> None:
         r = ProcessorRange.create(
             ProcessorKind.GPU, low=3, high=1, per_node_count=1
         )
@@ -141,6 +134,15 @@ class TestProcessorRange:
         for i in range(len(r)):
             assert len(r.slice(slice(i))) == 0
             assert len(r.slice(slice(i, None))) == 0
+
+    def test_nonempty_slice_nonempty_range(self) -> None:
+        r = ProcessorRange.create(
+            ProcessorKind.GPU, low=2, high=5, per_node_count=1
+        )
+        assert len(r.slice(slice(None))) == len(r)
+        for i in range(len(r)):
+            assert len(r.slice(slice(i))) == i
+            assert len(r.slice(slice(i, None))) == len(r) - i
 
     def test_invalid_slice(self) -> None:
         r = ProcessorRange.create(
@@ -164,12 +166,17 @@ class TestProcessorRange:
         assert v3 == 5
 
 
-RANGES = [
-    ProcessorRange.create(ProcessorKind.CPU, low=1, high=3, per_node_count=4),
-    ProcessorRange.create(ProcessorKind.OMP, low=0, high=3, per_node_count=2),
-    ProcessorRange.create(ProcessorKind.GPU, low=3, high=6, per_node_count=3),
-]
+CPU_RANGE = ProcessorRange.create(
+    ProcessorKind.CPU, low=1, high=3, per_node_count=4
+)
+OMP_RANGE = ProcessorRange.create(
+    ProcessorKind.OMP, low=0, high=3, per_node_count=2
+)
+GPU_RANGE = ProcessorRange.create(
+    ProcessorKind.GPU, low=3, high=6, per_node_count=3
+)
 EMPTY_RANGE = ProcessorRange.create_empty_range(ProcessorKind.GPU)
+RANGES = [CPU_RANGE, OMP_RANGE, GPU_RANGE]
 
 
 class TestMachine:
@@ -183,20 +190,20 @@ class TestMachine:
             m.get_node_range()
         with pytest.raises(ValueError, match=err_msg):
             m.get_node_range(ProcessorKind.GPU)
+        with pytest.raises(ValueError, match=err_msg):
+            m.get_node_range(ProcessorKind.OMP)
+        with pytest.raises(ValueError, match=err_msg):
+            m.get_node_range(ProcessorKind.CPU)
 
     def test_eq(self) -> None:
-        m1 = Machine(RANGES[:-1])
-
-        m2 = Machine(RANGES[:-1])
+        m1 = Machine([CPU_RANGE, OMP_RANGE])
+        m2 = Machine([CPU_RANGE, OMP_RANGE])
         assert m1 == m2
 
         m3 = Machine([])
         assert m1 != m3
 
-        ranges = RANGES[:-1] + [
-            ProcessorRange.create_empty_range(ProcessorKind.GPU)
-        ]
-        m4 = Machine(ranges)
+        m4 = Machine([CPU_RANGE, OMP_RANGE, EMPTY_RANGE])
         assert m1 == m4
 
     @pytest.mark.parametrize("n", range(1, len(RANGES) + 1))
@@ -211,10 +218,10 @@ class TestMachine:
         assert m.kinds == tuple(r.kind for r in RANGES[:n])
 
     def test_get_processor_range(self) -> None:
-        m = Machine(RANGES[:-1])
-        assert m.get_processor_range(ProcessorKind.CPU) == RANGES[0]
-        assert m.get_processor_range(ProcessorKind.OMP) == RANGES[1]
-        assert m.get_processor_range() == RANGES[1]
+        m = Machine([CPU_RANGE, OMP_RANGE])
+        assert m.get_processor_range(ProcessorKind.CPU) == CPU_RANGE
+        assert m.get_processor_range(ProcessorKind.OMP) == OMP_RANGE
+        assert m.get_processor_range() == OMP_RANGE
         assert len(m.get_processor_range(ProcessorKind.GPU)) == 0
 
     def test_get_node_range(self) -> None:
@@ -229,40 +236,40 @@ class TestMachine:
         gpu = ProcessorKind.GPU
         cpu = ProcessorKind.CPU
         omp = ProcessorKind.OMP
-        assert len(m.only(gpu)) == len(RANGES[-1])
+        assert len(m.only(gpu)) == len(GPU_RANGE)
         assert m.only(gpu).only(gpu) == m.only(gpu)
         assert len(m.only(gpu).get_processor_range(cpu)) == 0
-        assert m.only(gpu).get_processor_range(gpu) == RANGES[-1]
-        assert len(m.only(gpu, cpu)) == len(RANGES[-1])
-        assert len(m.only(gpu, cpu).only(gpu)) == len(RANGES[-1])
-        assert len(m.only(gpu, cpu).only(cpu)) == len(RANGES[0])
+        assert m.only(gpu).get_processor_range(gpu) == GPU_RANGE
+        assert len(m.only(gpu, cpu)) == len(GPU_RANGE)
+        assert len(m.only(gpu, cpu).only(gpu)) == len(GPU_RANGE)
+        assert len(m.only(gpu, cpu).only(cpu)) == len(CPU_RANGE)
         assert len(m.only(gpu, cpu).only(omp)) == 0
 
     def test_count(self) -> None:
         m = Machine(RANGES)
-        assert m.count(ProcessorKind.CPU) == len(RANGES[0])
-        assert m.count(ProcessorKind.OMP) == len(RANGES[1])
-        assert m.count(ProcessorKind.GPU) == len(RANGES[2])
+        assert m.count(ProcessorKind.CPU) == len(CPU_RANGE)
+        assert m.count(ProcessorKind.OMP) == len(OMP_RANGE)
+        assert m.count(ProcessorKind.GPU) == len(GPU_RANGE)
 
     def test_get_item(self) -> None:
         m = Machine(RANGES)
-        assert m[ProcessorKind.GPU] == Machine([RANGES[-1]])
+        assert m[ProcessorKind.GPU] == Machine([GPU_RANGE])
         assert m[ProcessorKind.GPU, 1:2] == Machine(
-            [RANGES[-1].slice(slice(1, 2))]
+            [GPU_RANGE.slice(slice(1, 2))]
         )
 
         m = m.only(ProcessorKind.GPU)
-        assert m[1] == Machine([RANGES[-1].slice(slice(1, 2))])
-        assert m[1:] == Machine([RANGES[-1].slice(slice(1, None))])
-        assert m[:2] == Machine([RANGES[-1].slice(slice(2))])
+        assert m[1] == Machine([GPU_RANGE.slice(slice(1, 2))])
+        assert m[1:] == Machine([GPU_RANGE.slice(slice(1, None))])
+        assert m[:2] == Machine([GPU_RANGE.slice(slice(2))])
 
     def test_intersection(self) -> None:
-        m1 = Machine(RANGES[:-1])
-        m2 = Machine(RANGES[1:])
-        assert m1 & m2 == Machine([RANGES[1]])
+        m1 = Machine([CPU_RANGE, OMP_RANGE])
+        m2 = Machine([OMP_RANGE, GPU_RANGE])
+        assert m1 & m2 == Machine([OMP_RANGE])
 
-        m1 = Machine(RANGES[:-2])
-        m2 = Machine(RANGES[2:])
+        m1 = Machine([CPU_RANGE])
+        m2 = Machine([OMP_RANGE])
         assert (m1 & m2).empty
 
     def test_empty(self) -> None:
@@ -311,7 +318,7 @@ class TestMachine:
         from legate.core import get_machine
         from legate.core.runtime import runtime
 
-        fake_machine = Machine(RANGES[-1:])
+        fake_machine = Machine([GPU_RANGE])
         runtime.push_machine(fake_machine)
 
         sub_machine1 = fake_machine[:-1]
