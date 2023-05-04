@@ -231,9 +231,7 @@ void BaseMapper::select_task_options(const Legion::Mapping::MapperContext ctx,
     auto idx = store.requirement_index();
     auto req = task.regions[idx];
     if (req.privilege & LEGION_WRITE_PRIV) continue;
-    auto projection = find_legate_projection_functor(req.projection, true /* allow_mising */);
-    if ((req.handle_type == LEGION_SINGULAR_PROJECTION) ||
-        ((projection != nullptr) && (projection != 0))) {
+    if (req.handle_type == LEGION_SINGULAR_PROJECTION || req.projection != 0) {
       output.check_collective_regions.insert(idx);
     }
   }
