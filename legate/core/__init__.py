@@ -91,7 +91,7 @@ from .legate import (
     Library,
     Table,
 )
-from .machine import EmptyMachineError, Machine, ProcessorKind
+from .machine import EmptyMachineError, Machine, ProcessorKind, ProcessorSlice
 from .runtime import (
     get_legate_runtime,
     get_legion_context,

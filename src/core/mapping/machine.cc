@@ -66,7 +66,7 @@ ProcessorRange::ProcessorRange(uint32_t _low, uint32_t _high, uint32_t _per_node
   : low(_low), high(_high), per_node_count(_per_node_count)
 {
   if (high < low) {
-    low  = 1;
+    low  = 0;
     high = 0;
   }
 }
@@ -79,9 +79,9 @@ ProcessorRange ProcessorRange::operator&(const ProcessorRange& other) const
   return ProcessorRange(std::max(low, other.low), std::min(high, other.high), per_node_count);
 }
 
-uint32_t ProcessorRange::count() const { return high + 1 - low; }
+uint32_t ProcessorRange::count() const { return high - low; }
 
-bool ProcessorRange::empty() const { return high < low; }
+bool ProcessorRange::empty() const { return high <= low; }
 
 std::string ProcessorRange::to_string() const
 {
@@ -249,8 +249,8 @@ LocalProcessorRange Machine::slice(TaskTarget target,
   auto& global_range = finder->second;
 
   uint32_t num_local_procs = local_procs.size();
-  uint32_t my_lo           = num_local_procs * local_node;
-  ProcessorRange my_range(my_lo, my_lo + num_local_procs - 1, global_range.per_node_count);
+  uint32_t my_low          = num_local_procs * local_node;
+  ProcessorRange my_range(my_low, my_low + num_local_procs - 1, global_range.per_node_count);
 
   auto slice = global_range & my_range;
   if (slice.empty()) {
@@ -262,7 +262,7 @@ LocalProcessorRange Machine::slice(TaskTarget target,
 
   return LocalProcessorRange(slice.low - global_range.low,
                              global_range.count(),
-                             local_procs.data() + (slice.low - my_lo),
+                             local_procs.data() + (slice.low - my_low),
                              slice.count());
 }
 

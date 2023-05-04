@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import IntEnum, unique
-from typing import TYPE_CHECKING, Any, Optional, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Any, Optional, Sequence, Union
 
 from . import legion, types as ty
 
@@ -37,6 +37,16 @@ class ProcessorKind(IntEnum):
     CPU = 3
 
 
+@dataclass(frozen=True)
+class ProcessorSlice:
+    kind: ProcessorKind
+    slice: slice
+
+
+PROC_RANGE_KEY = Union[slice, int]
+MACHINE_KEY = Union[ProcessorKind, slice, int, ProcessorSlice]
+
+
 # Inclusive range of processor ids
 @dataclass(frozen=True)
 class ProcessorRange:
@@ -54,21 +64,21 @@ class ProcessorRange:
         high: int,
         per_node_count: int,
     ) -> ProcessorRange:
-        if high < low:
-            low = 1
+        if high <= low:
+            low = 0
             high = 0
         return ProcessorRange(kind, low, high, per_node_count)
 
     @staticmethod
     def create_empty_range(kind: ProcessorKind) -> ProcessorRange:
-        return ProcessorRange(kind, 1, 0, 1)
+        return ProcessorRange(kind, 0, 0, 1)
 
     @property
     def empty(self) -> bool:
-        return self.high < self.low
+        return self.high <= self.low
 
     def __len__(self) -> int:
-        return self.high - self.low + 1
+        return self.high - self.low
 
     def __and__(self, other: ProcessorRange) -> ProcessorRange:
         if self.kind != other.kind:
@@ -97,7 +107,7 @@ class ProcessorRange:
                 new_low += max(0, sl.start + sz)
         if sl.stop is not None:
             if sl.stop >= 0:
-                new_high = self.low + sl.stop - 1
+                new_high = self.low + sl.stop
             else:
                 new_high = self.low + max(0, sl.stop + sz)
 
@@ -107,6 +117,14 @@ class ProcessorRange:
             high=new_high,
             per_node_count=self.per_node_count,
         )
+
+    def __getitem__(self, key: PROC_RANGE_KEY) -> ProcessorRange:
+        if isinstance(key, int):
+            return self.slice(slice(key, key + 1))
+        elif isinstance(key, slice):
+            return self.slice(key)
+
+        raise KeyError(f"Invalid slicing key: {key}")
 
     def get_node_range(self) -> tuple[int, int]:
         if self.empty:
@@ -127,9 +145,6 @@ class ProcessorRange:
         buf.pack_32bit_uint(self.low)
         buf.pack_32bit_uint(self.high)
         buf.pack_32bit_uint(self.per_node_count)
-
-
-ProcSlice = Tuple[ProcessorKind, slice]
 
 
 class Machine:
@@ -197,7 +212,7 @@ class Machine:
         else:
             return self.only(*valid_kinds)
 
-    def __getitem__(self, key: Union[str, slice, int, ProcSlice]) -> Machine:
+    def __getitem__(self, key: MACHINE_KEY) -> Machine:
         if isinstance(key, ProcessorKind):
             return self.only(key)
         elif isinstance(key, (slice, int)):
@@ -206,15 +221,13 @@ class Machine:
                     "Ambiguous slicing: slicing is not allowed on a machine "
                     "with more than one processor kind"
                 )
-            k = key if isinstance(key, slice) else slice(key, key + 1)
-            return Machine([self.get_processor_range().slice(k)])
-        elif isinstance(key, tuple) and len(key) == 2:
-            kind, sl = key
-            if not isinstance(sl, slice):
-                raise KeyError(f"Invalid slicing key: {key}")
-            return Machine([self._get_range(kind).slice(sl)])
-        else:
-            raise KeyError(f"Invalid slicing key: {key}")
+            return Machine([self.get_processor_range()[key]])
+        elif isinstance(key, ProcessorSlice):
+            return Machine(
+                [self.get_processor_range(key.kind).slice(key.slice)]
+            )
+
+        raise KeyError(f"Invalid slicing key: {key}")
 
     @staticmethod
     def create_toplevel_machine(runtime: Runtime) -> Machine:
