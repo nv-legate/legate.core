@@ -24,7 +24,10 @@
 #include "legate_defines.h"
 
 #include "core/comm/communicator.h"
+#include "core/mapping/machine.h"
 #include "core/mapping/mapping.h"
+#include "core/runtime/resource.h"
+#include "core/runtime/runtime.h"
 #include "core/task/return.h"
 #include "core/task/task_info.h"
 #include "core/utilities/typedefs.h"
@@ -50,52 +53,6 @@ class InvalidTaskIdException : public std::exception {
 
  private:
   std::string error_message;
-};
-
-/**
- * @ingroup runtime
- * @brief POD for library configuration.
- */
-struct ResourceConfig {
-  /**
-   * @brief Maximum number of tasks that the library can register
-   */
-  int64_t max_tasks{1024};
-  /**
-   * @brief Maximum number of custom reduction operators that the library can register
-   */
-  int64_t max_reduction_ops{0};
-  int64_t max_projections{0};
-  int64_t max_shardings{0};
-};
-
-class ResourceIdScope {
- public:
-  ResourceIdScope() = default;
-  ResourceIdScope(int64_t base, int64_t size) : base_(base), size_(size) {}
-
- public:
-  ResourceIdScope(const ResourceIdScope&) = default;
-
- public:
-  int64_t translate(int64_t local_resource_id) const { return base_ + local_resource_id; }
-  int64_t invert(int64_t resource_id) const
-  {
-    assert(in_scope(resource_id));
-    return resource_id - base_;
-  }
-
- public:
-  bool valid() const { return base_ != -1; }
-  bool in_scope(int64_t resource_id) const
-  {
-    return base_ <= resource_id && resource_id < base_ + size_;
-  }
-  int64_t size() const { return size_; }
-
- private:
-  int64_t base_{-1};
-  int64_t size_{-1};
 };
 
 /**
@@ -164,7 +121,6 @@ class LibraryContext {
    *   using RHS = ...; // Type of the RHS values
    *
    *   static const RHS identity = ...; // Identity of the reduction operator
-   *   static const int32_t REDOP_ID = ... // Reduction operator id
    *
    *   template <bool EXCLUSIVE>
    *   __CUDA_HD__ inline static void apply(LHS& lhs, RHS rhs)
@@ -202,9 +158,14 @@ class LibraryContext {
    *
    * Finally, the contract for `apply` and `fold` is that they must update the
    * reference atomically when the `EXCLUSIVE` is `false`.
+   *
+   * @tparam REDOP Reduction operator to register
+   * @param redop_id Library-local reduction operator ID
+   *
+   * @return Global reduction operator ID
    */
   template <typename REDOP>
-  void register_reduction_operator();
+  int32_t register_reduction_operator(int32_t redop_id);
 
  public:
   void register_task(int64_t local_task_id, std::unique_ptr<TaskInfo> task_info);
@@ -263,6 +224,10 @@ class TaskContext {
   /**
    * @brief Returns communicators of the task
    *
+   * If a task launch ends up emitting only a single point task, that task will not get passed a
+   * communicator, even if one was requested at task launching time. Therefore, most tasks using
+   * communicators should be prepared to handle the case where the returned vector is empty.
+   *
    * @return Vector of communicator objects
    */
   std::vector<comm::Communicator>& communicators() { return comms_; }
@@ -296,6 +261,9 @@ class TaskContext {
   Domain get_launch_domain() const;
 
  public:
+  const mapping::MachineDesc& machine_desc() const { return machine_desc_; }
+
+ public:
   /**
    * @brief Makes all of unbound output stores of this task empty
    */
@@ -318,6 +286,7 @@ class TaskContext {
   std::vector<Scalar> scalars_;
   std::vector<comm::Communicator> comms_;
   bool can_raise_exception_;
+  mapping::MachineDesc machine_desc_;
 };
 
 }  // namespace legate

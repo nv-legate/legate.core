@@ -23,6 +23,8 @@
 
 namespace legate {
 
+class LibraryContext;
+
 // Interface for Legate projection functors
 class LegateProjectionFunctor : public Legion::ProjectionFunctor {
  public:

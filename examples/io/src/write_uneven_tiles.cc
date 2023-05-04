@@ -33,7 +33,7 @@ struct header_write_fn {
   template <int32_t DIM>
   void operator()(std::ofstream& out,
                   const legate::Domain& launch_domain,
-                  legate::LegateTypeCode type_code)
+                  legate::Type::Code type_code)
   {
     legate::Rect<DIM> rect(launch_domain);
     auto extents = rect.hi - rect.lo + legate::Point<DIM>::ONES();

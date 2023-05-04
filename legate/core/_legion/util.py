@@ -17,7 +17,16 @@ from __future__ import annotations
 import struct
 from abc import abstractmethod
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, Generic, List, Optional, TypeVar, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Generic,
+    List,
+    Optional,
+    Protocol,
+    TypeVar,
+    Union,
+)
 
 import numpy as np
 
@@ -168,6 +177,11 @@ class Dispatchable(Generic[T]):
         context: legion.legion_context_t,
         **kwargs: Any,
     ) -> T:
+        ...
+
+
+class Mappable(Protocol):
+    def set_mapper_arg(self, data: Any, size: int) -> None:
         ...
 
 

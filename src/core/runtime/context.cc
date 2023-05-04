@@ -177,6 +177,11 @@ TaskContext::TaskContext(const Legion::Task* task,
                          Legion::Runtime* runtime)
   : task_(task), regions_(regions), context_(context), runtime_(runtime)
 {
+  {
+    mapping::MapperDataDeserializer dez(task);
+    machine_desc_ = dez.unpack<mapping::MachineDesc>();
+  }
+
   TaskDeserializer dez(task, regions);
   inputs_     = dez.unpack<std::vector<Store>>();
   outputs_    = dez.unpack<std::vector<Store>>();
@@ -195,6 +200,7 @@ TaskContext::TaskContext(const Legion::Task* task,
     }
     comms_ = dez.unpack<std::vector<comm::Communicator>>();
   }
+
   // For reduction tree cases, some input stores may be mapped to NO_REGION
   // when the number of subregions isn't a multiple of the chosen radix.
   // To simplify the programming mode, we filter out those "invalid" stores out.
