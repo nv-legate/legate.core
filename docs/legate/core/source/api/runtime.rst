@@ -57,9 +57,6 @@ Legate Runtime
 .. autosummary::
    :toctree: generated/
 
-   runtime.Runtime.num_cpus
-   runtime.Runtime.num_omps
-   runtime.Runtime.num_gpus
    runtime.Runtime.register_library
    runtime.Runtime.create_future
 
