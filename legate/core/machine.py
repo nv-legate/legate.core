@@ -86,7 +86,7 @@ class ProcessorRange:
 
     def slice(self, sl: slice) -> ProcessorRange:
         if sl.step is not None and sl.step != 1:
-            raise ValueError("The slicing step must be 1")
+            raise ValueError("The slicing step must be 1 or None")
         sz = len(self)
         new_low = self.low
         new_high = self.high
