@@ -49,7 +49,7 @@ if TYPE_CHECKING:
     from ._legion.util import FieldListLike
     from .context import Context
     from .store import RegionField, Store
-    from .types import DTType
+    from .types import Dtype
 
 
 LegionOp = Union[IndexTask, SingleTask, IndexCopy, SingleCopy]
@@ -69,7 +69,7 @@ class Permission(IntEnum):
 Serializer = Callable[[BufferBuilder, Any], None]
 
 _SERIALIZERS: dict[Any, Serializer] = {
-    bool: BufferBuilder.pack_bool,
+    ty.bool_: BufferBuilder.pack_bool,
     ty.int8: BufferBuilder.pack_8bit_int,
     ty.int16: BufferBuilder.pack_16bit_int,
     ty.int32: BufferBuilder.pack_32bit_int,
@@ -80,27 +80,12 @@ _SERIALIZERS: dict[Any, Serializer] = {
     ty.uint64: BufferBuilder.pack_64bit_uint,
     ty.float32: BufferBuilder.pack_32bit_float,
     ty.float64: BufferBuilder.pack_64bit_float,
+    ty.complex64: BufferBuilder.pack_64bit_complex,
+    ty.complex128: BufferBuilder.pack_128bit_complex,
     ty.string: BufferBuilder.pack_string,
 }
 
 EntryType = Tuple[Union["Broadcast", "Partition"], int, int]
-
-
-def _pack(buf: BufferBuilder, value: Any, dtype: Any, is_tuple: bool) -> None:
-    if dtype not in _SERIALIZERS:
-        raise ValueError(f"Unsupported data type: {dtype}")
-    serializer = _SERIALIZERS[dtype]
-
-    if is_tuple:
-        if dtype == ty.string:
-            raise NotImplementedError(
-                "Passing a tuple of strings is not yet supported"
-            )
-        buf.pack_32bit_uint(len(value))
-        for v in value:
-            serializer(buf, v)
-    else:
-        serializer(buf, value)
 
 
 class RequirementIndexer(Protocol):
@@ -118,34 +103,32 @@ class LauncherArg(Protocol):
 class ScalarArg:
     def __init__(
         self,
-        core_types: ty.TypeSystem,
         value: Any,
-        dtype: Union[DTType, tuple[DTType]],
-        untyped: bool = True,
+        dtype: Union[Dtype, tuple[Dtype]],
     ) -> None:
-        self._core_types = core_types
         self._value = value
         self._dtype = dtype
-        self._untyped = untyped
 
     def pack(self, buf: BufferBuilder) -> None:
-        if isinstance(self._dtype, tuple):
-            if len(self._dtype) != 1:
+        if not isinstance(self._dtype, tuple):
+            if self._dtype not in _SERIALIZERS:
                 raise ValueError(f"Unsupported data type: {self._dtype}")
-            is_tuple = True
-            dtype = self._dtype[0]
-        else:
-            is_tuple = False
-            dtype = self._dtype
+            self._dtype.serialize(buf)
+            _SERIALIZERS[self._dtype](buf, self._value)
+            return
 
-        if self._untyped:
-            buf.pack_bool(is_tuple)
-            buf.pack_32bit_int(self._core_types[dtype].code)
+        if len(self._dtype) != 1:
+            raise ValueError(f"Unsupported data type: {self._dtype}")
 
-        _pack(buf, self._value, dtype, is_tuple)
+        elem_dtype = self._dtype[0]
+        serialize = _SERIALIZERS[elem_dtype]
+        dtype = ty.array_type(elem_dtype, len(self._value))
+        dtype.serialize(buf)
+        for v in self._value:
+            serialize(buf, v)
 
     def __str__(self) -> str:
-        return f"ScalarArg({self._value}, {self._dtype}, {self._untyped})"
+        return f"ScalarArg({self._value}, {self._dtype})"
 
 
 class FutureStoreArg:
@@ -163,7 +146,10 @@ class FutureStoreArg:
         buf.pack_bool(self._read_only)
         buf.pack_bool(self._has_storage)
         buf.pack_32bit_int(self._store.type.size)
-        _pack(buf, self._store.extents, ty.int64, True)
+        extents = self._store.extents
+        buf.pack_32bit_uint(len(extents))
+        for extent in extents:
+            buf.pack_64bit_int(extent)
 
     def __str__(self) -> str:
         return f"FutureStoreArg({self._store})"
@@ -719,7 +705,6 @@ class TaskLauncher:
         assert type(tag) != bool
         self._context = context
         self._mapper_id = context.mapper_id
-        self._core_types = runtime.core_context.type_system
         self._task_id = task_id
         self._inputs: list[LauncherArg] = []
         self._outputs: list[LauncherArg] = []
@@ -759,12 +744,9 @@ class TaskLauncher:
     def add_scalar_arg(
         self,
         value: Any,
-        dtype: Union[DTType, tuple[DTType]],
-        untyped: bool = True,
+        dtype: Union[Dtype, tuple[Dtype]],
     ) -> None:
-        self._scalars.append(
-            ScalarArg(self._core_types, value, dtype, untyped)
-        )
+        self._scalars.append(ScalarArg(value, dtype))
 
     def add_store(
         self,

@@ -444,7 +444,7 @@ void BaseMapper::map_task(const Legion::Mapping::MapperContext ctx,
     }
     auto& first_store = mapping.stores.front();
     for (auto it = mapping.stores.begin() + 1; it != mapping.stores.end(); ++it) {
-      if (!it->can_colocate_with(first_store)) {
+      if (!it->get().can_colocate_with(first_store)) {
         logger.error("Mapper %s tried to colocate stores that cannot colocate", get_mapper_name());
         LEGATE_ABORT;
       }
@@ -475,7 +475,8 @@ void BaseMapper::map_task(const Legion::Mapping::MapperContext ctx,
       mapped_regions.insert(mapping.store().unique_region_field_id());
       for_unbound_stores.push_back(std::move(mapping));
     } else {
-      for (auto& store : mapping.stores) mapped_regions.insert(store.unique_region_field_id());
+      for (auto& store : mapping.stores)
+        mapped_regions.insert(store.get().unique_region_field_id());
       for_stores.push_back(std::move(mapping));
     }
   }
@@ -484,7 +485,7 @@ void BaseMapper::map_task(const Legion::Mapping::MapperContext ctx,
     std::map<RegionField::Id, InstanceMappingPolicy> policies;
     for (const auto& mapping : mappings)
       for (auto& store : mapping.stores) {
-        auto key    = store.unique_region_field_id();
+        auto key    = store.get().unique_region_field_id();
         auto finder = policies.find(key);
         if (policies.end() == finder)
           policies[key] = mapping.policy;

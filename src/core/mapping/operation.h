@@ -112,13 +112,13 @@ class Store {
  public:
   Store() {}
   Store(int32_t dim,
-        LegateTypeCode code,
+        std::unique_ptr<Type> type,
         FutureWrapper future,
         std::shared_ptr<TransformStack>&& transform = nullptr);
   Store(Legion::Mapping::MapperRuntime* runtime,
         const Legion::Mapping::MapperContext context,
         int32_t dim,
-        LegateTypeCode code,
+        std::unique_ptr<Type> type,
         int32_t redop_id,
         const RegionField& region_field,
         bool is_output_store                        = false,
@@ -129,8 +129,8 @@ class Store {
         const Legion::RegionRequirement* requirement);
 
  public:
-  Store(const Store& other)            = default;
-  Store& operator=(const Store& other) = default;
+  Store(const Store& other)            = delete;
+  Store& operator=(const Store& other) = delete;
 
  public:
   Store(Store&& other)            = default;
@@ -210,7 +210,7 @@ class Store {
   bool is_future_{false};
   bool is_output_store_{false};
   int32_t dim_{-1};
-  LegateTypeCode code_{MAX_TYPE_NUMBER};
+  std::unique_ptr<Type> type_{nullptr};
   int32_t redop_id_{-1};
 
  private:

@@ -211,6 +211,7 @@ list(APPEND legate_core_SOURCES
   src/core/task/task.cc
   src/core/task/task_info.cc
   src/core/task/variant_options.cc
+  src/core/type/type_info.cc
   src/core/utilities/debug.cc
   src/core/utilities/deserializer.cc
   src/core/utilities/machine.cc
@@ -315,6 +316,8 @@ if (legate_core_BUILD_DOCS)
   if(Doxygen_FOUND)
     set(legate_core_DOC_SOURCES "")
     list(APPEND legate_core_DOC_SOURCES
+      # type
+      src/core/type/type_info.h
       # task
       src/core/task/task.h
       src/core/task/registrar.h
@@ -413,6 +416,7 @@ install(
 install(
   FILES src/core/runtime/context.h
         src/core/runtime/context.inl
+        src/core/runtime/resource.h
         src/core/runtime/runtime.h
         src/core/runtime/runtime.inl
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/legate/core/runtime)
@@ -429,6 +433,10 @@ install(
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/legate/core/task)
 
 install(
+  FILES src/core/type/type_info.h
+        src/core/type/type_traits.h
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/legate/core/type)
+install(
   FILES src/core/utilities/debug.h
         src/core/utilities/deserializer.h
         src/core/utilities/deserializer.inl
@@ -436,7 +444,6 @@ install(
         src/core/utilities/machine.h
         src/core/utilities/nvtx_help.h
         src/core/utilities/span.h
-        src/core/utilities/type_traits.h
         src/core/utilities/typedefs.h
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/legate/core/utilities)
 
