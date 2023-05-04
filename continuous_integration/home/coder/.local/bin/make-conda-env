@@ -29,9 +29,7 @@ make_conda_env() {
 
     cp "${yaml_file}" /tmp/out/
 
-    mamba env create -n legate -f "${yaml_file}";
-
-    mamba install -y -n legate -c conda-forge boa;
+    mamba env create -n "${DEFAULT_CONDA_ENV:-legate}" -f "${yaml_file}";
 
     { set +x; } 2>/dev/null;
 
