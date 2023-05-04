@@ -49,7 +49,7 @@ class Scalar {
    * @brief Creates a shared `Scalar` with an existing allocation. The caller is responsible
    * for passing in a sufficiently big allocation.
    *
-   * @param code Type code of the scalar(s)
+   * @param type Type of the scalar(s)
    * @param data Allocation containing the data.
    */
   Scalar(std::unique_ptr<Type> type, const void* data);
@@ -86,7 +86,7 @@ class Scalar {
    *
    * @return Data type
    */
-  const Type* type() const { return type_.get(); }
+  const Type& type() const { return *type_; }
   /**
    * @brief Returns the size of allocation for the `Scalar`.
    *

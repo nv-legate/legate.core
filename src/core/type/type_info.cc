@@ -193,15 +193,6 @@ std::unique_ptr<Type> struct_type(std::vector<std::unique_ptr<Type>>&& field_typ
                                       align);
 }
 
-std::unique_ptr<Type> struct_type_raw_ptrs(std::vector<Type*> _field_types,
-                                           bool align) noexcept(false)
-{
-  std::vector<std::unique_ptr<Type>> field_types;
-  for (auto field_type : _field_types) field_types.emplace_back(field_type);
-  return std::make_unique<StructType>(
-    Runtime::get_runtime()->get_type_uid(), std::move(field_types), align);
-}
-
 std::ostream& operator<<(std::ostream& ostream, const Type::Code& code)
 {
   ostream << static_cast<int32_t>(code);
