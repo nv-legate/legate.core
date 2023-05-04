@@ -121,10 +121,7 @@ class ProcessorRange:
     def __repr__(self) -> str:
         if self.high < self.low:
             return "<empty>"
-        else:
-            return (
-                f"[{self.low}, {self.high}] ({self.per_node_count} per node)"
-            )
+        return f"[{self.low}, {self.high}] ({self.per_node_count} per node)"
 
     def pack(self, buf: BufferBuilder) -> None:
         buf.pack_32bit_uint(self.low)
