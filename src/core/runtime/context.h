@@ -24,6 +24,7 @@
 #include "legate_defines.h"
 
 #include "core/comm/communicator.h"
+#include "core/mapping/machine.h"
 #include "core/mapping/mapping.h"
 #include "core/runtime/resource.h"
 #include "core/runtime/runtime.h"
@@ -260,6 +261,9 @@ class TaskContext {
   Domain get_launch_domain() const;
 
  public:
+  const mapping::MachineDesc& machine_desc() const { return machine_desc_; }
+
+ public:
   /**
    * @brief Makes all of unbound output stores of this task empty
    */
@@ -282,6 +286,7 @@ class TaskContext {
   std::vector<Scalar> scalars_;
   std::vector<comm::Communicator> comms_;
   bool can_raise_exception_;
+  mapping::MachineDesc machine_desc_;
 };
 
 }  // namespace legate

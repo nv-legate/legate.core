@@ -17,9 +17,8 @@
 #pragma once
 
 #include <functional>
-
-#include "core/mapping/operation.h"
-#include "core/utilities/typedefs.h"
+#include "core/data/scalar.h"
+#include "core/mapping/store.h"
 
 /** @defgroup mapping Mapping API
  */
@@ -32,23 +31,28 @@
 namespace legate {
 namespace mapping {
 
+class Task;
+
+// NOTE: codes are chosen to reflect the precedence between the processor kinds in choosing target
+// processors for tasks.
+
 /**
  * @ingroup mapping
  * @brief An enum class for task targets
  */
 enum class TaskTarget : int32_t {
   /**
-   * @brief Indicates the task be mapped to a CPU
-   */
-  CPU = 1,
-  /**
    * @brief Indicates the task be mapped to a GPU
    */
-  GPU = 2,
+  GPU = 1,
   /**
    * @brief Indicates the task be mapped to an OpenMP processor
    */
-  OMP = 3,
+  OMP = 2,
+  /**
+   * @brief Indicates the task be mapped to a CPU
+   */
+  CPU = 3,
 };
 
 /**

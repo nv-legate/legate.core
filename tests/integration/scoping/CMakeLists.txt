@@ -14,8 +14,16 @@
 # limitations under the License.
 #=============================================================================
 
-# We abuse find package for testing purposes here to
-# 'find' the current build tree to test package builds
+cmake_minimum_required(VERSION 3.22.1 FATAL_ERROR)
 
-add_subdirectory(registry)
-add_subdirectory(scoping)
+project(scoping VERSION 0.1 LANGUAGES C CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(BUILD_SHARED_LIBS ON)
+
+find_package(legate_core REQUIRED)
+
+legate_add_cpp_subdirectory(src TARGET scoping EXPORT scoping-export)
+
+legate_add_cffi(${CMAKE_CURRENT_SOURCE_DIR}/src/scoping_cffi.h TARGET scoping)
+legate_default_python_install(scoping EXPORT scoping-export)

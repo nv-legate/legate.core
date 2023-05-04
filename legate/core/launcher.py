@@ -15,10 +15,12 @@
 from __future__ import annotations
 
 from enum import IntEnum, unique
+from itertools import chain
 from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
+    Generator,
     Optional,
     Protocol,
     Sequence,
@@ -46,7 +48,7 @@ from .utils import OrderedSet
 
 if TYPE_CHECKING:
     from . import FieldSpace, IndexSpace, OutputRegion, Point, Rect, Region
-    from ._legion.util import FieldListLike
+    from ._legion.util import FieldListLike, Mappable
     from .context import Context
     from .store import RegionField, Store
     from .types import Dtype
@@ -692,6 +694,13 @@ class CopyReqAnalyzer(RequirementIndexer):
         return self._requirement_map[(req, field_id)]
 
 
+def find_key_projection(reqs: Generator[RegionReq, None, None]) -> int:
+    for req in reqs:
+        if req.tag == 1:  # LEGATE_CORE_KEY_STORE_TAG
+            return req.proj.proj
+    return 0
+
+
 class TaskLauncher:
     def __init__(
         self,
@@ -874,6 +883,15 @@ class TaskLauncher:
     def set_point(self, point: Point) -> None:
         self._point = point
 
+    def set_mapper_arg(self, task: Mappable) -> None:
+        argbuf = BufferBuilder()
+        runtime.machine.pack(argbuf)
+        proj_id = find_key_projection(
+            req for (req, _) in self._req_analyzer.requirements
+        )
+        argbuf.pack_32bit_uint(runtime.get_sharding(proj_id))
+        task.set_mapper_arg(argbuf.get_string(), argbuf.get_size())
+
     def build_task(
         self, launch_domain: Rect, argbuf: BufferBuilder
     ) -> IndexTask:
@@ -917,6 +935,7 @@ class TaskLauncher:
         task.set_concurrent(len(self._comms) > 0 or self._concurrent)
         for future_map in self._future_map_args:
             task.add_point_future(ArgumentMap(future_map=future_map))
+        self.set_mapper_arg(task)
         return task
 
     def build_single_task(self, argbuf: BufferBuilder) -> SingleTask:
@@ -955,6 +974,7 @@ class TaskLauncher:
             task.set_sharding_space(self._sharding_space)
         if self._point is not None:
             task.set_point(self._point)
+        self.set_mapper_arg(task)
         return task
 
     def execute(self, launch_domain: Rect) -> FutureMap:
@@ -1125,8 +1145,22 @@ class CopyLauncher:
     def set_point(self, point: Point) -> None:
         self._point = point
 
+    def pack_mapper_arg(self, argbuf: BufferBuilder) -> None:
+        runtime.machine.pack(argbuf)
+        proj_id = find_key_projection(
+            req
+            for (req, _) in chain(
+                self._input_reqs.requirements,
+                self._output_reqs.requirements,
+                self._source_indirect_reqs.requirements,
+                self._target_indirect_reqs.requirements,
+            )
+        )
+        argbuf.pack_32bit_uint(runtime.get_sharding(proj_id))
+
     def build_copy(self, launch_domain: Rect) -> IndexCopy:
         argbuf = BufferBuilder()
+        self.pack_mapper_arg(argbuf)
         pack_args(argbuf, self._inputs)
         pack_args(argbuf, self._outputs + self._reductions)
         pack_args(argbuf, self._source_indirects)
@@ -1159,6 +1193,7 @@ class CopyLauncher:
 
     def build_single_copy(self) -> SingleCopy:
         argbuf = BufferBuilder()
+        self.pack_mapper_arg(argbuf)
         pack_args(argbuf, self._inputs)
         pack_args(argbuf, self._outputs + self._reductions)
         pack_args(argbuf, self._source_indirects)
@@ -1227,11 +1262,18 @@ class FillLauncher:
     def set_point(self, point: Point) -> None:
         self._point = point
 
+    def set_mapper_arg(self, fill: Mappable) -> None:
+        argbuf = BufferBuilder()
+        runtime.machine.pack(argbuf)
+        argbuf.pack_32bit_uint(runtime.get_sharding(self._lhs_proj.proj))
+        fill.set_mapper_arg(argbuf.get_string(), argbuf.get_size())
+
     def build_fill(self, launch_domain: Rect) -> IndexFill:
         if TYPE_CHECKING:
             assert isinstance(self._lhs.storage, RegionField)
             assert isinstance(self._value.storage, Future)
         assert self._lhs_proj.part is not None
+
         fill = IndexFill(
             self._lhs_proj.part,
             self._lhs_proj.proj,
@@ -1245,12 +1287,14 @@ class FillLauncher:
         )
         if self._sharding_space is not None:
             fill.set_sharding_space(self._sharding_space)
+        self.set_mapper_arg(fill)
         return fill
 
     def build_single_fill(self) -> SingleFill:
         if TYPE_CHECKING:
             assert isinstance(self._lhs.storage, RegionField)
             assert isinstance(self._value.storage, Future)
+
         fill = SingleFill(
             self._lhs.storage.region,
             self._lhs.storage.region.get_root(),
@@ -1264,6 +1308,7 @@ class FillLauncher:
             fill.set_sharding_space(self._sharding_space)
         if self._point is not None:
             fill.set_point(self._point)
+        self.set_mapper_arg(fill)
         return fill
 
     def execute(self, launch_domain: Rect) -> None:

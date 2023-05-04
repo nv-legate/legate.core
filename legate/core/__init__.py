@@ -91,10 +91,12 @@ from .legate import (
     Library,
     Table,
 )
+from .machine import EmptyMachineError, Machine, ProcessorKind, ProcessorSlice
 from .runtime import (
     get_legate_runtime,
     get_legion_context,
     get_legion_runtime,
+    get_machine,
     legate_add_library,
 )
 from .store import Store

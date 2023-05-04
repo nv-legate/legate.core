@@ -27,7 +27,7 @@ namespace legate {
 
 TaskDeserializer::TaskDeserializer(const Legion::Task* task,
                                    const std::vector<Legion::PhysicalRegion>& regions)
-  : BaseDeserializer(static_cast<const int8_t*>(task->args), task->arglen),
+  : BaseDeserializer(task->args, task->arglen),
     futures_{task->futures.data(), task->futures.size()},
     regions_{regions.data(), regions.size()},
     outputs_()
@@ -123,10 +123,15 @@ void TaskDeserializer::_unpack(Legion::PhaseBarrier& barrier)
 
 namespace mapping {
 
+MapperDataDeserializer::MapperDataDeserializer(const Legion::Mappable* mappable)
+  : BaseDeserializer(mappable->mapper_data, mappable->mapper_data_size)
+{
+}
+
 TaskDeserializer::TaskDeserializer(const Legion::Task* task,
                                    Legion::Mapping::MapperRuntime* runtime,
                                    Legion::Mapping::MapperContext context)
-  : BaseDeserializer(static_cast<const int8_t*>(task->args), task->arglen),
+  : BaseDeserializer(task->args, task->arglen),
     task_(task),
     runtime_(runtime),
     context_(context),
@@ -192,12 +197,11 @@ void TaskDeserializer::_unpack(RegionField& value, bool is_output_region)
   value    = RegionField(req, dim, idx, fid);
 }
 
-CopyDeserializer::CopyDeserializer(const void* args,
-                                   size_t arglen,
+CopyDeserializer::CopyDeserializer(const Legion::Copy* copy,
                                    std::vector<ReqsRef>&& all_requirements,
                                    Legion::Mapping::MapperRuntime* runtime,
                                    Legion::Mapping::MapperContext context)
-  : BaseDeserializer(static_cast<const int8_t*>(args), arglen),
+  : BaseDeserializer(copy->mapper_data, copy->mapper_data_size),
     all_reqs_(std::forward<std::vector<ReqsRef>>(all_requirements)),
     curr_reqs_(all_reqs_.begin()),
     runtime_(runtime),
