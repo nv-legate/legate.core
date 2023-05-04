@@ -331,10 +331,6 @@ std::unique_ptr<Type> fixed_array_type(std::unique_ptr<Type> element_type,
 std::unique_ptr<Type> struct_type(std::vector<std::unique_ptr<Type>>&& field_types,
                                   bool align = false) noexcept(false);
 
-// The caller transfers ownership of the Type objects
-std::unique_ptr<Type> struct_type_raw_ptrs(std::vector<Type*> field_types,
-                                           bool align = false) noexcept(false);
-
 std::ostream& operator<<(std::ostream&, const Type::Code&);
 
 std::ostream& operator<<(std::ostream&, const Type&);
