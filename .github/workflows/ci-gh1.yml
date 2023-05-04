@@ -35,7 +35,7 @@ jobs:
           fetch-depth: 0
           path: legate
 
-      - name: Build
+      - name: Setup
         shell: bash -eo pipefail {0}
         run: |
           apt update;
@@ -51,7 +51,9 @@ jobs:
           chown -R coder:coder /home/coder/;
           chown -R coder:coder /tmp/out;
 
-          su coder -Pc "~/.local/bin/entrypoint bash -ic 'PATH=$CUDA_HOME/bin:\$PATH build-all'";
+      - name: Build
+        shell: su coder {0}
+        run: ~/.local/bin/entrypoint build-all
 
       - name: Upload build output
         uses: actions/upload-artifact@v3
