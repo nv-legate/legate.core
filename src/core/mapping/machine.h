@@ -32,14 +32,14 @@ Processor::Kind to_kind(TaskTarget target);
 
 struct ProcessorRange {
   ProcessorRange() {}
-  ProcessorRange(uint32_t lo, uint32_t hi, uint32_t per_node_count);
+  ProcessorRange(uint32_t low, uint32_t high, uint32_t per_node_count);
   ProcessorRange operator&(const ProcessorRange&) const;
   uint32_t count() const;
   bool empty() const;
   std::string to_string() const;
 
-  uint32_t lo{0};
-  uint32_t hi{0};
+  uint32_t low{0};
+  uint32_t high{0};
   uint32_t per_node_count{1};
 };
 

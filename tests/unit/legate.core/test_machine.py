@@ -40,7 +40,7 @@ class TestProcessorRange:
         r = ProcessorRange.create(ProcessorKind.CPU, 1, 1, 3)
         assert not r.empty
         assert r.kind == ProcessorKind.CPU
-        assert r.per_node_count == 1 and r.lo == 1 and r.hi == 3
+        assert r.per_node_count == 1 and r.low == 1 and r.high == 3
         assert len(r) == 3
 
         assert r.get_node_range() == (1, 3)
@@ -49,12 +49,12 @@ class TestProcessorRange:
         r = ProcessorRange.create(ProcessorKind.GPU, 1, 1, 0)
         assert r.empty
         assert r.kind == ProcessorKind.GPU
-        assert r.per_node_count == 1 and r.lo == 1 and r.hi == 0
+        assert r.per_node_count == 1 and r.low == 1 and r.high == 0
         assert len(r) == 0
 
         r = ProcessorRange.create(ProcessorKind.GPU, 1, 2, 1)
         assert r.empty
-        assert r.lo == 1 and r.hi == 0
+        assert r.low == 1 and r.high == 0
         assert len(r) == 0
 
         err_msg = "Illegal to get a node range of an empty processor range"
@@ -247,8 +247,8 @@ class TestMachine:
             v1, v2, v3, v4 = values[i * 4 : (i + 1) * 4]
             assert v1 == r.kind
             assert v2 == r.per_node_count
-            assert v3 == r.lo
-            assert v4 == r.hi
+            assert v3 == r.low
+            assert v4 == r.high
 
         buf = BufferBuilder()
         Machine([]).pack(buf)

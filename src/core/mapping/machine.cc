@@ -62,12 +62,12 @@ std::ostream& operator<<(std::ostream& stream, const TaskTarget& target)
   return stream;
 }
 
-ProcessorRange::ProcessorRange(uint32_t _lo, uint32_t _hi, uint32_t _per_node_count)
-  : lo(_lo), hi(_hi), per_node_count(_per_node_count)
+ProcessorRange::ProcessorRange(uint32_t _low, uint32_t _high, uint32_t _per_node_count)
+  : low(_low), high(_high), per_node_count(_per_node_count)
 {
-  if (hi < lo) {
-    lo = 1;
-    hi = 0;
+  if (high < low) {
+    low  = 1;
+    high = 0;
   }
 }
 
@@ -76,17 +76,17 @@ ProcessorRange ProcessorRange::operator&(const ProcessorRange& other) const
 #ifdef DEBUG_LEGATE
   assert(other.per_node_count == per_node_count);
 #endif
-  return ProcessorRange(std::max(lo, other.lo), std::min(hi, other.hi), per_node_count);
+  return ProcessorRange(std::max(low, other.low), std::min(high, other.high), per_node_count);
 }
 
-uint32_t ProcessorRange::count() const { return hi + 1 - lo; }
+uint32_t ProcessorRange::count() const { return high + 1 - low; }
 
-bool ProcessorRange::empty() const { return hi < lo; }
+bool ProcessorRange::empty() const { return high < low; }
 
 std::string ProcessorRange::to_string() const
 {
   std::stringstream ss;
-  ss << "Proc([" << lo << "," << hi << "], " << per_node_count << " per node)";
+  ss << "Proc([" << low << "," << high << "], " << per_node_count << " per node)";
   return ss.str();
 }
 
@@ -260,9 +260,9 @@ LocalProcessorRange Machine::slice(TaskTarget target,
       return LocalProcessorRange();
   }
 
-  return LocalProcessorRange(slice.lo - global_range.lo,
+  return LocalProcessorRange(slice.low - global_range.low,
                              global_range.count(),
-                             local_procs.data() + (slice.lo - my_lo),
+                             local_procs.data() + (slice.low - my_lo),
                              slice.count());
 }
 

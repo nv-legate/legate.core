@@ -40,8 +40,8 @@ template <typename Deserializer>
 void BaseDeserializer<Deserializer>::_unpack(mapping::ProcessorRange& value)
 {
   value.per_node_count = unpack<uint32_t>();
-  value.lo             = unpack<uint32_t>();
-  value.hi             = unpack<uint32_t>();
+  value.low            = unpack<uint32_t>();
+  value.high           = unpack<uint32_t>();
 }
 
 template <typename Deserializer>

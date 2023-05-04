@@ -1325,7 +1325,7 @@ class Runtime:
 
     def get_sharding(self, proj_id: int) -> int:
         proc_range = self.machine.get_processor_range()
-        offset = proc_range.lo % proc_range.per_node_count
+        offset = proc_range.low % proc_range.per_node_count
         node_range = self.machine.get_node_range()
         shard_spec = (proj_id, node_range, offset, proc_range.per_node_count)
 

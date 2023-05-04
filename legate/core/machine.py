@@ -43,24 +43,24 @@ class ProcessorRange:
     # the kind is being used just in compatibility checks
     kind: ProcessorKind
     per_node_count: int
-    lo: int
-    hi: int
+    low: int
+    high: int
 
     @staticmethod
     def create(
-        kind: ProcessorKind, per_node_count: int, lo: int, hi: int
+        kind: ProcessorKind, per_node_count: int, low: int, high: int
     ) -> ProcessorRange:
-        if hi < lo:
-            lo = 1
-            hi = 0
-        return ProcessorRange(kind, per_node_count, lo, hi)
+        if high < low:
+            low = 1
+            high = 0
+        return ProcessorRange(kind, per_node_count, low, high)
 
     @property
     def empty(self) -> bool:
-        return self.hi < self.lo
+        return self.high < self.low
 
     def __len__(self) -> int:
-        return self.hi - self.lo + 1
+        return self.high - self.low + 1
 
     def __and__(self, other: ProcessorRange) -> ProcessorRange:
         if self.kind != other.kind:
@@ -72,29 +72,29 @@ class ProcessorRange:
         return ProcessorRange.create(
             self.kind,
             self.per_node_count,
-            max(self.lo, other.lo),
-            min(self.hi, other.hi),
+            max(self.low, other.low),
+            min(self.high, other.high),
         )
 
     def slice(self, sl: slice) -> ProcessorRange:
         if sl.step is not None and sl.step != 1:
             raise ValueError("The slicing step must be 1")
         sz = len(self)
-        new_lo = self.lo
-        new_hi = self.hi
+        new_low = self.low
+        new_high = self.high
         if sl.start is not None:
             if sl.start >= 0:
-                new_lo += sl.start
+                new_low += sl.start
             else:
-                new_lo += max(0, sl.start + sz)
+                new_low += max(0, sl.start + sz)
         if sl.stop is not None:
             if sl.stop >= 0:
-                new_hi = self.lo + sl.stop - 1
+                new_high = self.low + sl.stop - 1
             else:
-                new_hi = self.lo + max(0, sl.stop + sz)
+                new_high = self.low + max(0, sl.stop + sz)
 
         return ProcessorRange.create(
-            self.kind, self.per_node_count, new_lo, new_hi
+            self.kind, self.per_node_count, new_low, new_high
         )
 
     def get_node_range(self) -> tuple[int, int]:
@@ -102,18 +102,23 @@ class ProcessorRange:
             raise ValueError(
                 "Illegal to get a node range of an empty processor range"
             )
-        return (self.lo // self.per_node_count, self.hi // self.per_node_count)
+        return (
+            self.low // self.per_node_count,
+            self.high // self.per_node_count,
+        )
 
     def __repr__(self) -> str:
-        if self.hi < self.lo:
+        if self.high < self.low:
             return "<empty>"
         else:
-            return f"[{self.lo}, {self.hi}] ({self.per_node_count} per node)"
+            return (
+                f"[{self.low}, {self.high}] ({self.per_node_count} per node)"
+            )
 
     def pack(self, buf: BufferBuilder) -> None:
         buf.pack_32bit_uint(self.per_node_count)
-        buf.pack_32bit_uint(self.lo)
-        buf.pack_32bit_uint(self.hi)
+        buf.pack_32bit_uint(self.low)
+        buf.pack_32bit_uint(self.high)
 
 
 ProcSlice = Tuple[ProcessorKind, slice]
