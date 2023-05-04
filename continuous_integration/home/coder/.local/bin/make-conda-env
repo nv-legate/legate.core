@@ -23,9 +23,9 @@ make_conda_env() {
         | head -n1 | cut -d' ' -f3              \
     )"
 
-    sed -i -re "s/legate-test/${DEFAULT_CONDA_ENV:-legate}/g" ~/"${yaml_file}";
-    echo "  - boa" >> ~/"${yaml_file}";
-    cat ~/"${yaml_file}";
+    sed -i -re "s/legate-test/${DEFAULT_CONDA_ENV:-legate}/g" "${yaml_file}";
+    echo "  - boa" >> "${yaml_file}";
+    cat "${yaml_file}";
 
     cp "${yaml_file}" /tmp/out/
 
