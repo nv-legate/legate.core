@@ -15,11 +15,6 @@ entrypoint() {
     mkdir -p /home/coder/.cache;
 
     . devcontainer-utils-post-attach-command;
-    sleep 10;
-    . devcontainer-utils-vault-s3-test;
-    . devcontainer-utils-vault-s3-export 0;
-
-    sccache --stop-server || true && sccache --show-stats;
 
     exec "$@";
 }
