@@ -94,6 +94,24 @@ def test_project() -> None:
 
     a = a.promote(0, 100)
     a = a.project(0, 1)
+    a = a.promote(1, 100)
+    a = a.project(1, 1)
+    collective_test(
+        a,
+        (100, 100),
+        (
+            10,
+            10,
+        ),
+    )
+
+
+def test_2_promotions() -> None:
+    a = create_int64_store(shape=(1,))
+
+    a = a.promote(0, 100)
+    a = a.promote(0, 100)
+    a = a.project(1, 1)
     collective_test(
         a,
         (100, 100),

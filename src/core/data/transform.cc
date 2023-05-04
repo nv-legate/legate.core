@@ -189,12 +189,9 @@ int32_t Promote::target_ndim(int32_t source_ndim) const { return source_ndim - 1
 
 void Promote::return_promoted_dims(std::vector<int32_t>& dims) const
 {
-  // avoid pushing 2 times
-  auto finder = std::find(dims.begin(), dims.end(), (extra_dim_));
-  if (finder == dims.end()) {
-    for (size_t i = 0; i < dims.size(); i++) { dims[i] += 1; }
-    dims.push_back(extra_dim_);
-  }
+  for (auto& dim : dims)
+    if (dim >= extra_dim_) dim++;
+  dims.push_back(extra_dim_);
 }
 
 Project::Project(int32_t dim, int64_t coord) : dim_(dim), coord_(coord) {}
@@ -326,14 +323,14 @@ int32_t Transpose::target_ndim(int32_t source_ndim) const { return source_ndim; 
 
 void Transpose::return_promoted_dims(std::vector<int32_t>& dims) const
 {
-  for (size_t i = 0; i < axes_.size(); i++) {
-    if (i != axes_[i]) {
-      auto finder_dims = std::find(dims.begin(), dims.end(), (i));
-      if (finder_dims != dims.end()) {
-        auto finder_axes   = std::find(axes_.begin(), axes_.end(), (i));
-        dims[*finder_dims] = *finder_axes;
-      }
-    }
+  // i should be added to X.tranpose(axes).promoted iff axes[i] is in X.promoted
+  // e.g. X.promoted = [0] => X.transpose((1,2,0)).promoted = [2]
+  for (auto& promoted : dims) {
+    auto finder = std::find(axes_.begin(), axes_.end(), promoted);
+#ifdef DEBUG_LEGATE
+    assert(finder != axes_.end());
+#endif
+    promoted = finder - axes_.begin();
   }
 };
 
