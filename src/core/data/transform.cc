@@ -318,14 +318,14 @@ int32_t Transpose::target_ndim(int32_t source_ndim) const { return source_ndim; 
 
 void Transpose::return_promoted_dims(std::vector<int32_t>& dims) const
 {
-  for (size_t i = 0; i < axes_.size(); i++) {
-    if (i != axes_[i]) {
-      auto finder_dims = std::find(dims.begin(), dims.end(), (i));
-      if (finder_dims != dims.end()) {
-        auto finder_axes   = std::find(axes_.begin(), axes_.end(), (i));
-        dims[*finder_dims] = *finder_axes;
-      }
-    }
+  // i should be added to X.tranpose(axes).promoted iff axes[i] is in X.promoted
+  // e.g. X.promoted = [0] => X.transpose((1,2,0)).promoted = [2]
+  for (auto& promoted : dims) {
+    auto finder = std::find(axes_.begin(), axes_.end(), promoted);
+#ifdef DEBUG_LEGATE
+    assert(finder != axes_.end());
+#endif
+    promoted = finder - axes_.begin();
   }
 };
 
