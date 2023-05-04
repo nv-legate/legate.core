@@ -18,10 +18,8 @@ import struct
 from enum import IntEnum
 from typing import Any, Optional
 
-import pyarrow as pa
-
 import legate.core.types as ty
-from legate.core import Array, Rect, Store, get_legate_runtime
+from legate.core import Array, Field, Rect, Store, get_legate_runtime
 
 from .library import user_context as context, user_lib
 
@@ -39,7 +37,7 @@ class LegateIOOpCode(IntEnum):
 # We use this mapping to create an array based on the type information
 # from a dataset's header file.
 _CODES_TO_DTYPES = dict(
-    (context.type_system[t].code, t)
+    (t.code, t)
     for t in (
         ty.bool_,
         ty.int8,
@@ -67,7 +65,7 @@ class IOArray:
     data interface.
     """
 
-    def __init__(self, store: Store, dtype: pa.lib.DataType) -> None:
+    def __init__(self, store: Store, dtype: ty.Dtype) -> None:
         self._store = store
         self._dtype = dtype
 
@@ -86,7 +84,7 @@ class IOArray:
 
         assert data["version"] == 1
         # For now, we assume that there's only one field in the container
-        field: pa.Field = next(iter(data["data"]))
+        field: Field = next(iter(data["data"]))
         stores = data["data"][field].stores()
 
         # We only support non-nullable arrays
@@ -105,7 +103,7 @@ class IOArray:
         array = Array(self._dtype, [None, self._store])
 
         # Create a field metadata to populate the data field
-        field = pa.field("Legate IO Array", self._dtype, nullable=False)
+        field = Field("Legate IO Array", self._dtype)
 
         return {
             "version": 1,
@@ -179,7 +177,7 @@ class IOArray:
         task.execute()
 
 
-def read_file(filename: str, dtype: pa.lib.DataType) -> IOArray:
+def read_file(filename: str, dtype: ty.Dtype) -> IOArray:
     """
     Reads a file into an IOArray.
 
@@ -221,7 +219,7 @@ def read_file(filename: str, dtype: pa.lib.DataType) -> IOArray:
 
 
 def read_file_parallel(
-    filename: str, dtype: pa.lib.DataType, parallelism: Optional[int] = None
+    filename: str, dtype: ty.Dtype, parallelism: Optional[int] = None
 ) -> IOArray:
     """
     Reads a file into an IOArray using multiple tasks.

@@ -28,7 +28,7 @@ namespace legateio {
 namespace {
 
 struct read_fn {
-  template <legate::LegateTypeCode CODE, int32_t DIM>
+  template <legate::Type::Code CODE, int32_t DIM>
   void operator()(legate::Store& output, const fs::path& path)
   {
     using VAL = legate::legate_type_of<CODE>;

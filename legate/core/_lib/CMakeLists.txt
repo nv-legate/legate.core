@@ -14,7 +14,7 @@
 # limitations under the License.
 #=============================================================================
 
-set(cython_sources context.pyx)
+set(cython_sources context.pyx types.pyx)
 set(linked_libraries legate::core)
 
 rapids_cython_create_modules(

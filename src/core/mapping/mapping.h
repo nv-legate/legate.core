@@ -16,9 +16,9 @@
 
 #pragma once
 
+#include <functional>
 #include "core/data/scalar.h"
 #include "core/mapping/store.h"
-#include "core/utilities/typedefs.h"
 
 /** @defgroup mapping Mapping API
  */
@@ -286,7 +286,7 @@ struct StoreMapping {
   /**
    * @brief Stores to which the `policy` should be applied
    */
-  std::vector<Store> stores{};
+  std::vector<std::reference_wrapper<const Store>> stores{};
   /**
    * @brief Instance mapping policy
    */

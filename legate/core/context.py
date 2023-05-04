@@ -30,11 +30,9 @@ import numpy as np
 from . import Future, legion
 from ._legion.util import Logger
 from ._lib.context import Context as CppContext  # type: ignore[import]
-from .types import TypeSystem
 
 if TYPE_CHECKING:
     import numpy.typing as npt
-    from pyarrow import DataType
 
     from . import ArgumentMap, Rect
     from ._legion.util import Dispatchable
@@ -45,6 +43,7 @@ if TYPE_CHECKING:
     from .runtime import Runtime
     from .shape import Shape
     from .store import RegionField, Store
+    from .types import Dtype
 
 T = TypeVar("T")
 
@@ -108,7 +107,6 @@ class Context:
         """
         self._runtime = runtime
         self._library = library
-        self._type_system = TypeSystem(inherit_core_types)
 
         name = library.get_name()
 
@@ -161,10 +159,6 @@ class Context:
         return self._runtime.empty_argmap
 
     @property
-    def type_system(self) -> TypeSystem:
-        return self._type_system
-
-    @property
     def annotation(self) -> LibraryAnnotations:
         """
         Returns the current set of annotations. Provenance string is one
@@ -212,9 +206,7 @@ class Context:
     def get_sharding_id(self, shard_id: int) -> int:
         return self._cpp_context.get_sharding_id(shard_id)
 
-    def get_tunable(
-        self, tunable_id: int, dtype: DataType
-    ) -> npt.NDArray[Any]:
+    def get_tunable(self, tunable_id: int, dtype: Dtype) -> npt.NDArray[Any]:
         """
         Queries a tunable parameter to the mapper.
 
@@ -223,7 +215,7 @@ class Context:
         tunable_id : int
             Tunable id. Local to each mapper.
 
-        dtype : DataType
+        dtype : Dtype
             Value type
 
         Returns
@@ -231,7 +223,7 @@ class Context:
         np.ndarray
             A NumPy array holding the value of the tunable parameter
         """
-        dt = np.dtype(dtype.to_pandas_dtype())
+        dt = dtype.to_numpy_dtype()
         fut = Future(
             legion.legion_runtime_select_tunable_value(
                 self._runtime.legion_runtime,
@@ -490,7 +482,7 @@ class Context:
 
     def create_store(
         self,
-        ty: Any,
+        dtype: Dtype,
         shape: Optional[Union[Shape, tuple[int, ...]]] = None,
         storage: Optional[Union[RegionField, Future]] = None,
         optimize_scalar: bool = False,
@@ -501,7 +493,7 @@ class Context:
 
         Parameters
         ----------
-        ty : Dtype
+        dtype : Dtype
             Type of the elements
 
         shape : Shape or tuple[int], optional
@@ -524,7 +516,6 @@ class Context:
         Store
             A new store
         """
-        dtype = self.type_system[ty]
         return self._runtime.create_store(
             dtype,
             shape=shape,

@@ -17,7 +17,7 @@
 #pragma once
 
 #include "core/data/transform.h"
-#include "core/utilities/typedefs.h"
+#include "core/type/type_info.h"
 
 namespace legate {
 namespace mapping {
@@ -101,13 +101,13 @@ class Store {
  public:
   Store() {}
   Store(int32_t dim,
-        LegateTypeCode code,
+        std::unique_ptr<Type> type,
         FutureWrapper future,
         std::shared_ptr<TransformStack>&& transform = nullptr);
   Store(Legion::Mapping::MapperRuntime* runtime,
         const Legion::Mapping::MapperContext context,
         int32_t dim,
-        LegateTypeCode code,
+        std::unique_ptr<Type> type,
         int32_t redop_id,
         const RegionField& region_field,
         bool is_unbound_store                       = false,
@@ -118,8 +118,8 @@ class Store {
         const Legion::RegionRequirement* requirement);
 
  public:
-  Store(const Store& other)            = default;
-  Store& operator=(const Store& other) = default;
+  Store(const Store& other)            = delete;
+  Store& operator=(const Store& other) = delete;
 
  public:
   Store(Store&& other)            = default;
@@ -160,7 +160,7 @@ class Store {
    *
    * @return Reduction oeprator id
    */
-  Legion::ReductionOpID redop() const { return redop_id_; }
+  int32_t redop() const { return redop_id_; }
 
  public:
   /**
@@ -187,16 +187,19 @@ class Store {
    * @return Store's domain
    */
   template <int32_t DIM>
-  Legion::Rect<DIM> shape() const;
-
- public:
-  Legion::Domain domain() const;
+  Rect<DIM> shape() const;
+  /**
+   * @brief Returns the store's domain in a dimension-erased domain type
+   *
+   * @return Store's domain in a dimension-erased domain type
+   */
+  Domain domain() const;
 
  private:
   bool is_future_{false};
   bool is_unbound_store_{false};
   int32_t dim_{-1};
-  LegateTypeCode code_{MAX_TYPE_NUMBER};
+  std::unique_ptr<Type> type_{nullptr};
   int32_t redop_id_{-1};
 
  private:

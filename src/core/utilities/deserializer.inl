@@ -23,18 +23,11 @@ BaseDeserializer<Deserializer>::BaseDeserializer(const void* args, size_t arglen
 }
 
 template <typename Deserializer>
-void BaseDeserializer<Deserializer>::_unpack(LegateTypeCode& value)
-{
-  value = static_cast<LegateTypeCode>(unpack<int32_t>());
-}
-
-template <typename Deserializer>
 void BaseDeserializer<Deserializer>::_unpack(Scalar& value)
 {
-  auto tuple = unpack<bool>();
-  auto code  = unpack<LegateTypeCode>();
-  value      = Scalar(tuple, code, args_.ptr());
-  args_      = args_.subspan(value.size());
+  auto type = unpack_type();
+  value     = Scalar(std::move(type), args_.ptr());
+  args_     = args_.subspan(value.size());
 }
 
 template <typename Deserializer>
@@ -107,6 +100,55 @@ std::shared_ptr<TransformStack> BaseDeserializer<Deserializer>::unpack_transform
     }
   }
   assert(false);
+  return nullptr;
+}
+
+template <typename Deserializer>
+std::unique_ptr<Type> BaseDeserializer<Deserializer>::unpack_type()
+{
+  auto code = static_cast<Type::Code>(unpack<int32_t>());
+  switch (code) {
+    case Type::Code::FIXED_ARRAY: {
+      auto uid  = unpack<int32_t>();
+      auto N    = unpack<uint32_t>();
+      auto type = unpack_type();
+      return std::make_unique<FixedArrayType>(uid, std::move(type), N);
+    }
+    case Type::Code::STRUCT: {
+      auto uid        = unpack<int32_t>();
+      auto num_fields = unpack<uint32_t>();
+
+      std::vector<std::unique_ptr<Type>> field_types;
+      field_types.reserve(num_fields);
+      for (uint32_t idx = 0; idx < num_fields; ++idx) field_types.emplace_back(unpack_type());
+
+      return std::make_unique<StructType>(uid, std::move(field_types));
+    }
+    case Type::Code::BOOL:
+    case Type::Code::INT8:
+    case Type::Code::INT16:
+    case Type::Code::INT32:
+    case Type::Code::INT64:
+    case Type::Code::UINT8:
+    case Type::Code::UINT16:
+    case Type::Code::UINT32:
+    case Type::Code::UINT64:
+    case Type::Code::FLOAT16:
+    case Type::Code::FLOAT32:
+    case Type::Code::FLOAT64:
+    case Type::Code::COMPLEX64:
+    case Type::Code::COMPLEX128: {
+      return std::make_unique<PrimitiveType>(code);
+    }
+    case Type::Code::STRING: {
+      return std::make_unique<StringType>();
+    }
+    default: {
+      LEGATE_ABORT;
+      break;
+    }
+  }
+  LEGATE_ABORT;
   return nullptr;
 }
 

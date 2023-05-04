@@ -30,7 +30,7 @@ namespace legateio {
 namespace {
 
 void write_header(std::ofstream& out,
-                  legate::LegateTypeCode type_code,
+                  legate::Type::Code type_code,
                   const legate::Span<const int32_t>& shape,
                   const legate::Span<const int32_t>& tile_shape)
 {

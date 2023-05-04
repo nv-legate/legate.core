@@ -439,8 +439,10 @@ class AttachmentManager:
             tuple[Attachable, Union[Detach, IndexDetach]]
         ] = list()
         self._pending_detachments: dict[Future, Attachable] = dict()
+        self._destroyed = False
 
     def destroy(self) -> None:
+        self._destroyed = True
         gc.collect()
         while self._deferred_detachments:
             self.perform_detachments()
@@ -517,6 +519,10 @@ class AttachmentManager:
                 self._add_attachment(buf, False, region_field)
 
     def _remove_attachment(self, buf: memoryview) -> None:
+        # If the manager is already destroyed, ignore the detachment
+        # attempt
+        if self._destroyed:
+            return
         key = self.attachment_key(buf)
         if key not in self._attachments:
             raise RuntimeError("Unable to find attachment to remove")
@@ -1389,13 +1395,16 @@ class Runtime:
 
     def create_store(
         self,
-        dtype: Any,
+        dtype: ty.Dtype,
         shape: Optional[Union[Shape, tuple[int, ...]]] = None,
         data: Optional[Union[RegionField, Future]] = None,
         optimize_scalar: bool = False,
         ndim: Optional[int] = None,
     ) -> Store:
         from .store import RegionField, Storage, Store
+
+        if not isinstance(dtype, ty.Dtype):
+            raise ValueError(f"Unsupported type: {dtype}")
 
         if ndim is not None and shape is not None:
             raise ValueError("ndim cannot be used with shape")
