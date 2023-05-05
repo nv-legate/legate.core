@@ -250,7 +250,7 @@ LocalProcessorRange Machine::slice(TaskTarget target,
 
   uint32_t num_local_procs = local_procs.size();
   uint32_t my_low          = num_local_procs * local_node;
-  ProcessorRange my_range(my_low, my_low + num_local_procs - 1, global_range.per_node_count);
+  ProcessorRange my_range(my_low, my_low + num_local_procs, global_range.per_node_count);
 
   auto slice = global_range & my_range;
   if (slice.empty()) {

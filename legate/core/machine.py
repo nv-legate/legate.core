@@ -137,7 +137,7 @@ class ProcessorRange:
         )
 
     def __repr__(self) -> str:
-        if self.high < self.low:
+        if self.empty:
             return "<empty>"
         return f"[{self.low}, {self.high}] ({self.per_node_count} per node)"
 
@@ -247,7 +247,7 @@ class Machine:
             return ProcessorRange.create(
                 kind,
                 low=0,
-                high=num_procs - 1,
+                high=num_procs,
                 per_node_count=num_procs // num_nodes,
             )
 
