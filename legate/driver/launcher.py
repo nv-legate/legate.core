@@ -260,6 +260,9 @@ class Launcher:
         if system.env.get("PYTHONFAULTHANDLER", "") == "":
             env["REALM_BACKTRACE"] = "1"
 
+        if "CUTENSOR_LOG_LEVEL" not in system.env:
+            env["CUTENSOR_LOG_LEVEL"] = "1"
+
         if config.debugging.gasnet_trace:
             env["GASNET_TRACEFILE"] = str(
                 config.logging.logdir / "gasnet_%.log"
