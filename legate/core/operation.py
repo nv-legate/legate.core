@@ -30,6 +30,7 @@ from . import Future, FutureMap, Rect
 from .constraints import PartSym
 from .launcher import CopyLauncher, FillLauncher, TaskLauncher
 from .partition import REPLICATE, Weighted
+from .runtime import runtime
 from .shape import Shape
 from .store import Store, StorePartition
 from .utils import OrderedSet, capture_traceback_repr
@@ -137,8 +138,8 @@ class Operation(OperationProtocol):
         self._error_on_interference = True
         self._provenance = (
             None
-            if context.provenance is None
-            else (f"{context.provenance}$" f"{context.get_all_annotations()}")
+            if runtime.provenance is None
+            else (f"{runtime.provenance}$" f"{runtime.get_all_annotations()}")
         )
 
     @property

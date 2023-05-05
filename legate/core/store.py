@@ -178,7 +178,7 @@ class RegionField:
                 self.field.field_id,
                 alloc,
                 mapper=context.mapper_id,
-                provenance=context.provenance,
+                provenance=runtime.provenance,
             )
             attach.set_restricted(False)
             # If we're not sharing then there is no need to map the attachment
@@ -229,7 +229,7 @@ class RegionField:
                 self.field.field_id,
                 shard_local_data,
                 mapper=context.mapper_id,
-                provenance=context.provenance,
+                provenance=runtime.provenance,
             )
             index_attach.set_deduplicate_across_shards(True)
             index_attach.set_restricted(False)
@@ -264,7 +264,7 @@ class RegionField:
                     self.region,
                     self.field.field_id,
                     mapper=context.mapper_id,
-                    provenance=context.provenance,
+                    provenance=runtime.provenance,
                 )
                 self.physical_region = runtime.dispatch(mapping)
                 self.physical_region_mapped = True

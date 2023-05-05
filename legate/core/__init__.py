@@ -84,7 +84,6 @@ from ._legion import (
 
 # Import select types for Legate library construction
 from .allocation import DistributedAllocation
-from .context import Annotation, track_provenance
 from .legate import (
     Array,
     Field,
@@ -93,11 +92,13 @@ from .legate import (
 )
 from .machine import EmptyMachineError, Machine, ProcessorKind, ProcessorSlice
 from .runtime import (
+    Annotation,
     get_legate_runtime,
     get_legion_context,
     get_legion_runtime,
     get_machine,
     legate_add_library,
+    track_provenance,
 )
 from .store import Store
 
