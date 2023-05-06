@@ -99,14 +99,16 @@ def convert_str(value: str) -> str:
     return value
 
 
+def convert_int(value: str) -> int:
+    """Return an integer value"""
+    return int(value)
+
+
 def convert_bool(value: bool | str) -> bool:
     """Convert a string to True or False.
 
     If a boolean is passed in, it is returned as-is. Otherwise the function
-    maps the following strings, ignoring case:
-
-    * "yes", "1", "on", "true" -> True
-    * "no", "0", "off", "false" -> False
+    maps the strings "0" -> False and "1" -> True.
 
     Args:
         value (str):
@@ -123,12 +125,12 @@ def convert_bool(value: bool | str) -> bool:
         return value
 
     val = value.lower()
-    if val in ("yes", "1", "on", "true"):
+    if val == "1":
         return True
-    if val in ("no", "0", "off", "false"):
+    if val == "0":
         return False
 
-    raise ValueError(f"Cannot convert {value} to boolean value")
+    raise ValueError(f'Cannot convert {value!r} to bool, use "0" or "1"')
 
 
 def convert_str_seq(
@@ -158,7 +160,45 @@ def convert_str_seq(
         raise ValueError(f"Cannot convert {value} to list value")
 
 
-class PrioritizedSetting(Generic[T]):
+class SettingBase:
+    def __init__(
+        self,
+        name: str,
+        default: Unset[T] = _Unset,
+        convert: Any | None = None,
+        help: str = "",
+    ) -> None:
+        self._default = default
+        self._convert = convert if convert else convert_str
+        self._help = help
+        self._name = name
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def help(self) -> str:
+        return self._help
+
+    @property
+    def default(self) -> Unset[T]:
+        return self._default
+
+    @property
+    def convert_type(self) -> str:
+        if self._convert is convert_str:
+            return "str"
+        if self._convert is convert_int:
+            return "int"
+        if self._convert is convert_bool:
+            return 'bool ("0" or "1")'
+        if self._convert is convert_str_seq:
+            return "tuple[str, ...]"
+        raise RuntimeError("unreachable")
+
+
+class PrioritizedSetting(Generic[T], SettingBase):
     """Return a value for a global setting according to configuration
     precedence.
 
@@ -182,7 +222,6 @@ class PrioritizedSetting(Generic[T]):
     returned.
     """
 
-    _parent: Settings | None
     _user_value: Unset[str | T]
 
     def __init__(
@@ -193,12 +232,8 @@ class PrioritizedSetting(Generic[T]):
         convert: Any | None = None,
         help: str = "",
     ) -> None:
-        self._convert = convert if convert else convert_str
-        self._default = default
+        super().__init__(name, default, convert, help)
         self._env_var = env_var
-        self._help = help
-        self._name = name
-        self._parent = None
         self._user_value = _Unset
 
     def __call__(
@@ -280,31 +315,50 @@ class PrioritizedSetting(Generic[T]):
     def env_var(self) -> str | None:
         return self._env_var
 
-    @property
-    def default(self) -> Unset[T]:
-        return self._default
+
+class EnvOnlySetting(Generic[T], SettingBase):
+    """Return a value for a global environment variable setting.
+
+    A ``convert`` agument may be provided to convert values before they are
+    returned.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        env_var: str,
+        default: Unset[T] = _Unset,
+        test_default: Unset[T] = _Unset,
+        convert: Any | None = None,
+        help: str = "",
+    ) -> None:
+        super().__init__(name, default, convert, help)
+        self._test_default = test_default
+        self._env_var = env_var
+
+    def __call__(self) -> T | None:
+        if self._env_var in os.environ:
+            return self._convert(os.environ[self._env_var])
+
+        # unfortunate
+        test = convert_bool(os.environ.get("LEGATE_TEST", False))
+
+        if test and self.test_default is not _Unset:
+            return self._convert(self.test_default)
+
+        return self._convert(self.default)
+
+    def __get__(self, instance: Any, owner: type[Any]) -> EnvOnlySetting[T]:
+        return self
 
     @property
-    def name(self) -> str:
-        return self._name
+    def env_var(self) -> str | None:
+        return self._env_var
 
     @property
-    def help(self) -> str:
-        return self._help
-
-    @property
-    def convert_type(self) -> str:
-        if self._convert is convert_str:
-            return "str"
-        if self._convert is convert_bool:
-            return "bool"
-        if self._convert is convert_str_seq:
-            return "tuple[str, ...]"
-        raise RuntimeError("unreachable")
+    def test_default(self) -> Unset[T]:
+        return self._test_default
 
 
 class Settings:
-    def __init__(self) -> None:
-        for x in self.__class__.__dict__.values():
-            if isinstance(x, PrioritizedSetting):
-                x._parent = self
+    pass

@@ -28,21 +28,22 @@ from typing import (
 import numpy as np
 
 from . import Future, legion
+from ._legion.util import Logger
 from ._lib.context import Context as CppContext  # type: ignore[import]
-from .types import TypeSystem
 
 if TYPE_CHECKING:
     import numpy.typing as npt
-    from pyarrow import DataType
 
     from . import ArgumentMap, Rect
     from ._legion.util import Dispatchable
     from .communicator import Communicator
     from .legate import Library
+    from .machine import Machine
     from .operation import AutoTask, Copy, Fill, ManualTask
     from .runtime import Runtime
     from .shape import Shape
     from .store import RegionField, Store
+    from .types import Dtype
 
 T = TypeVar("T")
 
@@ -106,7 +107,6 @@ class Context:
         """
         self._runtime = runtime
         self._library = library
-        self._type_system = TypeSystem(inherit_core_types)
 
         name = library.get_name()
 
@@ -114,11 +114,17 @@ class Context:
 
         self._libname = library.get_name()
         self._annotations: list[LibraryAnnotations] = [LibraryAnnotations()]
+        self._logger = Logger(library.get_name())
 
         self._mapper_id = self._cpp_context.get_mapper_id()
 
     def destroy(self) -> None:
+        self._logger.destroy()
         self._library.destroy()
+
+    @property
+    def logger(self) -> Logger:
+        return self._logger
 
     @property
     def runtime(self) -> Runtime:
@@ -151,10 +157,6 @@ class Context:
     @property
     def empty_argmap(self) -> ArgumentMap:
         return self._runtime.empty_argmap
-
-    @property
-    def type_system(self) -> TypeSystem:
-        return self._type_system
 
     @property
     def annotation(self) -> LibraryAnnotations:
@@ -204,9 +206,7 @@ class Context:
     def get_sharding_id(self, shard_id: int) -> int:
         return self._cpp_context.get_sharding_id(shard_id)
 
-    def get_tunable(
-        self, tunable_id: int, dtype: DataType
-    ) -> npt.NDArray[Any]:
+    def get_tunable(self, tunable_id: int, dtype: Dtype) -> npt.NDArray[Any]:
         """
         Queries a tunable parameter to the mapper.
 
@@ -215,7 +215,7 @@ class Context:
         tunable_id : int
             Tunable id. Local to each mapper.
 
-        dtype : DataType
+        dtype : Dtype
             Value type
 
         Returns
@@ -223,7 +223,7 @@ class Context:
         np.ndarray
             A NumPy array holding the value of the tunable parameter
         """
-        dt = np.dtype(dtype.to_pandas_dtype())
+        dt = dtype.to_numpy_dtype()
         fut = Future(
             legion.legion_runtime_select_tunable_value(
                 self._runtime.legion_runtime,
@@ -319,21 +319,30 @@ class Context:
 
         return wrapper
 
-    def _check_task_id(self, task_id: int) -> None:
+    def _slice_machine_for_task(self, task_id: int) -> Machine:
+        """
+        Narrows down the current machine by cutting out processors
+        for which the task has no variant
+        """
         task_info = self._cpp_context.find_task(task_id)
         if not task_info.valid:
             raise ValueError(
                 f"Library '{self._libname}' does not have task {task_id}"
             )
-        if not any(
-            task_info.has_variant(vid)
-            for vid in self._runtime.valid_variant_ids
-        ):
+
+        machine = self._runtime.machine.filter_ranges(
+            task_info, self._runtime.variant_ids
+        )
+
+        if machine.empty:
             error_msg = (
-                f"Task {task_id} of library '{self._libname}' does not have "
-                "any valid variant for the current machine configuration. "
+                f"Task {task_id} ({task_info.name}) of library "
+                f"'{self._libname}' does not have any valid variant for "
+                "the current machine configuration."
             )
             raise ValueError(error_msg)
+
+        return machine
 
     def create_manual_task(
         self,
@@ -355,7 +364,7 @@ class Context:
 
         Returns
         -------
-        AutoTask or ManualTask
+        ManualTask
             A new task
         """
 
@@ -363,7 +372,7 @@ class Context:
 
         # Check if the task id is valid for this library and the task
         # has the right variant
-        self._check_task_id(task_id)
+        machine = self._slice_machine_for_task(task_id)
         unique_op_id = self.get_unique_op_id()
         if launch_domain is None:
             raise RuntimeError(
@@ -375,6 +384,7 @@ class Context:
             task_id,
             launch_domain,
             unique_op_id,
+            machine,
         )
 
     def create_auto_task(
@@ -405,9 +415,9 @@ class Context:
 
         # Check if the task id is valid for this library and the task
         # has the right variant
-        self._check_task_id(task_id)
+        machine = self._slice_machine_for_task(task_id)
         unique_op_id = self.get_unique_op_id()
-        return AutoTask(self, task_id, unique_op_id)
+        return AutoTask(self, task_id, unique_op_id, machine)
 
     def create_copy(self) -> Copy:
         """
@@ -421,7 +431,11 @@ class Context:
 
         from .operation import Copy
 
-        return Copy(self, self.get_unique_op_id())
+        return Copy(
+            self,
+            self.get_unique_op_id(),
+            self._runtime.machine,
+        )
 
     def create_fill(
         self,
@@ -452,7 +466,13 @@ class Context:
         """
         from .operation import Fill
 
-        return Fill(self, lhs, value, self.get_unique_op_id())
+        return Fill(
+            self,
+            lhs,
+            value,
+            self.get_unique_op_id(),
+            self._runtime.machine,
+        )
 
     def dispatch(self, op: Dispatchable[T]) -> T:
         return self._runtime.dispatch(op)
@@ -462,7 +482,7 @@ class Context:
 
     def create_store(
         self,
-        ty: Any,
+        dtype: Dtype,
         shape: Optional[Union[Shape, tuple[int, ...]]] = None,
         storage: Optional[Union[RegionField, Future]] = None,
         optimize_scalar: bool = False,
@@ -473,7 +493,7 @@ class Context:
 
         Parameters
         ----------
-        ty : Dtype
+        dtype : Dtype
             Type of the elements
 
         shape : Shape or tuple[int], optional
@@ -496,7 +516,6 @@ class Context:
         Store
             A new store
         """
-        dtype = self.type_system[ty]
         return self._runtime.create_store(
             dtype,
             shape=shape,
@@ -566,7 +585,13 @@ class Context:
         self.runtime.flush_scheduling_window()
 
         # A single Reduce operation is mapepd to a whole reduction tree
-        task = Reduce(self, task_id, radix, unique_op_id)
+        task = Reduce(
+            self,
+            task_id,
+            radix,
+            unique_op_id,
+            self._runtime.machine,
+        )
         task.add_input(store)
         task.add_output(result)
         task.execute()

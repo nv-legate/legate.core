@@ -22,13 +22,13 @@ from .geometry import Point, Rect
 from .partition import Partition
 from .pending import _pending_deletions
 from .region import Region
-from .util import Dispatchable, FieldID, dispatch
+from .util import Dispatchable, FieldID, Mappable, dispatch
 
 if TYPE_CHECKING:
     from . import FieldListLike, IndexSpace, OutputRegion
 
 
-class Task(Dispatchable[Future]):
+class Task(Dispatchable[Future], Mappable):
     def __init__(
         self,
         task_id: int,
@@ -67,7 +67,7 @@ class Task(Dispatchable[Future]):
                 tag,
             )
             # Hold a reference to the data to prevent collection
-            self.data = data
+            self._task_arg = data
         else:
             if size != 0:
                 raise ValueError("'size' must be zero if there is no 'data'")
@@ -418,6 +418,14 @@ class Task(Dispatchable[Future]):
             self.launcher, space.handle
         )
 
+    def set_mapper_arg(self, data: Any, size: int) -> None:
+        legion.legion_task_launcher_set_mapper_arg(
+            self.launcher,
+            (ffi.from_buffer(data), size),
+        )
+        # Hold a reference to the data to prevent collection
+        self._mapper_arg = data
+
     def set_local_function(self, local: bool) -> None:
         """
         Set a flag indicating whether this task can be considered a local
@@ -470,7 +478,7 @@ class Task(Dispatchable[Future]):
             )
 
 
-class IndexTask(Dispatchable[Union[Future, FutureMap]]):
+class IndexTask(Dispatchable[Union[Future, FutureMap]], Mappable):
     point_args: Union[list[Any], None]
 
     def __init__(
@@ -531,7 +539,7 @@ class IndexTask(Dispatchable[Union[Future, FutureMap]]):
                 tag,
             )
             # Hold a reference to the data to prevent collection
-            self.data = data
+            self._task_arg = data
         else:
             if size != 0:
                 raise ValueError("'size' must be zero if there is no 'data'")
@@ -1026,6 +1034,14 @@ class IndexTask(Dispatchable[Union[Future, FutureMap]]):
         legion.legion_index_launcher_set_sharding_space(
             self.launcher, space.handle
         )
+
+    def set_mapper_arg(self, data: Any, size: int) -> None:
+        legion.legion_index_launcher_set_mapper_arg(
+            self.launcher,
+            (ffi.from_buffer(data), size),
+        )
+        # Hold a reference to the data to prevent collection
+        self._mapper_arg = data
 
     def set_concurrent(self, concurrent: bool) -> None:
         """

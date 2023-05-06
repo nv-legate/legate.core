@@ -50,6 +50,7 @@ def test_CMD_PARTS() -> None:
         m.cmd_nvprof,
         m.cmd_nsys,
         m.cmd_memcheck,
+        m.cmd_valgrind,
         m.cmd_legion,
         m.cmd_python_processor,
         m.cmd_module,
@@ -109,6 +110,7 @@ class Test_cmd_bind:
         )
 
     @pytest.mark.parametrize("launch", ("none", "mpirun", "jsrun", "srun"))
+    @pytest.mark.skipif(not install_info.use_cuda, reason="no CUDA support")
     def test_combo_local(
         self,
         genobjs: GenObjs,
@@ -541,6 +543,22 @@ class Test_cmd_memcheck:
         assert result == ("compute-sanitizer",)
 
 
+class Test_cmd_valgrind:
+    def test_default(self, genobjs: GenObjs) -> None:
+        config, system, launcher = genobjs([])
+
+        result = m.cmd_valgrind(config, system, launcher)
+
+        assert result == ()
+
+    def test_with_option(self, genobjs: GenObjs) -> None:
+        config, system, launcher = genobjs(["--valgrind"])
+
+        result = m.cmd_valgrind(config, system, launcher)
+
+        assert result == ("valgrind",)
+
+
 class Test_cmd_nocr:
     def test_default(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs([])
@@ -735,12 +753,27 @@ class Test_cmd_gpus:
         assert result == ()
 
     @pytest.mark.parametrize("value", ("1", "2", "16"))
+    @pytest.mark.skipif(not install_info.use_cuda, reason="no CUDA support")
     def test_nonzero(self, genobjs: GenObjs, value: str) -> None:
         config, system, launcher = genobjs(["--gpus", value])
 
         result = m.cmd_gpus(config, system, launcher)
 
         assert result == ("-ll:gpu", value, "-cuda:skipbusy")
+
+    def test_without_cuda(
+        self, genobjs: GenObjs, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(install_info, "use_cuda", False)
+
+        config, system, launcher = genobjs(["--gpus", "1"])
+
+        with pytest.raises(
+            RuntimeError,
+            match="--gpus was requested, but this build does not have CUDA "
+            "support enabled",
+        ):
+            m.cmd_gpus(config, system, launcher)
 
 
 class Test_cmd_openmp:
@@ -763,7 +796,24 @@ class Test_cmd_openmp:
 
         assert result == ()
 
+    def test_without_openmp(
+        self, genobjs: GenObjs, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(install_info, "use_openmp", False)
+
+        config, system, launcher = genobjs(["--omps", "1"])
+
+        with pytest.raises(
+            RuntimeError,
+            match="--omps was requested, but this build does not have OpenMP "
+            "support enabled",
+        ):
+            m.cmd_openmp(config, system, launcher)
+
     @pytest.mark.parametrize("omps", ("1", "12"))
+    @pytest.mark.skipif(
+        not install_info.use_openmp, reason="no OpenMP support"
+    )
     def test_ompthreads_zero(
         self, genobjs: GenObjs, capsys: Capsys, omps: str
     ) -> None:
@@ -779,6 +829,9 @@ class Test_cmd_openmp:
 
     @pytest.mark.parametrize("omps", ("1", "2", "12"))
     @pytest.mark.parametrize("ompthreads", ("1", "2", "12"))
+    @pytest.mark.skipif(
+        not install_info.use_openmp, reason="no OpenMP support"
+    )
     def test_ompthreads_no_numa(
         self, genobjs: GenObjs, omps: str, ompthreads: str
     ) -> None:
@@ -798,6 +851,9 @@ class Test_cmd_openmp:
 
     @pytest.mark.parametrize("omps", ("1", "2", "12"))
     @pytest.mark.parametrize("ompthreads", ("1", "2", "12"))
+    @pytest.mark.skipif(
+        not install_info.use_openmp, reason="no OpenMP support"
+    )
     def test_ompthreads_with_numa(
         self, genobjs: GenObjs, omps: str, ompthreads: str
     ) -> None:
@@ -1167,6 +1223,7 @@ class Test_cmd_fbmem:
 
         assert result == ()
 
+    @pytest.mark.skipif(not install_info.use_cuda, reason="no CUDA support")
     def test_with_gpus_no_values(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs(["--gpus", "1"])
 
@@ -1181,6 +1238,7 @@ class Test_cmd_fbmem:
 
     @pytest.mark.parametrize("fb", ("10", "1234"))
     @pytest.mark.parametrize("zc", ("10", "1234"))
+    @pytest.mark.skipif(not install_info.use_cuda, reason="no CUDA support")
     def test_with_gpus(self, genobjs: GenObjs, fb: str, zc: str) -> None:
         args = ["--gpus", "1", "--fbmem", fb, "--zcmem", zc]
         config, system, launcher = genobjs(args)
@@ -1336,6 +1394,7 @@ class Test_cmd_log_levels:
             + ("-level", "openmp=5,legion_prof=2")
         )
 
+    @pytest.mark.skipif(not install_info.use_cuda, reason="no CUDA support")
     def test_gpus(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs(["--gpus", "2"])
 
@@ -1355,6 +1414,7 @@ class Test_cmd_log_levels:
 
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
+    @pytest.mark.skipif(not install_info.use_cuda, reason="no CUDA support")
     def test_combined(
         self, genobjs: GenObjs, launch: str, rank_var: str
     ) -> None:
@@ -1447,6 +1507,7 @@ class Test_cmd_user_opts:
         assert result == tuple(opts)
 
     @pytest.mark.parametrize("opts", USER_OPTS, ids=str)
+    @pytest.mark.skipif(not install_info.use_cuda, reason="no CUDA support")
     def test_with_legate_opts(self, genobjs: GenObjs, opts: list[str]) -> None:
         args = ["--verbose", "--rlwrap", "--gpus", "2"] + opts
         config, system, launcher = genobjs(args, fake_module=None)

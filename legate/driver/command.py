@@ -145,6 +145,14 @@ def cmd_nsys(
     return opts
 
 
+def cmd_valgrind(
+    config: ConfigProtocol, system: System, launcher: Launcher
+) -> CommandPart:
+    valgrind = config.debugging.valgrind
+
+    return () if not valgrind else ("valgrind",)
+
+
 def cmd_memcheck(
     config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
@@ -237,6 +245,12 @@ def cmd_gpus(
 ) -> CommandPart:
     gpus = config.core.gpus
 
+    if gpus > 0 and not install_info.use_cuda:
+        raise RuntimeError(
+            "--gpus was requested, but this build does not have CUDA "
+            "support enabled"
+        )
+
     # Make sure that we skip busy GPUs
     return () if gpus == 0 else ("-ll:gpu", str(gpus), "-cuda:skipbusy")
 
@@ -247,6 +261,12 @@ def cmd_openmp(
     openmp = config.core.openmp
     ompthreads = config.core.ompthreads
     numamem = config.memory.numamem
+
+    if openmp > 0 and not install_info.use_openmp:
+        raise RuntimeError(
+            "--omps was requested, but this build does not have OpenMP "
+            "support enabled"
+        )
 
     if openmp == 0:
         return ()
@@ -441,6 +461,8 @@ CMD_PARTS_LEGION = (
         cmd_nsys,
         # Add memcheck right before the binary
         cmd_memcheck,
+        # Add valgrind right before the binary
+        cmd_valgrind,
         # Now we're ready to build the actual command to run
         cmd_legion,
         # This has to go before script name

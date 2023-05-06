@@ -58,7 +58,7 @@ struct Span {
   size_t size() const { return size_; }
 
  public:
-  decltype(auto) operator[](size_t pos)
+  decltype(auto) operator[](size_t pos) const
   {
     assert(pos < size_);
     return data_[pos];

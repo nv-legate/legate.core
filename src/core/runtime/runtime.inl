@@ -35,8 +35,15 @@ void invoke_legate_registration_callback(Legion::Machine,
 template <Core::RegistrationCallback CALLBACK>
 /*static*/ void Core::perform_registration()
 {
-  Legion::Runtime::perform_registration_callback(
-    detail::invoke_legate_registration_callback<CALLBACK>, true /*global*/);
+  auto runtime = Runtime::get_runtime();
+  if (runtime->is_in_callback())
+    CALLBACK();
+  else {
+    runtime->enter_callback();
+    Legion::Runtime::perform_registration_callback(
+      detail::invoke_legate_registration_callback<CALLBACK>, true /*global*/);
+    runtime->exit_callback();
+  }
 }
 
 }  // namespace legate

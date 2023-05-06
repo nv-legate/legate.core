@@ -26,7 +26,7 @@ namespace legateio {
 namespace {
 
 struct write_fn {
-  template <legate::LegateTypeCode CODE>
+  template <legate::Type::Code CODE>
   void operator()(const legate::Store& input, const std::string& filename)
   {
     using VAL = legate::legate_type_of<CODE>;

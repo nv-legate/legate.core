@@ -19,13 +19,9 @@
 
 namespace legate {
 
-Scalar::Scalar(const Scalar& other) : own_(other.own_), tuple_(other.tuple_), code_(other.code_)
-{
-  copy(other);
-}
+Scalar::Scalar(const Scalar& other) : own_(other.own_), type_(other.type_->clone()) { copy(other); }
 
-Scalar::Scalar(bool tuple, LegateTypeCode code, const void* data)
-  : tuple_(tuple), code_(code), data_(data)
+Scalar::Scalar(std::unique_ptr<Type> type, const void* data) : type_(std::move(type)), data_(data)
 {
 }
 
@@ -38,9 +34,8 @@ Scalar::~Scalar()
 
 Scalar& Scalar::operator=(const Scalar& other)
 {
-  own_   = other.own_;
-  tuple_ = other.tuple_;
-  code_  = other.code_;
+  own_  = other.own_;
+  type_ = other.type_->clone();
   copy(other);
   return *this;
 }
@@ -56,24 +51,12 @@ void Scalar::copy(const Scalar& other)
     data_ = other.data_;
 }
 
-struct elem_size_fn {
-  template <LegateTypeCode CODE>
-  size_t operator()()
-  {
-    return sizeof(legate_type_of<CODE>);
-  }
-};
-
 size_t Scalar::size() const
 {
-  if (LegateTypeCode::STRING_LT == code_)
-    return sizeof(uint32_t) + *static_cast<const uint32_t*>(data_);
-  auto elem_size = type_dispatch(code_, elem_size_fn{});
-  if (tuple_) {
-    auto num_elements = *static_cast<const uint32_t*>(data_);
-    return sizeof(uint32_t) + num_elements * elem_size;
-  } else
-    return elem_size;
+  if (type_->code == Type::Code::STRING)
+    return *static_cast<const uint32_t*>(data_) + sizeof(uint32_t);
+  else
+    return type_->size();
 }
 
 }  // namespace legate
