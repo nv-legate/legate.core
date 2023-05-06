@@ -26,7 +26,7 @@ Scalar::Scalar(T value) : own_(true), type_(primitive_type(legate_type_code_of<T
 
 template <typename T>
 Scalar::Scalar(const std::vector<T>& values)
-  : own_(true), type_(fixed_array_type(legate_type_code_of<T>, values.size()))
+  : own_(true), type_(fixed_array_type(primitive_type(legate_type_code_of<T>), values.size()))
 {
   auto size   = type_->size();
   auto buffer = malloc(size);
