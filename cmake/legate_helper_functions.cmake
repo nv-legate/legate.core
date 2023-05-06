@@ -154,7 +154,7 @@ header: str = """
         @ONLY)
   ]=])
 
-  set(generate_script ${CMAKE_BINARY_DIR}/gen_install_info.cmake)
+  set(generate_script ${CMAKE_CURRENT_BINARY_DIR}/gen_install_info.cmake)
   file(CONFIGURE
        OUTPUT ${generate_script}
        CONTENT "${generate_script_content}"

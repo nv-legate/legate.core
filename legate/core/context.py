@@ -14,16 +14,7 @@
 #
 from __future__ import annotations
 
-import inspect
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Optional,
-    Protocol,
-    TypeVar,
-    Union,
-)
+from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union
 
 import numpy as np
 
@@ -46,47 +37,6 @@ if TYPE_CHECKING:
     from .types import Dtype
 
 T = TypeVar("T")
-
-
-class AnyCallable(Protocol):
-    def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        ...
-
-
-def caller_frameinfo() -> str:
-    frame = inspect.currentframe()
-    if frame is None or frame.f_back is None or frame.f_back.f_back is None:
-        return "<unknown>"
-    frame = frame.f_back.f_back
-    return f"{frame.f_code.co_filename}:{frame.f_lineno}"
-
-
-class LibraryAnnotations:
-    def __init__(self) -> None:
-        self._entries: dict[str, str] = {}
-        self._provenance: Union[str, None] = None
-
-    @property
-    def provenance(self) -> Optional[str]:
-        return self._provenance
-
-    def set_provenance(self, provenance: str) -> None:
-        self._provenance = provenance
-
-    def reset_provenance(self) -> None:
-        self._provenance = None
-
-    def update(self, **kwargs: Any) -> None:
-        self._entries.update(**kwargs)
-
-    def remove(self, key: str) -> None:
-        del self._entries[key]
-
-    def __repr__(self) -> str:
-        pairs = [f"{key},{value}" for key, value in self._entries.items()]
-        if self._provenance is not None:
-            pairs.append(f"Provenance,{self._provenance}")
-        return "|".join(pairs)
 
 
 class Context:
@@ -113,7 +63,6 @@ class Context:
         self._cpp_context = CppContext(name, False)
 
         self._libname = library.get_name()
-        self._annotations: list[LibraryAnnotations] = [LibraryAnnotations()]
         self._logger = Logger(library.get_name())
 
         self._mapper_id = self._cpp_context.get_mapper_id()
@@ -157,35 +106,6 @@ class Context:
     @property
     def empty_argmap(self) -> ArgumentMap:
         return self._runtime.empty_argmap
-
-    @property
-    def annotation(self) -> LibraryAnnotations:
-        """
-        Returns the current set of annotations. Provenance string is one
-        entry in the set.
-
-        Returns
-        -------
-        LibraryAnnotations
-            Library annotations
-        """
-        return self._annotations[-1]
-
-    def get_all_annotations(self) -> str:
-        return str(self.annotation)
-
-    @property
-    def provenance(self) -> Optional[str]:
-        """
-        Returns the current provenance string. Attached to every operation
-        issued with the context.
-
-        Returns
-        -------
-        str or None
-            Provenance string
-        """
-        return self.annotation.provenance
 
     def get_task_id(self, task_id: int) -> int:
         return self._cpp_context.get_task_id(task_id)
@@ -238,86 +158,6 @@ class Context:
 
     def get_unique_op_id(self) -> int:
         return self._runtime.get_unique_op_id()
-
-    def set_provenance(self, provenance: str) -> None:
-        """
-        Sets a new provenance string
-
-        Parameters
-        ----------
-        provenance : str
-            Provenance string
-        """
-        self._annotations[-1].set_provenance(provenance)
-
-    def reset_provenance(self) -> None:
-        """
-        Clears the provenance string that is currently set
-        """
-        self._annotations[-1].reset_provenance()
-
-    def push_provenance(self, provenance: str) -> None:
-        """
-        Pushes a provenance string to the stack
-
-        Parameters
-        ----------
-        provenance : str
-            Provenance string
-        """
-        self._annotations.append(LibraryAnnotations())
-        self.set_provenance(provenance)
-
-    def pop_provenance(self) -> None:
-        """
-        Pops the provenance string on top the stack
-        """
-        if len(self._annotations) == 1:
-            raise ValueError("Provenance stack underflow")
-        self._annotations.pop(-1)
-
-    def track_provenance(
-        self, func: AnyCallable, nested: bool = False
-    ) -> AnyCallable:
-        """
-        Wraps a function with provenance tracking. Provenance of each operation
-        issued within the wrapped function will be tracked automatically.
-
-        Parameters
-        ----------
-        func : AnyCallable
-            Function to wrap
-
-        nested : bool
-            If ``True``, each invocation to a wrapped function within another
-            wrapped function updates the provenance string. Otherwise, the
-            provenance is tracked only for the outermost wrapped function.
-
-        Returns
-        -------
-        AnyCallable
-            Wrapped function
-        """
-        if nested:
-
-            def wrapper(*args: Any, **kwargs: Any) -> Any:
-                self.push_provenance(caller_frameinfo())
-                result = func(*args, **kwargs)
-                self.pop_provenance()
-                return result
-
-        else:
-
-            def wrapper(*args: Any, **kwargs: Any) -> Any:
-                if self.provenance is None:
-                    self.set_provenance(caller_frameinfo())
-                    result = func(*args, **kwargs)
-                    self.reset_provenance()
-                else:
-                    result = func(*args, **kwargs)
-                return result
-
-        return wrapper
 
     def _slice_machine_for_task(self, task_id: int) -> Machine:
         """
@@ -596,61 +436,3 @@ class Context:
         task.add_output(result)
         task.execute()
         return result
-
-
-def track_provenance(
-    context: Context,
-    nested: bool = False,
-) -> Callable[[AnyCallable], AnyCallable]:
-    """
-    Decorator that adds provenance tracking to functions. Provenance of each
-    operation issued within the wrapped function will be tracked automatically.
-
-    Parameters
-    ----------
-    context : Context
-        Context that the function uses to issue operations
-
-    nested : bool
-        If ``True``, each invocation to a wrapped function within another
-        wrapped function updates the provenance string. Otherwise, the
-        provenance is tracked only for the outermost wrapped function.
-
-    Returns
-    -------
-    Decorator
-        Function that takes a function and returns a one with provenance
-        tracking
-
-    See Also
-    --------
-    legate.core.context.Context.track_provenance
-    """
-
-    def decorator(func: AnyCallable) -> AnyCallable:
-        return context.track_provenance(func, nested=nested)
-
-    return decorator
-
-
-class Annotation:
-    def __init__(self, context: Context, pairs: dict[str, str]) -> None:
-        """
-        Constructs a new annotation object
-
-        Parameters
-        ----------
-        context : Context
-            Context to which the annotations should be added
-        pairs : dict[str, str]
-            Annotations as key-value pairs
-        """
-        self._annotation = context.annotation
-        self._pairs = pairs
-
-    def __enter__(self) -> None:
-        self._annotation.update(**self._pairs)
-
-    def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
-        for key in self._pairs.keys():
-            self._annotation.remove(key)
