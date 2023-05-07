@@ -16,9 +16,9 @@
 import argparse
 
 import cunumeric as np
+from reduction import matmul, multiply, sum_over_axis, user_context
 
 import legate.core.types as ty
-from reduction import matmul, multiply, sum_over_axis, user_context
 
 
 def test(m: int, n: int, k: int, print_stores: bool, matmul_only: bool):
