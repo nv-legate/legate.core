@@ -281,10 +281,10 @@ class Machine:
         return f"Machine({desc})"
 
     def pack(self, buf: BufferBuilder) -> None:
-        buf.pack_32bit_uint(self._preferred_kind)
+        buf.pack_32bit_int(self._preferred_kind)
         buf.pack_32bit_uint(len(self._proc_ranges))
         for kind, proc_range in self._proc_ranges.items():
-            buf.pack_32bit_uint(kind)
+            buf.pack_32bit_int(kind)
             proc_range.pack(buf)
 
     def __enter__(self) -> None:

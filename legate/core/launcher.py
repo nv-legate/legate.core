@@ -147,7 +147,7 @@ class FutureStoreArg:
         buf.pack_32bit_int(self._redop)
         buf.pack_bool(self._read_only)
         buf.pack_bool(self._has_storage)
-        buf.pack_32bit_int(self._store.type.size)
+        buf.pack_32bit_uint(self._store.type.size)
         extents = self._store.extents
         buf.pack_32bit_uint(len(extents))
         for extent in extents:

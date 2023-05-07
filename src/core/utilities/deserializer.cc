@@ -69,7 +69,7 @@ void TaskDeserializer::_unpack(FutureWrapper& value)
 {
   auto read_only   = unpack<bool>();
   auto has_storage = unpack<bool>();
-  auto field_size  = unpack<int32_t>();
+  auto field_size  = unpack<uint32_t>();
 
   auto point = unpack<std::vector<int64_t>>();
   Domain domain;
@@ -174,7 +174,7 @@ void TaskDeserializer::_unpack(FutureWrapper& value)
   // We still need to deserialize these fields to get to the domain
   unpack<bool>();
   unpack<bool>();
-  unpack<int32_t>();
+  unpack<uint32_t>();
 
   auto point = unpack<std::vector<int64_t>>();
   Domain domain;
