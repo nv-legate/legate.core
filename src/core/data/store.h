@@ -209,7 +209,7 @@ class FutureWrapper {
  public:
   FutureWrapper() {}
   FutureWrapper(bool read_only,
-                int32_t field_size,
+                uint32_t field_size,
                 Domain domain,
                 Legion::Future future,
                 bool initialize = false);
@@ -258,7 +258,7 @@ class FutureWrapper {
 
  private:
   bool read_only_{true};
-  size_t field_size_{0};
+  uint32_t field_size_{0};
   Domain domain_{};
   Legion::Future future_{};
   Legion::UntypedDeferredValue buffer_{};
