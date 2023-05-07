@@ -13,26 +13,22 @@
 # limitations under the License.
 #
 
-from reduction import (
-    print_store,
-    sum_over_axis,
-    to_cunumeric_array,
-    user_context,
-)
+import cunumeric as np
 
 import legate.core.types as ty
+from reduction import sum_over_axis, user_context
 
 
 def test():
     store = user_context.create_store(ty.int64, (4, 5))
-    to_cunumeric_array(store).fill(1)
-    print_store(store)
+    np.asarray(store).fill(1)
+    print(np.asarray(store))
 
     result1 = sum_over_axis(store, 0)
-    print_store(result1)
+    print(np.asarray(result1))
 
     result2 = sum_over_axis(store, 1)
-    print_store(result2)
+    print(np.asarray(result2))
 
 
 if __name__ == "__main__":

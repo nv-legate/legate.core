@@ -24,7 +24,7 @@ namespace reduction {
 namespace {
 
 struct mul_fn {
-  template <legate::LegateTypeCode CODE, int32_t DIM>
+  template <legate::Type::Code CODE, int32_t DIM>
   void operator()(legate::Store& lhs, legate::Store& rhs1, legate::Store& rhs2)
   {
     using VAL = legate::legate_type_of<CODE>;

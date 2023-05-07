@@ -16,40 +16,33 @@
 import argparse
 
 import cunumeric as np
-from reduction import (
-    bincount,
-    categorize,
-    histogram,
-    print_store,
-    to_cunumeric_array,
-    user_context,
-)
 
 import legate.core.types as ty
+from reduction import bincount, categorize, histogram, user_context
 
 
 def test(size: int, num_bins: int):
     input = user_context.create_store(ty.int32, size)
-    to_cunumeric_array(input)[:] = np.random.randint(
+    np.asarray(input)[:] = np.random.randint(
         low=0, high=size - 1, size=size, dtype="int32"
     )
     bins = user_context.create_store(ty.int32, (num_bins + 1,))
-    to_cunumeric_array(bins)[:] = np.array(
+    np.asarray(bins)[:] = np.array(
         [size * v // num_bins for v in range(num_bins + 1)]
     )
     print("Input:")
-    print_store(input)
+    print(np.asarray(input))
     print("Bin edges:")
-    print_store(bins)
+    print(np.asarray(bins))
 
     tmp = categorize(input, bins)
     result = bincount(tmp, num_bins)
     print("Histogram via bincount:")
-    print_store(result)
+    print(np.asarray(result))
 
     result = histogram(input, bins)
     print("Direct histogram implementation:")
-    print_store(result)
+    print(np.asarray(result))
 
 
 if __name__ == "__main__":

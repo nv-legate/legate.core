@@ -16,24 +16,24 @@
 import argparse
 
 import cunumeric as np
-from reduction import print_store, to_cunumeric_array, unique, user_context
 
 import legate.core.types as ty
+from reduction import unique, user_context
 
 
 def test(n: int, radix: int, print_stores: bool):
     # Generate inputs using cuNumeric
     input = user_context.create_store(ty.int32, n)
-    to_cunumeric_array(input)[:] = np.random.randint(
+    np.asarray(input)[:] = np.random.randint(
         low=0, high=10, size=n, dtype="int32"
     )
 
     if print_stores:
-        print_store(input)
+        print(np.asarray(input))
 
     result = unique(input, radix=radix)
     if print_stores:
-        print_store(result)
+        print(np.asarray(result))
 
 
 if __name__ == "__main__":

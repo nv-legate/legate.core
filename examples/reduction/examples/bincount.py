@@ -14,9 +14,9 @@
 #
 
 import cunumeric as np
-from reduction import bincount, print_store, to_cunumeric_array, user_context
 
 import legate.core.types as ty
+from reduction import bincount, user_context
 
 
 def test():
@@ -25,16 +25,13 @@ def test():
 
     # Generate random inputs using cuNumeric
     store = user_context.create_store(ty.uint64, size)
-    to_cunumeric_array(store)[:] = np.random.randint(
+    np.asarray(store)[:] = np.random.randint(
         low=0, high=num_bins - 1, size=size
     )
-    print_store(store)
+    print(np.asarray(store))
 
     result = bincount(store, num_bins)
-    print_store(result)
-
-    # Bogus downstream computation to consume the bincount result
-    to_cunumeric_array(result) + 1
+    print(np.asarray(result))
 
 
 if __name__ == "__main__":

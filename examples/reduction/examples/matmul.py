@@ -16,30 +16,21 @@
 import argparse
 
 import cunumeric as np
-from reduction import (
-    matmul,
-    multiply,
-    print_store,
-    sum_over_axis,
-    to_cunumeric_array,
-    user_context,
-)
 
 import legate.core.types as ty
+from reduction import matmul, multiply, sum_over_axis, user_context
 
 
 def test(m: int, n: int, k: int, print_stores: bool, matmul_only: bool):
     # Generate inputs using cuNumeric
     rhs1 = user_context.create_store(ty.int64, (m, k))
     rhs2 = user_context.create_store(ty.int64, (k, n))
-    tmp = np.arange(m * k).reshape(m, k)
-    to_cunumeric_array(rhs1)[:] = tmp
-    tmp = np.arange(k * n).reshape(k, n)
-    to_cunumeric_array(rhs2)[:] = tmp
+    np.asarray(rhs1)[:] = np.arange(m * k).reshape(m, k)
+    np.asarray(rhs2)[:] = np.arange(k * n).reshape(k, n)
 
     if print_stores:
-        print_store(rhs1)
-        print_store(rhs2)
+        print(np.asarray(rhs1))
+        print(np.asarray(rhs2))
 
     if not matmul_only:
         # Implement matrix multiplication using sum_over_axis
@@ -48,18 +39,15 @@ def test(m: int, n: int, k: int, print_stores: bool, matmul_only: bool):
 
         tmp = multiply(rhs1_promoted, rhs2_promoted)
         if print_stores:
-            print_store(tmp)
+            print(np.asarray(tmp))
 
         result = sum_over_axis(tmp, 1)
         if print_stores:
-            print_store(result)
+            print(np.asarray(result))
 
     result = matmul(rhs1, rhs2)
     if print_stores:
-        print_store(result)
-
-    # Bogus downstream computation to consume the matmul result
-    to_cunumeric_array(result) + 1
+        print(np.asarray(result))
 
 
 if __name__ == "__main__":

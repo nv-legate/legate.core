@@ -20,8 +20,6 @@ from .reduction import (
     histogram,
     matmul,
     multiply,
-    print_store,
     sum_over_axis,
-    to_cunumeric_array,
     unique,
 )

@@ -18,15 +18,13 @@
 #include "reduction_cffi.h"
 
 #include "core/utilities/dispatch.h"
-#include "core/utilities/type_traits.h"
 
 namespace reduction {
 
 namespace {
 
 struct histogram_fn {
-  template <legate::LegateTypeCode CODE,
-            std::enable_if_t<!legate::is_complex<CODE>::value>* = nullptr>
+  template <legate::Type::Code CODE, std::enable_if_t<!legate::is_complex<CODE>::value>* = nullptr>
   void operator()(legate::Store& result, legate::Store& input, legate::Store& bins)
   {
     using VAL = legate::legate_type_of<CODE>;
@@ -53,8 +51,7 @@ struct histogram_fn {
     }
   }
 
-  template <legate::LegateTypeCode CODE,
-            std::enable_if_t<legate::is_complex<CODE>::value>* = nullptr>
+  template <legate::Type::Code CODE, std::enable_if_t<legate::is_complex<CODE>::value>* = nullptr>
   void operator()(legate::Store& result, legate::Store& input, legate::Store& bins)
   {
     assert(false);

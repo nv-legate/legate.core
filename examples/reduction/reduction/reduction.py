@@ -14,13 +14,11 @@
 #
 
 from enum import IntEnum
-from typing import Any
 
-import cunumeric as num
-import pyarrow as pa
+import cunumeric as np
 
 import legate.core.types as ty
-from legate.core import Array, Store
+from legate.core import Store
 
 from .library import user_context as context, user_lib
 
@@ -33,36 +31,6 @@ class OpCode(IntEnum):
     MUL = user_lib.cffi.MUL
     SUM_OVER_AXIS = user_lib.cffi.SUM_OVER_AXIS
     UNIQUE = user_lib.cffi.UNIQUE
-
-
-class _Wrapper:
-    def __init__(self, store: Store) -> None:
-        self._store = store
-
-    @property
-    def __legate_data_interface__(self) -> dict[str, Any]:
-        """
-        Constructs a Legate data interface object from a store wrapped in this
-        object
-        """
-        dtype = self._store.type.type
-        array = Array(dtype, [None, self._store])
-
-        # Create a field metadata to populate the data field
-        field = pa.field("Array", dtype, nullable=False)
-
-        return {
-            "version": 1,
-            "data": {field: array},
-        }
-
-
-def to_cunumeric_array(store: Store) -> num.ndarray:
-    return num.asarray(_Wrapper(store))
-
-
-def print_store(store: Store) -> None:
-    print(to_cunumeric_array(store))
 
 
 def _sanitize_axis(axis: int, ndim: int) -> int:
@@ -96,8 +64,8 @@ def sum_over_axis(input: Store, axis: int) -> Store:
     res_shape = tuple(
         ext for dim, ext in enumerate(input.shape) if dim != sanitized
     )
-    result = context.create_store(input.type.type, res_shape)
-    to_cunumeric_array(result).fill(0)
+    result = context.create_store(input.type, res_shape)
+    np.asarray(result).fill(0)
 
     # Broadcast the output along the contracting dimension
     promoted = result.promote(axis, input.shape[axis])
@@ -118,7 +86,7 @@ def multiply(rhs1: Store, rhs2: Store) -> Store:
     if rhs1.type != rhs2.type or rhs1.shape != rhs2.shape:
         raise ValueError("Stores to add must have the same type and shape")
 
-    result = context.create_store(rhs1.type.type, rhs1.shape)
+    result = context.create_store(rhs1.type, rhs1.shape)
 
     task = context.create_auto_task(OpCode.MUL)
     task.add_input(rhs1)
@@ -162,8 +130,8 @@ def matmul(rhs1: Store, rhs2: Store) -> Store:
 
     # Multiplying an (m, k) matrix with a (k, n) matrix gives
     # an (m, n) matrix
-    result = context.create_store(rhs1.type.type, (m, n))
-    to_cunumeric_array(result).fill(0)
+    result = context.create_store(rhs1.type, (m, n))
+    np.asarray(result).fill(0)
 
     # Each store gets a fake dimension that it doesn't have
     rhs1 = rhs1.promote(2, n)
@@ -202,7 +170,7 @@ def bincount(input: Store, num_bins: int) -> Store:
         Counting result
     """
     result = context.create_store(ty.uint64, (num_bins,))
-    to_cunumeric_array(result).fill(0)
+    np.asarray(result).fill(0)
 
     task = context.create_auto_task(OpCode.BINCOUNT)
     task.add_input(input)
@@ -253,7 +221,7 @@ def histogram(input: Store, bins: Store) -> Store:
     """
     num_bins = bins.shape[0] - 1
     result = context.create_store(ty.uint64, (num_bins,))
-    to_cunumeric_array(result).fill(0)
+    np.asarray(result).fill(0)
 
     task = context.create_auto_task(OpCode.HISTOGRAM)
     task.add_input(input)
@@ -287,14 +255,19 @@ def unique(input: Store, radix: int = 4) -> Store:
     if input.ndim > 1:
         raise ValueError("`unique` accepts only 1D stores")
 
-    dtype = input.type.type
-    if num.dtype(dtype.to_pandas_dtype()).kind in ("f", "c"):
+    if input.type in (
+        ty.float16,
+        ty.float32,
+        ty.float64,
+        ty.complex64,
+        ty.complex128,
+    ):
         raise ValueError(
             "`unique` doesn't support floating point or complex numbers"
         )
 
     # Create an unbound store to collect local results
-    result = context.create_store(dtype, shape=None, ndim=1)
+    result = context.create_store(input.type, shape=None, ndim=1)
 
     task = context.create_auto_task(OpCode.UNIQUE)
     task.add_input(input)
