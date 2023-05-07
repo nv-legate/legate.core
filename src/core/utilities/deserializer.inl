@@ -109,20 +109,22 @@ std::unique_ptr<Type> BaseDeserializer<Deserializer>::unpack_type()
   auto code = static_cast<Type::Code>(unpack<int32_t>());
   switch (code) {
     case Type::Code::FIXED_ARRAY: {
-      auto uid  = unpack<int32_t>();
+      auto uid  = unpack<uint32_t>();
       auto N    = unpack<uint32_t>();
       auto type = unpack_type();
       return std::make_unique<FixedArrayType>(uid, std::move(type), N);
     }
     case Type::Code::STRUCT: {
-      auto uid        = unpack<int32_t>();
+      auto uid        = unpack<uint32_t>();
       auto num_fields = unpack<uint32_t>();
 
       std::vector<std::unique_ptr<Type>> field_types;
       field_types.reserve(num_fields);
       for (uint32_t idx = 0; idx < num_fields; ++idx) field_types.emplace_back(unpack_type());
 
-      return std::make_unique<StructType>(uid, std::move(field_types));
+      auto align = unpack<bool>();
+
+      return std::make_unique<StructType>(uid, std::move(field_types), align);
     }
     case Type::Code::BOOL:
     case Type::Code::INT8:

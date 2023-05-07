@@ -128,7 +128,7 @@ void UnboundRegionField::update_num_elements(size_t num_elements)
 }
 
 FutureWrapper::FutureWrapper(bool read_only,
-                             int32_t field_size,
+                             uint32_t field_size,
                              Domain domain,
                              Legion::Future future,
                              bool initialize /*= false*/)

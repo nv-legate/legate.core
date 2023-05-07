@@ -275,3 +275,4 @@ cdef class StructDtype(Dtype):
         buf.pack_32bit_uint(num_fields)
         for field_idx in range(num_fields):
             self.field_type(field_idx).serialize(buf)
+        buf.pack_bool(self.aligned)
