@@ -57,14 +57,14 @@ if __name__ == "__main__":
         type=int,
         default=3,
         dest="m",
-        help="Extent of the first dimension",
+        help="Extent of the first exterior dimension",
     )
     parser.add_argument(
         "-n",
         type=int,
         default=5,
         dest="n",
-        help="Extent of the second dimension",
+        help="Extent of the second exterior dimension",
     )
     parser.add_argument(
         "-k",
