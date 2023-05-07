@@ -14,9 +14,9 @@
 #
 
 import cunumeric as np
+from reduction import bincount, user_context
 
 import legate.core.types as ty
-from reduction import bincount, user_context
 
 
 def test():

@@ -16,9 +16,9 @@
 import argparse
 
 import cunumeric as np
+from reduction import bincount, categorize, histogram, user_context
 
 import legate.core.types as ty
-from reduction import bincount, categorize, histogram, user_context
 
 
 def test(size: int, num_bins: int):

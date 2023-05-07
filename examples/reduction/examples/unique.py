@@ -16,9 +16,9 @@
 import argparse
 
 import cunumeric as np
+from reduction import unique, user_context
 
 import legate.core.types as ty
-from reduction import unique, user_context
 
 
 def test(n: int, radix: int, print_stores: bool):

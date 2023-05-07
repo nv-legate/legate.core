@@ -14,9 +14,9 @@
 #
 
 import cunumeric as np
+from reduction import sum_over_axis, user_context
 
 import legate.core.types as ty
-from reduction import sum_over_axis, user_context
 
 
 def test():
