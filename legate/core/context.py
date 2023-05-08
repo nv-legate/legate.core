@@ -14,79 +14,29 @@
 #
 from __future__ import annotations
 
-import inspect
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Optional,
-    Protocol,
-    TypeVar,
-    Union,
-)
+from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union
 
 import numpy as np
 
 from . import Future, legion
 from ._legion.util import Logger
 from ._lib.context import Context as CppContext  # type: ignore[import]
-from .types import TypeSystem
 
 if TYPE_CHECKING:
     import numpy.typing as npt
-    from pyarrow import DataType
 
     from . import ArgumentMap, Rect
     from ._legion.util import Dispatchable
     from .communicator import Communicator
     from .legate import Library
+    from .machine import Machine
     from .operation import AutoTask, Copy, Fill, ManualTask
     from .runtime import Runtime
     from .shape import Shape
     from .store import RegionField, Store
+    from .types import Dtype
 
 T = TypeVar("T")
-
-
-class AnyCallable(Protocol):
-    def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        ...
-
-
-def caller_frameinfo() -> str:
-    frame = inspect.currentframe()
-    if frame is None or frame.f_back is None or frame.f_back.f_back is None:
-        return "<unknown>"
-    frame = frame.f_back.f_back
-    return f"{frame.f_code.co_filename}:{frame.f_lineno}"
-
-
-class LibraryAnnotations:
-    def __init__(self) -> None:
-        self._entries: dict[str, str] = {}
-        self._provenance: Union[str, None] = None
-
-    @property
-    def provenance(self) -> Optional[str]:
-        return self._provenance
-
-    def set_provenance(self, provenance: str) -> None:
-        self._provenance = provenance
-
-    def reset_provenance(self) -> None:
-        self._provenance = None
-
-    def update(self, **kwargs: Any) -> None:
-        self._entries.update(**kwargs)
-
-    def remove(self, key: str) -> None:
-        del self._entries[key]
-
-    def __repr__(self) -> str:
-        pairs = [f"{key},{value}" for key, value in self._entries.items()]
-        if self._provenance is not None:
-            pairs.append(f"Provenance,{self._provenance}")
-        return "|".join(pairs)
 
 
 class Context:
@@ -107,14 +57,12 @@ class Context:
         """
         self._runtime = runtime
         self._library = library
-        self._type_system = TypeSystem(inherit_core_types)
 
         name = library.get_name()
 
         self._cpp_context = CppContext(name, False)
 
         self._libname = library.get_name()
-        self._annotations: list[LibraryAnnotations] = [LibraryAnnotations()]
         self._logger = Logger(library.get_name())
 
         self._mapper_id = self._cpp_context.get_mapper_id()
@@ -159,39 +107,6 @@ class Context:
     def empty_argmap(self) -> ArgumentMap:
         return self._runtime.empty_argmap
 
-    @property
-    def type_system(self) -> TypeSystem:
-        return self._type_system
-
-    @property
-    def annotation(self) -> LibraryAnnotations:
-        """
-        Returns the current set of annotations. Provenance string is one
-        entry in the set.
-
-        Returns
-        -------
-        LibraryAnnotations
-            Library annotations
-        """
-        return self._annotations[-1]
-
-    def get_all_annotations(self) -> str:
-        return str(self.annotation)
-
-    @property
-    def provenance(self) -> Optional[str]:
-        """
-        Returns the current provenance string. Attached to every operation
-        issued with the context.
-
-        Returns
-        -------
-        str or None
-            Provenance string
-        """
-        return self.annotation.provenance
-
     def get_task_id(self, task_id: int) -> int:
         return self._cpp_context.get_task_id(task_id)
 
@@ -211,9 +126,7 @@ class Context:
     def get_sharding_id(self, shard_id: int) -> int:
         return self._cpp_context.get_sharding_id(shard_id)
 
-    def get_tunable(
-        self, tunable_id: int, dtype: DataType
-    ) -> npt.NDArray[Any]:
+    def get_tunable(self, tunable_id: int, dtype: Dtype) -> npt.NDArray[Any]:
         """
         Queries a tunable parameter to the mapper.
 
@@ -222,7 +135,7 @@ class Context:
         tunable_id : int
             Tunable id. Local to each mapper.
 
-        dtype : DataType
+        dtype : Dtype
             Value type
 
         Returns
@@ -230,7 +143,7 @@ class Context:
         np.ndarray
             A NumPy array holding the value of the tunable parameter
         """
-        dt = np.dtype(dtype.to_pandas_dtype())
+        dt = dtype.to_numpy_dtype()
         fut = Future(
             legion.legion_runtime_select_tunable_value(
                 self._runtime.legion_runtime,
@@ -246,101 +159,30 @@ class Context:
     def get_unique_op_id(self) -> int:
         return self._runtime.get_unique_op_id()
 
-    def set_provenance(self, provenance: str) -> None:
+    def _slice_machine_for_task(self, task_id: int) -> Machine:
         """
-        Sets a new provenance string
-
-        Parameters
-        ----------
-        provenance : str
-            Provenance string
+        Narrows down the current machine by cutting out processors
+        for which the task has no variant
         """
-        self._annotations[-1].set_provenance(provenance)
-
-    def reset_provenance(self) -> None:
-        """
-        Clears the provenance string that is currently set
-        """
-        self._annotations[-1].reset_provenance()
-
-    def push_provenance(self, provenance: str) -> None:
-        """
-        Pushes a provenance string to the stack
-
-        Parameters
-        ----------
-        provenance : str
-            Provenance string
-        """
-        self._annotations.append(LibraryAnnotations())
-        self.set_provenance(provenance)
-
-    def pop_provenance(self) -> None:
-        """
-        Pops the provenance string on top the stack
-        """
-        if len(self._annotations) == 1:
-            raise ValueError("Provenance stack underflow")
-        self._annotations.pop(-1)
-
-    def track_provenance(
-        self, func: AnyCallable, nested: bool = False
-    ) -> AnyCallable:
-        """
-        Wraps a function with provenance tracking. Provenance of each operation
-        issued within the wrapped function will be tracked automatically.
-
-        Parameters
-        ----------
-        func : AnyCallable
-            Function to wrap
-
-        nested : bool
-            If ``True``, each invocation to a wrapped function within another
-            wrapped function updates the provenance string. Otherwise, the
-            provenance is tracked only for the outermost wrapped function.
-
-        Returns
-        -------
-        AnyCallable
-            Wrapped function
-        """
-        if nested:
-
-            def wrapper(*args: Any, **kwargs: Any) -> Any:
-                self.push_provenance(caller_frameinfo())
-                result = func(*args, **kwargs)
-                self.pop_provenance()
-                return result
-
-        else:
-
-            def wrapper(*args: Any, **kwargs: Any) -> Any:
-                if self.provenance is None:
-                    self.set_provenance(caller_frameinfo())
-                    result = func(*args, **kwargs)
-                    self.reset_provenance()
-                else:
-                    result = func(*args, **kwargs)
-                return result
-
-        return wrapper
-
-    def _check_task_id(self, task_id: int) -> None:
         task_info = self._cpp_context.find_task(task_id)
         if not task_info.valid:
             raise ValueError(
                 f"Library '{self._libname}' does not have task {task_id}"
             )
-        if not any(
-            task_info.has_variant(vid)
-            for vid in self._runtime.valid_variant_ids
-        ):
+
+        machine = self._runtime.machine.filter_ranges(
+            task_info, self._runtime.variant_ids
+        )
+
+        if machine.empty:
             error_msg = (
-                f"Task {task_id} of library '{self._libname}' does not have "
-                "any valid variant for the current machine configuration. "
+                f"Task {task_id} ({task_info.name}) of library "
+                f"'{self._libname}' does not have any valid variant for "
+                "the current machine configuration."
             )
             raise ValueError(error_msg)
+
+        return machine
 
     def create_manual_task(
         self,
@@ -362,7 +204,7 @@ class Context:
 
         Returns
         -------
-        AutoTask or ManualTask
+        ManualTask
             A new task
         """
 
@@ -370,7 +212,7 @@ class Context:
 
         # Check if the task id is valid for this library and the task
         # has the right variant
-        self._check_task_id(task_id)
+        machine = self._slice_machine_for_task(task_id)
         unique_op_id = self.get_unique_op_id()
         if launch_domain is None:
             raise RuntimeError(
@@ -382,6 +224,7 @@ class Context:
             task_id,
             launch_domain,
             unique_op_id,
+            machine,
         )
 
     def create_auto_task(
@@ -412,9 +255,9 @@ class Context:
 
         # Check if the task id is valid for this library and the task
         # has the right variant
-        self._check_task_id(task_id)
+        machine = self._slice_machine_for_task(task_id)
         unique_op_id = self.get_unique_op_id()
-        return AutoTask(self, task_id, unique_op_id)
+        return AutoTask(self, task_id, unique_op_id, machine)
 
     def create_copy(self) -> Copy:
         """
@@ -428,7 +271,11 @@ class Context:
 
         from .operation import Copy
 
-        return Copy(self, self.get_unique_op_id())
+        return Copy(
+            self,
+            self.get_unique_op_id(),
+            self._runtime.machine,
+        )
 
     def create_fill(
         self,
@@ -459,7 +306,13 @@ class Context:
         """
         from .operation import Fill
 
-        return Fill(self, lhs, value, self.get_unique_op_id())
+        return Fill(
+            self,
+            lhs,
+            value,
+            self.get_unique_op_id(),
+            self._runtime.machine,
+        )
 
     def dispatch(self, op: Dispatchable[T]) -> T:
         return self._runtime.dispatch(op)
@@ -469,7 +322,7 @@ class Context:
 
     def create_store(
         self,
-        ty: Any,
+        dtype: Dtype,
         shape: Optional[Union[Shape, tuple[int, ...]]] = None,
         storage: Optional[Union[RegionField, Future]] = None,
         optimize_scalar: bool = False,
@@ -480,7 +333,7 @@ class Context:
 
         Parameters
         ----------
-        ty : Dtype
+        dtype : Dtype
             Type of the elements
 
         shape : Shape or tuple[int], optional
@@ -503,7 +356,6 @@ class Context:
         Store
             A new store
         """
-        dtype = self.type_system[ty]
         return self._runtime.create_store(
             dtype,
             shape=shape,
@@ -567,66 +419,14 @@ class Context:
         self.runtime.flush_scheduling_window()
 
         # A single Reduce operation is mapepd to a whole reduction tree
-        task = Reduce(self, task_id, radix, unique_op_id)
+        task = Reduce(
+            self,
+            task_id,
+            radix,
+            unique_op_id,
+            self._runtime.machine,
+        )
         task.add_input(store)
         task.add_output(result)
         task.execute()
         return result
-
-
-def track_provenance(
-    context: Context,
-    nested: bool = False,
-) -> Callable[[AnyCallable], AnyCallable]:
-    """
-    Decorator that adds provenance tracking to functions. Provenance of each
-    operation issued within the wrapped function will be tracked automatically.
-
-    Parameters
-    ----------
-    context : Context
-        Context that the function uses to issue operations
-
-    nested : bool
-        If ``True``, each invocation to a wrapped function within another
-        wrapped function updates the provenance string. Otherwise, the
-        provenance is tracked only for the outermost wrapped function.
-
-    Returns
-    -------
-    Decorator
-        Function that takes a function and returns a one with provenance
-        tracking
-
-    See Also
-    --------
-    legate.core.context.Context.track_provenance
-    """
-
-    def decorator(func: AnyCallable) -> AnyCallable:
-        return context.track_provenance(func, nested=nested)
-
-    return decorator
-
-
-class Annotation:
-    def __init__(self, context: Context, pairs: dict[str, str]) -> None:
-        """
-        Constructs a new annotation object
-
-        Parameters
-        ----------
-        context : Context
-            Context to which the annotations should be added
-        pairs : dict[str, str]
-            Annotations as key-value pairs
-        """
-        self._annotation = context.annotation
-        self._pairs = pairs
-
-    def __enter__(self) -> None:
-        self._annotation.update(**self._pairs)
-
-    def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
-        for key in self._pairs.keys():
-            self._annotation.remove(key)

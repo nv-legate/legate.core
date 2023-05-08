@@ -15,14 +15,11 @@
 from __future__ import annotations
 
 import struct
-from typing import TYPE_CHECKING, Any, Optional, Type, Union
+from typing import Any, Type, Union
 
-import numpy
+import legate.core.types as ty
 
 from ..core import Future, get_legion_context, get_legion_runtime, legion
-
-if TYPE_CHECKING:
-    import pyarrow
 
 
 class TimingRuntime:
@@ -54,13 +51,13 @@ class TimingRuntime:
 
 
 class Time:
-    def __init__(self, future: Future, dtype: Any) -> None:
+    def __init__(self, future: Future, dtype: ty.Dtype) -> None:
         self.future = future
         self.dtype = dtype
         self.value: Union[int, float, None] = None
 
     @property
-    def type(self) -> Any:
+    def type(self) -> ty.Dtype:
         return self.dtype
 
     @property
@@ -74,18 +71,6 @@ class Time:
     @property
     def stores(self) -> list[Any]:
         return [None, self]
-
-    @staticmethod
-    def from_stores(
-        type: pyarrow.DataType,
-        stores: list[Any],
-        children: Optional[Any] = None,
-    ) -> Time:
-        if len(stores) == 2:
-            raise ValueError(f"Invalid store count: {len(stores)}")
-        if stores[0] is not None:
-            raise ValueError("Time is not nullable")
-        return Time(stores[1], numpy.dtype(type.to_pandas_dtype()))
 
     @property
     def region(self) -> None:
@@ -126,12 +111,12 @@ class Time:
 
     def get_value(self) -> Union[int, float]:
         if self.value is None:
-            if self.dtype == numpy.int64:
+            if self.dtype == ty.int64:
                 self.value = struct.unpack_from(
                     "q", self.future.get_buffer(8)
                 )[0]
             else:
-                assert self.dtype == numpy.float64
+                assert self.dtype == ty.float64
                 self.value = struct.unpack_from(
                     "d", self.future.get_buffer(8)
                 )[0]
@@ -146,10 +131,10 @@ def time(units: str = "us") -> Time:
     # immediately after it
     _timing.issue_execution_fence()
     if units == "s":
-        return Time(_timing.measure_seconds(), numpy.float64)
+        return Time(_timing.measure_seconds(), ty.float64)
     elif units == "us":
-        return Time(_timing.measure_microseconds(), numpy.int64)
+        return Time(_timing.measure_microseconds(), ty.int64)
     elif units == "ns":
-        return Time(_timing.measure_nanoseconds(), numpy.int64)
+        return Time(_timing.measure_nanoseconds(), ty.int64)
     else:
         raise ValueError('time units must be one of "s", "us", or "ns"')

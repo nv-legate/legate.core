@@ -25,6 +25,7 @@ cdef extern from "core/legate_c.h" nogil:
 cdef extern from "core/task/task_info.h" namespace "legate" nogil:
     cdef cppclass TaskInfo:
         bool has_variant(int)
+        string name()
 
 cdef extern from "core/runtime/context.h" namespace "legate" nogil:
     cdef cppclass LibraryContext:
@@ -54,6 +55,10 @@ cdef class CppTaskInfo:
     @property
     def valid(self) -> bool:
         return self._task_info != NULL
+
+    @property
+    def name(self) -> str:
+        return self._task_info.name()
 
     def has_variant(self, int variant_id) -> bool:
         return self._task_info.has_variant(

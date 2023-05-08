@@ -21,6 +21,8 @@
 #include <unordered_set>
 
 #include "core/runtime/projection.h"
+
+#include "core/runtime/context.h"
 #include "core/utilities/dispatch.h"
 #include "core/utilities/typedefs.h"
 #include "legate_defines.h"

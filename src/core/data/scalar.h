@@ -16,8 +16,8 @@
 
 #pragma once
 
+#include "core/type/type_traits.h"
 #include "core/utilities/span.h"
-#include "core/utilities/type_traits.h"
 #include "core/utilities/typedefs.h"
 
 /**
@@ -49,11 +49,10 @@ class Scalar {
    * @brief Creates a shared `Scalar` with an existing allocation. The caller is responsible
    * for passing in a sufficiently big allocation.
    *
-   * @param tuple If true, the allocation contains a tuple of scalars.
-   * @param code Type code of the scalar(s)
+   * @param type Type of the scalar(s)
    * @param data Allocation containing the data.
    */
-  Scalar(bool tuple, LegateTypeCode code, const void* data);
+  Scalar(std::unique_ptr<Type> type, const void* data);
   ~Scalar();
 
  public:
@@ -83,12 +82,11 @@ class Scalar {
 
  public:
   /**
-   * @brief Indicates if the `Scalar` object represents a tuple
+   * @brief Returns the data type of the scalar
    *
-   * @return true The `Scalar` is a tuple
-   * @return false The `Scalar` is a scalar
+   * @return Data type
    */
-  bool is_tuple() const { return tuple_; }
+  const Type& type() const { return *type_; }
   /**
    * @brief Returns the size of allocation for the `Scalar`.
    *
@@ -124,8 +122,7 @@ class Scalar {
 
  private:
   bool own_{false};
-  bool tuple_{false};
-  LegateTypeCode code_{MAX_TYPE_NUMBER};
+  std::unique_ptr<Type> type_{nullptr};
   const void* data_;
 };
 

@@ -19,8 +19,8 @@
 #include "legateio.h"
 #include "util.h"
 
+#include "core/type/type_traits.h"
 #include "core/utilities/dispatch.h"
-#include "core/utilities/type_traits.h"
 
 namespace fs = std::filesystem;
 
@@ -29,7 +29,7 @@ namespace legateio {
 namespace {
 
 struct write_fn {
-  template <legate::LegateTypeCode CODE, int32_t DIM>
+  template <legate::Type::Code CODE, int32_t DIM>
   void operator()(const legate::Store& store, const fs::path& path)
   {
     using VAL = legate::legate_type_of<CODE>;

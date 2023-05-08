@@ -18,3 +18,4 @@
 # 'find' the current build tree to test package builds
 
 add_subdirectory(registry)
+add_subdirectory(scoping)

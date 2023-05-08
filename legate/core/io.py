@@ -26,16 +26,15 @@ from . import (
     Rect,
     legion,
 )
-from .legate import Array, Table
+from .legate import Array, LegateDataInterface, Table
 from .partition import Tiling
 from .runtime import runtime
 from .shape import Shape
 from .store import DistributedAllocation, RegionField, Store
 
 if TYPE_CHECKING:
-    from pyarrow import DataType
-
     from . import Partition
+    from .types import Dtype
 
 
 legion_runtime = runtime.legion_runtime
@@ -136,13 +135,13 @@ class TiledSplit(DataSplit):
 
 
 def ingest(
-    dtype: DataType,
+    dtype: Dtype,
     shape: Union[int, tuple[int, ...]],
     colors: tuple[int, ...],
     data_split: DataSplit,
     get_buffer: Callable[[Point], memoryview],
     get_local_colors: Optional[Callable[[], Iterable[Point]]] = None,
-) -> Table:
+) -> LegateDataInterface:
     """
     Construct a single-column Table backed by a collection of buffers
     distributed across the machine.
@@ -153,7 +152,7 @@ def ingest(
 
     Parameters
     ----------
-    dtype : pyarrow.DataType
+    dtype : Dtype
         Type of the data to ingest
 
     shape : int | Tuple[int]
@@ -254,5 +253,4 @@ def ingest(
     alloc = DistributedAllocation(partition, shard_local_buffers)
     store.attach_external_allocation(runtime.core_context, alloc, False)
     # first store is the (non-existent) mask
-    array = Array(dtype, [None, store])
-    return Table.from_arrays([array], ["ingested"])
+    return Table.from_arrays(["ingested"], [Array(dtype, [None, store])])

@@ -17,7 +17,7 @@
 namespace legate {
 
 template <typename T>
-Scalar::Scalar(T value) : own_(true), tuple_(false), code_(legate_type_code_of<T>)
+Scalar::Scalar(T value) : own_(true), type_(primitive_type(legate_type_code_of<T>))
 {
   auto buffer = malloc(sizeof(T));
   memcpy(buffer, &value, sizeof(T));
@@ -26,12 +26,11 @@ Scalar::Scalar(T value) : own_(true), tuple_(false), code_(legate_type_code_of<T
 
 template <typename T>
 Scalar::Scalar(const std::vector<T>& values)
-  : own_(true), tuple_(true), code_(legate_type_code_of<T>)
+  : own_(true), type_(fixed_array_type(primitive_type(legate_type_code_of<T>), values.size()))
 {
-  auto data_size                  = sizeof(T) * values.size();
-  auto buffer                     = malloc(sizeof(uint32_t) + data_size);
-  *static_cast<uint32_t*>(buffer) = values.size();
-  memcpy(static_cast<int8_t*>(buffer) + sizeof(uint32_t), values.data(), data_size);
+  auto size   = type_->size();
+  auto buffer = malloc(size);
+  memcpy(buffer, values.data(), size);
   data_ = buffer;
 }
 
@@ -46,17 +45,18 @@ inline std::string Scalar::value() const
 {
   // Getting a span of a temporary scalar is illegal in general,
   // but we know this is safe as the span's pointer is held by this object.
-  auto span = Scalar(true, LegateTypeCode::INT8_LT, data_).values<char>();
-  return std::string(span.begin(), span.end());
+  auto len          = *static_cast<const uint32_t*>(data_);
+  const auto* begin = static_cast<const char*>(data_) + sizeof(uint32_t);
+  const auto* end   = begin + len;
+  return std::string(begin, end);
 }
 
 template <typename VAL>
 Span<const VAL> Scalar::values() const
 {
-  if (tuple_) {
-    auto size = *static_cast<const uint32_t*>(data_);
-    auto data = static_cast<const uint8_t*>(data_) + sizeof(uint32_t);
-    return Span<const VAL>(reinterpret_cast<const VAL*>(data), size);
+  if (type_->code == Type::Code::FIXED_ARRAY) {
+    auto size = static_cast<const FixedArrayType*>(type_.get())->num_elements();
+    return Span<const VAL>(reinterpret_cast<const VAL*>(data_), size);
   } else
     return Span<const VAL>(static_cast<const VAL*>(data_), 1);
 }

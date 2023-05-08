@@ -34,6 +34,7 @@ from .allocation import (
     DistributedAllocation,
     InlineMappedAllocation,
 )
+from .legate import Array, Field as LegateField
 from .partition import REPLICATE, PartitionBase, Restriction, Tiling
 from .projection import execute_functor_symbolically
 from .runtime import runtime
@@ -46,7 +47,7 @@ from .transform import (
     Transpose,
     identity,
 )
-from .types import _Dtype
+from .types import Dtype
 
 if TYPE_CHECKING:
     from . import (
@@ -58,6 +59,7 @@ if TYPE_CHECKING:
     )
     from .context import Context
     from .launcher import Proj
+    from .legate import LegateDataInterfaceItem
     from .projection import ProjFn
     from .transform import TransformStackBase
 
@@ -176,7 +178,7 @@ class RegionField:
                 self.field.field_id,
                 alloc,
                 mapper=context.mapper_id,
-                provenance=context.provenance,
+                provenance=runtime.provenance,
             )
             attach.set_restricted(False)
             # If we're not sharing then there is no need to map the attachment
@@ -204,7 +206,7 @@ class RegionField:
             field_type = self.region.field_space.get_type(self.field.field_id)
             field_size = (
                 field_type.size
-                if isinstance(field_type, _Dtype)
+                if isinstance(field_type, Dtype)
                 else field_type
             )
             shard_local_data = {}
@@ -227,7 +229,7 @@ class RegionField:
                 self.field.field_id,
                 shard_local_data,
                 mapper=context.mapper_id,
-                provenance=context.provenance,
+                provenance=runtime.provenance,
             )
             index_attach.set_deduplicate_across_shards(True)
             index_attach.set_restricted(False)
@@ -262,7 +264,7 @@ class RegionField:
                     self.region,
                     self.field.field_id,
                     mapper=context.mapper_id,
-                    provenance=context.provenance,
+                    provenance=runtime.provenance,
                 )
                 self.physical_region = runtime.dispatch(mapping)
                 self.physical_region_mapped = True
@@ -493,7 +495,7 @@ class Storage:
         self,
         extents: Optional[Shape],
         level: int,
-        dtype: Any,
+        dtype: Dtype,
         data: Optional[Union[RegionField, Future]] = None,
         kind: type = RegionField,
         parent: Optional[StoragePartition] = None,
@@ -556,7 +558,7 @@ class Storage:
         return self._kind
 
     @property
-    def dtype(self) -> Any:
+    def dtype(self) -> Dtype:
         return self._dtype
 
     @property
@@ -857,7 +859,7 @@ class StorePartition:
 class Store:
     def __init__(
         self,
-        dtype: _Dtype,
+        dtype: Dtype,
         storage: Storage,
         transform: Optional[TransformStackBase] = None,
         shape: Optional[Shape] = None,
@@ -977,18 +979,15 @@ class Store:
         return prod(self.shape) if self.ndim > 0 else 1
 
     @property
-    def type(self) -> _Dtype:
+    def type(self) -> Dtype:
         """
         Returns the element type of the store.
 
         Returns
         -------
-        _Dtype
+        Dtype
           Type of elements in the store
         """
-        return self._dtype
-
-    def get_dtype(self) -> _Dtype:
         return self._dtype
 
     @property
@@ -1071,6 +1070,15 @@ class Store:
             If ``True``, the store is transformed
         """
         return not self._transform.bottom
+
+    @property
+    def __legate_data_interface__(self) -> LegateDataInterfaceItem:
+        array = Array(self.type, [None, self])
+        result: LegateDataInterfaceItem = {
+            "version": 1,
+            "data": {LegateField("store", self.type): array},
+        }
+        return result
 
     def attach_external_allocation(
         self, context: Context, alloc: Attachable, share: bool
@@ -1555,7 +1563,7 @@ class Store:
         buf.pack_bool(self.kind is Future)
         buf.pack_bool(self.unbound)
         buf.pack_32bit_int(self.ndim)
-        buf.pack_32bit_int(self._dtype.code)
+        self.type.serialize(buf)
         self._transform.serialize(buf)
 
     def get_key_partition(self) -> Optional[PartitionBase]:

@@ -128,7 +128,7 @@ void UnboundRegionField::update_num_elements(size_t num_elements)
 }
 
 FutureWrapper::FutureWrapper(bool read_only,
-                             int32_t field_size,
+                             uint32_t field_size,
                              Domain domain,
                              Legion::Future future,
                              bool initialize /*= false*/)
@@ -209,14 +209,14 @@ void FutureWrapper::initialize_with_identity(int32_t redop_id)
 ReturnValue FutureWrapper::pack() const { return ReturnValue(buffer_, field_size_); }
 
 Store::Store(int32_t dim,
-             int32_t code,
+             std::unique_ptr<Type> type,
              int32_t redop_id,
              FutureWrapper future,
              std::shared_ptr<TransformStack>&& transform)
   : is_future_(true),
     is_unbound_store_(false),
     dim_(dim),
-    code_(code),
+    type_(std::move(type)),
     redop_id_(redop_id),
     future_(future),
     transform_(std::forward<decltype(transform)>(transform)),
@@ -225,14 +225,14 @@ Store::Store(int32_t dim,
 }
 
 Store::Store(int32_t dim,
-             int32_t code,
+             std::unique_ptr<Type> type,
              int32_t redop_id,
              RegionField&& region_field,
              std::shared_ptr<TransformStack>&& transform)
   : is_future_(false),
     is_unbound_store_(false),
     dim_(dim),
-    code_(code),
+    type_(std::move(type)),
     redop_id_(redop_id),
     region_field_(std::forward<RegionField>(region_field)),
     transform_(std::forward<decltype(transform)>(transform))
@@ -243,13 +243,13 @@ Store::Store(int32_t dim,
 }
 
 Store::Store(int32_t dim,
-             int32_t code,
+             std::unique_ptr<Type> type,
              UnboundRegionField&& unbound_field,
              std::shared_ptr<TransformStack>&& transform)
   : is_future_(false),
     is_unbound_store_(true),
     dim_(dim),
-    code_(code),
+    type_(std::move(type)),
     redop_id_(-1),
     unbound_field_(std::forward<UnboundRegionField>(unbound_field)),
     transform_(std::forward<decltype(transform)>(transform))
@@ -260,7 +260,7 @@ Store::Store(Store&& other) noexcept
   : is_future_(other.is_future_),
     is_unbound_store_(other.is_unbound_store_),
     dim_(other.dim_),
-    code_(other.code_),
+    type_(std::move(other.type_)),
     redop_id_(other.redop_id_),
     future_(other.future_),
     region_field_(std::forward<RegionField>(other.region_field_)),
@@ -277,7 +277,7 @@ Store& Store::operator=(Store&& other) noexcept
   is_future_        = other.is_future_;
   is_unbound_store_ = other.is_unbound_store_;
   dim_              = other.dim_;
-  code_             = other.code_;
+  type_             = std::move(other.type_);
   redop_id_         = other.redop_id_;
   if (is_future_)
     future_ = other.future_;

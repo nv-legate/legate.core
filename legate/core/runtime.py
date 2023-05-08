@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import gc
+import inspect
 import math
 import struct
 import sys
@@ -22,7 +23,18 @@ import weakref
 from collections import deque
 from dataclasses import dataclass
 from types import ModuleType
-from typing import TYPE_CHECKING, Any, Deque, List, Optional, TypeVar, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Deque,
+    List,
+    Optional,
+    Protocol,
+    Tuple,
+    TypeVar,
+    Union,
+)
 
 from legion_top import add_cleanup_item, top_level
 
@@ -49,6 +61,7 @@ from .communicator import CPUCommunicator, NCCLCommunicator
 from .corelib import core_library
 from .cycle_detector import find_cycles
 from .exception import PendingException
+from .machine import Machine, ProcessorKind
 from .projection import is_identity_projection, pack_symbolic_projection_repr
 from .restriction import Restriction
 from .shape import Shape
@@ -57,16 +70,19 @@ if TYPE_CHECKING:
     from . import ArgumentMap, Detach, IndexDetach, IndexPartition, Library
     from ._legion import (
         FieldListLike,
-        PhysicalRegion,
         Partition as LegionPartition,
+        PhysicalRegion,
     )
     from .communicator import Communicator
     from .context import Context
     from .corelib import CoreLib
     from .operation import Operation
     from .partition import PartitionBase
-    from .projection import ProjExpr
+    from .projection import SymbolicPoint
     from .store import RegionField, Store
+
+    ProjSpec = Tuple[int, SymbolicPoint]
+    ShardSpec = Tuple[int, tuple[int, int], int, int]
 
 from math import prod
 
@@ -78,6 +94,47 @@ _sizeof_size_t = ffi.sizeof("size_t")
 assert _sizeof_size_t == 4 or _sizeof_size_t == 8
 
 _LEGATE_FIELD_ID_BASE = 1000
+
+
+class AnyCallable(Protocol):
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        ...
+
+
+def caller_frameinfo() -> str:
+    frame = inspect.currentframe()
+    if frame is None or frame.f_back is None or frame.f_back.f_back is None:
+        return "<unknown>"
+    frame = frame.f_back.f_back
+    return f"{frame.f_code.co_filename}:{frame.f_lineno}"
+
+
+class LibraryAnnotations:
+    def __init__(self) -> None:
+        self._entries: dict[str, str] = {}
+        self._provenance: Union[str, None] = None
+
+    @property
+    def provenance(self) -> Optional[str]:
+        return self._provenance
+
+    def set_provenance(self, provenance: str) -> None:
+        self._provenance = provenance
+
+    def reset_provenance(self) -> None:
+        self._provenance = None
+
+    def update(self, **kwargs: Any) -> None:
+        self._entries.update(**kwargs)
+
+    def remove(self, key: str) -> None:
+        del self._entries[key]
+
+    def __repr__(self) -> str:
+        pairs = [f"{key},{value}" for key, value in self._entries.items()]
+        if self._provenance is not None:
+            pairs.append(f"Provenance,{self._provenance}")
+        return "|".join(pairs)
 
 
 # A helper class for doing field management with control replication
@@ -426,8 +483,10 @@ class AttachmentManager:
             tuple[Attachable, Union[Detach, IndexDetach]]
         ] = list()
         self._pending_detachments: dict[Future, Attachable] = dict()
+        self._destroyed = False
 
     def destroy(self) -> None:
+        self._destroyed = True
         gc.collect()
         while self._deferred_detachments:
             self.perform_detachments()
@@ -504,6 +563,10 @@ class AttachmentManager:
                 self._add_attachment(buf, False, region_field)
 
     def _remove_attachment(self, buf: memoryview) -> None:
+        # If the manager is already destroyed, ignore the detachment
+        # attempt
+        if self._destroyed:
+            return
         key = self.attachment_key(buf)
         if key not in self._attachments:
             raise RuntimeError("Unable to find attachment to remove")
@@ -572,47 +635,16 @@ class AttachmentManager:
 class PartitionManager:
     def __init__(self, runtime: Runtime) -> None:
         self._runtime = runtime
-        self._num_pieces = runtime.core_context.get_tunable(
-            runtime.core_library.LEGATE_CORE_TUNABLE_NUM_PIECES,
-            ty.int32,
-        )
         self._min_shard_volume = runtime.core_context.get_tunable(
             runtime.core_library.LEGATE_CORE_TUNABLE_MIN_SHARD_VOLUME,
             ty.int64,
         )
 
-        if self._num_pieces == 0:
-            raise RuntimeError(
-                "No processors are available to run Legate tasks. Please "
-                "enable at least one processor of any kind. "
-            )
-
         self._launch_spaces: dict[
-            tuple[int, ...], Optional[tuple[int, ...]]
+            tuple[int, tuple[int, ...]], Optional[tuple[int, ...]]
         ] = {}
-        factors = list()
-        pieces = self._num_pieces
-        while pieces % 2 == 0:
-            factors.append(2)
-            pieces = pieces // 2
-        while pieces % 3 == 0:
-            factors.append(3)
-            pieces = pieces // 3
-        while pieces % 5 == 0:
-            factors.append(5)
-            pieces = pieces // 5
-        while pieces % 7 == 0:
-            factors.append(7)
-            pieces = pieces // 7
-        while pieces % 11 == 0:
-            factors.append(11)
-            pieces = pieces // 11
-        if pieces > 1:
-            raise ValueError(
-                "Legate currently doesn't support processor counts with prime "
-                "factors greater than 11"
-            )
-        self._piece_factors = list(reversed(factors))
+        self._piece_factors: dict[int, list[int]] = {}
+
         self._index_partitions: dict[
             tuple[IndexSpace, PartitionBase], IndexPartition
         ] = {}
@@ -620,8 +652,39 @@ class PartitionManager:
         self._legion_partitions: dict[
             tuple[int, PartitionBase], Union[None, LegionPartition]
         ] = {}
-        self._storage_key_partitions: dict[int, PartitionBase] = {}
-        self._store_key_partitions: dict[int, PartitionBase] = {}
+        self._storage_key_partitions: dict[tuple[int, int], PartitionBase] = {}
+        self._store_key_partitions: dict[tuple[int, int], PartitionBase] = {}
+
+    def get_current_num_pieces(self) -> int:
+        return len(self._runtime.machine)
+
+    def get_piece_factors(self) -> list[int]:
+        num_pieces = self.get_current_num_pieces()
+        if num_pieces in self._piece_factors:
+            return self._piece_factors[num_pieces]
+
+        factors: list[int] = []
+
+        remaining = num_pieces
+
+        def record_factors(remaining: int, val: int) -> int:
+            while remaining % val == 0:
+                factors.append(val)
+                remaining = remaining // val
+            return remaining
+
+        for factor in (2, 3, 5, 7, 11):
+            remaining = record_factors(remaining, factor)
+
+        if remaining > 1:
+            raise ValueError(
+                "Legate currently doesn't support processor "
+                "counts with large prime factors greater than 11"
+            )
+
+        factors = list(reversed(factors))
+        self._piece_factors[num_pieces] = factors
+        return factors
 
     def compute_launch_shape(
         self, store: Store, restrictions: tuple[Restriction, ...]
@@ -656,9 +719,10 @@ class PartitionManager:
     def _compute_launch_shape(
         self, shape: tuple[int, ...]
     ) -> Optional[tuple[int, ...]]:
-        assert self._num_pieces > 0
+        num_pieces = self.get_current_num_pieces()
+        key = (num_pieces, shape)
         # Easy case if we only have one piece: no parallel launch space
-        if self._num_pieces == 1:
+        if num_pieces == 1:
             return None
         # If there is only one point or no points then we never do a parallel
         # launch
@@ -666,8 +730,8 @@ class PartitionManager:
         elif all(ext <= 1 for ext in shape):
             return None
         # Check to see if we already did the math
-        elif shape in self._launch_spaces:
-            return self._launch_spaces[shape]
+        elif (match := self._launch_spaces.get(key)) is not None:
+            return match
         # Prune out any dimensions that are 1
         temp_shape: tuple[int, ...] = ()
         temp_dims: tuple[int, ...] = ()
@@ -686,12 +750,12 @@ class PartitionManager:
         assert max_pieces > 0
         # If we can only make one piece return that now
         if max_pieces == 1:
-            self._launch_spaces[shape] = None
+            self._launch_spaces[key] = None
             return None
         else:
             # TODO: a better heuristic here For now if we can make at least two
             # pieces then we will make N pieces
-            max_pieces = self._num_pieces
+            max_pieces = num_pieces
         # Otherwise we need to compute it ourselves
         # First compute the N-th root of the number of pieces
         dims = len(temp_shape)
@@ -758,7 +822,8 @@ class PartitionManager:
             # last dimension >= 32 for good memory performance on the GPU
             local_result: List[int] = [1] * dims
             factor_prod = 1
-            for factor in self._piece_factors:
+            piece_factors = self.get_piece_factors()
+            for factor in piece_factors:
                 # Avoid exceeding the maximum number of pieces
                 if factor * factor_prod > max_pieces:
                     break
@@ -801,7 +866,7 @@ class PartitionManager:
             else:
                 result = result + (1,)
         # Save the result for later
-        self._launch_spaces[shape] = result
+        self._launch_spaces[key] = result
         return result
 
     def compute_tile_shape(self, shape: Shape, launch_space: Shape) -> Shape:
@@ -814,9 +879,10 @@ class PartitionManager:
     def use_complete_tiling(self, shape: Shape, tile_shape: Shape) -> bool:
         # If it would generate a very large number of elements then
         # we'll apply a heuristic for now and not actually tile it
-        # TODO: A better heurisitc for this in the future
+        # TODO: A better heuristic for this in the future
         num_tiles = (shape // tile_shape).volume()
-        return not (num_tiles > 256 and num_tiles > 16 * self._num_pieces)
+        num_pieces = self.get_current_num_pieces()
+        return not (num_tiles > 256 and num_tiles > 16 * num_pieces)
 
     def find_index_partition(
         self, index_space: IndexSpace, functor: PartitionBase
@@ -837,7 +903,8 @@ class PartitionManager:
     def find_store_key_partition(
         self, store_id: int, restrictions: tuple[Restriction, ...]
     ) -> Union[None, PartitionBase]:
-        partition = self._store_key_partitions.get(store_id)
+        key = (self.get_current_num_pieces(), store_id)
+        partition = self._store_key_partitions.get(key)
         if partition is not None and not partition.satisfies_restriction(
             restrictions
         ):
@@ -847,16 +914,19 @@ class PartitionManager:
     def record_store_key_partition(
         self, store_id: int, key_partition: PartitionBase
     ) -> None:
-        self._store_key_partitions[store_id] = key_partition
+        key = (self.get_current_num_pieces(), store_id)
+        self._store_key_partitions[key] = key_partition
 
     def reset_store_key_partition(self, store_id: int) -> None:
-        if store_id in self._store_key_partitions:
-            del self._store_key_partitions[store_id]
+        key = (self.get_current_num_pieces(), store_id)
+        if key in self._store_key_partitions:
+            del self._store_key_partitions[key]
 
     def find_storage_key_partition(
         self, storage_id: int, restrictions: tuple[Restriction, ...]
     ) -> Union[None, PartitionBase]:
-        partition = self._storage_key_partitions.get(storage_id)
+        key = (self.get_current_num_pieces(), storage_id)
+        partition = self._storage_key_partitions.get(key)
         if partition is not None and not partition.satisfies_restriction(
             restrictions
         ):
@@ -866,11 +936,13 @@ class PartitionManager:
     def record_storage_key_partition(
         self, storage_id: int, key_partition: PartitionBase
     ) -> None:
-        self._storage_key_partitions[storage_id] = key_partition
+        key = (self.get_current_num_pieces(), storage_id)
+        self._storage_key_partitions[key] = key_partition
 
     def reset_storage_key_partition(self, storage_id: int) -> None:
-        if storage_id in self._storage_key_partitions:
-            del self._storage_key_partitions[storage_id]
+        key = (self.get_current_num_pieces(), storage_id)
+        if key in self._storage_key_partitions:
+            del self._storage_key_partitions[key]
 
     def find_legion_partition(
         self, storage_id: int, functor: PartitionBase
@@ -966,36 +1038,6 @@ class Runtime:
             )
         )
 
-        self._num_cpus = int(
-            self._core_context.get_tunable(
-                legion.LEGATE_CORE_TUNABLE_TOTAL_CPUS,
-                ty.int32,
-            )
-        )
-        self._num_omps = int(
-            self._core_context.get_tunable(
-                legion.LEGATE_CORE_TUNABLE_TOTAL_OMPS,
-                ty.int32,
-            )
-        )
-        self._num_gpus = int(
-            self._core_context.get_tunable(
-                legion.LEGATE_CORE_TUNABLE_TOTAL_GPUS,
-                ty.int32,
-            )
-        )
-        self._valid_variant_ids = tuple(
-            vid
-            for cnt, vid in zip(
-                (self._num_gpus, self._num_omps, self._num_cpus),
-                (
-                    self.core_library.LEGATE_GPU_VARIANT,
-                    self.core_library.LEGATE_OMP_VARIANT,
-                    self.core_library.LEGATE_CPU_VARIANT,
-                ),
-            )
-            if cnt > 0
-        )
         self._num_nodes = int(
             self._core_context.get_tunable(
                 legion.LEGATE_CORE_TUNABLE_NUM_NODES,
@@ -1027,6 +1069,7 @@ class Runtime:
         )
 
         # Now we initialize managers
+        self._machines = [Machine.create_toplevel_machine(self)]
         self._attachment_manager = AttachmentManager(self)
         self._partition_manager = PartitionManager(self)
         self._comm_manager = CommunicatorManager(self)
@@ -1052,12 +1095,8 @@ class Runtime:
         )
         self._next_projection_id = first_functor_id
         self._next_sharding_id = first_functor_id
-        self._registered_projections: dict[
-            tuple[int, tuple[ProjExpr, ...]], int
-        ] = {}
-        self._registered_shardings: dict[
-            tuple[int, tuple[ProjExpr, ...]], int
-        ] = {}
+        self._registered_projections: dict[ProjSpec, int] = {}
+        self._registered_shardings: dict[ShardSpec, int] = {}
 
         self._max_pending_exceptions: int = int(
             self._core_context.get_tunable(
@@ -1073,6 +1112,14 @@ class Runtime:
         )
 
         self._pending_exceptions: list[PendingException] = []
+        self._annotations: list[LibraryAnnotations] = [LibraryAnnotations()]
+
+        # TODO: We can make this a true loading-time constant with Cython
+        self._variant_ids = {
+            ProcessorKind.GPU: self.core_library.LEGATE_GPU_VARIANT,
+            ProcessorKind.OMP: self.core_library.LEGATE_OMP_VARIANT,
+            ProcessorKind.CPU: self.core_library.LEGATE_CPU_VARIANT,
+        }
 
     @property
     def legion_runtime(self) -> legion.legion_runtime_t:
@@ -1100,77 +1147,32 @@ class Runtime:
         return self._empty_argmap
 
     @property
-    def num_cpus(self) -> int:
-        """
-        Returns the total number of CPUs in the system
-
-        Returns
-        -------
-        int
-            Number of CPUs
-        """
-        return self._num_cpus
+    def variant_ids(self) -> dict[ProcessorKind, int]:
+        return self._variant_ids
 
     @property
-    def num_omps(self) -> int:
+    def machine(self) -> Machine:
         """
-        Returns the total number of OpenMP processors in the system
+        Returns the machine object for the current scope
 
         Returns
         -------
-        int
-            Number of OpenMP processors
+        Machine
+            Machine object
         """
-        return self._num_omps
+        return self._machines[-1]
 
-    @property
-    def num_gpus(self) -> int:
-        """
-        Returns the total number of GPUs in the system
+    def push_machine(self, machine: Machine) -> None:
+        self._machines.append(machine)
 
-        Returns
-        -------
-        int
-            Number of GPUs
-        """
-        return self._num_gpus
-
-    @property
-    def num_procs(self) -> int:
-        """
-        Returns the total number of processors used to launch tasks
-
-        Legate heuristically decides the target processor kind by checking
-        availability of processors in the following order: GPU > OpenMP > CPU.
-        This property returns the count of the processors that Legate will
-        choose to try to run tasks. Note that Legate can still pick other
-        processor types if the task doesn't have a task variant for the
-        runtime's preferred processor kind.
-
-        Returns
-        -------
-        int
-            Number of processors
-        """
-        if self.num_gpus > 0:
-            return self.num_gpus
-        elif self.num_omps > 0:
-            return self.num_omps
-        else:
-            return self.num_cpus
+    def pop_machine(self) -> None:
+        if len(self._machines) <= 1:
+            raise RuntimeError("Machine stack underflow")
+        self._machines.pop()
 
     @property
     def core_task_variant_id(self) -> int:
-        if self.num_gpus > 0:
-            return self.core_library.LEGATE_GPU_VARIANT
-        elif self.num_omps > 0:
-            return self.core_library.LEGATE_OMP_VARIANT
-        else:
-            return self.core_library.LEGATE_CPU_VARIANT
-
-    @property
-    def valid_variant_ids(self) -> tuple[int, ...]:
-        return self._valid_variant_ids
+        return self._variant_ids[self.machine.preferred_kind]
 
     @property
     def attachment_manager(self) -> AttachmentManager:
@@ -1183,6 +1185,35 @@ class Runtime:
     @property
     def field_match_manager(self) -> FieldMatchManager:
         return self._field_match_manager
+
+    @property
+    def annotation(self) -> LibraryAnnotations:
+        """
+        Returns the current set of annotations. Provenance string is one
+        entry in the set.
+
+        Returns
+        -------
+        LibraryAnnotations
+            Library annotations
+        """
+        return self._annotations[-1]
+
+    def get_all_annotations(self) -> str:
+        return str(self.annotation)
+
+    @property
+    def provenance(self) -> Optional[str]:
+        """
+        Returns the current provenance string. Attached to every operation
+        issued with the context.
+
+        Returns
+        -------
+        str or None
+            Provenance string
+        """
+        return self.annotation.provenance
 
     def register_library(self, library: Library) -> Context:
         """
@@ -1300,10 +1331,14 @@ class Runtime:
         for op in ops:
             must_be_single = len(op.scalar_outputs) > 0
             partitioner = Partitioner([op], must_be_single=must_be_single)
-            strategies.append(partitioner.partition_stores())
+            # TODO: When we start partitioning a batch of operations, changes
+            # of machine configuration would delineat the batches
+            with op.target_machine:
+                strategies.append(partitioner.partition_stores())
 
         for op, strategy in zip(ops, strategies):
-            op.launch(strategy)
+            with op.target_machine:
+                op.launch(strategy)
 
     def flush_scheduling_window(self) -> None:
         if len(self._outstanding_ops) == 0:
@@ -1340,7 +1375,7 @@ class Runtime:
 
     def _register_projection_functor(
         self,
-        spec: tuple[int, tuple[ProjExpr, ...]],
+        spec: ProjSpec,
         src_ndim: int,
         tgt_ndim: int,
         dims_c: Any,
@@ -1360,29 +1395,50 @@ class Runtime:
             proj_id,
         )
 
-        shard_id = self.core_context.get_projection_id(self._next_sharding_id)
+        return proj_id
+
+    def get_sharding(self, proj_id: int) -> int:
+        proc_range = self.machine.get_processor_range()
+        offset = proc_range.low % proc_range.per_node_count
+        node_range = self.machine.get_node_range()
+        shard_spec = (proj_id, node_range, offset, proc_range.per_node_count)
+
+        if shard_spec in self._registered_shardings:
+            return self._registered_shardings[shard_spec]
+
+        shard_id = self.core_context.get_sharding_id(self._next_sharding_id)
         self._next_sharding_id += 1
-        self._registered_shardings[spec] = shard_id
+        self._registered_shardings[shard_spec] = shard_id
 
         self.core_library.legate_create_sharding_functor_using_projection(
             shard_id,
             proj_id,
+            node_range[0],
+            node_range[1],
+            offset,
+            proc_range.per_node_count,
         )
 
-        return proj_id
+        self._registered_shardings[shard_spec] = shard_id
 
-    def get_projection(self, src_ndim: int, dims: tuple[ProjExpr, ...]) -> int:
-        spec = (src_ndim, dims)
-        if spec in self._registered_projections:
-            return self._registered_projections[spec]
+        return shard_id
 
-        if is_identity_projection(src_ndim, dims):
-            self._registered_projections[spec] = 0
-            return 0
+    def get_projection(self, src_ndim: int, dims: SymbolicPoint) -> int:
+        proj_spec = (src_ndim, dims)
+
+        proj_id: int
+        if proj_spec in self._registered_projections:
+            proj_id = self._registered_projections[proj_spec]
         else:
-            return self._register_projection_functor(
-                spec, *pack_symbolic_projection_repr(src_ndim, dims)
-            )
+            if is_identity_projection(src_ndim, dims):
+                proj_id = 0
+            else:
+                proj_id = self._register_projection_functor(
+                    proj_spec, *pack_symbolic_projection_repr(src_ndim, dims)
+                )
+            self._registered_projections[proj_spec] = proj_id
+
+        return proj_id
 
     def get_transform_code(self, name: str) -> int:
         return getattr(
@@ -1413,13 +1469,16 @@ class Runtime:
 
     def create_store(
         self,
-        dtype: Any,
+        dtype: ty.Dtype,
         shape: Optional[Union[Shape, tuple[int, ...]]] = None,
         data: Optional[Union[RegionField, Future]] = None,
         optimize_scalar: bool = False,
         ndim: Optional[int] = None,
     ) -> Store:
         from .store import RegionField, Storage, Store
+
+        if not isinstance(dtype, ty.Dtype):
+            raise ValueError(f"Unsupported type: {dtype}")
 
         if ndim is not None and shape is not None:
             raise ValueError("ndim cannot be used with shape")
@@ -1736,6 +1795,86 @@ class Runtime:
         for pending in pending_exceptions:
             pending.raise_exception()
 
+    def set_provenance(self, provenance: str) -> None:
+        """
+        Sets a new provenance string
+
+        Parameters
+        ----------
+        provenance : str
+            Provenance string
+        """
+        self._annotations[-1].set_provenance(provenance)
+
+    def reset_provenance(self) -> None:
+        """
+        Clears the provenance string that is currently set
+        """
+        self._annotations[-1].reset_provenance()
+
+    def push_provenance(self, provenance: str) -> None:
+        """
+        Pushes a provenance string to the stack
+
+        Parameters
+        ----------
+        provenance : str
+            Provenance string
+        """
+        self._annotations.append(LibraryAnnotations())
+        self.set_provenance(provenance)
+
+    def pop_provenance(self) -> None:
+        """
+        Pops the provenance string on top the stack
+        """
+        if len(self._annotations) == 1:
+            raise ValueError("Provenance stack underflow")
+        self._annotations.pop(-1)
+
+    def track_provenance(
+        self, func: AnyCallable, nested: bool = False
+    ) -> AnyCallable:
+        """
+        Wraps a function with provenance tracking. Provenance of each operation
+        issued within the wrapped function will be tracked automatically.
+
+        Parameters
+        ----------
+        func : AnyCallable
+            Function to wrap
+
+        nested : bool
+            If ``True``, each invocation to a wrapped function within another
+            wrapped function updates the provenance string. Otherwise, the
+            provenance is tracked only for the outermost wrapped function.
+
+        Returns
+        -------
+        AnyCallable
+            Wrapped function
+        """
+        if nested:
+
+            def wrapper(*args: Any, **kwargs: Any) -> Any:
+                self.push_provenance(caller_frameinfo())
+                result = func(*args, **kwargs)
+                self.pop_provenance()
+                return result
+
+        else:
+
+            def wrapper(*args: Any, **kwargs: Any) -> Any:
+                if self.provenance is None:
+                    self.set_provenance(caller_frameinfo())
+                    result = func(*args, **kwargs)
+                    self.reset_provenance()
+                else:
+                    result = func(*args, **kwargs)
+                return result
+
+        return wrapper
+
 
 runtime: Runtime = Runtime(core_library)
 
@@ -1800,3 +1939,59 @@ def get_legate_runtime() -> Runtime:
         Legate runtime object
     """
     return runtime
+
+
+def track_provenance(
+    nested: bool = False,
+) -> Callable[[AnyCallable], AnyCallable]:
+    """
+    Decorator that adds provenance tracking to functions. Provenance of each
+    operation issued within the wrapped function will be tracked automatically.
+
+    Parameters
+    ----------
+    nested : bool
+        If ``True``, each invocation to a wrapped function within another
+        wrapped function updates the provenance string. Otherwise, the
+        provenance is tracked only for the outermost wrapped function.
+
+    Returns
+    -------
+    Decorator
+        Function that takes a function and returns a one with provenance
+        tracking
+
+    See Also
+    --------
+    legate.core.runtime.Runtime.track_provenance
+    """
+
+    def decorator(func: AnyCallable) -> AnyCallable:
+        return runtime.track_provenance(func, nested=nested)
+
+    return decorator
+
+
+class Annotation:
+    def __init__(self, pairs: dict[str, str]) -> None:
+        """
+        Constructs a new annotation object
+
+        Parameters
+        ----------
+        pairs : dict[str, str]
+            Annotations as key-value pairs
+        """
+        self._annotation = runtime.annotation
+        self._pairs = pairs
+
+    def __enter__(self) -> None:
+        self._annotation.update(**self._pairs)
+
+    def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
+        for key in self._pairs.keys():
+            self._annotation.remove(key)
+
+
+def get_machine() -> Machine:
+    return runtime.machine
