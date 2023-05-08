@@ -1011,6 +1011,7 @@ class ManualTask(Operation, Task):
                 continue
             req = opart.get_requirement(self.launch_ndim, proj_fn)
             launcher.add_output(opart.store, req, tag=0)
+            opart.store.set_key_partition(opart.partition)
 
         for (part, redop), proj_fn in zip(
             self._reduction_parts, self._reduction_projs
