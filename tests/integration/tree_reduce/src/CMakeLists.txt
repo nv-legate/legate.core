@@ -14,9 +14,21 @@
 # limitations under the License.
 #=============================================================================
 
-# We abuse find package for testing purposes here to
-# 'find' the current build tree to test package builds
+add_library(
+  tree_reduce
+  produce_normal.cc
+  reduce_normal.cc
+  produce_unbound.cc
+  reduce_unbound.cc
+  library.cc
+)
 
-add_subdirectory(registry)
-add_subdirectory(scoping)
-add_subdirectory(tree_reduce)
+target_include_directories(tree_reduce
+  PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+  INTERFACE
+    $<INSTALL_INTERFACE:include>
+)
+
+target_link_libraries(tree_reduce PRIVATE legate::core)
+
