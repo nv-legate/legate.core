@@ -3,8 +3,6 @@
 build_legate_cpp() {
     set -e;
 
-    sccache --stop-server 2>/dev/null || SCCACHE_NO_DAEMON=1 sccache --show-stats;
-
     # Build + package legate.core C++ libs
     local cmake_args=(${CMAKE_ARGS:-});
     cmake_args+=(-DBUILD_SHARED_LIBS=ON);
@@ -30,19 +28,22 @@ build_legate_cpp() {
     cmake_args+=(-DCMAKE_BUILD_PARALLEL_LEVEL=${JOBS:-$(nproc --ignore=1)});
     cmake_args+=(${@});
 
-    sccache --stop-server 2>/dev/null || SCCACHE_NO_DAEMON=1 sccache --show-stats;
+    sccache --stop-server >/dev/null 2>&1 || true;
+    sccache --show-stats;
 
+    time CMAKE_BUILD_PARALLEL_LEVEL=${JOBS:-$(nproc --ignore=1)} \
     cmake -S ~/legate -B ~/legate/build "${cmake_args[@]}" -GNinja;
 
     sed -i \
         's/= unknown/= unknown + ["--prefix", args.prefix]/' \
         ~/legate/build/_deps/legion-src/bindings/python/setup.py;
 
-    sccache --stop-server 2>/dev/null || SCCACHE_NO_DAEMON=1 sccache --show-stats;
+    sccache --show-stats;
 
-    time cmake --build ~/legate/build --verbose --parallel ${JOBS:-$(nproc --ignore=1)};
+    time CMAKE_BUILD_PARALLEL_LEVEL=${JOBS:-$(nproc --ignore=1)} \
+    cmake --build ~/legate/build --verbose --parallel ${JOBS:-$(nproc --ignore=1)};
 
-    sccache --stop-server 2>/dev/null || SCCACHE_NO_DAEMON=1 sccache --show-stats;
+    sccache --show-stats;
 
     (
     mkdir -p /tmp/out;
