@@ -6,7 +6,7 @@ build_all() {
     cd ~/;
 
     if type conda >/dev/null 2>&1; then
-        make-conda-env;
+        . make-conda-env;
     fi
 
     build-legate-cpp;
