@@ -20,9 +20,6 @@ limitations under the License.
 This tutorial explains how one can write reduction code in various scenarios.
 Specifically, the tutorial contains these three examples:
 
-1. Dimension-wise reductions
-2. All-reduce reductions
-3. Set reductions
-
-The tutorial also covers matrix multiplication, which is a variant of the
-dimension-wise reduction.
+1. Dimension-wise reductions (sum_over_axis.py, matmul.py)
+2. All-reduce reductions (bincount.py, histogram.py)
+3. Set reductions (unique.py)
