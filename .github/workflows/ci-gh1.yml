@@ -6,9 +6,8 @@ concurrency:
 
 on:
   push:
-    branches-ignore:
-      - gh-pages  # deployment target branch (this workflow should not exist on that branch anyway)
-  # NOTE: this workflow will not work for pull_requests since GH pull requests do not have access to secrets.
+    branches:
+      - "pull-request/[0-9]+"
 
 jobs:
   build:
@@ -43,13 +42,13 @@ jobs:
           chown -R coder:coder /home/coder/;
           chown -R coder:coder /tmp/out;
 
-     - if: github.repository == 'nv-legate/legate.core'
-       name: Get AWS credentials for sccache bucket
-       uses: aws-actions/configure-aws-credentials@v2
-       with:
-         aws-region: us-east-2
-         role-duration-seconds: 14400 # 4 hours
-         role-to-assume: arn:aws:iam::279114543810:role/gha-oidc-nv-legate
+      - if: github.repository == 'nv-legate/legate.core'
+        name: Get AWS credentials for sccache bucket
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-region: us-east-2
+          role-duration-seconds: 14400 # 4 hours
+          role-to-assume: arn:aws:iam::279114543810:role/gha-oidc-nv-legate
 
       - name: Build
         shell: su coder {0}
