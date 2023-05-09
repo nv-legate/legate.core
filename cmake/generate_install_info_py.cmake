@@ -26,6 +26,6 @@ execute_process(
 
 set(libpath "")
 configure_file(
-  "${CMAKE_CURRENT_LIST_DIR}/../legate/install_info.py.in"
-  "${CMAKE_CURRENT_LIST_DIR}/../legate/install_info.py"
+  "${CMAKE_CURRENT_LIST_DIR}/../python/legate/install_info.py.in"
+  "${CMAKE_CURRENT_LIST_DIR}/../python/legate/install_info.py"
 @ONLY)

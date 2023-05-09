@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-from setuptools import find_packages
+from setuptools import find_namespace_packages
 from skbuild import setup
 
 import versioneer
@@ -48,18 +48,8 @@ setup(
             "pytest",
         ]
     },
-    packages=find_packages(
-        where=".",
-        include=[
-            "legate",
-            "legate.*",
-            "legate.core",
-            "legate.core.*",
-            "legate.timing",
-            "legate.timing.*",
-        ],
-    ),
-    include_package_data=True,
+    packages=find_namespace_packages(where="python"),
+    package_dir={"": "python"},
     entry_points={
         "console_scripts": [
             "legate = legate.driver:main",

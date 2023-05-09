@@ -64,7 +64,7 @@ target_link_libraries(legate_core_python INTERFACE legate::core)
 include(rapids-cython)
 rapids_cython_init()
 
-add_subdirectory(legate/core/_lib)
+add_subdirectory(python/legate/core/_lib)
 
 if(DEFINED cython_lib_dir)
   rapids_cython_add_rpath_entries(TARGET legate_core PATHS "${cython_lib_dir}")

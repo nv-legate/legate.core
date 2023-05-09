@@ -166,7 +166,7 @@ def get_legate_paths() -> LegatePaths:
     """
     import legate
 
-    legate_dir = Path(legate.__path__[0]).parent
+    legate_dir = Path(legate.__path__[0]).parents[1]
     legate_build_dir = get_legate_build_dir(legate_dir)
 
     if legate_build_dir is None:

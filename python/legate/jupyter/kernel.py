@@ -30,7 +30,6 @@ from jupyter_client.kernelspec import (
     KernelSpecManager,
     NoSuchKernel,
 )
-
 from legate.driver import LegateDriver
 from legate.jupyter.config import Config
 from legate.util.types import ArgList
