@@ -66,19 +66,19 @@ jobs:
 
       - name: Create conda env
         shell: su coder {0}
-        run: set -x; exec entrypoint make-conda-env;
+        run: cd ~/; exec entrypoint make-conda-env;
 
       - name: Build legate.core C++ library
         shell: su coder {0}
-        run: set -x; exec entrypoint build-legate-cpp;
+        run: cd ~/; exec entrypoint build-legate-cpp;
 
       - name: Build legate.core Python Wheel
         shell: su coder {0}
-        run: set -x; exec entrypoint build-legate-wheel;
+        run: cd ~/; exec entrypoint build-legate-wheel;
 
       - name: Build legate.core Conda Package
         shell: su coder {0}
-        run: set -x; exec entrypoint build-legate-conda;
+        run: cd ~/; exec entrypoint build-legate-conda;
 
       - name: Upload build output
         uses: actions/upload-artifact@v3
