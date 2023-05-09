@@ -43,6 +43,7 @@ struct histogram_fn {
 
     for (legate::PointInRectIterator<1> it(in_shape); it.valid(); ++it) {
       auto& value = in_acc[*it];
+      // Use a naive algorithm that loops all bin edges to find a match
       for (auto bin_idx = 0; bin_idx < num_bins; ++bin_idx)
         if (bin_acc[bin_idx] <= value && value < bin_acc[bin_idx + 1]) {
           res_acc.reduce(bin_idx, 1);
