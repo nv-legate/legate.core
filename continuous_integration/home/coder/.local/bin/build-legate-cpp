@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 build_legate_cpp() {
-    set -e;
+    set -xeuo pipefail;
 
     # Build + package legate.core C++ libs
     local cmake_args=(${CMAKE_ARGS:-});
@@ -55,4 +55,4 @@ build_legate_cpp() {
     { set +x; } 2>/dev/null;
 }
 
-build_legate_cpp "$@";
+(build_legate_cpp "$@");

@@ -37,9 +37,9 @@ jobs:
           apt install -y --no-install-recommends \
               numactl rlwrap;
 
-          mv legate/continuous_integration/home/coder/.gitconfig /home/coder/.gitconfig;
-          mv legate/continuous_integration/home/coder/.local /home/coder/.local;
-          mv legate /home/coder/legate
+          cp -ar legate/continuous_integration/home/coder/.gitconfig /home/coder/;
+          cp -ar legate/continuous_integration/home/coder/.local /home/coder/;
+          mv legate /home/coder/legate;
 
           chmod a+x /home/coder/.local/bin/*;
           chown -R coder:coder /home/coder/;
