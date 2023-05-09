@@ -114,7 +114,7 @@ class NCCLCommunicator(Communicator):
         task = Task(self._context, self._init_nccl, tag=self._tag)
         task.add_future(nccl_id)
         task.set_concurrent(True)
-        handle = task.execute(Rect([volume]))
+        handle = task.execute(Rect([volume])).future_map
         return handle
 
     def _finalize(self, volume: int, handle: FutureMap) -> None:
@@ -172,14 +172,14 @@ class CPUCommunicator(Communicator):
         buf = struct.pack("i", cpucoll_uid)
         cpucoll_uid_f = self._runtime.create_future(buf, len(buf))
         task = Task(self._context, self._init_cpucoll_mapping, tag=self._tag)
-        mapping_table_fm = task.execute(Rect([volume]))
+        mapping_table_fm = task.execute(Rect([volume])).future_map
         task = Task(self._context, self._init_cpucoll, tag=self._tag)
         task.add_future(cpucoll_uid_f)
         for i in range(volume):
             f = mapping_table_fm.get_future(Point([i]))
             task.add_future(f)
         task.set_concurrent(True)
-        handle = task.execute(Rect([volume]))
+        handle = task.execute(Rect([volume])).future_map
         return handle
 
     def _finalize(self, volume: int, handle: FutureMap) -> None:

@@ -211,7 +211,8 @@ void StoreMapping::populate_layout_constraints(
     }
   } else
     fields.push_back(stores.front().get().region_field().field_id());
-  layout_constraints.add_constraint(Legion::FieldConstraint(fields, true /*contiguous*/));
+  layout_constraints.add_constraint(
+    Legion::FieldConstraint(fields, false /*contiguous*/, false /*inorder*/));
 }
 
 /*static*/ StoreMapping StoreMapping::default_mapping(const Store& store,

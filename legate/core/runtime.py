@@ -892,11 +892,10 @@ class PartitionManager:
 
     def record_index_partition(
         self,
-        index_space: IndexSpace,
         functor: PartitionBase,
         index_partition: IndexPartition,
     ) -> None:
-        key = (index_space, functor)
+        key = (index_partition.parent, functor)
         assert key not in self._index_partitions
         self._index_partitions[key] = index_partition
 
@@ -1704,7 +1703,7 @@ class Runtime:
         )
         launcher.add_future_map(future)
         launcher.add_scalar_arg(idx, ty.int32)
-        return launcher.execute(launch_domain)
+        return launcher.execute(launch_domain).future_map
 
     def reduce_future_map(
         self, future_map: Union[Future, FutureMap], redop: int
