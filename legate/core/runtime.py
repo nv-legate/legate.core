@@ -892,11 +892,10 @@ class PartitionManager:
 
     def record_index_partition(
         self,
-        index_space: IndexSpace,
         functor: PartitionBase,
         index_partition: IndexPartition,
     ) -> None:
-        key = (index_space, functor)
+        key = (index_partition.parent, functor)
         assert key not in self._index_partitions
         self._index_partitions[key] = index_partition
 
