@@ -18,15 +18,6 @@ jobs:
     container:
       options: -u root
       image: pauletaylor/devcontainers:23.06-cpp-cuda11.8-mambaforge-ubuntu22.04
-      env:
-        DEFAULT_CONDA_ENV: legate
-        PYTHONDONTWRITEBYTECODE: 1
-        SCCACHE_REGION: us-east-2
-        SCCACHE_BUCKET: rapids-sccache-devs
-        SCCACHE_S3_KEY_PREFIX: legate-cunumeric-dev
-        VAULT_HOST: ${{ secrets.PERSONAL_ACCESS_TOKEN && 'https://vault.ops.k8s.rapids.ai' || '' }}
-        GH_TOKEN: "${{ secrets.PERSONAL_ACCESS_TOKEN || secrets.GITHUB_TOKEN }}"
-        GITHUB_TOKEN: "${{ secrets.PERSONAL_ACCESS_TOKEN || secrets.GITHUB_TOKEN}}"
       volumes:
         - ${{ github.workspace }}/out:/tmp/out
     steps:
@@ -52,9 +43,27 @@ jobs:
           chown -R coder:coder /home/coder/;
           chown -R coder:coder /tmp/out;
 
+     - if: github.repository == 'nv-legate/legate.core'
+       name: Get AWS credentials for sccache bucket
+       uses: aws-actions/configure-aws-credentials@v2
+       with:
+         aws-region: us-east-2
+         role-duration-seconds: 14400 # 4 hours
+         role-to-assume: arn:aws:iam::279114543810:role/gha-oidc-nv-legate
+
       - name: Build
         shell: su coder {0}
         run: ~/.local/bin/entrypoint build-all
+        env:
+          DEFAULT_CONDA_ENV: legate
+          PYTHONDONTWRITEBYTECODE: 1
+          SCCACHE_REGION: us-east-2
+          SCCACHE_BUCKET: rapids-sccache-east
+          SCCACHE_S3_KEY_PREFIX: legate-cunumeric-dev
+          GH_TOKEN: "${{ secrets.PERSONAL_ACCESS_TOKEN || secrets.GITHUB_TOKEN }}"
+          GITHUB_TOKEN: "${{ secrets.PERSONAL_ACCESS_TOKEN || secrets.GITHUB_TOKEN }}"
+          VAULT_HOST: "${{ secrets.PERSONAL_ACCESS_TOKEN && 'https://vault.ops.k8s.rapids.ai' || '' }}"
+          VAULT_S3_TTL: "14400s" # 4 hours
 
       - name: Upload build output
         uses: actions/upload-artifact@v3
