@@ -31,7 +31,7 @@ jobs:
         GH_TOKEN: "${{ secrets.PERSONAL_ACCESS_TOKEN || secrets.GITHUB_TOKEN }}"
         GITHUB_TOKEN: "${{ secrets.PERSONAL_ACCESS_TOKEN || secrets.GITHUB_TOKEN }}"
         VAULT_HOST: "${{ secrets.PERSONAL_ACCESS_TOKEN && 'https://vault.ops.k8s.rapids.ai' || '' }}"
-        VAULT_S3_TTL: "14400s" # 4 hours
+        VAULT_S3_TTL: "28800s" # 8 hours
 
     steps:
       - name: Checkout legate.core (= this repo)
@@ -61,24 +61,24 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-region: us-east-2
-          role-duration-seconds: 14400 # 4 hours
+          role-duration-seconds: 28800 # 8 hours
           role-to-assume: arn:aws:iam::279114543810:role/gha-oidc-nv-legate
 
       - name: Create conda env
-        shell: su coder -c {0}
-        run: set -x; exec entrypoint make-conda-env
+        shell: su coder {0}
+        run: set -x; exec entrypoint make-conda-env;
 
       - name: Build legate.core C++ library
-        shell: su coder -c {0}
-        run: set -x; exec entrypoint build-legate-cpp
+        shell: su coder {0}
+        run: set -x; exec entrypoint build-legate-cpp;
 
       - name: Build legate.core Python Wheel
-        shell: su coder -c {0}
-        run: set -x; exec entrypoint build-legate-wheel
+        shell: su coder {0}
+        run: set -x; exec entrypoint build-legate-wheel;
 
       - name: Build legate.core Conda Package
-        shell: su coder -c {0}
-        run: set -x; exec entrypoint build-legate-conda
+        shell: su coder {0}
+        run: set -x; exec entrypoint build-legate-conda;
 
       - name: Upload build output
         uses: actions/upload-artifact@v3
