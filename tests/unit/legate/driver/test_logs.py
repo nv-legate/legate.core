@@ -14,13 +14,12 @@
 #
 from __future__ import annotations
 
-import pytest
-from pytest_mock import MockerFixture
-
 import legate.driver.logs as m
+import pytest
 from legate.driver.config import Config
 from legate.driver.launcher import RANK_ENV_VARS
 from legate.util.colors import scrub
+from pytest_mock import MockerFixture
 
 from ...util import Capsys, powerset_nonempty
 from .util import GenObjs

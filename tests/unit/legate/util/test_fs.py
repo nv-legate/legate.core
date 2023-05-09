@@ -16,9 +16,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 import legate.util.fs as m
+import pytest
 
 HEADER_PATH = Path(__file__).parent / "sample_header.h"
 

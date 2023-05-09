@@ -16,10 +16,9 @@ from __future__ import annotations
 
 import sys
 
+import legate.driver as m
 import pytest
 from pytest_mock import MockerFixture
-
-import legate.driver as m
 
 # main function shadows main module
 # def test___all__() -> None:

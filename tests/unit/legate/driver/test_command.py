@@ -18,9 +18,8 @@ import argparse
 import sys
 from pathlib import Path
 
-import pytest
-
 import legate.driver.command as m
+import pytest
 from legate import install_info
 from legate.driver.launcher import RANK_ENV_VARS
 from legate.util.colors import scrub

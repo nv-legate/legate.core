@@ -17,10 +17,9 @@ from __future__ import annotations
 import os
 import platform
 
+import legate.util.system as m
 import pytest
 from pytest_mock import MockerFixture
-
-import legate.util.system as m
 
 
 def test___all__() -> None:

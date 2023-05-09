@@ -18,9 +18,8 @@ import os
 from contextlib import contextmanager
 from typing import Any, Iterator, Mapping
 
-import pytest
-
 import legate.util.settings as m
+import pytest
 
 
 @contextmanager

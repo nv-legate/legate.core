@@ -18,14 +18,13 @@ import os
 from pathlib import Path
 from unittest.mock import call
 
-import pytest
-from pytest_mock import MockerFixture
-
 import legate.driver.config as m
 import legate.driver.defaults as defaults
+import pytest
 from legate.util import colors
 from legate.util.colors import scrub
 from legate.util.types import DataclassMixin
+from pytest_mock import MockerFixture
 
 from ...util import Capsys, powerset, powerset_nonempty
 

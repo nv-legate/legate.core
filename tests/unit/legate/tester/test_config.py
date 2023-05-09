@@ -21,7 +21,6 @@ import os
 from pathlib import Path, PurePath
 
 import pytest
-
 from legate.tester import (
     DEFAULT_CPUS_PER_NODE,
     DEFAULT_GPU_DELAY,
