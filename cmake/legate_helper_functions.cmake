@@ -99,7 +99,7 @@ function(legate_add_cffi header)
   elseif(IS_ABSOLUTE LEGATE_OPT_PY_PATH)
     set(py_path "${LEGATE_OPT_PY_PATH}")
   else()
-      set(py_path "${CMAKE_SOURCE_DIR}/${LEGATE_OPT_PY_PATH}")
+      set(py_path "${CMAKE_CURRENT_SOURCE_DIR}/${LEGATE_OPT_PY_PATH}")
   endif()
 
   # abbreviate for the function below
