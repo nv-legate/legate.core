@@ -411,6 +411,12 @@ class Context:
         """
         from .operation import Reduce
 
+        if store.ndim > 1:
+            raise NotImplementedError(
+                "Tree reduction doesn't currently support "
+                "multi-dimensional stores"
+            )
+
         result = self.create_store(store.type)
         unique_op_id = self.get_unique_op_id()
 
