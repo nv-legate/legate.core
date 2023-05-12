@@ -302,20 +302,6 @@ target_include_directories(legate_core
     $<INSTALL_INTERFACE:include/legate>
 )
 
-if(Legion_USE_CUDA)
-  file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld"
-          [=[
-SECTIONS
-{
-.nvFatBinSegment : { *(.nvFatBinSegment) }
-.nv_fatbin : { *(.nv_fatbin) }
-}
-]=])
-
-  # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
-  target_link_options(legate_core PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
-endif()
-
 ##############################################################################
 # - Doxygen target------------------------------------------------------------
 
