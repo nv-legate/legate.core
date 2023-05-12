@@ -43,11 +43,6 @@ jobs:
       - name: Setup
         shell: bash -eo pipefail {0}
         run: |
-          apt update;
-          DEBIAN_FRONTEND=noninteractive \
-          apt install -y --no-install-recommends \
-              numactl rlwrap;
-
           cp -ar legate/continuous_integration/home/coder/.gitconfig /home/coder/;
           cp -ar legate/continuous_integration/home/coder/.local /home/coder/;
           mv legate /home/coder/legate;
