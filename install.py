@@ -426,7 +426,6 @@ def install(
 )}
 -DBUILD_SHARED_LIBS=ON
 -DBUILD_MARCH={march}
--DCMAKE_CUDA_ARCHITECTURES={arch}
 -DLegion_MAX_DIM={str(maxdim)}
 -DLegion_MAX_FIELDS={str(maxfields)}
 -DLegion_SPY={("ON" if spy else "OFF")}
@@ -445,6 +444,8 @@ def install(
 -DLegion_EMBED_GASNet_CONFIGURE_ARGS="--with-ibv-max-hcas=8"
 """.splitlines()
 
+    if cuda:
+        cmake_flags += [f"-DLegion_CUDA_ARCH={arch}"]
     if nccl_dir:
         cmake_flags += [f"-DNCCL_DIR={nccl_dir}"]
     if gasnet_dir:

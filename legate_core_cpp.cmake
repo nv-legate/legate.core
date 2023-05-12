@@ -155,7 +155,7 @@ if(Legion_USE_CUDA)
   list(APPEND legate_core_CXX_DEFS LEGATE_USE_CUDA)
   list(APPEND legate_core_CUDA_DEFS LEGATE_USE_CUDA)
 
-  add_cuda_architecture_defines(legate_core_CUDA_DEFS)
+  add_cuda_architecture_defines(legate_core_CUDA_DEFS ARCHS ${Legion_CUDA_ARCH})
 
   list(APPEND legate_core_CUDA_OPTIONS -Xfatbin=-compress-all)
   list(APPEND legate_core_CUDA_OPTIONS --expt-extended-lambda)
@@ -256,6 +256,10 @@ set_target_properties(legate_core
                       POSITION_INDEPENDENT_CODE           ON
                       INTERFACE_POSITION_INDEPENDENT_CODE ON
                       LIBRARY_OUTPUT_DIRECTORY            lib)
+
+if(Legion_USE_CUDA)
+  set_property(TARGET legate_core PROPERTY CUDA_ARCHITECTURES ${Legion_CUDA_ARCH})
+endif()
 
 # Add Conda library, and include paths if specified
 if(TARGET conda_env)
@@ -474,6 +478,7 @@ endif()
   "set(Legion_USE_CUDA ${Legion_USE_CUDA})"
   "set(Legion_USE_OpenMP ${Legion_USE_OpenMP})"
   "set(Legion_USE_Python ${Legion_USE_Python})"
+  "set(Legion_CUDA_ARCH ${Legion_CUDA_ARCH})"
   "set(Legion_NETWORKS ${Legion_NETWORKS})"
   "set(Legion_BOUNDS_CHECKS ${Legion_BOUNDS_CHECKS})"
 [=[

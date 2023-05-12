@@ -33,7 +33,7 @@ if [[ -n "$(which ninja)" ]]; then cmake_args+=" -GNinja"; fi
 
 # Add other build options here as desired
 cmake_args+="
--D CMAKE_CUDA_ARCHITECTURES=NATIVE
+-D Legion_CUDA_ARCH=native
 -D Legion_ROOT:STRING=\"$Legion_ROOT\"
 ";
 
