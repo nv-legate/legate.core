@@ -17,6 +17,8 @@
 ##############################################################################
 # - User Options  ------------------------------------------------------------
 
+option(legate_core_BUILD_TESTS OFF)
+option(legate_core_BUILD_EXAMPLES OFF)
 include(cmake/Modules/legate_core_options.cmake)
 
 ##############################################################################
@@ -516,11 +518,15 @@ rapids_export(
   FINAL_CODE_BLOCK code_string
   LANGUAGES ${ENABLED_LANGUAES}
 )
-option(legate_core_EXAMPLE_BUILD_TESTS OFF)
+
 include(cmake/legate_helper_functions.cmake)
-if (legate_core_EXAMPLE_BUILD_TESTS)
-  set(legate_core_ROOT ${CMAKE_CURRENT_BINARY_DIR})
+
+set(legate_core_ROOT ${CMAKE_CURRENT_BINARY_DIR})
+
+if(legate_core_BUILD_TESTS)
+  add_subdirectory(tests/integration)
+endif()
+
+if(legate_core_BUILD_EXAMPLES)
   add_subdirectory(examples)
 endif()
-set(legate_core_ROOT ${CMAKE_CURRENT_BINARY_DIR})
-add_subdirectory(tests/integration)
