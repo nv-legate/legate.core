@@ -69,10 +69,9 @@ MPINetwork::MPINetwork(int argc, char* argv[])
   int provided, init_flag = 0;
   CHECK_MPI(MPI_Initialized(&init_flag));
   if (!init_flag) {
-    log_coll.fatal(
-      "MPI has not been initialized, it should be initialized by "
-      "the networking backend.");
-    LEGATE_ABORT;
+    log_coll.info("MPI being initialized by legate");
+    MPI_Init_thread(0, 0, MPI_THREAD_MULTIPLE, &provided);
+    self_init_mpi = true;
   }
   int mpi_thread_model;
   MPI_Query_thread(&mpi_thread_model);
@@ -106,7 +105,7 @@ MPINetwork::~MPINetwork()
   }
   if (self_init_mpi) {
     MPI_Finalize();
-    printf("finalize mpi\n");
+    log_coll.info("finalize mpi");
   }
   BackendNetwork::coll_inited = false;
 }

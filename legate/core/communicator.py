@@ -19,8 +19,10 @@ from abc import ABC, abstractmethod, abstractproperty
 from typing import TYPE_CHECKING
 
 from . import FutureMap, Point, Rect
+from .machine import ProcessorKind
 
 if TYPE_CHECKING:
+    from .machine import ProcessorRange
     from .runtime import Runtime
 
 
@@ -29,25 +31,31 @@ class Communicator(ABC):
         self._runtime = runtime
         self._context = runtime.core_context
 
-        self._handles: dict[int, FutureMap] = {}
+        self._handles: dict[tuple[int, ProcessorRange], FutureMap] = {}
         # From launch domains to communicator future maps transformed to N-D
-        self._nd_handles: dict[Rect, FutureMap] = {}
+        self._nd_handles: dict[tuple[Rect, ProcessorRange], FutureMap] = {}
 
     def _get_1d_handle(self, volume: int) -> FutureMap:
-        if volume in self._handles:
-            return self._handles[volume]
+        proc_range = self._runtime.machine.get_processor_range()
+        key = (volume, proc_range)
+        comm = self._handles.get(key)
+        if comm is not None:
+            return comm
         comm = self._initialize(volume)
-        self._handles[volume] = comm
+        self._handles[key] = comm
         return comm
 
     def _transform_handle(
         self, comm: FutureMap, launch_domain: Rect
     ) -> FutureMap:
-        if launch_domain in self._nd_handles:
-            return self._nd_handles[launch_domain]
-        comm = self._runtime.delinearize_future_map(comm, launch_domain)
-        self._nd_handles[launch_domain] = comm
-        return comm
+        proc_range = self._runtime.machine.get_processor_range()
+        key = (launch_domain, proc_range)
+        match = self._nd_handles.get(key)
+        if match is not None:
+            return match
+        match = self._runtime.delinearize_future_map(comm, launch_domain)
+        self._nd_handles[key] = match
+        return match
 
     def get_handle(self, launch_domain: Rect) -> FutureMap:
         comm = self._get_1d_handle(launch_domain.get_volume())
@@ -59,7 +67,7 @@ class Communicator(ABC):
         self._get_1d_handle(volume)
 
     def destroy(self) -> None:
-        for volume, handle in self._handles.items():
+        for (volume, _), handle in self._handles.items():
             self._finalize(volume, handle)
         # Drop the references to the handles dict after
         # all handles have been finalized to ensure that
@@ -106,7 +114,7 @@ class NCCLCommunicator(Communicator):
         task = Task(self._context, self._init_nccl, tag=self._tag)
         task.add_future(nccl_id)
         task.set_concurrent(True)
-        handle = task.execute(Rect([volume]))
+        handle = task.execute(Rect([volume])).future_map
         return handle
 
     def _finalize(self, volume: int, handle: FutureMap) -> None:
@@ -129,10 +137,6 @@ class CPUCommunicator(Communicator):
         )
         self._init_cpucoll = library.LEGATE_CORE_INIT_CPUCOLL_TASK_ID
         self._finalize_cpucoll = library.LEGATE_CORE_FINALIZE_CPUCOLL_TASK_ID
-        if runtime.num_omps > 0:
-            self._tag = library.LEGATE_OMP_VARIANT
-        else:
-            self._tag = library.LEGATE_CPU_VARIANT
         self._needs_barrier = False
 
     def destroy(self) -> None:
@@ -154,6 +158,13 @@ class CPUCommunicator(Communicator):
     def needs_barrier(self) -> bool:
         return self._needs_barrier
 
+    @property
+    def _tag(self) -> int:
+        if self._runtime.machine.count(ProcessorKind.OMP) > 0:
+            return self._runtime.variant_ids[ProcessorKind.OMP]
+        else:
+            return self._runtime.variant_ids[ProcessorKind.CPU]
+
     def _initialize(self, volume: int) -> FutureMap:
         from .launcher import TaskLauncher as Task
 
@@ -161,14 +172,14 @@ class CPUCommunicator(Communicator):
         buf = struct.pack("i", cpucoll_uid)
         cpucoll_uid_f = self._runtime.create_future(buf, len(buf))
         task = Task(self._context, self._init_cpucoll_mapping, tag=self._tag)
-        mapping_table_fm = task.execute(Rect([volume]))
+        mapping_table_fm = task.execute(Rect([volume])).future_map
         task = Task(self._context, self._init_cpucoll, tag=self._tag)
         task.add_future(cpucoll_uid_f)
         for i in range(volume):
             f = mapping_table_fm.get_future(Point([i]))
             task.add_future(f)
         task.set_concurrent(True)
-        handle = task.execute(Rect([volume]))
+        handle = task.execute(Rect([volume])).future_map
         return handle
 
     def _finalize(self, volume: int, handle: FutureMap) -> None:

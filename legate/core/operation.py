@@ -26,10 +26,16 @@ from typing import (
 
 import legate.core.types as ty
 
-from . import Future, FutureMap, Rect
+from . import Future, FutureMap, Partition as LegionPartition, Rect
 from .constraints import PartSym
-from .launcher import CopyLauncher, FillLauncher, TaskLauncher
+from .launcher import (
+    CopyLauncher,
+    FillLauncher,
+    ParallelExecutionResult,
+    TaskLauncher,
+)
 from .partition import REPLICATE, Weighted
+from .runtime import runtime
 from .shape import Shape
 from .store import Store, StorePartition
 from .utils import OrderedSet, capture_traceback_repr
@@ -39,9 +45,9 @@ if TYPE_CHECKING:
     from .constraints import Constraint
     from .context import Context
     from .launcher import Proj
+    from .machine import Machine
     from .projection import ProjFn, ProjOut, SymbolicPoint
     from .solver import Strategy
-    from .types import DTType
 
 
 class OperationProtocol(Protocol):
@@ -108,7 +114,7 @@ class OperationProtocol(Protocol):
 
 class TaskProtocol(OperationProtocol, Protocol):
     _task_id: int
-    _scalar_args: list[tuple[Any, Union[DTType, tuple[DTType]]]]
+    _scalar_args: list[tuple[Any, Union[ty.Dtype, tuple[ty.Dtype]]]]
     _comm_args: list[Communicator]
 
 
@@ -117,10 +123,12 @@ class Operation(OperationProtocol):
         self,
         context: Context,
         op_id: int,
+        target_machine: Machine,
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
         self._context = context
+        self._target_machine = target_machine
         self._op_id = op_id
         self._inputs: list[Store] = []
         self._outputs: list[Store] = []
@@ -135,13 +143,17 @@ class Operation(OperationProtocol):
         self._error_on_interference = True
         self._provenance = (
             None
-            if context.provenance is None
-            else (f"{context.provenance}$" f"{context.get_all_annotations()}")
+            if runtime.provenance is None
+            else (f"{runtime.provenance}$" f"{runtime.get_all_annotations()}")
         )
 
     @property
     def provenance(self) -> Optional[str]:
         return self._provenance
+
+    @property
+    def target_machine(self) -> Machine:
+        return self._target_machine
 
     def get_all_stores(self) -> OrderedSet[Store]:
         result: OrderedSet[Store] = OrderedSet()
@@ -304,7 +316,9 @@ class Task(TaskProtocol):
     ) -> None:
         super().__init__(**kwargs)
         self._task_id = task_id
-        self._scalar_args: list[tuple[Any, Union[DTType, tuple[DTType]]]] = []
+        self._scalar_args: list[
+            tuple[Any, Union[ty.Dtype, tuple[ty.Dtype]]]
+        ] = []
         self._comm_args: list[Communicator] = []
         self._exn_types: list[type] = []
         self._tb_repr: Union[None, str] = None
@@ -376,7 +390,7 @@ class Task(TaskProtocol):
         return f"{libname}.Task(tid:{self._task_id}, uid:{self._op_id})"
 
     def add_scalar_arg(
-        self, value: Any, dtype: Union[DTType, tuple[DTType]]
+        self, value: Any, dtype: Union[ty.Dtype, tuple[ty.Dtype]]
     ) -> None:
         """
         Adds a by-value argument to the task
@@ -389,12 +403,12 @@ class Task(TaskProtocol):
             Data type descriptor for the scalar value. A descriptor ``(T,)``
             means that the value is a tuple of elements of type ``T``.
         """
-
+        if not isinstance(dtype, (ty.Dtype, tuple)):
+            raise ValueError(f"Unsupported type: {dtype}")
         self._scalar_args.append((value, dtype))
 
-    def add_dtype_arg(self, dtype: DTType) -> None:
-        code = self._context.type_system[dtype].code
-        self._scalar_args.append((code, ty.int32))
+    def add_dtype_arg(self, dtype: ty.Dtype) -> None:
+        self._scalar_args.append((dtype.code, ty.int32))
 
     def throws_exception(self, exn_type: type) -> None:
         """
@@ -477,6 +491,7 @@ class Task(TaskProtocol):
     def _demux_scalar_stores_future_map(
         self,
         result: FutureMap,
+        out_partitions: dict[Store, LegionPartition],
         launch_domain: Rect,
     ) -> None:
         num_unbound_outs = len(self.unbound_outputs)
@@ -505,6 +520,7 @@ class Task(TaskProtocol):
                 # TODO: need to track partitions for N-D unbound stores
                 if output.ndim == 1:
                     partition = Weighted(launch_shape, result)
+                    partition.import_partition(out_partitions[output])
                     output.set_key_partition(partition)
             elif self.can_raise_exception:
                 runtime.record_pending_exception(
@@ -527,6 +543,7 @@ class Task(TaskProtocol):
                     result, idx, launch_domain
                 )
                 partition = Weighted(launch_shape, weights)
+                partition.import_partition(out_partitions[output])
                 output.set_key_partition(partition)
                 idx += 1
             for red_idx in self.scalar_reductions:
@@ -549,19 +566,21 @@ class Task(TaskProtocol):
 
     def _demux_scalar_stores(
         self,
-        result: Union[Future, FutureMap],
+        result: Union[ParallelExecutionResult, Future],
         launch_domain: Union[Rect, None],
     ) -> None:
         if launch_domain is None:
             assert isinstance(result, Future)
             self._demux_scalar_stores_future(result)
         else:
-            assert isinstance(result, FutureMap)
+            assert isinstance(result, ParallelExecutionResult)
             if launch_domain.get_volume() == 1:
-                future = result.get_future(launch_domain.lo)
+                future = result.future_map.get_future(launch_domain.lo)
                 self._demux_scalar_stores_future(future)
             else:
-                self._demux_scalar_stores_future_map(result, launch_domain)
+                self._demux_scalar_stores_future_map(
+                    result.future_map, result.output_partitions, launch_domain
+                )
 
     def add_nccl_communicator(self) -> None:
         """
@@ -621,11 +640,13 @@ class AutoTask(AutoOperation, Task):
         context: Context,
         task_id: int,
         op_id: int,
+        target_machine: Machine,
     ) -> None:
         super().__init__(
             context=context,
             task_id=task_id,
             op_id=op_id,
+            target_machine=target_machine,
         )
         self._reusable_stores: list[Tuple[Store, PartSym]] = []
         self._reuse_map: dict[int, Store] = {}
@@ -809,7 +830,7 @@ class AutoTask(AutoOperation, Task):
         launch_domain = strategy.launch_domain if strategy.parallel else None
         self._add_communicators(launcher, launch_domain)
 
-        result: Union[Future, FutureMap]
+        result: Union[ParallelExecutionResult, Future]
         if launch_domain is not None:
             result = launcher.execute(launch_domain)
         else:
@@ -829,11 +850,13 @@ class ManualTask(Operation, Task):
         task_id: int,
         launch_domain: Rect,
         op_id: int,
+        target_machine: Machine,
     ) -> None:
         super().__init__(
             context=context,
             task_id=task_id,
             op_id=op_id,
+            target_machine=target_machine,
         )
         self._launch_domain: Rect = launch_domain
         self._input_projs: list[Union[ProjFn, None]] = []
@@ -988,6 +1011,7 @@ class ManualTask(Operation, Task):
                 continue
             req = opart.get_requirement(self.launch_ndim, proj_fn)
             launcher.add_output(opart.store, req, tag=0)
+            opart.store.set_key_partition(opart.partition)
 
         for (part, redop), proj_fn in zip(
             self._reduction_parts, self._reduction_projs
@@ -1016,7 +1040,6 @@ class ManualTask(Operation, Task):
         self._add_communicators(launcher, self._launch_domain)
 
         result = launcher.execute(self._launch_domain)
-
         self._demux_scalar_stores(result, self._launch_domain)
 
 
@@ -1029,8 +1052,13 @@ class Copy(AutoOperation):
         self,
         context: Context,
         op_id: int,
+        target_machine: Machine,
     ) -> None:
-        super().__init__(context=context, op_id=op_id)
+        super().__init__(
+            context=context,
+            op_id=op_id,
+            target_machine=target_machine,
+        )
         self._source_indirects: list[Store] = []
         self._target_indirects: list[Store] = []
         self._source_indirect_parts: list[PartSym] = []
@@ -1328,8 +1356,13 @@ class Fill(AutoOperation):
         lhs: Store,
         value: Store,
         op_id: int,
+        target_machine: Machine,
     ) -> None:
-        super().__init__(context=context, op_id=op_id)
+        super().__init__(
+            context=context,
+            op_id=op_id,
+            target_machine=target_machine,
+        )
         if not value.scalar:
             raise ValueError("Fill value must be a scalar Store")
         if lhs.unbound:
@@ -1406,10 +1439,12 @@ class Reduce(AutoOperation):
         task_id: int,
         radix: int,
         op_id: int,
+        target_machine: Machine,
     ) -> None:
         super().__init__(
             context=context,
             op_id=op_id,
+            target_machine=target_machine,
         )
         self._runtime = context.runtime
         self._radix = radix
@@ -1431,27 +1466,21 @@ class Reduce(AutoOperation):
     def launch(self, strategy: Strategy) -> None:
         assert len(self._inputs) == 1 and len(self._outputs) == 1
 
-        result = self._outputs[0]
+        input = self._inputs[0]
+        ipart = input.partition(strategy.get_partition(self._input_parts[0]))
 
-        output = self._inputs[0]
-        opart = output.partition(strategy.get_partition(self._input_parts[0]))
-
-        done = False
         launch_domain = None
-        fan_in = 1
+        num_tasks = 1
         if strategy.parallel:
             assert strategy.launch_domain is not None
             launch_domain = strategy.launch_domain
-            fan_in = launch_domain.get_volume()
+            num_tasks = launch_domain.get_volume()
 
         proj_fns = list(
             _RadixProj(self._radix, off) for off in range(self._radix)
         )
 
-        while not done:
-            input = output
-            ipart = opart
-
+        while num_tasks > 1:
             tag = self.context.core_library.LEGATE_CORE_TREE_REDUCE_TAG
             launcher = TaskLauncher(
                 self.context,
@@ -1463,21 +1492,24 @@ class Reduce(AutoOperation):
             for proj_fn in proj_fns:
                 launcher.add_input(input, ipart.get_requirement(1, proj_fn))
 
-            output = self._context.create_store(input.type)
+            num_tasks = (num_tasks + self._radix - 1) // self._radix
+
+            if num_tasks == 1:
+                output = self._outputs[0]
+            else:
+                output = self._context.create_store(input.type)
             fspace = self._runtime.create_field_space()
             field_id = fspace.allocate_field(input.type)
             launcher.add_unbound_output(output, fspace, field_id)
 
-            num_tasks = (fan_in + self._radix - 1) // self._radix
             launch_domain = Rect([num_tasks])
-            weights = launcher.execute(launch_domain)
+            result = launcher.execute(launch_domain)
 
             launch_shape = Shape(c + 1 for c in launch_domain.hi)
-            weighted = Weighted(launch_shape, weights)
+            weighted = Weighted(launch_shape, result.future_map)
+            weighted.import_partition(result.output_partitions[output])
             output.set_key_partition(weighted)
             opart = output.partition(weighted)
 
-            fan_in = num_tasks
-            done = fan_in == 1
-
-        result.set_storage(output.storage)
+            input = output
+            ipart = opart

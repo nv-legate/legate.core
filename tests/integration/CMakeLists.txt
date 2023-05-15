@@ -19,4 +19,5 @@
 
 add_subdirectory(registry)
 add_subdirectory(collective)
-
+add_subdirectory(scoping)
+add_subdirectory(tree_reduce)

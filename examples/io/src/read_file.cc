@@ -24,7 +24,7 @@ namespace legateio {
 namespace {
 
 struct read_fn {
-  template <legate::LegateTypeCode CODE>
+  template <legate::Type::Code CODE>
   void operator()(legate::Store& output,
                   const std::string& filename,
                   int64_t my_id,
@@ -40,7 +40,7 @@ struct read_fn {
     in.read(reinterpret_cast<char*>(&code), sizeof(int64_t));
     in.read(reinterpret_cast<char*>(&size), sizeof(size_t));
 
-    if (static_cast<legate::LegateTypeCode>(code) != CODE) {
+    if (static_cast<legate::Type::Code>(code) != CODE) {
       logger.error() << "Type mismatch: " << CODE << " != " << code;
       LEGATE_ABORT;
     }

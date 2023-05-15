@@ -75,6 +75,7 @@ typedef enum legate_core_variant_t {
 
 // Match these to numpy_field_type_offsets in legate/numpy/config.py
 typedef enum legate_core_type_code_t {
+  // Buil-in primitive types
   BOOL_LT       = LEGION_TYPE_BOOL,
   INT8_LT       = LEGION_TYPE_INT8,
   INT16_LT      = LEGION_TYPE_INT16,
@@ -84,14 +85,30 @@ typedef enum legate_core_type_code_t {
   UINT16_LT     = LEGION_TYPE_UINT16,
   UINT32_LT     = LEGION_TYPE_UINT32,
   UINT64_LT     = LEGION_TYPE_UINT64,
-  HALF_LT       = LEGION_TYPE_FLOAT16,
-  FLOAT_LT      = LEGION_TYPE_FLOAT32,
-  DOUBLE_LT     = LEGION_TYPE_FLOAT64,
+  FLOAT16_LT    = LEGION_TYPE_FLOAT16,
+  FLOAT32_LT    = LEGION_TYPE_FLOAT32,
+  FLOAT64_LT    = LEGION_TYPE_FLOAT64,
   COMPLEX64_LT  = LEGION_TYPE_COMPLEX64,
   COMPLEX128_LT = LEGION_TYPE_COMPLEX128,
-  STRING_LT     = COMPLEX128_LT + 1,
-  MAX_TYPE_NUMBER,
+  // Compound types
+  FIXED_ARRAY_LT,
+  STRUCT_LT,
+  // Variable size types
+  STRING_LT,
+  INVALID_LT = -1,
 } legate_core_type_code_t;
+
+typedef enum legate_core_reduction_op_kind_t {
+  ADD_LT = LEGION_REDOP_KIND_SUM,
+  SUB_LT = LEGION_REDOP_KIND_DIFF,
+  MUL_LT = LEGION_REDOP_KIND_PROD,
+  DIV_LT = LEGION_REDOP_KIND_DIV,
+  MAX_LT = LEGION_REDOP_KIND_MAX,
+  MIN_LT = LEGION_REDOP_KIND_MIN,
+  OR_LT  = LEGION_REDOP_KIND_OR,
+  AND_LT = LEGION_REDOP_KIND_AND,
+  XOR_LT = LEGION_REDOP_KIND_XOR,
+} legate_core_reduction_op_kind_t;
 
 typedef enum legate_core_transform_t {
   LEGATE_CORE_TRANSFORM_SHIFT = 100,
@@ -125,7 +142,8 @@ void legate_core_perform_registration(void);
 void legate_register_affine_projection_functor(
   int32_t, int32_t, int32_t*, int32_t*, int32_t*, legion_projection_id_t);
 
-void legate_create_sharding_functor_using_projection(legion_sharding_id_t, legion_projection_id_t);
+void legate_create_sharding_functor_using_projection(
+  legion_sharding_id_t, legion_projection_id_t, uint32_t, uint32_t, uint32_t, uint32_t);
 
 // TODO: the return type should be legion_point_transform_functor_t
 void* legate_linearizing_point_transform_functor();
