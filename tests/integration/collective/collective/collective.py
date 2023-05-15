@@ -58,7 +58,7 @@ def _broadcast(store: Store, shape: Tuple[Any, ...]) -> Store:
 def collective_test(
     store: Store, shape: Tuple[Any, ...], tile_shape: Tuple[Any, ...]
 ) -> None:
-    assert store.ndim == 2
+    assert store.ndim == len(shape)
     if store.shape != shape:
         store = _broadcast(store, shape)
 
