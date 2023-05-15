@@ -13,7 +13,6 @@
 # limitations under the License.
 #
 import pytest
-
 from collective import (
     collective_test,
     collective_test_matvec,
