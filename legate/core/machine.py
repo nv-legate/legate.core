@@ -216,7 +216,7 @@ class Machine:
         if isinstance(key, ProcessorKind):
             return self.only(key)
         elif isinstance(key, (slice, int)):
-            if len(self._proc_ranges.keys()) > 1:
+            if len(self._non_empty_kinds) > 1:
                 raise ValueError(
                     "Ambiguous slicing: slicing is not allowed on a machine "
                     "with more than one processor kind"
