@@ -143,8 +143,7 @@ void BaseMapper::select_task_options(const Legion::Mapping::MapperContext ctx,
     auto idx = store.requirement_index();
     auto req = task.regions[idx];
     if (req.privilege & LEGION_WRITE_PRIV) continue;
-    std::vector<int32_t> promoted_dims;
-    store.return_promoted_dims(promoted_dims);
+    std::vector<int32_t> promoted_dims = store.find_imaginary_dims();
     for (auto& d : promoted_dims) {
       if (d < 0) continue;
       if ((task.index_domain.hi()[d] - task.index_domain.lo()[d]) >= 1) {

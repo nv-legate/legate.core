@@ -196,9 +196,11 @@ class Store {
   Domain domain() const;
 
  public:
-  void return_promoted_dims(std::vector<int32_t>& dims) const
+  std::vector<int32_t> find_imaginary_dims() const
   {
-    if (nullptr != transform_) transform_->return_promoted_dims(dims);
+    std::vector<int32_t> dims;
+    if (nullptr != transform_) transform_->find_imaginary_dims(dims);
+    return std::move(dims);
   }
 
  private:

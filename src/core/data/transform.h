@@ -30,8 +30,8 @@ struct Transform {
 
 struct StoreTransform : public Transform {
   virtual ~StoreTransform() {}
-  virtual int32_t target_ndim(int32_t source_ndim) const         = 0;
-  virtual void return_promoted_dims(std::vector<int32_t>&) const = 0;
+  virtual int32_t target_ndim(int32_t source_ndim) const        = 0;
+  virtual void find_imaginary_dims(std::vector<int32_t>&) const = 0;
 };
 
 struct TransformStack : public Transform {
@@ -53,10 +53,10 @@ struct TransformStack : public Transform {
   void dump() const;
 
  public:
-  void return_promoted_dims(std::vector<int32_t>& dims) const
+  void find_imaginary_dims(std::vector<int32_t>& dims) const
   {
-    if (nullptr != parent_) parent_->return_promoted_dims(dims);
-    if (nullptr != transform_) transform_->return_promoted_dims(dims);
+    if (nullptr != parent_) parent_->find_imaginary_dims(dims);
+    if (nullptr != transform_) transform_->find_imaginary_dims(dims);
   }
 
  private:
@@ -77,7 +77,7 @@ class Shift : public StoreTransform {
   virtual int32_t target_ndim(int32_t source_ndim) const override;
 
  public:
-  virtual void return_promoted_dims(std::vector<int32_t>&) const override;
+  virtual void find_imaginary_dims(std::vector<int32_t>&) const override;
 
  private:
   int32_t dim_;
@@ -97,7 +97,7 @@ class Promote : public StoreTransform {
   virtual int32_t target_ndim(int32_t source_ndim) const override;
 
  public:
-  virtual void return_promoted_dims(std::vector<int32_t>&) const override;
+  virtual void find_imaginary_dims(std::vector<int32_t>&) const override;
 
  private:
   int32_t extra_dim_;
@@ -118,7 +118,7 @@ class Project : public StoreTransform {
   virtual int32_t target_ndim(int32_t source_ndim) const override;
 
  public:
-  virtual void return_promoted_dims(std::vector<int32_t>&) const override;
+  virtual void find_imaginary_dims(std::vector<int32_t>&) const override;
 
  private:
   int32_t dim_;
@@ -138,7 +138,7 @@ class Transpose : public StoreTransform {
   virtual int32_t target_ndim(int32_t source_ndim) const override;
 
  public:
-  virtual void return_promoted_dims(std::vector<int32_t>&) const override;
+  virtual void find_imaginary_dims(std::vector<int32_t>&) const override;
 
  private:
   std::vector<int32_t> axes_;
@@ -157,7 +157,7 @@ class Delinearize : public StoreTransform {
   virtual int32_t target_ndim(int32_t source_ndim) const override;
 
  public:
-  virtual void return_promoted_dims(std::vector<int32_t>&) const override;
+  virtual void find_imaginary_dims(std::vector<int32_t>&) const override;
 
  private:
   int32_t dim_;

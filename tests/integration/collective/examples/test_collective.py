@@ -13,41 +13,31 @@
 # limitations under the License.
 #
 import pytest
+
 from collective import (
     collective_test,
     collective_test_matvec,
     create_int64_store,
 )
 
+SHAPE = (
+    100,
+    10,
+)
+TILE = (
+    10,
+    10,
+)
+
 
 def test_no_collective() -> None:
     store = create_int64_store(shape=(100, 10))
-    collective_test(
-        store,
-        (
-            100,
-            10,
-        ),
-        (
-            10,
-            10,
-        ),
-    )
+    collective_test(store, SHAPE, TILE)
 
 
 def test_broadcast() -> None:
     store = create_int64_store(shape=(1, 10))
-    collective_test(
-        store,
-        (
-            100,
-            10,
-        ),
-        (
-            10,
-            10,
-        ),
-    )
+    collective_test(store, SHAPE, TILE)
 
 
 def test_overlap() -> None:
@@ -73,36 +63,26 @@ def test_transpose() -> None:
             0,
         ]
     )
-    collective_test(
-        a,
-        (100, 100),
-        (
-            10,
-            10,
-        ),
+    shape = (
+        100,
+        100,
     )
+
+    collective_test(a, shape, TILE)
 
 
 def test_project() -> None:
-    a = create_int64_store(
-        shape=(
-            100,
-            100,
-        )
+    shape = (
+        100,
+        100,
     )
+    a = create_int64_store(shape)
 
     a = a.promote(0, 100)
     a = a.project(0, 1)
     a = a.promote(1, 100)
     a = a.project(1, 1)
-    collective_test(
-        a,
-        (100, 100),
-        (
-            10,
-            10,
-        ),
-    )
+    collective_test(a, shape, TILE)
 
 
 def test_2_promotions() -> None:
@@ -111,14 +91,11 @@ def test_2_promotions() -> None:
     a = a.promote(0, 100)
     a = a.promote(0, 100)
     a = a.project(1, 1)
-    collective_test(
-        a,
-        (100, 100),
-        (
-            10,
-            10,
-        ),
+    shape = (
+        100,
+        100,
     )
+    collective_test(a, shape, TILE)
 
 
 if __name__ == "__main__":

@@ -130,7 +130,7 @@ void Shift::print(std::ostream& out) const
 
 int32_t Shift::target_ndim(int32_t source_ndim) const { return source_ndim; }
 
-void Shift::return_promoted_dims(std::vector<int32_t>&) const {};
+void Shift::find_imaginary_dims(std::vector<int32_t>&) const {}
 
 Promote::Promote(int32_t extra_dim, int64_t dim_size) : extra_dim_(extra_dim), dim_size_(dim_size)
 {
@@ -187,7 +187,7 @@ void Promote::print(std::ostream& out) const
 
 int32_t Promote::target_ndim(int32_t source_ndim) const { return source_ndim - 1; }
 
-void Promote::return_promoted_dims(std::vector<int32_t>& dims) const
+void Promote::find_imaginary_dims(std::vector<int32_t>& dims) const
 {
   for (auto& dim : dims)
     if (dim >= extra_dim_) dim++;
@@ -248,15 +248,12 @@ void Project::print(std::ostream& out) const
 
 int32_t Project::target_ndim(int32_t source_ndim) const { return source_ndim + 1; }
 
-void Project::return_promoted_dims(std::vector<int32_t>& dims) const
+void Project::find_imaginary_dims(std::vector<int32_t>& dims) const
 {
-  auto finder = std::find(dims.begin(), dims.end(), (dim_));
-  if (finder != dims.end()) {
-    dims.erase(finder);
-    for (size_t i = 0; i < dims.size(); i++) {
-      if (dims[i] > dim_) { dims[i] -= 1; }
-    }
-  }
+  auto finder = std::find(dims.begin(), dims.end(), dim_);
+  if (finder != dims.end()) { dims.erase(finder); }
+  for (auto& dim : dims)
+    if (dim > dim_) --dim;
 }
 
 Transpose::Transpose(std::vector<int32_t>&& axes) : axes_(std::move(axes)) {}
@@ -321,7 +318,7 @@ void Transpose::print(std::ostream& out) const
 
 int32_t Transpose::target_ndim(int32_t source_ndim) const { return source_ndim; }
 
-void Transpose::return_promoted_dims(std::vector<int32_t>& dims) const
+void Transpose::find_imaginary_dims(std::vector<int32_t>& dims) const
 {
   // i should be added to X.tranpose(axes).promoted iff axes[i] is in X.promoted
   // e.g. X.promoted = [0] => X.transpose((1,2,0)).promoted = [2]
@@ -409,7 +406,7 @@ int32_t Delinearize::target_ndim(int32_t source_ndim) const
   return source_ndim - strides_.size() + 1;
 }
 
-void Delinearize::return_promoted_dims(std::vector<int32_t>&) const {};
+void Delinearize::find_imaginary_dims(std::vector<int32_t>&) const {};
 
 std::ostream& operator<<(std::ostream& out, const Transform& transform)
 {
