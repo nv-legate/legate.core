@@ -133,7 +133,7 @@ class ProcessorRange:
             )
         return (
             self.low // self.per_node_count,
-            self.high // self.per_node_count,
+            (self.high + self.per_node_count - 1) // self.per_node_count,
         )
 
     def __repr__(self) -> str:

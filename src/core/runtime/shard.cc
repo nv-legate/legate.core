@@ -110,7 +110,6 @@ class LegateShardingFunctor : public Legion::ShardingFunctor {
       offset_(offset),
       per_node_count_(per_node_count)
   {
-    num_shards_ = end_node_id_ - start_node_id_ + 1;
   }
 
  public:
@@ -122,14 +121,17 @@ class LegateShardingFunctor : public Legion::ShardingFunctor {
     auto hi    = proj_functor_->project_point(launch_space.hi(), launch_space);
     auto point = proj_functor_->project_point(p, launch_space);
 
-    return (linearize(lo, hi, point) + offset_) / per_node_count_ + start_node_id_;
+    auto shard_id = (linearize(lo, hi, point) + offset_) / per_node_count_ + start_node_id_;
+#ifdef DEBUG_LEGATE
+    assert(start_node_id_ <= shard_id && shard_id < end_node_id_);
+#endif
+    return shard_id;
   }
 
  private:
   LegateProjectionFunctor* proj_functor_;
   uint32_t start_node_id_;
   uint32_t end_node_id_;
-  uint32_t num_shards_;
   uint32_t offset_;
   uint32_t per_node_count_;
 };
