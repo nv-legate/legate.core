@@ -83,7 +83,7 @@ function(legate_add_cffi header)
   endif()
 
   set(options)
-  set(one_value_args TARGET)
+  set(one_value_args TARGET PY_PATH)
   set(multi_value_args)
   cmake_parse_arguments(
     LEGATE_OPT
@@ -92,6 +92,16 @@ function(legate_add_cffi header)
     "${multi_value_args}"
     ${ARGN}
   )
+
+  # determine full Python path
+  if (NOT DEFINED LEGATE_OPT_PY_PATH)
+      set(py_path "${CMAKE_CURRENT_SOURCE_DIR}/${LEGATE_OPT_TARGET}")
+  elseif(IS_ABSOLUTE LEGATE_OPT_PY_PATH)
+    set(py_path "${LEGATE_OPT_PY_PATH}")
+  else()
+      set(py_path "${CMAKE_CURRENT_SOURCE_DIR}/${LEGATE_OPT_PY_PATH}")
+  endif()
+
   # abbreviate for the function below
   set(target ${LEGATE_OPT_TARGET})
   set(install_info_in
@@ -135,7 +145,7 @@ header: str = """
 """
 ]=])
   set(install_info_py_in ${CMAKE_BINARY_DIR}/legate_${target}/install_info.py.in)
-  set(install_info_py ${CMAKE_CURRENT_SOURCE_DIR}/${target}/install_info.py)
+  set(install_info_py ${py_path}/install_info.py)
   file(WRITE ${install_info_py_in} "${install_info_in}")
 
   set(generate_script_content
@@ -370,7 +380,32 @@ void @target@_perform_registration(void)
   )
 endfunction()
 
-function(legate_python_library_template target)
+function(legate_python_library_template py_path)
+set(options)
+set(one_value_args TARGET PY_IMPORT_PATH)
+set(multi_value_args)
+cmake_parse_arguments(
+  LEGATE_OPT
+  "${options}"
+  "${one_value_args}"
+  "${multi_value_args}"
+  ${ARGN}
+)
+
+if (DEFINED LEGATE_OPT_TARGET)
+    set(target "${LEGATE_OPT_TARGET}")
+else()
+    string(REPLACE "/" "_" target "${py_path}")
+endif()
+
+if (DEFINED LEGATE_OPT_PY_IMPORT_PATH)
+    set(py_import_path "${LEGATE_OPT_PY_IMPORT_PATH}")
+else()
+    string(REPLACE "/" "." py_import_path "${py_path}")
+endif()
+
+set(fn_library "${CMAKE_CURRENT_SOURCE_DIR}/${py_path}/library.py")
+
 set(file_template
 [=[
 # Copyright 2023 NVIDIA Corporation
@@ -408,11 +443,11 @@ class UserLibrary(Library):
         return self.name
 
     def get_shared_library(self) -> str:
-        from @target@.install_info import libpath
+        from @py_import_path@.install_info import libpath
         return os.path.join(libpath, f"lib@target@{self.get_library_extension()}")
 
     def get_c_header(self) -> str:
-        from @target@.install_info import header
+        from @py_import_path@.install_info import header
 
         return header
 
@@ -429,5 +464,5 @@ user_lib = UserLibrary("@target@")
 user_context = get_legate_runtime().register_library(user_lib)
 ]=])
   string(CONFIGURE "${file_template}" file_content @ONLY)
-  file(WRITE ${CMAKE_CURRENT_SOURCE_DIR}/${target}/library.py "${file_content}")
+  file(WRITE "${fn_library}" "${file_content}")
 endfunction()
