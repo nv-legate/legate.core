@@ -429,7 +429,6 @@ def install(
 -DCMAKE_CUDA_ARCHITECTURES={arch}
 -DLegion_MAX_DIM={str(maxdim)}
 -DLegion_MAX_FIELDS={str(maxfields)}
--DLegion_DEFAULT_LOCAL_FIELDS="0"
 -DLegion_SPY={("ON" if spy else "OFF")}
 -DLegion_BOUNDS_CHECKS={("ON" if check_bounds else "OFF")}
 -DLegion_USE_CUDA={("ON" if cuda else "OFF")}
