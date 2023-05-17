@@ -422,6 +422,12 @@ def cmd_user_opts(
     return config.user_opts
 
 
+def cmd_python(
+    config: ConfigProtocol, system: System, launcher: Launcher
+) -> CommandPart:
+    return ("python",)
+
+
 _CMD_PARTS_SHARED = (
     # This has to go before script name
     cmd_nocr,
@@ -472,6 +478,8 @@ CMD_PARTS_LEGION = (
 
 CMD_PARTS_CANONICAL = (
     (
+        # Executable name that will get stripped by the runtime
+        cmd_python,
         # User script
         cmd_user_script,
     )
