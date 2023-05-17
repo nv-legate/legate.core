@@ -210,13 +210,6 @@ def cmd_python_processor(
     return ("-ll:py", "1")
 
 
-def cmd_local_field(
-    config: ConfigProtocol, system: System, launcher: Launcher
-) -> CommandPart:
-    # We always need no local fields
-    return ("-lg:local", "0")
-
-
 def cmd_kthreads(
     config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
@@ -432,7 +425,6 @@ def cmd_user_opts(
 _CMD_PARTS_SHARED = (
     # This has to go before script name
     cmd_nocr,
-    cmd_local_field,
     cmd_kthreads,
     # Translate the requests to Realm command line parameters
     cmd_cpus,

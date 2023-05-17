@@ -55,7 +55,6 @@ def test_CMD_PARTS() -> None:
         m.cmd_python_processor,
         m.cmd_module,
         m.cmd_nocr,
-        m.cmd_local_field,
         m.cmd_kthreads,
         m.cmd_cpus,
         m.cmd_gpus,
@@ -683,15 +682,6 @@ class Test_cmd_python_processor:
         result = m.cmd_python_processor(config, system, launcher)
 
         assert result == ("-ll:py", "1")
-
-
-class Test_cmd_local_field:
-    def test_default(self, genobjs: GenObjs) -> None:
-        config, system, launcher = genobjs([])
-
-        result = m.cmd_local_field(config, system, launcher)
-
-        assert result == ("-lg:local", "0")
 
 
 class Test_cmd_kthreads:
