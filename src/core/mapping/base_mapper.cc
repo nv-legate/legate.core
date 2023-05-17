@@ -284,7 +284,11 @@ void BaseMapper::map_task(const Legion::Mapping::MapperContext ctx,
     output.target_procs.push_back(task.target_proc);
   else {
     // If this is a single task, here is the right place to compute the final target processor
-    auto local_range = machine.slice(legate_task.target(), legate_task.machine_desc());
+    auto local_range =
+      machine.slice(legate_task.target(), legate_task.machine_desc(), task.local_function);
+#ifdef DEBUG_LEGATE
+    assert(!local_range.empty());
+#endif
     output.target_procs.push_back(local_range.first());
   }
 
