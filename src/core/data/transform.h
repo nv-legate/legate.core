@@ -53,10 +53,13 @@ struct TransformStack : public Transform {
   void dump() const;
 
  public:
-  void find_imaginary_dims(std::vector<int32_t>& dims) const
+  std::vector<int32_t> find_imaginary_dims() const
   {
-    if (nullptr != parent_) parent_->find_imaginary_dims(dims);
+    std::vector<int32_t> dims;
+
+    if (nullptr != parent_) { dims = parent_->find_imaginary_dims(); }
     if (nullptr != transform_) transform_->find_imaginary_dims(dims);
+    return std::move(dims);
   }
 
  private:

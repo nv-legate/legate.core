@@ -198,9 +198,8 @@ class Store {
  public:
   std::vector<int32_t> find_imaginary_dims() const
   {
-    std::vector<int32_t> dims;
-    if (nullptr != transform_) transform_->find_imaginary_dims(dims);
-    return std::move(dims);
+    if (nullptr != transform_) return transform_->find_imaginary_dims();
+    return std::vector<int32_t>();
   }
 
  private:
