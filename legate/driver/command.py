@@ -38,6 +38,12 @@ def cmd_bind(
 ) -> CommandPart:
     ranks = config.multi_node.ranks
 
+    if ranks > 1 and len(install_info.networks) == 0:
+        raise RuntimeError(
+            "multi-rank run was requested, but Legate was not built with "
+            "networking support"
+        )
+
     if launcher.kind == "none":
         bind_launcher_arg = "local" if ranks == 1 else "auto"
     else:
