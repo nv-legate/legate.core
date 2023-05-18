@@ -103,5 +103,5 @@ class TestSystem:
         s = m.System()
 
         msg = "GPU execution is not available on OSX."
-        with pytest.raises(RuntimeError, msg=msg):  # type: ignore
+        with pytest.raises(RuntimeError, match=msg):
             s.gpus

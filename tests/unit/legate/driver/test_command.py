@@ -152,7 +152,10 @@ class Test_cmd_bind:
         launch: LauncherType,
         kind: str,
         rank_var: dict[str, str],
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
+        monkeypatch.setattr(install_info, "networks", ["ucx"])
+
         config, system, launcher = genobjs(
             [f"--{kind}-bind", "1/2", "--launcher", launch],
             multi_rank=(2, 2),
@@ -182,7 +185,10 @@ class Test_cmd_bind:
         binding: str,
         kind: str,
         rank_var: dict[str, str],
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
+        monkeypatch.setattr(install_info, "networks", ["ucx"])
+
         config, system, launcher = genobjs(
             [f"--{kind}-bind", binding],
             multi_rank=(2, 2),
@@ -191,6 +197,30 @@ class Test_cmd_bind:
 
         msg = (
             f"Number of groups in --{kind}-bind not equal to --ranks-per-node"
+        )
+        with pytest.raises(RuntimeError, match=msg):
+            m.cmd_bind(config, system, launcher)
+
+    @pytest.mark.parametrize("launch", ("none", "mpirun", "jsrun", "srun"))
+    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
+    def test_no_networking_error(
+        self,
+        genobjs: GenObjs,
+        launch: LauncherType,
+        rank_var: dict[str, str],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(install_info, "networks", [])
+
+        config, system, launcher = genobjs(
+            ["--launcher", launch],
+            multi_rank=(2, 2),
+            rank_env={rank_var: "1"},
+        )
+
+        msg = (
+            "multi-rank run was requested, but Legate was not built with "
+            "networking support"
         )
         with pytest.raises(RuntimeError, match=msg):
             m.cmd_bind(config, system, launcher)
