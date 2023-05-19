@@ -32,7 +32,7 @@ def test_default() -> None:
     assert stage.kind == "eager"
     assert stage.args == []
     assert stage.env(c, s) == {
-        "CUNUMERIC_TEST": "0",
+        "CUNUMERIC_FORCE_THUNK": "eager",
         "CUNUMERIC_MIN_CPU_CHUNK": "2000000000",
         "CUNUMERIC_MIN_OMP_CHUNK": "2000000000",
         "CUNUMERIC_MIN_GPU_CHUNK": "2000000000",

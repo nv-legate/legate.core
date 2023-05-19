@@ -21,12 +21,11 @@ import pytest
 
 from legate.tester.config import Config
 from legate.tester.stages._linux import omp as m
-from legate.tester.stages.util import CUNUMERIC_TEST_ENV, UNPIN_ENV
+from legate.tester.stages.util import UNPIN_ENV
 
 from .. import FakeSystem
 
 unpin_and_test = dict(UNPIN_ENV)
-unpin_and_test.update(CUNUMERIC_TEST_ENV)
 
 
 def test_default() -> None:
@@ -48,7 +47,7 @@ def test_cpu_pin_strict() -> None:
     stage = m.OMP(c, s)
     assert stage.kind == "openmp"
     assert stage.args == []
-    assert stage.env(c, s) == CUNUMERIC_TEST_ENV
+    assert stage.env(c, s) == {}
     assert stage.spec.workers > 0
 
     shard = (1, 2, 3)
