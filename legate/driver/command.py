@@ -413,7 +413,10 @@ def cmd_eager_alloc(
 def cmd_ucx(
     config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
-    return ("-ucx:tls_host", "rc,tcp,cuda_copy,cuda_ipc,sm,self")
+    if config.multi_node.ranks > 1 and "ucx" in install_info.networks:
+        return ("-ucx:tls_host", "rc,tcp,cuda_copy,cuda_ipc,sm,self")
+
+    return ()
 
 
 def cmd_user_script(
