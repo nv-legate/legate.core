@@ -190,7 +190,6 @@ class Launcher:
         if config.multi_node.ranks > 1 and "ucx" in install_info.networks:
             # UCX-related environment variables
             env["UCX_CUDA_COPY_MAX_REG_RATIO"] = "1.0"
-            env["UCX_MULTI_LANE_MAX_RATIO"] = "1.0"
             env["UCX_IB_RCACHE_PURGE_ON_FORK"] = "n"
             env["UCX_RC_TX_POLL_ALWAYS"] = "y"
 
