@@ -67,7 +67,7 @@ setup(
             "lgpatch = legate.lgpatch:main",
         ],
     },
-    scripts=["bind.sh", "create-legate-library"],
+    scripts=["bind.sh", "legate-create-library"],
     cmdclass=versioneer.get_cmdclass(),
     install_requires=["numpy>=1.22"],
     zip_safe=False,

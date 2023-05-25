@@ -468,11 +468,6 @@ file(READ ${CMAKE_CURRENT_SOURCE_DIR}/cmake/tmpl/cpp_source_template cpp_source_
 file(READ ${CMAKE_CURRENT_SOURCE_DIR}/cmake/tmpl/cpp_header_template cpp_header_template)
 file(READ ${CMAKE_CURRENT_SOURCE_DIR}/cmake/tmpl/python_template python_template)
 
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/tmpl/create-legate-library.in
-               ${CMAKE_CURRENT_SOURCE_DIR}/create-legate-library
-               FILE_PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
-               @ONLY)
-
 string(JOIN "\n" code_string
 [=[
 if(NOT TARGET legate::Thrust)

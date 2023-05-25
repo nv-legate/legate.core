@@ -124,3 +124,7 @@ if(CMAKE_GENERATOR STREQUAL "Ninja")
   add_touch_legate_core_ninja_build_target()
 endif()
 
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmake/tmpl/legate-create-library.in
+               ${CMAKE_CURRENT_SOURCE_DIR}/legate-create-library
+               FILE_PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
+               @ONLY)
