@@ -171,6 +171,7 @@ def generate_file(libname: str, template: str, path: Union[Path,str], executable
 
   text = template.replace("$target", libname)
   text = text.replace("@" "target" "@", libname)
+  text = text.replace("@" "py_import_path" "@", libname)
   with open(target_path, "w") as f:
     f.write(text)
 
