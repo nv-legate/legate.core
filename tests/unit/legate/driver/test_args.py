@@ -131,9 +131,6 @@ class TestParserDefaults:
     def test_log_to_file(self) -> None:
         assert m.parser.get_default("log_to_file") is False
 
-    def test_keep_logs(self) -> None:
-        assert m.parser.get_default("keep_logs") is False
-
     # debugging
 
     def test_gdb(self) -> None:

@@ -225,15 +225,6 @@ logging.add_argument(
 )
 
 
-logging.add_argument(
-    "--keep-logs",
-    dest="keep_logs",
-    action="store_true",
-    required=False,
-    help="don't delete profiler & spy dumps after processing",
-)
-
-
 debugging = parser.add_argument_group("Debugging")
 
 
