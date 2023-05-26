@@ -221,5 +221,16 @@ class LegateRuntimeSettings(Settings):
         """,
     )
 
+    disable_mpi: EnvOnlySetting[bool] = EnvOnlySetting(
+        "disable_mpi",
+        "LEGATE_DISABLE_MPI",
+        default=False,
+        test_default=False,
+        convert=convert_bool,
+        help="""
+
+        """,
+    )
+
 
 settings = LegateRuntimeSettings()
