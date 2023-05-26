@@ -72,7 +72,7 @@ class Scalar {
    *
    * @tparam T The scalar type to wrap
    *
-   * @param type A type of the scalar
+   * @param type The type of the scalar
    * @param value A scalar value to create a `Scalar` with
    */
   template <typename T>
