@@ -36,6 +36,7 @@ _expected_settings = (
     "field_reuse_frac",
     "field_reuse_freq",
     "max_lru_length",
+    "disable_mpi",
 )
 
 ENV_HEADER = Path(__file__).parents[3] / "src" / "env_defaults.h"
