@@ -101,13 +101,11 @@ class ProfilingHandler(LogHandler):
     """A LogHandler subclass for .prof log files."""
 
     def process(self) -> None:
-        legion_prof_path = self.system.legion_paths.legion_prof
-
         log_dir = self.config.logging.logdir
 
         print(
             f"Profiles have been generated under {log_dir}, run "
-            f"{legion_prof_path} --view {log_dir}/legate_*.prof to view them"
+            f"legion_prof --view {log_dir}/legate_*.prof to view them"
         )
 
 

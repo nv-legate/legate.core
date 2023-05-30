@@ -328,7 +328,7 @@ class TestProcessingHandler:
 
         assert scrub(out).strip() == (
             f"Profiles have been generated under {config.logging.logdir}, "
-            f"run {system.legion_paths.legion_prof} --view "
+            f"run legion_prof --view "
             f"{config.logging.logdir}/legate_*.prof to view them"
         )
 
@@ -346,7 +346,7 @@ class TestProcessingHandler:
 
         assert scrub(out).strip() == (
             f"Profiles have been generated under {config.logging.logdir}, "
-            f"run {system.legion_paths.legion_prof} --view "
+            f"run legion_prof --view "
             f"{config.logging.logdir}/legate_*.prof to view them"
         )
 
@@ -366,7 +366,7 @@ class TestProcessingHandler:
 
         assert scrub(out).strip() == (
             f"Profiles have been generated under {config.logging.logdir}, "
-            f"run {system.legion_paths.legion_prof} --view "
+            f"run legion_prof --view "
             f"{config.logging.logdir}/legate_*.prof to view them"
         )
 
@@ -386,6 +386,6 @@ class TestProcessingHandler:
 
         assert scrub(out).strip() == (
             f"Profiles have been generated under {config.logging.logdir}, "
-            f"run {system.legion_paths.legion_prof} --view "
+            f"run legion_prof --view "
             f"{config.logging.logdir}/legate_*.prof to view them"
         )
