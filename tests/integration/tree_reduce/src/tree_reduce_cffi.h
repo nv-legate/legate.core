@@ -23,7 +23,7 @@ extern "C" {
 
 enum Constants {
   NUM_NORMAL_PRODUCER = 3,
-  TILE_SIZE           = 4,
+  TILE_SIZE           = 10,
 };
 
 enum TreeReduceOpCode {
@@ -31,6 +31,7 @@ enum TreeReduceOpCode {
   REDUCE_NORMAL   = 1,
   PRODUCE_UNBOUND = 2,
   REDUCE_UNBOUND  = 3,
+
 };
 
 void perform_registration(void);

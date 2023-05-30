@@ -65,6 +65,7 @@ from .machine import Machine, ProcessorKind
 from .projection import is_identity_projection, pack_symbolic_projection_repr
 from .restriction import Restriction
 from .shape import Shape
+from .utils import dlopen_no_autoclose
 
 if TYPE_CHECKING:
     from . import ArgumentMap, Detach, IndexDetach, IndexPartition, Library
@@ -1250,7 +1251,12 @@ class Runtime:
             header = library.get_c_header()
             if header is not None:
                 ffi.cdef(header)
-            shared_lib = ffi.dlopen(shared_lib_path)
+            # Don't use ffi.dlopen(), because that will call dlclose()
+            # automatically when the object gets collected, thus removing
+            # symbols that may be needed when destroying C++ objects later
+            # (e.g. vtable entries, which will be queried for virtual
+            # destructors), causing errors at shutdown.
+            shared_lib = dlopen_no_autoclose(ffi, shared_lib_path)
             library.initialize(shared_lib)
             callback_name = library.get_registration_callback()
             callback = getattr(shared_lib, callback_name)

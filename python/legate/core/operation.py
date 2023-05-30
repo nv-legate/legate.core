@@ -471,8 +471,14 @@ class Task(TaskProtocol):
                 )
             else:
                 assert num_unbound_outs == 1
+                output = self.outputs[self.unbound_outputs[0]]
+                output.set_key_partition(REPLICATE)
         else:
-            idx = len(self.unbound_outputs)
+            idx = 0
+            for out_idx in self.unbound_outputs:
+                output = self.outputs[out_idx]
+                output.set_key_partition(REPLICATE)
+                idx += 1
             for out_idx in self.scalar_outputs:
                 output = self.outputs[out_idx]
                 output.set_storage(runtime.extract_scalar(result, idx))
@@ -1480,7 +1486,10 @@ class Reduce(AutoOperation):
             _RadixProj(self._radix, off) for off in range(self._radix)
         )
 
-        while num_tasks > 1:
+        # We need to make sure that the while loop below runs at least once
+        # even when the input is produced by a single task.
+        done = False
+        while not done:
             tag = self.context.core_library.LEGATE_CORE_TREE_REDUCE_TAG
             launcher = TaskLauncher(
                 self.context,
@@ -1489,10 +1498,21 @@ class Reduce(AutoOperation):
                 provenance=self.provenance,
             )
 
-            for proj_fn in proj_fns:
-                launcher.add_input(input, ipart.get_requirement(1, proj_fn))
+            if num_tasks > 1:
+                for proj_fn in proj_fns:
+                    launcher.add_input(
+                        input, ipart.get_requirement(1, proj_fn)
+                    )
+            else:
+                # If we're here, that means the input to this tree reduction is
+                # not partitioned. So, adding the input multiple times with
+                # different radix functors would just end up duplicating the
+                # inputs, which is both unnecessary and incorrect. Therefore,
+                # we only add the input once.
+                launcher.add_input(input, ipart.get_requirement(1))
 
             num_tasks = (num_tasks + self._radix - 1) // self._radix
+            done = num_tasks == 1
 
             if num_tasks == 1:
                 output = self._outputs[0]

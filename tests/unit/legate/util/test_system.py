@@ -17,9 +17,10 @@ from __future__ import annotations
 import os
 import platform
 
-import legate.util.system as m
 import pytest
 from pytest_mock import MockerFixture
+
+import legate.util.system as m
 
 
 def test___all__() -> None:
@@ -102,5 +103,5 @@ class TestSystem:
         s = m.System()
 
         msg = "GPU execution is not available on OSX."
-        with pytest.raises(RuntimeError, msg=msg):  # type: ignore
+        with pytest.raises(RuntimeError, match=msg):
             s.gpus

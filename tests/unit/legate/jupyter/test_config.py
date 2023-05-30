@@ -17,12 +17,13 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import call
 
+from pytest_mock import MockerFixture
+
 import legate.driver.defaults as defaults
 import legate.jupyter.config as m
 from legate.driver.config import Core, Memory, MultiNode
 from legate.util import colors
 from legate.util.types import DataclassMixin
-from pytest_mock import MockerFixture
 
 
 class TestKernel:

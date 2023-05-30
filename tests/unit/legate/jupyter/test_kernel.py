@@ -17,11 +17,12 @@ from __future__ import annotations
 import json
 from dataclasses import asdict
 
+from pytest_mock import MockerFixture
+
 import legate.jupyter.kernel as m
 from legate.driver import LegateDriver
 from legate.jupyter.config import Config
 from legate.util.system import System
-from pytest_mock import MockerFixture
 
 from ...util import Capsys
 

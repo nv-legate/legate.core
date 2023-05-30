@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import traceback
+from ctypes.util import find_library
 from types import TracebackType
 from typing import (
     Any,
@@ -25,6 +26,8 @@ from typing import (
     Optional,
     TypeVar,
 )
+
+import cffi  # type: ignore [import]
 
 T = TypeVar("T", bound="Hashable")
 
@@ -86,3 +89,21 @@ def capture_traceback_repr(
             tb_lineno=frame.f_lineno,
         )
     return "".join(traceback.format_tb(tb)) if tb is not None else None
+
+
+_loader_ns = cffi.FFI()
+_loader_ns.cdef("void *dlopen(const char *filename, int flags);")
+# Can't do loader_ns.dlopen(None) on Windows with Python 3
+# see https://bugs.python.org/issue23606
+_loader_lib = _loader_ns.dlopen(find_library("dl"))
+
+
+def dlopen_no_autoclose(ffi: Any, lib_path: str) -> Any:
+    # Use an already-opened library handle, which cffi will convert to a
+    # regular FFI object (using the definitions previously added using
+    # ffi.cdef), but will not automatically dlclose() on collection.
+    handle = _loader_lib.dlopen(
+        lib_path.encode(),
+        _loader_ns.RTLD_NOW | _loader_ns.RTLD_GLOBAL,
+    )
+    return ffi.dlopen(handle)

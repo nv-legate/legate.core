@@ -18,10 +18,11 @@ from argparse import ArgumentParser
 from dataclasses import dataclass
 from typing import Iterable, TypeVar
 
-import legate.util.args as m
-import legate.util.info as info
 import pytest
 from pytest_mock import MockerFixture
+
+import legate.util.args as m
+import legate.util.info as info
 
 from ...util import powerset
 

@@ -16,10 +16,11 @@ from __future__ import annotations
 
 from typing import Any
 
-import legate.util.colors as m
 import pytest
 from pytest_mock import MockerFixture
 from typing_extensions import TypeAlias
+
+import legate.util.colors as m
 
 try:
     import colorama  # type: ignore

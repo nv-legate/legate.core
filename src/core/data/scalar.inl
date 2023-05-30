@@ -19,6 +19,22 @@ namespace legate {
 template <typename T>
 Scalar::Scalar(T value) : own_(true), type_(primitive_type(legate_type_code_of<T>))
 {
+  static_assert(legate_type_code_of<T> != Type::Code::FIXED_ARRAY);
+  static_assert(legate_type_code_of<T> != Type::Code::STRUCT);
+  static_assert(legate_type_code_of<T> != Type::Code::STRING);
+  static_assert(legate_type_code_of<T> != Type::Code::INVALID);
+  auto buffer = malloc(sizeof(T));
+  memcpy(buffer, &value, sizeof(T));
+  data_ = buffer;
+}
+
+template <typename T>
+Scalar::Scalar(T value, std::unique_ptr<Type> type) : own_(true), type_(std::move(type))
+{
+  if (type_->code == Type::Code::INVALID)
+    throw std::invalid_argument("Invalid type cannot be used");
+  if (type_->size() != sizeof(T))
+    throw std::invalid_argument("Size of the value doesn't match with the type");
   auto buffer = malloc(sizeof(T));
   memcpy(buffer, &value, sizeof(T));
   data_ = buffer;
@@ -37,12 +53,17 @@ Scalar::Scalar(const std::vector<T>& values)
 template <typename VAL>
 VAL Scalar::value() const
 {
+  if (sizeof(VAL) != type_->size())
+    throw std::invalid_argument("Size of the scalar is " + std::to_string(type_->size()) +
+                                ", but the requested type has size " + std::to_string(sizeof(VAL)));
   return *static_cast<const VAL*>(data_);
 }
 
 template <>
 inline std::string Scalar::value() const
 {
+  if (type_->code != Type::Code::STRING)
+    throw std::invalid_argument("Type of the scalar is not string");
   // Getting a span of a temporary scalar is illegal in general,
   // but we know this is safe as the span's pointer is held by this object.
   auto len          = *static_cast<const uint32_t*>(data_);
@@ -55,10 +76,21 @@ template <typename VAL>
 Span<const VAL> Scalar::values() const
 {
   if (type_->code == Type::Code::FIXED_ARRAY) {
-    auto size = static_cast<const FixedArrayType*>(type_.get())->num_elements();
+    auto arr_type         = static_cast<const FixedArrayType*>(type_.get());
+    const auto& elem_type = arr_type->element_type();
+    if (sizeof(VAL) != elem_type.size())
+      throw std::invalid_argument(
+        "The scalar's element type has size " + std::to_string(elem_type.size()) +
+        ", but the requested element type has size " + std::to_string(sizeof(VAL)));
+    auto size = arr_type->num_elements();
     return Span<const VAL>(reinterpret_cast<const VAL*>(data_), size);
-  } else
+  } else {
+    if (sizeof(VAL) != type_->size())
+      throw std::invalid_argument("Size of the scalar is " + std::to_string(type_->size()) +
+                                  ", but the requested element type has size " +
+                                  std::to_string(sizeof(VAL)));
     return Span<const VAL>(static_cast<const VAL*>(data_), 1);
+  }
 }
 
 template <>

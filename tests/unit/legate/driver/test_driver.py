@@ -19,6 +19,7 @@ from shlex import quote
 
 import legate.driver.driver as m
 import pytest
+from legate import install_info
 from legate.driver.command import CMD_PARTS_LEGION
 from legate.driver.config import Config
 from legate.driver.launcher import RANK_ENV_VARS, Launcher
@@ -134,7 +135,7 @@ class TestDriver:
         assert pv_out in run_out
 
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
-    def test_verbose_nonero_rank_id(
+    def test_verbose_nonzero_rank_id(
         self,
         monkeypatch: pytest.MonkeyPatch,
         capsys: Capsys,
@@ -144,6 +145,7 @@ class TestDriver:
         for name in RANK_ENV_VARS:
             monkeypatch.delenv(name, raising=False)
         monkeypatch.setenv(name, "1")
+        monkeypatch.setattr(install_info, "networks", ["ucx"])
 
         # set --dry-run to avoid needing to mock anything
         config = genconfig(

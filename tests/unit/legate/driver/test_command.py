@@ -18,8 +18,9 @@ import argparse
 import sys
 from pathlib import Path
 
-import legate.driver.command as m
 import pytest
+
+import legate.driver.command as m
 from legate import install_info
 from legate.driver.launcher import RANK_ENV_VARS
 from legate.util.colors import scrub
@@ -54,7 +55,6 @@ def test_CMD_PARTS() -> None:
         m.cmd_python_processor,
         m.cmd_module,
         m.cmd_nocr,
-        m.cmd_local_field,
         m.cmd_kthreads,
         m.cmd_cpus,
         m.cmd_gpus,
@@ -69,7 +69,6 @@ def test_CMD_PARTS() -> None:
         m.cmd_log_levels,
         m.cmd_log_file,
         m.cmd_eager_alloc,
-        m.cmd_ucx,
         m.cmd_user_script,
         m.cmd_user_opts,
     )
@@ -152,7 +151,10 @@ class Test_cmd_bind:
         launch: LauncherType,
         kind: str,
         rank_var: dict[str, str],
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
+        monkeypatch.setattr(install_info, "networks", ["ucx"])
+
         config, system, launcher = genobjs(
             [f"--{kind}-bind", "1/2", "--launcher", launch],
             multi_rank=(2, 2),
@@ -182,7 +184,10 @@ class Test_cmd_bind:
         binding: str,
         kind: str,
         rank_var: dict[str, str],
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
+        monkeypatch.setattr(install_info, "networks", ["ucx"])
+
         config, system, launcher = genobjs(
             [f"--{kind}-bind", binding],
             multi_rank=(2, 2),
@@ -191,6 +196,30 @@ class Test_cmd_bind:
 
         msg = (
             f"Number of groups in --{kind}-bind not equal to --ranks-per-node"
+        )
+        with pytest.raises(RuntimeError, match=msg):
+            m.cmd_bind(config, system, launcher)
+
+    @pytest.mark.parametrize("launch", ("none", "mpirun", "jsrun", "srun"))
+    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
+    def test_no_networking_error(
+        self,
+        genobjs: GenObjs,
+        launch: LauncherType,
+        rank_var: dict[str, str],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(install_info, "networks", [])
+
+        config, system, launcher = genobjs(
+            ["--launcher", launch],
+            multi_rank=(2, 2),
+            rank_env={rank_var: "1"},
+        )
+
+        msg = (
+            "multi-rank run was requested, but Legate was not built with "
+            "networking support"
         )
         with pytest.raises(RuntimeError, match=msg):
             m.cmd_bind(config, system, launcher)
@@ -682,15 +711,6 @@ class Test_cmd_python_processor:
         result = m.cmd_python_processor(config, system, launcher)
 
         assert result == ("-ll:py", "1")
-
-
-class Test_cmd_local_field:
-    def test_default(self, genobjs: GenObjs) -> None:
-        config, system, launcher = genobjs([])
-
-        result = m.cmd_local_field(config, system, launcher)
-
-        assert result == ("-lg:local", "0")
 
 
 class Test_cmd_kthreads:
