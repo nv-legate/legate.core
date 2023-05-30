@@ -21,7 +21,6 @@ from datetime import timedelta
 from pathlib import Path
 
 import pytest
-
 from legate.tester.config import Config
 from legate.tester.logger import LOG
 from legate.tester.stages import util as m

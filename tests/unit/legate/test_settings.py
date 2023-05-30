@@ -16,9 +16,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 import legate.settings as m
+import pytest
 from legate.util.fs import read_c_define
 from legate.util.settings import EnvOnlySetting, PrioritizedSetting, _Unset
 

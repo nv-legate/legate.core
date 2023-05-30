@@ -19,7 +19,6 @@ from types import ModuleType
 from typing import Any, Callable, Iterable
 
 import pytest
-
 from legate.driver import Config, Launcher
 from legate.driver.config import MultiNode
 from legate.util.system import System

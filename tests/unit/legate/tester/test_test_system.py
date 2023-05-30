@@ -22,9 +22,8 @@ from subprocess import CompletedProcess
 from unittest.mock import MagicMock
 
 import pytest
-from pytest_mock import MockerFixture
-
 from legate.tester import test_system as m
+from pytest_mock import MockerFixture
 
 
 @pytest.fixture

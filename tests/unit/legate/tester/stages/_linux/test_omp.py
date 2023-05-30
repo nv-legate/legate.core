@@ -18,7 +18,6 @@
 from __future__ import annotations
 
 import pytest
-
 from legate.tester.config import Config
 from legate.tester.stages._linux import omp as m
 from legate.tester.stages.util import UNPIN_ENV

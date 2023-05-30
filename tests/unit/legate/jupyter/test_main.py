@@ -16,10 +16,9 @@ from __future__ import annotations
 
 import sys
 
+import legate.jupyter as m
 import pytest
 from pytest_mock import MockerFixture
-
-import legate.jupyter as m
 
 # main function shadows main module
 # def test___all__() -> None:

@@ -17,9 +17,8 @@ from __future__ import annotations
 from importlib import reload
 from typing import Any
 
-from pytest_mock import MockerFixture
-
 import legate.driver.defaults as m
+from pytest_mock import MockerFixture
 
 
 def test_LEGATE_CPUS() -> None:
