@@ -17,9 +17,10 @@
 import os
 from pathlib import Path
 
-import legate.install_info as lg_install_info
 from setuptools import find_packages
 from skbuild import setup
+
+import legate.install_info as lg_install_info
 
 legate_dir = Path(lg_install_info.libpath).parent.as_posix()
 

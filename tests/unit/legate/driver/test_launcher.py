@@ -16,8 +16,9 @@ from __future__ import annotations
 
 import os
 
-import legate.driver.launcher as m
 import pytest
+
+import legate.driver.launcher as m
 from legate.util.shared_args import LAUNCHERS
 from legate.util.system import System
 from legate.util.types import LauncherType

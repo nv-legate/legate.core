@@ -17,8 +17,10 @@ from __future__ import annotations
 import re
 from shlex import quote
 
-import legate.driver.driver as m
 import pytest
+from pytest_mock import MockerFixture
+
+import legate.driver.driver as m
 from legate import install_info
 from legate.driver.command import CMD_PARTS_LEGION
 from legate.driver.config import Config
@@ -27,7 +29,6 @@ from legate.util.colors import scrub
 from legate.util.shared_args import LAUNCHERS
 from legate.util.system import System
 from legate.util.types import LauncherType
-from pytest_mock import MockerFixture
 
 from ...util import Capsys
 from .util import GenConfig

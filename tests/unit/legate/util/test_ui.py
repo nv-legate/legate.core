@@ -18,9 +18,10 @@ from datetime import timedelta
 from typing import Any
 
 import pytest
-from legate.util import colors, ui as m
 from pytest_mock import MockerFixture
 from typing_extensions import TypeAlias
+
+from legate.util import colors, ui as m
 
 try:
     import colorama  # type: ignore [import]

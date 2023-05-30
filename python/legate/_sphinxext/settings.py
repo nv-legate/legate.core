@@ -21,10 +21,11 @@ from docutils import nodes
 from docutils.parsers.rst.directives import unchanged
 from docutils.statemachine import ViewList
 from jinja2 import Template
-from legate.util.settings import EnvOnlySetting, PrioritizedSetting, _Unset
 from sphinx.errors import SphinxError
 from sphinx.util.docutils import SphinxDirective
 from sphinx.util.nodes import nested_parse_with_titles
+
+from legate.util.settings import EnvOnlySetting, PrioritizedSetting, _Unset
 
 SETTINGS_DETAIL = Template(
     """

@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 
 from IPython.core.magic import Magics, line_magic, magics_class
 from jupyter_client.kernelspec import KernelSpecManager, NoSuchKernel
+
 from legate.jupyter.kernel import (
     LEGATE_JUPYTER_KERNEL_SPEC_KEY,
     LEGATE_JUPYTER_METADATA_KEY,
