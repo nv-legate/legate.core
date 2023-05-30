@@ -165,12 +165,9 @@ void BaseMapper::select_task_options(const Legion::Mapping::MapperContext ctx,
     LEGATE_ABORT;
   }
 
-  auto target      = legate_mapper_->task_target(legate_task, options);
-  auto local_range = machine.slice(target, machine_desc);
-#ifdef DEBUG_LEGATE
-  assert(!local_range.empty());
-#endif
-  output.initial_proc = local_range.first();
+  auto target = legate_mapper_->task_target(legate_task, options);
+  // The initial processor just needs to have the same kind as the eventual target of this task
+  output.initial_proc = machine.procs(target).front();
 
   // We never want valid instances
   output.valid_instances = false;
@@ -278,10 +275,22 @@ void BaseMapper::map_task(const Legion::Mapping::MapperContext ctx,
   assert(variant.has_value());
 #endif
   output.chosen_variant = *variant;
-  // Just put our target proc in the target processors for now
-  output.target_procs.push_back(task.target_proc);
 
   Task legate_task(&task, context, runtime, ctx);
+
+  if (task.is_index_space)
+    // If this is an index task, point tasks already have the right targets, so we just need to
+    // copy them to the mapper output
+    output.target_procs.push_back(task.target_proc);
+  else {
+    // If this is a single task, here is the right place to compute the final target processor
+    auto local_range =
+      machine.slice(legate_task.target(), legate_task.machine_desc(), task.local_function);
+#ifdef DEBUG_LEGATE
+    assert(!local_range.empty());
+#endif
+    output.target_procs.push_back(local_range.first());
+  }
 
   const auto& options = default_store_targets(task.target_proc.kind());
 

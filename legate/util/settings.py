@@ -336,7 +336,7 @@ class EnvOnlySetting(Generic[T], SettingBase):
         self._test_default = test_default
         self._env_var = env_var
 
-    def __call__(self) -> T | None:
+    def __call__(self) -> T:
         if self._env_var in os.environ:
             return self._convert(os.environ[self._env_var])
 

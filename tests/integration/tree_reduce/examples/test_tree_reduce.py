@@ -31,9 +31,11 @@ def test_tree_reduce_normal():
     task.add_output(part)
     task.execute()
 
-    user_context.tree_reduce(
+    result = user_context.tree_reduce(
         user_lib.shared_object.REDUCE_NORMAL, store, radix=4
     )
+    # The result should be a normal store
+    assert not result.unbound
 
 
 def test_tree_reduce_unbound():
@@ -45,9 +47,26 @@ def test_tree_reduce_unbound():
     task.add_output(store)
     task.execute()
 
-    user_context.tree_reduce(
+    result = user_context.tree_reduce(
         user_lib.shared_object.REDUCE_UNBOUND, store, radix=num_tasks
     )
+    # The result should be a normal store
+    assert not result.unbound
+
+
+def test_tree_single_proc():
+    task = user_context.create_manual_task(
+        user_lib.shared_object.PRODUCE_UNBOUND, Rect([1])
+    )
+    store = user_context.create_store(ty.int64, ndim=1)
+    task.add_output(store)
+    task.execute()
+
+    result = user_context.tree_reduce(
+        user_lib.shared_object.REDUCE_UNBOUND, store, radix=4
+    )
+    # The result should be a normal store
+    assert not result.unbound
 
 
 if __name__ == "__main__":

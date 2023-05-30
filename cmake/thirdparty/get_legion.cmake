@@ -105,6 +105,7 @@ function(find_or_configure_legion)
     # https://discourse.cmake.org/t/fetchcontent-cache-variables/1538/8
     set(Legion_MAX_DIM ${Legion_MAX_DIM} CACHE STRING "The max number of dimensions for Legion" FORCE)
     set(Legion_MAX_FIELDS ${Legion_MAX_FIELDS} CACHE STRING "The max number of fields for Legion" FORCE)
+    set(Legion_DEFAULT_LOCAL_FIELDS ${Legion_DEFAULT_LOCAL_FIELDS} CACHE STRING "Number of local fields for Legion" FORCE)
 
     message(VERBOSE "legate.core: Legion version: ${version}")
     message(VERBOSE "legate.core: Legion git_repo: ${git_repo}")

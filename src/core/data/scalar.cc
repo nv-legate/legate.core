@@ -15,14 +15,29 @@
  */
 
 #include "core/data/scalar.h"
-#include "core/utilities/dispatch.h"
 
 namespace legate {
 
 Scalar::Scalar(const Scalar& other) : own_(other.own_), type_(other.type_->clone()) { copy(other); }
 
+Scalar::Scalar(Scalar&& other) : own_(other.own_), type_(std::move(other.type_)), data_(other.data_)
+{
+  other.own_  = false;
+  other.type_ = nullptr;
+  other.data_ = nullptr;
+}
+
 Scalar::Scalar(std::unique_ptr<Type> type, const void* data) : type_(std::move(type)), data_(data)
 {
+}
+
+Scalar::Scalar(const std::string& string) : own_(true), type_(string_type())
+{
+  auto data_size                  = sizeof(char) * string.size();
+  auto buffer                     = malloc(sizeof(uint32_t) + data_size);
+  *static_cast<uint32_t*>(buffer) = string.size();
+  memcpy(static_cast<int8_t*>(buffer) + sizeof(uint32_t), string.data(), data_size);
+  data_ = buffer;
 }
 
 Scalar::~Scalar()
