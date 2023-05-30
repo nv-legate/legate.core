@@ -982,6 +982,10 @@ class CommunicatorManager:
             raise RuntimeError("MPI is disabled")
         return self._cpu
 
+    @property
+    def has_cpu_communicator(self) -> bool:
+        return self._cpu is not None
+
 
 class Runtime:
     _legion_runtime: Union[legion.legion_runtime_t, None]
@@ -1124,6 +1128,10 @@ class Runtime:
             ProcessorKind.OMP: self.core_library.LEGATE_OMP_VARIANT,
             ProcessorKind.CPU: self.core_library.LEGATE_CPU_VARIANT,
         }
+
+    @property
+    def has_cpu_communicator(self) -> bool:
+        return self._comm_manager.has_cpu_communicator
 
     @property
     def legion_runtime(self) -> legion.legion_runtime_t:
