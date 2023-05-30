@@ -49,7 +49,7 @@ class LogHandler(metaclass=ABCMeta):
     """A base class for handling log output from external tools such as
     debuggers or profilers that can be run along with Legate.
 
-    Subclasses must implement ``process`` and ``cleanup`` methods.
+    Subclasses must implement ``process`` methods.
 
     """
 
@@ -69,6 +69,7 @@ class LogHandler(metaclass=ABCMeta):
         """A helper for running log-processing commands, as long as the
         allocation is not too large.
 
+        Parameters
         ----------
             cmd : Command
                 A command invocation for ``subprocess.run``
