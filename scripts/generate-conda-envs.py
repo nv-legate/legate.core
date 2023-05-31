@@ -93,9 +93,9 @@ class CUDAConfig(SectionConfig):
 
 @dataclass(frozen=True)
 class BuildConfig(SectionConfig):
-    compilers: bool = True
-    openmpi: bool = True
-    ucx: bool = True
+    compilers: bool
+    openmpi: bool
+    ucx: bool
     os: OSType
 
     header = "build"
