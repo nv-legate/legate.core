@@ -967,7 +967,9 @@ class CommunicatorManager:
         self._runtime = runtime
         self._nccl = NCCLCommunicator(runtime)
 
-        self._cpu = None if settings.disable_mpi else CPUCommunicator(runtime)
+        self._cpu = (
+            None if settings.disable_mpi() else CPUCommunicator(runtime)
+        )
 
     def destroy(self) -> None:
         self._nccl.destroy()
