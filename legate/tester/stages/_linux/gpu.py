@@ -60,9 +60,9 @@ class GPU(TestStage):
             "--fbmem",
             str(config.fbmem),
             "--gpus",
-            str(len(shard)),
+            str(sum(len(r) for r in shard.ranks) // len(shard.ranks)),
             "--gpu-bind",
-            ",".join(str(x) for x in shard),
+            str(shard),
         ]
 
     def compute_spec(self, config: Config, system: TestSystem) -> StageSpec:
@@ -80,6 +80,6 @@ class GPU(TestStage):
         args = [iter(range(degree * config.gpus))] * config.gpus
         per_worker_shards = list(zip(*args))
 
-        shards = per_worker_shards * workers
+        shards = [Shard([s]) for s in per_worker_shards * workers]
 
         return StageSpec(workers, shards)

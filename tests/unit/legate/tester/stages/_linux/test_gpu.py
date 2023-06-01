@@ -21,6 +21,7 @@ import pytest
 
 from legate.tester.config import Config
 from legate.tester.stages._linux import gpu as m
+from legate.tester.stages.util import Shard
 
 from .. import FakeSystem
 
@@ -36,11 +37,13 @@ def test_default() -> None:
 
 
 @pytest.mark.parametrize("shard,expected", [[(2,), "2"], [(1, 2, 3), "1,2,3"]])
-def test_shard_args(shard: tuple[int, ...], expected: str) -> None:
+def test__single_rank_shard_args(
+    shard: tuple[int, ...], expected: str
+) -> None:
     c = Config([])
     s = FakeSystem()
     stage = m.GPU(c, s)
-    result = stage.shard_args(shard, c)
+    result = stage.shard_args(Shard([shard]), c)
     assert result == [
         "--fbmem",
         "4096",
@@ -51,31 +54,37 @@ def test_shard_args(shard: tuple[int, ...], expected: str) -> None:
     ]
 
 
-def test_spec_with_gpus_1() -> None:
+def test_single_rank_spec_with_gpus_1() -> None:
     c = Config(["test.py", "--gpus", "1"])
     s = FakeSystem()
     stage = m.GPU(c, s)
     assert stage.spec.workers == 24
-    assert stage.spec.shards == [(0,), (1,), (2,), (3,), (4,), (5,)] * 24
+    assert stage.spec.shards == [
+        Shard([s]) for s in [(0,), (1,), (2,), (3,), (4,), (5,)] * 24
+    ]
 
 
-def test_spec_with_gpus_2() -> None:
+def test_single_rank_spec_with_gpus_2() -> None:
     c = Config(["test.py", "--gpus", "2"])
     s = FakeSystem()
     stage = m.GPU(c, s)
     assert stage.spec.workers == 12
-    assert stage.spec.shards == [(0, 1), (2, 3), (4, 5)] * 12
+    assert stage.spec.shards == [
+        Shard([s]) for s in [(0, 1), (2, 3), (4, 5)] * 12
+    ]
 
 
-def test_spec_with_requested_workers() -> None:
+def test_single_rank_spec_with_requested_workers() -> None:
     c = Config(["test.py", "--gpus", "1", "-j", "2"])
     s = FakeSystem()
     stage = m.GPU(c, s)
     assert stage.spec.workers == 2
-    assert stage.spec.shards == [(0,), (1,), (2,), (3,), (4,), (5,)] * 2
+    assert stage.spec.shards == [
+        Shard([s]) for s in [(0,), (1,), (2,), (3,), (4,), (5,)] * 2
+    ]
 
 
-def test_spec_with_requested_workers_zero() -> None:
+def test_single_rank_spec_with_requested_workers_zero() -> None:
     s = FakeSystem()
     c = Config(["test.py", "-j", "0"])
     assert c.requested_workers == 0
@@ -83,7 +92,7 @@ def test_spec_with_requested_workers_zero() -> None:
         m.GPU(c, s)
 
 
-def test_spec_with_requested_workers_bad() -> None:
+def test_single_rank_spec_with_requested_workers_bad() -> None:
     s = FakeSystem()
     c = Config(["test.py", "-j", f"{len(s.gpus)+100}"])
     assert c.requested_workers > len(s.gpus)
@@ -91,7 +100,7 @@ def test_spec_with_requested_workers_bad() -> None:
         m.GPU(c, s)
 
 
-def test_spec_with_verbose() -> None:
+def test_single_rank_spec_with_verbose() -> None:
     args = ["test.py", "--gpus", "2"]
     c = Config(args)
     cv = Config(args + ["--verbose"])

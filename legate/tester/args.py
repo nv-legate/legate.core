@@ -31,6 +31,7 @@ from . import (
     DEFAULT_NUMAMEM,
     DEFAULT_OMPS_PER_NODE,
     DEFAULT_OMPTHREADS,
+    DEFAULT_RANKS_PER_NODE,
     FEATURES,
 )
 
@@ -168,6 +169,14 @@ feature_opts.add_argument(
     type=int,
     default=DEFAULT_NUMAMEM,
     help="NUMA memory for OpenMP processors (MB)",
+)
+
+feature_opts.add_argument(
+    "--ranks-per-node",
+    dest="ranks",
+    type=int,
+    default=DEFAULT_RANKS_PER_NODE,
+    help="Number of ranks per node to use",
 )
 
 

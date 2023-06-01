@@ -65,4 +65,5 @@ class OMP(TestStage):
         )
 
         # return a dummy set of shards just for the runner to iterate over
-        return StageSpec(workers, [(i,) for i in range(workers)])
+        shards = [Shard([(i,)]) for i in range(workers)]
+        return StageSpec(workers, shards)

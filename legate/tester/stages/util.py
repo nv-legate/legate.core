@@ -36,7 +36,18 @@ EAGER_ENV = {
 }
 
 
-Shard: TypeAlias = Tuple[int, ...]
+RankShard: TypeAlias = Tuple[int, ...]
+
+
+@dataclass(frozen=True)
+class Shard:
+    """Specify how resources should be allotted for each test process"""
+
+    #: A list of shards for each rank
+    ranks: list[RankShard]
+
+    def __str__(self) -> str:
+        return "/".join(",".join(str(r) for r in rank) for rank in self.ranks)
 
 
 @dataclass(frozen=True)
@@ -46,7 +57,7 @@ class StageSpec:
     #: The number of worker processes to start for running tests
     workers: int
 
-    # A list of (cpu or gpu) shards to draw on for each test
+    # A list of (cpu or gpu) shardings to draw on for each test
     shards: list[Shard]
 
 

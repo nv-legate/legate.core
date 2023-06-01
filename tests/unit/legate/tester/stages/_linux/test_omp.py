@@ -21,7 +21,7 @@ import pytest
 
 from legate.tester.config import Config
 from legate.tester.stages._linux import omp as m
-from legate.tester.stages.util import UNPIN_ENV
+from legate.tester.stages.util import UNPIN_ENV, Shard
 
 from .. import FakeSystem
 
@@ -38,7 +38,7 @@ def test_default() -> None:
     assert stage.spec.workers > 0
 
     shard = (1, 2, 3)
-    assert "--cpu-bind" in stage.shard_args(shard, c)
+    assert "--cpu-bind" in stage.shard_args(Shard([shard]), c)
 
 
 def test_cpu_pin_strict() -> None:
@@ -51,7 +51,7 @@ def test_cpu_pin_strict() -> None:
     assert stage.spec.workers > 0
 
     shard = (1, 2, 3)
-    assert "--cpu-bind" in stage.shard_args(shard, c)
+    assert "--cpu-bind" in stage.shard_args(Shard([shard]), c)
 
 
 def test_cpu_pin_none() -> None:
@@ -64,15 +64,15 @@ def test_cpu_pin_none() -> None:
     assert stage.spec.workers > 0
 
     shard = (1, 2, 3)
-    assert "--cpu-bind" not in stage.shard_args(shard, c)
+    assert "--cpu-bind" not in stage.shard_args(Shard([shard]), c)
 
 
 @pytest.mark.parametrize("shard,expected", [[(2,), "2"], [(1, 2, 3), "1,2,3"]])
-def test_shard_args(shard: tuple[int, ...], expected: str) -> None:
+def test_single_rank_shard_args(shard: tuple[int, ...], expected: str) -> None:
     c = Config([])
     s = FakeSystem(cpus=12)
     stage = m.OMP(c, s)
-    result = stage.shard_args(shard, c)
+    result = stage.shard_args(Shard([shard]), c)
     assert result == [
         "--omps",
         f"{c.omps}",
@@ -85,64 +85,73 @@ def test_shard_args(shard: tuple[int, ...], expected: str) -> None:
     ]
 
 
-def test_spec_with_omps_1_threads_1() -> None:
+def test_single_rank_spec_with_omps_1_threads_1() -> None:
     c = Config(["test.py", "--omps", "1", "--ompthreads", "1"])
     s = FakeSystem(cpus=12)
     stage = m.OMP(c, s)
     assert stage.spec.workers == 6
     assert stage.spec.shards == [
-        (0, 1),
-        (2, 3),
-        (4, 5),
-        (6, 7),
-        (8, 9),
-        (10, 11),
+        Shard([s])
+        for s in [
+            (0, 1),
+            (2, 3),
+            (4, 5),
+            (6, 7),
+            (8, 9),
+            (10, 11),
+        ]
     ]
 
 
-def test_spec_with_omps_1_threads_2() -> None:
+def test_single_rank_spec_with_omps_1_threads_2() -> None:
     c = Config(["test.py", "--omps", "1", "--ompthreads", "2"])
     s = FakeSystem(cpus=12)
     stage = m.OMP(c, s)
     assert stage.spec.workers == 4
-    assert stage.spec.shards == [(0, 1, 2), (3, 4, 5), (6, 7, 8), (9, 10, 11)]
+    assert stage.spec.shards == [
+        Shard([s]) for s in [(0, 1, 2), (3, 4, 5), (6, 7, 8), (9, 10, 11)]
+    ]
 
 
-def test_spec_with_omps_2_threads_1() -> None:
+def test_single_rank_spec_with_omps_2_threads_1() -> None:
     c = Config(["test.py", "--omps", "2", "--ompthreads", "1"])
     s = FakeSystem(cpus=12)
     stage = m.OMP(c, s)
     assert stage.spec.workers == 4
-    assert stage.spec.shards == [(0, 1, 2), (3, 4, 5), (6, 7, 8), (9, 10, 11)]
+    assert stage.spec.shards == [
+        Shard([s]) for s in [(0, 1, 2), (3, 4, 5), (6, 7, 8), (9, 10, 11)]
+    ]
 
 
-def test_spec_with_omps_2_threads_2() -> None:
+def test_single_rank_spec_with_omps_2_threads_2() -> None:
     c = Config(["test.py", "--omps", "2", "--ompthreads", "2"])
     s = FakeSystem(cpus=12)
     stage = m.OMP(c, s)
     assert stage.spec.workers == 2
-    assert stage.spec.shards == [(0, 1, 2, 3, 4), (5, 6, 7, 8, 9)]
+    assert stage.spec.shards == [
+        Shard([s]) for s in [(0, 1, 2, 3, 4), (5, 6, 7, 8, 9)]
+    ]
 
 
-def test_spec_with_utility() -> None:
+def test_single_rank_spec_with_utility() -> None:
     c = Config(
         ["test.py", "--omps", "2", "--ompthreads", "2", "--utility", "3"]
     )
     s = FakeSystem(cpus=12)
     stage = m.OMP(c, s)
     assert stage.spec.workers == 1
-    assert stage.spec.shards == [(0, 1, 2, 3, 4, 5, 6)]
+    assert stage.spec.shards == [Shard([s]) for s in [(0, 1, 2, 3, 4, 5, 6)]]
 
 
-def test_spec_with_requested_workers() -> None:
+def test_single_rank_spec_with_requested_workers() -> None:
     c = Config(["test.py", "--omps", "1", "--ompthreads", "1", "-j", "2"])
     s = FakeSystem(cpus=12)
     stage = m.OMP(c, s)
     assert stage.spec.workers == 2
-    assert stage.spec.shards == [(0, 1), (2, 3)]
+    assert stage.spec.shards == [Shard([s]) for s in [(0, 1), (2, 3)]]
 
 
-def test_spec_with_requested_workers_zero() -> None:
+def test_single_rank_spec_with_requested_workers_zero() -> None:
     s = FakeSystem(cpus=12)
     c = Config(["test.py", "-j", "0"])
     assert c.requested_workers == 0
@@ -150,7 +159,7 @@ def test_spec_with_requested_workers_zero() -> None:
         m.OMP(c, s)
 
 
-def test_spec_with_requested_workers_bad() -> None:
+def test_single_rank_spec_with_requested_workers_bad() -> None:
     s = FakeSystem(cpus=12)
     c = Config(["test.py", "-j", f"{len(s.cpus)+1}"])
     assert c.requested_workers > len(s.cpus)
@@ -158,7 +167,7 @@ def test_spec_with_requested_workers_bad() -> None:
         m.OMP(c, s)
 
 
-def test_spec_with_verbose() -> None:
+def test_single_rank_spec_with_verbose() -> None:
     args = ["test.py", "--cpus", "2"]
     c = Config(args)
     cv = Config(args + ["--verbose"])

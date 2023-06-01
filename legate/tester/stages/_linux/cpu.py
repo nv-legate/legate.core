@@ -58,7 +58,7 @@ class CPU(TestStage):
         if config.cpu_pin != "none":
             args += [
                 "--cpu-bind",
-                ",".join(str(x) for x in shard),
+                str(shard),
             ]
         return args
 
@@ -68,10 +68,10 @@ class CPU(TestStage):
         procs = config.cpus + config.utility + int(config.cpu_pin == "strict")
         workers = adjust_workers(len(cpus) // procs, config.requested_workers)
 
-        shards: list[tuple[int, ...]] = []
+        shards: list[Shard] = []
         for i in range(workers):
             shard_cpus = range(i * procs, (i + 1) * procs)
             shard = chain.from_iterable(cpus[j].ids for j in shard_cpus)
-            shards.append(tuple(sorted(shard)))
+            shards.append(Shard([tuple(sorted(shard))]))
 
         return StageSpec(workers, shards)
