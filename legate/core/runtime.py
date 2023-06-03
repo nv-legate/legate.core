@@ -966,17 +966,27 @@ class CommunicatorManager:
     def __init__(self, runtime: Runtime) -> None:
         self._runtime = runtime
         self._nccl = NCCLCommunicator(runtime)
-        self._cpu = CPUCommunicator(runtime)
+
+        self._cpu = (
+            None if settings.disable_mpi() else CPUCommunicator(runtime)
+        )
 
     def destroy(self) -> None:
         self._nccl.destroy()
-        self._cpu.destroy()
+        if self._cpu:
+            self._cpu.destroy()
 
     def get_nccl_communicator(self) -> Communicator:
         return self._nccl
 
     def get_cpu_communicator(self) -> Communicator:
+        if self._cpu is None:
+            raise RuntimeError("MPI is disabled")
         return self._cpu
+
+    @property
+    def has_cpu_communicator(self) -> bool:
+        return self._cpu is not None
 
 
 class Runtime:
@@ -1120,6 +1130,10 @@ class Runtime:
             ProcessorKind.OMP: self.core_library.LEGATE_OMP_VARIANT,
             ProcessorKind.CPU: self.core_library.LEGATE_CPU_VARIANT,
         }
+
+    @property
+    def has_cpu_communicator(self) -> bool:
+        return self._comm_manager.has_cpu_communicator
 
     @property
     def legion_runtime(self) -> legion.legion_runtime_t:

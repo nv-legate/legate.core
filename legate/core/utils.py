@@ -102,5 +102,8 @@ def dlopen_no_autoclose(ffi: Any, lib_path: str) -> Any:
     # Use an already-opened library handle, which cffi will convert to a
     # regular FFI object (using the definitions previously added using
     # ffi.cdef), but will not automatically dlclose() on collection.
-    handle = _loader_lib.dlopen(lib_path.encode(), _loader_ns.RTLD_NOW)
+    handle = _loader_lib.dlopen(
+        lib_path.encode(),
+        _loader_ns.RTLD_NOW | _loader_ns.RTLD_GLOBAL,
+    )
     return ffi.dlopen(handle)

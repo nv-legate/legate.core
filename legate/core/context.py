@@ -370,6 +370,10 @@ class Context:
     def get_cpu_communicator(self) -> Communicator:
         return self._runtime.get_cpu_communicator()
 
+    @property
+    def has_cpu_communicator(self) -> bool:
+        return self._runtime.has_cpu_communicator
+
     def issue_execution_fence(self, block: bool = False) -> None:
         """
         Issues an execution fence. A fence is a special operation that
