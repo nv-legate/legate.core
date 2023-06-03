@@ -36,4 +36,3 @@ config.mk
 _cmake_test_compile
 !cmake/versions.json
 legate.core.code-workspace
-legate-create-library

@@ -2,28 +2,36 @@
 
 from __future__ import annotations
 
+import argparse
+import importlib.resources
 import os
 import stat
 import sys
 from pathlib import Path
 from typing import Union
 
-if len(sys.argv) != 2:
-  sys.exit("Must give a single argument with the library name")
-libname = sys.argv[1]
+parser = argparse.ArgumentParser()
 
-cpp_source_template = """
-@cpp_source_template@
-"""
+parser.add_argument("name", type=str, help="The name of the Legate library")
 
-cpp_header_template = """
-@cpp_header_template@
-"""
+args, _ = parser.parse_known_args()
 
-python_template = """
-@python_template@
-"""
 
+libname = args.name
+if not libname.isidentifier():
+    sys.exit(f"Name '{libname}' is not valid, must be a C++/Python name")
+
+package_data_root = importlib.resources.files("legate")
+
+
+def get_template(relpath):
+    with open(package_data_root / relpath) as f:
+        return f.read()
+
+
+cpp_source_template = get_template("cpp_source_template")
+cpp_header_template = get_template("cpp_header_template")
+python_template = get_template("python_template")
 
 cmake_toplevel_template = """
 #=============================================================================
@@ -44,18 +52,18 @@ cmake_toplevel_template = """
 
 cmake_minimum_required(VERSION 3.22.1 FATAL_ERROR)
 
-project($target VERSION 1.0 LANGUAGES C CXX)
+project(@target@ VERSION 1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(BUILD_SHARED_LIBS ON)
 
 find_package(legate_core REQUIRED)
 
-legate_add_cpp_subdirectory(src TARGET $target EXPORT $target-export)
+legate_add_cpp_subdirectory(src TARGET @target@ EXPORT @target@-export)
 
-legate_add_cffi(${CMAKE_CURRENT_SOURCE_DIR}/src/$target_cffi.h TARGET $target)
-legate_default_python_install($target EXPORT $target-export)
-"""
+legate_add_cffi(${CMAKE_CURRENT_SOURCE_DIR}/src/@target@_cffi.h TARGET @target@)
+legate_default_python_install(@target@ EXPORT @target@-export)
+"""  # noqa: E501
 
 cmake_src_template = """
 #=============================================================================
@@ -75,19 +83,19 @@ cmake_src_template = """
 #=============================================================================
 
 add_library(
-  $target
+  @target@
   legate_library.h
   legate_library.cc
 )
 
-target_include_directories($target
+target_include_directories(@target@
   PRIVATE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
   INTERFACE
     $<INSTALL_INTERFACE:include>
 )
 
-target_link_libraries($target PRIVATE legate::core)
+target_link_libraries(@target@ PRIVATE legate::core)
 """
 
 setup_template = """
@@ -128,9 +136,9 @@ os.environ["CMAKE_ARGS"] = " ".join(cmake_flags)
 
 
 setup(
-    name="Legate $target",
+    name="Legate @target@",
     version="0.1",
-    description="$target for Legate",
+    description="@target@ for Legate",
     author="NVIDIA Corporation",
     license="Apache 2.0",
     classifiers=[
@@ -145,7 +153,7 @@ setup(
     ],
     packages=find_packages(
         where=".",
-        include=["$target", "$target.*"],
+        include=["@target@", "@target@.*"],
     ),
     include_package_data=True,
     zip_safe=False,
@@ -158,26 +166,35 @@ echo "Using Legate at $legate_root"
 cmake -S . -B build -D legate_core_ROOT=$legate_root
 cmake --build build
 python -m pip install -e . -vv
-"""
+"""  # noqa: E501
 
 install_script = """
 python -m pip install .
 """
 
-def generate_file(libname: str, template: str, path: Union[Path,str], executable: bool = False):
-  target_path = Path(libname) / Path(path)
-  if not target_path.parent.is_dir():
-    target_path.parent.mkdir(parents=True)
 
-  text = template.replace("$target", libname)
-  text = text.replace("@" "target" "@", libname)
-  text = text.replace("@" "py_import_path" "@", libname)
-  with open(target_path, "w") as f:
-    f.write(text)
+def generate_file(
+    libname: str,
+    template: str,
+    path: Union[Path, str],
+    executable: bool = False,
+):
+    target_path = Path(libname) / Path(path)
+    if not target_path.parent.is_dir():
+        target_path.parent.mkdir(parents=True)
 
-  if executable:
-    st = os.stat(target_path)
-    os.chmod(target_path, st.st_mode | stat.S_IRWXU)
+    # Use CMake @ONLY for template substitution instead
+    # of string.Template so that CMake and Python
+    # share a common set of templates.
+    text = template.replace("@target@", libname)
+    text = text.replace("@py_import_path@", libname)
+    with open(target_path, "w") as f:
+        f.write(text)
+
+    if executable:
+        st = os.stat(target_path)
+        os.chmod(target_path, st.st_mode | stat.S_IRWXU)
+
 
 cffi_template = """
 /* Copyright 2023 NVIDIA Corporation
@@ -196,7 +213,7 @@ cffi_template = """
  *
  */
 
-enum $targetOpCode {
+enum OpCode {
 };
 """
 
