@@ -81,8 +81,8 @@ jobs:
         with:
           name: "legate.core-${{ github.sha }}"
           path: |
-          /tmp/conda-build
-          /tmp/out
+            /tmp/conda-build
+            /tmp/out
 
   test:
     if: github.repository == 'nv-legate/legate.core'
