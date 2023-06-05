@@ -269,12 +269,27 @@ void UnboundRegionField::bind_data(Buffer<T, DIM>& buffer, const Point<DIM>& ext
   bound_ = true;
 }
 
-template <typename T, int DIM>
+template <typename T>
+void Store::check_accessor_type() const
+{
+  auto type = legate_type_code_of<T>;
+  if (!type == code_) {
+    log_legate.error(
+      "Type mismatch: invalid to create a %s accessor to a %s store. Disable type checking via "
+      "accessor template parameter if this is intended.",
+      type,
+      code_);
+    LEGATE_ABORT;
+  }
+}
+
+template <typename T, int DIM, bool VALIDATE_TYPE>
 AccessorRO<T, DIM> Store::read_accessor() const
 {
-#ifdef DEBUG_LEGATE
-  check_accessor_dimension(DIM);
-#endif
+  if constexpr (VALIDATE_TYPE) {
+    check_accessor_dimension(DIM);
+    check_accessor_type<T>();
+  }
 
   if (is_future_) return future_.read_accessor<T, DIM>(shape<DIM>());
 
@@ -285,12 +300,13 @@ AccessorRO<T, DIM> Store::read_accessor() const
   return region_field_.read_accessor<T, DIM>(shape<DIM>());
 }
 
-template <typename T, int DIM>
+template <typename T, int DIM, bool VALIDATE_TYPE>
 AccessorWO<T, DIM> Store::write_accessor() const
 {
-#ifdef DEBUG_LEGATE
-  check_accessor_dimension(DIM);
-#endif
+  if constexpr (VALIDATE_TYPE) {
+    check_accessor_dimension(DIM);
+    check_accessor_type<T>();
+  }
 
   if (is_future_) return future_.write_accessor<T, DIM>(shape<DIM>());
 
@@ -301,12 +317,13 @@ AccessorWO<T, DIM> Store::write_accessor() const
   return region_field_.write_accessor<T, DIM>(shape<DIM>());
 }
 
-template <typename T, int DIM>
+template <typename T, int DIM, bool VALIDATE_TYPE>
 AccessorRW<T, DIM> Store::read_write_accessor() const
 {
-#ifdef DEBUG_LEGATE
-  check_accessor_dimension(DIM);
-#endif
+  if constexpr (VALIDATE_TYPE) {
+    check_accessor_dimension(DIM);
+    check_accessor_type<T>();
+  }
 
   if (is_future_) return future_.read_write_accessor<T, DIM>(shape<DIM>());
 
@@ -333,12 +350,13 @@ AccessorRD<OP, EXCLUSIVE, DIM> Store::reduce_accessor() const
   return region_field_.reduce_accessor<OP, EXCLUSIVE, DIM>(redop_id_, shape<DIM>());
 }
 
-template <typename T, int DIM>
+template <typename T, int DIM, bool VALIDATE_TYPE>
 AccessorRO<T, DIM> Store::read_accessor(const Rect<DIM>& bounds) const
 {
-#ifdef DEBUG_LEGATE
-  check_accessor_dimension(DIM);
-#endif
+  if constexpr (VALIDATE_TYPE) {
+    check_accessor_dimension(DIM);
+    check_accessor_type<T>();
+  }
 
   if (is_future_) return future_.read_accessor<T, DIM>(bounds);
 
@@ -349,9 +367,14 @@ AccessorRO<T, DIM> Store::read_accessor(const Rect<DIM>& bounds) const
   return region_field_.read_accessor<T, DIM>(bounds);
 }
 
-template <typename T, int DIM>
+template <typename T, int DIM, bool VALIDATE_TYPE>
 AccessorWO<T, DIM> Store::write_accessor(const Rect<DIM>& bounds) const
 {
+  if constexpr (VALIDATE_TYPE) {
+    check_accessor_dimension(DIM);
+    check_accessor_type<T>();
+  }
+
 #ifdef DEBUG_LEGATE
   check_accessor_dimension(DIM);
 #endif
@@ -365,12 +388,13 @@ AccessorWO<T, DIM> Store::write_accessor(const Rect<DIM>& bounds) const
   return region_field_.write_accessor<T, DIM>(bounds);
 }
 
-template <typename T, int DIM>
+template <typename T, int DIM, bool VALIDATE_TYPE>
 AccessorRW<T, DIM> Store::read_write_accessor(const Rect<DIM>& bounds) const
 {
-#ifdef DEBUG_LEGATE
-  check_accessor_dimension(DIM);
-#endif
+  if constexpr (VALIDATE_TYPE) {
+    check_accessor_dimension(DIM);
+    check_accessor_type<T>();
+  }
 
   if (is_future_) return future_.read_write_accessor<T, DIM>(bounds);
 

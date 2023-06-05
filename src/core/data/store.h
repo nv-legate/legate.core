@@ -21,6 +21,7 @@
 #include "core/task/return.h"
 #include "core/utilities/machine.h"
 #include "core/utilities/typedefs.h"
+#include "core/utilities/type_traits.h"
 #include "legate_defines.h"
 #include "legion.h"
 
@@ -330,25 +331,25 @@ class Store {
 
  public:
   /**
-   * @brief Returns a read-only accessor to the store for the entire domain
+   * @brief Returns a read-only accessor to the store for the entire domain. Validates type and dimension by default, disable with VALIDATE_TYPE = false.
    *
    * @return A read-only accessor to the store
    */
-  template <typename T, int32_t DIM>
+  template <typename T, int32_t DIM, bool VALIDATE_TYPE = true>
   AccessorRO<T, DIM> read_accessor() const;
   /**
-   * @brief Returns a write-only accessor to the store for the entire domain
+   * @brief Returns a write-only accessor to the store for the entire domain. Validates type and dimension by default, disable with VALIDATE_TYPE = false.
    *
    * @return A write-only accessor to the store
    */
-  template <typename T, int32_t DIM>
+  template <typename T, int32_t DIM, bool VALIDATE_TYPE = true>
   AccessorWO<T, DIM> write_accessor() const;
   /**
-   * @brief Returns a read-write accessor to the store for the entire domain
+   * @brief Returns a read-write accessor to the store for the entire domain. Validates type and dimension by default, disable with VALIDATE_TYPE = false.
    *
    * @return A read-write accessor to the store
    */
-  template <typename T, int32_t DIM>
+  template <typename T, int32_t DIM, bool VALIDATE_TYPE = true>
   AccessorRW<T, DIM> read_write_accessor() const;
   /**
    * @brief Returns a reduction accessor to the store for the entire domain
@@ -366,7 +367,7 @@ class Store {
 
  public:
   /**
-   * @brief Returns a read-only accessor to the store for specific bounds.
+   * @brief Returns a read-only accessor to the store for specific bounds. Validates type and dimension by default, disable with VALIDATE_TYPE = false.
    *
    * @param bounds Domain within which accesses should be allowed.
    * The actual bounds for valid access are determined by an intersection between
@@ -374,10 +375,11 @@ class Store {
    *
    * @return A read-only accessor to the store
    */
-  template <typename T, int32_t DIM>
+  template <typename T, int32_t DIM, bool VALIDATE_TYPE = true>
   AccessorRO<T, DIM> read_accessor(const Rect<DIM>& bounds) const;
   /**
-   * @brief Returns a write-only accessor to the store for the entire domain
+   * @brief Returns a write-only accessor to the store for the entire domain. Validates type and dimension by default, disable with VALIDATE_TYPE = false.
+
    *
    * @param bounds Domain within which accesses should be allowed.
    * The actual bounds for valid access are determined by an intersection between
@@ -385,10 +387,11 @@ class Store {
    *
    * @return A write-only accessor to the store
    */
-  template <typename T, int32_t DIM>
+  template <typename T, int32_t DIM, bool VALIDATE_TYPE = true>
   AccessorWO<T, DIM> write_accessor(const Rect<DIM>& bounds) const;
   /**
-   * @brief Returns a read-write accessor to the store for the entire domain
+   * @brief Returns a read-write accessor to the store for the entire domain. Validates type and dimension by default, disable with VALIDATE_TYPE = false.
+
    *
    * @param bounds Domain within which accesses should be allowed.
    * The actual bounds for valid access are determined by an intersection between
@@ -396,7 +399,7 @@ class Store {
    *
    * @return A read-write accessor to the store
    */
-  template <typename T, int32_t DIM>
+  template <typename T, int32_t DIM, bool VALIDATE_TYPE = true>
   AccessorRW<T, DIM> read_write_accessor(const Rect<DIM>& bounds) const;
   /**
    * @brief Returns a reduction accessor to the store for the entire domain
@@ -537,6 +540,8 @@ class Store {
   void check_valid_return() const;
   void check_buffer_dimension(const int32_t dim) const;
   void check_accessor_dimension(const int32_t dim) const;
+  template<typename T>
+  void check_accessor_type() const;
 
  private:
   bool is_future_{false};
