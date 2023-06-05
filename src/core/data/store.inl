@@ -272,13 +272,23 @@ void UnboundRegionField::bind_data(Buffer<T, DIM>& buffer, const Point<DIM>& ext
 template <typename T>
 void Store::check_accessor_type() const
 {
-  auto type = legate_type_code_of<T>;
-  if (!type == code_) {
+  auto in_type = legate_type_code_of<T>;
+  if (in_type != this->code()) {
     log_legate.error(
       "Type mismatch: invalid to create a %s accessor to a %s store. Disable type checking via "
       "accessor template parameter if this is intended.",
-      type,
-      code_);
+      typeid(T).name(),
+      this->type().to_string().c_str());
+    LEGATE_ABORT;
+  }
+  if (sizeof(T) != this->type().size()) {
+    log_legate.error(
+      "Type size mismatch: store type %s has size %d, requested type has size %d. Disable type "
+      "checking via "
+      "accessor template parameter if this is intended.",
+      this->type().to_string().c_str(),
+      this->type().size(),
+      sizeof(T));
     LEGATE_ABORT;
   }
 }
