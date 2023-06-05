@@ -155,5 +155,5 @@ jobs:
         name: Run legate.core unit tests
         shell: su coder {0}
         run: |
-          cd ~/cunumeric/tests/unit
+          cd ~/legate/tests/unit
           pytest
