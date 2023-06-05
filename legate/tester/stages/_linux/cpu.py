@@ -60,18 +60,31 @@ class CPU(TestStage):
                 "--cpu-bind",
                 str(shard),
             ]
+        if config.ranks > 1:
+            args += [
+                "--ranks-per-node",
+                str(config.ranks),
+            ]
         return args
 
     def compute_spec(self, config: Config, system: TestSystem) -> StageSpec:
         cpus = system.cpus
 
         procs = config.cpus + config.utility + int(config.cpu_pin == "strict")
-        workers = adjust_workers(len(cpus) // procs, config.requested_workers)
+        workers = adjust_workers(
+            int(len(cpus) / procs / config.ranks), config.requested_workers
+        )
 
         shards: list[Shard] = []
         for i in range(workers):
-            shard_cpus = range(i * procs, (i + 1) * procs)
-            shard = chain.from_iterable(cpus[j].ids for j in shard_cpus)
-            shards.append(Shard([tuple(sorted(shard))]))
+            rank_shards = []
+            for j in range(config.ranks):
+                shard_cpus = range(
+                    (j + i * config.ranks) * procs,
+                    (j + i * config.ranks + 1) * procs,
+                )
+                shard = chain.from_iterable(cpus[k].ids for k in shard_cpus)
+                rank_shards.append(tuple(sorted(shard)))
+            shards.append(Shard(rank_shards))
 
         return StageSpec(workers, shards)
