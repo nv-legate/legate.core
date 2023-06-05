@@ -234,12 +234,6 @@ int32_t Runtime::find_reduction_operator(int32_t type_uid, int32_t op_kind) cons
   return &runtime;
 }
 
-void Runtime::enter_callback() { in_callback_ = true; }
-
-void Runtime::exit_callback() { in_callback_ = false; }
-
-bool Runtime::is_in_callback() const { return in_callback_; }
-
 void register_legate_core_tasks(Legion::Machine machine,
                                 Legion::Runtime* runtime,
                                 const LibraryContext* context)
