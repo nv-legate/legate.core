@@ -25,7 +25,7 @@ namespace nccl {
 
 void register_tasks(Legion::Machine machine,
                     Legion::Runtime* runtime,
-                    const LibraryContext& context);
+                    const LibraryContext* context);
 
 bool needs_barrier();
 

@@ -17,7 +17,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 from .. import ffi, legion
-from ..types import _Dtype
+from ..types import Dtype
 from .env import LEGATE_MAX_FIELDS
 from .field import FieldID
 from .future import Future
@@ -248,7 +248,7 @@ class FieldSpace:
                 + str(LEGATE_MAX_FIELDS)
                 + " in field space"
             )
-        if isinstance(size_or_type, _Dtype):
+        if isinstance(size_or_type, Dtype):
             return self.allocate_field_dtype(size_or_type, field_id=field_id)
         elif isinstance(size_or_type, Future):
             return self.allocate_field_from_future(

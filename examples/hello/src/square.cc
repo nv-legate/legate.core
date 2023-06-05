@@ -23,11 +23,11 @@ class SquareTask : public Task<SquareTask, SQUARE> {
  public:
   static void cpu_variant(legate::TaskContext& context)
   {
-    legate::Store& output        = context.outputs().at(0);
+    legate::Store& output = context.outputs().at(0);
     legate::Rect<1> output_shape = output.shape<1>();
     auto out                     = output.write_accessor<float, 1>();
 
-    legate::Store& input        = context.inputs().at(0);
+    legate::Store& input = context.inputs().at(0);
     legate::Rect<1> input_shape = input.shape<1>();  // should be a 1-Dim array
     auto in                     = input.read_accessor<float, 1>();
 

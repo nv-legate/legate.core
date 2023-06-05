@@ -84,20 +84,26 @@ from ._legion import (
 
 # Import select types for Legate library construction
 from .allocation import DistributedAllocation
-from .context import Annotation, track_provenance
 from .legate import (
     Array,
+    Field,
     Library,
+    Table,
 )
+from .machine import EmptyMachineError, Machine, ProcessorKind, ProcessorSlice
 from .runtime import (
+    Annotation,
     get_legate_runtime,
     get_legion_context,
     get_legion_runtime,
+    get_machine,
     legate_add_library,
+    track_provenance,
 )
 from .store import Store
 
 from .types import (
+    array_type,
     bool_,
     int8,
     int16,
@@ -112,44 +118,8 @@ from .types import (
     float64,
     complex64,
     complex128,
+    struct_type,
+    Dtype,
     ReductionOp,
 )
 from .io import CustomSplit, TiledSplit, ingest
-
-# Import the PyArrow type system
-from pyarrow import (
-    DataType,
-    DictionaryType,
-    ListType,
-    MapType,
-    StructType,
-    UnionType,
-    TimestampType,
-    Time32Type,
-    Time64Type,
-    FixedSizeBinaryType,
-    Decimal128Type,
-    Field,
-    Schema,
-    null,
-    time32,
-    time64,
-    timestamp,
-    date32,
-    date64,
-    binary,
-    string,
-    utf8,
-    large_binary,
-    large_string,
-    large_utf8,
-    decimal128,
-    list_,
-    large_list,
-    map_,
-    struct,
-    dictionary,
-    field,
-    schema,
-    from_numpy_dtype,
-)

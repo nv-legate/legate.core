@@ -18,7 +18,9 @@
 
 #include "legion.h"
 
-#include "core/runtime/context.h"
+#include <memory>
+
+#include "core/runtime/resource.h"
 #include "core/task/exception.h"
 #include "core/utilities/typedefs.h"
 
@@ -26,6 +28,14 @@
  */
 
 namespace legate {
+
+class LibraryContext;
+
+namespace mapping {
+
+class Mapper;
+
+}  // namespace mapping
 
 extern uint32_t extract_env(const char* env_name,
                             const uint32_t default_value,
@@ -71,17 +81,36 @@ struct Core {
 class Runtime {
  private:
   Runtime();
+  ~Runtime();
 
  public:
   LibraryContext* find_library(const std::string& library_name, bool can_fail = false) const;
   LibraryContext* create_library(const std::string& library_name,
-                                 const ResourceConfig& config = ResourceConfig{});
+                                 const ResourceConfig& config            = ResourceConfig{},
+                                 std::unique_ptr<mapping::Mapper> mapper = nullptr);
+
+ public:
+  uint32_t get_type_uid();
+  void record_reduction_operator(int32_t type_uid, int32_t op_kind, int32_t legion_op_id);
+  int32_t find_reduction_operator(int32_t type_uid, int32_t op_kind) const;
+
+ public:
+  void enter_callback();
+  void exit_callback();
+  bool is_in_callback() const;
 
  public:
   static Runtime* get_runtime();
 
  private:
-  std::map<std::string, std::unique_ptr<LibraryContext>> libraries_{};
+  bool in_callback_{false};
+
+ private:
+  std::map<std::string, LibraryContext*> libraries_{};
+
+ private:
+  uint32_t next_type_uid_;
+  std::map<std::pair<int32_t, int32_t>, int32_t> reduction_ops_{};
 };
 
 }  // namespace legate

@@ -16,15 +16,15 @@
 
 #include "core/utilities/debug.h"
 
+#include "core/type/type_traits.h"
 #include "core/utilities/dispatch.h"
-#include "core/utilities/type_traits.h"
 
 namespace legate {
 
 namespace {  // anonymous
 
 struct print_dense_array_fn {
-  template <LegateTypeCode CODE, int DIM>
+  template <Type::Code CODE, int DIM>
   std::string operator()(const Store& store)
   {
     using T        = legate_type_of<CODE>;

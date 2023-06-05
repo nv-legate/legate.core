@@ -19,6 +19,7 @@
 #include "core/data/buffer.h"
 #include "core/data/transform.h"
 #include "core/task/return.h"
+#include "core/type/type_info.h"
 #include "core/utilities/machine.h"
 #include "core/utilities/typedefs.h"
 #include "core/utilities/type_traits.h"
@@ -209,7 +210,7 @@ class FutureWrapper {
  public:
   FutureWrapper() {}
   FutureWrapper(bool read_only,
-                int32_t field_size,
+                uint32_t field_size,
                 Domain domain,
                 Legion::Future future,
                 bool initialize = false);
@@ -258,7 +259,7 @@ class FutureWrapper {
 
  private:
   bool read_only_{true};
-  size_t field_size_{0};
+  uint32_t field_size_{0};
   Domain domain_{};
   Legion::Future future_{};
   Legion::UntypedDeferredValue buffer_{};
@@ -272,17 +273,17 @@ class Store {
  public:
   Store() {}
   Store(int32_t dim,
-        int32_t code,
+        std::unique_ptr<Type> type,
         int32_t redop_id,
         FutureWrapper future,
         std::shared_ptr<TransformStack>&& transform = nullptr);
   Store(int32_t dim,
-        int32_t code,
+        std::unique_ptr<Type> type,
         int32_t redop_id,
         RegionField&& region_field,
         std::shared_ptr<TransformStack>&& transform = nullptr);
   Store(int32_t dim,
-        int32_t code,
+        std::unique_ptr<Type> type,
         UnboundRegionField&& unbound_field,
         std::shared_ptr<TransformStack>&& transform = nullptr);
 
@@ -319,14 +320,20 @@ class Store {
    */
   int32_t dim() const { return dim_; }
   /**
+   * @brief Returns the type metadata of the store
+   *
+   * @return The store's type metadata
+   */
+  const Type& type() const { return *type_; }
+  /**
    * @brief Returns the type code of the store
    *
    * @return The store's type code
    */
-  template <typename TYPE_CODE = LegateTypeCode>
+  template <typename TYPE_CODE = Type::Code>
   TYPE_CODE code() const
   {
-    return static_cast<TYPE_CODE>(code_);
+    return static_cast<TYPE_CODE>(type_->code);
   }
 
  public:
@@ -547,7 +554,7 @@ class Store {
   bool is_future_{false};
   bool is_unbound_store_{false};
   int32_t dim_{-1};
-  int32_t code_{-1};
+  std::unique_ptr<Type> type_{nullptr};
   int32_t redop_id_{-1};
 
  private:

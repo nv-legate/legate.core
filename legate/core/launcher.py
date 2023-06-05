@@ -14,11 +14,14 @@
 #
 from __future__ import annotations
 
+from dataclasses import dataclass
 from enum import IntEnum, unique
+from itertools import chain
 from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
+    Generator,
     Optional,
     Protocol,
     Sequence,
@@ -46,13 +49,23 @@ from .utils import OrderedSet
 
 if TYPE_CHECKING:
     from . import FieldSpace, IndexSpace, OutputRegion, Point, Rect, Region
-    from ._legion.util import FieldListLike
+    from ._legion.util import FieldListLike, Mappable
     from .context import Context
     from .store import RegionField, Store
-    from .types import DTType
+    from .types import Dtype
 
 
 LegionOp = Union[IndexTask, SingleTask, IndexCopy, SingleCopy]
+
+
+@dataclass(frozen=True)
+class ParallelExecutionResult:
+    """
+    Result from a parallel task launch
+    """
+
+    future_map: FutureMap
+    output_partitions: dict[Store, LegionPartition]
 
 
 @unique
@@ -69,7 +82,7 @@ class Permission(IntEnum):
 Serializer = Callable[[BufferBuilder, Any], None]
 
 _SERIALIZERS: dict[Any, Serializer] = {
-    bool: BufferBuilder.pack_bool,
+    ty.bool_: BufferBuilder.pack_bool,
     ty.int8: BufferBuilder.pack_8bit_int,
     ty.int16: BufferBuilder.pack_16bit_int,
     ty.int32: BufferBuilder.pack_32bit_int,
@@ -80,27 +93,12 @@ _SERIALIZERS: dict[Any, Serializer] = {
     ty.uint64: BufferBuilder.pack_64bit_uint,
     ty.float32: BufferBuilder.pack_32bit_float,
     ty.float64: BufferBuilder.pack_64bit_float,
+    ty.complex64: BufferBuilder.pack_64bit_complex,
+    ty.complex128: BufferBuilder.pack_128bit_complex,
     ty.string: BufferBuilder.pack_string,
 }
 
 EntryType = Tuple[Union["Broadcast", "Partition"], int, int]
-
-
-def _pack(buf: BufferBuilder, value: Any, dtype: Any, is_tuple: bool) -> None:
-    if dtype not in _SERIALIZERS:
-        raise ValueError(f"Unsupported data type: {dtype}")
-    serializer = _SERIALIZERS[dtype]
-
-    if is_tuple:
-        if dtype == ty.string:
-            raise NotImplementedError(
-                "Passing a tuple of strings is not yet supported"
-            )
-        buf.pack_32bit_uint(len(value))
-        for v in value:
-            serializer(buf, v)
-    else:
-        serializer(buf, value)
 
 
 class RequirementIndexer(Protocol):
@@ -118,34 +116,32 @@ class LauncherArg(Protocol):
 class ScalarArg:
     def __init__(
         self,
-        core_types: ty.TypeSystem,
         value: Any,
-        dtype: Union[DTType, tuple[DTType]],
-        untyped: bool = True,
+        dtype: Union[Dtype, tuple[Dtype]],
     ) -> None:
-        self._core_types = core_types
         self._value = value
         self._dtype = dtype
-        self._untyped = untyped
 
     def pack(self, buf: BufferBuilder) -> None:
-        if isinstance(self._dtype, tuple):
-            if len(self._dtype) != 1:
+        if not isinstance(self._dtype, tuple):
+            if self._dtype not in _SERIALIZERS:
                 raise ValueError(f"Unsupported data type: {self._dtype}")
-            is_tuple = True
-            dtype = self._dtype[0]
-        else:
-            is_tuple = False
-            dtype = self._dtype
+            self._dtype.serialize(buf)
+            _SERIALIZERS[self._dtype](buf, self._value)
+            return
 
-        if self._untyped:
-            buf.pack_bool(is_tuple)
-            buf.pack_32bit_int(self._core_types[dtype].code)
+        if len(self._dtype) != 1:
+            raise ValueError(f"Unsupported data type: {self._dtype}")
 
-        _pack(buf, self._value, dtype, is_tuple)
+        elem_dtype = self._dtype[0]
+        serialize = _SERIALIZERS[elem_dtype]
+        dtype = ty.array_type(elem_dtype, len(self._value))
+        dtype.serialize(buf)
+        for v in self._value:
+            serialize(buf, v)
 
     def __str__(self) -> str:
-        return f"ScalarArg({self._value}, {self._dtype}, {self._untyped})"
+        return f"ScalarArg({self._value}, {self._dtype})"
 
 
 class FutureStoreArg:
@@ -162,8 +158,11 @@ class FutureStoreArg:
         buf.pack_32bit_int(self._redop)
         buf.pack_bool(self._read_only)
         buf.pack_bool(self._has_storage)
-        buf.pack_32bit_int(self._store.type.size)
-        _pack(buf, self._store.extents, ty.int64, True)
+        buf.pack_32bit_uint(self._store.type.size)
+        extents = self._store.extents
+        buf.pack_32bit_uint(len(extents))
+        for extent in extents:
+            buf.pack_64bit_int(extent)
 
     def __str__(self) -> str:
         return f"FutureStoreArg({self._store})"
@@ -683,6 +682,14 @@ class OutputAnalyzer(RequirementIndexer):
             for field_id, store in group:
                 req.update_storage(store, field_id)
 
+    def collect_partitions(self) -> dict[Store, LegionPartition]:
+        result = dict()
+        for req, group in self._groups.items():
+            for _, store in group:
+                assert req.output_region
+                result[store] = req.output_region.get_partition()
+        return result
+
 
 # A simple analyzer that does not coalesce requirements
 class CopyReqAnalyzer(RequirementIndexer):
@@ -706,12 +713,18 @@ class CopyReqAnalyzer(RequirementIndexer):
         return self._requirement_map[(req, field_id)]
 
 
+def find_key_projection(reqs: Generator[RegionReq, None, None]) -> int:
+    for req in reqs:
+        if req.tag == 1:  # LEGATE_CORE_KEY_STORE_TAG
+            return req.proj.proj
+    return 0
+
+
 class TaskLauncher:
     def __init__(
         self,
         context: Context,
         task_id: int,
-        mapper_id: int = 0,
         tag: int = 0,
         error_on_interference: bool = True,
         side_effect: bool = False,
@@ -719,9 +732,8 @@ class TaskLauncher:
     ) -> None:
         assert type(tag) != bool
         self._context = context
-        self._core_types = runtime.core_context.type_system
+        self._mapper_id = context.mapper_id
         self._task_id = task_id
-        self._mapper_id = mapper_id
         self._inputs: list[LauncherArg] = []
         self._outputs: list[LauncherArg] = []
         self._reductions: list[LauncherArg] = []
@@ -747,16 +759,8 @@ class TaskLauncher:
         return self._task_id
 
     @property
-    def library_mapper_id(self) -> int:
-        return self._mapper_id
-
-    @property
     def legion_task_id(self) -> int:
         return self._context.get_task_id(self._task_id)
-
-    @property
-    def legion_mapper_id(self) -> int:
-        return self._context.get_mapper_id(self._mapper_id)
 
     def __del__(self) -> None:
         del self._req_analyzer
@@ -768,12 +772,9 @@ class TaskLauncher:
     def add_scalar_arg(
         self,
         value: Any,
-        dtype: Union[DTType, tuple[DTType]],
-        untyped: bool = True,
+        dtype: Union[Dtype, tuple[Dtype]],
     ) -> None:
-        self._scalars.append(
-            ScalarArg(self._core_types, value, dtype, untyped)
-        )
+        self._scalars.append(ScalarArg(value, dtype))
 
     def add_store(
         self,
@@ -901,6 +902,15 @@ class TaskLauncher:
     def set_point(self, point: Point) -> None:
         self._point = point
 
+    def set_mapper_arg(self, task: Mappable) -> None:
+        argbuf = BufferBuilder()
+        runtime.machine.pack(argbuf)
+        proj_id = find_key_projection(
+            req for (req, _) in self._req_analyzer.requirements
+        )
+        argbuf.pack_32bit_uint(runtime.get_sharding(proj_id))
+        task.set_mapper_arg(argbuf.get_string(), argbuf.get_size())
+
     def build_task(
         self, launch_domain: Rect, argbuf: BufferBuilder
     ) -> IndexTask:
@@ -921,7 +931,7 @@ class TaskLauncher:
             self._context.empty_argmap,
             argbuf.get_string(),
             argbuf.get_size(),
-            mapper=self.legion_mapper_id,
+            mapper=self._mapper_id,
             tag=self._tag,
             provenance=self._provenance,
         )
@@ -944,6 +954,7 @@ class TaskLauncher:
         task.set_concurrent(len(self._comms) > 0 or self._concurrent)
         for future_map in self._future_map_args:
             task.add_point_future(ArgumentMap(future_map=future_map))
+        self.set_mapper_arg(task)
         return task
 
     def build_single_task(self, argbuf: BufferBuilder) -> SingleTask:
@@ -962,7 +973,7 @@ class TaskLauncher:
             self.legion_task_id,
             argbuf.get_string(),
             argbuf.get_size(),
-            mapper=self.legion_mapper_id,
+            mapper=self._mapper_id,
             tag=self._tag,
             provenance=self._provenance,
         )
@@ -982,14 +993,19 @@ class TaskLauncher:
             task.set_sharding_space(self._sharding_space)
         if self._point is not None:
             task.set_point(self._point)
+        self.set_mapper_arg(task)
         return task
 
-    def execute(self, launch_domain: Rect) -> FutureMap:
+    def execute(self, launch_domain: Rect) -> ParallelExecutionResult:
         task = self.build_task(launch_domain, BufferBuilder())
         result = self._context.dispatch(task)
         assert isinstance(result, FutureMap)
         self._out_analyzer.update_storages()
-        return result
+        out_partitions = self._out_analyzer.collect_partitions()
+        return ParallelExecutionResult(
+            future_map=result,
+            output_partitions=out_partitions,
+        )
 
     def execute_single(self) -> Future:
         argbuf = BufferBuilder()
@@ -1004,13 +1020,12 @@ class CopyLauncher:
         context: Context,
         source_oor: bool = True,
         target_oor: bool = True,
-        mapper_id: int = 0,
         tag: int = 0,
         provenance: Optional[str] = None,
     ) -> None:
         assert type(tag) != bool
         self._context = context
-        self._mapper_id = mapper_id
+        self._mapper_id = context.mapper_id
         self._inputs: list[LauncherArg] = []
         self._outputs: list[LauncherArg] = []
         self._reductions: list[LauncherArg] = []
@@ -1026,14 +1041,6 @@ class CopyLauncher:
         self._source_oor = source_oor
         self._target_oor = target_oor
         self._provenance = provenance
-
-    @property
-    def library_mapper_id(self) -> int:
-        return self._mapper_id
-
-    @property
-    def legion_mapper_id(self) -> int:
-        return self._context.get_mapper_id(self._mapper_id)
 
     def add_store(
         self,
@@ -1161,8 +1168,22 @@ class CopyLauncher:
     def set_point(self, point: Point) -> None:
         self._point = point
 
+    def pack_mapper_arg(self, argbuf: BufferBuilder) -> None:
+        runtime.machine.pack(argbuf)
+        proj_id = find_key_projection(
+            req
+            for (req, _) in chain(
+                self._input_reqs.requirements,
+                self._output_reqs.requirements,
+                self._source_indirect_reqs.requirements,
+                self._target_indirect_reqs.requirements,
+            )
+        )
+        argbuf.pack_32bit_uint(runtime.get_sharding(proj_id))
+
     def build_copy(self, launch_domain: Rect) -> IndexCopy:
         argbuf = BufferBuilder()
+        self.pack_mapper_arg(argbuf)
         pack_args(argbuf, self._inputs)
         pack_args(argbuf, self._outputs + self._reductions)
         pack_args(argbuf, self._source_indirects)
@@ -1170,7 +1191,7 @@ class CopyLauncher:
 
         copy = IndexCopy(
             launch_domain,
-            mapper=self.legion_mapper_id,
+            mapper=self._mapper_id,
             tag=self._tag,
             provenance=self._provenance,
         )
@@ -1195,13 +1216,14 @@ class CopyLauncher:
 
     def build_single_copy(self) -> SingleCopy:
         argbuf = BufferBuilder()
+        self.pack_mapper_arg(argbuf)
         pack_args(argbuf, self._inputs)
         pack_args(argbuf, self._outputs + self._reductions)
         pack_args(argbuf, self._source_indirects)
         pack_args(argbuf, self._target_indirects)
 
         copy = SingleCopy(
-            mapper=self.legion_mapper_id,
+            mapper=self._mapper_id,
             tag=self._tag,
             provenance=self._provenance,
         )
@@ -1244,27 +1266,18 @@ class FillLauncher:
         lhs: Store,
         lhs_proj: Proj,
         value: Store,
-        mapper_id: int = 0,
         tag: int = 0,
         provenance: Optional[str] = None,
     ) -> None:
         self._context = context
+        self._mapper_id = context.mapper_id
         self._lhs = lhs
         self._lhs_proj = lhs_proj
         self._value = value
-        self._mapper_id = mapper_id
         self._tag = tag
         self._sharding_space: Union[IndexSpace, None] = None
         self._point: Union[Point, None] = None
         self._provenance = provenance
-
-    @property
-    def library_mapper_id(self) -> int:
-        return self._mapper_id
-
-    @property
-    def legion_mapper_id(self) -> int:
-        return self._context.get_mapper_id(self._mapper_id)
 
     def set_sharding_space(self, space: IndexSpace) -> None:
         self._sharding_space = space
@@ -1272,36 +1285,45 @@ class FillLauncher:
     def set_point(self, point: Point) -> None:
         self._point = point
 
+    def set_mapper_arg(self, fill: Mappable) -> None:
+        argbuf = BufferBuilder()
+        runtime.machine.pack(argbuf)
+        argbuf.pack_32bit_uint(runtime.get_sharding(self._lhs_proj.proj))
+        fill.set_mapper_arg(argbuf.get_string(), argbuf.get_size())
+
     def build_fill(self, launch_domain: Rect) -> IndexFill:
         if TYPE_CHECKING:
             assert isinstance(self._lhs.storage, RegionField)
             assert isinstance(self._value.storage, Future)
         assert self._lhs_proj.part is not None
+
         fill = IndexFill(
             self._lhs_proj.part,
             self._lhs_proj.proj,
             self._lhs.storage.region.get_root(),
             self._lhs.storage.field.field_id,
             self._value.storage,
-            self.legion_mapper_id,
+            self._mapper_id,
             self._tag,
             launch_domain.to_domain(),
             self._provenance,
         )
         if self._sharding_space is not None:
             fill.set_sharding_space(self._sharding_space)
+        self.set_mapper_arg(fill)
         return fill
 
     def build_single_fill(self) -> SingleFill:
         if TYPE_CHECKING:
             assert isinstance(self._lhs.storage, RegionField)
             assert isinstance(self._value.storage, Future)
+
         fill = SingleFill(
             self._lhs.storage.region,
             self._lhs.storage.region.get_root(),
             self._lhs.storage.field.field_id,
             self._value.storage,
-            self.legion_mapper_id,
+            self._mapper_id,
             self._tag,
             self._provenance,
         )
@@ -1309,6 +1331,7 @@ class FillLauncher:
             fill.set_sharding_space(self._sharding_space)
         if self._point is not None:
             fill.set_point(self._point)
+        self.set_mapper_arg(fill)
         return fill
 
     def execute(self, launch_domain: Rect) -> None:

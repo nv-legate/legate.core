@@ -42,13 +42,6 @@ runtime, the runtime gives back a context object unique to the library.
    context.Context.issue_execution_fence
    context.Context.tree_reduce
    context.Context.get_tunable
-   context.Context.provenance
-   context.Context.annotation
-   context.Context.set_provenance
-   context.Context.reset_provenance
-   context.Context.push_provenance
-   context.Context.pop_provenance
-   context.Context.track_provenance
 
 
 Legate Runtime
@@ -57,11 +50,15 @@ Legate Runtime
 .. autosummary::
    :toctree: generated/
 
-   runtime.Runtime.num_cpus
-   runtime.Runtime.num_omps
-   runtime.Runtime.num_gpus
    runtime.Runtime.register_library
    runtime.Runtime.create_future
+   runtime.Runtime.provenance
+   runtime.Runtime.annotation
+   runtime.Runtime.set_provenance
+   runtime.Runtime.reset_provenance
+   runtime.Runtime.push_provenance
+   runtime.Runtime.pop_provenance
+   runtime.Runtime.track_provenance
 
 
 Annotation
@@ -82,4 +79,4 @@ which are later rendered in execution profiles.
 .. autosummary::
    :toctree: generated/
 
-   context.Annotation.__init__
+   runtime.Annotation.__init__

@@ -116,7 +116,6 @@ class Logging(DataclassMixin):
     user_logging_levels: str | None
     logdir: Path
     log_to_file: bool
-    keep_logs: bool
 
 
 @dataclass(frozen=True)
@@ -124,6 +123,7 @@ class Debugging(DataclassMixin):
     gdb: bool
     cuda_gdb: bool
     memcheck: bool
+    valgrind: bool
     freeze_on_error: bool
     gasnet_trace: bool
     dataflow: bool

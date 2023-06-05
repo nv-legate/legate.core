@@ -222,7 +222,6 @@ class TestLogging:
             "user_logging_levels",
             "logdir",
             "log_to_file",
-            "keep_logs",
         }
 
     def test_mixin(self) -> None:
@@ -235,6 +234,7 @@ class TestDebugging:
             "gdb",
             "cuda_gdb",
             "memcheck",
+            "valgrind",
             "freeze_on_error",
             "gasnet_trace",
             "dataflow",
@@ -323,13 +323,13 @@ class TestConfig:
             user_logging_levels=None,
             logdir=Path(os.getcwd()),
             log_to_file=False,
-            keep_logs=False,
         )
 
         assert c.debugging == m.Debugging(
             gdb=False,
             cuda_gdb=False,
             memcheck=False,
+            valgrind=False,
             freeze_on_error=False,
             gasnet_trace=False,
             dataflow=False,
@@ -436,7 +436,6 @@ class TestConfig:
                 "--dataflow",
                 "--progress",
                 "--gdb",
-                "--keep-logs",
                 "--profile",
                 "--cprofile",
             )

@@ -26,14 +26,38 @@ namespace legate {
 extern Legion::Logger log_legate;
 #endif
 
+namespace detail {
+
 template <typename REDOP>
-void LibraryContext::register_reduction_operator()
+void register_reduction_callback(const Legion::RegistrationCallbackArgs& args)
 {
+  auto legion_redop_id = *static_cast<const int32_t*>(args.buffer.get_ptr());
+  Legion::Runtime::register_reduction_op<REDOP>(legion_redop_id);
+}
+
+}  // namespace detail
+
+template <typename REDOP>
+int32_t LibraryContext::register_reduction_operator(int32_t redop_id)
+{
+  int32_t legion_redop_id = get_reduction_op_id(redop_id);
 #ifdef LEGATE_USE_CUDA
   log_legate.error("Reduction operators must be registered in a .cu file when CUDA is enabled");
   LEGATE_ABORT;
 #endif
-  Legion::Runtime::register_reduction_op<REDOP>(get_reduction_op_id(REDOP::REDOP_ID));
+  auto runtime = Runtime::get_runtime();
+  if (runtime->is_in_callback())
+    Legion::Runtime::register_reduction_op<REDOP>(legion_redop_id);
+  else {
+    runtime->enter_callback();
+    Legion::Runtime::perform_registration_callback(
+      detail::register_reduction_callback<REDOP>,
+      Legion::UntypedBuffer(&legion_redop_id, sizeof(int32_t)),
+      true /*global*/);
+    runtime->exit_callback();
+  }
+
+  return legion_redop_id;
 }
 
 #else   // ifndef REALM_COMPILER_IS_NVCC
@@ -58,17 +82,41 @@ class CUDAReductionOpWrapper : public T {
   }
 };
 
-}  // namespace detail
-
 template <typename REDOP>
-void LibraryContext::register_reduction_operator()
+void register_reduction_callback(const Legion::RegistrationCallbackArgs& args)
 {
+  auto legion_redop_id = *static_cast<const int32_t*>(args.buffer.get_ptr());
   Legion::Runtime::register_reduction_op(
-    get_reduction_op_id(REDOP::REDOP_ID),
+    legion_redop_id,
     Realm::ReductionOpUntyped::create_reduction_op<detail::CUDAReductionOpWrapper<REDOP>>(),
     nullptr,
     nullptr,
     false);
+}
+
+}  // namespace detail
+
+template <typename REDOP>
+int32_t LibraryContext::register_reduction_operator(int32_t redop_id)
+{
+  int32_t legion_redop_id = get_reduction_op_id(redop_id);
+  auto runtime            = Runtime::get_runtime();
+  if (runtime->is_in_callback())
+    Legion::Runtime::register_reduction_op(
+      legion_redop_id,
+      Realm::ReductionOpUntyped::create_reduction_op<detail::CUDAReductionOpWrapper<REDOP>>(),
+      nullptr,
+      nullptr,
+      false);
+  else {
+    runtime->enter_callback();
+    Legion::Runtime::perform_registration_callback(
+      detail::register_reduction_callback<REDOP>,
+      Legion::UntypedBuffer(&legion_redop_id, sizeof(int32_t)),
+      true /*global*/);
+    runtime->exit_callback();
+  }
+  return legion_redop_id;
 }
 
 #endif  // ifndef REALM_COMPILER_IS_NVCC

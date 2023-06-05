@@ -37,7 +37,7 @@ def test_cycle_check(tmp_path: Path) -> None:
     prog_file = tmp_path / "prog.py"
     prog_file.write_text(PROG_TEXT)
     env = os.environ.copy()
-    env["LEGATE_CYCLE_CHECK"] = "yes"
+    env["LEGATE_CYCLE_CHECK"] = "1"
     output = subprocess.check_output(
         [
             "legate",

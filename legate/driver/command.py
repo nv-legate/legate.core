@@ -38,6 +38,12 @@ def cmd_bind(
 ) -> CommandPart:
     ranks = config.multi_node.ranks
 
+    if ranks > 1 and len(install_info.networks) == 0:
+        raise RuntimeError(
+            "multi-rank run was requested, but Legate was not built with "
+            "networking support"
+        )
+
     if launcher.kind == "none":
         bind_launcher_arg = "local" if ranks == 1 else "auto"
     else:
@@ -145,6 +151,14 @@ def cmd_nsys(
     return opts
 
 
+def cmd_valgrind(
+    config: ConfigProtocol, system: System, launcher: Launcher
+) -> CommandPart:
+    valgrind = config.debugging.valgrind
+
+    return () if not valgrind else ("valgrind",)
+
+
 def cmd_memcheck(
     config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
@@ -202,13 +216,6 @@ def cmd_python_processor(
     return ("-ll:py", "1")
 
 
-def cmd_local_field(
-    config: ConfigProtocol, system: System, launcher: Launcher
-) -> CommandPart:
-    # We always need no local fields
-    return ("-lg:local", "0")
-
-
 def cmd_kthreads(
     config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
@@ -237,6 +244,12 @@ def cmd_gpus(
 ) -> CommandPart:
     gpus = config.core.gpus
 
+    if gpus > 0 and not install_info.use_cuda:
+        raise RuntimeError(
+            "--gpus was requested, but this build does not have CUDA "
+            "support enabled"
+        )
+
     # Make sure that we skip busy GPUs
     return () if gpus == 0 else ("-ll:gpu", str(gpus), "-cuda:skipbusy")
 
@@ -247,6 +260,12 @@ def cmd_openmp(
     openmp = config.core.openmp
     ompthreads = config.core.ompthreads
     numamem = config.memory.numamem
+
+    if openmp > 0 and not install_info.use_openmp:
+        raise RuntimeError(
+            "--omps was requested, but this build does not have OpenMP "
+            "support enabled"
+        )
 
     if openmp == 0:
         return ()
@@ -391,12 +410,6 @@ def cmd_eager_alloc(
     return ("-lg:eager_alloc_percentage", str(eager_alloc))
 
 
-def cmd_ucx(
-    config: ConfigProtocol, system: System, launcher: Launcher
-) -> CommandPart:
-    return ("-ucx:tls_host", "rc,tcp,cuda_copy,cuda_ipc,sm,self")
-
-
 def cmd_user_script(
     config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
@@ -409,10 +422,15 @@ def cmd_user_opts(
     return config.user_opts
 
 
+def cmd_python(
+    config: ConfigProtocol, system: System, launcher: Launcher
+) -> CommandPart:
+    return ("python",)
+
+
 _CMD_PARTS_SHARED = (
     # This has to go before script name
     cmd_nocr,
-    cmd_local_field,
     cmd_kthreads,
     # Translate the requests to Realm command line parameters
     cmd_cpus,
@@ -428,7 +446,6 @@ _CMD_PARTS_SHARED = (
     cmd_log_levels,
     cmd_log_file,
     cmd_eager_alloc,
-    cmd_ucx,
 )
 
 CMD_PARTS_LEGION = (
@@ -441,6 +458,8 @@ CMD_PARTS_LEGION = (
         cmd_nsys,
         # Add memcheck right before the binary
         cmd_memcheck,
+        # Add valgrind right before the binary
+        cmd_valgrind,
         # Now we're ready to build the actual command to run
         cmd_legion,
         # This has to go before script name
@@ -458,6 +477,8 @@ CMD_PARTS_LEGION = (
 
 CMD_PARTS_CANONICAL = (
     (
+        # Executable name that will get stripped by the runtime
+        cmd_python,
         # User script
         cmd_user_script,
     )

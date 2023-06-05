@@ -25,11 +25,12 @@ cdef extern from "core/legate_c.h" nogil:
 cdef extern from "core/task/task_info.h" namespace "legate" nogil:
     cdef cppclass TaskInfo:
         bool has_variant(int)
+        string name()
 
 cdef extern from "core/runtime/context.h" namespace "legate" nogil:
     cdef cppclass LibraryContext:
         unsigned int get_task_id(long long)
-        unsigned int get_mapper_id(long long)
+        unsigned int get_mapper_id()
         int get_reduction_op_id(long long)
         unsigned int get_projection_id(long long)
         unsigned int get_sharding_id(long long)
@@ -55,6 +56,10 @@ cdef class CppTaskInfo:
     def valid(self) -> bool:
         return self._task_info != NULL
 
+    @property
+    def name(self) -> str:
+        return self._task_info.name()
+
     def has_variant(self, int variant_id) -> bool:
         return self._task_info.has_variant(
             cython.cast(legate_core_variant_t, variant_id)
@@ -70,8 +75,8 @@ cdef class Context:
     def get_task_id(self, long long local_task_id) -> int:
         return self._context.get_task_id(local_task_id)
 
-    def get_mapper_id(self, long long local_mapper_id) -> int:
-        return self._context.get_mapper_id(local_mapper_id)
+    def get_mapper_id(self) -> int:
+        return self._context.get_mapper_id()
 
     def get_reduction_op_id(self, long long local_redop_id) -> int:
         return self._context.get_reduction_op_id(local_redop_id)

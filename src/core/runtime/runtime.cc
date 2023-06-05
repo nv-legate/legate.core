@@ -16,11 +16,13 @@
 
 #include "core/comm/comm.h"
 #include "core/mapping/core_mapper.h"
+#include "core/mapping/default_mapper.h"
 #include "core/runtime/context.h"
 #include "core/runtime/projection.h"
 #include "core/runtime/shard.h"
 #include "core/task/exception.h"
 #include "core/task/task.h"
+#include "core/type/type_info.h"
 #include "core/utilities/deserializer.h"
 #include "core/utilities/machine.h"
 #include "core/utilities/nvtx_help.h"
@@ -144,7 +146,18 @@ static void extract_scalar_task(
   LEGATE_ABORT;
 }
 
-Runtime::Runtime() {}
+namespace {
+
+constexpr uint32_t CUSTOM_TYPE_UID_BASE = 1000;
+
+}  // namespace
+
+Runtime::Runtime() : next_type_uid_(CUSTOM_TYPE_UID_BASE) {}
+
+Runtime::~Runtime()
+{
+  for (auto& [_, context] : libraries_) delete context;
+}
 
 LibraryContext* Runtime::find_library(const std::string& library_name,
                                       bool can_fail /*=false*/) const
@@ -157,11 +170,12 @@ LibraryContext* Runtime::find_library(const std::string& library_name,
     } else
       return nullptr;
   }
-  return finder->second.get();
+  return finder->second;
 }
 
 LibraryContext* Runtime::create_library(const std::string& library_name,
-                                        const ResourceConfig& config)
+                                        const ResourceConfig& config,
+                                        std::unique_ptr<mapping::Mapper> mapper)
 {
   if (libraries_.find(library_name) != libraries_.end()) {
     log_legate.error("Library %s already exists", library_name.c_str());
@@ -169,10 +183,49 @@ LibraryContext* Runtime::create_library(const std::string& library_name,
   }
 
   log_legate.debug("Library %s is created", library_name.c_str());
-  auto context             = std::make_unique<LibraryContext>(library_name, config);
-  auto raw_context         = context.get();
-  libraries_[library_name] = std::move(context);
-  return raw_context;
+  if (nullptr == mapper) mapper = std::make_unique<mapping::DefaultMapper>();
+  auto context             = new LibraryContext(library_name, config, std::move(mapper));
+  libraries_[library_name] = context;
+  return context;
+}
+
+uint32_t Runtime::get_type_uid() { return next_type_uid_++; }
+
+void Runtime::record_reduction_operator(int32_t type_uid, int32_t op_kind, int32_t legion_op_id)
+{
+#ifdef DEBUG_LEGATE
+  log_legate.debug("Record reduction op (type_uid: %d, op_kind: %d, legion_op_id: %d)",
+                   type_uid,
+                   op_kind,
+                   legion_op_id);
+#endif
+  auto key    = std::make_pair(type_uid, op_kind);
+  auto finder = reduction_ops_.find(key);
+  if (finder != reduction_ops_.end()) {
+    std::stringstream ss;
+    ss << "Reduction op " << op_kind << " already exists for type " << type_uid;
+    throw std::invalid_argument(std::move(ss).str());
+  }
+  reduction_ops_.emplace(std::make_pair(key, legion_op_id));
+}
+
+int32_t Runtime::find_reduction_operator(int32_t type_uid, int32_t op_kind) const
+{
+  auto key    = std::make_pair(type_uid, op_kind);
+  auto finder = reduction_ops_.find(key);
+  if (reduction_ops_.end() == finder) {
+#ifdef DEBUG_LEGATE
+    log_legate.debug("Can't find reduction op (type_uid: %d, op_kind: %d)", type_uid, op_kind);
+#endif
+    std::stringstream ss;
+    ss << "Reduction op " << op_kind << " does not exist for type " << type_uid;
+    throw std::invalid_argument(std::move(ss).str());
+  }
+#ifdef DEBUG_LEGATE
+  log_legate.debug(
+    "Found reduction op %d (type_uid: %d, op_kind: %d)", finder->second, type_uid, op_kind);
+#endif
+  return finder->second;
 }
 
 /*static*/ Runtime* Runtime::get_runtime()
@@ -181,11 +234,17 @@ LibraryContext* Runtime::create_library(const std::string& library_name,
   return &runtime;
 }
 
+void Runtime::enter_callback() { in_callback_ = true; }
+
+void Runtime::exit_callback() { in_callback_ = false; }
+
+bool Runtime::is_in_callback() const { return in_callback_; }
+
 void register_legate_core_tasks(Legion::Machine machine,
                                 Legion::Runtime* runtime,
-                                const LibraryContext& context)
+                                const LibraryContext* context)
 {
-  auto extract_scalar_task_id          = context.get_task_id(LEGATE_CORE_EXTRACT_SCALAR_TASK_ID);
+  auto extract_scalar_task_id          = context->get_task_id(LEGATE_CORE_EXTRACT_SCALAR_TASK_ID);
   const char* extract_scalar_task_name = "core::extract_scalar";
   runtime->attach_name(
     extract_scalar_task_id, extract_scalar_task_name, false /*mutable*/, true /*local only*/);
@@ -215,8 +274,56 @@ void register_legate_core_tasks(Legion::Machine machine,
   comm::register_tasks(machine, runtime, context);
 }
 
+#define BUILTIN_REDOP_ID(OP, TYPE_CODE) \
+  (LEGION_REDOP_BASE + (OP)*LEGION_TYPE_TOTAL + (static_cast<int32_t>(TYPE_CODE)))
+
+#define RECORD(OP, TYPE_CODE) \
+  PrimitiveType(TYPE_CODE).record_reduction_operator(OP, BUILTIN_REDOP_ID(OP, TYPE_CODE));
+
+#define RECORD_INT(OP)           \
+  RECORD(OP, Type::Code::BOOL)   \
+  RECORD(OP, Type::Code::INT8)   \
+  RECORD(OP, Type::Code::INT16)  \
+  RECORD(OP, Type::Code::INT32)  \
+  RECORD(OP, Type::Code::INT64)  \
+  RECORD(OP, Type::Code::UINT8)  \
+  RECORD(OP, Type::Code::UINT16) \
+  RECORD(OP, Type::Code::UINT32) \
+  RECORD(OP, Type::Code::UINT64)
+
+#define RECORD_FLOAT(OP)          \
+  RECORD(OP, Type::Code::FLOAT16) \
+  RECORD(OP, Type::Code::FLOAT32) \
+  RECORD(OP, Type::Code::FLOAT64)
+
+#define RECORD_COMPLEX(OP) RECORD(OP, Type::Code::COMPLEX64)
+
+#define RECORD_ALL(OP) \
+  RECORD_INT(OP)       \
+  RECORD_FLOAT(OP)     \
+  RECORD_COMPLEX(OP)
+
+void register_builtin_reduction_ops()
+{
+  RECORD_ALL(ADD_LT)
+  RECORD(ADD_LT, Type::Code::COMPLEX128)
+  RECORD_ALL(SUB_LT)
+  RECORD_ALL(MUL_LT)
+  RECORD_ALL(DIV_LT)
+
+  RECORD_INT(MAX_LT)
+  RECORD_FLOAT(MAX_LT)
+
+  RECORD_INT(MIN_LT)
+  RECORD_FLOAT(MIN_LT)
+
+  RECORD_INT(OR_LT)
+  RECORD_INT(AND_LT)
+  RECORD_INT(XOR_LT)
+}
+
 extern void register_exception_reduction_op(Legion::Runtime* runtime,
-                                            const LibraryContext& context);
+                                            const LibraryContext* context);
 
 /*static*/ void core_registration_callback(Legion::Machine machine,
                                            Legion::Runtime* runtime,
@@ -230,18 +337,20 @@ extern void register_exception_reduction_op(Legion::Runtime* runtime,
   config.max_reduction_ops = LEGATE_CORE_MAX_REDUCTION_OP_ID;
   auto core_lib            = Runtime::get_runtime()->create_library(core_library_name, config);
 
-  register_legate_core_tasks(machine, runtime, *core_lib);
+  register_legate_core_tasks(machine, runtime, core_lib);
 
   register_legate_core_mapper(machine, runtime, core_lib);
 
-  register_exception_reduction_op(runtime, *core_lib);
+  register_builtin_reduction_ops();
 
-  register_legate_core_projection_functors(runtime, *core_lib);
+  register_exception_reduction_op(runtime, core_lib);
 
-  register_legate_core_sharding_functors(runtime, *core_lib);
+  register_legate_core_projection_functors(runtime, core_lib);
+
+  register_legate_core_sharding_functors(runtime, core_lib);
 
   auto fut = runtime->select_tunable_value(
-    Legion::Runtime::get_context(), LEGATE_CORE_TUNABLE_HAS_SOCKET_MEM, core_lib->get_mapper_id(0));
+    Legion::Runtime::get_context(), LEGATE_CORE_TUNABLE_HAS_SOCKET_MEM, core_lib->get_mapper_id());
   Core::has_socket_mem = fut.get_result<bool>();
 }
 

@@ -19,3 +19,4 @@
 
 add_subdirectory(hello)
 add_subdirectory(io)
+add_subdirectory(reduction)

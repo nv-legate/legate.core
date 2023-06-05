@@ -124,19 +124,19 @@ static void finalize_nccl(const Legion::Task* task,
 
 void register_tasks(Legion::Machine machine,
                     Legion::Runtime* runtime,
-                    const LibraryContext& context)
+                    const LibraryContext* context)
 {
-  auto init_nccl_id_task_id          = context.get_task_id(LEGATE_CORE_INIT_NCCL_ID_TASK_ID);
+  auto init_nccl_id_task_id          = context->get_task_id(LEGATE_CORE_INIT_NCCL_ID_TASK_ID);
   const char* init_nccl_id_task_name = "core::comm::nccl::init_id";
   runtime->attach_name(
     init_nccl_id_task_id, init_nccl_id_task_name, false /*mutable*/, true /*local only*/);
 
-  auto init_nccl_task_id          = context.get_task_id(LEGATE_CORE_INIT_NCCL_TASK_ID);
+  auto init_nccl_task_id          = context->get_task_id(LEGATE_CORE_INIT_NCCL_TASK_ID);
   const char* init_nccl_task_name = "core::comm::nccl::init";
   runtime->attach_name(
     init_nccl_task_id, init_nccl_task_name, false /*mutable*/, true /*local only*/);
 
-  auto finalize_nccl_task_id          = context.get_task_id(LEGATE_CORE_FINALIZE_NCCL_TASK_ID);
+  auto finalize_nccl_task_id          = context->get_task_id(LEGATE_CORE_FINALIZE_NCCL_TASK_ID);
   const char* finalize_nccl_task_name = "core::comm::nccl::finalize";
   runtime->attach_name(
     finalize_nccl_task_id, finalize_nccl_task_name, false /*mutable*/, true /*local only*/);
@@ -168,23 +168,10 @@ void register_tasks(Legion::Machine machine,
 
 bool needs_barrier()
 {
-  int32_t ver;
-  auto status = cuDriverGetVersion(&ver);
-  if (status != CUDA_SUCCESS) {
-    const char* error_string;
-    cuGetErrorString(status, &error_string);
-    fprintf(stderr,
-            "Internal CUDA failure with error %s in file %s at line %d\n",
-            error_string,
-            __FILE__,
-            __LINE__);
-    exit(status);
-  }
-
-  int32_t major = ver / 1000;
-  int32_t minor = (ver - major * 1000) / 10;
-
-  return major < 11 || major == 11 && minor < 8;
+  // Blocking communications in NCCL violate CUDA's (undocumented) concurrent forward progress
+  // requirements and no CUDA drivers that have released are safe from this. Until either CUDA
+  // or NCCL is fixed, we will always insert a barrier at the beginning of every NCCL task.
+  return true;
 }
 
 }  // namespace nccl

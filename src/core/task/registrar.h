@@ -85,7 +85,7 @@ class TaskRegistrar {
    *
    * @param context Context of the library that owns this registrar
    */
-  void register_all_tasks(LibraryContext& context);
+  void register_all_tasks(LibraryContext* context);
 
  private:
   std::vector<std::pair<int64_t, std::unique_ptr<TaskInfo>>> pending_task_infos_;
