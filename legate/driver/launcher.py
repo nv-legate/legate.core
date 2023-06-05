@@ -261,6 +261,10 @@ class Launcher:
         # Debugging options
         if system.env.get("PYTHONFAULTHANDLER", "") == "":
             env["REALM_BACKTRACE"] = "1"
+        elif "REALM_BACKTRACE" in system.env:
+            raise RuntimeError(
+                "REALM_BACKTRACE and PYTHONFAULTHANDLER should not be both set"
+            )
 
         if "CUTENSOR_LOG_LEVEL" not in system.env:
             env["CUTENSOR_LOG_LEVEL"] = "1"
