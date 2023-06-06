@@ -151,25 +151,25 @@ class TestMultiRank:
         c = Config(["test.py", "--gpus", "1", "--ranks-per-node", "2"])
         s = FakeSystem(gpus=4)
         stage = m.GPU(c, s)
-        assert stage.spec.workers == 4
+        assert stage.spec.workers == 8
         assert (
             stage.spec.shards
             == [
                 Shard([(0,), (1,)]),
                 Shard([(2,), (3,)]),
             ]
-            * stage.spec.workers
+            * 4
         )
 
     def test_spec_with_gpus_2(self) -> None:
         c = Config(["test.py", "--gpus", "2", "--ranks-per-node", "2"])
         s = FakeSystem(gpus=4)
         stage = m.GPU(c, s)
-        assert stage.spec.workers == 2
+        assert stage.spec.workers == 4
         assert (
             stage.spec.shards
             == [
                 Shard([(0, 1), (2, 3)]),
             ]
-            * stage.spec.workers
+            * 4
         )
