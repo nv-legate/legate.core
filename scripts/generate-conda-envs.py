@@ -143,7 +143,6 @@ class RuntimeConfig(SectionConfig):
             "libblas=*=*openblas*",
             "openblas=*=*openmp*",
             "opt_einsum",
-            "pyarrow>=5",
             "scipy",
             "typing_extensions",
         )

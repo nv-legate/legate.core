@@ -121,7 +121,6 @@ requirements:
     - cffi
     - llvm-openmp
     - numpy {{ numpy_version }}
-    - pyarrow {{ pyarrow_version }}
     - typing_extensions
 {% if gpu_enabled_bool %}
     - cuda-cudart >={{ cuda_version }}
