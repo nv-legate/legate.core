@@ -45,17 +45,10 @@ int32_t LibraryContext::register_reduction_operator(int32_t redop_id)
   log_legate.error("Reduction operators must be registered in a .cu file when CUDA is enabled");
   LEGATE_ABORT;
 #endif
-  auto runtime = Runtime::get_runtime();
-  if (runtime->is_in_callback())
-    Legion::Runtime::register_reduction_op<REDOP>(legion_redop_id);
-  else {
-    runtime->enter_callback();
-    Legion::Runtime::perform_registration_callback(
-      detail::register_reduction_callback<REDOP>,
-      Legion::UntypedBuffer(&legion_redop_id, sizeof(int32_t)),
-      true /*global*/);
-    runtime->exit_callback();
-  }
+  Legion::Runtime::perform_registration_callback(
+    detail::register_reduction_callback<REDOP>,
+    Legion::UntypedBuffer(&legion_redop_id, sizeof(int32_t)),
+    true /*global*/);
 
   return legion_redop_id;
 }
@@ -100,22 +93,10 @@ template <typename REDOP>
 int32_t LibraryContext::register_reduction_operator(int32_t redop_id)
 {
   int32_t legion_redop_id = get_reduction_op_id(redop_id);
-  auto runtime            = Runtime::get_runtime();
-  if (runtime->is_in_callback())
-    Legion::Runtime::register_reduction_op(
-      legion_redop_id,
-      Realm::ReductionOpUntyped::create_reduction_op<detail::CUDAReductionOpWrapper<REDOP>>(),
-      nullptr,
-      nullptr,
-      false);
-  else {
-    runtime->enter_callback();
-    Legion::Runtime::perform_registration_callback(
-      detail::register_reduction_callback<REDOP>,
-      Legion::UntypedBuffer(&legion_redop_id, sizeof(int32_t)),
-      true /*global*/);
-    runtime->exit_callback();
-  }
+  Legion::Runtime::perform_registration_callback(
+    detail::register_reduction_callback<REDOP>,
+    Legion::UntypedBuffer(&legion_redop_id, sizeof(int32_t)),
+    true /*global*/);
   return legion_redop_id;
 }
 
