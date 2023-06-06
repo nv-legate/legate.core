@@ -78,7 +78,7 @@ class GPU(TestStage):
         fbsize = min(gpu.total for gpu in system.gpus) / (1 << 20)  # MB
         oversub_factor = int(fbsize // (config.fbmem * BLOAT_FACTOR))
         workers = adjust_workers(
-            int(degree * oversub_factor / config.ranks),
+            degree * oversub_factor,
             config.requested_workers,
         )
 
@@ -94,4 +94,4 @@ class GPU(TestStage):
                 rank_shards.append(shard)
             shards.append(Shard(rank_shards))
 
-        return StageSpec(workers, shards * workers)
+        return StageSpec(workers, shards * oversub_factor)
