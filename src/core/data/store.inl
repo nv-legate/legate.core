@@ -287,8 +287,7 @@ void Store::check_accessor_type() const
   if (sizeof(T) != this->type().size()) {
     log_legate.error(
       "Type size mismatch: store type %s has size %d, requested type has size %d. Disable type "
-      "checking via "
-      "accessor template parameter if this is intended.",
+      "checking via accessor template parameter if this is intended.",
       this->type().to_string().c_str(),
       this->type().size(),
       sizeof(T));

@@ -390,8 +390,7 @@ class Store {
   AccessorRO<T, DIM> read_accessor(const Rect<DIM>& bounds) const;
   /**
    * @brief Returns a write-only accessor to the store for the entire domain. Validates type and
-   dimension by default, disable with VALIDATE_TYPE = false.
-
+   * dimension by default, disable with VALIDATE_TYPE = false.
    *
    * @param bounds Domain within which accesses should be allowed.
    * The actual bounds for valid access are determined by an intersection between
@@ -403,8 +402,7 @@ class Store {
   AccessorWO<T, DIM> write_accessor(const Rect<DIM>& bounds) const;
   /**
    * @brief Returns a read-write accessor to the store for the entire domain. Validates type and
-   dimension by default, disable with VALIDATE_TYPE = false.
-
+   * dimension by default, disable with VALIDATE_TYPE = false.
    *
    * @param bounds Domain within which accesses should be allowed.
    * The actual bounds for valid access are determined by an intersection between
