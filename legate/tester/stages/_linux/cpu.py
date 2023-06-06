@@ -72,7 +72,7 @@ class CPU(TestStage):
 
         procs = config.cpus + config.utility + int(config.cpu_pin == "strict")
         workers = adjust_workers(
-            int(len(cpus) / procs / config.ranks), config.requested_workers
+            len(cpus) // (procs * config.ranks), config.requested_workers
         )
 
         shards: list[Shard] = []

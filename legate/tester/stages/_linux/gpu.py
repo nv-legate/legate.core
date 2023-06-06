@@ -73,7 +73,7 @@ class GPU(TestStage):
 
     def compute_spec(self, config: Config, system: TestSystem) -> StageSpec:
         N = len(system.gpus)
-        degree = int(N / config.gpus / config.ranks)
+        degree = N // (config.gpus * config.ranks)
 
         fbsize = min(gpu.total for gpu in system.gpus) / (1 << 20)  # MB
         oversub_factor = int(fbsize // (config.fbmem * BLOAT_FACTOR))
@@ -91,7 +91,7 @@ class GPU(TestStage):
                     (j + i * config.ranks + 1) * config.gpus,
                 )
                 shard = tuple(shard_gpus)
-                rank_shards.append(tuple(sorted(shard)))
+                rank_shards.append(shard)
             shards.append(Shard(rank_shards))
 
         return StageSpec(workers, shards * workers)
