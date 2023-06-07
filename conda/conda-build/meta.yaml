@@ -84,8 +84,9 @@ build:
 {% endif %}
 {% if gpu_enabled_bool %}
 # prevent nccl from pulling in cudatoolkit
-  ignore_run_exports:
-    - cudatoolkit
+# once an nccl package compatible with cuda-* packages is introduced, this can be removed
+#  ignore_run_exports:
+#    - cudatoolkit
   ignore_run_exports_from:
     - cuda-nvcc
 {% endif %}
