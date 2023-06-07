@@ -65,7 +65,6 @@ class CUDAConfig(SectionConfig):
             return ()
 
         deps = (
-            f"cudatoolkit={self.ctk_version}",  # runtime
             "cutensor>=1.3.3",  # runtime
             "nccl",  # runtime
             "pynvml",  # tests
