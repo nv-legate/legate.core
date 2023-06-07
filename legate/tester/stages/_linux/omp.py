@@ -64,6 +64,11 @@ class OMP(TestStage):
                 "--cpu-bind",
                 str(shard),
             ]
+        if config.ranks > 1:
+            args += [
+                "--ranks-per-node",
+                str(config.ranks),
+            ]
         return args
 
     def compute_spec(self, config: Config, system: TestSystem) -> StageSpec:
