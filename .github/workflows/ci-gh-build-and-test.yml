@@ -11,8 +11,8 @@ on:
       - "branch-*"
 
 jobs:
-  build:
-    name: build-${{ matrix.name }}
+  build-${{ matrix.name }}:
+    # name: build-${{ matrix.name }}
     permissions:
       id-token: write # This is required for configure-aws-credentials
       contents: read  # This is required for actions/checkout
