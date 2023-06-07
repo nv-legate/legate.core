@@ -57,6 +57,7 @@ class TestConfig:
         assert c.omps == DEFAULT_OMPS_PER_NODE
         assert c.ompthreads == DEFAULT_OMPTHREADS
 
+        assert c.timeout is None
         assert c.debug is False
         assert c.dry_run is False
         assert c.verbose == 0
@@ -136,6 +137,10 @@ class TestConfig:
     def test_workers(self) -> None:
         c = m.Config(["test.py", "-j", "1234"])
         assert c.requested_workers == 1234
+
+    def test_timeout(self) -> None:
+        c = m.Config(["test.py", "--timeout", "10"])
+        assert c.timeout == 10
 
     def test_debug(self) -> None:
         c = m.Config(["test.py", "--debug"])

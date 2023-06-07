@@ -26,7 +26,7 @@ from legate.tester.config import Config
 from legate.tester.logger import LOG
 from legate.tester.stages import util as m
 from legate.tester.test_system import ProcessResult
-from legate.util.ui import failed, passed, shell, skipped
+from legate.util.ui import failed, passed, shell, skipped, timeout
 
 
 def test_StageResult() -> None:
@@ -130,6 +130,15 @@ class Test_log_proc:
                 exit_code=returncode,
             ).split("\n")
         )
+
+    def test_timeout(self) -> None:
+        config = Config([])
+        proc = ProcessResult("proc", Path("proc"), timeout=True)
+
+        LOG.clear()
+        m.log_proc("foo", proc, config, verbose=False)
+
+        assert LOG.lines == (timeout(f"(foo) {proc.test_file}"),)
 
     def test_dry_run(self) -> None:
         config = Config([])

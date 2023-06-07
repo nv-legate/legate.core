@@ -27,6 +27,34 @@ from pytest_mock import MockerFixture
 from legate.tester import test_system as m
 
 
+class TestProcessResult:
+    def test_default(self) -> None:
+        ret = m.ProcessResult("proc", Path("proc"))
+        assert ret.invocation == "proc"
+        assert ret.test_file == Path("proc")
+        assert not ret.skipped
+        assert not ret.timeout
+        assert ret.returncode == 0
+        assert ret.output == ""
+        assert ret.passed
+
+    def test_passed_skipped(self) -> None:
+        ret = m.ProcessResult("proc", Path("proc"), skipped=True)
+        assert ret.passed
+
+    def test_passed_return_zero(self) -> None:
+        ret = m.ProcessResult("proc", Path("proc"), returncode=0)
+        assert ret.passed
+
+    def test_passed_return_nonzero(self) -> None:
+        ret = m.ProcessResult("proc", Path("proc"), returncode=1)
+        assert not ret.passed
+
+    def test_passed_timeout(self) -> None:
+        ret = m.ProcessResult("proc", Path("proc"), timeout=True)
+        assert not ret.passed
+
+
 @pytest.fixture
 def mock_subprocess_run(mocker: MockerFixture) -> MagicMock:
     return mocker.patch.object(m, "stdlib_run")
@@ -44,7 +72,11 @@ class TestSystem:
         s = m.TestSystem()
 
         expected = m.ProcessResult(
-            CMD, Path("test/file"), returncode=10, output="<output>"
+            CMD,
+            Path("test/file"),
+            returncode=10,
+            output="<output>",
+            timeout=False,
         )
         mock_subprocess_run.return_value = CompletedProcess(
             CMD, 10, stdout="<output>"
@@ -63,3 +95,11 @@ class TestSystem:
 
         assert result.output == ""
         assert result.skipped
+
+    def test_timeout(self) -> None:
+        s = m.TestSystem()
+
+        result = s.run(["sleep", "2"], Path("test/file"), timeout=1)
+
+        assert result.timeout
+        assert not result.skipped

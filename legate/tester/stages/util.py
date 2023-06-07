@@ -20,7 +20,7 @@ from typing import Tuple, Union
 
 from typing_extensions import TypeAlias
 
-from ...util.ui import failed, passed, shell, skipped
+from ...util.ui import failed, passed, shell, skipped, timeout
 from ..config import Config
 from ..logger import LOG
 from ..test_system import ProcessResult
@@ -127,6 +127,8 @@ def log_proc(
     details = proc.output.split("\n") if verbose else None
     if proc.skipped:
         LOG(skipped(msg))
+    elif proc.timeout:
+        LOG(timeout(msg))
     elif proc.returncode == 0:
         LOG(passed(msg, details=details))
     else:
