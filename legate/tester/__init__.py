@@ -49,6 +49,9 @@ DEFAULT_OMPTHREADS = 4
 #: Value to use if --numamem is not specified.
 DEFAULT_NUMAMEM = 0
 
+#: Value to use if --ranks-per-node is not specified.
+DEFAULT_RANKS_PER_NODE = 1
+
 #: Default values to apply to normalize the testing environment.
 DEFAULT_PROCESS_ENV = {
     "LEGATE_TEST": "1",
