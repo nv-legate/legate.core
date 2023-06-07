@@ -12,18 +12,24 @@ on:
 
 jobs:
   build:
+    name: build-${{ matrix.name }}
     permissions:
       id-token: write # This is required for configure-aws-credentials
       contents: read  # This is required for actions/checkout
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: "gpu", USE_CUDA: "ON"}
+          - { name: "cpu", USE_CUDA: "OFF"}
 
     # Ref: https://docs.rapids.ai/resources/github-actions/#cpu-labels for `linux-amd64-cpu4`
     runs-on: ${{ github.repository == 'nv-legate/legate.core' && 'linux-amd64-cpu4' || 'ubuntu-latest' }}
     container:
       options: -u root
       image: rapidsai/devcontainers:23.06-cpp-cuda11.8-mambaforge-ubuntu22.04
-      volumes:
-        - ${{ github.workspace }}/out:/tmp/out
       env:
+        USE_CUDA: ${{ matrix.USE_CUDA }}
         DEFAULT_CONDA_ENV: legate
         PYTHONDONTWRITEBYTECODE: 1
         SCCACHE_REGION: us-east-2
@@ -50,6 +56,7 @@ jobs:
 
           chmod a+x /home/coder/.local/bin/*;
           chown -R coder:coder /home/coder/;
+          mkdir -p /tmp/out
           chown -R coder:coder /tmp/out;
 
       - if: github.repository == 'nv-legate/legate.core'
@@ -79,7 +86,7 @@ jobs:
       - name: Upload build artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: "legate.core-${{ github.sha }}"
+          name: "legate.core-${{ matrix.name }}-${{ github.sha }}"
           path: |
             /tmp/conda-build
             /tmp/out
@@ -93,7 +100,7 @@ jobs:
         include:
           - { name: "unit", runner: "linux-amd64-gpu-v100-latest-1" }
     needs:
-      - build
+      - build-gpu
     runs-on: ${{ matrix.runner }}
     container:
       options: -u root
@@ -117,7 +124,7 @@ jobs:
       - name: Download build artifacts
         uses: actions/download-artifact@v3
         with:
-          name: "legate.core-${{ github.sha }}"
+          name: "legate.core-gpu-${{ github.sha }}"
           path: artifacts
           
       - name: Display structure of downloaded artifacts
