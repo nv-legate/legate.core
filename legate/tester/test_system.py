@@ -21,6 +21,7 @@ from __future__ import annotations
 import multiprocessing
 import os
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from pathlib import Path
 from subprocess import PIPE, STDOUT, TimeoutExpired, run as stdlib_run
 from typing import Sequence
@@ -44,6 +45,9 @@ class ProcessResult:
 
     #  User-friendly test file path to use in reported output
     test_file: Path
+
+    #: The time the process took to execute in seconds
+    time: timedelta | None = None
 
     #: Whether this process was actually invoked
     skipped: bool = False
@@ -125,6 +129,7 @@ class TestSystem(System):
         full_env = dict(os.environ)
         full_env.update(env)
 
+        t0 = datetime.now()
         try:
             proc = stdlib_run(
                 cmd,
@@ -138,9 +143,11 @@ class TestSystem(System):
         except TimeoutExpired:
             return ProcessResult(invocation, test_file, timeout=True)
 
+        t1 = datetime.now()
         return ProcessResult(
             invocation,
             test_file,
+            time=t1 - t0,
             returncode=proc.returncode,
             output=proc.stdout,
         )

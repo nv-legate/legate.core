@@ -123,7 +123,12 @@ def log_proc(
     """Log a process result according to the current configuration"""
     if config.debug or config.dry_run:
         LOG(shell(proc.invocation))
-    msg = f"({name}) {proc.test_file}"
+    duration = (
+        f" {{{proc.time.total_seconds():0.2f}s}}"
+        if proc.time is not None
+        else ""
+    )
+    msg = f"({name}){duration} {proc.test_file}"
     details = proc.output.split("\n") if verbose else None
     if proc.skipped:
         LOG(skipped(msg))

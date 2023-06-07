@@ -165,3 +165,18 @@ class Test_log_proc:
             shell(proc.invocation),
             passed(f"(foo) {proc.test_file}"),
         )
+
+    def test_time(self) -> None:
+        config = Config([])
+        config.debug = True
+        proc = ProcessResult(
+            "proc", Path("proc"), time=timedelta(seconds=2.41)
+        )
+
+        LOG.clear()
+        m.log_proc("foo", proc, config, verbose=False)
+
+        assert LOG.lines == (
+            shell(proc.invocation),
+            passed(f"(foo) {{2.41s}} {proc.test_file}"),
+        )
