@@ -11,8 +11,8 @@ on:
       - "branch-*"
 
 jobs:
-  build-${{ matrix.name }}:
-    # name: build-${{ matrix.name }}
+  build:
+    name: build-${{ matrix.name }}
     permissions:
       id-token: write # This is required for configure-aws-credentials
       contents: read  # This is required for actions/checkout
@@ -100,7 +100,7 @@ jobs:
         include:
           - { name: "unit", runner: "linux-amd64-gpu-v100-latest-1" }
     needs:
-      - build-gpu
+      - build
     runs-on: ${{ matrix.runner }}
     container:
       options: -u root
