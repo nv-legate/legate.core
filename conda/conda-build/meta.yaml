@@ -107,6 +107,7 @@ requirements:
     - numpy {{ numpy_version }}
 {% if gpu_enabled_bool %}
     - nccl
+    - cudatoolkit ={{ cuda_version }}
     - cuda-nvcc ={{ cuda_version }}
     - cuda-nvtx ={{ cuda_version }}
     - cuda-cccl ={{ cuda_version }}
