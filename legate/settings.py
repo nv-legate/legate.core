@@ -221,5 +221,20 @@ class LegateRuntimeSettings(Settings):
         """,
     )
 
+    disable_mpi: EnvOnlySetting[bool] = EnvOnlySetting(
+        "disable_mpi",
+        "LEGATE_DISABLE_MPI",
+        default=False,
+        test_default=False,
+        convert=convert_bool,
+        help="""
+        Disable the MPI-based communicator (used for collective operations in
+        certain CPU tasks). Use this to work around MPI initialization
+        failures.
+
+        This is a read-only environment variable setting used by the runtime.
+        """,
+    )
+
 
 settings = LegateRuntimeSettings()

@@ -27,7 +27,6 @@
 #include "core/mapping/machine.h"
 #include "core/mapping/mapping.h"
 #include "core/runtime/resource.h"
-#include "core/runtime/runtime.h"
 #include "core/task/return.h"
 #include "core/task/task_info.h"
 #include "core/utilities/typedefs.h"
