@@ -13,7 +13,7 @@ on:
 jobs:
   build-gpu:
     uses:
-      sandeepd-nv/legate.core/.github/workflows/gh-build.yml@gh_reusable_workflow
+      ./.github/workflows/gh-build.yml
     with:
       build-target: gpu
       # Ref: https://docs.rapids.ai/resources/github-actions/#cpu-labels for `linux-amd64-cpu4`
