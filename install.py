@@ -243,6 +243,7 @@ def install(
     spy,
     build_docs,
     conduit,
+    gasnet_system,
     nccl_dir,
     cmake_exe,
     cmake_generator,
@@ -292,6 +293,7 @@ def install(
         print("spy:", spy)
         print("build_docs:", build_docs)
         print("conduit:", conduit)
+        print("gasnet_system:", gasnet_system)
         print("nccl_dir:", nccl_dir)
         print("cmake_exe:", cmake_exe)
         print("cmake_generator:", cmake_generator)
@@ -453,6 +455,8 @@ def install(
         cmake_flags += [f"-DUCX_ROOT={ucx_dir}"]
     if conduit:
         cmake_flags += [f"-DGASNet_CONDUIT={conduit}"]
+    if gasnet_system:
+        cmake_flags += [f"-DGASNet_SYSTEM={gasnet_system}"]
     if cuda_dir:
         cmake_flags += [f"-DCUDAToolkit_ROOT={cuda_dir}"]
     if thrust_dir:
@@ -643,9 +647,17 @@ def driver():
         # TODO: To support UDP conduit, we would need to add a special case on
         # the legate launcher.
         # See https://github.com/nv-legate/legate.core/issues/294.
-        choices=["ibv", "ucx", "aries", "mpi"],
+        choices=["ibv", "ucx", "aries", "mpi", "ofi"],
         default=os.environ.get("CONDUIT"),
         help="Build Legate with specified GASNet conduit.",
+    )
+    parser.add_argument(
+        "--gasnet-system",
+        dest="gasnet_system",
+        action="store",
+        required=False,
+        default=None,
+        help="Specify a system-specific configuration to use for GASNet",
     )
     parser.add_argument(
         "--with-nccl",
