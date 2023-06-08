@@ -15,7 +15,7 @@ on:
 
 jobs:
   build:
-    name: build-${{ inputs.build-target }}
+    name: build-${{inputs.build-target}}-sub-workflow
 
     permissions:
       id-token: write # This is required for configure-aws-credentials
