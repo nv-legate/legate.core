@@ -20,8 +20,6 @@ jobs:
   test:
     if: github.repository_owner == 'nv-legate'
     name: test-${{inputs.build-target}}-sub-workflow
-    needs:
-      - build-${{inputs.build-target}}
     runs-on: ${{ inputs.runs-on }}
     container:
       options: -u root

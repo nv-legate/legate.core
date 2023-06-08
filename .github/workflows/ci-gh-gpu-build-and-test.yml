@@ -21,6 +21,8 @@ jobs:
       sha: ${{ github.sha }}
 
   test-gpu:
+    needs:
+      - build-gpu
     uses:
       ./.github/workflows/gh-test.yml
     with:
