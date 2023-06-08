@@ -93,7 +93,7 @@ class TestSystem(System):
         *,
         env: EnvDict | None = None,
         cwd: str | None = None,
-        timeout: int | None = 10,
+        timeout: int | None = None,
     ) -> ProcessResult:
         """Wrapper for subprocess.run that encapsulates logging.
 

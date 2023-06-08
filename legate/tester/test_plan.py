@@ -123,7 +123,7 @@ class TestPlan:
         return f"{overall}\n"
 
     def _log_failures(self, all_procs: tuple[ProcessResult, ...]) -> None:
-        if all(proc.passed for proc in all_procs):
+        if not any(proc.returncode for proc in all_procs):
             return
 
         LOG(f"{banner('FAILURES')}\n")
