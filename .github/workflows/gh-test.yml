@@ -30,7 +30,7 @@ jobs:
         NVIDIA_VISIBLE_DEVICES: ${{ env.NVIDIA_VISIBLE_DEVICES }}
 
     steps:
-      - if: inputs.build-target == "gpu"
+      - if: inputs.build-target == 'gpu'
         name: Run nvidia-smi to make sure GPU is working
         run: nvidia-smi
 
