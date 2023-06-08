@@ -27,7 +27,7 @@ jobs:
       ./.github/workflows/gh-test.yml
     with:
       build-target: cpu
-      runs-on: linux-amd64-gpu-v100-latest-1
+      runs-on: ${{ github.repository == 'nv-legate/legate.core' && 'linux-amd64-cpu4' || 'ubuntu-latest' }}
       sha: ${{ github.sha }}
       test-scope: unit
 
