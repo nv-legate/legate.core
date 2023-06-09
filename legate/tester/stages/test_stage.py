@@ -269,7 +269,12 @@ class TestStage(Protocol):
 
         self.delay(shard, config, system)
 
-        result = system.run(cmd, test_file, env=self._env(config, system))
+        result = system.run(
+            cmd,
+            test_file,
+            env=self._env(config, system),
+            timeout=config.timeout,
+        )
         log_proc(self.name, result, config, verbose=config.verbose)
 
         self.shards.put(shard)

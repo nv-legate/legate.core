@@ -184,6 +184,17 @@ test_opts = parser.add_argument_group("Test run configuration options")
 
 
 test_opts.add_argument(
+    "--timeout",
+    dest="timeout",
+    type=int,
+    action="store",
+    default=None,
+    required=False,
+    help="Timeout in seconds for individual tests",
+)
+
+
+test_opts.add_argument(
     "--legate",
     dest="legate_dir",
     metavar="LEGATE_DIR",

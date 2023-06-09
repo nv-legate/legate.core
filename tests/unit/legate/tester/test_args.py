@@ -63,6 +63,9 @@ class TestParserDefaults:
     def test_numamem(self) -> None:
         assert m.parser.get_default("numamem") == DEFAULT_NUMAMEM
 
+    def test_timeout(self) -> None:
+        assert m.parser.get_default("timeout") is None
+
     def test_legate_dir(self) -> None:
         assert m.parser.get_default("legate_dir") is None
 

@@ -21,8 +21,9 @@ from __future__ import annotations
 import multiprocessing
 import os
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from pathlib import Path
-from subprocess import PIPE, STDOUT, run as stdlib_run
+from subprocess import PIPE, STDOUT, TimeoutExpired, run as stdlib_run
 from typing import Sequence
 
 from ..util.system import System
@@ -45,14 +46,24 @@ class ProcessResult:
     #  User-friendly test file path to use in reported output
     test_file: Path
 
+    #: The time the process took to execute in seconds
+    time: timedelta | None = None
+
     #: Whether this process was actually invoked
     skipped: bool = False
+
+    #: Whether this process timed-out
+    timeout: bool = False
 
     #: The returncode from the process
     returncode: int = 0
 
     #: The collected stdout and stderr output from the process
     output: str = ""
+
+    @property
+    def passed(self) -> bool:
+        return self.returncode == 0 and not self.timeout
 
 
 class TestSystem(System):
@@ -82,6 +93,7 @@ class TestSystem(System):
         *,
         env: EnvDict | None = None,
         cwd: str | None = None,
+        timeout: int | None = None,
     ) -> ProcessResult:
         """Wrapper for subprocess.run that encapsulates logging.
 
@@ -117,13 +129,25 @@ class TestSystem(System):
         full_env = dict(os.environ)
         full_env.update(env)
 
-        proc = stdlib_run(
-            cmd, cwd=cwd, env=full_env, stdout=PIPE, stderr=STDOUT, text=True
-        )
+        t0 = datetime.now()
+        try:
+            proc = stdlib_run(
+                cmd,
+                cwd=cwd,
+                env=full_env,
+                stdout=PIPE,
+                stderr=STDOUT,
+                text=True,
+                timeout=timeout,
+            )
+        except TimeoutExpired:
+            return ProcessResult(invocation, test_file, timeout=True)
 
+        t1 = datetime.now()
         return ProcessResult(
             invocation,
             test_file,
+            time=t1 - t0,
             returncode=proc.returncode,
             output=proc.stdout,
         )
