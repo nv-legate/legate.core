@@ -70,7 +70,7 @@ class BooleanFlag(argparse.Action):
 
 def execute_command(args, verbose, **kwargs):
     if verbose:
-        print(f"Executing: {' '.join(args)}  with {kwargs}")
+        print(f"Executing: {' '.join(args)} with {kwargs}")
     subprocess.check_call(args, **kwargs)
 
 
