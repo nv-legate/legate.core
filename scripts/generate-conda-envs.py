@@ -65,6 +65,7 @@ class CUDAConfig(SectionConfig):
             return ()
 
         deps = (
+            f"cuda-version={self.ctk_version}",  # runtime
             "cutensor>=1.3.3",  # runtime
             "nccl",  # runtime
             "pynvml",  # tests
@@ -256,6 +257,9 @@ CTK_VERSIONS = (
     "11.6",
     "11.7",
     "11.8",
+    "12.0",
+    # TODO: libcublas 12.1 not available on conda-forge as of 2023-06-12
+    # "12.1",
 )
 
 OS_NAMES: Tuple[OSType, ...] = ("linux", "osx")
