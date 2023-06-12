@@ -70,7 +70,7 @@ class BooleanFlag(argparse.Action):
 
 def execute_command(args, verbose, **kwargs):
     if verbose:
-        print('Executing: "', " ".join(args), '" with ', kwargs)
+        print(f"Executing: {' '.join(args)} with {kwargs}")
     subprocess.check_call(args, **kwargs)
 
 
@@ -243,6 +243,7 @@ def install(
     spy,
     build_docs,
     conduit,
+    gasnet_system,
     nccl_dir,
     cmake_exe,
     cmake_generator,
@@ -280,41 +281,42 @@ def install(
     if legion_dir is not None and legion_src_dir is not None:
         sys.exit("Cannot specify both --legion-dir and --legion-src-dir")
 
-    print("Verbose build is ", "on" if verbose else "off")
+    print(f"Verbose build is {'on' if verbose else 'off'}")
     if verbose:
-        print("networks:", networks)
-        print("cuda:", cuda)
-        print("arch:", arch)
-        print("openmp:", openmp)
-        print("march:", march)
-        print("hdf:", hdf)
-        print("llvm:", llvm)
-        print("spy:", spy)
-        print("build_docs:", build_docs)
-        print("conduit:", conduit)
-        print("nccl_dir:", nccl_dir)
-        print("cmake_exe:", cmake_exe)
-        print("cmake_generator:", cmake_generator)
-        print("gasnet_dir:", gasnet_dir)
-        print("ucx_dir:", ucx_dir)
-        print("cuda_dir:", cuda_dir)
-        print("maxdim:", maxdim)
-        print("maxfields:", maxfields)
-        print("debug:", debug)
-        print("debug_release:", debug_release)
-        print("check_bounds:", check_bounds)
-        print("clean_first:", clean_first)
-        print("extra_flags:", extra_flags)
-        print("editable:", editable)
-        print("build_isolation:", build_isolation)
-        print("thread_count:", thread_count)
-        print("verbose:", verbose)
-        print("thrust_dir:", thrust_dir)
-        print("legion_dir:", legion_dir)
-        print("legion_src_dir:", legion_src_dir)
-        print("legion_url:", legion_url)
-        print("legion_branch:", legion_branch)
-        print("unknown:", str(unknown))
+        print(f"networks: {networks}")
+        print(f"cuda: {cuda}")
+        print(f"arch: {arch}")
+        print(f"openmp: {openmp}")
+        print(f"march: {march}")
+        print(f"hdf: {hdf}")
+        print(f"llvm: {llvm}")
+        print(f"spy: {spy}")
+        print(f"build_docs: {build_docs}")
+        print(f"conduit: {conduit}")
+        print(f"gasnet_system: {gasnet_system}")
+        print(f"nccl_dir: {nccl_dir}")
+        print(f"cmake_exe: {cmake_exe}")
+        print(f"cmake_generator: {cmake_generator}")
+        print(f"gasnet_dir: {gasnet_dir}")
+        print(f"ucx_dir: {ucx_dir}")
+        print(f"cuda_dir: {cuda_dir}")
+        print(f"maxdim: {maxdim}")
+        print(f"maxfields: {maxfields}")
+        print(f"debug: {debug}")
+        print(f"debug_release: {debug_release}")
+        print(f"check_bounds: {check_bounds}")
+        print(f"clean_first: {clean_first}")
+        print(f"extra_flags: {extra_flags}")
+        print(f"editable: {editable}")
+        print(f"build_isolation: {build_isolation}")
+        print(f"thread_count: {thread_count}")
+        print(f"verbose: {verbose}")
+        print(f"thrust_dir: {thrust_dir}")
+        print(f"legion_dir: {legion_dir}")
+        print(f"legion_src_dir: {legion_src_dir}")
+        print(f"legion_url: {legion_url}")
+        print(f"legion_branch: {legion_branch}")
+        print(f"unknown: {unknown}")
 
     join = os.path.join
     exists = os.path.exists
@@ -324,7 +326,7 @@ def install(
     legate_core_dir = dirname(realpath(__file__))
 
     pyversion, pylib_name = find_active_python_version_and_path()
-    print("Using python lib and version: {}, {}".format(pylib_name, pyversion))
+    print(f"Using python lib and version: {pylib_name}, {pyversion}")
 
     def validate_path(path):
         if path is None or (path := str(path)) == "":
@@ -345,14 +347,14 @@ def install(
     thrust_dir = validate_path(thrust_dir)
 
     if verbose:
-        print("legate_core_dir: ", legate_core_dir)
-        print("cuda_dir: ", cuda_dir)
-        print("nccl_dir: ", nccl_dir)
-        print("legion_dir: ", legion_dir)
-        print("legion_src_dir: ", legion_src_dir)
-        print("gasnet_dir: ", gasnet_dir)
-        print("ucx_dir: ", ucx_dir)
-        print("thrust_dir: ", thrust_dir)
+        print(f"legate_core_dir: {legate_core_dir}")
+        print(f"cuda_dir: {cuda_dir}")
+        print(f"nccl_dir: {nccl_dir}")
+        print(f"legion_dir: {legion_dir}")
+        print(f"legion_src_dir: {legion_src_dir}")
+        print(f"gasnet_dir: {gasnet_dir}")
+        print(f"ucx_dir: {ucx_dir}")
+        print(f"thrust_dir: {thrust_dir}")
 
     if thread_count is None:
         thread_count = multiprocessing.cpu_count()
@@ -392,7 +394,7 @@ def install(
     install_dir = get_install_dir()
 
     if verbose:
-        print("install_dir: ", install_dir)
+        print(f"install_dir: {install_dir}")
 
     if install_dir is not None:
         pip_install_cmd += ["--root", "/", "--prefix", str(install_dir)]
@@ -453,6 +455,8 @@ def install(
         cmake_flags += [f"-DUCX_ROOT={ucx_dir}"]
     if conduit:
         cmake_flags += [f"-DGASNet_CONDUIT={conduit}"]
+    if gasnet_system:
+        cmake_flags += [f"-DGASNet_SYSTEM={gasnet_system}"]
     if cuda_dir:
         cmake_flags += [f"-DCUDAToolkit_ROOT={cuda_dir}"]
     if thrust_dir:
@@ -643,9 +647,17 @@ def driver():
         # TODO: To support UDP conduit, we would need to add a special case on
         # the legate launcher.
         # See https://github.com/nv-legate/legate.core/issues/294.
-        choices=["ibv", "ucx", "aries", "mpi"],
+        choices=["ibv", "ucx", "aries", "mpi", "ofi"],
         default=os.environ.get("CONDUIT"),
         help="Build Legate with specified GASNet conduit.",
+    )
+    parser.add_argument(
+        "--gasnet-system",
+        dest="gasnet_system",
+        action="store",
+        required=False,
+        default=None,
+        help="Specify a system-specific configuration to use for GASNet",
     )
     parser.add_argument(
         "--with-nccl",
