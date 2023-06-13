@@ -88,6 +88,14 @@ selection.add_argument(
 )
 
 
+selection.add_argument(
+    "--last-failed",
+    action="store_true",
+    default=False,
+    help="Only run the failed tests from the last run",
+)
+
+
 feature_opts = parser.add_argument_group("Feature stage configuration options")
 
 
