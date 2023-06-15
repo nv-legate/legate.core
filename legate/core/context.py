@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from .communicator import Communicator
     from .legate import Library
     from .machine import Machine
-    from .operation import AutoTask, Copy, Fill, ManualTask
+    from .operation import AutoTask, Copy, ManualTask
     from .runtime import Runtime
     from .shape import Shape
     from .store import RegionField, Store
@@ -159,7 +159,7 @@ class Context:
     def get_unique_op_id(self) -> int:
         return self._runtime.get_unique_op_id()
 
-    def _slice_machine_for_task(self, task_id: int) -> Machine:
+    def slice_machine_for_task(self, task_id: int) -> Machine:
         """
         Narrows down the current machine by cutting out processors
         for which the task has no variant
@@ -207,25 +207,7 @@ class Context:
         ManualTask
             A new task
         """
-
-        from .operation import ManualTask
-
-        # Check if the task id is valid for this library and the task
-        # has the right variant
-        machine = self._slice_machine_for_task(task_id)
-        unique_op_id = self.get_unique_op_id()
-        if launch_domain is None:
-            raise RuntimeError(
-                "Launch domain must be specified for manual parallelization"
-            )
-
-        return ManualTask(
-            self,
-            task_id,
-            launch_domain,
-            unique_op_id,
-            machine,
-        )
+        return self._runtime.create_manual_task(self, task_id, launch_domain)
 
     def create_auto_task(
         self,
@@ -250,14 +232,7 @@ class Context:
         --------
         Context.create_task
         """
-
-        from .operation import AutoTask
-
-        # Check if the task id is valid for this library and the task
-        # has the right variant
-        machine = self._slice_machine_for_task(task_id)
-        unique_op_id = self.get_unique_op_id()
-        return AutoTask(self, task_id, unique_op_id, machine)
+        return self._runtime.create_auto_task(self, task_id)
 
     def create_copy(self) -> Copy:
         """
@@ -269,19 +244,13 @@ class Context:
             A new copy operation
         """
 
-        from .operation import Copy
+        return self._runtime.create_copy()
 
-        return Copy(
-            self,
-            self.get_unique_op_id(),
-            self._runtime.machine,
-        )
-
-    def create_fill(
+    def issue_fill(
         self,
         lhs: Store,
         value: Store,
-    ) -> Fill:
+    ) -> None:
         """
         Creates a fill operation.
 
@@ -293,26 +262,13 @@ class Context:
         value : Store
             Store holding the constant value to fill the ``lhs`` with
 
-        Returns
-        -------
-        Copy
-            A new fill operation
-
         Raises
         ------
         ValueError
             If the ``value`` is not scalar or the ``lhs`` is either unbound or
             scalar
         """
-        from .operation import Fill
-
-        return Fill(
-            self,
-            lhs,
-            value,
-            self.get_unique_op_id(),
-            self._runtime.machine,
-        )
+        self._runtime.issue_fill(lhs, value)
 
     def dispatch(self, op: Dispatchable[T]) -> T:
         return self._runtime.dispatch(op)
@@ -413,30 +369,4 @@ class Context:
         Store
             Store that contains reduction results
         """
-        from .operation import Reduce
-
-        if store.ndim > 1:
-            raise NotImplementedError(
-                "Tree reduction doesn't currently support "
-                "multi-dimensional stores"
-            )
-
-        result = self.create_store(store.type)
-        unique_op_id = self.get_unique_op_id()
-
-        # Make sure we flush the scheduling window, as we will bypass
-        # the partitioner below
-        self.runtime.flush_scheduling_window()
-
-        # A single Reduce operation is mapepd to a whole reduction tree
-        task = Reduce(
-            self,
-            task_id,
-            radix,
-            unique_op_id,
-            self._runtime.machine,
-        )
-        task.add_input(store)
-        task.add_output(result)
-        task.execute()
-        return result
+        return self._runtime.tree_reduce(self, task_id, store, radix)
