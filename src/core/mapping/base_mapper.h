@@ -37,8 +37,7 @@ class ReductionInstanceManager;
 class BaseMapper : public Legion::Mapping::Mapper, public MachineQueryInterface {
  public:
   BaseMapper(mapping::Mapper* legate_mapper,
-             Legion::Runtime* rt,
-             Legion::Machine machine,
+             Legion::Mapping::MapperRuntime* mapper_runtime,
              const LibraryContext* context);
   virtual ~BaseMapper();
 
@@ -296,7 +295,7 @@ class BaseMapper : public Legion::Mapping::Mapper, public MachineQueryInterface 
   mapping::Mapper* legate_mapper_;
 
  public:
-  Legion::Runtime* const legion_runtime;
+  Legion::Mapping::MapperRuntime* const mapper_runtime;
   const Legion::Machine legion_machine;
   const LibraryContext* context;
   Legion::Logger logger;

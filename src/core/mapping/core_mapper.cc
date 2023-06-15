@@ -14,20 +14,14 @@
  *
  */
 
-#include "mappers/null_mapper.h"
-
 #include "env_defaults.h"
 #include "legate.h"
 
 #include "core/mapping/core_mapper.h"
 #include "core/mapping/machine.h"
-#include "core/mapping/operation.h"
 #ifdef LEGATE_USE_CUDA
 #include "core/comm/comm_nccl.h"
 #endif
-#include "core/task/task.h"
-#include "core/utilities/linearize.h"
-#include "core/utilities/typedefs.h"
 
 namespace legate {
 
@@ -77,7 +71,7 @@ class CoreMapper : public Mapper {
 };
 
 CoreMapper::CoreMapper()
-  : machine(Legion::Machine::get_machine()),
+  : machine(),
     min_gpu_chunk(extract_env("LEGATE_MIN_GPU_CHUNK", MIN_GPU_CHUNK_DEFAULT, MIN_GPU_CHUNK_TEST)),
     min_cpu_chunk(extract_env("LEGATE_MIN_CPU_CHUNK", MIN_CPU_CHUNK_DEFAULT, MIN_CPU_CHUNK_TEST)),
     min_omp_chunk(extract_env("LEGATE_MIN_OMP_CHUNK", MIN_OMP_CHUNK_DEFAULT, MIN_OMP_CHUNK_TEST)),

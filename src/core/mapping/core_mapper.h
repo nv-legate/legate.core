@@ -16,10 +16,7 @@
 
 #pragma once
 
-#include "legion.h"
-
 #include "core/mapping/mapping.h"
-#include "core/runtime/context.h"
 
 namespace legate::mapping {
 
