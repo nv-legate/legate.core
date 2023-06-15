@@ -18,12 +18,11 @@
 
 #include "legion.h"
 
+#include "core/mapping/mapping.h"
 #include "core/runtime/context.h"
 
-namespace legate {
+namespace legate::mapping {
 
-void register_legate_core_mapper(Legion::Machine machine,
-                                 Legion::Runtime* runtime,
-                                 const LibraryContext* context);
+std::unique_ptr<Mapper> create_core_mapper();
 
-}  // namespace legate
+}  // namespace legate::mapping

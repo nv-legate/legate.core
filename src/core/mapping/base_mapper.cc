@@ -1254,6 +1254,31 @@ void BaseMapper::configure_context(const Legion::Mapping::MapperContext ctx,
   // Use the defaults currently
 }
 
+void BaseMapper::map_future_map_reduction(const Legion::Mapping::MapperContext ctx,
+                                          const FutureMapReductionInput& input,
+                                          FutureMapReductionOutput& output)
+{
+  output.serdez_upper_bound = LEGATE_MAX_SIZE_SCALAR_RETURN;
+
+  if (machine.has_gpus()) {
+    // TODO: It's been reported that blindly mapping target instances of future map reductions
+    // to framebuffers hurts performance. Until we find a better mapping policy, we guard
+    // the current policy with a macro.
+#ifdef LEGATE_MAP_FUTURE_MAP_REDUCTIONS_TO_GPU
+
+    // If this was joining exceptions, we should put instances on a host-visible memory
+    // because they need serdez
+    if (input.tag == LEGATE_CORE_JOIN_EXCEPTION_TAG)
+      output.destination_memories.push_back(machine.zerocopy_memory());
+    else
+      for (auto& pair : machine.frame_buffers()) output.destination_memories.push_back(pair.second);
+#else
+    output.destination_memories.push_back(machine.zerocopy_memory());
+#endif
+  } else if (machine.has_socket_memory())
+    for (auto& pair : machine.socket_memories()) output.destination_memories.push_back(pair.second);
+}
+
 void BaseMapper::select_tunable_value(const Legion::Mapping::MapperContext ctx,
                                       const Legion::Task& task,
                                       const SelectTunableInput& input,

@@ -208,6 +208,9 @@ class BaseMapper : public Legion::Mapping::Mapper, public MachineQueryInterface 
   virtual void configure_context(const Legion::Mapping::MapperContext ctx,
                                  const Legion::Task& task,
                                  ContextConfigOutput& output) override;
+  virtual void map_future_map_reduction(const Legion::Mapping::MapperContext ctx,
+                                        const FutureMapReductionInput& input,
+                                        FutureMapReductionOutput& output) override;
   virtual void select_tunable_value(const Legion::Mapping::MapperContext ctx,
                                     const Legion::Task& task,
                                     const SelectTunableInput& input,
