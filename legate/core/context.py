@@ -192,6 +192,10 @@ class Context:
         """
         Creates a manual task.
 
+        .. deprecated:: 23.7.0
+            This method is an alias to the one defined in ``Runtime`` and will
+            be removed in later releases.
+
         Parameters
         ----------
         task_id : int
@@ -216,6 +220,10 @@ class Context:
         """
         Creates an auto task.
 
+        .. deprecated:: 23.7.0
+            This method is an alias to the one defined in ``Runtime`` and will
+            be removed in later releases.
+
         Parameters
         ----------
         task_id : int
@@ -238,6 +246,10 @@ class Context:
         """
         Creates a copy operation.
 
+        .. deprecated:: 23.7.0
+            This method is an alias to the one defined in ``Runtime`` and will
+            be removed in later releases.
+
         Returns
         -------
         Copy
@@ -252,7 +264,11 @@ class Context:
         value: Store,
     ) -> None:
         """
-        Creates a fill operation.
+        Fills the store with a constant value.
+
+        .. deprecated:: 23.7.0
+            This method is an alias to the one defined in ``Runtime`` and will
+            be removed in later releases.
 
         Parameters
         ----------
@@ -286,6 +302,10 @@ class Context:
     ) -> Store:
         """
         Creates a fresh store.
+
+        .. deprecated:: 23.7.0
+            This method is an alias to the one defined in ``Runtime`` and will
+            be removed in later releases.
 
         Parameters
         ----------
@@ -337,6 +357,10 @@ class Context:
         downstream operations start. The caller can optionally block on
         completion of all upstream operations.
 
+        .. deprecated:: 23.7.0
+            This method is an alias to the one defined in ``Runtime`` and will
+            be removed in later releases.
+
         Parameters
         ----------
         block : bool
@@ -349,6 +373,10 @@ class Context:
         Performs a user-defined reduction by building a tree of reduction
         tasks. At each step, the reducer task gets up to ``radix`` input stores
         and is supposed to produce outputs in a single unbound store.
+
+        .. deprecated:: 23.7.0
+            This method is an alias to the one defined in ``Runtime`` and will
+            be removed in later releases.
 
         Parameters
         ----------

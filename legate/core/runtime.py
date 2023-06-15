@@ -1650,7 +1650,7 @@ class Runtime:
         value: Store,
     ) -> None:
         """
-        Creates a fill operation.
+        Fills the store with a constant value.
 
         Parameters
         ----------
@@ -1942,6 +1942,17 @@ class Runtime:
             )
 
     def issue_execution_fence(self, block: bool = False) -> None:
+        """
+        Issues an execution fence. A fence is a special operation that
+        guarantees that all upstream operations finish before any of the
+        downstream operations start. The caller can optionally block on
+        completion of all upstream operations.
+
+        Parameters
+        ----------
+        block : bool
+            If ``True``, the call blocks until all upstream operations finish.
+        """
         fence = Fence(mapping=False)
         future = fence.launch(self.legion_runtime, self.legion_context)
         if block:
