@@ -1185,10 +1185,6 @@ class Runtime:
         self._machines.pop()
 
     @property
-    def core_task_variant_id(self) -> int:
-        return self._variant_ids[self.machine.preferred_kind]
-
-    @property
     def attachment_manager(self) -> AttachmentManager:
         return self._attachment_manager
 
@@ -1892,7 +1888,6 @@ class Runtime:
         launcher = TaskLauncher(
             self.core_context,
             self.core_library.LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,
-            tag=self.core_task_variant_id,
         )
         launcher.add_future(future)
         launcher.add_scalar_arg(idx, ty.int32)
@@ -1906,7 +1901,6 @@ class Runtime:
         launcher = TaskLauncher(
             self.core_context,
             self.core_library.LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,
-            tag=self.core_task_variant_id,
         )
         launcher.add_future_map(future)
         launcher.add_scalar_arg(idx, ty.int32)
