@@ -95,7 +95,7 @@ void CoreMapper::set_machine(const legate::mapping::MachineQueryInterface* m) {}
 
 TaskTarget CoreMapper::task_target(const Task& task, const std::vector<TaskTarget>& options)
 {
-  return *options.begin();
+  return options.front();
 }
 
 std::vector<StoreMapping> CoreMapper::store_mappings(const Task& task,
