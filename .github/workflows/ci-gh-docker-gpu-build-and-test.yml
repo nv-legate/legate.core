@@ -33,7 +33,7 @@ jobs:
       - name: Use docker image to build legate.core
         run: |
           mkdir -p out
-          docker run -v "$(pwd)/out:/tmp/out" -i --rm --runtime=nvidia --gpus all -t legate.core /bin/bash -i entrypoint build-all
+          docker run -v "$(pwd)/out:/tmp/out" -i --rm --runtime=nvidia --gpus all -t legate.core /bin/bash entrypoint build-all
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v3
