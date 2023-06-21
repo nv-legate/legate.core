@@ -1,7 +1,5 @@
 FROM rapidsai/devcontainers:23.06-cpp-cuda11.8-mambaforge-ubuntu22.04
 
-ARG USE_CUDA
-
 RUN export DEBIAN_FRONTEND=noninteractive       \
  && sudo apt update                             \
  && sudo apt install -y --no-install-recommends \
@@ -13,6 +11,8 @@ ENV SCCACHE_BUCKET="rapids-sccache-devs"
 ENV SCCACHE_S3_KEY_PREFIX=legate-cunumeric-dev
 ENV VAULT_HOST=https://vault.ops.k8s.rapids.ai
 ENV HISTFILE=/home/coder/.cache/._bash_history
+
+ENV USE_CUDA=ON
 
 ENV BUILD_MARCH=nocona
 
