@@ -1,4 +1,4 @@
-name: Build and test GPU legate.core on GH
+name: GH Docker build and test GPU legate.core
 
 concurrency:
   group: ci-gpu-on-${{ github.event_name }}-from-${{ github.ref_name }}
