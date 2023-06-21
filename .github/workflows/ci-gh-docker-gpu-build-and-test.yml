@@ -1,0 +1,56 @@
+name: Build and test GPU legate.core on GH
+
+concurrency:
+  group: ci-gpu-on-${{ github.event_name }}-from-${{ github.ref_name }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches:
+      - "pull-request/[0-9]+"
+      - "branch-*"
+
+jobs:
+  build-gpu:
+    runs-on: ${{ github.repository == 'nv-legate/legate.core' && 'linux-amd64-cpu4' || 'ubuntu-latest' }}
+    steps:
+      - name: Checkout legate.core (= this repo)
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      
+      - name: Get AWS credentials for sccache bucket
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-region: us-east-2
+          role-duration-seconds: 28800 # 8 hours
+          role-to-assume: arn:aws:iam::279114543810:role/gha-oidc-nv-legate
+
+      - name: Build docker image
+        run: |
+          docker build --progress=plain --tag=legate.core -f continuous_integration/Dockerfile .
+
+      - name: Use docker image to build legate.core
+        run: |
+          mkdir -p out
+          docker run -v "$(pwd)/out:/tmp/out" -i --rm --runtime=nvidia --gpus all -t legate.core /bin/bash -i entrypoint build-all
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: "legate.core-gpu-${{ github.sha }}"
+          path: |
+            /tmp/conda-build
+            /tmp/out
+
+  # test-gpu:
+  #   needs:
+  #     - build-gpu
+  #   uses:
+  #     ./.github/workflows/gh-test.yml
+  #   with:
+  #     build-target: gpu
+  #     runs-on: linux-amd64-gpu-v100-latest-1
+  #     sha: ${{ github.sha }}
+  #     test-scope: unit
+
