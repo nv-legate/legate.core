@@ -166,6 +166,7 @@ def get_install_dir():
         if os.path.exists(site_pkgs):
             return site_pkgs
 
+
 def install_legion_python_bindings(
     verbose, cmake_exe, legate_build_dir, legion_dir, install_dir
 ):
