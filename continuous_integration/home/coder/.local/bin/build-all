@@ -3,6 +3,8 @@
 build_all() {
     cd ~/;
 
+    chown -R coder:coder /tmp/out;
+
     if type conda >/dev/null 2>&1; then
         . make-conda-env;
     fi
