@@ -162,8 +162,9 @@ def get_install_dir():
         return user_site_pkgs
 
     # Otherwise fallback to regular site-packages?
-    if os.path.exists(site_pkgs := site.getsitepackages()):
-        return site_pkgs
+    for site_pkgs in site.getsitepackages():
+        if os.path.exists(site_pkgs):
+            return site_pkgs
 
 
 def install_legion_python_bindings(
