@@ -32,16 +32,16 @@ jobs:
 
       - name: Use docker image to build legate.core
         run: |
-          mkdir -p out
-          docker run -v "$(pwd)/out:/tmp/out" --rm -t legate.core /bin/bash entrypoint build-all
+          mkdir -p out conda-build
+          docker run -v "$(pwd)/out:/tmp/out" -v "$(pwd)/conda-build:/tmp/conda-build" --rm -t legate.core /bin/bash entrypoint build-all
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v3
         with:
           name: "legate.core-gpu-${{ github.sha }}"
           path: |
-            /tmp/conda-build
-            /tmp/out
+            conda-build
+            out
 
   # test-gpu:
   #   needs:
