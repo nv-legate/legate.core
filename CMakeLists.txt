@@ -62,7 +62,7 @@ endif()
 # - Download and initialize RAPIDS CMake helpers -----------------------------
 
 if(NOT EXISTS ${CMAKE_BINARY_DIR}/RAPIDS.cmake)
-  file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-23.04/RAPIDS.cmake
+  file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-23.08/RAPIDS.cmake
        ${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 endif()
 include(${CMAKE_BINARY_DIR}/RAPIDS.cmake)
@@ -123,4 +123,3 @@ if(CMAKE_GENERATOR STREQUAL "Ninja")
   endfunction()
   add_touch_legate_core_ninja_build_target()
 endif()
-
