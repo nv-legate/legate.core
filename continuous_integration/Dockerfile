@@ -30,9 +30,13 @@ USER coder
 WORKDIR /home/coder/.cache
 WORKDIR /home/coder
 
+# Overwrite RAPIDS-AI devcontainer-utils-vault-s3-test
+COPY continuous_integration/devcontainer-utils-vault-s3-test /usr/bin/devcontainer-utils-vault-s3-test
+
 COPY --chown=coder:coder continuous_integration/home/coder/.gitconfig /home/coder/
 COPY --chown=coder:coder continuous_integration/home/coder/.local/bin/* /home/coder/.local/bin/
 COPY --chown=coder:coder . /home/coder/legate
+
 
 RUN chmod a+x /home/coder/.local/bin/* && \
     mkdir -p /tmp/out && \
