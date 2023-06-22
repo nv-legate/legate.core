@@ -251,6 +251,6 @@ def ingest(
     partition = data_split.make_partition(store, colors, local_colors)
     shard_local_buffers = {c: get_buffer(c) for c in local_colors}
     alloc = DistributedAllocation(partition, shard_local_buffers)
-    store.attach_external_allocation(runtime.core_context, alloc, False)
+    store.attach_external_allocation(alloc, False)
     # first store is the (non-existent) mask
     return Table.from_arrays(["ingested"], [Array(dtype, [None, store])])

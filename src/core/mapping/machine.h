@@ -82,7 +82,7 @@ class LocalProcessorRange {
 
 class Machine {
  public:
-  Machine(Legion::Machine legion_machine);
+  Machine();
 
  public:
   const std::vector<Processor>& cpus() const { return cpus_; }

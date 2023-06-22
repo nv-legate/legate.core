@@ -329,11 +329,10 @@ extern void register_exception_reduction_op(Legion::Runtime* runtime,
   // We register one sharding functor for each new projection functor
   config.max_shardings     = LEGATE_CORE_MAX_FUNCTOR_ID;
   config.max_reduction_ops = LEGATE_CORE_MAX_REDUCTION_OP_ID;
-  auto core_lib            = Runtime::get_runtime()->create_library(core_library_name, config);
+  auto core_lib            = Runtime::get_runtime()->create_library(
+    core_library_name, config, mapping::create_core_mapper());
 
   register_legate_core_tasks(machine, runtime, core_lib);
-
-  register_legate_core_mapper(machine, runtime, core_lib);
 
   register_builtin_reduction_ops();
 

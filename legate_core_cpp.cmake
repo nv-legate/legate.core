@@ -409,8 +409,7 @@ install(
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/legate/core/data)
 
 install(
-  FILES src/core/mapping/base_mapper.h
-        src/core/mapping/machine.h
+  FILES src/core/mapping/machine.h
         src/core/mapping/mapping.h
         src/core/mapping/operation.h
         src/core/mapping/operation.inl
