@@ -90,7 +90,7 @@ jobs:
     runs-on: linux-amd64-gpu-v100-latest-1
     container:
       options: -u root
-      image: ghcr.io/nv-legate/legate.core:
+      image: ghcr.io/nv-legate/legate.core
       env:
         NVIDIA_VISIBLE_DEVICES: ${{ env.NVIDIA_VISIBLE_DEVICES }}
     steps:
