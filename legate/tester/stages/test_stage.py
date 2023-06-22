@@ -15,9 +15,10 @@
 from __future__ import annotations
 
 import multiprocessing
+import queue
 from datetime import datetime
 from pathlib import Path
-from typing import Union
+from typing import Any, Union
 
 from typing_extensions import Protocol
 
@@ -50,7 +51,7 @@ class TestStage(Protocol):
     spec: StageSpec
 
     #: The computed sharding id sets to use for job runs
-    shards: multiprocessing.Queue[Shard]
+    shards: queue.Queue[Any]
 
     #: After the stage completes, results will be stored here
     result: StageResult
