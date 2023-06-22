@@ -9,6 +9,8 @@ entrypoint() {
     echo AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
     echo AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
 
+    mkdir -p /home/coder/.cache;
+
     if [ -d /run/secrets ]; then
         # disable xtrace and history
         local xtrace_enabled=$(echo "${SHELLOPTS:-}" | grep -q 'xtrace'; echo $?);
@@ -17,24 +19,18 @@ entrypoint() {
         eval "export $(find /run/secrets/ -type f -exec bash -c 'echo ${0/\/run\/secrets\//}=$(<${0})' {} \;)";
         if [ "${history_enabled}" -eq "0" ]; then { set -o history; } 2>/dev/null; fi;
         if [ "${xtrace_enabled}" -eq "0" ]; then { set -o xtrace; } 2>/dev/null; fi;
+
+        . devcontainer-utils-post-attach-command;
+
+        sleep 10;
+        . devcontainer-utils-vault-s3-test;
+        . devcontainer-utils-vault-s3-export 0;
+    else
+        sccache --start-server
+        sleep 10;
+
+        sccache --stop-server || true && sccache --show-stats;
     fi
-
-    mkdir -p /home/coder/.cache;
-
-    # . devcontainer-utils-post-attach-command;
-
-    # Refresh the S3 creds if they don't exist, are expired, or are <= 4 hours from expiring
-    if  ! devcontainer-utils-vault-s3-test              \
-    || [ $(($(date '+%s') - $(cat ~/.aws/stamp))) -gt $((3600 * 8)) ] ;
-    then . devcontainer-utils-vault-s3-init;
-    else . devcontainer-utils-vault-s3-export 0;
-    fi
-
-    sleep 10;
-    . devcontainer-utils-vault-s3-test;
-    . devcontainer-utils-vault-s3-export 0;
-
-    sccache --stop-server || true && sccache --show-stats;
 
     exec "$@";
 }
