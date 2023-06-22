@@ -5,7 +5,7 @@
 test_aws_creds() {
 
     set -xeuo pipefail;
-
+    echo AWS_REGION=${AWS_REGION:-}
     echo AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN:-}
     echo AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
     echo AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}

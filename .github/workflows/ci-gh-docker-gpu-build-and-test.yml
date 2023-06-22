@@ -40,7 +40,18 @@ jobs:
       - name: Use docker image to build legate.core
         run: |
           mkdir -p out conda-build
-          docker run -v "$(pwd)/out:/tmp/out" -v "$(pwd)/conda-build:/tmp/conda-build" --rm -t legate.core /bin/bash entrypoint build-all
+          docker run \
+            -v "$(pwd)/out:/tmp/out" \
+            -v "$(pwd)/conda-build:/tmp/conda-build" \
+            --rm \
+            -t legate.core \
+            -e GITHUB_TOKEN \
+            -e AWS_DEFAULT_REGION \
+            -e AWS_REGION \
+            -e AWS_ACCESS_KEY_ID \
+            -e AWS_SECRET_ACCESS_KEY \
+            -e AWS_SESSION_TOKEN \
+            /bin/bash entrypoint build-all
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v3
