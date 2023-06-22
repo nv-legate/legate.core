@@ -10,6 +10,9 @@ on:
       - "pull-request/[0-9]+"
       - "branch-*"
 
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 jobs:
   build-gpu:
     permissions:
