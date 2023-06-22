@@ -52,10 +52,13 @@ test_aws_creds() {
         AWS_ACCESS_KEY_ID="$aws_access_key_id"                  \
         AWS_SECRET_ACCESS_KEY="$aws_secret_access_key"          \
         aws-curl                                                \
-            -s -o /dev/null -w "%{http_code}"                   \
+            -s -o get_response -w "%{http_code}"                   \
             -X GET ${region:+--region $region}                  \
             "https://${bucket}.s3.amazonaws.com/.sccache_check" \
     );
+
+    echo get_response:
+    cat get_response
 
     if  [ "${code}" -lt 200 ] \
      || [ "${code}" -gt 299 ] \
@@ -71,10 +74,13 @@ test_aws_creds() {
         AWS_ACCESS_KEY_ID="$aws_access_key_id"                  \
         AWS_SECRET_ACCESS_KEY="$aws_secret_access_key"          \
         aws-curl -d @/tmp/.sccache_check                        \
-            -s -o /dev/null -w "%{http_code}"                   \
+            -s -o put_response -w "%{http_code}"                   \
             -X PUT ${region:+--region $region}                  \
             "https://${bucket}.s3.amazonaws.com/.sccache_check" \
     );
+
+    echo put_response:
+    cat put_response
 
     if  [ "${code}" -lt 200 ] \
      || [ "${code}" -gt 299 ] ; then
