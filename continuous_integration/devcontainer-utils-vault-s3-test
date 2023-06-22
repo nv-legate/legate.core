@@ -28,6 +28,18 @@ test_aws_creds() {
         if [[ -z "${aws_access_key_id:-}" ]]; then exit 1; fi;
 
         local aws_session_token="$(grep 'aws_session_token=' ~/.aws/credentials | sed 's/aws_session_token=//')";
+    else
+        local bucket=${SCCACHE_BUCKET:-};
+        if [[ -z "${bucket:-}" ]]; then exit 1; fi;
+
+        local region=${SCCACHE_REGION:-};
+        if [[ -z "${region:-}" ]]; then exit 1; fi;
+
+        local aws_access_key_id=${AWS_ACCESS_KEY_ID}
+
+        local aws_secret_access_key=${AWS_SECRET_ACCESS_KEY}
+
+        local aws_session_token=${AWS_SESSION_TOKEN}
     fi
 
     local code=;
