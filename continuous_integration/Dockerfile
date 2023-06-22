@@ -16,6 +16,8 @@ ENV USE_CUDA=ON
 
 ENV BUILD_MARCH=nocona
 
+ENV PATH="${PATH}:/home/coder/.local/bin"
+
 # ENV BOUNDS_CHECKS=OFF
 # ENV GASNet_CONFIGURE_ARGS=--with-ibv-max-hcas=8
 # ENV LEGATE_MAX_DIM=4
