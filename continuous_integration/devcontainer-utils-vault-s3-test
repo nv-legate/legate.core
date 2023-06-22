@@ -46,10 +46,6 @@ test_aws_creds() {
 
     echo PATH=${PATH}
 
-    echo Path to aws-cur: $(which aws-curl)
-    
-    ls -lh /usr/bin/aws-curl
-
     # Test GET
     code=$(                                                     \
         AWS_SESSION_TOKEN="$aws_session_token"                  \
