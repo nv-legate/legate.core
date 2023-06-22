@@ -2,6 +2,8 @@
 
 entrypoint() {
 
+    set -x
+
     if [ -d /run/secrets ]; then
         # disable xtrace and history
         local xtrace_enabled=$(echo "${SHELLOPTS:-}" | grep -q 'xtrace'; echo $?);
