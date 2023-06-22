@@ -26,7 +26,7 @@ entrypoint() {
         . devcontainer-utils-vault-s3-test;
         . devcontainer-utils-vault-s3-export 0;
     else
-        sccache --start-server
+        sccache --start-server || true
         sleep 10;
 
         sccache --stop-server || true && sccache --show-stats;
