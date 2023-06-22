@@ -17,6 +17,7 @@ from __future__ import annotations
 import multiprocessing
 from datetime import datetime
 from pathlib import Path
+from typing import Union
 
 from typing_extensions import Protocol
 
@@ -56,6 +57,12 @@ class TestStage(Protocol):
 
     #: Any fixed stage-specific command-line args to pass
     args: ArgList
+
+    #: Shard assigned to each worker in the pool.
+    #: Each worker in the pool will get a local copy of this attribute,
+    #: will populate it on first touch by pulling from the global shard
+    #: queue, then keep using its assigned shard throughout the run.
+    worker_shard: Union[Shard, None] = None
 
     # --- Protocol methods
 
@@ -246,13 +253,14 @@ class TestStage(Protocol):
             Process execution wrapper
 
         """
-        test_path = config.root_dir / test_file
+        if self.worker_shard is None:
+            self.worker_shard = self.shards.get()
 
-        shard = self.shards.get()
+        test_path = config.root_dir / test_file
 
         cov_args = self.cov_args(config)
 
-        stage_args = self.args + self.shard_args(shard, config)
+        stage_args = self.args + self.shard_args(self.worker_shard, config)
         file_args = self.file_args(test_file, config)
 
         cmd = (
@@ -267,12 +275,15 @@ class TestStage(Protocol):
         if custom_args:
             cmd += custom_args
 
-        self.delay(shard, config, system)
+        self.delay(self.worker_shard, config, system)
 
-        result = system.run(cmd, test_file, env=self._env(config, system))
+        result = system.run(
+            cmd,
+            test_file,
+            env=self._env(config, system),
+            timeout=config.timeout,
+        )
         log_proc(self.name, result, config, verbose=config.verbose)
-
-        self.shards.put(shard)
 
         return result
 

@@ -16,6 +16,8 @@
 
 #include "core/mapping/machine.h"
 
+#include "realm/network.h"
+
 namespace legate {
 namespace mapping {
 
@@ -147,10 +149,11 @@ const Processor& LocalProcessorRange::operator[](uint32_t idx) const
   return procs_[local_idx];
 }
 
-Machine::Machine(Legion::Machine legion_machine)
-  : local_node(Processor::get_executing_processor().address_space()),
-    total_nodes(legion_machine.get_address_space_count())
+Machine::Machine()
+  : local_node(Realm::Network::my_node_id),
+    total_nodes(Legion::Machine::get_machine().get_address_space_count())
 {
+  auto legion_machine = Legion::Machine::get_machine();
   Legion::Machine::ProcessorQuery procs(legion_machine);
   // Query to find all our local processors
   procs.local_address_space();

@@ -31,6 +31,7 @@ from . import (
     DEFAULT_NUMAMEM,
     DEFAULT_OMPS_PER_NODE,
     DEFAULT_OMPTHREADS,
+    DEFAULT_RANKS_PER_NODE,
     FEATURES,
 )
 
@@ -170,8 +171,27 @@ feature_opts.add_argument(
     help="NUMA memory for OpenMP processors (MB)",
 )
 
+feature_opts.add_argument(
+    "--ranks-per-node",
+    dest="ranks",
+    type=int,
+    default=DEFAULT_RANKS_PER_NODE,
+    help="Number of ranks per node to use",
+)
+
 
 test_opts = parser.add_argument_group("Test run configuration options")
+
+
+test_opts.add_argument(
+    "--timeout",
+    dest="timeout",
+    type=int,
+    action="store",
+    default=None,
+    required=False,
+    help="Timeout in seconds for individual tests",
+)
 
 
 test_opts.add_argument(

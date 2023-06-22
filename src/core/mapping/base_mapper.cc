@@ -70,18 +70,17 @@ std::string log_mappable(const Legion::Mappable& mappable, bool prefix_only = fa
 }  // namespace
 
 BaseMapper::BaseMapper(mapping::Mapper* legate_mapper,
-                       Legion::Runtime* rt,
-                       Legion::Machine m,
-                       const LibraryContext* ctx)
-  : Mapper(rt->get_mapper_runtime()),
+                       Legion::Mapping::MapperRuntime* _mapper_runtime,
+                       const LibraryContext* _context)
+  : Mapper(_mapper_runtime),
     legate_mapper_(legate_mapper),
-    legion_runtime(rt),
-    legion_machine(m),
-    context(ctx),
+    mapper_runtime(_mapper_runtime),
+    legion_machine(Legion::Machine::get_machine()),
+    context(_context),
     logger(create_logger_name().c_str()),
     local_instances(InstanceManager::get_instance_manager()),
     reduction_instances(ReductionInstanceManager::get_instance_manager()),
-    machine(m)
+    machine()
 {
   std::stringstream ss;
   ss << context->get_library_name() << " on Node " << machine.local_node;
@@ -176,12 +175,9 @@ void BaseMapper::select_task_options(const Legion::Mapping::MapperContext ctx,
     LEGATE_ABORT;
   }
 
-  auto target      = legate_mapper_->task_target(legate_task, options);
-  auto local_range = machine.slice(target, machine_desc);
-#ifdef DEBUG_LEGATE
-  assert(!local_range.empty());
-#endif
-  output.initial_proc = local_range.first();
+  auto target = legate_mapper_->task_target(legate_task, options);
+  // The initial processor just needs to have the same kind as the eventual target of this task
+  output.initial_proc = machine.procs(target).front();
 
   // We never want valid instances
   output.valid_instances = false;
@@ -289,10 +285,22 @@ void BaseMapper::map_task(const Legion::Mapping::MapperContext ctx,
   assert(variant.has_value());
 #endif
   output.chosen_variant = *variant;
-  // Just put our target proc in the target processors for now
-  output.target_procs.push_back(task.target_proc);
 
   Task legate_task(&task, context, runtime, ctx);
+
+  if (task.is_index_space)
+    // If this is an index task, point tasks already have the right targets, so we just need to
+    // copy them to the mapper output
+    output.target_procs.push_back(task.target_proc);
+  else {
+    // If this is a single task, here is the right place to compute the final target processor
+    auto local_range =
+      machine.slice(legate_task.target(), legate_task.machine_desc(), task.local_function);
+#ifdef DEBUG_LEGATE
+    assert(!local_range.empty());
+#endif
+    output.target_procs.push_back(local_range.first());
+  }
 
   const auto& options = default_store_targets(task.target_proc.kind());
 
@@ -955,7 +963,7 @@ void BaseMapper::map_inline(const Legion::Mapping::MapperContext ctx,
   assert(inline_op.requirement.instance_fields.size() == 1);
 #endif
 
-  Store store(legion_runtime->get_mapper_runtime(), ctx, &inline_op.requirement);
+  Store store(mapper_runtime, ctx, &inline_op.requirement);
   std::vector<StoreMapping> mappings;
   mappings.push_back(StoreMapping::default_mapping(store, store_target, false));
 
@@ -1205,7 +1213,7 @@ void BaseMapper::map_partition(const Legion::Mapping::MapperContext ctx,
   assert(partition.requirement.instance_fields.size() == 1);
 #endif
 
-  Store store(legion_runtime->get_mapper_runtime(), ctx, &partition.requirement);
+  Store store(mapper_runtime, ctx, &partition.requirement);
   std::vector<StoreMapping> mappings;
   mappings.push_back(StoreMapping::default_mapping(store, store_target, false));
 
@@ -1254,6 +1262,31 @@ void BaseMapper::configure_context(const Legion::Mapping::MapperContext ctx,
                                    ContextConfigOutput& output)
 {
   // Use the defaults currently
+}
+
+void BaseMapper::map_future_map_reduction(const Legion::Mapping::MapperContext ctx,
+                                          const FutureMapReductionInput& input,
+                                          FutureMapReductionOutput& output)
+{
+  output.serdez_upper_bound = LEGATE_MAX_SIZE_SCALAR_RETURN;
+
+  if (machine.has_gpus()) {
+    // TODO: It's been reported that blindly mapping target instances of future map reductions
+    // to framebuffers hurts performance. Until we find a better mapping policy, we guard
+    // the current policy with a macro.
+#ifdef LEGATE_MAP_FUTURE_MAP_REDUCTIONS_TO_GPU
+
+    // If this was joining exceptions, we should put instances on a host-visible memory
+    // because they need serdez
+    if (input.tag == LEGATE_CORE_JOIN_EXCEPTION_TAG)
+      output.destination_memories.push_back(machine.zerocopy_memory());
+    else
+      for (auto& pair : machine.frame_buffers()) output.destination_memories.push_back(pair.second);
+#else
+    output.destination_memories.push_back(machine.zerocopy_memory());
+#endif
+  } else if (machine.has_socket_memory())
+    for (auto& pair : machine.socket_memories()) output.destination_memories.push_back(pair.second);
 }
 
 void BaseMapper::select_tunable_value(const Legion::Mapping::MapperContext ctx,

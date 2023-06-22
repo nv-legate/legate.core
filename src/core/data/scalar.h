@@ -45,6 +45,8 @@ class Scalar {
  public:
   Scalar() = default;
   Scalar(const Scalar& other);
+  Scalar(Scalar&& other);
+
   /**
    * @brief Creates a shared `Scalar` with an existing allocation. The caller is responsible
    * for passing in a sufficiently big allocation.
@@ -65,6 +67,24 @@ class Scalar {
    */
   template <typename T>
   Scalar(T value);
+  /**
+   * @brief Creates an owned scalar of a specified type from a scalar value
+   *
+   * @tparam T The scalar type to wrap
+   *
+   * @param type The type of the scalar
+   * @param value A scalar value to create a `Scalar` with
+   */
+  template <typename T>
+  Scalar(T value, std::unique_ptr<Type> type);
+  /**
+   * @brief Creates an owned scalar from a string. The value from the
+   * original string will be copied.
+   *
+   * @param string A string to create a `Scalar` with
+   */
+  Scalar(const std::string& string);
+
   /**
    * @brief Creates an owned scalar from a tuple of scalars. The values in the input vector
    * will be copied.

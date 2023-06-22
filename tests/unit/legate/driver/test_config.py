@@ -222,7 +222,6 @@ class TestLogging:
             "user_logging_levels",
             "logdir",
             "log_to_file",
-            "keep_logs",
         }
 
     def test_mixin(self) -> None:
@@ -326,7 +325,6 @@ class TestConfig:
             user_logging_levels=None,
             logdir=Path(os.getcwd()),
             log_to_file=False,
-            keep_logs=False,
         )
 
         assert c.debugging == m.Debugging(
@@ -442,7 +440,6 @@ class TestConfig:
                 "--dataflow",
                 "--progress",
                 "--gdb",
-                "--keep-logs",
                 "--profile",
                 "--cprofile",
             )

@@ -20,25 +20,34 @@ from typing import Tuple, Union
 
 from typing_extensions import TypeAlias
 
-from ...util.ui import failed, passed, shell, skipped
+from ...util.ui import failed, passed, shell, skipped, timeout
 from ..config import Config
 from ..logger import LOG
 from ..test_system import ProcessResult
 
 UNPIN_ENV = {"REALM_SYNTHETIC_CORE_MAP": ""}
 
-CUNUMERIC_TEST_ENV = {"CUNUMERIC_TEST": "1"}
-
 # Raise min chunk sizes for deferred codepaths to force eager execution
 EAGER_ENV = {
-    "CUNUMERIC_TEST": "0",
+    "CUNUMERIC_FORCE_THUNK": "eager",
     "CUNUMERIC_MIN_CPU_CHUNK": "2000000000",
     "CUNUMERIC_MIN_OMP_CHUNK": "2000000000",
     "CUNUMERIC_MIN_GPU_CHUNK": "2000000000",
 }
 
 
-Shard: TypeAlias = Tuple[int, ...]
+RankShard: TypeAlias = Tuple[int, ...]
+
+
+@dataclass(frozen=True)
+class Shard:
+    """Specify how resources should be allotted for each test process"""
+
+    #: A list of shards for each rank
+    ranks: list[RankShard]
+
+    def __str__(self) -> str:
+        return "/".join(",".join(str(r) for r in rank) for rank in self.ranks)
 
 
 @dataclass(frozen=True)
@@ -48,7 +57,7 @@ class StageSpec:
     #: The number of worker processes to start for running tests
     workers: int
 
-    # A list of (cpu or gpu) shards to draw on for each test
+    # A list of (cpu or gpu) shardings to draw on for each test
     shards: list[Shard]
 
 
@@ -114,10 +123,17 @@ def log_proc(
     """Log a process result according to the current configuration"""
     if config.debug or config.dry_run:
         LOG(shell(proc.invocation))
-    msg = f"({name}) {proc.test_file}"
+    duration = (
+        f" {{{proc.time.total_seconds():0.2f}s}}"
+        if proc.time is not None
+        else ""
+    )
+    msg = f"({name}){duration} {proc.test_file}"
     details = proc.output.split("\n") if verbose else None
     if proc.skipped:
         LOG(skipped(msg))
+    elif proc.timeout:
+        LOG(timeout(msg))
     elif proc.returncode == 0:
         LOG(passed(msg, details=details))
     else:

@@ -38,6 +38,12 @@ def cmd_bind(
 ) -> CommandPart:
     ranks = config.multi_node.ranks
 
+    if ranks > 1 and len(install_info.networks) == 0:
+        raise RuntimeError(
+            "multi-rank run was requested, but Legate was not built with "
+            "networking support"
+        )
+
     if launcher.kind == "none":
         bind_launcher_arg = "local" if ranks == 1 else "auto"
     else:
@@ -208,13 +214,6 @@ def cmd_python_processor(
 ) -> CommandPart:
     # We always need one python processor per rank
     return ("-ll:py", "1")
-
-
-def cmd_local_field(
-    config: ConfigProtocol, system: System, launcher: Launcher
-) -> CommandPart:
-    # We always need no local fields
-    return ("-lg:local", "0")
 
 
 def cmd_kthreads(
@@ -415,12 +414,6 @@ def cmd_eager_alloc(
     return ("-lg:eager_alloc_percentage", str(eager_alloc))
 
 
-def cmd_ucx(
-    config: ConfigProtocol, system: System, launcher: Launcher
-) -> CommandPart:
-    return ("-ucx:tls_host", "rc,tcp,cuda_copy,cuda_ipc,sm,self")
-
-
 def cmd_user_script(
     config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
@@ -433,10 +426,15 @@ def cmd_user_opts(
     return config.user_opts
 
 
+def cmd_python(
+    config: ConfigProtocol, system: System, launcher: Launcher
+) -> CommandPart:
+    return ("python",)
+
+
 _CMD_PARTS_SHARED = (
     # This has to go before script name
     cmd_nocr,
-    cmd_local_field,
     cmd_kthreads,
     # Translate the requests to Realm command line parameters
     cmd_cpus,
@@ -452,7 +450,6 @@ _CMD_PARTS_SHARED = (
     cmd_log_levels,
     cmd_log_file,
     cmd_eager_alloc,
-    cmd_ucx,
 )
 
 CMD_PARTS_LEGION = (
@@ -484,6 +481,8 @@ CMD_PARTS_LEGION = (
 
 CMD_PARTS_CANONICAL = (
     (
+        # Executable name that will get stripped by the runtime
+        cmd_python,
         # User script
         cmd_user_script,
     )

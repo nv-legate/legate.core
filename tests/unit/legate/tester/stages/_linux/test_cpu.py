@@ -21,12 +21,11 @@ import pytest
 
 from legate.tester.config import Config
 from legate.tester.stages._linux import cpu as m
-from legate.tester.stages.util import CUNUMERIC_TEST_ENV, UNPIN_ENV
+from legate.tester.stages.util import UNPIN_ENV, Shard
 
 from .. import FakeSystem
 
 unpin_and_test = dict(UNPIN_ENV)
-unpin_and_test.update(CUNUMERIC_TEST_ENV)
 
 
 def test_default() -> None:
@@ -39,7 +38,7 @@ def test_default() -> None:
     assert stage.spec.workers > 0
 
     shard = (1, 2, 3)
-    assert "--cpu-bind" in stage.shard_args(shard, c)
+    assert "--cpu-bind" in stage.shard_args(Shard([shard]), c)
 
 
 def test_cpu_pin_strict() -> None:
@@ -48,11 +47,11 @@ def test_cpu_pin_strict() -> None:
     stage = m.CPU(c, s)
     assert stage.kind == "cpus"
     assert stage.args == []
-    assert stage.env(c, s) == CUNUMERIC_TEST_ENV
+    assert stage.env(c, s) == {}
     assert stage.spec.workers > 0
 
     shard = (1, 2, 3)
-    assert "--cpu-bind" in stage.shard_args(shard, c)
+    assert "--cpu-bind" in stage.shard_args(Shard([shard]), c)
 
 
 def test_cpu_pin_none() -> None:
@@ -65,71 +64,166 @@ def test_cpu_pin_none() -> None:
     assert stage.spec.workers > 0
 
     shard = (1, 2, 3)
-    assert "--cpu-bind" not in stage.shard_args(shard, c)
+    assert "--cpu-bind" not in stage.shard_args(Shard([shard]), c)
 
 
-@pytest.mark.parametrize("shard,expected", [[(2,), "2"], [(1, 2, 3), "1,2,3"]])
-def test_shard_args(shard: tuple[int, ...], expected: str) -> None:
-    c = Config([])
-    s = FakeSystem()
-    stage = m.CPU(c, s)
-    result = stage.shard_args(shard, c)
-    assert result == ["--cpus", f"{c.cpus}", "--cpu-bind", expected]
+class TestSingleRank:
+    @pytest.mark.parametrize(
+        "shard,expected", [[(2,), "2"], [(1, 2, 3), "1,2,3"]]
+    )
+    def test_shard_args(self, shard: tuple[int, ...], expected: str) -> None:
+        c = Config([])
+        s = FakeSystem()
+        stage = m.CPU(c, s)
+        result = stage.shard_args(Shard([shard]), c)
+        assert result == ["--cpus", f"{c.cpus}", "--cpu-bind", expected]
+
+    def test_spec_with_cpus_1(self) -> None:
+        c = Config(["test.py", "--cpus", "1"])
+        s = FakeSystem()
+        stage = m.CPU(c, s)
+        assert stage.spec.workers == 3
+        assert stage.spec.shards == [
+            Shard([(0, 1)]),
+            Shard([(2, 3)]),
+            Shard([(4, 5)]),
+        ]
+
+    def test_spec_with_cpus_2(self) -> None:
+        c = Config(["test.py", "--cpus", "2"])
+        s = FakeSystem()
+        stage = m.CPU(c, s)
+        assert stage.spec.workers == 2
+        assert stage.spec.shards == [
+            Shard([(0, 1, 2)]),
+            Shard([(3, 4, 5)]),
+        ]
+
+    def test_spec_with_utility(self) -> None:
+        c = Config(["test.py", "--cpus", "1", "--utility", "2"])
+        s = FakeSystem()
+        stage = m.CPU(c, s)
+        assert stage.spec.workers == 2
+        assert stage.spec.shards == [
+            Shard([(0, 1, 2)]),
+            Shard([(3, 4, 5)]),
+        ]
+
+    def test_spec_with_requested_workers(
+        self,
+    ) -> None:
+        c = Config(["test.py", "--cpus", "1", "-j", "2"])
+        s = FakeSystem()
+        stage = m.CPU(c, s)
+        assert stage.spec.workers == 2
+        assert stage.spec.shards == [
+            Shard([(0, 1)]),
+            Shard([(2, 3)]),
+        ]
+
+    def test_spec_with_requested_workers_zero(self) -> None:
+        s = FakeSystem()
+        c = Config(["test.py", "-j", "0"])
+        assert c.requested_workers == 0
+        with pytest.raises(RuntimeError):
+            m.CPU(c, s)
+
+    def test_spec_with_requested_workers_bad(self) -> None:
+        s = FakeSystem()
+        c = Config(["test.py", "-j", f"{len(s.cpus)+1}"])
+        assert c.requested_workers > len(s.cpus)
+        with pytest.raises(RuntimeError):
+            m.CPU(c, s)
+
+    def test_spec_with_verbose(self) -> None:
+        args = ["test.py", "--cpus", "2"]
+        c = Config(args)
+        cv = Config(args + ["--verbose"])
+        s = FakeSystem()
+
+        spec, vspec = m.CPU(c, s).spec, m.CPU(cv, s).spec
+        assert vspec == spec
 
 
-def test_spec_with_cpus_1() -> None:
-    c = Config(["test.py", "--cpus", "1"])
-    s = FakeSystem()
-    stage = m.CPU(c, s)
-    assert stage.spec.workers == 3
-    assert stage.spec.shards == [(0, 1), (2, 3), (4, 5)]
+class TestMultiRank:
+    def test_shard_args(self) -> None:
+        c = Config(["test.py", "--cpus", "2", "--ranks-per-node", "2"])
+        s = FakeSystem(cpus=12)
+        stage = m.CPU(c, s)
+        result = stage.shard_args(Shard([(0, 1), (2, 3)]), c)
+        assert result == [
+            "--cpus",
+            f"{c.cpus}",
+            "--cpu-bind",
+            "0,1/2,3",
+            "--ranks-per-node",
+            "2",
+        ]
 
+    def test_spec_with_cpus_1(self) -> None:
+        c = Config(["test.py", "--cpus", "1", "--ranks-per-node", "2"])
+        s = FakeSystem(cpus=12)
+        stage = m.CPU(c, s)
+        assert stage.spec.workers == 3
+        assert stage.spec.shards == [
+            Shard([(0, 1), (2, 3)]),
+            Shard([(4, 5), (6, 7)]),
+            Shard([(8, 9), (10, 11)]),
+        ]
 
-def test_spec_with_cpus_2() -> None:
-    c = Config(["test.py", "--cpus", "2"])
-    s = FakeSystem()
-    stage = m.CPU(c, s)
-    assert stage.spec.workers == 2
-    assert stage.spec.shards == [(0, 1, 2), (3, 4, 5)]
+    def test_spec_with_cpus_2(self) -> None:
+        c = Config(["test.py", "--cpus", "2", "--ranks-per-node", "2"])
+        s = FakeSystem(cpus=12)
+        stage = m.CPU(c, s)
+        assert stage.spec.workers == 2
+        assert stage.spec.shards == [
+            Shard([(0, 1, 2), (3, 4, 5)]),
+            Shard([(6, 7, 8), (9, 10, 11)]),
+        ]
 
+    def test_spec_with_utility_2(self) -> None:
+        c = Config(
+            [
+                "test.py",
+                "--cpus",
+                "1",
+                "--utility",
+                "2",
+                "--ranks-per-node",
+                "2",
+            ]
+        )
+        s = FakeSystem(cpus=12)
+        stage = m.CPU(c, s)
+        assert stage.spec.workers == 2
+        assert stage.spec.shards == [
+            Shard([(0, 1, 2), (3, 4, 5)]),
+            Shard([(6, 7, 8), (9, 10, 11)]),
+        ]
 
-def test_spec_with_utility() -> None:
-    c = Config(["test.py", "--cpus", "1", "--utility", "2"])
-    s = FakeSystem()
-    stage = m.CPU(c, s)
-    assert stage.spec.workers == 2
-    assert stage.spec.shards == [(0, 1, 2), (3, 4, 5)]
+    def test_spec_with_requested_workers(self) -> None:
+        c = Config(
+            ["test.py", "--cpus", "1", "-j", "1", "--ranks-per-node", "2"]
+        )
+        s = FakeSystem(cpus=12)
+        stage = m.CPU(c, s)
+        assert stage.spec.workers == 1
+        assert stage.spec.shards == [
+            Shard([(0, 1), (2, 3)]),
+        ]
 
+    def test_spec_with_requested_workers_zero(self) -> None:
+        s = FakeSystem(cpus=12)
+        c = Config(["test.py", "-j", "0", "--ranks-per-node", "2"])
+        assert c.requested_workers == 0
+        with pytest.raises(RuntimeError):
+            m.CPU(c, s)
 
-def test_spec_with_requested_workers() -> None:
-    c = Config(["test.py", "--cpus", "1", "-j", "2"])
-    s = FakeSystem()
-    stage = m.CPU(c, s)
-    assert stage.spec.workers == 2
-    assert stage.spec.shards == [(0, 1), (2, 3)]
-
-
-def test_spec_with_requested_workers_zero() -> None:
-    s = FakeSystem()
-    c = Config(["test.py", "-j", "0"])
-    assert c.requested_workers == 0
-    with pytest.raises(RuntimeError):
-        m.CPU(c, s)
-
-
-def test_spec_with_requested_workers_bad() -> None:
-    s = FakeSystem()
-    c = Config(["test.py", "-j", f"{len(s.cpus)+1}"])
-    assert c.requested_workers > len(s.cpus)
-    with pytest.raises(RuntimeError):
-        m.CPU(c, s)
-
-
-def test_spec_with_verbose() -> None:
-    args = ["test.py", "--cpus", "2"]
-    c = Config(args)
-    cv = Config(args + ["--verbose"])
-    s = FakeSystem()
-
-    spec, vspec = m.CPU(c, s).spec, m.CPU(cv, s).spec
-    assert vspec == spec
+    def test_spec_with_requested_workers_bad(self) -> None:
+        s = FakeSystem(cpus=12)
+        c = Config(
+            ["test.py", "-j", f"{len(s.cpus)+1}", "--ranks-per-node", "2"]
+        )
+        assert c.requested_workers > len(s.cpus)
+        with pytest.raises(RuntimeError):
+            m.CPU(c, s)

@@ -75,6 +75,8 @@ if(NOT Legion_MAX_FIELDS MATCHES "^(32|64|128|256|512|1024|2048|4096)$")
   message(FATAL_ERROR "The maximum number of Legate fields must be a power of 2 between 32 and 4096 inclusive")
 endif()
 
+# We never want local fields
+set(Legion_DEFAULT_LOCAL_FIELDS 0)
 
 option(legate_core_STATIC_CUDA_RUNTIME "Statically link the cuda runtime library" OFF)
 option(legate_core_EXCLUDE_LEGION_FROM_ALL "Exclude Legion targets from legate.core's 'all' target" OFF)

@@ -17,13 +17,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ..test_stage import TestStage
-from ..util import (
-    CUNUMERIC_TEST_ENV,
-    UNPIN_ENV,
-    Shard,
-    StageSpec,
-    adjust_workers,
-)
+from ..util import UNPIN_ENV, Shard, StageSpec, adjust_workers
 
 if TYPE_CHECKING:
     from ....util.types import ArgList, EnvDict
@@ -53,9 +47,7 @@ class CPU(TestStage):
         self._init(config, system)
 
     def env(self, config: Config, system: TestSystem) -> EnvDict:
-        env = dict(UNPIN_ENV)
-        env.update(CUNUMERIC_TEST_ENV)
-        return env
+        return dict(UNPIN_ENV)
 
     def shard_args(self, shard: Shard, config: Config) -> ArgList:
         return ["--cpus", str(config.cpus)]
@@ -67,4 +59,5 @@ class CPU(TestStage):
         )
 
         # return a dummy set of shards just for the runner to iterate over
-        return StageSpec(workers, [(i,) for i in range(workers)])
+        shards = [Shard([(i,)]) for i in range(workers)]
+        return StageSpec(workers, shards)

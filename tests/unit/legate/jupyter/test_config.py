@@ -94,7 +94,6 @@ class TestConfig:
             user_logging_levels=None,
             logdir=Path("."),
             log_to_file=False,
-            keep_logs=False,
         )
 
         assert c.debugging == m.Debugging(

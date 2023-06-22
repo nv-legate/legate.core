@@ -64,8 +64,10 @@ class Config:
         self.gpu_delay = args.gpu_delay
         self.ompthreads = args.ompthreads
         self.numamem = args.numamem
+        self.ranks = args.ranks
 
         # test run configuration
+        self.timeout = args.timeout
         self.debug = args.debug
         self.dry_run = args.dry_run
         self.verbose = args.verbose

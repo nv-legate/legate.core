@@ -238,7 +238,7 @@ class Operation(OperationProtocol):
         operation will start the execution right upon the return of this
         method.
         """
-        self._context.runtime.submit(self)
+        runtime.submit(self)
 
     @staticmethod
     def _check_store(store: Store, allow_unbound: bool = False) -> None:
@@ -447,7 +447,6 @@ class Task(TaskProtocol):
         num_unbound_outs = len(self.unbound_outputs)
         num_scalar_outs = len(self.scalar_outputs)
         num_scalar_reds = len(self.scalar_reductions)
-        runtime = self.context.runtime
 
         num_all_scalars = (
             num_unbound_outs
@@ -471,8 +470,14 @@ class Task(TaskProtocol):
                 )
             else:
                 assert num_unbound_outs == 1
+                output = self.outputs[self.unbound_outputs[0]]
+                output.set_key_partition(REPLICATE)
         else:
-            idx = len(self.unbound_outputs)
+            idx = 0
+            for out_idx in self.unbound_outputs:
+                output = self.outputs[out_idx]
+                output.set_key_partition(REPLICATE)
+                idx += 1
             for out_idx in self.scalar_outputs:
                 output = self.outputs[out_idx]
                 output.set_storage(runtime.extract_scalar(result, idx))
@@ -497,7 +502,6 @@ class Task(TaskProtocol):
         num_unbound_outs = len(self.unbound_outputs)
         num_scalar_outs = len(self.scalar_outputs)
         num_scalar_reds = len(self.scalar_reductions)
-        runtime = self.context.runtime
 
         num_all_scalars = (
             num_unbound_outs
@@ -1028,7 +1032,7 @@ class ManualTask(Operation, Task):
                 continue
             # TODO: Need an interface for clients to specify isomorphism
             # bewteen unbound stores
-            fspace = self._context.runtime.create_field_space()
+            fspace = runtime.create_field_space()
             field_id = fspace.allocate_field(store.type)
             launcher.add_unbound_output(store, fspace, field_id)
 
@@ -1446,7 +1450,6 @@ class Reduce(AutoOperation):
             op_id=op_id,
             target_machine=target_machine,
         )
-        self._runtime = context.runtime
         self._radix = radix
         self._task_id = task_id
 
@@ -1480,7 +1483,10 @@ class Reduce(AutoOperation):
             _RadixProj(self._radix, off) for off in range(self._radix)
         )
 
-        while num_tasks > 1:
+        # We need to make sure that the while loop below runs at least once
+        # even when the input is produced by a single task.
+        done = False
+        while not done:
             tag = self.context.core_library.LEGATE_CORE_TREE_REDUCE_TAG
             launcher = TaskLauncher(
                 self.context,
@@ -1489,16 +1495,27 @@ class Reduce(AutoOperation):
                 provenance=self.provenance,
             )
 
-            for proj_fn in proj_fns:
-                launcher.add_input(input, ipart.get_requirement(1, proj_fn))
+            if num_tasks > 1:
+                for proj_fn in proj_fns:
+                    launcher.add_input(
+                        input, ipart.get_requirement(1, proj_fn)
+                    )
+            else:
+                # If we're here, that means the input to this tree reduction is
+                # not partitioned. So, adding the input multiple times with
+                # different radix functors would just end up duplicating the
+                # inputs, which is both unnecessary and incorrect. Therefore,
+                # we only add the input once.
+                launcher.add_input(input, ipart.get_requirement(1))
 
             num_tasks = (num_tasks + self._radix - 1) // self._radix
+            done = num_tasks == 1
 
             if num_tasks == 1:
                 output = self._outputs[0]
             else:
                 output = self._context.create_store(input.type)
-            fspace = self._runtime.create_field_space()
+            fspace = runtime.create_field_space()
             field_id = fspace.allocate_field(input.type)
             launcher.add_unbound_output(output, fspace, field_id)
 

@@ -18,13 +18,7 @@ from itertools import chain
 from typing import TYPE_CHECKING
 
 from ..test_stage import TestStage
-from ..util import (
-    CUNUMERIC_TEST_ENV,
-    UNPIN_ENV,
-    Shard,
-    StageSpec,
-    adjust_workers,
-)
+from ..util import UNPIN_ENV, Shard, StageSpec, adjust_workers
 
 if TYPE_CHECKING:
     from ....util.types import ArgList, EnvDict
@@ -54,9 +48,7 @@ class OMP(TestStage):
         self._init(config, system)
 
     def env(self, config: Config, system: TestSystem) -> EnvDict:
-        env = {} if config.cpu_pin == "strict" else dict(UNPIN_ENV)
-        env.update(CUNUMERIC_TEST_ENV)
-        return env
+        return {} if config.cpu_pin == "strict" else dict(UNPIN_ENV)
 
     def shard_args(self, shard: Shard, config: Config) -> ArgList:
         args = [
@@ -70,7 +62,12 @@ class OMP(TestStage):
         if config.cpu_pin != "none":
             args += [
                 "--cpu-bind",
-                ",".join(str(x) for x in shard),
+                str(shard),
+            ]
+        if config.ranks > 1:
+            args += [
+                "--ranks-per-node",
+                str(config.ranks),
             ]
         return args
 
@@ -80,12 +77,20 @@ class OMP(TestStage):
         procs = (
             omps * threads + config.utility + int(config.cpu_pin == "strict")
         )
-        workers = adjust_workers(len(cpus) // procs, config.requested_workers)
+        workers = adjust_workers(
+            len(cpus) // (procs * config.ranks), config.requested_workers
+        )
 
-        shards: list[tuple[int, ...]] = []
+        shards: list[Shard] = []
         for i in range(workers):
-            shard_cpus = range(i * procs, (i + 1) * procs)
-            shard = chain.from_iterable(cpus[j].ids for j in shard_cpus)
-            shards.append(tuple(sorted(shard)))
+            rank_shards = []
+            for j in range(config.ranks):
+                shard_cpus = range(
+                    (j + i * config.ranks) * procs,
+                    (j + i * config.ranks + 1) * procs,
+                )
+                shard = chain.from_iterable(cpus[k].ids for k in shard_cpus)
+                rank_shards.append(tuple(sorted(shard)))
+            shards.append(Shard(rank_shards))
 
         return StageSpec(workers, shards)

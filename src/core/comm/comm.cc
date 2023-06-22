@@ -19,6 +19,7 @@
 #include "core/comm/comm_nccl.h"
 #endif
 #include "core/comm/comm_cpu.h"
+#include "env_defaults.h"
 
 namespace legate {
 namespace comm {
@@ -30,7 +31,9 @@ void register_tasks(Legion::Machine machine,
 #ifdef LEGATE_USE_CUDA
   nccl::register_tasks(machine, runtime, context);
 #endif
-  cpu::register_tasks(machine, runtime, context);
+  bool disable_mpi =
+    static_cast<bool>(extract_env("LEGATE_DISABLE_MPI", DISABLE_MPI_DEFAULT, DISABLE_MPI_TEST));
+  if (!disable_mpi) { cpu::register_tasks(machine, runtime, context); }
 }
 
 }  // namespace comm

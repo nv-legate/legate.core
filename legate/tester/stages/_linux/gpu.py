@@ -18,7 +18,7 @@ import time
 from typing import TYPE_CHECKING
 
 from ..test_stage import TestStage
-from ..util import CUNUMERIC_TEST_ENV, Shard, StageSpec, adjust_workers
+from ..util import Shard, StageSpec, adjust_workers
 
 if TYPE_CHECKING:
     from ....util.types import ArgList, EnvDict
@@ -50,24 +50,30 @@ class GPU(TestStage):
         self._init(config, system)
 
     def env(self, config: Config, system: TestSystem) -> EnvDict:
-        return dict(CUNUMERIC_TEST_ENV)
+        return {}
 
     def delay(self, shard: Shard, config: Config, system: TestSystem) -> None:
         time.sleep(config.gpu_delay / 1000)
 
     def shard_args(self, shard: Shard, config: Config) -> ArgList:
-        return [
+        args = [
             "--fbmem",
             str(config.fbmem),
             "--gpus",
-            str(len(shard)),
+            str(sum(len(r) for r in shard.ranks) // len(shard.ranks)),
             "--gpu-bind",
-            ",".join(str(x) for x in shard),
+            str(shard),
         ]
+        if config.ranks > 1:
+            args += [
+                "--ranks-per-node",
+                str(config.ranks),
+            ]
+        return args
 
     def compute_spec(self, config: Config, system: TestSystem) -> StageSpec:
         N = len(system.gpus)
-        degree = N // config.gpus
+        degree = N // (config.gpus * config.ranks)
 
         fbsize = min(gpu.total for gpu in system.gpus) / (1 << 20)  # MB
         oversub_factor = int(fbsize // (config.fbmem * BLOAT_FACTOR))
@@ -75,11 +81,18 @@ class GPU(TestStage):
             degree * oversub_factor, config.requested_workers
         )
 
-        # https://docs.python.org/3/library/itertools.html#itertools-recipes
-        # grouper('ABCDEF', 3) --> ABC DEF
-        args = [iter(range(degree * config.gpus))] * config.gpus
-        per_worker_shards = list(zip(*args))
+        shards: list[Shard] = []
+        for i in range(degree):
+            rank_shards = []
+            for j in range(config.ranks):
+                shard_gpus = range(
+                    (j + i * config.ranks) * config.gpus,
+                    (j + i * config.ranks + 1) * config.gpus,
+                )
+                shard = tuple(shard_gpus)
+                rank_shards.append(shard)
+            shards.append(Shard(rank_shards))
 
-        shards = per_worker_shards * workers
+        shard_factor = workers if config.ranks == 1 else oversub_factor
 
-        return StageSpec(workers, shards)
+        return StageSpec(workers, shards * shard_factor)

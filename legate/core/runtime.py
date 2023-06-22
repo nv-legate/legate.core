@@ -65,6 +65,7 @@ from .machine import Machine, ProcessorKind
 from .projection import is_identity_projection, pack_symbolic_projection_repr
 from .restriction import Restriction
 from .shape import Shape
+from .utils import dlopen_no_autoclose
 
 if TYPE_CHECKING:
     from . import ArgumentMap, Detach, IndexDetach, IndexPartition, Library
@@ -76,7 +77,7 @@ if TYPE_CHECKING:
     from .communicator import Communicator
     from .context import Context
     from .corelib import CoreLib
-    from .operation import Operation
+    from .operation import AutoTask, Copy, ManualTask, Operation
     from .partition import PartitionBase
     from .projection import SymbolicPoint
     from .store import RegionField, Store
@@ -965,17 +966,27 @@ class CommunicatorManager:
     def __init__(self, runtime: Runtime) -> None:
         self._runtime = runtime
         self._nccl = NCCLCommunicator(runtime)
-        self._cpu = CPUCommunicator(runtime)
+
+        self._cpu = (
+            None if settings.disable_mpi() else CPUCommunicator(runtime)
+        )
 
     def destroy(self) -> None:
         self._nccl.destroy()
-        self._cpu.destroy()
+        if self._cpu:
+            self._cpu.destroy()
 
     def get_nccl_communicator(self) -> Communicator:
         return self._nccl
 
     def get_cpu_communicator(self) -> Communicator:
+        if self._cpu is None:
+            raise RuntimeError("MPI is disabled")
         return self._cpu
+
+    @property
+    def has_cpu_communicator(self) -> bool:
+        return self._cpu is not None
 
 
 class Runtime:
@@ -1121,6 +1132,10 @@ class Runtime:
         }
 
     @property
+    def has_cpu_communicator(self) -> bool:
+        return self._comm_manager.has_cpu_communicator
+
+    @property
     def legion_runtime(self) -> legion.legion_runtime_t:
         if self._legion_runtime is None:
             self._legion_runtime = legion.legion_runtime_get_runtime()
@@ -1168,10 +1183,6 @@ class Runtime:
         if len(self._machines) <= 1:
             raise RuntimeError("Machine stack underflow")
         self._machines.pop()
-
-    @property
-    def core_task_variant_id(self) -> int:
-        return self._variant_ids[self.machine.preferred_kind]
 
     @property
     def attachment_manager(self) -> AttachmentManager:
@@ -1250,7 +1261,12 @@ class Runtime:
             header = library.get_c_header()
             if header is not None:
                 ffi.cdef(header)
-            shared_lib = ffi.dlopen(shared_lib_path)
+            # Don't use ffi.dlopen(), because that will call dlclose()
+            # automatically when the object gets collected, thus removing
+            # symbols that may be needed when destroying C++ objects later
+            # (e.g. vtable entries, which will be queried for virtual
+            # destructors), causing errors at shutdown.
+            shared_lib = dlopen_no_autoclose(ffi, shared_lib_path)
             library.initialize(shared_lib)
             callback_name = library.get_registration_callback()
             callback = getattr(shared_lib, callback_name)
@@ -1523,6 +1539,193 @@ class Runtime:
             ndim=ndim,
         )
 
+    def create_manual_task(
+        self,
+        context: Context,
+        task_id: int,
+        launch_domain: Rect,
+    ) -> ManualTask:
+        """
+        Creates a manual task.
+
+        Parameters
+        ----------
+        context: Context
+            Library to which the task id belongs
+
+        task_id : int
+            Task id. Scoped locally within the context; i.e., different
+            libraries can use the same task id. There must be a task
+            implementation corresponding to the task id.
+
+        launch_domain : Rect, optional
+            Launch domain of the task.
+
+        Returns
+        -------
+        ManualTask
+            A new task
+        """
+
+        from .operation import ManualTask
+
+        # Check if the task id is valid for this library and the task
+        # has the right variant
+        machine = context.slice_machine_for_task(task_id)
+        unique_op_id = self.get_unique_op_id()
+        if launch_domain is None:
+            raise RuntimeError(
+                "Launch domain must be specified for manual parallelization"
+            )
+
+        return ManualTask(
+            context,
+            task_id,
+            launch_domain,
+            unique_op_id,
+            machine,
+        )
+
+    def create_auto_task(
+        self,
+        context: Context,
+        task_id: int,
+    ) -> AutoTask:
+        """
+        Creates an auto task.
+
+        Parameters
+        ----------
+        context: Context
+            Library to which the task id belongs
+
+        task_id : int
+            Task id. Scoped locally within the context; i.e., different
+            libraries can use the same task id. There must be a task
+            implementation corresponding to the task id.
+
+        Returns
+        -------
+        AutoTask
+            A new automatically parallelized task
+
+        See Also
+        --------
+        Context.create_task
+        """
+
+        from .operation import AutoTask
+
+        # Check if the task id is valid for this library and the task
+        # has the right variant
+        machine = context.slice_machine_for_task(task_id)
+        unique_op_id = self.get_unique_op_id()
+        return AutoTask(context, task_id, unique_op_id, machine)
+
+    def create_copy(self) -> Copy:
+        """
+        Creates a copy operation.
+
+        Returns
+        -------
+        Copy
+            A new copy operation
+        """
+
+        from .operation import Copy
+
+        return Copy(
+            self.core_context,
+            self.get_unique_op_id(),
+            self.machine,
+        )
+
+    def issue_fill(
+        self,
+        lhs: Store,
+        value: Store,
+    ) -> None:
+        """
+        Fills the store with a constant value.
+
+        Parameters
+        ----------
+        lhs : Store
+            Store to fill
+
+        value : Store
+            Store holding the constant value to fill the ``lhs`` with
+
+        Raises
+        ------
+        ValueError
+            If the ``value`` is not scalar or the ``lhs`` is either unbound or
+            scalar
+        """
+        from .operation import Fill
+
+        fill = Fill(
+            self.core_context,
+            lhs,
+            value,
+            self.get_unique_op_id(),
+            self.machine,
+        )
+        fill.execute()
+
+    def tree_reduce(
+        self, context: Context, task_id: int, store: Store, radix: int = 4
+    ) -> Store:
+        """
+        Performs a user-defined reduction by building a tree of reduction
+        tasks. At each step, the reducer task gets up to ``radix`` input stores
+        and is supposed to produce outputs in a single unbound store.
+
+        Parameters
+        ----------
+        context : Context
+            Library to which the task id belongs
+
+        task_id : int
+            Id of the reducer task
+
+        store : Store
+            Store to perform reductions on
+
+        radix : int
+            Fan-in of each reducer task. If the store is partitioned into
+            :math:`N` sub-stores by the runtime, then the first level of
+            reduction tree has :math:`\\ceil{N / \\mathtt{radix}}` reducer
+            tasks.
+
+        Returns
+        -------
+        Store
+            Store that contains reduction results
+        """
+        from .operation import Reduce
+
+        if store.ndim > 1:
+            raise NotImplementedError(
+                "Tree reduction doesn't currently support "
+                "multi-dimensional stores"
+            )
+
+        result = self.create_store(store.type)
+
+        # A single Reduce operation is mapped to a whole reduction tree
+        task = Reduce(
+            context,
+            task_id,
+            radix,
+            self.get_unique_op_id(),
+            self.machine,
+        )
+        task.add_input(store)
+        task.add_output(result)
+        task.execute()
+        return result
+
     def find_region_manager(self, region: Region) -> RegionManager:
         assert region in self.region_managers_by_region
         return self.region_managers_by_region[region]
@@ -1685,7 +1888,6 @@ class Runtime:
         launcher = TaskLauncher(
             self.core_context,
             self.core_library.LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,
-            tag=self.core_task_variant_id,
         )
         launcher.add_future(future)
         launcher.add_scalar_arg(idx, ty.int32)
@@ -1699,7 +1901,6 @@ class Runtime:
         launcher = TaskLauncher(
             self.core_context,
             self.core_library.LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,
-            tag=self.core_task_variant_id,
         )
         launcher.add_future_map(future)
         launcher.add_scalar_arg(idx, ty.int32)
@@ -1735,6 +1936,17 @@ class Runtime:
             )
 
     def issue_execution_fence(self, block: bool = False) -> None:
+        """
+        Issues an execution fence. A fence is a special operation that
+        guarantees that all upstream operations finish before any of the
+        downstream operations start. The caller can optionally block on
+        completion of all upstream operations.
+
+        Parameters
+        ----------
+        block : bool
+            If ``True``, the call blocks until all upstream operations finish.
+        """
         fence = Fence(mapping=False)
         future = fence.launch(self.legion_runtime, self.legion_context)
         if block:

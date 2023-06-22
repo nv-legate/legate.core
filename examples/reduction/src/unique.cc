@@ -29,7 +29,8 @@ template <typename VAL>
 void add_to_set(std::unordered_set<VAL>& unique_values, legate::Store& input)
 {
   auto shape = input.shape<1>();
-  auto acc   = input.read_accessor<VAL, 1>();
+  if (shape.empty()) return;
+  auto acc = input.read_accessor<VAL, 1>();
   for (legate::PointInRectIterator<1> it(shape, false /*fortran_order*/); it.valid(); ++it)
     unique_values.insert(acc[*it]);
 }
@@ -37,7 +38,10 @@ void add_to_set(std::unordered_set<VAL>& unique_values, legate::Store& input)
 template <typename VAL>
 void copy_to_output(legate::Store& output, const std::unordered_set<VAL>& values)
 {
-  if (values.empty()) output.bind_empty_data();
+  if (values.empty()) {
+    output.bind_empty_data();
+    return;
+  }
 
   int64_t num_values = values.size();
   auto out_buf =

@@ -18,6 +18,7 @@ import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from .. import install_info
 from ..util.fs import read_c_define
 
 if TYPE_CHECKING:
@@ -186,16 +187,17 @@ class Launcher:
         # threading support
         env["GASNET_MPI_THREAD"] = "MPI_THREAD_MULTIPLE"
 
-        # UCX-related environment variables
-        env["UCX_CUDA_COPY_MAX_REG_RATIO"] = "1.0"
-        env["UCX_MULTI_LANE_MAX_RATIO"] = "1.0"
-        env["UCX_IB_RCACHE_PURGE_ON_FORK"] = "n"
-        env["UCX_RC_TX_POLL_ALWAYS"] = "y"
+        if config.multi_node.ranks > 1 and "ucx" in install_info.networks:
+            # UCX-related environment variables
+            env["UCX_CUDA_COPY_MAX_REG_RATIO"] = "1.0"
+            env["UCX_IB_RCACHE_PURGE_ON_FORK"] = "n"
+            env["UCX_RC_TX_POLL_ALWAYS"] = "y"
 
-        # Link to the UCX bootstrap plugin, in case Realm is using UCX
-        env["REALM_UCP_BOOTSTRAP_PLUGIN"] = str(
-            system.legion_paths.legion_lib_path / "realm_ucp_bootstrap_mpi.so"
-        )
+            # Link to the UCX bootstrap plugin
+            env["REALM_UCP_BOOTSTRAP_PLUGIN"] = str(
+                system.legion_paths.legion_lib_path
+                / "realm_ucp_bootstrap_mpi.so"
+            )
 
         # Set some environment variables depending on our configuration that
         # we will check in the Legate binary to ensure that it is properly.
@@ -259,6 +261,10 @@ class Launcher:
         # Debugging options
         if system.env.get("PYTHONFAULTHANDLER", "") == "":
             env["REALM_BACKTRACE"] = "1"
+        elif "REALM_BACKTRACE" in system.env:
+            raise RuntimeError(
+                "REALM_BACKTRACE and PYTHONFAULTHANDLER should not be both set"
+            )
 
         if "CUTENSOR_LOG_LEVEL" not in system.env:
             env["CUTENSOR_LOG_LEVEL"] = "1"

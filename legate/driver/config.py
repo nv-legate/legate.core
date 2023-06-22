@@ -116,7 +116,6 @@ class Logging(DataclassMixin):
     user_logging_levels: str | None
     logdir: Path
     log_to_file: bool
-    keep_logs: bool
 
 
 @dataclass(frozen=True)

@@ -1,0 +1,88 @@
+name: Test legate.core on GH
+
+on:
+  workflow_call:
+    inputs:
+      build-target:
+        required: true
+        type: string
+      runs-on:
+        required: true
+        type: string
+      sha:
+        required: true
+        type: string
+      test-scope:
+        required: true
+        type: string
+
+jobs:
+  test:
+    if: github.repository_owner == 'nv-legate'
+    name: test-${{inputs.build-target}}-sub-workflow
+    runs-on: ${{ inputs.runs-on }}
+    container:
+      options: -u root
+      image: rapidsai/devcontainers:23.06-cpp-cuda11.8-mambaforge-ubuntu22.04
+      env:
+        DEFAULT_CONDA_ENV: legate
+        PYTHONDONTWRITEBYTECODE: 1
+        NVIDIA_VISIBLE_DEVICES: ${{ env.NVIDIA_VISIBLE_DEVICES }}
+
+    steps:
+      - if: inputs.build-target == 'gpu'
+        name: Run nvidia-smi to make sure GPU is working
+        run: nvidia-smi
+
+      - name: Checkout legate.core
+        uses: actions/checkout@v3
+        with:
+          repository: nv-legate/legate.core
+          fetch-depth: 0
+          path: legate
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: "legate.core-${{inputs.build-target}}-${{ inputs.sha }}"
+          path: artifacts
+          
+      - name: Display structure of downloaded artifacts
+        run: ls -R
+        working-directory: artifacts
+
+      - name: Setup
+        shell: bash -eo pipefail {0}
+        run: |
+          git -C legate checkout ${{ inputs.sha }}
+
+          cp -ar legate/continuous_integration/home/coder/.gitconfig /home/coder/
+          cp -ar legate/continuous_integration/home/coder/.local /home/coder/
+          mv legate /home/coder/legate
+
+          chmod a+x /home/coder/.local/bin/*
+          chown -R coder:coder /home/coder/
+          mkdir -p /tmp/out
+          chown -R coder:coder /tmp/out
+
+      - name: Recreate the legate conda environment
+        shell: bash -eo pipefail {0}
+        run: |
+          pattern="artifacts/out/*.yaml"
+          files=( $pattern )
+          yaml_file="${files[0]}"
+          echo "YAML file: ${yaml_file}"
+
+          mamba env create -n "${DEFAULT_CONDA_ENV:-legate}" -f "${yaml_file}";
+
+      - name: Install legate-core and cunumeric in the legate conda environment
+        shell: bash -eo pipefail {0}
+        run: |
+          mamba install -y -n legate -c $(pwd)/artifacts/conda-build/legate_core legate-core
+
+      - if: inputs.test-scope == 'unit'
+        name: Run legate.core unit tests
+        shell: su coder {0}
+        run: |
+          cd ~/legate/tests/unit
+          pytest
