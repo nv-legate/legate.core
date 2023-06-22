@@ -14,7 +14,15 @@ entrypoint() {
 
     mkdir -p /home/coder/.cache;
 
-    . devcontainer-utils-post-attach-command;
+    # . devcontainer-utils-post-attach-command;
+
+    # Refresh the S3 creds if they don't exist, are expired, or are <= 4 hours from expiring
+    if  ! devcontainer-utils-vault-s3-test 2>&1 >/dev/null             \
+    || [ $(($(date '+%s') - $(cat ~/.aws/stamp))) -gt $((3600 * 8)) ] ;
+    then . devcontainer-utils-vault-s3-init;
+    else . devcontainer-utils-vault-s3-export 0;
+    fi
+
     sleep 10;
     . devcontainer-utils-vault-s3-test;
     . devcontainer-utils-vault-s3-export 0;
