@@ -3,7 +3,7 @@ FROM rapidsai/devcontainers:23.06-cpp-cuda11.8-mambaforge-ubuntu22.04
 RUN export DEBIAN_FRONTEND=noninteractive       \
  && sudo apt update                             \
  && sudo apt install -y --no-install-recommends \
-    tree vim wget rustc cargo
+    tree vim wget rustc cargo python3-pip
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV SCCACHE_REGION="us-east-2"
@@ -41,7 +41,7 @@ COPY --chown=coder:coder . /home/coder/legate
 RUN chmod a+x /home/coder/.local/bin/* && \
     mkdir -p /tmp/out && \
     chown -R coder:coder /tmp/out && \
-    pip install awscurl
+    pip3 install awscurl
 
 ENTRYPOINT ["/home/coder/.local/bin/entrypoint"]
 
