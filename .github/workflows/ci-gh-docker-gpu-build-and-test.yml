@@ -41,6 +41,7 @@ jobs:
         run: |
           mkdir -p out conda-build
           env > env_file
+          cat env_file
           docker run \
             --env-file env_file \
             -v "$(pwd)/out:/tmp/out" \
