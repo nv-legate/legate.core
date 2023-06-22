@@ -25,6 +25,7 @@ make_conda_env() {
 
     sed -i -re "s/legate-test/${DEFAULT_CONDA_ENV:-legate}/g" "${yaml_file}";
     echo "  - boa" >> "${yaml_file}";
+    echo "  - awscurl" >> "${yaml_file}";
     cat "${yaml_file}";
 
     cp "${yaml_file}" /tmp/out/
