@@ -1713,7 +1713,7 @@ class Runtime:
 
         result = self.create_store(store.type)
 
-        # A single Reduce operation is mapepd to a whole reduction tree
+        # A single Reduce operation is mapped to a whole reduction tree
         task = Reduce(
             context,
             task_id,
