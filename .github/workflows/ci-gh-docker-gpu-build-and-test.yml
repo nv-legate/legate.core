@@ -40,7 +40,7 @@ jobs:
           docker build \
             --progress=plain \
             --tag=$IMAGE_NAME \
-            --label "runnumber=${GITHUB_RUN_ID}" \
+            --label "git-commit=${{github.sha}}" \
             -f continuous_integration/Dockerfile .
       
       - name: Log in to container image registry
