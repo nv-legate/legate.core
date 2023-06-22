@@ -92,7 +92,8 @@ jobs:
     runs-on: linux-amd64-gpu-v100-latest-1
     container:
       options: -u root
-      image: ghcr.io/nv-legate/legate.core:latest
+      # image: ghcr.io/nv-legate/legate.core:latest
+      image: rapidsai/devcontainers:23.06-cpp-cuda11.8-mambaforge-ubuntu22.04
       env:
         NVIDIA_VISIBLE_DEVICES: ${{ env.NVIDIA_VISIBLE_DEVICES }}
     steps:
