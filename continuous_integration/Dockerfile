@@ -42,8 +42,7 @@ COPY --chown=coder:coder . /home/coder/legate
 
 RUN chmod a+x /home/coder/.local/bin/* && \
     mkdir -p /tmp/out && \
-    chown -R coder:coder /tmp/out && \
-    pip3 install awscurl
+    chown -R coder:coder /tmp/out
 
 ENTRYPOINT ["/home/coder/.local/bin/entrypoint"]
 
