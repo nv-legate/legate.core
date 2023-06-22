@@ -44,6 +44,8 @@ test_aws_creds() {
 
     local code=;
 
+    echo PATH=${PAATH}
+
     # Test GET
     code=$(                                                     \
         AWS_SESSION_TOKEN="$aws_session_token"                  \
