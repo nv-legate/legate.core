@@ -40,7 +40,7 @@ jobs:
       - name: Use docker image to build legate.core
         run: |
           mkdir -p out conda-build
-          env | grep -v "^PATH" > env_file
+          env | grep "^AWS|^GITHUB" > env_file
           cat env_file
           docker run \
             --env-file env_file \
