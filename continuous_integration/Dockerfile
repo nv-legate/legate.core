@@ -7,7 +7,7 @@ RUN export DEBIAN_FRONTEND=noninteractive       \
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV SCCACHE_REGION="us-east-2"
-ENV SCCACHE_BUCKET="rapids-sccache-devs"
+ENV SCCACHE_BUCKET="rapids-sccache-east"
 ENV SCCACHE_S3_KEY_PREFIX=legate-cunumeric-dev
 ENV VAULT_HOST=https://vault.ops.k8s.rapids.ai
 ENV HISTFILE=/home/coder/.cache/._bash_history
