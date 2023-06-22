@@ -49,7 +49,7 @@ class ProcessResult:
     #: The time the process started
     start: datetime | None = None
 
-    #: The time the process started
+    #: The time the process ended
     end: datetime | None = None
 
     #: Whether this process was actually invoked

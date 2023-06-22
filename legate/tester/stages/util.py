@@ -127,9 +127,9 @@ def log_proc(
     if proc.time is None or proc.start is None or proc.end is None:
         duration = ""
     else:
-        time = yellow(f"{proc.time.total_seconds():0.2f}s")
-        start = f"{proc.start.strftime('%H:%M:%S.%f')[:-4]}"
-        end = f"{proc.end.strftime('%H:%M:%S.%f')[:-4]}"
+        time = f"{proc.time.total_seconds():0.2f}s"
+        start = proc.start.strftime("%H:%M:%S.%f")[:-4]
+        end = proc.end.strftime("%H:%M:%S.%f")[:-4]
         duration = f" {yellow(time)} " + dim(f"{{{start}, {end}}}")
 
     msg = f"({name}){duration} {proc.test_file}"
