@@ -89,6 +89,14 @@ std::unique_ptr<StoreTransform> TransformStack::pop()
 
 void TransformStack::dump() const { std::cerr << *this << std::endl; }
 
+std::vector<int32_t> TransformStack::find_imaginary_dims() const
+{
+  std::vector<int32_t> dims;
+  if (nullptr != parent_) { dims = parent_->find_imaginary_dims(); }
+  if (nullptr != transform_) transform_->find_imaginary_dims(dims);
+  return std::move(dims);
+}
+
 Shift::Shift(int32_t dim, int64_t offset) : dim_(dim), offset_(offset) {}
 
 Domain Shift::transform(const Domain& input) const
@@ -329,7 +337,7 @@ void Transpose::find_imaginary_dims(std::vector<int32_t>& dims) const
 #endif
     promoted = finder - axes_.begin();
   }
-};
+}
 
 Delinearize::Delinearize(int32_t dim, std::vector<int64_t>&& sizes)
   : dim_(dim), sizes_(std::move(sizes)), strides_(sizes_.size(), 1), volume_(1)
@@ -406,7 +414,7 @@ int32_t Delinearize::target_ndim(int32_t source_ndim) const
   return source_ndim - strides_.size() + 1;
 }
 
-void Delinearize::find_imaginary_dims(std::vector<int32_t>&) const {};
+void Delinearize::find_imaginary_dims(std::vector<int32_t>&) const {}
 
 std::ostream& operator<<(std::ostream& out, const Transform& transform)
 {

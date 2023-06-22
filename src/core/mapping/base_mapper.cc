@@ -18,7 +18,6 @@
 #include <sstream>
 #include <unordered_map>
 
-#include "legion.h"
 #include "legion/legion_mapping.h"
 #include "mappers/mapping_utilities.h"
 
@@ -140,13 +139,13 @@ void BaseMapper::select_task_options(const Legion::Mapping::MapperContext ctx,
 #ifdef LEGATE_USE_COLLECTIVE
   for (auto& store : legate_task.inputs()) {
     if (store.is_future()) continue;
-    auto idx = store.requirement_index();
-    auto req = task.regions[idx];
-    if (req.privilege & LEGION_WRITE_PRIV) continue;
+    auto idx                           = store.requirement_index();
+    auto req                           = task.regions[idx];
     std::vector<int32_t> promoted_dims = store.find_imaginary_dims();
+    auto hi                            = task.index_domain.hi();
+    auto lo                            = task.index_domain.lo();
     for (auto& d : promoted_dims) {
-      if (d < 0) continue;
-      if ((task.index_domain.hi()[d] - task.index_domain.lo()[d]) >= 1) {
+      if ((hi[d] - lo[d]) >= 1) {
         output.check_collective_regions.insert(idx);
         break;
       }

@@ -196,11 +196,7 @@ class Store {
   Domain domain() const;
 
  public:
-  std::vector<int32_t> find_imaginary_dims() const
-  {
-    if (nullptr != transform_) return transform_->find_imaginary_dims();
-    return std::vector<int32_t>();
-  }
+  std::vector<int32_t> find_imaginary_dims() const;
 
  private:
   bool is_future_{false};
