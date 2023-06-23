@@ -3,13 +3,10 @@
 build_all() {
     cd ~/;
 
-    sudo chown -R coder:coder /tmp/out;
-    sudo chown -R coder:coder /tmp/conda-build;
-
-    if type conda >/dev/null 2>&1; then
-        . make-conda-env;
-    fi
+    . activate-conda-env;
     
+    conda info
+
     set -xeuo pipefail;
     
     build-legate-cpp;
