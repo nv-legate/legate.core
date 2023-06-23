@@ -71,10 +71,8 @@ if(DEFINED cython_lib_dir)
 endif()
 
 ##############################################################################
-# - install targets-----------------------------------------------------------
+# - conda environment --------------------------------------------------------
 
-# ############################################################################
-# * conda environment --------------------------------------------------------
 rapids_cmake_support_conda_env(conda_env)
 
 # We're building python extension libraries, which must always be installed
@@ -84,6 +82,9 @@ rapids_cmake_support_conda_env(conda_env)
 if(TARGET conda_env)
   set(CMAKE_INSTALL_LIBDIR "lib")
 endif()
+
+##############################################################################
+# - install targets-----------------------------------------------------------
 
 include(CPack)
 include(GNUInstallDirs)
