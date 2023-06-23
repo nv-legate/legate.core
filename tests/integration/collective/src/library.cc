@@ -1,4 +1,3 @@
-
 /* Copyright 2023 NVIDIA Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,16 +14,31 @@
  *
  */
 
-#pragma once
-
-#include "collective_cffi.h"
 #include "library.h"
+#include "collective_test.h"
 
 namespace collective {
 
-class CollectiveTestTask : public Task<CollectiveTestTask, COLLECTIVE> {
- public:
-  static void cpu_variant(legate::TaskContext& context);
-};
+static const char* const library_name = "collective";
+
+Legion::Logger log_collective(library_name);
+
+void registration_callback()
+{
+  auto context = legate::Runtime::get_runtime()->create_library(library_name);
+
+  CollectiveTestTask::register_variants(context);
+}
 
 }  // namespace collective
+
+extern "C" {
+
+void collective_perform_registration(void)
+{
+  // Tell the runtime about our registration callback so we hook it
+  // in before the runtime starts and make it global so that we know
+  // that this call back is invoked everywhere across all nodes
+  legate::Core::perform_registration<collective::registration_callback>();
+}
+}

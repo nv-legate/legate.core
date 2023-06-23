@@ -30,5 +30,4 @@ find_package(legate_core REQUIRED)
 legate_add_cpp_subdirectory(src TARGET collective  EXPORT collective-export)
 
 legate_add_cffi(${CMAKE_CURRENT_SOURCE_DIR}/src/collective_cffi.h TARGET collective)
-legate_python_library_template(collective)
 legate_default_python_install(collective EXPORT collective-export)

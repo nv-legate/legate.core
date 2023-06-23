@@ -19,7 +19,7 @@ from typing import Any, Tuple
 import legate.core.types as ty
 from legate.core import Rect, ReductionOp, Store
 
-from .library import user_context as context, user_lib  # type: ignore
+from .lib import user_context as context, user_lib  # type: ignore
 
 
 class OpCode(IntEnum):
@@ -38,29 +38,22 @@ def create_int64_store(shape: Tuple[Any, ...]) -> Store:
     return store
 
 
-def _broadcast(store: Store, shape: Tuple[Any, ...]) -> Store:
-    result = store
-    diff = len(shape) - result.ndim
-    for dim in range(diff):
-        result = result.promote(dim, shape[dim])
-
-    for dim in range(len(shape)):
-        if result.shape[dim] != shape[dim]:
-            if result.shape[dim] != 1:
-                raise ValueError(
-                    f"Shape did not match along dimension {dim} "
-                    "and the value is not equal to 1"
-                )
-            result = result.project(dim, 0).promote(dim, shape[dim])
-    return result
-
-
 def collective_test(
     store: Store, shape: Tuple[Any, ...], tile_shape: Tuple[Any, ...]
 ) -> None:
     assert store.ndim == len(shape)
     if store.shape != shape:
-        store = _broadcast(store, shape)
+        diff = len(shape) - store.ndim
+        for dim in range(diff):
+            store = store.promote(dim, shape[dim])
+        for dim in range(len(shape)):
+            if store.shape[dim] != shape[dim]:
+                if store.shape[dim] != 1:
+                    raise ValueError(
+                        f"Shape did not match along dimension {dim} "
+                        "and the value is not equal to 1"
+                    )
+                store = store.project(dim, 0).promote(dim, shape[dim])
 
     store_partition = store.partition_by_tiling(tile_shape)
     launch_shape = store_partition.partition.color_shape

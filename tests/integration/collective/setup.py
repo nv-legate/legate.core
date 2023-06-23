@@ -35,9 +35,9 @@ os.environ["CMAKE_ARGS"] = " ".join(cmake_flags)
 
 
 setup(
-    name="Task registration test",
+    name="Collective instances test",
     version="0.1",
-    description="Task registration test",
+    description="Collective instances test",
     author="NVIDIA Corporation",
     license="Apache 2.0",
     classifiers=[

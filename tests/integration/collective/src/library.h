@@ -14,27 +14,15 @@
  *
  */
 
-#ifndef __REGISTER_C__
-#define __REGISTER_C__
+#pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include "legate.h"
 
-enum Constants {
-  NUM_NORMAL_PRODUCER = 3,
-  TILE_SIZE           = 10,
+namespace collective {
+extern Legion::Logger log_collective;
+template <typename T, int ID>
+struct Task : public legate::LegateTask<T> {
+  static constexpr int TASK_ID = ID;
 };
 
-enum CollectiveOpCode {
-  _OP_CODE_BASE = 0,
-  COLLECTIVE    = 1,
-};
-
-void perform_registration(void);
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif  // __REGISTER_C__
+}  // namespace collective
