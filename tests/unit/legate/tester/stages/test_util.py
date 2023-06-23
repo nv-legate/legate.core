@@ -17,7 +17,7 @@
 """
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -169,14 +169,14 @@ class Test_log_proc:
     def test_time(self) -> None:
         config = Config([])
         config.debug = True
-        proc = ProcessResult(
-            "proc", Path("proc"), time=timedelta(seconds=2.41)
-        )
+        start = datetime.now()
+        end = start + timedelta(seconds=2.41)
+
+        proc = ProcessResult("proc", Path("proc"), start=start, end=end)
 
         LOG.clear()
         m.log_proc("foo", proc, config, verbose=False)
 
-        assert LOG.lines == (
-            shell(proc.invocation),
-            passed(f"(foo) {{2.41s}} {proc.test_file}"),
-        )
+        assert LOG.lines[0] == shell(proc.invocation)
+        assert LOG.lines[1].startswith(passed("(foo) 2.41s {"))
+        assert LOG.lines[1].endswith(f"}} {proc.test_file}")
