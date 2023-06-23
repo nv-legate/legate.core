@@ -1,9 +1,10 @@
-FROM rapidsai/devcontainers:23.06-cpp-cuda11.8-mambaforge-ubuntu22.04
+ARG BASE_IMAGE=rapidsai/devcontainers:23.06-cpp-cuda11.8-mambaforge-ubuntu22.04
+FROM ${BASE_IMAGE} as setup
 
 RUN export DEBIAN_FRONTEND=noninteractive       \
- && sudo apt update                             \
- && sudo apt install -y --no-install-recommends \
-    tree vim wget rustc cargo python3-pip
+ && apt update                             \
+ && apt install -y --no-install-recommends \
+    rustc cargo
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV SCCACHE_REGION="us-east-2"
@@ -12,7 +13,8 @@ ENV SCCACHE_S3_KEY_PREFIX=legate-cunumeric-dev
 ENV VAULT_HOST=https://vault.ops.k8s.rapids.ai
 ENV HISTFILE=/home/coder/.cache/._bash_history
 
-ENV USE_CUDA=ON
+ARG USE_CUDA=ON
+ENV USE_CUDA=${USE_CUDA}
 
 ENV BUILD_MARCH=nocona
 
@@ -39,12 +41,31 @@ COPY --chown=coder:coder continuous_integration/home/coder/.gitconfig /home/code
 COPY --chown=coder:coder continuous_integration/home/coder/.local/bin/* /home/coder/.local/bin/
 COPY --chown=coder:coder . /home/coder/legate
 
-
 RUN chmod a+x /home/coder/.local/bin/* && \
     mkdir -p /tmp/out && \
     chown -R coder:coder /tmp/out
+    
+RUN make-conda-env
 
-ENTRYPOINT ["/home/coder/.local/bin/entrypoint"]
+#---------------------------------------------------
+FROM setup as build
 
-CMD ["/bin/bash", "-l"]
+# If .creds exists copy it to /run/secrets
+COPY --chown=coder:coder .cred[s] /run/secrets
+
+RUN entrypoint build-all
+
+#---------------------------------------------------
+# Create an image without the secrets from above build stage
+FROM setup
+COPY --from=build /tmp/out /tmp/out
+COPY --from=build /tmp/conda-buld /tmp/conda-buld
+COPY --from=build /tmp/env_yaml /tmp/env_yaml
+
+
+# COPY --from=builder /binary .
+
+# ENTRYPOINT ["/home/coder/.local/bin/entrypoint"]
+
+# CMD ["/bin/bash", "-l"]
 
