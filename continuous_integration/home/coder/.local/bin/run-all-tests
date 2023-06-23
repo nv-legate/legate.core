@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+run_all_tests() {
+    cd ~/;
+
+    mamba install -y -n legate -c /tmp/conda-build/legate_core legate-core
+
+    . activate-conda-env;
+    
+    conda info
+
+    set -xeuo pipefail;
+    
+    cd ~/legate/tests/unit
+    pytest
+}
+
+(run_all_tests "$@");

@@ -50,6 +50,15 @@ RUN make-conda-env
 #---------------------------------------------------
 FROM setup as build
 
+ARG AWS_SESSION_TOKEN
+ENV AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
+ARG AWS_ACCESS_KEY_ID
+ENV AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+ARG AWS_SECRET_ACCESS_KEY
+ENV AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+ARG GITHUB_TOKEN
+ENV GITHUB_TOKEN=${GITHUB_TOKEN}
+
 # If .creds exists copy it to /run/secrets
 COPY --chown=coder:coder .cred[s] /run/secrets
 
@@ -57,13 +66,18 @@ RUN entrypoint build-all
 
 #---------------------------------------------------
 # Create an image without the secrets from above build stage
-FROM setup
+FROM setup as final
 COPY --from=build /tmp/out /tmp/out
-COPY --from=build /tmp/conda-buld /tmp/conda-buld
+COPY --from=build /tmp/conda-build /tmp/conda-build
 COPY --from=build /tmp/env_yaml /tmp/env_yaml
 
 
-# COPY --from=builder /binary .
+#---------------------------------------------------
+FROM final as export-files
+COPY --from=final /tmp/out out/
+COPY --from=final /tmp/conda-build conda-build/
+
+
 
 # ENTRYPOINT ["/home/coder/.local/bin/entrypoint"]
 
