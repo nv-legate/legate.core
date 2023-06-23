@@ -39,10 +39,10 @@ jobs:
       - name: Build docker image
         run: |
           docker build \
-            --build-arg AWS_SESSION_TOKEN=${{env.AWS_SESSION_TOKEN}}
-            --build-arg AWS_ACCESS_KEY_ID=${{env.AWS_ACCESS_KEY_ID}}
-            --build-arg AWS_SECRET_ACCESS_KEY=${{env.AWS_SECRET_ACCESS_KEY}}
-            --build-arg GITHUB_TOKEN=${{env.GITHUB_TOKEN}}
+            --build-arg AWS_SESSION_TOKEN=${{env.AWS_SESSION_TOKEN}} \
+            --build-arg AWS_ACCESS_KEY_ID=${{env.AWS_ACCESS_KEY_ID}} \
+            --build-arg AWS_SECRET_ACCESS_KEY=${{env.AWS_SECRET_ACCESS_KEY}} \
+            --build-arg GITHUB_TOKEN=${{env.GITHUB_TOKEN}} \
             --progress=plain \
             --tag=$IMAGE_NAME \
             --label "git-commit=${{github.sha}}" \
