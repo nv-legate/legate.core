@@ -290,6 +290,7 @@ if (legate_core_BUILD_DOCS)
     list(APPEND legate_core_DOC_SOURCES
       # type
       src/core/type/type_info.h
+      src/core/type/type_traits.h
       # task
       src/core/task/task.h
       src/core/task/registrar.h
@@ -314,7 +315,6 @@ if (legate_core_BUILD_DOCS)
       # utilities
       src/core/utilities/debug.h
       src/core/utilities/dispatch.h
-      src/core/utilities/type_traits.h
       # main page
       src/legate.h
     )
