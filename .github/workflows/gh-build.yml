@@ -49,6 +49,8 @@ jobs:
       - name: Setup
         shell: bash -eo pipefail {0}
         run: |
+          apt update && apt install -y --no-install-recommends libssl-dev;
+
           cp -ar legate/continuous_integration/home/coder/.gitconfig /home/coder/;
           cp -ar legate/continuous_integration/home/coder/.local /home/coder/;
           mv legate /home/coder/legate;
