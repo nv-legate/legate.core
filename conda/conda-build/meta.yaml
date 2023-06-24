@@ -24,7 +24,7 @@
     {% set version = environ.get('GIT_DESCRIBE_TAG', default_env_var).lstrip('v') %}
 {% endif %}
 {% set cuda_version='.'.join(environ.get('CUDA', '11.8').split('.')[:2]) %}
-{% set cuda_major=cuda_version.split('.')[0] %}
+{% set cuda_major=cuda_version.split('.')[0]|int %}
 {% set py_version=environ.get('CONDA_PY', 36) %}
 
 package:
@@ -119,10 +119,9 @@ requirements:
     - cffi
     - llvm-openmp
     - numpy {{ numpy_version }}
-    - pyarrow {{ pyarrow_version }}
     - typing_extensions
 {% if gpu_enabled_bool %}
-    - cuda-cudart >={{ cuda_version }}
+    - cuda-cudart >={{ cuda_version }},<{{ cuda_major+1 }}
     - nccl
 {% endif %}
 

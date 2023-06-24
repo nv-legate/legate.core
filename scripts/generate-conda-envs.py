@@ -65,7 +65,7 @@ class CUDAConfig(SectionConfig):
             return ()
 
         deps = (
-            f"cudatoolkit={self.ctk_version}",  # runtime
+            f"cuda-version={self.ctk_version}",  # runtime
             "cutensor>=1.3.3",  # runtime
             "nccl",  # runtime
             "pynvml",  # tests
@@ -143,7 +143,6 @@ class RuntimeConfig(SectionConfig):
             "libblas=*=*openblas*",
             "openblas=*=*openmp*",
             "opt_einsum",
-            "pyarrow>=5",
             "scipy",
             "typing_extensions",
         )
@@ -258,6 +257,9 @@ CTK_VERSIONS = (
     "11.6",
     "11.7",
     "11.8",
+    "12.0",
+    # TODO: libcublas 12.1 not available on conda-forge as of 2023-06-12
+    # "12.1",
 )
 
 OS_NAMES: Tuple[OSType, ...] = ("linux", "osx")

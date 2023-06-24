@@ -19,7 +19,6 @@ from abc import ABC, abstractmethod, abstractproperty
 from typing import TYPE_CHECKING
 
 from . import FutureMap, Point, Rect
-from .machine import ProcessorKind
 
 if TYPE_CHECKING:
     from .machine import ProcessorRange
@@ -95,7 +94,6 @@ class NCCLCommunicator(Communicator):
         self._init_nccl_id = library.LEGATE_CORE_INIT_NCCL_ID_TASK_ID
         self._init_nccl = library.LEGATE_CORE_INIT_NCCL_TASK_ID
         self._finalize_nccl = library.LEGATE_CORE_FINALIZE_NCCL_TASK_ID
-        self._tag = library.LEGATE_GPU_VARIANT
         self._needs_barrier = runtime.nccl_needs_barrier
 
     @property
@@ -106,12 +104,10 @@ class NCCLCommunicator(Communicator):
         from .launcher import TaskLauncher as Task
 
         # This doesn't need to run on a GPU, but will use it anyway
-        task = Task(
-            self._context, self._init_nccl_id, tag=self._tag, side_effect=True
-        )
+        task = Task(self._context, self._init_nccl_id, side_effect=True)
         nccl_id = task.execute_single()
 
-        task = Task(self._context, self._init_nccl, tag=self._tag)
+        task = Task(self._context, self._init_nccl)
         task.add_future(nccl_id)
         task.set_concurrent(True)
         handle = task.execute(Rect([volume])).future_map
@@ -120,7 +116,7 @@ class NCCLCommunicator(Communicator):
     def _finalize(self, volume: int, handle: FutureMap) -> None:
         from .launcher import TaskLauncher as Task
 
-        task = Task(self._context, self._finalize_nccl, tag=self._tag)
+        task = Task(self._context, self._finalize_nccl)
         # Finalize may not need to be concurrent, but set it just in case
         task.set_concurrent(True)
         task.add_future_map(handle)
@@ -158,22 +154,15 @@ class CPUCommunicator(Communicator):
     def needs_barrier(self) -> bool:
         return self._needs_barrier
 
-    @property
-    def _tag(self) -> int:
-        if self._runtime.machine.count(ProcessorKind.OMP) > 0:
-            return self._runtime.variant_ids[ProcessorKind.OMP]
-        else:
-            return self._runtime.variant_ids[ProcessorKind.CPU]
-
     def _initialize(self, volume: int) -> FutureMap:
         from .launcher import TaskLauncher as Task
 
         cpucoll_uid = self._runtime.core_library.legate_cpucoll_initcomm()
         buf = struct.pack("i", cpucoll_uid)
         cpucoll_uid_f = self._runtime.create_future(buf, len(buf))
-        task = Task(self._context, self._init_cpucoll_mapping, tag=self._tag)
+        task = Task(self._context, self._init_cpucoll_mapping)
         mapping_table_fm = task.execute(Rect([volume])).future_map
-        task = Task(self._context, self._init_cpucoll, tag=self._tag)
+        task = Task(self._context, self._init_cpucoll)
         task.add_future(cpucoll_uid_f)
         for i in range(volume):
             f = mapping_table_fm.get_future(Point([i]))
@@ -185,7 +174,7 @@ class CPUCommunicator(Communicator):
     def _finalize(self, volume: int, handle: FutureMap) -> None:
         from .launcher import TaskLauncher as Task
 
-        task = Task(self._context, self._finalize_cpucoll, tag=self._tag)
+        task = Task(self._context, self._finalize_cpucoll)
         task.add_future_map(handle)
         task.set_concurrent(True)
         task.execute(Rect([volume]))

@@ -63,8 +63,7 @@ LibraryContext::LibraryContext(const std::string& library_name,
     runtime_->generate_library_sharding_ids(library_name.c_str(), config.max_shardings),
     config.max_shardings);
 
-  auto base_mapper =
-    new mapping::BaseMapper(mapper_.get(), runtime_, Realm::Machine::get_machine(), this);
+  auto base_mapper = new mapping::BaseMapper(mapper_.get(), runtime_->get_mapper_runtime(), this);
   Legion::Mapping::Mapper* legion_mapper = base_mapper;
   if (Core::log_mapping_decisions)
     legion_mapper = new Legion::Mapping::LoggingWrapper(base_mapper, &base_mapper->logger);

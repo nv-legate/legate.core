@@ -25,7 +25,7 @@ from ..util.ui import banner, rule, summary
 from .config import Config
 from .logger import LOG
 from .stages import STAGES, log_proc
-from .test_system import TestSystem
+from .test_system import ProcessResult, TestSystem
 
 
 class TestPlan:
@@ -63,11 +63,13 @@ class TestPlan:
             chain.from_iterable(s.result.procs for s in self._stages)
         )
         total = len(all_procs)
-        passed = sum(proc.returncode == 0 for proc in all_procs)
+        passed = sum(proc.passed for proc in all_procs)
 
         LOG(f"\n{rule(pad=4)}")
 
-        self._log_failures(total, passed)
+        self._log_failures(all_procs)
+
+        self._log_timeouts(all_procs)
 
         LOG(self.outro(total, passed))
 
@@ -120,13 +122,24 @@ class TestPlan:
 
         return f"{overall}\n"
 
-    def _log_failures(self, total: int, passed: int) -> None:
-        if total == passed:
+    def _log_failures(self, all_procs: tuple[ProcessResult, ...]) -> None:
+        if not any(proc.returncode for proc in all_procs):
             return
 
         LOG(f"{banner('FAILURES')}\n")
 
         for stage in self._stages:
             procs = (proc for proc in stage.result.procs if proc.returncode)
+            for proc in procs:
+                log_proc(stage.name, proc, self._config, verbose=True)
+
+    def _log_timeouts(self, all_procs: tuple[ProcessResult, ...]) -> None:
+        if not any(proc.timeout for proc in all_procs):
+            return
+
+        LOG(f"{banner('TIMEOUTS')}\n")
+
+        for stage in self._stages:
+            procs = (proc for proc in stage.result.procs if proc.timeout)
             for proc in procs:
                 log_proc(stage.name, proc, self._config, verbose=True)

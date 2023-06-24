@@ -38,7 +38,7 @@ runtime, the runtime gives back a context object unique to the library.
    context.Context.create_manual_task
    context.Context.create_auto_task
    context.Context.create_copy
-   context.Context.create_fill
+   context.Context.issue_fill
    context.Context.issue_execution_fence
    context.Context.tree_reduce
    context.Context.get_tunable
@@ -51,6 +51,13 @@ Legate Runtime
    :toctree: generated/
 
    runtime.Runtime.register_library
+   runtime.Runtime.create_store
+   runtime.Runtime.create_manual_task
+   runtime.Runtime.create_auto_task
+   runtime.Runtime.create_copy
+   runtime.Runtime.issue_fill
+   runtime.Runtime.issue_execution_fence
+   runtime.Runtime.tree_reduce
    runtime.Runtime.create_future
    runtime.Runtime.provenance
    runtime.Runtime.annotation

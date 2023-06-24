@@ -1,0 +1,30 @@
+name: Filter by triggering event
+
+on:
+  workflow_call:
+    outputs:
+      ok:
+        value: ${{ jobs.filter-by-triggering-event.outputs.ok }}
+
+jobs:
+  filter-by-triggering-event:
+    name: Filter by triggering event
+    runs-on: ubuntu-latest
+    outputs:
+      ok: ${{ steps.filter-by-triggering-event.outputs.ok }}
+    steps:
+      - id: filter-by-triggering-event
+        name: Filter by triggering event
+        shell: bash
+        run: |
+          ###
+          # 1. If `event_name == 'push'` and the repo is the official nv-legate repo.
+          # 2. If `event_name == 'pull_request'` and teh repo is a fork of the official nv-legate repo.
+          ###
+
+          if [[ '${{ github.event_name }}' == 'push' && '${{ github.repository }}' == 'nv-legate/legate.core' ]] \
+          || [[ '${{ github.event_name }}' == 'pull_request' && '${{ github.repository }}' != 'nv-legate/legate.core' ]]; then
+            echo "ok=true"  | tee -a "${GITHUB_OUTPUT}";
+          else
+            echo "ok=false" | tee -a "${GITHUB_OUTPUT}";
+          fi
