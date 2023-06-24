@@ -150,9 +150,7 @@ def get_install_dir():
     # cmake-install dir
 
     # Install into conda prefix if defined
-    if "PREFIX" in os.environ and (
-        os.environ.get("CONDA_BUILD", "0") == "1"
-    ):
+    if "PREFIX" in os.environ and (os.environ.get("CONDA_BUILD", "0") == "1"):
         return os.environ["PREFIX"]
     elif "CONDA_PREFIX" in os.environ:
         return os.environ["CONDA_PREFIX"]
