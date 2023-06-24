@@ -497,6 +497,9 @@ def install(
         }
     )
 
+    if ("CONDA_PREFIX" in os.environ) and not ("OPENSSL_DIR" in os.environ):
+        cmd_env.update({"OPENSSL_DIR": os.environ["CONDA_PREFIX"]})
+
     # execute python -m pip install <args> .
     execute_command(pip_install_cmd, verbose, cwd=legate_core_dir, env=cmd_env)
 
