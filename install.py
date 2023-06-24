@@ -150,7 +150,11 @@ def get_install_dir():
     # cmake-install dir
 
     # Install into conda prefix if defined
-    if "CONDA_PREFIX" in os.environ:
+    if "PREFIX" in os.environ and (
+        os.environ.get("CONDA_BUILD", "0") == "1"
+    ):
+        return os.environ["PREFIX"]
+    elif "CONDA_PREFIX" in os.environ:
         return os.environ["CONDA_PREFIX"]
 
     import site
@@ -497,8 +501,13 @@ def install(
         }
     )
 
-    if ("CONDA_PREFIX" in os.environ) and not ("OPENSSL_DIR" in os.environ):
-        cmd_env.update({"OPENSSL_DIR": os.environ["CONDA_PREFIX"]})
+    if not ("OPENSSL_DIR" in os.environ):
+        if "PREFIX" in os.environ and (
+            os.environ.get("CONDA_BUILD", "0") == "1"
+        ):
+            cmd_env.update({"OPENSSL_DIR": os.environ["PREFIX"]})
+        elif "CONDA_PREFIX" in os.environ:
+            cmd_env.update({"OPENSSL_DIR": os.environ["CONDA_PREFIX"]})
 
     # execute python -m pip install <args> .
     execute_command(pip_install_cmd, verbose, cwd=legate_core_dir, env=cmd_env)
