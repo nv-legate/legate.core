@@ -37,3 +37,4 @@ _cmake_test_compile
 !cmake/versions.json
 legate.core.code-workspace
 *.prof
+.legate-test-last-failed

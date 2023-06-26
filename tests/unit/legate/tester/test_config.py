@@ -21,6 +21,7 @@ import os
 from pathlib import Path, PurePath
 
 import pytest
+from pytest_mock import MockerFixture
 
 from legate.tester import (
     DEFAULT_CPUS_PER_NODE,
@@ -35,6 +36,8 @@ from legate.tester import (
 from legate.tester.args import PIN_OPTIONS, PinOptionsType
 from legate.util import colors
 
+REPO_TOP = Path(__file__).parents[4]
+
 
 class TestConfig:
     def test_default_init(self) -> None:
@@ -46,6 +49,7 @@ class TestConfig:
         assert c.integration is True
         assert c.unit is False
         assert c.files is None
+        assert c.last_failed is False
 
         assert c.features == ("cpus",)
 
@@ -85,6 +89,14 @@ class TestConfig:
 
         assert colors.ENABLED is True
 
+    def test_files(self) -> None:
+        c = m.Config(["test.py", "--files", "a", "b", "c"])
+        assert c.files == ["a", "b", "c"]
+
+    def test_last_failed(self) -> None:
+        c = m.Config(["test.py", "--last-failed"])
+        assert c.last_failed
+
     @pytest.mark.parametrize("feature", FEATURES)
     def test_env_features(
         self, monkeypatch: pytest.MonkeyPatch, feature: str
@@ -108,19 +120,6 @@ class TestConfig:
         # also test with multiple / duplication
         c = m.Config(["test.py", "--use", f"cpus,{feature}"])
         assert set(c.features) == {"cpus", feature}
-
-    # TODO (bv) restore when generalized
-    @pytest.mark.skip
-    def test_unit(self) -> None:
-        c = m.Config(["test.py", "--unit"])
-        assert len(c.test_files) > 0
-        assert any("examples" in str(x) for x in c.test_files)
-        assert any("integration" in str(x) for x in c.test_files)
-        assert any("unit" in str(x) for x in c.test_files)
-
-    def test_files(self) -> None:
-        c = m.Config(["test.py", "--files", "a", "b", "c"])
-        assert c.files == ["a", "b", "c"]
 
     @pytest.mark.parametrize(
         "opt", ("cpus", "gpus", "gpu-delay", "fbmem", "omps", "ompthreads")
@@ -202,3 +201,44 @@ class TestConfig:
         cov_args = ["--cov-args", "run -a"]
         c = m.Config(["test.py"] + cov_args)
         assert c.cov_args == "run -a"
+
+
+class Test_test_files:
+    # first two tests are too sensitive to actual repo state and run location
+
+    @pytest.mark.skip
+    def test_basic(self) -> None:
+        c = m.Config(["test.py", "--root-dir", str(REPO_TOP)])
+
+        assert len(c.test_files) > 0
+        assert any("examples" in str(x) for x in c.test_files)
+        assert any("integration" in str(x) for x in c.test_files)
+
+        assert not any("unit" in str(x) for x in c.test_files)
+
+    @pytest.mark.skip
+    def test_unit(self) -> None:
+        c = m.Config(["test.py", "--unit", "--root-dir", str(REPO_TOP)])
+        assert len(c.test_files) > 0
+        assert any("unit" in str(x) for x in c.test_files)
+
+    def test_error(self) -> None:
+        c = m.Config(["test.py", "--files", "a", "b", "--last-failed"])
+        with pytest.raises(RuntimeError):
+            c.test_files
+
+    @pytest.mark.parametrize("data", ("", " ", "\n", " \n "))
+    def test_last_failed_empty(self, mocker: MockerFixture, data: str) -> None:
+        mock_last_failed = mocker.mock_open(read_data=data)
+        mocker.patch("builtins.open", mock_last_failed)
+        c1 = m.Config(
+            ["test.py", "--last-failed", "--root-dir", str(REPO_TOP)]
+        )
+        c2 = m.Config(["test.py", "--root-dir", str(REPO_TOP)])
+        assert c1.test_files == c2.test_files
+
+    def test_last_failed(self, mocker: MockerFixture) -> None:
+        mock_last_failed = mocker.mock_open(read_data="\nfoo\nbar\nbaz\n")
+        mocker.patch("builtins.open", mock_last_failed)
+        c = m.Config(["test.py", "--last-failed", "--root-dir", str(REPO_TOP)])
+        assert c.test_files == (Path("foo"), Path("bar"), Path("baz"))

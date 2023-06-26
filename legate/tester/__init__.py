@@ -91,3 +91,6 @@ class CustomTest:
 #:
 #: Client test scripts should udpate this set with their own customizations.
 CUSTOM_FILES: list[CustomTest] = []
+
+#: Location to store a list of last-failed tests
+LAST_FAILED_FILENAME: str = ".legate-test-last-failed"
