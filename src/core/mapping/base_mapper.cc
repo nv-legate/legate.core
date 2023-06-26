@@ -136,13 +136,12 @@ void BaseMapper::select_task_options(const Legion::Mapping::MapperContext ctx,
 {
   Task legate_task(&task, context, runtime, ctx);
 #ifdef LEGATE_USE_COLLECTIVE
+  auto hi = task.index_domain.hi();
+  auto lo = task.index_domain.lo();
   for (auto& store : legate_task.inputs()) {
     if (store.is_future()) continue;
     auto idx                           = store.requirement_index();
-    auto req                           = task.regions[idx];
     std::vector<int32_t> promoted_dims = store.find_imaginary_dims();
-    auto hi                            = task.index_domain.hi();
-    auto lo                            = task.index_domain.lo();
     for (auto& d : promoted_dims) {
       if ((hi[d] - lo[d]) >= 1) {
         output.check_collective_regions.insert(idx);
