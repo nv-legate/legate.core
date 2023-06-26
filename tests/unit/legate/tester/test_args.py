@@ -39,6 +39,9 @@ class TestParserDefaults:
     def test_unit(self) -> None:
         assert m.parser.get_default("unit") is False
 
+    def test_last_failed(self) -> None:
+        assert m.parser.get_default("last_failed") is False
+
     def test_cpus(self) -> None:
         assert m.parser.get_default("cpus") == DEFAULT_CPUS_PER_NODE
 
