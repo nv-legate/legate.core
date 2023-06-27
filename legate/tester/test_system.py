@@ -43,11 +43,14 @@ class ProcessResult:
     #: The command invovation, including relevant environment vars
     invocation: str
 
-    #  User-friendly test file path to use in reported output
+    #: User-friendly test file path to use in reported output
     test_file: Path
 
-    #: The time the process took to execute in seconds
-    time: timedelta | None = None
+    #: The time the process started
+    start: datetime | None = None
+
+    #: The time the process ended
+    end: datetime | None = None
 
     #: Whether this process was actually invoked
     skipped: bool = False
@@ -60,6 +63,12 @@ class ProcessResult:
 
     #: The collected stdout and stderr output from the process
     output: str = ""
+
+    @property
+    def time(self) -> timedelta | None:
+        if self.start is None or self.end is None:
+            return None
+        return self.end - self.start
 
     @property
     def passed(self) -> bool:
@@ -129,7 +138,7 @@ class TestSystem(System):
         full_env = dict(os.environ)
         full_env.update(env)
 
-        t0 = datetime.now()
+        start = datetime.now()
         try:
             proc = stdlib_run(
                 cmd,
@@ -143,11 +152,13 @@ class TestSystem(System):
         except TimeoutExpired:
             return ProcessResult(invocation, test_file, timeout=True)
 
-        t1 = datetime.now()
+        end = datetime.now()
+
         return ProcessResult(
             invocation,
             test_file,
-            time=t1 - t0,
+            start=start,
+            end=end,
             returncode=proc.returncode,
             output=proc.stdout,
         )

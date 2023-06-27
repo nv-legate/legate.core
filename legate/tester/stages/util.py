@@ -20,7 +20,7 @@ from typing import Tuple, Union
 
 from typing_extensions import TypeAlias
 
-from ...util.ui import failed, passed, shell, skipped, timeout
+from ...util.ui import dim, failed, passed, shell, skipped, timeout, yellow
 from ..config import Config
 from ..logger import LOG
 from ..test_system import ProcessResult
@@ -123,11 +123,15 @@ def log_proc(
     """Log a process result according to the current configuration"""
     if config.debug or config.dry_run:
         LOG(shell(proc.invocation))
-    duration = (
-        f" {{{proc.time.total_seconds():0.2f}s}}"
-        if proc.time is not None
-        else ""
-    )
+
+    if proc.time is None or proc.start is None or proc.end is None:
+        duration = ""
+    else:
+        time = f"{proc.time.total_seconds():0.2f}s"
+        start = proc.start.strftime("%H:%M:%S.%f")[:-4]
+        end = proc.end.strftime("%H:%M:%S.%f")[:-4]
+        duration = f" {yellow(time)} " + dim(f"{{{start}, {end}}}")
+
     msg = f"({name}){duration} {proc.test_file}"
     details = proc.output.split("\n") if verbose else None
     if proc.skipped:

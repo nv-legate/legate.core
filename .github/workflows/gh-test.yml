@@ -78,7 +78,7 @@ jobs:
       - name: Install legate-core and cunumeric in the legate conda environment
         shell: bash -eo pipefail {0}
         run: |
-          mamba install -y -n legate -c $(pwd)/artifacts/conda-build/legate_core legate-core
+          conda install -y -n legate -c nvidia -c conda-forge -c $(pwd)/artifacts/conda-build/legate_core legate-core
 
       - if: inputs.test-scope == 'unit'
         name: Run legate.core unit tests

@@ -23,7 +23,13 @@ from pathlib import Path
 
 from ..util import colors
 from ..util.types import ArgList, EnvDict
-from . import DEFAULT_PROCESS_ENV, FEATURES, SKIPPED_EXAMPLES, FeatureType
+from . import (
+    DEFAULT_PROCESS_ENV,
+    FEATURES,
+    LAST_FAILED_FILENAME,
+    SKIPPED_EXAMPLES,
+    FeatureType,
+)
 from .args import parser
 
 
@@ -50,6 +56,7 @@ class Config:
         self.integration = True
         self.unit = args.unit
         self.files = args.files
+        self.last_failed = args.last_failed
 
         # feature configuration
         self.features = self._compute_features(args)
@@ -106,8 +113,15 @@ class Config:
         Otherwise, the files are computed based on command-line options, etc.
 
         """
+        if self.files and self.last_failed:
+            raise RuntimeError("Cannot specify both --files and --last-failed")
+
         if self.files:
             return self.files
+
+        if self.last_failed:
+            if last_failed := self._read_last_failed():
+                return last_failed
 
         files = []
 
@@ -172,3 +186,11 @@ class Config:
             return Path(os.environ["LEGATE_DIR"])
         self._legate_source = "install"
         return None
+
+    def _read_last_failed(self) -> tuple[Path, ...]:
+        try:
+            with open(LAST_FAILED_FILENAME) as f:
+                lines = (line for line in f.readlines() if line.strip())
+                return tuple(Path(line.strip()) for line in lines)
+        except OSError:
+            return ()

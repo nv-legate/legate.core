@@ -24,7 +24,7 @@ build_legate_conda_package() {
     conda_build_args+=(--no-anaconda-upload);
 
     GPU_ENABLED=true
-    [ "$USE_CUDA" = "OFF" ] && GPU_ENABLED=false
+    [ "${USE_CUDA:-}" = "OFF" ] && GPU_ENABLED=false
 
     conda_build_args+=(--variants "{gpu_enabled:${GPU_ENABLED},python:${python_version}}");
 
