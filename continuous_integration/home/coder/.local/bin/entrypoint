@@ -25,11 +25,11 @@ entrypoint() {
         sleep 10;
         . devcontainer-utils-vault-s3-test;
         . devcontainer-utils-vault-s3-export 0;
-    else
-        sccache --start-server || true
-        sleep 10;
+    # else
+    #     sccache --start-server || true
+    #     sleep 10;
 
-        sccache --stop-server || true && sccache --show-stats;
+    #     sccache --stop-server || true && sccache --show-stats;
     fi
 
     exec "$@";
