@@ -14,7 +14,7 @@ build_legate_conda_package() {
     conda_build_args+=(-c conda-forge);
     conda_build_args+=(-c nvidia);
     conda_build_args+=(--croot /tmp/conda-build/legate_core);
-    conda_build_args+=(--numpy "1.22");
+    conda_build_args+=(--numpy ">=1.22");
     conda_build_args+=(--python ${python_version});
     conda_build_args+=(--no-test);
     conda_build_args+=(--no-verify);
@@ -32,10 +32,12 @@ build_legate_conda_package() {
     # Synthesize new legate_core conda-build build.sh script
 
     cat <<EOF > ~/legate/conda/conda-build/conda_build_config.yaml
-numpy:
-  - "1.22"
 python:
   - "${python_version}"
+numpy:
+  - ">=1.22"
+numpy_version:
+  - ">=1.22"
 gpu_enabled:
   - "${GPU_ENABLED}"
 cmake_version:
