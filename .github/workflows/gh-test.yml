@@ -84,7 +84,8 @@ jobs:
         shell: bash -eo pipefail {0}
         run: |
           mamba install -y -n "${DEFAULT_CONDA_ENV:-legate}" -c nvidia -c conda-forge -c $(pwd)/artifacts/conda-build/legate_core legate-core
-          mamba install --name "${DEFAULT_CONDA_ENV:-legate}" pytest
+          mamba install --name "${DEFAULT_CONDA_ENV:-legate}" pytest clang-tools clang colorama coverage mock \
+          mypy pre-commit pytest-cov pytest-lazy-fixture pytest-mock pytest types-docutils
 
       - if: inputs.test-scope == 'unit'
         name: Run legate.core unit tests
