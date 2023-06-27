@@ -78,12 +78,12 @@ jobs:
       - name: Create the legate conda environment
         shell: bash -eo pipefail {0}
         run: |
-          mamba env create -n "${DEFAULT_CONDA_ENV:-legate}"
+          mamba create -n "${DEFAULT_CONDA_ENV:-legate}"
 
       - name: Install legate-core and cunumeric in the legate conda environment
         shell: bash -eo pipefail {0}
         run: |
-          conda install -y -n "${DEFAULT_CONDA_ENV:-legate}" -c nvidia -c conda-forge -c $(pwd)/artifacts/conda-build/legate_core legate-core
+          mamba install -y -n "${DEFAULT_CONDA_ENV:-legate}" -c nvidia -c conda-forge -c $(pwd)/artifacts/conda-build/legate_core legate-core
 
       - if: inputs.test-scope == 'unit'
         name: Run legate.core unit tests
