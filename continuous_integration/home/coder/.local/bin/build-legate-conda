@@ -38,6 +38,8 @@ python:
   - "${python_version}"
 gpu_enabled:
   - "${GPU_ENABLED}"
+cmake_version:
+  - ">=3.20.1,!=3.23.0"
 package_version:
   - "$(git -C ~/legate describe --abbrev=0 --tags | sed 's/[a-zA-Z]//g' | cut -d '.' -f -2).00"
 EOF
