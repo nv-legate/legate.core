@@ -37,6 +37,20 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 rapids_cmake_build_type(Release)
 
 ##############################################################################
+# - conda environment --------------------------------------------------------
+
+rapids_cmake_support_conda_env(conda_env)
+
+# We're building python extension libraries, which must always be installed
+# under lib/, even if the system normally uses lib64/. Rapids-cmake currently
+# doesn't realize this when we're going through scikit-build, see
+# https://github.com/rapidsai/rapids-cmake/issues/426
+# Do this before we include Legion, so its build also inherits this setting.
+if(TARGET conda_env)
+  set(CMAKE_INSTALL_LIBDIR "lib")
+endif()
+
+##############################################################################
 # - Dependencies -------------------------------------------------------------
 
 # add third party dependencies using CPM
@@ -236,10 +250,6 @@ set_target_properties(legate_core
 if(Legion_USE_CUDA)
   set_property(TARGET legate_core PROPERTY CUDA_ARCHITECTURES ${Legion_CUDA_ARCH})
 endif()
-
-# ##################################################################################################
-# * conda environment -----------------------------------------------------------------------------
-rapids_cmake_support_conda_env(conda_env)
 
 # Add Conda library, and include paths if specified
 if(TARGET conda_env)
