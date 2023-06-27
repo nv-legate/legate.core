@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 run_all_tests() {
+    set -x;
     cd ~/;
 
     mamba install -y -n legate -c /tmp/conda-build/legate_core legate-core

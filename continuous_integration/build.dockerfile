@@ -34,9 +34,6 @@ USER coder
 WORKDIR /home/coder/.cache
 WORKDIR /home/coder
 
-# Overwrite RAPIDS-AI devcontainer-utils-vault-s3-test
-COPY continuous_integration/devcontainer-utils-vault-s3-test /usr/bin/devcontainer-utils-vault-s3-test
-
 COPY --chown=coder:coder continuous_integration/home/coder/.gitconfig /home/coder/
 COPY --chown=coder:coder continuous_integration/home/coder/.local/bin/* /home/coder/.local/bin/
 COPY --chown=coder:coder . /home/coder/legate
@@ -65,21 +62,9 @@ COPY --chown=coder:coder .cred[s] /run/secrets
 RUN entrypoint build-all
 
 #---------------------------------------------------
-# Create an image without the secrets from above build stage
-FROM setup as final
-COPY --from=build /tmp/out /tmp/out
-COPY --from=build /tmp/conda-build /tmp/conda-build
-COPY --from=build /tmp/env_yaml /tmp/env_yaml
+FROM build as export-files
+COPY --from=build /tmp/out out/
+COPY --from=build /tmp/conda-build conda-build/
 
 
-#---------------------------------------------------
-FROM final as export-files
-COPY --from=final /tmp/out out/
-COPY --from=final /tmp/conda-build conda-build/
-
-
-
-# ENTRYPOINT ["/home/coder/.local/bin/entrypoint"]
-
-# CMD ["/bin/bash", "-l"]
 
