@@ -89,5 +89,6 @@ jobs:
         name: Run legate.core unit tests
         shell: su coder {0}
         run: |
+          mamba install --name "${DEFAULT_CONDA_ENV:-legate}" pytest
           cd ~/legate/tests/unit
           pytest
