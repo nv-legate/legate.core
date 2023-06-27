@@ -14,7 +14,7 @@ build_legate_conda_package() {
     conda_build_args+=(-c conda-forge);
     conda_build_args+=(-c nvidia);
     conda_build_args+=(--croot /tmp/conda-build/legate_core);
-    conda_build_args+=(--numpy 1.22);
+    conda_build_args+=(--numpy "1.22");
     conda_build_args+=(--python ${python_version});
     conda_build_args+=(--no-test);
     conda_build_args+=(--no-verify);
@@ -26,18 +26,18 @@ build_legate_conda_package() {
     GPU_ENABLED=true
     [ "${USE_CUDA:-}" = "OFF" ] && GPU_ENABLED=false
 
-    conda_build_args+=(--variants "{gpu_enabled:${GPU_ENABLED},python:${python_version}}");
-
     rm -rf /tmp/conda-build/legate_core;
     mkdir -p /tmp/conda-build/legate_core;
 
     # Synthesize new legate_core conda-build build.sh script
 
-    cat <<EOF >> ~/legate/conda/conda-build/conda_build_config.yaml
-
+    cat <<EOF > ~/legate/conda/conda-build/conda_build_config.yaml
 numpy:
-  - 1.22
-
+  - "1.22"
+python:
+  - "${python_version}"
+gpu_enabled:
+  - "${GPU_ENABLED}"
 package_version:
   - "$(git -C ~/legate describe --abbrev=0 --tags | sed 's/[a-zA-Z]//g' | cut -d '.' -f -2).00"
 EOF
