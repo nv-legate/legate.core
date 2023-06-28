@@ -62,7 +62,7 @@ COPY --chown=coder:coder .cred[s] /run/secrets
 RUN entrypoint build-all
 
 #---------------------------------------------------
-FROM build as export-files
+FROM setup as final
 COPY --from=build /tmp/out out/
 COPY --from=build /tmp/conda-build conda-build/
 
