@@ -1131,6 +1131,8 @@ class Runtime:
             ProcessorKind.CPU: self.core_library.LEGATE_CPU_VARIANT,
         }
 
+        self._array_type_cache: dict[tuple[ty.Dtype, int], ty.Dtype] = {}
+
     @property
     def has_cpu_communicator(self) -> bool:
         return self._comm_manager.has_cpu_communicator
@@ -2085,6 +2087,17 @@ class Runtime:
                 return result
 
         return wrapper
+
+    def find_or_create_array_type(
+        self, elem_type: ty.Dtype, n: int
+    ) -> ty.Dtype:
+        key = (elem_type, n)
+        cached = self._array_type_cache.get(key)
+        if cached is not None:
+            return cached
+        arr_type = ty.array_type(elem_type, n)
+        self._array_type_cache[key] = arr_type
+        return arr_type
 
 
 runtime: Runtime = Runtime(core_library)
