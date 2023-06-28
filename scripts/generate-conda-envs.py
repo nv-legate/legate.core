@@ -139,7 +139,7 @@ class RuntimeConfig(SectionConfig):
         return (
             "cffi",
             "llvm-openmp",
-            "numpy>=1.22",
+            "numpy>=1.22,<1.25",
             "libblas=*=*openblas*",
             "openblas=*=*openmp*",
             "opt_einsum",
