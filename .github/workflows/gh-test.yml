@@ -74,10 +74,10 @@ jobs:
 
           mamba env create -n "${DEFAULT_CONDA_ENV:-legate}" -f "${yaml_file}";
 
-      - name: Install legate-core and cunumeric in the legate conda environment
+      - name: Install legate-core in the legate conda environment
         shell: su coder {0}
         run: |
-          mamba install -y -n legate -c nvidia -c conda-forge -c $(pwd)/artifacts/out/legate_core legate-core
+          mamba install -y -n legate -c $(pwd)/artifacts/out/legate_core -c conda-forge -c nvidia legate-core
 
       - if: inputs.test-scope == 'unit'
         name: Run legate.core unit tests
