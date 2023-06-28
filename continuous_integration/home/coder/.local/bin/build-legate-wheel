@@ -5,6 +5,8 @@ build_legate_wheel() {
 
     mkdir -p /tmp/out;
 
+    rm -rf ~/legate/_skbuild;
+
     local pip_args=(-vv);
     pip_args+=(--wheel-dir /tmp/out);
 

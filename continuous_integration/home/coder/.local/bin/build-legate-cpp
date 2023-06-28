@@ -31,6 +31,8 @@ build_legate_cpp() {
     sccache --stop-server >/dev/null 2>&1 || true;
     sccache --show-stats;
 
+    rm -rf ~/legate/build;
+
     time OPENSSL_DIR="${CONDA_PREFIX}" \
          CMAKE_BUILD_PARALLEL_LEVEL=${JOBS:-$(nproc --ignore=1)} \
     cmake -S ~/legate -B ~/legate/build "${cmake_args[@]}" -GNinja;

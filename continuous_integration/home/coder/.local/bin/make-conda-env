@@ -12,6 +12,8 @@ make_conda_env() {
         python_version="$(python3 --version 2>&1 | cut -d' ' -f2 | cut -d'.' -f3 --complement)";
     fi
 
+    cd ~/;
+
     local yaml_file=~/"$(         \
         ~/legate/scripts/generate-conda-envs.py \
             --os linux                          \
@@ -27,7 +29,8 @@ make_conda_env() {
     echo "  - boa" >> "${yaml_file}";
     cat "${yaml_file}";
 
-    cp "${yaml_file}" /tmp/out/
+    mkdir -p /tmp/out/;
+    cp "${yaml_file}" /tmp/out/;
 
     mamba env create -n "${DEFAULT_CONDA_ENV:-legate}" -f "${yaml_file}";
 
