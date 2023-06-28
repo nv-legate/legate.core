@@ -67,7 +67,7 @@ jobs:
       - name: Recreate the legate conda environment
         shell: su coder {0}
         run: |
-          pattern="artifacts/out/*.yaml"
+          pattern="artifacts/*.yaml"
           files=( $pattern )
           yaml_file="${files[0]}"
           echo "YAML file: ${yaml_file}"
@@ -77,7 +77,7 @@ jobs:
       - name: Install legate-core in the legate conda environment
         shell: su coder {0}
         run: |
-          mamba install -y -n legate -c $(pwd)/artifacts/out/legate_core -c conda-forge -c nvidia legate-core
+          mamba install -y -n legate -c $(pwd)/artifacts/legate_core -c conda-forge -c nvidia legate-core
 
       - if: inputs.test-scope == 'unit'
         name: Run legate.core unit tests
