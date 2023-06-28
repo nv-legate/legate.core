@@ -65,16 +65,6 @@ jobs:
           mkdir -p /tmp/out
           chown -R coder:coder /tmp/out
 
-      # - name: Recreate the legate conda environment
-      #   shell: bash -eo pipefail {0}
-      #   run: |
-      #     pattern="artifacts/out/*.yaml"
-      #     files=( $pattern )
-      #     yaml_file="${files[0]}"
-      #     echo "YAML file: ${yaml_file}"
-
-      #     mamba env create -n "${DEFAULT_CONDA_ENV:-legate}" -f "${yaml_file}";
-
       - name: Create the legate conda environment
         shell: bash -eo pipefail {0}
         run: |
