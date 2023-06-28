@@ -40,7 +40,7 @@ find_yaml_file() {
     files=( $pattern )
     yaml_file="${files[0]}"
 
-    if [ -z "${yaml_file:-}" || ! -f "$yaml_file" ]; then
+    if [ -z "${yaml_file:-}" ] || [ ! -f "$yaml_file" ]; then
         return 1
     fi
 

@@ -47,22 +47,39 @@ jobs:
             --progress=plain \
             --tag=$IMAGE_NAME \
             --label "git-commit=${{github.sha}}" \
-            -f continuous_integration/build.dockerfile .
+            -f continuous_integration/Dockerfile .
       
-      # - name: Log in to container image registry
-      #   run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
+      - name: Log in to container image registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
 
-      # - name: Push image
+      - name: Push image
+        run: |
+          IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
+
+          # Change all uppercase to lowercase
+          IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
+
+          VERSION=${{github.sha}}
+
+          docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
+          docker push $IMAGE_ID:$VERSION
+          
+
+      # - name: Use docker image to build legate.core
       #   run: |
-      #     IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
-
-      #     # Change all uppercase to lowercase
-      #     IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
-
-      #     VERSION=${{github.sha}}
-
-      #     docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
-      #     docker push $IMAGE_ID:$VERSION
+      #     mkdir -p out conda-build
+      #     env | grep -P "^AWS|^GITHUB" > env_file
+      #     cat env_file
+      #     docker run \
+      #       --env-file env_file \
+      #       -v "$(pwd)/out:/tmp/out" \
+      #       -v "$(pwd)/conda-build:/tmp/conda-build" \
+      #       --rm \
+      #       -t legate.core \
+      #       /bin/bash entrypoint build-all
+      
+      - name: Display structure of workdir after docker build
+          run: ls -R
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v3
@@ -78,42 +95,42 @@ jobs:
     runs-on: linux-amd64-gpu-v100-latest-1
     container:
       options: -u root
-      # image: ghcr.io/nv-legate/legate.core:${{github.sha}}
-      image: rapidsai/devcontainers:23.06-cpp-cuda11.8-mambaforge-ubuntu22.04
+      image: ghcr.io/nv-legate/legate.core:${{github.sha}}
+      # image: rapidsai/devcontainers:23.06-cpp-cuda11.8-mambaforge-ubuntu22.04
       env:
         NVIDIA_VISIBLE_DEVICES: ${{ env.NVIDIA_VISIBLE_DEVICES }}
     steps:
       - name: Run nvidia-smi to make sure GPU is working
         run: nvidia-smi
 
-      - name: Checkout legate.core
-        uses: actions/checkout@v3
-        with:
-          repository: nv-legate/legate.core
-          fetch-depth: 0
-          path: legate
+      # - name: Checkout legate.core
+      #   uses: actions/checkout@v3
+      #   with:
+      #     repository: nv-legate/legate.core
+      #     fetch-depth: 0
+      #     path: legate
 
-      - name: Download build artifacts
-        uses: actions/download-artifact@v3
-        with:
-          name: "legate.core-gpu-${{ github.sha }}"
-          path: artifacts
+      # - name: Download build artifacts
+      #   uses: actions/download-artifact@v3
+      #   with:
+      #     name: "legate.core-gpu-${{ github.sha }}"
+      #     path: artifacts
 
-      - name: Display structure of downloaded artifacts
-        run: ls -R
-        working-directory: artifacts
+      # - name: Display structure of downloaded artifacts
+      #   run: ls -R
+      #   working-directory: artifacts
 
-      - name: Setup
-        shell: bash -eo pipefail {0}
-        run: |
-          cp -ar legate/continuous_integration/home/coder/.gitconfig /home/coder/
-          cp -ar legate/continuous_integration/home/coder/.local /home/coder/
-          mv legate /home/coder/legate
+      # - name: Setup
+      #   shell: bash -eo pipefail {0}
+      #   run: |
+      #     cp -ar legate/continuous_integration/home/coder/.gitconfig /home/coder/
+      #     cp -ar legate/continuous_integration/home/coder/.local /home/coder/
+      #     mv legate /home/coder/legate
 
-          chmod a+x /home/coder/.local/bin/*
-          chown -R coder:coder /home/coder/
-          mkdir -p /tmp/out
-          chown -R coder:coder /tmp/out
+      #     chmod a+x /home/coder/.local/bin/*
+      #     chown -R coder:coder /home/coder/
+      #     mkdir -p /tmp/out
+      #     chown -R coder:coder /tmp/out
 
       # - name: Recreate the legate conda environment
       #   shell: bash -eo pipefail {0}
