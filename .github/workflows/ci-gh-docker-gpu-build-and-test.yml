@@ -79,7 +79,7 @@ jobs:
       #       /bin/bash entrypoint build-all
       
       - name: Display structure of workdir after docker build
-          run: ls -R
+        run: ls -R
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v3
