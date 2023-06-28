@@ -273,16 +273,16 @@ template <typename T>
 void Store::check_accessor_type() const
 {
   auto in_type = legate_type_code_of<T>;
+  if (in_type == this->code()) return;
   // Test exact match for primitive types
-  if (in_type != this->code() && in_type != Type::Code::INVALID) {
+  if (in_type != Type::Code::INVALID) {
     log_legate.error(
       "Type mismatch: %s accessor to a %s store. Disable type checking via "
       "accessor template parameter if this is intended.",
-      typeid(T).name(),
+      PrimitiveType(in_type).to_string().c_str(),
       this->type().to_string().c_str());
     LEGATE_ABORT;
   }
-
   // Test size matches for other types
   if (sizeof(T) != this->type().size()) {
     log_legate.error(
