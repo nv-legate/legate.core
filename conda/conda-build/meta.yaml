@@ -104,7 +104,7 @@ requirements:
     - cython
     - llvm-openmp
     - scikit-build
-    - numpy {{ numpy_version }}
+    - numpy
 {% if gpu_enabled_bool %}
     - nccl
     - cuda-nvcc ={{ cuda_version }}

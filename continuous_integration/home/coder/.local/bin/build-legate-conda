@@ -39,8 +39,6 @@ numpy:
   - 1.22
 python:
   - "${python_version}"
-numpy_version:
-  - ">=1.22"
 use_local_path:
   - "true"
 gpu_enabled:
