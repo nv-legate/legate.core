@@ -63,8 +63,9 @@ RUN entrypoint build-all
 
 #---------------------------------------------------
 FROM setup as final
-COPY --from=build /tmp/out out/
-COPY --from=build /tmp/conda-build conda-build/
+COPY --from=build /tmp/out /tmp/out
+COPY --from=build /tmp/conda-build /tmp/conda-build
+COPY --from=build /tmp/env_yaml /tmp/env_yaml
 
 
 
