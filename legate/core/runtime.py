@@ -2091,6 +2091,26 @@ class Runtime:
     def find_or_create_array_type(
         self, elem_type: ty.Dtype, n: int
     ) -> ty.Dtype:
+        """
+        Finds or creates a fixed array type for a given element type and a
+        size.
+
+        Returns the same array type for the same element type and array size.
+
+        Parameters
+        ----------
+        elem_type : Dtype
+            Element type
+
+        n : int
+            Array size
+
+        Returns
+        -------
+        Dtype
+            Fixed-size array type unique to each pair of an element type and
+            a size
+        """
         key = (elem_type, n)
         if key not in self._array_type_cache:
             self._array_type_cache[key] = ty.array_type(elem_type, n)
