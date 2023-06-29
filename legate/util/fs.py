@@ -258,8 +258,8 @@ def get_legion_paths(legate_paths: LegatePaths) -> LegionPaths:
             realm_defines_h=legion_include_path / "realm_defines.h",
             legion_defines_h=legion_include_path / "legion_defines.h",
             legion_spy_py=legion_bin_path / "legion_spy.py",
-            legion_prof_py=legion_bin_path / "legion_prof.py",
             legion_python=legion_bin_path / "legion_python",
+            legion_prof=legion_bin_path / "legion_prof",
             legion_module=legion_module,
             legion_jupyter_module=legion_module,
         )
@@ -320,8 +320,8 @@ def get_legion_paths(legate_paths: LegatePaths) -> LegionPaths:
                 realm_defines_h=legion_runtime_dir / "realm_defines.h",
                 legion_defines_h=legion_runtime_dir / "legion_defines.h",
                 legion_spy_py=legion_source_dir / "tools" / "legion_spy.py",
-                legion_prof_py=legion_source_dir / "tools" / "legion_prof.py",
                 legion_python=legion_binary_dir / "bin" / "legion_python",
+                legion_prof=legion_binary_dir / "bin" / "legion_prof",
                 legion_module=legion_bindings_dir / "python" / "build" / "lib",
                 legion_jupyter_module=legion_source_dir / "jupyter_notebook",
             )

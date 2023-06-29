@@ -16,14 +16,10 @@
 
 #pragma once
 
-#include "legion.h"
+#include "core/mapping/mapping.h"
 
-#include "core/runtime/context.h"
+namespace legate::mapping {
 
-namespace legate {
+std::unique_ptr<Mapper> create_core_mapper();
 
-void register_legate_core_mapper(Legion::Machine machine,
-                                 Legion::Runtime* runtime,
-                                 const LibraryContext* context);
-
-}  // namespace legate
+}  // namespace legate::mapping

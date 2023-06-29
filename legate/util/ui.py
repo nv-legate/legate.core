@@ -34,10 +34,14 @@ __all__ = (
     "UI_WIDTH",
     "banner",
     "error",
+    "failed",
     "key",
     "kvtable",
+    "passed",
     "rule",
     "section",
+    "skipped",
+    "timeout",
     "value",
     "warn",
 )
@@ -108,6 +112,30 @@ def error(text: str) -> str:
 
     """
     return red(f"ERROR: {text}")
+
+
+def skipped(msg: str) -> str:
+    """Report a skipped test with a cyan [SKIP]
+
+    Parameters
+    ----------
+    msg : str
+        Text to display after [SKIP]
+
+    """
+    return f"{cyan('[SKIP]')} {msg}"
+
+
+def timeout(msg: str) -> str:
+    """Report a timed-out test with a yellow [TIME]
+
+    Parameters
+    ----------
+    msg : str
+        Text to display after [TIME]
+
+    """
+    return f"{yellow('[TIME]')} {msg}"
 
 
 def failed(
@@ -282,18 +310,6 @@ def shell(cmd: str, *, char: str = "+") -> str:
 
     """
     return dim(white(f"{char}{cmd}"))
-
-
-def skipped(msg: str) -> str:
-    """Report a skipped test with a cyan [SKIP]
-
-    Parameters
-    ----------
-    msg : str
-        Text to display after [SKIP]
-
-    """
-    return f"{cyan('[SKIP]')} {msg}"
 
 
 def summary(
