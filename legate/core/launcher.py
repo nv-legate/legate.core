@@ -135,7 +135,7 @@ class ScalarArg:
 
         elem_dtype = self._dtype[0]
         serialize = _SERIALIZERS[elem_dtype]
-        dtype = ty.array_type(elem_dtype, len(self._value))
+        dtype = runtime.find_or_create_array_type(elem_dtype, len(self._value))
         dtype.serialize(buf)
         for v in self._value:
             serialize(buf, v)
