@@ -2092,12 +2092,9 @@ class Runtime:
         self, elem_type: ty.Dtype, n: int
     ) -> ty.Dtype:
         key = (elem_type, n)
-        cached = self._array_type_cache.get(key)
-        if cached is not None:
-            return cached
-        arr_type = ty.array_type(elem_type, n)
-        self._array_type_cache[key] = arr_type
-        return arr_type
+        if key not in self._array_type_cache:
+            self._array_type_cache[key] = ty.array_type(elem_type, n)
+        return self._array_type_cache[key]
 
 
 runtime: Runtime = Runtime(core_library)
