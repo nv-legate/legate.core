@@ -1,4 +1,5 @@
-#=============================================================================
+#!/bin/bash
+
 # Copyright 2023 NVIDIA Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,12 +13,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#=============================================================================
 
-# We abuse find package for testing purposes here to
-# 'find' the current build tree to test package builds
-
-add_subdirectory(collective)
-add_subdirectory(registry)
-add_subdirectory(scoping)
-add_subdirectory(tree_reduce)
+legate_root=`python -c 'import legate.install_info as i; from pathlib import Path; print(Path(i.libpath).parent.resolve())'`
+echo "Using Legate at $legate_root"
+cmake -S . -B build -D legate_core_ROOT=$legate_root
+cmake --build build --parallel 4
+python -m pip install -e .

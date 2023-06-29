@@ -120,8 +120,15 @@ class DebuggingHandler(LogHandler):
 
         dflag = "d" if self.config.debugging.dataflow else ""
         eflag = "e" if self.config.debugging.event else ""
+
         if dflag or eflag:
             cmd += (f"-{dflag}{eflag}",)
+
+        if self.config.debugging.collective:
+            cmd += ("--collective",)
+
+        if self.config.debugging.spy_assert_warning:
+            cmd += ("--assert-warning",)
 
         cmd += tuple(f"legate_{n}.log" for n in range(ranks))
 
@@ -155,7 +162,11 @@ def process_logs(
         if config.profiling.profile:
             handlers.append(ProfilingHandler(config, system))
 
-        if config.debugging.dataflow or config.debugging.event:
+        if (
+            config.debugging.dataflow
+            or config.debugging.event
+            or config.debugging.collective
+        ):
             handlers.append(DebuggingHandler(config, system))
 
     # yielding the handlers really just makes testing simpler

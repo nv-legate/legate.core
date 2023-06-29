@@ -303,6 +303,23 @@ debugging.add_argument(
     help="Generate Legate event graph",
 )
 
+debugging.add_argument(
+    "--spy-validate-collective",
+    dest="collective",
+    action="store_true",
+    required=False,
+    help="Check that Legate made optimal use of collective views "
+    "(developer option)",
+)
+debugging.add_argument(
+    "--spy-assert-warning",
+    dest="spy_assert_warning",
+    action="store_true",
+    required=False,
+    help="Treat warnings as errors during processing of Legion Spy logs "
+    "(developer option)",
+)
+
 
 info = parser.add_argument_group("Informational")
 

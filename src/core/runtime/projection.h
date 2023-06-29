@@ -41,15 +41,10 @@ class LegateProjectionFunctor : public Legion::ProjectionFunctor {
   virtual bool is_functional(void) const { return true; }
   virtual bool is_exclusive(void) const { return true; }
   virtual unsigned get_depth(void) const { return 0; }
-  bool is_collective() const { return is_collective_; }
-  void set_collective() { is_collective_ = true; }
 
  public:
   virtual DomainPoint project_point(const DomainPoint& point,
                                     const Domain& launch_domain) const = 0;
-
- private:
-  bool is_collective_ = false;
 };
 
 void register_legate_core_projection_functors(Legion::Runtime* runtime,
