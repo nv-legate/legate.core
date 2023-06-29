@@ -66,6 +66,7 @@ Legate Runtime
    runtime.Runtime.push_provenance
    runtime.Runtime.pop_provenance
    runtime.Runtime.track_provenance
+   runtime.Runtime.find_or_create_array_type
 
 
 Annotation

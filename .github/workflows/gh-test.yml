@@ -65,20 +65,16 @@ jobs:
           mkdir -p /tmp/out
           chown -R coder:coder /tmp/out
 
-      - name: Recreate the legate conda environment
+      - name: Create the legate conda environment
         shell: bash -eo pipefail {0}
         run: |
-          pattern="artifacts/out/*.yaml"
-          files=( $pattern )
-          yaml_file="${files[0]}"
-          echo "YAML file: ${yaml_file}"
-
-          mamba env create -n "${DEFAULT_CONDA_ENV:-legate}" -f "${yaml_file}";
+          mamba create -n "${DEFAULT_CONDA_ENV:-legate}"
 
       - name: Install legate-core and cunumeric in the legate conda environment
         shell: bash -eo pipefail {0}
         run: |
-          conda install -y -n legate -c nvidia -c conda-forge -c $(pwd)/artifacts/conda-build/legate_core legate-core
+          mamba install -y -n "${DEFAULT_CONDA_ENV:-legate}" -c nvidia -c conda-forge -c $(pwd)/artifacts/conda-build/legate_core legate-core
+          mamba install --name "${DEFAULT_CONDA_ENV:-legate}" -c conda-forge pytest pytest-mock ipython jupyter_client
 
       - if: inputs.test-scope == 'unit'
         name: Run legate.core unit tests
