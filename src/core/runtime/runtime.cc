@@ -234,12 +234,6 @@ int32_t Runtime::find_reduction_operator(int32_t type_uid, int32_t op_kind) cons
   return &runtime;
 }
 
-void Runtime::enter_callback() { in_callback_ = true; }
-
-void Runtime::exit_callback() { in_callback_ = false; }
-
-bool Runtime::is_in_callback() const { return in_callback_; }
-
 void register_legate_core_tasks(Legion::Machine machine,
                                 Legion::Runtime* runtime,
                                 const LibraryContext* context)
@@ -335,11 +329,10 @@ extern void register_exception_reduction_op(Legion::Runtime* runtime,
   // We register one sharding functor for each new projection functor
   config.max_shardings     = LEGATE_CORE_MAX_FUNCTOR_ID;
   config.max_reduction_ops = LEGATE_CORE_MAX_REDUCTION_OP_ID;
-  auto core_lib            = Runtime::get_runtime()->create_library(core_library_name, config);
+  auto core_lib            = Runtime::get_runtime()->create_library(
+    core_library_name, config, mapping::create_core_mapper());
 
   register_legate_core_tasks(machine, runtime, core_lib);
-
-  register_legate_core_mapper(machine, runtime, core_lib);
 
   register_builtin_reduction_ops();
 

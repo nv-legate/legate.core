@@ -77,7 +77,7 @@ if TYPE_CHECKING:
     from .communicator import Communicator
     from .context import Context
     from .corelib import CoreLib
-    from .operation import Operation
+    from .operation import AutoTask, Copy, ManualTask, Operation
     from .partition import PartitionBase
     from .projection import SymbolicPoint
     from .store import RegionField, Store
@@ -1131,6 +1131,8 @@ class Runtime:
             ProcessorKind.CPU: self.core_library.LEGATE_CPU_VARIANT,
         }
 
+        self._array_type_cache: dict[tuple[ty.Dtype, int], ty.Dtype] = {}
+
     @property
     def has_cpu_communicator(self) -> bool:
         return self._comm_manager.has_cpu_communicator
@@ -1183,10 +1185,6 @@ class Runtime:
         if len(self._machines) <= 1:
             raise RuntimeError("Machine stack underflow")
         self._machines.pop()
-
-    @property
-    def core_task_variant_id(self) -> int:
-        return self._variant_ids[self.machine.preferred_kind]
 
     @property
     def attachment_manager(self) -> AttachmentManager:
@@ -1543,6 +1541,193 @@ class Runtime:
             ndim=ndim,
         )
 
+    def create_manual_task(
+        self,
+        context: Context,
+        task_id: int,
+        launch_domain: Rect,
+    ) -> ManualTask:
+        """
+        Creates a manual task.
+
+        Parameters
+        ----------
+        context: Context
+            Library to which the task id belongs
+
+        task_id : int
+            Task id. Scoped locally within the context; i.e., different
+            libraries can use the same task id. There must be a task
+            implementation corresponding to the task id.
+
+        launch_domain : Rect, optional
+            Launch domain of the task.
+
+        Returns
+        -------
+        ManualTask
+            A new task
+        """
+
+        from .operation import ManualTask
+
+        # Check if the task id is valid for this library and the task
+        # has the right variant
+        machine = context.slice_machine_for_task(task_id)
+        unique_op_id = self.get_unique_op_id()
+        if launch_domain is None:
+            raise RuntimeError(
+                "Launch domain must be specified for manual parallelization"
+            )
+
+        return ManualTask(
+            context,
+            task_id,
+            launch_domain,
+            unique_op_id,
+            machine,
+        )
+
+    def create_auto_task(
+        self,
+        context: Context,
+        task_id: int,
+    ) -> AutoTask:
+        """
+        Creates an auto task.
+
+        Parameters
+        ----------
+        context: Context
+            Library to which the task id belongs
+
+        task_id : int
+            Task id. Scoped locally within the context; i.e., different
+            libraries can use the same task id. There must be a task
+            implementation corresponding to the task id.
+
+        Returns
+        -------
+        AutoTask
+            A new automatically parallelized task
+
+        See Also
+        --------
+        Context.create_task
+        """
+
+        from .operation import AutoTask
+
+        # Check if the task id is valid for this library and the task
+        # has the right variant
+        machine = context.slice_machine_for_task(task_id)
+        unique_op_id = self.get_unique_op_id()
+        return AutoTask(context, task_id, unique_op_id, machine)
+
+    def create_copy(self) -> Copy:
+        """
+        Creates a copy operation.
+
+        Returns
+        -------
+        Copy
+            A new copy operation
+        """
+
+        from .operation import Copy
+
+        return Copy(
+            self.core_context,
+            self.get_unique_op_id(),
+            self.machine,
+        )
+
+    def issue_fill(
+        self,
+        lhs: Store,
+        value: Store,
+    ) -> None:
+        """
+        Fills the store with a constant value.
+
+        Parameters
+        ----------
+        lhs : Store
+            Store to fill
+
+        value : Store
+            Store holding the constant value to fill the ``lhs`` with
+
+        Raises
+        ------
+        ValueError
+            If the ``value`` is not scalar or the ``lhs`` is either unbound or
+            scalar
+        """
+        from .operation import Fill
+
+        fill = Fill(
+            self.core_context,
+            lhs,
+            value,
+            self.get_unique_op_id(),
+            self.machine,
+        )
+        fill.execute()
+
+    def tree_reduce(
+        self, context: Context, task_id: int, store: Store, radix: int = 4
+    ) -> Store:
+        """
+        Performs a user-defined reduction by building a tree of reduction
+        tasks. At each step, the reducer task gets up to ``radix`` input stores
+        and is supposed to produce outputs in a single unbound store.
+
+        Parameters
+        ----------
+        context : Context
+            Library to which the task id belongs
+
+        task_id : int
+            Id of the reducer task
+
+        store : Store
+            Store to perform reductions on
+
+        radix : int
+            Fan-in of each reducer task. If the store is partitioned into
+            :math:`N` sub-stores by the runtime, then the first level of
+            reduction tree has :math:`\\ceil{N / \\mathtt{radix}}` reducer
+            tasks.
+
+        Returns
+        -------
+        Store
+            Store that contains reduction results
+        """
+        from .operation import Reduce
+
+        if store.ndim > 1:
+            raise NotImplementedError(
+                "Tree reduction doesn't currently support "
+                "multi-dimensional stores"
+            )
+
+        result = self.create_store(store.type)
+
+        # A single Reduce operation is mapped to a whole reduction tree
+        task = Reduce(
+            context,
+            task_id,
+            radix,
+            self.get_unique_op_id(),
+            self.machine,
+        )
+        task.add_input(store)
+        task.add_output(result)
+        task.execute()
+        return result
+
     def find_region_manager(self, region: Region) -> RegionManager:
         assert region in self.region_managers_by_region
         return self.region_managers_by_region[region]
@@ -1705,7 +1890,6 @@ class Runtime:
         launcher = TaskLauncher(
             self.core_context,
             self.core_library.LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,
-            tag=self.core_task_variant_id,
         )
         launcher.add_future(future)
         launcher.add_scalar_arg(idx, ty.int32)
@@ -1719,7 +1903,6 @@ class Runtime:
         launcher = TaskLauncher(
             self.core_context,
             self.core_library.LEGATE_CORE_EXTRACT_SCALAR_TASK_ID,
-            tag=self.core_task_variant_id,
         )
         launcher.add_future_map(future)
         launcher.add_scalar_arg(idx, ty.int32)
@@ -1755,6 +1938,17 @@ class Runtime:
             )
 
     def issue_execution_fence(self, block: bool = False) -> None:
+        """
+        Issues an execution fence. A fence is a special operation that
+        guarantees that all upstream operations finish before any of the
+        downstream operations start. The caller can optionally block on
+        completion of all upstream operations.
+
+        Parameters
+        ----------
+        block : bool
+            If ``True``, the call blocks until all upstream operations finish.
+        """
         fence = Fence(mapping=False)
         future = fence.launch(self.legion_runtime, self.legion_context)
         if block:
@@ -1893,6 +2087,34 @@ class Runtime:
                 return result
 
         return wrapper
+
+    def find_or_create_array_type(
+        self, elem_type: ty.Dtype, n: int
+    ) -> ty.Dtype:
+        """
+        Finds or creates a fixed array type for a given element type and a
+        size.
+
+        Returns the same array type for the same element type and array size.
+
+        Parameters
+        ----------
+        elem_type : Dtype
+            Element type
+
+        n : int
+            Array size
+
+        Returns
+        -------
+        Dtype
+            Fixed-size array type unique to each pair of an element type and
+            a size
+        """
+        key = (elem_type, n)
+        if key not in self._array_type_cache:
+            self._array_type_cache[key] = ty.array_type(elem_type, n)
+        return self._array_type_cache[key]
 
 
 runtime: Runtime = Runtime(core_library)

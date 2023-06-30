@@ -43,7 +43,8 @@ class MockTestStage(m.TestStage):
         self._init(config, system)
 
     def compute_spec(self, config: Config, system: _TestSystem) -> StageSpec:
-        return StageSpec(2, [(0,), (1,), (2,)])
+        shards = [Shard([(0,)]), Shard([(1,)]), Shard([(2,)])]
+        return StageSpec(2, shards)
 
     def shard_args(self, shard: Shard, config: Config) -> ArgList:
         return []

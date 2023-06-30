@@ -27,6 +27,7 @@ from legate.tester import (
     DEFAULT_OMPTHREADS,
     DEFAULT_PROCESS_ENV,
     FEATURES,
+    LAST_FAILED_FILENAME,
     PER_FILE_ARGS,
     SKIPPED_EXAMPLES,
 )
@@ -61,6 +62,9 @@ class TestConsts:
 
     def test_FEATURES(self) -> None:
         assert FEATURES == ("cpus", "cuda", "eager", "openmp")
+
+    def test_LAST_FAILED_FILENAME(self) -> None:
+        assert LAST_FAILED_FILENAME == ".legate-test-last-failed"
 
     def test_SKIPPED_EXAMPLES(self) -> None:
         assert isinstance(SKIPPED_EXAMPLES, set)

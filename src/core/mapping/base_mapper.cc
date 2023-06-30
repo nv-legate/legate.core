@@ -70,18 +70,17 @@ std::string log_mappable(const Legion::Mappable& mappable, bool prefix_only = fa
 }  // namespace
 
 BaseMapper::BaseMapper(mapping::Mapper* legate_mapper,
-                       Legion::Runtime* rt,
-                       Legion::Machine m,
-                       const LibraryContext* ctx)
-  : Mapper(rt->get_mapper_runtime()),
+                       Legion::Mapping::MapperRuntime* _mapper_runtime,
+                       const LibraryContext* _context)
+  : Mapper(_mapper_runtime),
     legate_mapper_(legate_mapper),
-    legion_runtime(rt),
-    legion_machine(m),
-    context(ctx),
+    mapper_runtime(_mapper_runtime),
+    legion_machine(Legion::Machine::get_machine()),
+    context(_context),
     logger(create_logger_name().c_str()),
     local_instances(InstanceManager::get_instance_manager()),
     reduction_instances(ReductionInstanceManager::get_instance_manager()),
-    machine(m)
+    machine()
 {
   std::stringstream ss;
   ss << context->get_library_name() << " on Node " << machine.local_node;
@@ -135,23 +134,32 @@ void BaseMapper::select_task_options(const Legion::Mapping::MapperContext ctx,
                                      const Legion::Task& task,
                                      TaskOptions& output)
 {
+  Task legate_task(&task, context, runtime, ctx);
 #ifdef LEGATE_USE_COLLECTIVE
-  for (uint32_t idx = 0; idx < task.regions.size(); ++idx) {
-    auto& req = task.regions[idx];
+  auto hi = task.index_domain.hi();
+  auto lo = task.index_domain.lo();
+  for (auto& store : legate_task.inputs()) {
+    if (store.is_future()) continue;
+    std::vector<int32_t> promoted_dims = store.find_imaginary_dims();
+    for (auto& d : promoted_dims) {
+      if ((hi[d] - lo[d]) >= 1) {
+        output.check_collective_regions.insert(store.requirement_index());
+        break;
+      }
+    }
+  }
+  for (auto& store : legate_task.reductions()) {
+    if (store.is_future()) continue;
+    auto idx = store.requirement_index();
+    auto req = task.regions[idx];
     if (req.privilege & LEGION_WRITE_PRIV) continue;
-    // Look up the projection for the input region. There are cases where
-    // Legate libraries register their own projection functors that are
-    // not recorded by Legate Core. So, handle the case when these functors
-    // are not present and allow for them to be missing.
-    auto projection = find_legate_projection_functor(req.projection, true /* allow_mising */);
-    if ((req.handle_type == LEGION_SINGULAR_PROJECTION) ||
-        (projection != nullptr && projection->is_collective())) {
+    if (req.handle_type == LEGION_SINGULAR_PROJECTION || req.projection != 0) {
       output.check_collective_regions.insert(idx);
     }
   }
+
 #endif
 
-  Task legate_task(&task, context, runtime, ctx);
   auto& machine_desc = legate_task.machine_desc();
   auto all_targets   = machine_desc.valid_targets();
 
@@ -953,7 +961,7 @@ void BaseMapper::map_inline(const Legion::Mapping::MapperContext ctx,
   assert(inline_op.requirement.instance_fields.size() == 1);
 #endif
 
-  Store store(legion_runtime->get_mapper_runtime(), ctx, &inline_op.requirement);
+  Store store(mapper_runtime, ctx, &inline_op.requirement);
   std::vector<StoreMapping> mappings;
   mappings.push_back(StoreMapping::default_mapping(store, store_target, false));
 
@@ -1203,7 +1211,7 @@ void BaseMapper::map_partition(const Legion::Mapping::MapperContext ctx,
   assert(partition.requirement.instance_fields.size() == 1);
 #endif
 
-  Store store(legion_runtime->get_mapper_runtime(), ctx, &partition.requirement);
+  Store store(mapper_runtime, ctx, &partition.requirement);
   std::vector<StoreMapping> mappings;
   mappings.push_back(StoreMapping::default_mapping(store, store_target, false));
 
@@ -1252,6 +1260,31 @@ void BaseMapper::configure_context(const Legion::Mapping::MapperContext ctx,
                                    ContextConfigOutput& output)
 {
   // Use the defaults currently
+}
+
+void BaseMapper::map_future_map_reduction(const Legion::Mapping::MapperContext ctx,
+                                          const FutureMapReductionInput& input,
+                                          FutureMapReductionOutput& output)
+{
+  output.serdez_upper_bound = LEGATE_MAX_SIZE_SCALAR_RETURN;
+
+  if (machine.has_gpus()) {
+    // TODO: It's been reported that blindly mapping target instances of future map reductions
+    // to framebuffers hurts performance. Until we find a better mapping policy, we guard
+    // the current policy with a macro.
+#ifdef LEGATE_MAP_FUTURE_MAP_REDUCTIONS_TO_GPU
+
+    // If this was joining exceptions, we should put instances on a host-visible memory
+    // because they need serdez
+    if (input.tag == LEGATE_CORE_JOIN_EXCEPTION_TAG)
+      output.destination_memories.push_back(machine.zerocopy_memory());
+    else
+      for (auto& pair : machine.frame_buffers()) output.destination_memories.push_back(pair.second);
+#else
+    output.destination_memories.push_back(machine.zerocopy_memory());
+#endif
+  } else if (machine.has_socket_memory())
+    for (auto& pair : machine.socket_memories()) output.destination_memories.push_back(pair.second);
 }
 
 void BaseMapper::select_tunable_value(const Legion::Mapping::MapperContext ctx,

@@ -39,6 +39,9 @@ class TestParserDefaults:
     def test_unit(self) -> None:
         assert m.parser.get_default("unit") is False
 
+    def test_last_failed(self) -> None:
+        assert m.parser.get_default("last_failed") is False
+
     def test_cpus(self) -> None:
         assert m.parser.get_default("cpus") == DEFAULT_CPUS_PER_NODE
 
@@ -62,6 +65,9 @@ class TestParserDefaults:
 
     def test_numamem(self) -> None:
         assert m.parser.get_default("numamem") == DEFAULT_NUMAMEM
+
+    def test_timeout(self) -> None:
+        assert m.parser.get_default("timeout") is None
 
     def test_legate_dir(self) -> None:
         assert m.parser.get_default("legate_dir") is None

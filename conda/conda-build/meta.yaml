@@ -24,7 +24,7 @@
     {% set version = environ.get('GIT_DESCRIBE_TAG', default_env_var).lstrip('v') %}
 {% endif %}
 {% set cuda_version='.'.join(environ.get('CUDA', '11.8').split('.')[:2]) %}
-{% set cuda_major=cuda_version.split('.')[0] %}
+{% set cuda_major=cuda_version.split('.')[0]|int %}
 {% set py_version=environ.get('CONDA_PY', 36) %}
 
 package:
@@ -84,9 +84,8 @@ build:
 {% endif %}
 {% if gpu_enabled_bool %}
 # prevent nccl from pulling in cudatoolkit
-# once an nccl package compatible with cuda-* packages is introduced, this can be removed
-#  ignore_run_exports:
-#    - cudatoolkit
+  ignore_run_exports:
+    - cudatoolkit
   ignore_run_exports_from:
     - cuda-nvcc
 {% endif %}
@@ -108,7 +107,6 @@ requirements:
     - numpy {{ numpy_version }}
 {% if gpu_enabled_bool %}
     - nccl
-    - cudatoolkit ={{ cuda_version }}
     - cuda-nvcc ={{ cuda_version }}
     - cuda-nvtx ={{ cuda_version }}
     - cuda-cccl ={{ cuda_version }}
@@ -121,10 +119,9 @@ requirements:
     - cffi
     - llvm-openmp
     - numpy {{ numpy_version }}
-    - pyarrow {{ pyarrow_version }}
     - typing_extensions
 {% if gpu_enabled_bool %}
-    - cuda-cudart >={{ cuda_version }}
+    - cuda-cudart >={{ cuda_version }},<{{ cuda_major+1 }}
     - nccl
 {% endif %}
 
