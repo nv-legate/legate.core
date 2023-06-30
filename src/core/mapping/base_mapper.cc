@@ -134,23 +134,32 @@ void BaseMapper::select_task_options(const Legion::Mapping::MapperContext ctx,
                                      const Legion::Task& task,
                                      TaskOptions& output)
 {
+  Task legate_task(&task, context, runtime, ctx);
 #ifdef LEGATE_USE_COLLECTIVE
-  for (uint32_t idx = 0; idx < task.regions.size(); ++idx) {
-    auto& req = task.regions[idx];
+  auto hi = task.index_domain.hi();
+  auto lo = task.index_domain.lo();
+  for (auto& store : legate_task.inputs()) {
+    if (store.is_future()) continue;
+    std::vector<int32_t> promoted_dims = store.find_imaginary_dims();
+    for (auto& d : promoted_dims) {
+      if ((hi[d] - lo[d]) >= 1) {
+        output.check_collective_regions.insert(store.requirement_index());
+        break;
+      }
+    }
+  }
+  for (auto& store : legate_task.reductions()) {
+    if (store.is_future()) continue;
+    auto idx = store.requirement_index();
+    auto req = task.regions[idx];
     if (req.privilege & LEGION_WRITE_PRIV) continue;
-    // Look up the projection for the input region. There are cases where
-    // Legate libraries register their own projection functors that are
-    // not recorded by Legate Core. So, handle the case when these functors
-    // are not present and allow for them to be missing.
-    auto projection = find_legate_projection_functor(req.projection, true /* allow_mising */);
-    if ((req.handle_type == LEGION_SINGULAR_PROJECTION) ||
-        (projection != nullptr && projection->is_collective())) {
+    if (req.handle_type == LEGION_SINGULAR_PROJECTION || req.projection != 0) {
       output.check_collective_regions.insert(idx);
     }
   }
+
 #endif
 
-  Task legate_task(&task, context, runtime, ctx);
   auto& machine_desc = legate_task.machine_desc();
   auto all_targets   = machine_desc.valid_targets();
 

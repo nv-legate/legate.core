@@ -17,7 +17,17 @@
 # We abuse find package for testing purposes here to
 # 'find' the current build tree to test package builds
 
-add_subdirectory(collective)
-add_subdirectory(registry)
-add_subdirectory(scoping)
-add_subdirectory(tree_reduce)
+
+cmake_minimum_required(VERSION 3.22.1 FATAL_ERROR)
+
+project(collective VERSION 1.0 LANGUAGES C CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(BUILD_SHARED_LIBS ON)
+
+find_package(legate_core REQUIRED)
+
+legate_add_cpp_subdirectory(src TARGET collective  EXPORT collective-export)
+
+legate_add_cffi(${CMAKE_CURRENT_SOURCE_DIR}/src/collective_cffi.h TARGET collective)
+legate_default_python_install(collective EXPORT collective-export)
