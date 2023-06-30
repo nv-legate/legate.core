@@ -109,6 +109,7 @@ class BuildConfig(SectionConfig):
             "make",
             "rust",
             "ninja",
+            "pkg-config",
             "scikit-build>=0.13.1",
             "setuptools>=60",
             "zlib",
