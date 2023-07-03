@@ -382,6 +382,9 @@ def install(
     pip_install_cmd = [sys.executable, "-m", "pip", "install"]
     cmd_env = dict(os.environ.items())
 
+    if "OPENSSL_DIR" not in cmd_env and "CONDA_PREFIX" in cmd_env:
+        cmd_env.update({"OPENSSL_DIR": cmd_env["CONDA_PREFIX"]})
+
     if unknown is not None:
         try:
             prefix_loc = unknown.index("--prefix")

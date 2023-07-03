@@ -15,7 +15,7 @@ from __future__ import annotations
 from argparse import Action, ArgumentParser
 from dataclasses import dataclass
 from textwrap import indent
-from typing import Literal, Protocol, Tuple
+from typing import Literal, Tuple
 
 # --- Types -------------------------------------------------------------------
 
@@ -29,7 +29,7 @@ def V(version: str) -> tuple[int, ...]:
     return tuple(int(x) for x in padded_version)
 
 
-class SectionConfig(Protocol):
+class SectionConfig:
     header: str
 
     @property
@@ -109,6 +109,8 @@ class BuildConfig(SectionConfig):
             "make",
             "rust",
             "ninja",
+            "openssl",
+            "pkg-config",
             "scikit-build>=0.13.1",
             "setuptools>=60",
             "zlib",
