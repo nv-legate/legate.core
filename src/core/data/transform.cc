@@ -89,6 +89,14 @@ std::unique_ptr<StoreTransform> TransformStack::pop()
 
 void TransformStack::dump() const { std::cerr << *this << std::endl; }
 
+std::vector<int32_t> TransformStack::find_imaginary_dims() const
+{
+  std::vector<int32_t> dims;
+  if (nullptr != parent_) { dims = parent_->find_imaginary_dims(); }
+  if (nullptr != transform_) transform_->find_imaginary_dims(dims);
+  return std::move(dims);
+}
+
 Shift::Shift(int32_t dim, int64_t offset) : dim_(dim), offset_(offset) {}
 
 Domain Shift::transform(const Domain& input) const
@@ -129,6 +137,8 @@ void Shift::print(std::ostream& out) const
 }
 
 int32_t Shift::target_ndim(int32_t source_ndim) const { return source_ndim; }
+
+void Shift::find_imaginary_dims(std::vector<int32_t>&) const {}
 
 Promote::Promote(int32_t extra_dim, int64_t dim_size) : extra_dim_(extra_dim), dim_size_(dim_size)
 {
@@ -185,6 +195,13 @@ void Promote::print(std::ostream& out) const
 
 int32_t Promote::target_ndim(int32_t source_ndim) const { return source_ndim - 1; }
 
+void Promote::find_imaginary_dims(std::vector<int32_t>& dims) const
+{
+  for (auto& dim : dims)
+    if (dim >= extra_dim_) dim++;
+  dims.push_back(extra_dim_);
+}
+
 Project::Project(int32_t dim, int64_t coord) : dim_(dim), coord_(coord) {}
 
 Domain Project::transform(const Domain& input) const
@@ -238,6 +255,14 @@ void Project::print(std::ostream& out) const
 }
 
 int32_t Project::target_ndim(int32_t source_ndim) const { return source_ndim + 1; }
+
+void Project::find_imaginary_dims(std::vector<int32_t>& dims) const
+{
+  auto finder = std::find(dims.begin(), dims.end(), dim_);
+  if (finder != dims.end()) { dims.erase(finder); }
+  for (auto& dim : dims)
+    if (dim > dim_) --dim;
+}
 
 Transpose::Transpose(std::vector<int32_t>&& axes) : axes_(std::move(axes)) {}
 
@@ -300,6 +325,19 @@ void Transpose::print(std::ostream& out) const
 }
 
 int32_t Transpose::target_ndim(int32_t source_ndim) const { return source_ndim; }
+
+void Transpose::find_imaginary_dims(std::vector<int32_t>& dims) const
+{
+  // i should be added to X.tranpose(axes).promoted iff axes[i] is in X.promoted
+  // e.g. X.promoted = [0] => X.transpose((1,2,0)).promoted = [2]
+  for (auto& promoted : dims) {
+    auto finder = std::find(axes_.begin(), axes_.end(), promoted);
+#ifdef DEBUG_LEGATE
+    assert(finder != axes_.end());
+#endif
+    promoted = finder - axes_.begin();
+  }
+}
 
 Delinearize::Delinearize(int32_t dim, std::vector<int64_t>&& sizes)
   : dim_(dim), sizes_(std::move(sizes)), strides_(sizes_.size(), 1), volume_(1)
@@ -375,6 +413,8 @@ int32_t Delinearize::target_ndim(int32_t source_ndim) const
 {
   return source_ndim - strides_.size() + 1;
 }
+
+void Delinearize::find_imaginary_dims(std::vector<int32_t>&) const {}
 
 std::ostream& operator<<(std::ostream& out, const Transform& transform)
 {

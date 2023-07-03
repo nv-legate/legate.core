@@ -44,9 +44,6 @@ class SumTask : public Task<SumTask, SUM> {
     using Reduce          = Legion::SumReduction<float>;
     legate::Store& output = context.reductions().at(0);
     auto sum              = output.reduce_accessor<Reduce, true, 1>();
-    // Best-practice is to validate types
-    assert(output.code() == legate::Type::Code::FLOAT32);
-    assert(output.dim() == 1);
     assert(output.shape<1>() == legate::Rect<1>(0, 0));
     sum.reduce(0, total);
   }
