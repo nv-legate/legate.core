@@ -44,6 +44,10 @@ class TestFixedArrayType:
         assert arr_type.uid & 0x00FF == elem_type.code
         assert arr_type.uid >> 8 == size
 
+        for primitive_type in _PRIMITIVES:
+            assert arr_type.uid != primitive_type.uid
+            assert arr_type.uid != ty.string.uid
+
     @pytest.mark.parametrize("elem_type", _PRIMITIVES)
     def test_same_type(self, elem_type: ty.Dtype) -> None:
         type1 = ty.array_type(elem_type, 1)
@@ -61,6 +65,10 @@ class TestFixedArrayType:
         arr_type = ty.array_type(elem_type, 256)
 
         assert arr_type.uid >= 0x10000
+
+        for primitive_type in _PRIMITIVES:
+            assert arr_type.uid != primitive_type.uid
+            assert arr_type.uid != ty.string.uid
 
     @pytest.mark.parametrize("elem_type", _PRIMITIVES)
     def test_isomorphic_non_primitive(self, elem_type: ty.Dtype) -> None:
@@ -84,6 +92,12 @@ class TestStructType:
         assert type1.uid != type2.uid
         assert type1.uid >= 0x10000
         assert type2.uid >= 0x10000
+
+        for primitive_type in _PRIMITIVES:
+            assert type1.uid != primitive_type.uid
+            assert type2.uid != primitive_type.uid
+            assert type1.uid != ty.string.uid
+            assert type2.uid != ty.string.uid
 
 
 if __name__ == "__main__":
