@@ -148,7 +148,7 @@ static void extract_scalar_task(
 
 namespace {
 
-constexpr uint32_t CUSTOM_TYPE_UID_BASE = 1000;
+constexpr uint32_t CUSTOM_TYPE_UID_BASE = 0x10000;
 
 }  // namespace
 
