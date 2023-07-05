@@ -56,6 +56,8 @@ class TestFixedArrayType:
 
         assert type1.uid == type2.uid
 
+    @pytest.mark.parametrize("elem_type", _PRIMITIVES)
+    def test_different_types(self, elem_type: ty.Dtype) -> None:
         type1 = ty.array_type(elem_type, 1)
         type2 = ty.array_type(elem_type, 2)
 
