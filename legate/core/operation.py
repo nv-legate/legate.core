@@ -50,6 +50,17 @@ if TYPE_CHECKING:
     from .solver import Strategy
 
 
+def is_supported_scalar_arg_type(dtype: ty.Dtype) -> bool:
+    return (
+        dtype.is_primitive
+        or dtype == ty.string
+        or (
+            isinstance(dtype, ty.FixedArrayDtype)
+            and dtype.element_type.is_primitive
+        )
+    )
+
+
 class OperationProtocol(Protocol):
     _context: Context
     _op_id: int
@@ -405,10 +416,11 @@ class Task(TaskProtocol):
         sanitized: ty.Dtype
         if isinstance(dtype, ty.Dtype):
             sanitized = dtype
-            if isinstance(sanitized, ty.FixedArrayDtype) and not isinstance(
-                value, (tuple, Shape)
+            if isinstance(sanitized, ty.FixedArrayDtype) and (
+                not isinstance(value, (tuple, Shape))
+                or len(value) != sanitized.num_elements()
             ):
-                raise ValueError(f"{value} is not a valid scalar")
+                raise ValueError(f"{value} is not a valid scalar for {dtype}")
         elif isinstance(dtype, tuple):
             if not (len(dtype) == 1 and isinstance(dtype[0], ty.Dtype)):
                 raise TypeError(f"Unsupported type: {dtype}")
@@ -417,16 +429,6 @@ class Task(TaskProtocol):
             sanitized = ty.array_type(dtype[0], len(value))
         else:
             raise TypeError(f"Unsupported type: {dtype}")
-
-        def is_supported_scalar_arg_type(dtype: ty.Dtype) -> bool:
-            return (
-                dtype.is_primitive
-                or dtype == ty.string
-                or (
-                    isinstance(dtype, ty.FixedArrayDtype)
-                    and dtype.element_type.is_primitive
-                )
-            )
 
         if not is_supported_scalar_arg_type(sanitized):
             raise NotImplementedError(
