@@ -1909,7 +1909,10 @@ class Runtime:
         return launcher.execute(launch_domain).future_map
 
     def reduce_future_map(
-        self, future_map: Union[Future, FutureMap], redop: int
+        self,
+        future_map: Union[Future, FutureMap],
+        redop: int,
+        ordered: bool = True,
     ) -> Future:
         if isinstance(future_map, Future):
             return future_map
@@ -1918,6 +1921,7 @@ class Runtime:
                 self.legion_context,
                 self.legion_runtime,
                 redop,
+                ordered=ordered,
                 mapper=self.core_context.mapper_id,
             )
 
