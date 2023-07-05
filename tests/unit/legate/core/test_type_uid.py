@@ -73,12 +73,14 @@ class TestFixedArrayType:
         assert arr_type.uid not in _PRIMITIVES_UIDS
 
     @pytest.mark.parametrize("elem_type", _PRIMITIVES)
-    def test_isomorphic_non_primitive(self, elem_type: ty.Dtype) -> None:
+    def test_array_of_array_types(self, elem_type: ty.Dtype) -> None:
         type1 = ty.array_type(ty.array_type(elem_type, 1), 1)
         type2 = ty.array_type(ty.array_type(elem_type, 1), 1)
 
         assert type1.uid != type2.uid
 
+    @pytest.mark.parametrize("elem_type", _PRIMITIVES)
+    def test_array_of_struct_types(self, elem_type: ty.Dtype) -> None:
         type1 = ty.array_type(ty.struct_type([elem_type]), 1)
         type2 = ty.array_type(ty.struct_type([elem_type]), 1)
 
