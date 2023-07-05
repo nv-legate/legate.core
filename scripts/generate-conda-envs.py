@@ -109,6 +109,8 @@ class BuildConfig(SectionConfig):
             "make",
             "rust",
             "ninja",
+            "openssl",
+            "pkg-config",
             "scikit-build>=0.13.1",
             "setuptools>=60",
             "zlib",
@@ -142,6 +144,8 @@ class RuntimeConfig(SectionConfig):
             "numpy>=1.22,<1.25",
             "libblas=*=*openblas*",
             "openblas=*=*openmp*",
+            # work around https://github.com/StanfordLegion/legion/issues/1500
+            "openblas<=0.3.21",
             "opt_einsum",
             "scipy",
             "typing_extensions",

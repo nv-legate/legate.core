@@ -105,6 +105,8 @@ class TestConfig:
             gasnet_trace=False,
             dataflow=False,
             event=False,
+            collective=False,
+            spy_assert_warning=False,
         )
 
         assert c.info == m.Info(

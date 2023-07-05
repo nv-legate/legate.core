@@ -148,7 +148,7 @@ static void extract_scalar_task(
 
 namespace {
 
-constexpr uint32_t CUSTOM_TYPE_UID_BASE = 1000;
+constexpr uint32_t CUSTOM_TYPE_UID_BASE = 0x10000;
 
 }  // namespace
 
@@ -236,35 +236,23 @@ int32_t Runtime::find_reduction_operator(int32_t type_uid, int32_t op_kind) cons
 
 void register_legate_core_tasks(Legion::Machine machine,
                                 Legion::Runtime* runtime,
-                                const LibraryContext* context)
+                                LibraryContext* context)
 {
-  auto extract_scalar_task_id          = context->get_task_id(LEGATE_CORE_EXTRACT_SCALAR_TASK_ID);
-  const char* extract_scalar_task_name = "core::extract_scalar";
-  runtime->attach_name(
-    extract_scalar_task_id, extract_scalar_task_name, false /*mutable*/, true /*local only*/);
-
-  auto make_registrar = [&](auto task_id, auto* task_name, auto proc_kind) {
-    Legion::TaskVariantRegistrar registrar(task_id, task_name);
-    registrar.add_constraint(Legion::ProcessorConstraint(proc_kind));
-    registrar.set_leaf(true);
-    registrar.global_registration = false;
-    return registrar;
-  };
-
-  // Register the task variants
-  auto register_extract_scalar = [&](auto proc_kind, auto variant_id) {
-    auto registrar = make_registrar(extract_scalar_task_id, extract_scalar_task_name, proc_kind);
+  auto task_info                       = std::make_unique<TaskInfo>("core::extract_scalar");
+  auto register_extract_scalar_variant = [&](auto variant_id) {
     Legion::CodeDescriptor desc(extract_scalar_task);
-    runtime->register_task_variant(
-      registrar, desc, nullptr, 0, LEGATE_MAX_SIZE_SCALAR_RETURN, variant_id);
+    // TODO: We could support Legion & Realm calling convensions so we don't pass nullptr here
+    task_info->add_variant(variant_id, nullptr, desc, VariantOptions{});
   };
-  register_extract_scalar(Processor::LOC_PROC, LEGATE_CPU_VARIANT);
+  register_extract_scalar_variant(LEGATE_CPU_VARIANT);
 #ifdef LEGATE_USE_CUDA
-  register_extract_scalar(Processor::TOC_PROC, LEGATE_GPU_VARIANT);
+  register_extract_scalar_variant(LEGATE_GPU_VARIANT);
 #endif
 #ifdef LEGATE_USE_OPENMP
-  register_extract_scalar(Processor::OMP_PROC, LEGATE_OMP_VARIANT);
+  register_extract_scalar_variant(LEGATE_OMP_VARIANT);
 #endif
+  context->register_task(LEGATE_CORE_EXTRACT_SCALAR_TASK_ID, std::move(task_info));
+
   comm::register_tasks(machine, runtime, context);
 }
 

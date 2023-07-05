@@ -269,12 +269,34 @@ void UnboundRegionField::bind_data(Buffer<T, DIM>& buffer, const Point<DIM>& ext
   bound_ = true;
 }
 
-template <typename T, int DIM>
+template <typename T>
+void Store::check_accessor_type() const
+{
+  auto in_type = legate_type_code_of<T>;
+  if (in_type == this->code()) return;
+  // Test exact match for primitive types
+  if (in_type != Type::Code::INVALID) {
+    throw std::invalid_argument(
+      "Type mismatch: " + PrimitiveType(in_type).to_string() + " accessor to a " +
+      type().to_string() +
+      " store. Disable type checking via accessor template parameter if this is intended.");
+  }
+  // Test size matches for other types
+  if (sizeof(T) != type().size()) {
+    throw std::invalid_argument(
+      "Type size mismatch: store type " + type().to_string() + " has size " +
+      std::to_string(type().size()) + ", requested type has size " + std::to_string(sizeof(T)) +
+      ". Disable type checking via accessor template parameter if this is intended.");
+  }
+}
+
+template <typename T, int DIM, bool VALIDATE_TYPE>
 AccessorRO<T, DIM> Store::read_accessor() const
 {
-#ifdef DEBUG_LEGATE
-  check_accessor_dimension(DIM);
-#endif
+  if constexpr (VALIDATE_TYPE) {
+    check_accessor_dimension(DIM);
+    check_accessor_type<T>();
+  }
 
   if (is_future_) return future_.read_accessor<T, DIM>(shape<DIM>());
 
@@ -285,12 +307,13 @@ AccessorRO<T, DIM> Store::read_accessor() const
   return region_field_.read_accessor<T, DIM>(shape<DIM>());
 }
 
-template <typename T, int DIM>
+template <typename T, int DIM, bool VALIDATE_TYPE>
 AccessorWO<T, DIM> Store::write_accessor() const
 {
-#ifdef DEBUG_LEGATE
-  check_accessor_dimension(DIM);
-#endif
+  if constexpr (VALIDATE_TYPE) {
+    check_accessor_dimension(DIM);
+    check_accessor_type<T>();
+  }
 
   if (is_future_) return future_.write_accessor<T, DIM>(shape<DIM>());
 
@@ -301,12 +324,13 @@ AccessorWO<T, DIM> Store::write_accessor() const
   return region_field_.write_accessor<T, DIM>(shape<DIM>());
 }
 
-template <typename T, int DIM>
+template <typename T, int DIM, bool VALIDATE_TYPE>
 AccessorRW<T, DIM> Store::read_write_accessor() const
 {
-#ifdef DEBUG_LEGATE
-  check_accessor_dimension(DIM);
-#endif
+  if constexpr (VALIDATE_TYPE) {
+    check_accessor_dimension(DIM);
+    check_accessor_type<T>();
+  }
 
   if (is_future_) return future_.read_write_accessor<T, DIM>(shape<DIM>());
 
@@ -317,12 +341,14 @@ AccessorRW<T, DIM> Store::read_write_accessor() const
   return region_field_.read_write_accessor<T, DIM>(shape<DIM>());
 }
 
-template <typename OP, bool EXCLUSIVE, int DIM>
+template <typename OP, bool EXCLUSIVE, int DIM, bool VALIDATE_TYPE>
 AccessorRD<OP, EXCLUSIVE, DIM> Store::reduce_accessor() const
 {
-#ifdef DEBUG_LEGATE
-  check_accessor_dimension(DIM);
-#endif
+  using T = typename OP::LHS;
+  if constexpr (VALIDATE_TYPE) {
+    check_accessor_dimension(DIM);
+    check_accessor_type<T>();
+  }
 
   if (is_future_) return future_.reduce_accessor<OP, EXCLUSIVE, DIM>(redop_id_, shape<DIM>());
 
@@ -333,12 +359,13 @@ AccessorRD<OP, EXCLUSIVE, DIM> Store::reduce_accessor() const
   return region_field_.reduce_accessor<OP, EXCLUSIVE, DIM>(redop_id_, shape<DIM>());
 }
 
-template <typename T, int DIM>
+template <typename T, int DIM, bool VALIDATE_TYPE>
 AccessorRO<T, DIM> Store::read_accessor(const Rect<DIM>& bounds) const
 {
-#ifdef DEBUG_LEGATE
-  check_accessor_dimension(DIM);
-#endif
+  if constexpr (VALIDATE_TYPE) {
+    check_accessor_dimension(DIM);
+    check_accessor_type<T>();
+  }
 
   if (is_future_) return future_.read_accessor<T, DIM>(bounds);
 
@@ -349,12 +376,13 @@ AccessorRO<T, DIM> Store::read_accessor(const Rect<DIM>& bounds) const
   return region_field_.read_accessor<T, DIM>(bounds);
 }
 
-template <typename T, int DIM>
+template <typename T, int DIM, bool VALIDATE_TYPE>
 AccessorWO<T, DIM> Store::write_accessor(const Rect<DIM>& bounds) const
 {
-#ifdef DEBUG_LEGATE
-  check_accessor_dimension(DIM);
-#endif
+  if constexpr (VALIDATE_TYPE) {
+    check_accessor_dimension(DIM);
+    check_accessor_type<T>();
+  }
 
   if (is_future_) return future_.write_accessor<T, DIM>(bounds);
 
@@ -365,12 +393,13 @@ AccessorWO<T, DIM> Store::write_accessor(const Rect<DIM>& bounds) const
   return region_field_.write_accessor<T, DIM>(bounds);
 }
 
-template <typename T, int DIM>
+template <typename T, int DIM, bool VALIDATE_TYPE>
 AccessorRW<T, DIM> Store::read_write_accessor(const Rect<DIM>& bounds) const
 {
-#ifdef DEBUG_LEGATE
-  check_accessor_dimension(DIM);
-#endif
+  if constexpr (VALIDATE_TYPE) {
+    check_accessor_dimension(DIM);
+    check_accessor_type<T>();
+  }
 
   if (is_future_) return future_.read_write_accessor<T, DIM>(bounds);
 
@@ -381,12 +410,14 @@ AccessorRW<T, DIM> Store::read_write_accessor(const Rect<DIM>& bounds) const
   return region_field_.read_write_accessor<T, DIM>(bounds);
 }
 
-template <typename OP, bool EXCLUSIVE, int DIM>
+template <typename OP, bool EXCLUSIVE, int DIM, bool VALIDATE_TYPE>
 AccessorRD<OP, EXCLUSIVE, DIM> Store::reduce_accessor(const Rect<DIM>& bounds) const
 {
-#ifdef DEBUG_LEGATE
-  check_accessor_dimension(DIM);
-#endif
+  using T = typename OP::LHS;
+  if constexpr (VALIDATE_TYPE) {
+    check_accessor_dimension(DIM);
+    check_accessor_type<T>();
+  }
 
   if (is_future_) return future_.reduce_accessor<OP, EXCLUSIVE, DIM>(redop_id_, bounds);
 
@@ -400,28 +431,18 @@ AccessorRD<OP, EXCLUSIVE, DIM> Store::reduce_accessor(const Rect<DIM>& bounds) c
 template <typename T, int32_t DIM>
 Buffer<T, DIM> Store::create_output_buffer(const Point<DIM>& extents, bool bind_buffer /*= false*/)
 {
-#ifdef DEBUG_LEGATE
-  check_valid_return();
+  check_valid_binding();
   check_buffer_dimension(DIM);
-#endif
   return unbound_field_.create_output_buffer<T, DIM>(extents, bind_buffer);
 }
 
 template <int32_t DIM>
 Rect<DIM> Store::shape() const
 {
-#ifdef DEBUG_LEGATE
-  if (!(DIM == dim_ || (dim_ == 0 && DIM == 1))) {
-    log_legate.error(
-      "Dimension mismatch: invalid to retrieve a %d-D shape from a %d-D store", DIM, dim_);
-    LEGATE_ABORT;
-  }
-#endif
-
-  auto dom = domain();
-  if (dom.dim > 0)
-    return dom.bounds<DIM, Legion::coord_t>();
-  else {
+  check_shape_dimension(DIM);
+  if (dim_ > 0) {
+    return domain().bounds<DIM, Legion::coord_t>();
+  } else {
     auto p = Point<DIM>::ZEROES();
     return Rect<DIM>(p, p);
   }
@@ -430,19 +451,15 @@ Rect<DIM> Store::shape() const
 template <typename VAL>
 VAL Store::scalar() const
 {
-#ifdef DEBUG_LEGATE
-  assert(is_future_);
-#endif
+  if (!is_future_) throw std::invalid_argument("Scalars can be retrieved only from scalar stores");
   return future_.scalar<VAL>();
 }
 
 template <typename T, int32_t DIM>
 void Store::bind_data(Buffer<T, DIM>& buffer, const Point<DIM>& extents)
 {
-#ifdef DEBUG_LEGATE
-  check_valid_return();
+  check_valid_binding();
   check_buffer_dimension(DIM);
-#endif
   unbound_field_.bind_data(buffer, extents);
 }
 

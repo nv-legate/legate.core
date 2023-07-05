@@ -181,8 +181,17 @@ std::unique_ptr<Type> string_type() { return std::make_unique<StringType>(); }
 std::unique_ptr<Type> fixed_array_type(std::unique_ptr<Type> element_type,
                                        uint32_t N) noexcept(false)
 {
-  return std::make_unique<FixedArrayType>(
-    Runtime::get_runtime()->get_type_uid(), std::move(element_type), N);
+  // We use UIDs of the following format for "common" fixed array types
+  //    1B            1B
+  // +--------+-------------------+
+  // | length | element type code |
+  // +--------+-------------------+
+  auto generate_uid = [](const Type& elem_type, uint32_t N) {
+    if (!elem_type.is_primitive() || N > 0xFFU) return Runtime::get_runtime()->get_type_uid();
+    return static_cast<int32_t>(elem_type.code) | N << 8;
+  };
+  int32_t uid = generate_uid(*element_type, N);
+  return std::make_unique<FixedArrayType>(uid, std::move(element_type), N);
 }
 
 std::unique_ptr<Type> struct_type(std::vector<std::unique_ptr<Type>>&& field_types,

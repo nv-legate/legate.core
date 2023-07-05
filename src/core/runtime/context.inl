@@ -53,7 +53,7 @@ int32_t LibraryContext::register_reduction_operator(int32_t redop_id)
   return legion_redop_id;
 }
 
-#else   // ifndef REALM_COMPILER_IS_NVCC
+#else  // ifndef REALM_COMPILER_IS_NVCC
 
 namespace detail {
 

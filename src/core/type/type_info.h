@@ -123,6 +123,14 @@ class Type {
   virtual std::string to_string() const = 0;
 
   /**
+   * @brief Indicates whether the type is a primitive type
+   *
+   * @return true If the type is a primitive type
+   * @return false Otherwise
+   */
+  virtual bool is_primitive() const = 0;
+
+  /**
    * @brief Records a reduction operator.
    *
    * The global ID of the reduction operator is issued when that operator is registered
@@ -165,6 +173,7 @@ class PrimitiveType : public Type {
   bool variable_size() const override { return false; }
   std::unique_ptr<Type> clone() const override;
   std::string to_string() const override;
+  bool is_primitive() const override { return true; }
 
  private:
   const uint32_t size_;
@@ -183,6 +192,7 @@ class StringType : public Type {
   int32_t uid() const override;
   std::unique_ptr<Type> clone() const override;
   std::string to_string() const override;
+  bool is_primitive() const override { return false; }
 };
 
 /**
@@ -193,6 +203,7 @@ class ExtensionType : public Type {
  public:
   ExtensionType(int32_t uid, Type::Code code);
   int32_t uid() const override { return uid_; }
+  bool is_primitive() const override { return false; }
 
  protected:
   const uint32_t uid_;

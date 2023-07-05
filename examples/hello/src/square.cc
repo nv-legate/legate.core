@@ -23,17 +23,11 @@ class SquareTask : public Task<SquareTask, SQUARE> {
  public:
   static void cpu_variant(legate::TaskContext& context)
   {
-    legate::Store& output = context.outputs().at(0);
-    // Best-practice to validate the store types
-    assert(output.code() == legate::Type::Code::FLOAT32);
-    assert(output.dim() == 1);
+    legate::Store& output        = context.outputs().at(0);
     legate::Rect<1> output_shape = output.shape<1>();
     auto out                     = output.write_accessor<float, 1>();
 
-    legate::Store& input = context.inputs().at(0);
-    // Best-practice to validate the store types
-    assert(input.code() == legate::Type::Code::FLOAT32);
-    assert(input.dim() == 1);
+    legate::Store& input        = context.inputs().at(0);
     legate::Rect<1> input_shape = input.shape<1>();  // should be a 1-Dim array
     auto in                     = input.read_accessor<float, 1>();
 
