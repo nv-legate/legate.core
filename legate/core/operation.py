@@ -410,21 +410,25 @@ class Task(TaskProtocol):
             ):
                 raise ValueError(f"{value} is not a valid scalar")
         elif isinstance(dtype, tuple):
-            assert len(dtype) == 1 and isinstance(dtype[0], ty.Dtype)
+            if not (len(dtype) == 1 and isinstance(dtype[0], ty.Dtype)):
+                raise TypeError(f"Unsupported type: {dtype}")
             if not isinstance(value, (tuple, Shape)):
                 raise ValueError(f"{value} is not a valid scalar")
             sanitized = ty.array_type(dtype[0], len(value))
         else:
             raise TypeError(f"Unsupported type: {dtype}")
 
-        if not (
-            sanitized.is_primitive
-            or sanitized == ty.string
-            or (
-                isinstance(sanitized, ty.FixedArrayDtype)
-                and sanitized.element_type.is_primitive
+        def is_supported_scalar_arg_type(dtype: ty.Dtype) -> bool:
+            return (
+                dtype.is_primitive
+                or dtype == ty.string
+                or (
+                    isinstance(dtype, ty.FixedArrayDtype)
+                    and dtype.element_type.is_primitive
+                )
             )
-        ):
+
+        if not is_supported_scalar_arg_type(sanitized):
             raise NotImplementedError(
                 f"Scalar of type {dtype} is not yet supported"
             )

@@ -35,6 +35,8 @@ _PRIMITIVES = [
     ty.complex128,
 ]
 
+_PRIMITIVES_UIDS = {type.uid for type in _PRIMITIVES}
+
 
 class TestFixedArrayType:
     @pytest.mark.parametrize("elem_type", _PRIMITIVES)
@@ -44,9 +46,8 @@ class TestFixedArrayType:
         assert arr_type.uid & 0x00FF == elem_type.code
         assert arr_type.uid >> 8 == size
 
-        for primitive_type in _PRIMITIVES:
-            assert arr_type.uid != primitive_type.uid
-            assert arr_type.uid != ty.string.uid
+        assert arr_type.uid != ty.string.uid
+        assert arr_type.uid not in _PRIMITIVES_UIDS
 
     @pytest.mark.parametrize("elem_type", _PRIMITIVES)
     def test_same_type(self, elem_type: ty.Dtype) -> None:
@@ -66,9 +67,8 @@ class TestFixedArrayType:
 
         assert arr_type.uid >= 0x10000
 
-        for primitive_type in _PRIMITIVES:
-            assert arr_type.uid != primitive_type.uid
-            assert arr_type.uid != ty.string.uid
+        assert arr_type.uid != ty.string.uid
+        assert arr_type.uid not in _PRIMITIVES_UIDS
 
     @pytest.mark.parametrize("elem_type", _PRIMITIVES)
     def test_isomorphic_non_primitive(self, elem_type: ty.Dtype) -> None:
@@ -93,11 +93,10 @@ class TestStructType:
         assert type1.uid >= 0x10000
         assert type2.uid >= 0x10000
 
-        for primitive_type in _PRIMITIVES:
-            assert type1.uid != primitive_type.uid
-            assert type2.uid != primitive_type.uid
-            assert type1.uid != ty.string.uid
-            assert type2.uid != ty.string.uid
+        assert type1.uid != ty.string.uid
+        assert type2.uid != ty.string.uid
+        assert type1.uid not in _PRIMITIVES_UIDS
+        assert type2.uid not in _PRIMITIVES_UIDS
 
 
 if __name__ == "__main__":
