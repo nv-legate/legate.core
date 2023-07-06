@@ -3,7 +3,7 @@
 yaml_file="";
 
 make_conda_env() {
-    mamba env create -n "${DEFAULT_CONDA_ENV:-legate}" -f "${yaml_file}";
+    mamba env create -v -n "${DEFAULT_CONDA_ENV:-legate}" -f "${yaml_file}";
 }
 
 generate_yaml_file() {
