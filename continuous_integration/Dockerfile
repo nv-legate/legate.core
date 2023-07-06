@@ -1,5 +1,5 @@
 ARG BASE_IMAGE=rapidsai/devcontainers:23.06-cpp-cuda11.8-mambaforge-ubuntu22.04
-FROM ${BASE_IMAGE} as setup
+FROM ${BASE_IMAGE} as stage0
 
 RUN export DEBIAN_FRONTEND=noninteractive       \
  && apt update                             \
@@ -41,7 +41,9 @@ COPY --chown=coder:coder . /home/coder/legate
 RUN chmod a+x /home/coder/.local/bin/* && \
     mkdir -p /tmp/out && \
     chown -R coder:coder /tmp/out
-    
+
+FROM stage0 as setup
+
 RUN make-conda-env
 
 #---------------------------------------------------
@@ -62,10 +64,7 @@ COPY --chown=coder:coder .cred[s] /run/secrets
 RUN entrypoint build-all
 
 #---------------------------------------------------
-FROM setup as final
+FROM stage0 as final
 COPY --from=build /tmp/out /tmp/out
 COPY --from=build /tmp/conda-build /tmp/conda-build
 COPY --from=build /tmp/env_yaml /tmp/env_yaml
-
-
-

@@ -3,8 +3,9 @@
 run_all_tests() {
     set -x;
     cd ~/;
-
-    mamba install -y -n legate -c /tmp/conda-build/legate_core legate-core
+    mamba create -n "${DEFAULT_CONDA_ENV:-legate}"
+    mamba install -y -n "${DEFAULT_CONDA_ENV:-legate}" -c nvidia -c conda-forge -c /tmp/conda-build/legate_core legate-core
+    mamba install -y --name "${DEFAULT_CONDA_ENV:-legate}" -c conda-forge pytest pytest-mock ipython jupyter_client
 
     . activate-conda-env;
     
