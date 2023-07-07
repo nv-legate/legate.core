@@ -4,7 +4,7 @@ FROM ${BASE_IMAGE} as stage0
 RUN export DEBIAN_FRONTEND=noninteractive       \
  && apt update                             \
  && apt install -y --no-install-recommends \
-    rustc cargo
+    curl rustc cargo
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV SCCACHE_REGION="us-east-2"
@@ -13,8 +13,12 @@ ENV SCCACHE_S3_KEY_PREFIX=legate-cunumeric-dev
 ENV VAULT_HOST=https://vault.ops.k8s.rapids.ai
 ENV HISTFILE=/home/coder/.cache/._bash_history
 
-ARG USE_CUDA=ON
+ARG BUILD_TARGET
+ARG USE_CUDA
 ENV USE_CUDA=${USE_CUDA}
+
+ARG SHA
+ENV SHA=${SHA}
 
 ENV BUILD_MARCH=nocona
 
@@ -59,3 +63,5 @@ FROM stage0 as final
 COPY --from=build /tmp/out /tmp/out
 COPY --from=build /tmp/conda-build /tmp/conda-build
 COPY --from=build /tmp/env_yaml /tmp/env_yaml
+
+RUN upload-output "legate.core-${BUILD_TARGET}-${SHA}"

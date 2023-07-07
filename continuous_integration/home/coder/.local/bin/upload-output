@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+upload_artifact(){
+    # Variables
+    local FILE_PATH="$1"
+    local ARTIFACT_NAME="$2"
+
+    # Upload the file as an artifact
+    curl -X POST \
+    -H "Accept: application/vnd.github.v3+json" \
+    -H "Authorization: Bearer $GITHUB_TOKEN" \
+    -H "Content-Type: application/zip" \
+    --data-binary "@$FILE_PATH" \
+    "https://uploads.github.com/repos/$REPO_OWNER/$REPO_NAME/actions/artifacts/$ARTIFACT_NAME"
+
+}
+
+upload_output() {
+    set -xeuo pipefail
+
+    local artifact_name="$1"
+
+    tar -czvf "${artifact_name}.tar.gz" /tmp/out /tmp/conda-build
+
+    upload_artifact "${artifact_name}.tar.gz" "$artifact_name"
+}
+
+(upload_output "$@");

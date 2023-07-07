@@ -18,6 +18,8 @@ env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   IMAGE_NAME: legate.core
   USE_CUDA: ${{ (inputs.build-target == 'cpu' && 'OFF') || 'ON' }}
+  REPO_OWNER: ${{github.repository_owner}}
+  REPO_NAME: ${{github.repository}}
 
 jobs:
   build:
@@ -51,10 +53,12 @@ jobs:
             --build-arg AWS_ACCESS_KEY_ID=${{env.AWS_ACCESS_KEY_ID}} \
             --build-arg AWS_SECRET_ACCESS_KEY=${{env.AWS_SECRET_ACCESS_KEY}} \
             --build-arg GITHUB_TOKEN=${{env.GITHUB_TOKEN}} \
+            --build-arg BUILD_TARGET=${{inputs.build-target}} \
             --build-arg USE_CUDA=${{env.USE_CUDA}} \
+            --build-arg SHA=${{inputs.sha}} \
             --progress=plain \
             --tag=$IMAGE_NAME \
-            --label "git-commit=${{github.sha}}" \
+            --label "git-commit=${{inputs.sha}}" \
             -f continuous_integration/Dockerfile .
 
       - name: Log in to container image registry
@@ -74,11 +78,3 @@ jobs:
 
       - name: Display structure of workdir after docker build
         run: ls -R
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: "legate.core-gpu-${{inputs.sha}}"
-          path: |
-            conda-build
-            out
