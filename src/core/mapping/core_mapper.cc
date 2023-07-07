@@ -14,20 +14,14 @@
  *
  */
 
-#include "mappers/null_mapper.h"
-
 #include "env_defaults.h"
 #include "legate.h"
 
 #include "core/mapping/core_mapper.h"
 #include "core/mapping/machine.h"
-#include "core/mapping/operation.h"
 #ifdef LEGATE_USE_CUDA
 #include "core/comm/comm_nccl.h"
 #endif
-#include "core/task/task.h"
-#include "core/utilities/linearize.h"
-#include "core/utilities/typedefs.h"
 
 namespace legate {
 
@@ -49,79 +43,35 @@ namespace mapping {
 // This is a custom mapper implementation that only has to map
 // start-up tasks associated with the Legate core, no one else
 // should be overriding this mapper so we burry it in here
-class CoreMapper : public Legion::Mapping::NullMapper {
+class CoreMapper : public Mapper {
  public:
-  CoreMapper(Legion::Mapping::MapperRuntime* runtime,
-             Legion::Machine machine,
-             const LibraryContext* context);
-
-  virtual ~CoreMapper();
+  CoreMapper();
 
  public:
-  const char* get_mapper_name() const override;
-  Legion::Mapping::Mapper::MapperSyncModel get_mapper_sync_model() const override;
-  bool request_valid_instances() const override { return false; }
+  void set_machine(const legate::mapping::MachineQueryInterface* machine) override;
+  legate::mapping::TaskTarget task_target(
+    const legate::mapping::Task& task,
+    const std::vector<legate::mapping::TaskTarget>& options) override;
+  std::vector<legate::mapping::StoreMapping> store_mappings(
+    const legate::mapping::Task& task,
+    const std::vector<legate::mapping::StoreTarget>& options) override;
+  legate::Scalar tunable_value(legate::TunableID tunable_id) override;
 
- public:  // Task mapping calls
-  void select_task_options(const Legion::Mapping::MapperContext ctx,
-                           const Legion::Task& task,
-                           TaskOptions& output) override;
-  void slice_task(const Legion::Mapping::MapperContext ctx,
-                  const Legion::Task& task,
-                  const SliceTaskInput& input,
-                  SliceTaskOutput& output) override;
-  void map_task(const Legion::Mapping::MapperContext ctx,
-                const Legion::Task& task,
-                const MapTaskInput& input,
-                MapTaskOutput& output) override;
-  void select_sharding_functor(const Legion::Mapping::MapperContext ctx,
-                               const Legion::Task& task,
-                               const SelectShardingFunctorInput& input,
-                               SelectShardingFunctorOutput& output) override;
-  void select_steal_targets(const Legion::Mapping::MapperContext ctx,
-                            const SelectStealingInput& input,
-                            SelectStealingOutput& output) override;
-  void select_tasks_to_map(const Legion::Mapping::MapperContext ctx,
-                           const SelectMappingInput& input,
-                           SelectMappingOutput& output) override;
-
- public:
-  void configure_context(const Legion::Mapping::MapperContext ctx,
-                         const Legion::Task& task,
-                         ContextConfigOutput& output) override;
-  void map_future_map_reduction(const Legion::Mapping::MapperContext ctx,
-                                const FutureMapReductionInput& input,
-                                FutureMapReductionOutput& output) override;
-  void select_tunable_value(const Legion::Mapping::MapperContext ctx,
-                            const Legion::Task& task,
-                            const SelectTunableInput& input,
-                            SelectTunableOutput& output) override;
-
- public:
-  const LibraryContext* context;
-  Machine machine;
-
- protected:
-  const uint32_t min_gpu_chunk;
-  const uint32_t min_cpu_chunk;
-  const uint32_t min_omp_chunk;
+ private:
+  const Machine machine;
+  const int64_t min_gpu_chunk;
+  const int64_t min_cpu_chunk;
+  const int64_t min_omp_chunk;
   const uint32_t window_size;
   const uint32_t max_pending_exceptions;
   const bool precise_exception_trace;
   const uint32_t field_reuse_frac;
   const uint32_t field_reuse_freq;
   const uint32_t max_lru_length;
-
- private:
-  std::string mapper_name;
 };
 
-CoreMapper::CoreMapper(Legion::Mapping::MapperRuntime* rt,
-                       Legion::Machine m,
-                       const LibraryContext* c)
-  : NullMapper(rt, m),
-    context(c),
-    machine(m),
+CoreMapper::CoreMapper()
+  : machine(),
     min_gpu_chunk(extract_env("LEGATE_MIN_GPU_CHUNK", MIN_GPU_CHUNK_DEFAULT, MIN_GPU_CHUNK_TEST)),
     min_cpu_chunk(extract_env("LEGATE_MIN_CPU_CHUNK", MIN_CPU_CHUNK_DEFAULT, MIN_CPU_CHUNK_TEST)),
     min_omp_chunk(extract_env("LEGATE_MIN_OMP_CHUNK", MIN_OMP_CHUNK_DEFAULT, MIN_OMP_CHUNK_TEST)),
@@ -139,228 +89,59 @@ CoreMapper::CoreMapper(Legion::Mapping::MapperRuntime* rt,
     max_lru_length(
       extract_env("LEGATE_MAX_LRU_LENGTH", MAX_LRU_LENGTH_DEFAULT, MAX_LRU_LENGTH_TEST))
 {
-  std::stringstream ss;
-  ss << context->get_library_name() << " on Node " << machine.local_node;
-  mapper_name = ss.str();
 }
 
-CoreMapper::~CoreMapper(void) {}
+void CoreMapper::set_machine(const legate::mapping::MachineQueryInterface* m) {}
 
-const char* CoreMapper::get_mapper_name(void) const { return mapper_name.c_str(); }
-
-Legion::Mapping::Mapper::MapperSyncModel CoreMapper::get_mapper_sync_model() const
+TaskTarget CoreMapper::task_target(const Task& task, const std::vector<TaskTarget>& options)
 {
-  return SERIALIZED_REENTRANT_MAPPER_MODEL;
+  return options.front();
 }
 
-void CoreMapper::select_task_options(const Legion::Mapping::MapperContext ctx,
-                                     const Legion::Task& task,
-                                     TaskOptions& output)
+std::vector<StoreMapping> CoreMapper::store_mappings(const Task& task,
+                                                     const std::vector<StoreTarget>& options)
 {
-  if (task.is_index_space || task.local_function) {
-    Processor proc = Processor::NO_PROC;
-    if (task.tag == LEGATE_CPU_VARIANT) {
-      proc = machine.cpus().front();
-    } else if (task.tag == LEGATE_OMP_VARIANT) {
-      proc = machine.omps().front();
-    } else {
-      assert(task.tag == LEGATE_GPU_VARIANT);
-      proc = machine.gpus().front();
-    }
-    output.initial_proc = proc;
-    assert(output.initial_proc.exists());
-    return;
-  }
-
-  mapping::Task legate_task(&task, context, runtime, ctx);
-  assert(context->valid_task_id(task.task_id));
-  TaskTarget target;
-  switch (task.tag) {
-    case LEGATE_GPU_VARIANT: {
-      target = mapping::TaskTarget::GPU;
-      break;
-    }
-    case LEGATE_OMP_VARIANT: {
-      target = mapping::TaskTarget::OMP;
-      break;
-    }
-    default: {
-#ifdef DEBUG_LEGATE
-      assert(LEGATE_CPU_VARIANT == task.tag);
-#endif
-      target = mapping::TaskTarget::CPU;
-      break;
-    }
-  }
-
-  auto local_range = machine.slice(target, legate_task.machine_desc(), true /*fallback_to_global*/);
-#ifdef DEBUG_LEGATE
-  assert(!local_range.empty());
-#endif
-  output.initial_proc = local_range.first();
-#ifdef DEBUG_LEGATE
-  assert(output.initial_proc.exists());
-#endif
+  return {};
 }
 
-void CoreMapper::slice_task(const Legion::Mapping::MapperContext ctx,
-                            const Legion::Task& task,
-                            const SliceTaskInput& input,
-                            SliceTaskOutput& output)
+Scalar CoreMapper::tunable_value(TunableID tunable_id)
 {
-  assert(context->valid_task_id(task.task_id));
-  output.slices.reserve(input.domain.get_volume());
-
-  // Control-replicated because we've already been sharded
-  Domain sharding_domain = task.index_domain;
-  if (task.sharding_space.exists())
-    sharding_domain = runtime->get_index_space_domain(ctx, task.sharding_space);
-
-  mapping::Task legate_task(&task, context, runtime, ctx);
-  auto local_range = machine.slice(legate_task.target(), legate_task.machine_desc());
-
-  for (Domain::DomainPointIterator itr(input.domain); itr; itr++) {
-    const Point<1> point       = itr.p;
-    const uint32_t local_index = point[0];
-    output.slices.push_back(TaskSlice(
-      Domain(itr.p, itr.p), local_range[local_index], false /*recurse*/, false /*stealable*/));
-  }
-}
-
-void CoreMapper::map_task(const Legion::Mapping::MapperContext ctx,
-                          const Legion::Task& task,
-                          const MapTaskInput& input,
-                          MapTaskOutput& output)
-{
-  assert(context->valid_task_id(task.task_id));
-  // Just put our target proc in the target processors for now
-  output.target_procs.push_back(task.target_proc);
-  output.chosen_variant = task.tag;
-}
-
-void CoreMapper::select_sharding_functor(const Legion::Mapping::MapperContext ctx,
-                                         const Legion::Task& task,
-                                         const SelectShardingFunctorInput& input,
-                                         SelectShardingFunctorOutput& output)
-{
-  mapping::Mappable legate_mappable(&task);
-  output.chosen_functor = static_cast<Legion::ShardingID>(legate_mappable.sharding_id());
-}
-
-void CoreMapper::select_steal_targets(const Legion::Mapping::MapperContext ctx,
-                                      const SelectStealingInput& input,
-                                      SelectStealingOutput& output)
-{
-  // Do nothing
-}
-
-void CoreMapper::select_tasks_to_map(const Legion::Mapping::MapperContext ctx,
-                                     const SelectMappingInput& input,
-                                     SelectMappingOutput& output)
-{
-  output.map_tasks.insert(input.ready_tasks.begin(), input.ready_tasks.end());
-}
-
-void CoreMapper::configure_context(const Legion::Mapping::MapperContext ctx,
-                                   const Legion::Task& task,
-                                   ContextConfigOutput& output)
-{
-  // Use the defaults currently
-}
-
-template <typename T>
-void pack_tunable(const T value, Legion::Mapping::Mapper::SelectTunableOutput& output)
-{
-  T* result    = static_cast<T*>(malloc(sizeof(value)));
-  *result      = value;
-  output.value = result;
-  output.size  = sizeof(value);
-}
-
-void CoreMapper::map_future_map_reduction(const Legion::Mapping::MapperContext ctx,
-                                          const FutureMapReductionInput& input,
-                                          FutureMapReductionOutput& output)
-{
-  output.serdez_upper_bound = LEGATE_MAX_SIZE_SCALAR_RETURN;
-
-  if (machine.has_gpus()) {
-    // TODO: It's been reported that blindly mapping target instances of future map reductions
-    // to framebuffers hurts performance. Until we find a better mapping policy, we guard
-    // the current policy with a macro.
-#ifdef LEGATE_MAP_FUTURE_MAP_REDUCTIONS_TO_GPU
-
-    // If this was joining exceptions, we should put instances on a host-visible memory
-    // because they need serdez
-    if (input.tag == LEGATE_CORE_JOIN_EXCEPTION_TAG)
-      output.destination_memories.push_back(machine.zerocopy_memory());
-    else
-      for (auto& pair : machine.frame_buffers()) output.destination_memories.push_back(pair.second);
-#else
-    output.destination_memories.push_back(machine.zerocopy_memory());
-#endif
-  } else if (machine.has_socket_memory())
-    for (auto& pair : machine.socket_memories()) output.destination_memories.push_back(pair.second);
-}
-
-void CoreMapper::select_tunable_value(const Legion::Mapping::MapperContext ctx,
-                                      const Legion::Task& task,
-                                      const SelectTunableInput& input,
-                                      SelectTunableOutput& output)
-{
-  switch (input.tunable_id) {
+  switch (tunable_id) {
     case LEGATE_CORE_TUNABLE_TOTAL_CPUS: {
-      pack_tunable<int32_t>(machine.total_cpu_count(), output);  // assume symmetry
-      return;
+      return Scalar(int32_t(machine.total_cpu_count()));  // assume symmetry
     }
     case LEGATE_CORE_TUNABLE_TOTAL_GPUS: {
-      pack_tunable<int32_t>(machine.total_gpu_count(), output);  // assume symmetry
-      return;
+      return Scalar(int32_t(machine.total_gpu_count()));  // assume symmetry
     }
     case LEGATE_CORE_TUNABLE_TOTAL_OMPS: {
-      pack_tunable<int32_t>(machine.total_omp_count(), output);  // assume symmetry
-      return;
-    }
-    case LEGATE_CORE_TUNABLE_NUM_PIECES: {
-      if (machine.has_gpus())       // If we have GPUs, use those
-        pack_tunable<int32_t>(machine.total_gpu_count(), output);
-      else if (machine.has_omps())  // Otherwise use OpenMP procs
-        pack_tunable<int32_t>(machine.total_omp_count(), output);
-      else                          // Otherwise use the CPUs
-        pack_tunable<int32_t>(machine.total_cpu_count(), output);
-      return;
+      return Scalar(int32_t(machine.total_omp_count()));  // assume symmetry
     }
     case LEGATE_CORE_TUNABLE_NUM_NODES: {
-      pack_tunable<int32_t>(machine.total_nodes, output);
-      return;
+      return Scalar(int32_t(machine.total_nodes));
     }
     case LEGATE_CORE_TUNABLE_MIN_SHARD_VOLUME: {
       // TODO: make these profile guided
       if (machine.has_gpus())
         // Make sure we can get at least 1M elements on each GPU
-        pack_tunable<int64_t>(min_gpu_chunk, output);
+        return Scalar(min_gpu_chunk);
       else if (machine.has_omps())
         // Make sure we get at least 128K elements on each OpenMP
-        pack_tunable<int64_t>(min_omp_chunk, output);
+        return Scalar(min_omp_chunk);
       else
         // Make sure we can get at least 8KB elements on each CPU
-        pack_tunable<int64_t>(min_cpu_chunk, output);
-      return;
+        return Scalar(min_cpu_chunk);
     }
     case LEGATE_CORE_TUNABLE_HAS_SOCKET_MEM: {
-      pack_tunable<bool>(machine.has_socket_memory(), output);
-      return;
+      return machine.has_socket_memory();
     }
     case LEGATE_CORE_TUNABLE_WINDOW_SIZE: {
-      pack_tunable<uint32_t>(window_size, output);
-      return;
+      return window_size;
     }
     case LEGATE_CORE_TUNABLE_MAX_PENDING_EXCEPTIONS: {
-      pack_tunable<uint32_t>(max_pending_exceptions, output);
-      return;
+      return max_pending_exceptions;
     }
     case LEGATE_CORE_TUNABLE_PRECISE_EXCEPTION_TRACE: {
-      pack_tunable<bool>(precise_exception_trace, output);
-      return;
+      return precise_exception_trace;
     }
     case LEGATE_CORE_TUNABLE_FIELD_REUSE_SIZE: {
       // Multiply this by the total number of nodes and then scale by the frac
@@ -368,41 +149,28 @@ void CoreMapper::select_tunable_value(const Legion::Mapping::MapperContext ctx,
         machine.has_gpus() ? machine.total_frame_buffer_size()
                            : (machine.has_socket_memory() ? machine.total_socket_memory_size()
                                                           : machine.system_memory().capacity());
-      const uint64_t field_reuse_size = global_mem_size / field_reuse_frac;
-      pack_tunable<uint64_t>(field_reuse_size, output);
-      return;
+      return global_mem_size / field_reuse_frac;
     }
     case LEGATE_CORE_TUNABLE_FIELD_REUSE_FREQUENCY: {
-      pack_tunable<uint32_t>(field_reuse_freq, output);
-      return;
+      return field_reuse_freq;
     }
     case LEGATE_CORE_TUNABLE_MAX_LRU_LENGTH: {
-      pack_tunable<uint32_t>(max_lru_length, output);
-      return;
+      return max_lru_length;
     }
     case LEGATE_CORE_TUNABLE_NCCL_NEEDS_BARRIER: {
 #ifdef LEGATE_USE_CUDA
-      pack_tunable<bool>(machine.has_gpus() && comm::nccl::needs_barrier(), output);
+      return machine.has_gpus() && comm::nccl::needs_barrier();
 #else
-      pack_tunable<bool>(false, output);
+      return false;
 #endif
-      return;
     }
   }
   // Illegal tunable variable
   LEGATE_ABORT;
+  return Scalar(0);
 }
+
+std::unique_ptr<Mapper> create_core_mapper() { return std::make_unique<CoreMapper>(); }
 
 }  // namespace mapping
-
-void register_legate_core_mapper(Legion::Machine machine,
-                                 Legion::Runtime* runtime,
-                                 const LibraryContext* context)
-{
-  // Replace all the default mappers with our custom mapper for the Legate
-  // top-level task and init task
-  runtime->add_mapper(context->get_mapper_id(),
-                      new mapping::CoreMapper(runtime->get_mapper_runtime(), machine, context));
-}
-
 }  // namespace legate

@@ -55,7 +55,7 @@ class Eager(TestStage):
             "--cpus",
             "1",
             "--cpu-bind",
-            ",".join(str(x) for x in shard),
+            str(shard),
         ]
 
     def compute_spec(self, config: Config, system: TestSystem) -> StageSpec:
@@ -65,6 +65,6 @@ class Eager(TestStage):
         workers = adjust_workers(degree, config.requested_workers)
 
         # Just put each worker on its own full CPU for eager tests
-        shards = [cpu.ids for cpu in system.cpus]
+        shards = [Shard([cpu.ids]) for cpu in system.cpus]
 
         return StageSpec(workers, shards)

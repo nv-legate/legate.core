@@ -50,6 +50,17 @@ if TYPE_CHECKING:
     from .solver import Strategy
 
 
+def is_supported_scalar_arg_type(dtype: ty.Dtype) -> bool:
+    return (
+        dtype.is_primitive
+        or dtype == ty.string
+        or (
+            isinstance(dtype, ty.FixedArrayDtype)
+            and dtype.element_type.is_primitive
+        )
+    )
+
+
 class OperationProtocol(Protocol):
     _context: Context
     _op_id: int
@@ -114,7 +125,7 @@ class OperationProtocol(Protocol):
 
 class TaskProtocol(OperationProtocol, Protocol):
     _task_id: int
-    _scalar_args: list[tuple[Any, Union[ty.Dtype, tuple[ty.Dtype]]]]
+    _scalar_args: list[tuple[Any, ty.Dtype]]
     _comm_args: list[Communicator]
 
 
@@ -238,7 +249,7 @@ class Operation(OperationProtocol):
         operation will start the execution right upon the return of this
         method.
         """
-        self._context.runtime.submit(self)
+        runtime.submit(self)
 
     @staticmethod
     def _check_store(store: Store, allow_unbound: bool = False) -> None:
@@ -316,9 +327,7 @@ class Task(TaskProtocol):
     ) -> None:
         super().__init__(**kwargs)
         self._task_id = task_id
-        self._scalar_args: list[
-            tuple[Any, Union[ty.Dtype, tuple[ty.Dtype]]]
-        ] = []
+        self._scalar_args: list[tuple[Any, ty.Dtype]] = []
         self._comm_args: list[Communicator] = []
         self._exn_types: list[type] = []
         self._tb_repr: Union[None, str] = None
@@ -399,13 +408,34 @@ class Task(TaskProtocol):
         ----------
         value : Any
             Scalar value or a tuple of scalars (but no nested tuples)
-        dtype : DType
+        dtype : Dtype
             Data type descriptor for the scalar value. A descriptor ``(T,)``
-            means that the value is a tuple of elements of type ``T``.
+            means that the value is a tuple of elements of type ``T`` (i.e.,
+            equivalent to ``array_type(T, len(value))``).
         """
-        if not isinstance(dtype, (ty.Dtype, tuple)):
-            raise ValueError(f"Unsupported type: {dtype}")
-        self._scalar_args.append((value, dtype))
+        sanitized: ty.Dtype
+        if isinstance(dtype, ty.Dtype):
+            sanitized = dtype
+            if isinstance(sanitized, ty.FixedArrayDtype) and (
+                not isinstance(value, (tuple, Shape))
+                or len(value) != sanitized.num_elements()
+            ):
+                raise ValueError(f"{value} is not a valid scalar for {dtype}")
+        elif isinstance(dtype, tuple):
+            if not (len(dtype) == 1 and isinstance(dtype[0], ty.Dtype)):
+                raise TypeError(f"Unsupported type: {dtype}")
+            if not isinstance(value, (tuple, Shape)):
+                raise ValueError(f"{value} is not a valid scalar")
+            sanitized = ty.array_type(dtype[0], len(value))
+        else:
+            raise TypeError(f"Unsupported type: {dtype}")
+
+        if not is_supported_scalar_arg_type(sanitized):
+            raise NotImplementedError(
+                f"Scalar of type {dtype} is not yet supported"
+            )
+
+        self._scalar_args.append((value, sanitized))
 
     def add_dtype_arg(self, dtype: ty.Dtype) -> None:
         self._scalar_args.append((dtype.code, ty.int32))
@@ -447,7 +477,6 @@ class Task(TaskProtocol):
         num_unbound_outs = len(self.unbound_outputs)
         num_scalar_outs = len(self.scalar_outputs)
         num_scalar_reds = len(self.scalar_reductions)
-        runtime = self.context.runtime
 
         num_all_scalars = (
             num_unbound_outs
@@ -503,7 +532,6 @@ class Task(TaskProtocol):
         num_unbound_outs = len(self.unbound_outputs)
         num_scalar_outs = len(self.scalar_outputs)
         num_scalar_reds = len(self.scalar_reductions)
-        runtime = self.context.runtime
 
         num_all_scalars = (
             num_unbound_outs
@@ -1034,7 +1062,7 @@ class ManualTask(Operation, Task):
                 continue
             # TODO: Need an interface for clients to specify isomorphism
             # bewteen unbound stores
-            fspace = self._context.runtime.create_field_space()
+            fspace = runtime.create_field_space()
             field_id = fspace.allocate_field(store.type)
             launcher.add_unbound_output(store, fspace, field_id)
 
@@ -1452,7 +1480,6 @@ class Reduce(AutoOperation):
             op_id=op_id,
             target_machine=target_machine,
         )
-        self._runtime = context.runtime
         self._radix = radix
         self._task_id = task_id
 
@@ -1518,7 +1545,7 @@ class Reduce(AutoOperation):
                 output = self._outputs[0]
             else:
                 output = self._context.create_store(input.type)
-            fspace = self._runtime.create_field_space()
+            fspace = runtime.create_field_space()
             field_id = fspace.allocate_field(input.type)
             launcher.add_unbound_output(output, fspace, field_id)
 

@@ -37,8 +37,7 @@ class ReductionInstanceManager;
 class BaseMapper : public Legion::Mapping::Mapper, public MachineQueryInterface {
  public:
   BaseMapper(mapping::Mapper* legate_mapper,
-             Legion::Runtime* rt,
-             Legion::Machine machine,
+             Legion::Mapping::MapperRuntime* mapper_runtime,
              const LibraryContext* context);
   virtual ~BaseMapper();
 
@@ -208,6 +207,9 @@ class BaseMapper : public Legion::Mapping::Mapper, public MachineQueryInterface 
   virtual void configure_context(const Legion::Mapping::MapperContext ctx,
                                  const Legion::Task& task,
                                  ContextConfigOutput& output) override;
+  virtual void map_future_map_reduction(const Legion::Mapping::MapperContext ctx,
+                                        const FutureMapReductionInput& input,
+                                        FutureMapReductionOutput& output) override;
   virtual void select_tunable_value(const Legion::Mapping::MapperContext ctx,
                                     const Legion::Task& task,
                                     const SelectTunableInput& input,
@@ -293,7 +295,7 @@ class BaseMapper : public Legion::Mapping::Mapper, public MachineQueryInterface 
   mapping::Mapper* legate_mapper_;
 
  public:
-  Legion::Runtime* const legion_runtime;
+  Legion::Mapping::MapperRuntime* const mapper_runtime;
   const Legion::Machine legion_machine;
   const LibraryContext* context;
   Legion::Logger logger;

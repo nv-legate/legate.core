@@ -81,21 +81,21 @@ class Permission(IntEnum):
 
 Serializer = Callable[[BufferBuilder, Any], None]
 
-_SERIALIZERS: dict[Any, Serializer] = {
-    ty.bool_: BufferBuilder.pack_bool,
-    ty.int8: BufferBuilder.pack_8bit_int,
-    ty.int16: BufferBuilder.pack_16bit_int,
-    ty.int32: BufferBuilder.pack_32bit_int,
-    ty.int64: BufferBuilder.pack_64bit_int,
-    ty.uint8: BufferBuilder.pack_8bit_uint,
-    ty.uint16: BufferBuilder.pack_16bit_uint,
-    ty.uint32: BufferBuilder.pack_32bit_uint,
-    ty.uint64: BufferBuilder.pack_64bit_uint,
-    ty.float32: BufferBuilder.pack_32bit_float,
-    ty.float64: BufferBuilder.pack_64bit_float,
-    ty.complex64: BufferBuilder.pack_64bit_complex,
-    ty.complex128: BufferBuilder.pack_128bit_complex,
-    ty.string: BufferBuilder.pack_string,
+_SERIALIZERS: dict[int, Serializer] = {
+    ty.bool_.uid: BufferBuilder.pack_bool,
+    ty.int8.uid: BufferBuilder.pack_8bit_int,
+    ty.int16.uid: BufferBuilder.pack_16bit_int,
+    ty.int32.uid: BufferBuilder.pack_32bit_int,
+    ty.int64.uid: BufferBuilder.pack_64bit_int,
+    ty.uint8.uid: BufferBuilder.pack_8bit_uint,
+    ty.uint16.uid: BufferBuilder.pack_16bit_uint,
+    ty.uint32.uid: BufferBuilder.pack_32bit_uint,
+    ty.uint64.uid: BufferBuilder.pack_64bit_uint,
+    ty.float32.uid: BufferBuilder.pack_32bit_float,
+    ty.float64.uid: BufferBuilder.pack_64bit_float,
+    ty.complex64.uid: BufferBuilder.pack_64bit_complex,
+    ty.complex128.uid: BufferBuilder.pack_128bit_complex,
+    ty.string.uid: BufferBuilder.pack_string,
 }
 
 EntryType = Tuple[Union["Broadcast", "Partition"], int, int]
@@ -117,28 +117,19 @@ class ScalarArg:
     def __init__(
         self,
         value: Any,
-        dtype: Union[Dtype, tuple[Dtype]],
+        dtype: Dtype,
     ) -> None:
         self._value = value
         self._dtype = dtype
 
     def pack(self, buf: BufferBuilder) -> None:
-        if not isinstance(self._dtype, tuple):
-            if self._dtype not in _SERIALIZERS:
-                raise ValueError(f"Unsupported data type: {self._dtype}")
-            self._dtype.serialize(buf)
-            _SERIALIZERS[self._dtype](buf, self._value)
-            return
-
-        if len(self._dtype) != 1:
-            raise ValueError(f"Unsupported data type: {self._dtype}")
-
-        elem_dtype = self._dtype[0]
-        serialize = _SERIALIZERS[elem_dtype]
-        dtype = ty.array_type(elem_dtype, len(self._value))
-        dtype.serialize(buf)
-        for v in self._value:
-            serialize(buf, v)
+        self._dtype.serialize(buf)
+        if isinstance(self._dtype, ty.FixedArrayDtype):
+            serialize = _SERIALIZERS[self._dtype.element_type.uid]
+            for v in self._value:
+                serialize(buf, v)
+        else:
+            _SERIALIZERS[self._dtype.uid](buf, self._value)
 
     def __str__(self) -> str:
         return f"ScalarArg({self._value}, {self._dtype})"
@@ -772,7 +763,7 @@ class TaskLauncher:
     def add_scalar_arg(
         self,
         value: Any,
-        dtype: Union[Dtype, tuple[Dtype]],
+        dtype: Dtype,
     ) -> None:
         self._scalars.append(ScalarArg(value, dtype))
 

@@ -95,15 +95,7 @@ class Runtime {
   int32_t find_reduction_operator(int32_t type_uid, int32_t op_kind) const;
 
  public:
-  void enter_callback();
-  void exit_callback();
-  bool is_in_callback() const;
-
- public:
   static Runtime* get_runtime();
-
- private:
-  bool in_callback_{false};
 
  private:
   std::map<std::string, LibraryContext*> libraries_{};

@@ -28,6 +28,7 @@
 #include "core/data/scalar.h"
 #include "core/data/store.h"
 #include "core/legate_c.h"
+#include "core/mapping/mapping.h"
 #include "core/runtime/runtime.h"
 #include "core/task/registrar.h"
 #include "core/task/task.h"

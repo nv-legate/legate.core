@@ -27,6 +27,7 @@ export CPPFLAGS="-UNDEBUG"
 export CUDAFLAGS="-UNDEBUG"
 export CMAKE_GENERATOR=Ninja
 export CUDAHOSTCXX=${CXX}
+export OPENSSL_DIR="$CONDA_PREFIX"
 
 echo "Build starting on $(date)"
 

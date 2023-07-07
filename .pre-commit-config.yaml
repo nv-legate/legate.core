@@ -12,13 +12,13 @@ repos:
       hooks:
             - id: flake8
     - repo: https://github.com/pre-commit/mirrors-clang-format
-      rev: 'v16.0.0'
+      rev: 'v16.0.6'
       hooks:
         - id: clang-format
           files: \.(cu|cuh|h|cc|inl)$
           types_or: []
     - repo: https://github.com/pre-commit/mirrors-mypy
-      rev: 'v1.1.1'
+      rev: 'v1.4.1'
       hooks:
         - id: mypy
           pass_filenames: false

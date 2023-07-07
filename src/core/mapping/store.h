@@ -195,6 +195,9 @@ class Store {
    */
   Domain domain() const;
 
+ public:
+  std::vector<int32_t> find_imaginary_dims() const;
+
  private:
   bool is_future_{false};
   bool is_unbound_store_{false};

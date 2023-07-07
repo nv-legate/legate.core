@@ -115,6 +115,7 @@ cdef extern from "core/type/type_info.h" namespace "legate" nogil:
         bool variable_size()
         unique_ptr[Type] clone()
         string to_string()
+        bool is_primitive()
         int find_reduction_operator(int) except+
 
     cdef cppclass FixedArrayType(Type):
@@ -201,6 +202,10 @@ cdef class Dtype:
     def variable_size(self) -> bool:
         return self._type.get().variable_size()
 
+    @property
+    def is_primitive(self) -> bool:
+        return self._type.get().is_primitive()
+
     def reduction_op_id(self, int op_kind) -> int:
         return self._type.get().find_reduction_operator(op_kind)
 
@@ -223,13 +228,14 @@ cdef class FixedArrayDtype(Dtype):
         cdef FixedArrayType* ty = <FixedArrayType*> self._type.get()
         return ty.num_elements()
 
+    @property
     def element_type(self) -> Dtype:
         cdef FixedArrayType* ty = <FixedArrayType*> self._type.get()
         return from_ptr(move(ty.element_type().clone()))
 
     def to_numpy_dtype(self):
         arr_type = (
-            self.element_type().to_numpy_dtype(), self.num_elements()
+            self.element_type.to_numpy_dtype(), self.num_elements()
         )
         # Return a singleton struct type, as NumPy would flatten away
         # nested arrays
@@ -239,7 +245,7 @@ cdef class FixedArrayDtype(Dtype):
         buf.pack_32bit_int(self.code)
         buf.pack_32bit_int(self.uid)
         buf.pack_32bit_uint(self.num_elements())
-        self.element_type().serialize(buf)
+        self.element_type.serialize(buf)
 
 
 cdef class StructDtype(Dtype):

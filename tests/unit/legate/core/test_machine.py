@@ -239,8 +239,8 @@ class TestMachine:
 
     def test_get_node_range(self) -> None:
         m = Machine(RANGES)
-        assert m.get_node_range(ProcessorKind.CPU) == (0, 0)
-        assert m.get_node_range(ProcessorKind.OMP) == (0, 1)
+        assert m.get_node_range(ProcessorKind.CPU) == (0, 1)
+        assert m.get_node_range(ProcessorKind.OMP) == (0, 2)
         assert m.get_node_range(ProcessorKind.GPU) == (1, 2)
         assert m.get_node_range() == m.get_node_range(ProcessorKind.GPU)
 
