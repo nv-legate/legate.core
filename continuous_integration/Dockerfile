@@ -13,6 +13,12 @@ ENV SCCACHE_S3_KEY_PREFIX=legate-cunumeric-dev
 ENV VAULT_HOST=https://vault.ops.k8s.rapids.ai
 ENV HISTFILE=/home/coder/.cache/._bash_history
 
+ARG REPO_OWNER
+ENV REPO_OWNER=${REPO_OWNER}
+
+ARG REPO_NAME
+ENV REPO_NAME=${REPO_NAME}
+
 ARG GITHUB_TOKEN
 ENV GITHUB_TOKEN=${GITHUB_TOKEN}
 

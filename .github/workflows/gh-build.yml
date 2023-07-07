@@ -56,6 +56,8 @@ jobs:
             --build-arg BUILD_TARGET=${{inputs.build-target}} \
             --build-arg USE_CUDA=${{env.USE_CUDA}} \
             --build-arg SHA=${{inputs.sha}} \
+            --build-arg REPO_OWNER=${{env.REPO_OWNER}} \
+            --build-arg REPO_NAME=${{env.REPO_NAME}} \
             --progress=plain \
             --tag=$IMAGE_NAME \
             --label "git-commit=${{inputs.sha}}" \
