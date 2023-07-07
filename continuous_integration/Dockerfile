@@ -36,6 +36,7 @@ ENV PATH="${PATH}:/home/coder/.local/bin"
 USER coder
 
 WORKDIR /home/coder/.cache
+WORKDIR /home/coder/.artifacts
 WORKDIR /home/coder
 
 COPY --chown=coder:coder continuous_integration/home/coder/.gitconfig /home/coder/
@@ -67,8 +68,6 @@ COPY --chown=coder:coder .cred[s] /run/secrets
 
 #---------------------------------------------------
 FROM stage0 as final
-# COPY --from=build /tmp/out /tmp/out
-# COPY --from=build /tmp/conda-build /tmp/conda-build
-# COPY --from=build /tmp/env_yaml /tmp/env_yaml
-
-RUN upload-output "legate.core-${BUILD_TARGET}-${SHA}"
+COPY --from=build /tmp/out /tmp/out
+COPY --from=build /tmp/conda-build /tmp/conda-build
+COPY --from=build /tmp/env_yaml /tmp/env_yaml

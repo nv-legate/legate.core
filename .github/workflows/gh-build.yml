@@ -47,7 +47,6 @@ jobs:
 
       - name: Build docker image
         run: |
-          mkdir -p out conda-build
           docker build \
             --build-arg AWS_SESSION_TOKEN=${{env.AWS_SESSION_TOKEN}} \
             --build-arg AWS_ACCESS_KEY_ID=${{env.AWS_ACCESS_KEY_ID}} \
@@ -78,5 +77,16 @@ jobs:
           docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
           docker push $IMAGE_ID:$VERSION
 
-      - name: Display structure of workdir after docker build
+      - name: Copy artifacts back to the host
+        run: |
+          mkdir -p artifacts
+          docker run  -v "$(pwd)/artifacts:/home/coder/.artifacts" -i --rm -t legate.core:${{inputs.sha}} copy_artifacts
+
+      - name: Display structure of workdir
         run: ls -R
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: "legate.core-${{inputs.build-target}}-${{inputs.sha}}"
+          path: artifacts
