@@ -4,7 +4,7 @@ FROM ${BASE_IMAGE} as stage0
 RUN export DEBIAN_FRONTEND=noninteractive       \
  && apt update                             \
  && apt install -y --no-install-recommends \
-    curl rustc cargo
+    coreutils uuid-runtime curl rustc cargo
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV SCCACHE_REGION="us-east-2"
