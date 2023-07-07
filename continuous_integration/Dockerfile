@@ -48,7 +48,7 @@ RUN chmod a+x /home/coder/.local/bin/* && \
 
 FROM stage0 as setup
 
-RUN make-conda-env
+# RUN make-conda-env
 
 #---------------------------------------------------
 FROM setup as build
@@ -63,7 +63,7 @@ ENV AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
 # If .creds exists copy it to /run/secrets
 COPY --chown=coder:coder .cred[s] /run/secrets
 
-RUN entrypoint build-all
+# RUN entrypoint build-all
 
 #---------------------------------------------------
 FROM stage0 as final

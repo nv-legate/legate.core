@@ -37,7 +37,8 @@ upload_output() {
 
     local artifact_name="$1"
 
-    tar -czvf "${artifact_name}.tar.gz" /tmp/out /tmp/conda-build
+    # tar -czvf "${artifact_name}.tar.gz" /tmp/out /tmp/conda-build
+    tar -czvf "${artifact_name}.tar.gz" ~/legate
 
     upload_artifact "${artifact_name}.tar.gz" "$artifact_name"
 }
