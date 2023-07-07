@@ -20,15 +20,6 @@ ENV BUILD_MARCH=nocona
 
 ENV PATH="${PATH}:/home/coder/.local/bin"
 
-# ENV BOUNDS_CHECKS=OFF
-# ENV GASNet_CONFIGURE_ARGS=--with-ibv-max-hcas=8
-# ENV LEGATE_MAX_DIM=4
-# ENV LEGATE_MAX_FIELDS=256
-# ENV USE_HDF5=OFF
-# ENV USE_LLVM=OFF
-# ENV USE_OPENMP=ON
-# ENV USE_SPY=OFF
-
 USER coder
 
 WORKDIR /home/coder/.cache
