@@ -33,7 +33,7 @@ jobs:
 
   cleanup:
     permissions:
-      packages: write # This is required to push docker image to ghcr.io
+      # packages: write # This is required to push docker image to ghcr.io
       # The following are required to delete docker image from ghcr.io
       packages: delete
       repo: write
