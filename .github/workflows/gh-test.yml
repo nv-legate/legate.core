@@ -23,7 +23,7 @@ jobs:
     runs-on: ${{ inputs.runs-on }}
     container:
       options: -u root
-      image: ghcr.io/nv-legate/legate.core:${{inputs.sha}}
+      image: ghcr.io/nv-legate/legate.core-${{inputs.build-target}}:${{inputs.sha}}
       env:
         DEFAULT_CONDA_ENV: legate
         PYTHONDONTWRITEBYTECODE: 1
