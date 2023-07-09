@@ -47,16 +47,15 @@ jobs:
 
       - name: Build docker image
         run: |
+          echo BUILD_TARGET: ${{inputs.build-target}}
+          echo USE_CUDA: ${{env.USE_CUDA}}
+
           docker build \
             --build-arg AWS_SESSION_TOKEN=${{env.AWS_SESSION_TOKEN}} \
             --build-arg AWS_ACCESS_KEY_ID=${{env.AWS_ACCESS_KEY_ID}} \
             --build-arg AWS_SECRET_ACCESS_KEY=${{env.AWS_SECRET_ACCESS_KEY}} \
             --build-arg GITHUB_TOKEN=${{env.GITHUB_TOKEN}} \
-            --build-arg BUILD_TARGET=${{inputs.build-target}} \
             --build-arg USE_CUDA=${{env.USE_CUDA}} \
-            --build-arg SHA=${{inputs.sha}} \
-            --build-arg REPO_OWNER=${{env.REPO_OWNER}} \
-            --build-arg REPO_NAME=${{env.REPO_NAME}} \
             --progress=plain \
             --tag=$IMAGE_NAME:${{inputs.sha}} \
             --label "git-commit=${{inputs.sha}}" \
