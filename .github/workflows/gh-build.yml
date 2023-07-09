@@ -35,7 +35,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get AWS credentials for sccache bucket
+      - if: github.repository_owner == 'nv-legate'
+        name: Get AWS credentials for sccache bucket
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-region: us-east-2
