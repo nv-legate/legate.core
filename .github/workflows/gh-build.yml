@@ -58,7 +58,7 @@ jobs:
             --build-arg REPO_OWNER=${{env.REPO_OWNER}} \
             --build-arg REPO_NAME=${{env.REPO_NAME}} \
             --progress=plain \
-            --tag=$IMAGE_NAME \
+            --tag=$IMAGE_NAME:${{inputs.sha}} \
             --label "git-commit=${{inputs.sha}}" \
             -f continuous_integration/Dockerfile .
 
@@ -74,13 +74,13 @@ jobs:
 
           VERSION=${{inputs.sha}}
 
-          docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
+          docker tag $IMAGE_NAME:$VERSION $IMAGE_ID:$VERSION
           docker push $IMAGE_ID:$VERSION
 
       - name: Copy artifacts back to the host
         run: |
           mkdir -p artifacts
-          docker run  -v "$(pwd)/artifacts:/home/coder/.artifacts" --rm -t legate.core:${{inputs.sha}} copy_artifacts
+          docker run  -v "$(pwd)/artifacts:/home/coder/.artifacts" --rm -t $IMAGE_NAME:${{inputs.sha}} copy_artifacts
 
       - name: Display structure of workdir
         run: ls -R
