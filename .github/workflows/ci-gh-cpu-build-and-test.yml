@@ -40,9 +40,10 @@ jobs:
 
     needs:
       - test-cpu
+
     steps:
       - name: Delete docker image
-        run:|
+        run: |
           PACKAGE_NAME=legate.core-cpu:${{github.sha}}
           curl -L \
             -X DELETE \
