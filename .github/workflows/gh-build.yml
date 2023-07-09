@@ -80,7 +80,7 @@ jobs:
       - name: Copy artifacts back to the host
         run: |
           mkdir -p artifacts
-          docker run  -v "$(pwd)/artifacts:/home/coder/.artifacts" -i --rm -t legate.core:${{inputs.sha}} copy_artifacts
+          docker run  -v "$(pwd)/artifacts:/home/coder/.artifacts" --rm -t legate.core:${{inputs.sha}} copy_artifacts
 
       - name: Display structure of workdir
         run: ls -R
