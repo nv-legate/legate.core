@@ -11,35 +11,6 @@ on:
       - "branch-*"
 
 jobs:
-  list-packages:
-    permissions:
-      packages: write # This is required to push docker image to ghcr.io
-      # The following are required to delete docker image from ghcr.io
-      # packages: delete
-      # repo: write
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: List packages
-        run: |
-          PACKAGE_NAME=legate.core-cpu
-          PACKAGE_VERSION_ID=$(
-            curl -L \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${{github.token}}"\
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            https://api.github.com/orgs/${{github.repository_owner}}/packages/container/$PACKAGE_NAME/versions |
-            jq '.[] | select(.metadata.container.tags[] == "33ec06690ecb100ea87b8d744e056a4eaa87dd09") | .id' -
-          )
-
-          curl -L \
-            -X DELETE \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${{github.token}}"\
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            https://api.github.com/orgs/${{github.repository_owner}}/packages/container/$PACKAGE_NAME/versions/$PACKAGE_VERSION_ID
-
-
   build-cpu:
     uses:
       ./.github/workflows/gh-build.yml
@@ -61,33 +32,10 @@ jobs:
       test-scope: unit
 
   cleanup:
-    permissions:
-      packages: write # This is required to push docker image to ghcr.io
-      # The following are required to delete docker image from ghcr.io
-      # packages: delete
-      # repo: write
-    runs-on: ubuntu-latest
-
     needs:
       - test-cpu
-
-    steps:
-      - name: Delete docker image
-        run: |
-          set -xeuo pipefail
-
-          PACKAGE_NAME=legate.core-cpu
-          PACKAGE_VERSION_ID=${{github.sha}}
-
-          curl -L \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${{github.token}}"\
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            https://api.github.com/orgs/${{github.repository_owner}}/packages/container/$PACKAGE_NAME/versions
-
-          curl -L \
-            -X DELETE \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${{github.token}}"\
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            https://api.github.com/orgs/${{github.repository_owner}}/packages/container/$PACKAGE_NAME/versions/$PACKAGE_VERSION_ID
+    uses:
+      ./.github/workflows/gh-cleanup.yml
+    with:
+      build-target: cpu
+      sha: ${{ github.sha }}

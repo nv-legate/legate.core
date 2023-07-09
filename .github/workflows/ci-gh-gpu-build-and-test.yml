@@ -31,3 +31,11 @@ jobs:
       sha: ${{ github.sha }}
       test-scope: unit
 
+  cleanup:
+    needs:
+      - test-gpu
+    uses:
+      ./.github/workflows/gh-cleanup.yml
+    with:
+      build-target: gpu
+      sha: ${{ github.sha }}

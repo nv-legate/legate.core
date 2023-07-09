@@ -14,12 +14,9 @@ on:
         type: string
 
 env:
-  DOCKER_BUILDKIT: 1
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   IMAGE_NAME: legate.core-${{inputs.build-target}}
   USE_CUDA: ${{ (inputs.build-target == 'cpu' && 'OFF') || 'ON' }}
-  REPO_OWNER: ${{github.repository_owner}}
-  REPO_NAME: ${{github.repository}}
 
 jobs:
   build:
