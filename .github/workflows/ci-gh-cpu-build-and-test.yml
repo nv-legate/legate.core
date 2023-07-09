@@ -37,6 +37,7 @@ jobs:
       # The following are required to delete docker image from ghcr.io
       # packages: delete
       # repo: write
+    runs-on: ubuntu-latest
 
     needs:
       - test-cpu
