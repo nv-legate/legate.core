@@ -16,7 +16,7 @@ on:
 env:
   DOCKER_BUILDKIT: 1
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  IMAGE_NAME: legate.core
+  IMAGE_NAME: legate.core-${{inputs.build-target}}
   USE_CUDA: ${{ (inputs.build-target == 'cpu' && 'OFF') || 'ON' }}
   REPO_OWNER: ${{github.repository_owner}}
   REPO_NAME: ${{github.repository}}
@@ -66,7 +66,7 @@ jobs:
 
       - name: Push image
         run: |
-          IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
+          IMAGE_ID=ghcr.io/${{github.repository_owner}}/$IMAGE_NAME
 
           # Change all uppercase to lowercase
           IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
