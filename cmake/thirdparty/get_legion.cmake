@@ -68,8 +68,12 @@ function(find_or_configure_legion)
     include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/cpm_helpers.cmake)
     get_cpm_git_args(legion_cpm_git_args REPOSITORY ${git_repo} BRANCH ${git_branch})
     if(NOT DEFINED Legion_PYTHON_EXTRA_INSTALL_ARGS)
-      set(Legion_PYTHON_EXTRA_INSTALL_ARGS "--single-version-externally-managed --root=/")
+      set(Legion_PYTHON_EXTRA_INSTALL_ARGS "--root / --prefix \"\${CMAKE_INSTALL_PREFIX}\"")
     endif()
+
+    # Support comma and semicolon delimited lists
+    string(REPLACE "," " " Legion_PYTHON_EXTRA_INSTALL_ARGS "${Legion_PYTHON_EXTRA_INSTALL_ARGS}")
+    string(REPLACE ";" " " Legion_PYTHON_EXTRA_INSTALL_ARGS "${Legion_PYTHON_EXTRA_INSTALL_ARGS}")
 
     set(_cuda_path "")
     set(_legion_cuda_options "")
@@ -121,12 +125,8 @@ function(find_or_configure_legion)
                                  "CMAKE_CXX_STANDARD ${_cxx_std}"
                                  "Legion_VERSION ${version}"
                                  "Legion_BUILD_BINDINGS ON"
-                                 "Legion_BUILD_APPS OFF"
-                                 "Legion_BUILD_TESTS OFF"
-                                 "Legion_BUILD_TUTORIAL OFF"
                                  "Legion_REDOP_HALF ON"
                                  "Legion_REDOP_COMPLEX ON"
-                                 "Legion_GPU_REDUCTIONS OFF"
                                  "Legion_BUILD_RUST_PROFILER ON"
     )
   endif()
