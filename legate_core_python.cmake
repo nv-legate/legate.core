@@ -38,10 +38,7 @@ endif()
 if(NOT legate_core_FOUND)
   set(SKBUILD OFF)
   set(Legion_USE_Python ON)
-  set(Legion_BUILD_BINDINGS ON)
-  add_subdirectory(. "${CMAKE_CURRENT_SOURCE_DIR}/build")
-  get_target_property(cython_lib_dir legate_core LIBRARY_OUTPUT_DIRECTORY)
-  set(cython_lib_dir "${CMAKE_CURRENT_SOURCE_DIR}/build/${cython_lib_dir}")
+  add_subdirectory(. legate-core-cpp)
   set(SKBUILD ON)
 endif()
 
@@ -66,9 +63,17 @@ rapids_cython_init()
 
 add_subdirectory(legate/core/_lib)
 
-if(DEFINED cython_lib_dir)
-  rapids_cython_add_rpath_entries(TARGET legate_core PATHS "${cython_lib_dir}")
+set(cython_lib_dir "../../")
+
+if(CMAKE_INSTALL_RPATH_USE_LINK_PATH)
+  get_target_property(cython_lib_dir legate_core LIBRARY_OUTPUT_DIRECTORY)
+  get_target_property(legate_cpp_dir legate_core BINARY_DIR)
+  if(legate_cpp_dir)
+    set(cython_lib_dir "${legate_cpp_dir}/${cython_lib_dir}")
+  endif()
 endif()
+
+rapids_cython_add_rpath_entries(TARGET legate_core PATHS "${cython_lib_dir}")
 
 ##############################################################################
 # - conda environment --------------------------------------------------------
