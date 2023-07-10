@@ -25,7 +25,7 @@ jobs:
 
     container:
       options: -u root
-      image: rapidsai/devcontainers:23.06-cpp-cuda11.8-mambaforge-ubuntu22.04
+      image: rapidsai/devcontainers:23.08-cpp-cuda11.8-mambaforge-ubuntu22.04
       env:
         USE_CUDA: ${{ (inputs.build-target == 'cpu' && 'OFF') || 'ON' }}
         DEFAULT_CONDA_ENV: legate
@@ -68,19 +68,19 @@ jobs:
 
       - name: Create conda env
         shell: su coder {0}
-        run: cd ~/; exec entrypoint make-conda-env;
+        run: exec devcontainer-utils-post-attach-command-entrypoint make-conda-env;
 
       - name: Build legate.core C++ library
         shell: su coder {0}
-        run: cd ~/; exec entrypoint build-legate-cpp;
+        run: exec devcontainer-utils-post-attach-command-entrypoint build-legate-cpp;
 
       - name: Build legate.core Python Wheel
         shell: su coder {0}
-        run: cd ~/; exec entrypoint build-legate-wheel;
+        run: exec devcontainer-utils-post-attach-command-entrypoint build-legate-wheel;
 
       - name: Build legate.core Conda Package
         shell: su coder {0}
-        run: cd ~/; exec entrypoint build-legate-conda;
+        run: exec devcontainer-utils-post-attach-command-entrypoint build-legate-conda;
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v3
