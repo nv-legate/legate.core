@@ -6,12 +6,12 @@ build_all() {
     cd ~/;
 
     if type conda >/dev/null 2>&1; then
-        . make-conda-env;
+        make-conda-env;
     fi
 
-    build-legate-cpp;
-    build-legate-wheel;
-    build-legate-conda;
+    mamba run -n "${DEFAULT_CONDA_ENV:-legate}" --cwd ~/ --live-stream build-legate-cpp;
+    mamba run -n "${DEFAULT_CONDA_ENV:-legate}" --cwd ~/ --live-stream build-legate-wheel;
+    mamba run -n "${DEFAULT_CONDA_ENV:-legate}" --cwd ~/ --live-stream build-legate-conda;
 }
 
 (build_all "$@");
