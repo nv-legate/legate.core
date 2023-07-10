@@ -195,7 +195,7 @@ def get_install_dir(args: list):
 
     # Otherwise fallback to regular site-packages?
     for site_pkgs in site.getsitepackages():
-        install_dir = os.path.join(site_pkgs, '..', '..', '..')
+        install_dir = os.path.join(site_pkgs, "..", "..", "..")
         install_dir = os.path.realpath(install_dir)
         if install_dir != "/" and os.path.exists(install_dir):
             return (install_dir, ["--root", "/", "--prefix", install_dir])
