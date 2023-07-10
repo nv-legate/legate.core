@@ -377,7 +377,7 @@ def install(
         shutil.rmtree(join(legate_core_dir, "dist"), ignore_errors=True)
         shutil.rmtree(join(legate_core_dir, "build"), ignore_errors=True)
         shutil.rmtree(
-            join(legate_core_dir, "legate.core.egg-info"),
+            join(legate_core_dir, "legate_core.egg-info"),
             ignore_errors=True,
         )
 

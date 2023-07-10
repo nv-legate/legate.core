@@ -10,7 +10,7 @@ source ./scripts/util/compiler-flags.sh
 source ./scripts/util/uninstall-global-legion-and-legate-core.sh
 
 # Remove existing build artifacts
-rm -rf ./{build,_skbuild,dist,legate.core.egg-info}
+rm -rf ./{build,_skbuild,dist,legate_core.egg-info}
 
 # Define CMake configuration arguments
 cmake_args="${CMAKE_ARGS:-}"

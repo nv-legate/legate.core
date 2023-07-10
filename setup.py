@@ -21,7 +21,7 @@ from skbuild import setup
 import versioneer
 
 setup(
-    name="legate.core",
+    name="legate-core",
     version=versioneer.get_version(),
     description="legate.core - The Foundation for All Legate Libraries",
     url="https://github.com/nv-legate/legate.core",
@@ -69,6 +69,10 @@ setup(
     },
     scripts=["bind.sh"],
     cmdclass=versioneer.get_cmdclass(),
-    install_requires=["numpy>=1.22"],
+    install_requires=[
+        "cffi",
+        "numpy>=1.22",
+        "typing_extensions",
+    ],
     zip_safe=False,
 )
