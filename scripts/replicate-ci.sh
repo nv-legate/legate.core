@@ -14,7 +14,7 @@ mamba run -n "${DEFAULT_CONDA_ENV:-legate}" --cwd ~/ --live-stream build-legate-
 mv ~/.conda/envs/${DEFAULT_CONDA_ENV:-legate}{,.bak};
 
 # Recreate env from conda package
-mamba create -n "${DEFAULT_CONDA_ENV:-legate}"           \
+mamba create -y -n "${DEFAULT_CONDA_ENV:-legate}"        \
     -c /tmp/out/legate_core -c conda-forge -c nvidia     \
     legate-core pytest pytest-mock ipython jupyter_client;
 
