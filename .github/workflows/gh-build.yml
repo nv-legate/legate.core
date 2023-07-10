@@ -49,7 +49,6 @@ jobs:
       - name: Setup
         shell: bash -eo pipefail {0}
         run: |
-          cp -ar legate/continuous_integration/home/coder/.gitconfig /home/coder/;
           cp -ar legate/continuous_integration/home/coder/.local /home/coder/;
           mv legate /home/coder/legate;
 
