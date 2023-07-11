@@ -71,16 +71,21 @@ class CUDAConfig(SectionConfig):
             "pynvml",  # tests
         )
 
-        # gcc 11.3 is incompatible with nvcc <= 11.5.
         if (
             self.compilers
             and self.os == "linux"
-            and (V(self.ctk_version) <= V("11.5"))
         ):
-            deps += (
-                "gcc_linux-64<=11.2",
-                "gxx_linux-64<=11.2",
-            )
+            # gcc 11.3 is incompatible with nvcc <= 11.5.
+            if V(self.ctk_version) <= V("11.5"):
+                deps += (
+                    "gcc_linux-64<=11.2",
+                    "gxx_linux-64<=11.2",
+                )
+            else:
+                deps += (
+                    "gcc_linux-64=11.*",
+                    "gxx_linux-64=11.*",
+                )
 
         return deps
 
