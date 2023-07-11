@@ -61,7 +61,7 @@ void task_wrapper(VariantImpl variant_impl,
 #ifdef LEGATE_USE_CUDA
   std::stringstream ss;
   ss << task_name;
-  if (!task->get_provenance_string().empty()) ss << " @ " + task->get_provenance_string();
+  if (!task->get_provenance_string().empty()) ss << " : " + task->get_provenance_string();
   std::string msg = ss.str();
   nvtx::Range auto_range(msg.c_str());
 #endif
