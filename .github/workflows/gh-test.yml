@@ -25,7 +25,6 @@ jobs:
       options: -u root
       image: ghcr.io/nv-legate/legate.core-${{inputs.build-target}}:${{inputs.sha}}
       env:
-        DEFAULT_CONDA_ENV: legate
         PYTHONDONTWRITEBYTECODE: 1
         NVIDIA_VISIBLE_DEVICES: ${{ env.NVIDIA_VISIBLE_DEVICES }}
 
@@ -36,4 +35,4 @@ jobs:
 
       - name: Run legate.core unit tests
         shell: su coder {0}
-        run: entrypoint run-all-tests ${{inputs.test-scope}}
+        run: run-all-tests ${{inputs.test-scope}}

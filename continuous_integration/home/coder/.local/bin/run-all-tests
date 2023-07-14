@@ -1,18 +1,25 @@
 #!/usr/bin/env bash
 
-run_all_tests() {
-    set -x;
-    cd ~/;
+make_conda_env() {
     mamba create -n "${DEFAULT_CONDA_ENV:-legate}"
-    mamba install -y -n "${DEFAULT_CONDA_ENV:-legate}" -c nvidia -c conda-forge -c /tmp/conda-build/legate_core legate-core
-    mamba install -y --name "${DEFAULT_CONDA_ENV:-legate}" -c conda-forge pytest pytest-mock ipython jupyter_client
 
-    . activate-conda-env;
-    
+    mamba install -y -n "${DEFAULT_CONDA_ENV:-legate}" -c nvidia -c conda-forge -c /tmp/conda-build/legate_core legate-core
+
+    mamba install -y --name "${DEFAULT_CONDA_ENV:-legate}" -c conda-forge pytest pytest-mock ipython jupyter_client
+}
+
+run_all_tests() {
+    set -x
+    cd ~/
+
+    make_conda_env
+
+    . activate-conda-env
+
     conda info
 
-    set -xeuo pipefail;
-    
+    set -xeuo pipefail
+
     cd ~/legate/tests/unit
     pytest
 }

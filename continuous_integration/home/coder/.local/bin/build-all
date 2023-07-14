@@ -3,12 +3,10 @@
 build_all() {
     cd ~/;
 
-    . activate-conda-env;
-    
     conda info
 
     set -xeuo pipefail;
-    
+
     build-legate-cpp;
     build-legate-wheel;
     build-legate-conda;
