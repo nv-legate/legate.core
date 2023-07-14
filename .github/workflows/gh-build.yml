@@ -78,7 +78,8 @@ jobs:
         run: |
           mkdir -p artifacts
           docker run  -v "$(pwd)/artifacts:/home/coder/.artifacts" --rm -t $IMAGE_NAME:${{inputs.sha}} copy-artifacts
-          docker history $IMAGE_NAME:${{inputs.sha}} > artifacts/image_history
+          echo ---------DOCKER HISTORY-----------
+          docker history $IMAGE_NAME:${{inputs.sha}}
 
       - name: Display structure of workdir
         run: ls -R

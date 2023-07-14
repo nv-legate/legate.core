@@ -35,6 +35,7 @@ RUN chmod a+x /home/coder/.local/bin/* && \
     chown -R coder:coder /tmp/out  && \
     chown -R coder:coder /home/coder/.artifacts
 
+#---------------------------------------------------
 FROM stage0 as setup
 
 RUN make-conda-env
