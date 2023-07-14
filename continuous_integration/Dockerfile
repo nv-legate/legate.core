@@ -13,9 +13,6 @@ ENV SCCACHE_S3_KEY_PREFIX=legate-cunumeric-dev
 ENV VAULT_HOST=https://vault.ops.k8s.rapids.ai
 ENV HISTFILE=/home/coder/.cache/._bash_history
 
-ARG GITHUB_TOKEN
-ENV GITHUB_TOKEN=${GITHUB_TOKEN}
-
 ARG USE_CUDA
 ENV USE_CUDA=${USE_CUDA}
 
@@ -44,7 +41,8 @@ RUN make-conda-env
 
 #---------------------------------------------------
 FROM setup as build
-
+ARG GITHUB_TOKEN
+ENV GITHUB_TOKEN=${GITHUB_TOKEN}
 ARG AWS_SESSION_TOKEN
 ENV AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
 ARG AWS_ACCESS_KEY_ID
