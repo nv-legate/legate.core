@@ -33,7 +33,9 @@ jobs:
 
   cleanup:
     needs:
-      - test-cpu
+      - [build-cpu, test-cpu]
+    # This ensures the cleanup job runs even if previous jobs fail or the workflow is cancelled.
+    if: always()
     uses:
       ./.github/workflows/gh-cleanup.yml
     with:
