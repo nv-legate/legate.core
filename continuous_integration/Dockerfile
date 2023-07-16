@@ -12,6 +12,7 @@ ENV SCCACHE_BUCKET="rapids-sccache-east"
 ENV SCCACHE_S3_KEY_PREFIX=legate-cunumeric-dev
 ENV VAULT_HOST=https://vault.ops.k8s.rapids.ai
 ENV HISTFILE=/home/coder/.cache/._bash_history
+ENV DEFAULT_CONDA_ENV=legate
 
 ARG USE_CUDA
 ENV USE_CUDA=${USE_CUDA}

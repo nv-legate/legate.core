@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 
+
 build_all() {
+    set -x
     cd ~/;
 
     conda info
 
-    set -xeuo pipefail;
+    set -euo pipefail;
 
     build-legate-cpp;
     build-legate-wheel;
