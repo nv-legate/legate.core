@@ -27,16 +27,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {name: pytest unit tests, test-scope: unit}
-          - {name: mypy, test-scope: mypy}
-    name: ${{matrix.name}}
+          - { name: Pytest Unit Tests, test-scope: unit }
+          - { name: mypy, test-scope: mypy }
+    name: ${{ matrix.name }}
     uses:
       ./.github/workflows/gh-test.yml
     with:
       build-target: cpu
       runs-on: ${{ github.repository == 'nv-legate/legate.core' && 'linux-amd64-cpu4' || 'ubuntu-latest' }}
       sha: ${{ github.sha }}
-      test-scope: ${{matrix.test-scope}}
+      test-scope: ${{ matrix.test-scope }}
 
   cleanup:
     needs:

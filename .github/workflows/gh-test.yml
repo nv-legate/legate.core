@@ -19,11 +19,11 @@ on:
 jobs:
   test:
     if: github.repository_owner == 'nv-legate'
-    name: test-${{inputs.build-target}}-sub-workflow
+    name: test-${{ inputs.build-target }}-sub-workflow
     runs-on: ${{ inputs.runs-on }}
     container:
       options: -u root
-      image: ghcr.io/nv-legate/legate.core-${{inputs.build-target}}:${{inputs.sha}}
+      image: ghcr.io/nv-legate/legate.core-${{ inputs.build-target }}:${{ inputs.sha }}
       env:
         PYTHONDONTWRITEBYTECODE: 1
         NVIDIA_VISIBLE_DEVICES: ${{ env.NVIDIA_VISIBLE_DEVICES }}
@@ -33,6 +33,6 @@ jobs:
         name: Run nvidia-smi to make sure GPU is working
         run: nvidia-smi
 
-      - name: Run legate.core unit tests
+      - name: Run legate.core test / analysis
         shell: su coder {0}
-        run: run-test-or-analysis ${{inputs.test-scope}}
+        run: run-test-or-analysis ${{ inputs.test-scope }}

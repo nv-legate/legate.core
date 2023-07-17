@@ -15,12 +15,12 @@ on:
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  IMAGE_NAME: legate.core-${{inputs.build-target}}
+  IMAGE_NAME: legate.core-${{ inputs.build-target }}
   USE_CUDA: ${{ (inputs.build-target == 'cpu' && 'OFF') || 'ON' }}
 
 jobs:
   build:
-    name: build-${{inputs.build-target}}-sub-workflow
+    name: build-${{ inputs.build-target }}-sub-workflow
 
     permissions:
       id-token: write # This is required for configure-aws-credentials
@@ -45,18 +45,18 @@ jobs:
 
       - name: Build docker image
         run: |
-          echo BUILD_TARGET: ${{inputs.build-target}}
-          echo USE_CUDA: ${{env.USE_CUDA}}
+          echo BUILD_TARGET: ${{ inputs.build-target }}
+          echo USE_CUDA: ${{ env.USE_CUDA }}
 
           docker build \
-            --build-arg AWS_SESSION_TOKEN=${{env.AWS_SESSION_TOKEN}} \
-            --build-arg AWS_ACCESS_KEY_ID=${{env.AWS_ACCESS_KEY_ID}} \
-            --build-arg AWS_SECRET_ACCESS_KEY=${{env.AWS_SECRET_ACCESS_KEY}} \
-            --build-arg GITHUB_TOKEN=${{env.GITHUB_TOKEN}} \
-            --build-arg USE_CUDA=${{env.USE_CUDA}} \
+            --build-arg AWS_SESSION_TOKEN=${{ env.AWS_SESSION_TOKEN }} \
+            --build-arg AWS_ACCESS_KEY_ID=${{ env.AWS_ACCESS_KEY_ID }} \
+            --build-arg AWS_SECRET_ACCESS_KEY=${{ env.AWS_SECRET_ACCESS_KEY }} \
+            --build-arg GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} \
+            --build-arg USE_CUDA=${{ env.USE_CUDA }} \
             --progress=plain \
-            --tag=$IMAGE_NAME:${{inputs.sha}} \
-            --label "git-commit=${{inputs.sha}}" \
+            --tag=$IMAGE_NAME:${{ inputs.sha }} \
+            --label "git-commit=${{ inputs.sha }}" \
             -f continuous_integration/Dockerfile .
 
       - name: Log in to container image registry
@@ -64,12 +64,12 @@ jobs:
 
       - name: Push image
         run: |
-          IMAGE_ID=ghcr.io/${{github.repository_owner}}/$IMAGE_NAME
+          IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
 
           # Change all uppercase to lowercase
           IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
 
-          VERSION=${{inputs.sha}}
+          VERSION=${{ inputs.sha }}
 
           docker tag $IMAGE_NAME:$VERSION $IMAGE_ID:$VERSION
           docker push $IMAGE_ID:$VERSION
@@ -77,9 +77,9 @@ jobs:
       - name: Copy artifacts back to the host
         run: |
           mkdir -p artifacts
-          docker run  -v "$(pwd)/artifacts:/home/coder/.artifacts" --rm -t $IMAGE_NAME:${{inputs.sha}} copy-artifacts
+          docker run  -v "$(pwd)/artifacts:/home/coder/.artifacts" --rm -t $IMAGE_NAME:${{ inputs.sha }} copy-artifacts
           echo --------- DOCKER HISTORY START -----------
-          docker history $IMAGE_NAME:${{inputs.sha}}
+          docker history $IMAGE_NAME:${{ inputs.sha }}
           echo --------- DOCKER HISTORY END -----------
 
       - name: Display structure of workdir
@@ -88,5 +88,5 @@ jobs:
       - name: Upload build artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: "legate.core-${{inputs.build-target}}-${{inputs.sha}}"
+          name: "legate.core-${{ inputs.build-target }}-${{ inputs.sha }}"
           path: artifacts

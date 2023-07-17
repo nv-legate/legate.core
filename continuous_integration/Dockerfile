@@ -1,11 +1,6 @@
 ARG BASE_IMAGE=rapidsai/devcontainers:23.06-cpp-cuda11.8-mambaforge-ubuntu22.04
 FROM ${BASE_IMAGE} as stage0
 
-# RUN export DEBIAN_FRONTEND=noninteractive       \
-#  && apt update                             \
-#  && apt install -y --no-install-recommends \
-#     coreutils uuid-runtime curl rustc cargo
-
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV SCCACHE_REGION="us-east-2"
 ENV SCCACHE_BUCKET="rapids-sccache-east"

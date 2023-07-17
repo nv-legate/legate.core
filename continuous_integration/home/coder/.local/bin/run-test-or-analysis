@@ -27,7 +27,7 @@ run_test_or_analysis() {
             ;;
         "mypy")
             echo "Executing mypy..."
-            mamba install -y -n "${DEFAULT_CONDA_ENV:-legate}" mypy sphinx types-docutils
+            mamba install -y -n "${DEFAULT_CONDA_ENV:-legate}" mypy
             cd ~/legate
             mypy legate
             ;;
