@@ -35,4 +35,4 @@ jobs:
 
       - name: Run legate.core unit tests
         shell: su coder {0}
-        run: run-all-tests ${{inputs.test-scope}}
+        run: run-test-or-analysis ${{inputs.test-scope}}

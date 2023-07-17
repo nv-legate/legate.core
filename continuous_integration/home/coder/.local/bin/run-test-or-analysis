@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+
+make_conda_env() {
+    mamba create -n "${DEFAULT_CONDA_ENV:-legate}"
+
+    mamba install -y -n "${DEFAULT_CONDA_ENV:-legate}" -c nvidia -c conda-forge -c /tmp/conda-build/legate_core legate-core
+}
+
+run_test_or_analysis() {
+    set -x
+    cd ~/
+
+    make_conda_env
+
+    . activate-conda-env
+
+    conda info
+
+    set -xeuo pipefail
+
+    case "$1" in
+        "unit")
+            echo "Executing unit tests..."
+            mamba install -y -n "${DEFAULT_CONDA_ENV:-legate}" -c conda-forge pytest pytest-mock ipython jupyter_client
+            cd ~/legate/tests/unit
+            pytest
+            ;;
+        "mypy")
+            echo "Executing mypy..."
+            mamba install -y -n "${DEFAULT_CONDA_ENV:-legate}" mypy sphinx types-docutils
+            cd ~/legate
+            mypy legate
+            ;;
+        *)
+            echo "Invalid command: $1"
+            return 1
+            ;;
+    esac
+
+    return 0
+}
+
+(run_test_or_analysis "$@");
