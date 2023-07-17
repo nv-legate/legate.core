@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 
-build_all() {
-    set -xeuo pipefail;
 
+build_all() {
+    set -x
     cd ~/;
 
-    if type conda >/dev/null 2>&1; then
-        . make-conda-env;
-    fi
+    conda info
+
+    set -euo pipefail;
 
     build-legate-cpp;
     build-legate-wheel;

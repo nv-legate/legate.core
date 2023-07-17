@@ -38,3 +38,4 @@ _cmake_test_compile
 legate.core.code-workspace
 *.prof
 .legate-test-last-failed
+out/
