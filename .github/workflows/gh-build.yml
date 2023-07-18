@@ -48,16 +48,10 @@ jobs:
           echo BUILD_TARGET: ${{ inputs.build-target }}
           echo USE_CUDA: ${{ env.USE_CUDA }}
 
-          docker build \
-            --build-arg AWS_SESSION_TOKEN=${{ env.AWS_SESSION_TOKEN }} \
-            --build-arg AWS_ACCESS_KEY_ID=${{ env.AWS_ACCESS_KEY_ID }} \
-            --build-arg AWS_SECRET_ACCESS_KEY=${{ env.AWS_SECRET_ACCESS_KEY }} \
-            --build-arg GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} \
-            --build-arg USE_CUDA=${{ env.USE_CUDA }} \
-            --progress=plain \
-            --tag=$IMAGE_NAME:${{ inputs.sha }} \
-            --label "git-commit=${{ inputs.sha }}" \
-            -f continuous_integration/Dockerfile .
+          continuous_integration/build-docker-image \
+            --image-name "$IMAGE_NAME" \
+            --sha ${{ inputs.sha }} \
+            --source-dir .
 
       - name: Log in to container image registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
