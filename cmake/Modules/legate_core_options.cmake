@@ -49,7 +49,6 @@ option(Legion_USE_HDF5 "Enable support for HDF5" OFF)
 option(Legion_USE_CUDA "Enable Legion support for the CUDA runtime" OFF)
 option(Legion_NETWORKS "Networking backends to use (semicolon-separated)" "")
 option(Legion_USE_OpenMP "Use OpenMP" OFF)
-option(Legion_USE_Python "Use Python" OFF)
 option(Legion_BOUNDS_CHECKS "Enable bounds checking in Legion accessors" OFF)
 
 if("${Legion_NETWORKS}" MATCHES ".*gasnet(1|ex).*")

@@ -8,9 +8,7 @@ CMAKE_ARGS="$(echo "$CMAKE_ARGS" | sed -r "s@_INCLUDE=ONLY@_INCLUDE=BOTH@g")"
 CMAKE_ARGS+="
 --log-level=VERBOSE
 -DBUILD_MARCH=haswell
--DLegion_USE_OpenMP=ON
--DLegion_USE_Python=ON
--DLegion_BUILD_BINDINGS=ON"
+-DLegion_USE_OpenMP=ON"
 
 # We rely on an environment variable to determine if we need to build cpu-only bits
 if [ -z "$CPU_ONLY" ]; then

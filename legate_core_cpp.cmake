@@ -99,11 +99,9 @@ macro(_enable_cuda_language)
   endif()
 endmacro()
 
-if(Legion_USE_Python)
-  _find_package_Python3()
-  if(Python3_FOUND AND Python3_VERSION)
-    set(Legion_Python_Version ${Python3_VERSION})
-  endif()
+_find_package_Python3()
+if(Python3_FOUND AND Python3_VERSION)
+  set(Legion_Python_Version ${Python3_VERSION})
 endif()
 
 if(Legion_USE_CUDA)
@@ -112,19 +110,14 @@ endif()
 
 ###
 # If we find Legion already configured on the system, it will report whether it
-# was compiled with Python (Legion_USE_PYTHON), CUDA (Legion_USE_CUDA), OpenMP
-# (Legion_USE_OpenMP), and networking (Legion_NETWORKS).
+# was compiled with CUDA (Legion_USE_CUDA), OpenMP (Legion_USE_OpenMP), and
+# networking (Legion_NETWORKS).
 #
 # We use the same variables as Legion because we want to enable/disable each of
 # these features based on how Legion was configured (it doesn't make sense to
 # build legate.core's Python bindings if Legion's bindings weren't compiled).
 ###
 include(cmake/thirdparty/get_legion.cmake)
-
-# If Legion_USE_Python was toggled ON by find_package(Legion), find Python3
-if(Legion_USE_Python AND (NOT Python3_FOUND))
-  _find_package_Python3()
-endif()
 
 if(Legion_NETWORKS)
   find_package(MPI REQUIRED COMPONENTS CXX)
@@ -482,7 +475,6 @@ endif()
 ]=]
   "set(Legion_USE_CUDA ${Legion_USE_CUDA})"
   "set(Legion_USE_OpenMP ${Legion_USE_OpenMP})"
-  "set(Legion_USE_Python ${Legion_USE_Python})"
   "set(Legion_NETWORKS ${Legion_NETWORKS})"
   "set(Legion_BOUNDS_CHECKS ${Legion_BOUNDS_CHECKS})"
 [=[
