@@ -21,6 +21,8 @@ ENV USE_OPENMP=ON
 
 ENV BUILD_MARCH=nocona
 
+ARG BUILD_TYPE
+
 ENV PATH="${PATH}:/home/coder/.local/bin"
 
 USER coder
@@ -43,7 +45,7 @@ FROM stage0 as setup
 USER coder
 WORKDIR /home/coder
 
-RUN set -x && . conda-utils && get_yaml_and_make_conda_env
+RUN make-conda-env ${BUILD_TYPE}
 
 #---------------------------------------------------
 FROM setup as build
@@ -61,7 +63,7 @@ ENV AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
 
 COPY --chown=coder:coder .creds /run/secrets
 
-RUN entrypoint build-legate-all
+RUN entrypoint build-legate ${BUILD_TYPE}
 
 #---------------------------------------------------
 FROM stage0 as final

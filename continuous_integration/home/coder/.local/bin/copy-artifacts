@@ -1,10 +1,28 @@
 #!/usr/bin/env bash
 
-copy_artifacts() {
-    set -xeuo pipefail
+copy_release_artifacts() {
+    echo Copying release artifacts
+    sudo chown coder:coder ~/.artifacts
+    cp /tmp/conda-build/linux-64/legate-core-*.tar.bz2 /home/coder/.artifacts
+}
+
+copy_ci_artifacts() {
+    echo Copying CI artifacts
     sudo chown coder:coder ~/.artifacts
     cp -r /tmp/out          ~/.artifacts
     cp -r /tmp/conda-build  ~/.artifacts
+}
+
+copy_artifacts() {
+    set -xeuo pipefail
+
+    case "$1" in
+        ci) copy_ci_artifacts;;
+        release) copy_release_artifacts;;
+        *) return 1;;
+    esac
+
+    return 0;
 }
 
 (copy_artifacts "$@");

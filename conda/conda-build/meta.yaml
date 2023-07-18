@@ -7,6 +7,14 @@
   {# We need to have a default value for the initial pass over the recipe #}
   {% set gpu_enabled_bool = false %}
 {% endif %}
+{% if debug_build == "true" %}
+  {% set debug_build_bool = true %}
+{% elif debug_build == "false" %}
+  {% set debug_build_bool = false %}
+{% else %}
+  {# We need to have a default value for the initial pass over the recipe #}
+  {% set debug_build_bool = false %}
+{% endif %}
 {% set default_env_var = '' %}
 {% if build_number is defined %}
     {# do nothing if defined #}
@@ -27,6 +35,24 @@
 {% set cuda_major=cuda_version.split('.')[0]|int %}
 {% set py_version=environ.get('CONDA_PY', 36) %}
 
+{% if use_local_path is not defined %}
+{% set git_describe_hash='_' + environ.get('GIT_DESCRIBE_HASH', '0')%}
+{% else %}
+{% set git_describe_hash=''%}
+{% endif %}
+
+{% if not gpu_enabled_bool %}
+{% set cpu_tag='_cpu' %}
+{% else %}
+{% set cpu_tag='' %}
+{% endif %}
+
+{% if debug_build_bool %}
+{% set debug_tag='_debug' %}
+{% else %}
+{% set debug_tag='' %}
+{% endif %}
+
 package:
   name: {{ name|lower }}
   version: {{ version }}
@@ -45,21 +71,9 @@ build:
   number: {{ build_number }}
   missing_dso_whitelist:
     -  '*libcuda.so*'
-{% if use_local_path is not defined %}
-# use git hash
-{% if not gpu_enabled_bool %}
-  string: "cuda{{ cuda_major }}_py{{ py_version }}_{{ GIT_DESCRIBE_HASH }}_{{ PKG_BUILDNUM }}_cpu"
-{% else %}
-  string: "cuda{{ cuda_major }}_py{{ py_version }}_{{ GIT_DESCRIBE_HASH }}_{{ PKG_BUILDNUM }}"
-{% endif %}
-{% else %}
-# do not use git hash
-{% if not gpu_enabled_bool %}
-  string: "cuda{{ cuda_major }}_py{{ py_version }}_{{ PKG_BUILDNUM }}_cpu"
-{% else %}
-  string: "cuda{{ cuda_major }}_py{{ py_version }}_{{ PKG_BUILDNUM }}"
-{% endif %}
-{% endif %}
+
+  string: "cuda{{ cuda_major }}_py{{ py_version }}{{ git_describe_hash }}_{{ PKG_BUILDNUM }}{{ cpu_tag }}{{ debug_tag }}"
+
   script_env:
     - SCCACHE_BUCKET
     - SCCACHE_REGION
@@ -75,6 +89,9 @@ build:
     - CPU_ONLY=1
   track_features:
     - cpu_only
+{% endif %}
+{% if debug_build_bool %}
+    - DEBUG_BUILD=1
 {% endif %}
   run_exports:
 {% if not gpu_enabled_bool %}
@@ -136,9 +153,10 @@ requirements:
     - __cuda >={{ cuda_version }}
 {% endif %}
 
-test:
-  imports:
-    - legate
+# TODO: uncomment
+# test:
+#   imports:
+#     - legate
 
 about:
   home: https://github.com/nv-legate/legate.core

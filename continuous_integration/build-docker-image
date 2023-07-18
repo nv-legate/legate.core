@@ -3,8 +3,8 @@
 set -xuo pipefail
 
 #Set the options of the getopt command
-format=$(getopt -n "$0" -l "base-image:,image-tag:,source-dir:" -- -- "$@")
-if [ $# -lt 4 ]; then
+format=$(getopt -n "$0" -l "base-image:,image-tag:,source-dir:,build-type:" -- -- "$@")
+if [ $# -lt 5 ]; then
    echo "Wrong number of arguments passed."
    exit
 fi
@@ -17,6 +17,7 @@ do
           --base-image) BASE_IMAGE="$2"; shift;;
           --image-tag) IMAGE_TAG="$2"; shift;;
           --source-dir) SOURCE_DIR="$2"; shift;;
+          --build-type) BUILD_TYPE="$2"; shift;;
           --) shift;;
      esac
      shift;
@@ -36,6 +37,7 @@ docker build \
      --build-arg AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" \
      --build-arg GITHUB_TOKEN="$GITHUB_TOKEN" \
      --build-arg USE_CUDA="$USE_CUDA" \
+     --build-arg BUILD_TYPE="$BUILD_TYPE" \
      --progress=plain \
      --tag="$IMAGE_TAG" \
      -f "$SOURCE_DIR/continuous_integration/Dockerfile" "$SOURCE_DIR"

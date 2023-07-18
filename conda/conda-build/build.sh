@@ -7,7 +7,7 @@ CMAKE_ARGS="$(echo "$CMAKE_ARGS" | sed -r "s@_INCLUDE=ONLY@_INCLUDE=BOTH@g")"
 # Add our options to conda's CMAKE_ARGS
 CMAKE_ARGS+="
 --log-level=VERBOSE
--DBUILD_MARCH=haswell
+-DBUILD_MARCH=nocona
 -DLegion_USE_OpenMP=ON
 -DLegion_USE_Python=ON
 -DLegion_Python_Version=$($PYTHON --version 2>&1 | cut -d' ' -f2 | cut -d'.' -f3 --complement)"
@@ -20,11 +20,21 @@ if [ -z "$CPU_ONLY" ]; then
 "
 fi
 
+# We rely on an environment variable to determine if we need to make a debug build.
+if [ -n "$DEBUG_BUILD" ]; then
+  CMAKE_ARGS+="
+-DCMAKE_BUILD_TYPE=Debug
+"
+fi
+
 # Do not compile with NDEBUG until Legion handles it without warnings
+# Note: -UNDEBUG undefines any NDEBUG that may be present on the C compiler commandline.
+# See: https://stackoverflow.com/questions/1978155/how-to-undefine-a-define-at-commandline-using-gcc
 export CFLAGS="-UNDEBUG"
 export CXXFLAGS="-UNDEBUG"
 export CPPFLAGS="-UNDEBUG"
 export CUDAFLAGS="-UNDEBUG"
+
 export CMAKE_GENERATOR=Ninja
 export CUDAHOSTCXX=${CXX}
 export OPENSSL_DIR="$CONDA_PREFIX"
