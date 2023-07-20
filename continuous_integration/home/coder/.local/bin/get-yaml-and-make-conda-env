@@ -4,4 +4,6 @@
 
 set -x;
 
+ls -lah
+
 get_yaml_and_make_conda_env "$@";
