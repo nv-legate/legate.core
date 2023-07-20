@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -xeuo pipefail
+set -xuo pipefail
 
 #Set the options of the getopt command
 format=$(getopt -n "$0" -l "base-image:,image-name:,sha:,source-dir:" -- -- "$@")
@@ -22,6 +22,8 @@ do
      esac
      shift;
 done
+
+set -e
 
 docker build \
      --build-arg BASE_IMAGE=$BASE_IMAGE \
