@@ -17,7 +17,7 @@ do
           --base-image) BASE_IMAGE="$2"; shift;;
           --image-name) IMAGE_NAME="$2"; shift;;
           --sha) SHA="$2"; shift;;
-          --source) SOURCE_DIR="$2"; shift;;
+          --source-dir) SOURCE_DIR="$2"; shift;;
           --) shift;;
      esac
      shift;
