@@ -48,6 +48,7 @@ jobs:
           echo BUILD_TARGET: ${{ inputs.build-target }}
           echo USE_CUDA: ${{ env.USE_CUDA }}
 
+          chmod +x continuous_integration/build-docker-image
           continuous_integration/build-docker-image \
             --image-name "$IMAGE_NAME" \
             --sha ${{ inputs.sha }} \

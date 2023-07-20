@@ -2,8 +2,8 @@
 
 #Set the options of the getopt command
 format=$(getopt -n "$0" -l "image-name:,sha:,source-dir:" -- -- "$@")
-if [ $# -lt 3 ]; then
-   echo "Wrong number of arguments are passed."
+if [ $# -lt 4 ]; then
+   echo "Wrong number of arguments passed."
    exit
 fi
 eval set -- "$format"
