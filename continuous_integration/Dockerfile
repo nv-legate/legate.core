@@ -28,8 +28,7 @@ COPY --chown=coder:coder . /home/coder/legate
 
 RUN chmod a+x /home/coder/.local/bin/* && \
     mkdir -p /tmp/out && \
-    chown -R coder:coder /tmp/out  && \
-    chown -R coder:coder /home/coder/.artifacts
+    chown -R coder:coder /tmp/out
 
 #---------------------------------------------------
 FROM stage0 as setup
