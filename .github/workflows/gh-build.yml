@@ -15,6 +15,7 @@ on:
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  BASE_IMAGE: rapidsai/devcontainers:23.06-cpp-cuda11.8-mambaforge-ubuntu22.04
   IMAGE_NAME: legate.core-${{ inputs.build-target }}
   USE_CUDA: ${{ (inputs.build-target == 'cpu' && 'OFF') || 'ON' }}
 
@@ -50,6 +51,7 @@ jobs:
 
           chmod +x continuous_integration/build-docker-image
           continuous_integration/build-docker-image \
+            --base-image "$BASE_IMAGE" \
             --image-name "$IMAGE_NAME" \
             --sha ${{ inputs.sha }} \
             --source-dir .

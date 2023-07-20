@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=rapidsai/devcontainers:23.06-cpp-cuda11.8-mambaforge-ubuntu22.04
+ARG BASE_IMAGE
 FROM ${BASE_IMAGE} as stage0
 
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -50,7 +50,7 @@ ENV AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
 # If .creds exists copy it to /run/secrets
 COPY --chown=coder:coder .cred[s] /run/secrets
 
-RUN entrypoint build-all
+RUN entrypoint build-legate-all
 
 #---------------------------------------------------
 FROM stage0 as final

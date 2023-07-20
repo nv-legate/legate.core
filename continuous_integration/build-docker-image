@@ -1,8 +1,8 @@
 #!/bin/bash
 
 #Set the options of the getopt command
-format=$(getopt -n "$0" -l "image-name:,sha:,source-dir:" -- -- "$@")
-if [ $# -lt 4 ]; then
+format=$(getopt -n "$0" -l "base-image:,image-name:,sha:,source-dir:" -- -- "$@")
+if [ $# -lt 5 ]; then
    echo "Wrong number of arguments passed."
    exit
 fi
@@ -12,6 +12,7 @@ eval set -- "$format"
 while [ $# -gt 0 ]
 do
      case "$1" in
+          --base-image) BASE_IMAGE="$2"; shift;;
           --image-name) IMAGE_NAME="$2"; shift;;
           --sha) SHA="$2"; shift;;
           --source) SOURCE_DIR="$2"; shift;;
@@ -21,12 +22,13 @@ do
 done
 
 docker build \
-  --build-arg AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN \
-  --build-arg AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
-  --build-arg AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
-  --build-arg GITHUB_TOKEN=$GITHUB_TOKEN \
-  --build-arg USE_CUDA=$USE_CUDA \
-  --progress=plain \
-  --tag=$IMAGE_NAME:$SHA \
-  --label "git-commit=$SHA" \
-  -f continuous_integration/Dockerfile $SOURCE_DIR
+     --build-arg BASE_IMAGE=$BASE_IMAGE \
+     --build-arg AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN \
+     --build-arg AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
+     --build-arg AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
+     --build-arg GITHUB_TOKEN=$GITHUB_TOKEN \
+     --build-arg USE_CUDA=$USE_CUDA \
+     --progress=plain \
+     --tag=$IMAGE_NAME:$SHA \
+     --label "git-commit=$SHA" \
+     -f $SOURCE_DIR/continuous_integration/Dockerfile $SOURCE_DIR
