@@ -1,7 +1,26 @@
 #!/usr/bin/env bash
 
-entrypoint() {
+sccache_stop_server_and_show_stats() {
+    sccache --stop-server || true && sccache --show-stats;
+}
 
+init_devcontainer() {
+    # disable xtrace and history
+    local xtrace_enabled=$(echo "${SHELLOPTS:-}" | grep -q 'xtrace'; echo $?);
+    local history_enabled=$(echo "${SHELLOPTS:-}" | grep -q 'history'; echo $?);
+    { set +xo history; } 2>/dev/null;
+    eval "export $(find /run/secrets/ -type f -exec bash -c 'echo ${0/\/run\/secrets\//}=$(<${0})' {} \;)";
+    if [ "${history_enabled}" -eq "0" ]; then { set -o history; } 2>/dev/null; fi;
+    if [ "${xtrace_enabled}" -eq "0" ]; then { set -o xtrace; } 2>/dev/null; fi;
+
+    . devcontainer-utils-post-attach-command;
+
+    sleep 10;
+    . devcontainer-utils-vault-s3-test;
+    . devcontainer-utils-vault-s3-export 0;
+}
+
+entrypoint() {
     set -x
 
     echo AWS_REGION=${AWS_REGION:-}
@@ -11,22 +30,12 @@ entrypoint() {
 
     mkdir -p /home/coder/.cache;
 
-    if [ -d /run/secrets ]; then
-        # disable xtrace and history
-        local xtrace_enabled=$(echo "${SHELLOPTS:-}" | grep -q 'xtrace'; echo $?);
-        local history_enabled=$(echo "${SHELLOPTS:-}" | grep -q 'history'; echo $?);
-        { set +xo history; } 2>/dev/null;
-        eval "export $(find /run/secrets/ -type f -exec bash -c 'echo ${0/\/run\/secrets\//}=$(<${0})' {} \;)";
-        if [ "${history_enabled}" -eq "0" ]; then { set -o history; } 2>/dev/null; fi;
-        if [ "${xtrace_enabled}" -eq "0" ]; then { set -o xtrace; } 2>/dev/null; fi;
+    local secrets_dir=/run/secrets
 
-        . devcontainer-utils-post-attach-command;
-
-        sleep 10;
-        . devcontainer-utils-vault-s3-test;
-        . devcontainer-utils-vault-s3-export 0;
+    if [ -d "$secrets_dir" ] && [ "$(ls -A $secrets_dir)" ]; then
+        init_devcontainer
     else
-        sccache --stop-server || true && sccache --show-stats;
+        sccache_stop_server_and_show_stats
     fi
 
     exec "$@";
