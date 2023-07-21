@@ -34,10 +34,16 @@ RUN chmod a+x /home/coder/.local/bin/* && \
 #---------------------------------------------------
 FROM stage0 as setup
 
+USER coder
+WORKDIR /home/coder
+
 RUN get-yaml-and-make-conda-env
 
 #---------------------------------------------------
 FROM setup as build
+USER coder
+WORKDIR /home/coder
+
 ARG GITHUB_TOKEN
 ENV GITHUB_TOKEN=${GITHUB_TOKEN}
 ARG AWS_SESSION_TOKEN
@@ -53,6 +59,10 @@ RUN entrypoint build-legate-all
 
 #---------------------------------------------------
 FROM stage0 as final
-COPY --from=build /tmp/out /tmp/out
-COPY --from=build /tmp/conda-build /tmp/conda-build
-COPY --from=build /tmp/env_yaml /tmp/env_yaml
+USER coder
+WORKDIR /home/coder
+
+COPY --from=build --chown=coder:coder /tmp/out /tmp/out
+COPY --from=build --chown=coder:coder /tmp/conda-build /tmp/conda-build
+COPY --from=build --chown=coder:coder /tmp/env_yaml /tmp/env_yaml
+
