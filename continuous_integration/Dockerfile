@@ -34,7 +34,7 @@ RUN chmod a+x /home/coder/.local/bin/* && \
 #---------------------------------------------------
 FROM stage0 as setup
 
-RUN make-conda-env
+RUN get-yaml-and-make-conda-env
 
 #---------------------------------------------------
 FROM setup as build

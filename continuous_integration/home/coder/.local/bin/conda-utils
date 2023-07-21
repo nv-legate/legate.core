@@ -1,8 +1,4 @@
-#!/usr/bin/env bash
-
-yaml_file="";
-
-make_conda_env() {
+make_conda_env_from_yaml() {
     mamba env create -v -n "${DEFAULT_CONDA_ENV:-legate}" -f "${yaml_file}";
 }
 
@@ -47,8 +43,11 @@ find_yaml_file() {
     return 0
 }
 
-main() {
+get_yaml_and_make_conda_env() {
     set -e;
+
+    local yaml_file="";
+
     if ! find_yaml_file; then
         generate_yaml_file;
     fi
@@ -56,7 +55,18 @@ main() {
     echo YAML file: ${yaml_file}
     cat "${yaml_file}";
 
-    make_conda_env;
+    make_conda_env_from_yaml;
 }
 
-main "$@";
+make_conda_env_using_legate_core() {
+    mamba create -n "${DEFAULT_CONDA_ENV:-legate}"
+
+    mamba install -y -n "${DEFAULT_CONDA_ENV:-legate}" -c nvidia -c conda-forge -c /tmp/conda-build/legate_core legate-core
+}
+
+activate_conda_env() {
+    . /opt/conda/etc/profile.d/conda.sh;
+    . /opt/conda/etc/profile.d/mamba.sh;
+
+    conda activate ${DEFAULT_CONDA_ENV:-legate};
+}
