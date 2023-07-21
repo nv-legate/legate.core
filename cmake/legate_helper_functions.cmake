@@ -1,7 +1,23 @@
+#=============================================================================
+# Copyright 2023 NVIDIA Corporation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#=============================================================================
+
 macro(legate_include_rapids)
   if (NOT _LEGATE_HAS_RAPIDS)
     if(NOT EXISTS ${CMAKE_BINARY_DIR}/LEGATE_RAPIDS.cmake)
-      file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-23.02/RAPIDS.cmake
+      file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-23.08/RAPIDS.cmake
            ${CMAKE_BINARY_DIR}/LEGATE_RAPIDS.cmake)
     endif()
     include(${CMAKE_BINARY_DIR}/LEGATE_RAPIDS.cmake)
@@ -67,7 +83,7 @@ function(legate_add_cffi header)
   endif()
 
   set(options)
-  set(one_value_args TARGET)
+  set(one_value_args TARGET PY_PATH)
   set(multi_value_args)
   cmake_parse_arguments(
     LEGATE_OPT
@@ -76,6 +92,16 @@ function(legate_add_cffi header)
     "${multi_value_args}"
     ${ARGN}
   )
+
+  # determine full Python path
+  if (NOT DEFINED LEGATE_OPT_PY_PATH)
+      set(py_path "${CMAKE_CURRENT_SOURCE_DIR}/${LEGATE_OPT_TARGET}")
+  elseif(IS_ABSOLUTE LEGATE_OPT_PY_PATH)
+    set(py_path "${LEGATE_OPT_PY_PATH}")
+  else()
+      set(py_path "${CMAKE_CURRENT_SOURCE_DIR}/${LEGATE_OPT_PY_PATH}")
+  endif()
+
   # abbreviate for the function below
   set(target ${LEGATE_OPT_TARGET})
   set(install_info_in
@@ -119,7 +145,7 @@ header: str = """
 """
 ]=])
   set(install_info_py_in ${CMAKE_BINARY_DIR}/legate_${target}/install_info.py.in)
-  set(install_info_py ${CMAKE_SOURCE_DIR}/${target}/install_info.py)
+  set(install_info_py ${py_path}/install_info.py)
   file(WRITE ${install_info_py_in} "${install_info_in}")
 
   set(generate_script_content
@@ -138,7 +164,7 @@ header: str = """
         @ONLY)
   ]=])
 
-  set(generate_script ${CMAKE_BINARY_DIR}/gen_install_info.cmake)
+  set(generate_script ${CMAKE_CURRENT_BINARY_DIR}/gen_install_info.cmake)
   file(CONFIGURE
        OUTPUT ${generate_script}
        CONTENT "${generate_script_content}"
@@ -151,9 +177,8 @@ header: str = """
   else()
     # libraries are built in a common spot
     set(libdir ${CMAKE_BINARY_DIR}/legate_${target})
-    message("libdir to binary dir")
   endif()
-  add_custom_target("generate_install_info_py" ALL
+  add_custom_target("${target}_generate_install_info_py" ALL
     COMMAND ${CMAKE_COMMAND}
       -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
       -Dtarget=${target}
@@ -255,6 +280,22 @@ endfunction()
 function(legate_cpp_library_template target output_sources_variable)
   set(file_template
 [=[
+/* Copyright 2023 NVIDIA Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
 #pragma once
 
 #include "legate.h"
@@ -262,12 +303,6 @@ function(legate_cpp_library_template target output_sources_variable)
 namespace @target@ {
 
 struct Registry {
- public:
-  template <typename... Args>
-  static void record_variant(Args&&... args)
-  {
-    get_registrar().record_variant(std::forward<Args>(args)...);
-  }
   static legate::TaskRegistrar& get_registrar();
 };
 
@@ -284,56 +319,25 @@ struct Task : public legate::LegateTask<T> {
 
   set(file_template
 [=[
+/* Copyright 2023 NVIDIA Corporation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
 #include "legate_library.h"
-#include "core/mapping/mapping.h"
 
 namespace @target@ {
-
-class Mapper : public legate::mapping::LegateMapper {
- public:
-  Mapper(){}
-
- private:
-  Mapper(const Mapper& rhs)            = delete;
-  Mapper& operator=(const Mapper& rhs) = delete;
-
-  // Legate mapping functions
- public:
-  void set_machine(const legate::mapping::MachineQueryInterface* machine) override {
-    machine_ = machine;
-  }
-
-  legate::mapping::TaskTarget task_target(
-    const legate::mapping::Task& task,
-    const std::vector<legate::mapping::TaskTarget>& options) override {
-    return *options.begin();
-  }
-
-  std::vector<legate::mapping::StoreMapping> store_mappings(
-    const legate::mapping::Task& task,
-    const std::vector<legate::mapping::StoreTarget>& options) override {
-    using legate::mapping::StoreMapping;
-    std::vector<StoreMapping> mappings;
-    auto& inputs  = task.inputs();
-    auto& outputs = task.outputs();
-    for (auto& input : inputs) {
-      mappings.push_back(StoreMapping::default_mapping(input, options.front()));
-      mappings.back().policy.exact = true;
-    }
-    for (auto& output : outputs) {
-      mappings.push_back(StoreMapping::default_mapping(output, options.front()));
-      mappings.back().policy.exact = true;
-    }
-    return std::move(mappings);
-  }
-
-  legate::Scalar tunable_value(legate::TunableID tunable_id) override {
-    return 0;
-  }
-
- private:
-  const legate::mapping::MachineQueryInterface* machine_;
-};
 
 static const char* const library_name = "@target@";
 
@@ -347,16 +351,9 @@ Legion::Logger log_@target@(library_name);
 
 void registration_callback()
 {
-  legate::ResourceConfig config;
-  config.max_mappers       = 1;
-  config.max_tasks         = 1024;
-  config.max_reduction_ops = 8;
-  legate::LibraryContext context(library_name, config);
+  auto context = legate::Runtime::get_runtime()->create_library(library_name);
 
   Registry::get_registrar().register_all_tasks(context);
-
-  // Now we can register our mapper with the runtime
-  context.register_mapper(std::make_unique<Mapper>(), 0);
 }
 
 }  // namespace @target@
@@ -383,12 +380,51 @@ void @target@_perform_registration(void)
   )
 endfunction()
 
-function(legate_python_library_template target)
+function(legate_python_library_template py_path)
+set(options)
+set(one_value_args TARGET PY_IMPORT_PATH)
+set(multi_value_args)
+cmake_parse_arguments(
+  LEGATE_OPT
+  "${options}"
+  "${one_value_args}"
+  "${multi_value_args}"
+  ${ARGN}
+)
+
+if (DEFINED LEGATE_OPT_TARGET)
+    set(target "${LEGATE_OPT_TARGET}")
+else()
+    string(REPLACE "/" "_" target "${py_path}")
+endif()
+
+if (DEFINED LEGATE_OPT_PY_IMPORT_PATH)
+    set(py_import_path "${LEGATE_OPT_PY_IMPORT_PATH}")
+else()
+    string(REPLACE "/" "." py_import_path "${py_path}")
+endif()
+
+set(fn_library "${CMAKE_CURRENT_SOURCE_DIR}/${py_path}/library.py")
+
 set(file_template
 [=[
+# Copyright 2023 NVIDIA Corporation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 from legate.core import (
     Library,
-    ResourceConfig,
     get_legate_runtime,
 )
 import os
@@ -407,26 +443,16 @@ class UserLibrary(Library):
         return self.name
 
     def get_shared_library(self) -> str:
-        from @target@.install_info import libpath
+        from @py_import_path@.install_info import libpath
         return os.path.join(libpath, f"lib@target@{self.get_library_extension()}")
 
     def get_c_header(self) -> str:
-        from @target@.install_info import header
+        from @py_import_path@.install_info import header
 
         return header
 
     def get_registration_callback(self) -> str:
         return "@target@_perform_registration"
-
-    def get_resource_configuration(self) -> ResourceConfig:
-        assert self.shared_object is not None
-        config = ResourceConfig()
-        config.max_tasks = 1024
-        config.max_mappers = 1
-        config.max_reduction_ops = 8
-        config.max_projections = 0
-        config.max_shardings = 0
-        return config
 
     def initialize(self, shared_object: Any) -> None:
         self.shared_object = shared_object
@@ -438,5 +464,5 @@ user_lib = UserLibrary("@target@")
 user_context = get_legate_runtime().register_library(user_lib)
 ]=])
   string(CONFIGURE "${file_template}" file_content @ONLY)
-  file(WRITE ${CMAKE_SOURCE_DIR}/${target}/library.py "${file_content}")
+  file(WRITE "${fn_library}" "${file_content}")
 endfunction()

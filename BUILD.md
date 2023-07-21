@@ -25,8 +25,8 @@ specific cluster is not covered, you may be able to adapt an existing workflow.
 ## Getting dependencies through conda
 
 The primary method of retrieving dependencies for Legate Core and downstream
-libraries is through [conda](https://conda.io). You will need an installation of
-conda to follow the instructions below.
+libraries is through [conda](https://docs.conda.io/en/latest/). You will need
+an installation of conda to follow the instructions below.
 
 Please use the `scripts/generate-conda-envs.py` script to create a conda
 environment file listing all the packages that are required to build, run and
@@ -103,7 +103,8 @@ For example this would be an installation for a
 ```
 
 Alternatively, here is an install line for the
-[Piz-Daint](https://www.cscs.ch/computers/dismissed/piz-daint-piz-dora/) supercomputer:
+[Piz-Daint](https://www.cscs.ch/computers/decommissioned/piz-daint-piz-dora/)
+supercomputer:
 
 ```shell
 ./install.py --network gasnet1 --conduit aries --cuda --arch pascal
@@ -119,22 +120,30 @@ To see all available configuration options, run with the `--help` flag:
 
 ## Dependency listing
 
-### OS (`--os` flag on `generate-conda-envs.py`)
+### Operating system
 
 Legate has been tested on Linux and MacOS, although only a few flavors of Linux
 such as Ubuntu have been thoroughly tested. There is currently no support for
 Windows.
 
-### Python >= 3.9 (`--python` flag)
+Specify your OS when creating a conda environment file through the `--os` flag
+of `generate-conda-envs.py`.
+
+### Python >= 3.9
 
 In terms of Python compatibility, Legate *roughly* follows the timeline outlined
 in [NEP 29](https://numpy.org/neps/nep-0029-deprecation_policy.html).
 
-### C++17 compatible compiler (`--compilers` flag)
+Specify your desired Python version when creating a conda environment file
+through the `--python` flag of `generate-conda-envs.py`.
 
-For example: g++, clang, or nvc++. When creating an environment using the
-`--compilers` flag, an appropriate compiler for the current system will be
-pulled from conda.
+### C++17 compatible compiler
+
+For example: g++, clang, or nvc++.
+
+If you want to pull the compilers from conda, use an environment file created by
+`generate-conda-envs.py` using the `--compilers` flag. An appropriate compiler
+for the target OS will be chosen automatically.
 
 If you need/prefer to use the system-provided compilers (typical for HPC
 installations), please use a conda environment generated with `--no-compilers`.
@@ -144,7 +153,7 @@ since the system compilers will typically produce executables
 that link against the system-provided libraries, which can shadow the
 conda-provided equivalents.
 
-### CUDA >= 10.2 (`--ctk` flag; optional)
+### CUDA >= 10.2 (optional)
 
 Only necessary if you wish to run with Nvidia GPUs.
 
@@ -154,10 +163,11 @@ stubs, are not distributed through conda. These must instead be installed using
 are not installed under a standard system location, you will need to inform
 `install.py` of their location using `--with-cuda`.
 
-Independent of the system-level CUDA installation, conda will need to install an
-environment-local copy of the CUDA toolkit (which is what the `--ctk` flag
-controls). To avoid versioning conflicts it is safest to match the version of
-CUDA installed system-wide on your machine
+If you intend to pull any CUDA libraries from conda (see below), conda will need
+to install an environment-local copy of the CUDA toolkit, even if you have it
+installed system-wide. To avoid versioning conflicts it is safest to match the
+version of CUDA installed system-wide, by specifying it to
+`generate-conda-envs.py` through the `--ctk` flag.
 
 Legate is tested and guaranteed to be compatible with Volta and later GPU
 architectures. You can use Legate with Pascal GPUs as well, but there could
@@ -177,8 +187,9 @@ The following additional CUDA libraries are required:
 - `thrust` >= 1.15 (pulled from github)
 
 If you wish to provide alternative installations for these, then you can remove
-them from the environment file (if necessary) and pass the corresponding
-`--with-<dep>` flag to `install.py`.
+them from the environment file (or invoke `generate-conda-envs.py` with `--ctk
+none`, which will skip them all), and pass the corresponding `--with-<dep>` flag
+to `install.py` (or let the build process attempt to locate them automatically).
 
 ### Build tools
 
@@ -198,8 +209,8 @@ This library is automatically pulled from conda. If you wish to provide an
 alternative installation, then you can manually remove `openblas` from the
 generated environment file and pass `--with-openblas` to `install.py`.
 
-Note that you will need to get a Fortran compiler before you can build OpenBLAS
-from source, e.g. by pulling `fortran-compiler` from `conda-forge`.
+Note that if you want to build OpenBLAS from source you will need to get a
+Fortran compiler, e.g. by pulling `fortran-compiler` from conda-forge.
 
 If you wish to compile Legate with OpenMP support, then you need a build of
 OpenBLAS configured with the following options:
@@ -220,12 +231,13 @@ Required to support CPU and memory binding in the Legate launcher.
 Not available on conda; typically available through the system-level package
 manager.
 
-### MPI (`--openmpi` flag; optional)
+### MPI (optional)
 
 Only necessary if you wish to run on multiple nodes.
 
-Conda distributes a generic build of OpenMPI, but you may need to use a more
-specialized build, e.g. the one distributed by
+Environments created using the `--openmpi` flag of `generate-conda-envs.py` will
+contain the (generic) build of OpenMPI that is available on conda-forge. You may
+need/prefer to use a more specialized build, e.g. the one distributed by
 [MOFED](https://network.nvidia.com/products/infiniband-drivers/linux/mlnx_ofed/),
 or one provided by your HPC vendor. In that case you should use an environment
 file generated with `--no-openmpi`.
@@ -240,19 +252,21 @@ networking hardware.
 Not available on conda; typically available through MOFED or the system-level
 package manager.
 
-### UCX >= 1.14 (`--ucx` flag; optional)
+### UCX >= 1.14
 
 Only necessary if you wish to run on multiple nodes, using the UCX Realm
 networking backend.
 
-A build of UCX configured with `--enable-mt` is required.
+You can use the version of UCX available on conda-forge by using an environment
+file created by `generate-conda-envs.py` using the `--ucx` flag. Note that this
+build of UCX might not include support for the particular networking hardware on
+your machine (or may not be optimally tuned for such). In that case you may want
+to use an environment file generated with `--no-ucx`, get UCX from another
+source (e.g. MOFED, the system-level package manager, or compiled manually from
+[source](https://github.com/openucx/ucx)), and pass the location of your
+installation to `install.py` (if necessary) using `--with-ucx`.
 
-The build of UCX available on conda might not include support for the particular
-networking hardware on your machine (or may not be optimally tuned for such). In
-that case you may want to use an environment file generated with `--no-ucx`,
-get UCX from another source (e.g. MOFED, the system-level package manager, or
-compiled manually from source), and pass the location of your installation to
-`install.py` (if necessary) using `--with-ucx`.
+Legate requires a build of UCX configured with `--enable-mt`.
 
 ## Alternative sources for dependencies
 

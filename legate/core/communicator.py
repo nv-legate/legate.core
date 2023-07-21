@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING
 from . import FutureMap, Point, Rect
 
 if TYPE_CHECKING:
+    from .machine import ProcessorRange
     from .runtime import Runtime
 
 
@@ -29,25 +30,31 @@ class Communicator(ABC):
         self._runtime = runtime
         self._context = runtime.core_context
 
-        self._handles: dict[int, FutureMap] = {}
+        self._handles: dict[tuple[int, ProcessorRange], FutureMap] = {}
         # From launch domains to communicator future maps transformed to N-D
-        self._nd_handles: dict[Rect, FutureMap] = {}
+        self._nd_handles: dict[tuple[Rect, ProcessorRange], FutureMap] = {}
 
     def _get_1d_handle(self, volume: int) -> FutureMap:
-        if volume in self._handles:
-            return self._handles[volume]
+        proc_range = self._runtime.machine.get_processor_range()
+        key = (volume, proc_range)
+        comm = self._handles.get(key)
+        if comm is not None:
+            return comm
         comm = self._initialize(volume)
-        self._handles[volume] = comm
+        self._handles[key] = comm
         return comm
 
     def _transform_handle(
         self, comm: FutureMap, launch_domain: Rect
     ) -> FutureMap:
-        if launch_domain in self._nd_handles:
-            return self._nd_handles[launch_domain]
-        comm = self._runtime.delinearize_future_map(comm, launch_domain)
-        self._nd_handles[launch_domain] = comm
-        return comm
+        proc_range = self._runtime.machine.get_processor_range()
+        key = (launch_domain, proc_range)
+        match = self._nd_handles.get(key)
+        if match is not None:
+            return match
+        match = self._runtime.delinearize_future_map(comm, launch_domain)
+        self._nd_handles[key] = match
+        return match
 
     def get_handle(self, launch_domain: Rect) -> FutureMap:
         comm = self._get_1d_handle(launch_domain.get_volume())
@@ -59,7 +66,7 @@ class Communicator(ABC):
         self._get_1d_handle(volume)
 
     def destroy(self) -> None:
-        for volume, handle in self._handles.items():
+        for (volume, _), handle in self._handles.items():
             self._finalize(volume, handle)
         # Drop the references to the handles dict after
         # all handles have been finalized to ensure that
@@ -87,7 +94,6 @@ class NCCLCommunicator(Communicator):
         self._init_nccl_id = library.LEGATE_CORE_INIT_NCCL_ID_TASK_ID
         self._init_nccl = library.LEGATE_CORE_INIT_NCCL_TASK_ID
         self._finalize_nccl = library.LEGATE_CORE_FINALIZE_NCCL_TASK_ID
-        self._tag = library.LEGATE_GPU_VARIANT
         self._needs_barrier = runtime.nccl_needs_barrier
 
     @property
@@ -98,21 +104,19 @@ class NCCLCommunicator(Communicator):
         from .launcher import TaskLauncher as Task
 
         # This doesn't need to run on a GPU, but will use it anyway
-        task = Task(
-            self._context, self._init_nccl_id, tag=self._tag, side_effect=True
-        )
+        task = Task(self._context, self._init_nccl_id, side_effect=True)
         nccl_id = task.execute_single()
 
-        task = Task(self._context, self._init_nccl, tag=self._tag)
+        task = Task(self._context, self._init_nccl)
         task.add_future(nccl_id)
         task.set_concurrent(True)
-        handle = task.execute(Rect([volume]))
+        handle = task.execute(Rect([volume])).future_map
         return handle
 
     def _finalize(self, volume: int, handle: FutureMap) -> None:
         from .launcher import TaskLauncher as Task
 
-        task = Task(self._context, self._finalize_nccl, tag=self._tag)
+        task = Task(self._context, self._finalize_nccl)
         # Finalize may not need to be concurrent, but set it just in case
         task.set_concurrent(True)
         task.add_future_map(handle)
@@ -129,10 +133,6 @@ class CPUCommunicator(Communicator):
         )
         self._init_cpucoll = library.LEGATE_CORE_INIT_CPUCOLL_TASK_ID
         self._finalize_cpucoll = library.LEGATE_CORE_FINALIZE_CPUCOLL_TASK_ID
-        if runtime.num_omps > 0:
-            self._tag = library.LEGATE_OMP_VARIANT
-        else:
-            self._tag = library.LEGATE_CPU_VARIANT
         self._needs_barrier = False
 
     def destroy(self) -> None:
@@ -160,21 +160,21 @@ class CPUCommunicator(Communicator):
         cpucoll_uid = self._runtime.core_library.legate_cpucoll_initcomm()
         buf = struct.pack("i", cpucoll_uid)
         cpucoll_uid_f = self._runtime.create_future(buf, len(buf))
-        task = Task(self._context, self._init_cpucoll_mapping, tag=self._tag)
-        mapping_table_fm = task.execute(Rect([volume]))
-        task = Task(self._context, self._init_cpucoll, tag=self._tag)
+        task = Task(self._context, self._init_cpucoll_mapping)
+        mapping_table_fm = task.execute(Rect([volume])).future_map
+        task = Task(self._context, self._init_cpucoll)
         task.add_future(cpucoll_uid_f)
         for i in range(volume):
             f = mapping_table_fm.get_future(Point([i]))
             task.add_future(f)
         task.set_concurrent(True)
-        handle = task.execute(Rect([volume]))
+        handle = task.execute(Rect([volume])).future_map
         return handle
 
     def _finalize(self, volume: int, handle: FutureMap) -> None:
         from .launcher import TaskLauncher as Task
 
-        task = Task(self._context, self._finalize_cpucoll, tag=self._tag)
+        task = Task(self._context, self._finalize_cpucoll)
         task.add_future_map(handle)
         task.set_concurrent(True)
         task.execute(Rect([volume]))

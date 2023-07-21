@@ -58,7 +58,7 @@ struct Span {
   size_t size() const { return size_; }
 
  public:
-  decltype(auto) operator[](size_t pos)
+  decltype(auto) operator[](size_t pos) const
   {
     assert(pos < size_);
     return data_[pos];
@@ -68,13 +68,13 @@ struct Span {
    *
    * @return Pointer to the first element
    */
-  const T* begin() const { return &data_[0]; }
+  const T* begin() const { return data_; }
   /**
    * @brief Returns the pointer to the end of allocation
    *
    * @return Pointer to the end of allocation
    */
-  const T* end() const { return &data_[size_]; }
+  const T* end() const { return data_ + size_; }
 
  public:
   /**

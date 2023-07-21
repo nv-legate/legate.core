@@ -38,9 +38,9 @@ namespace {
 const std::vector<StoreTarget>& default_store_targets(Processor::Kind kind)
 {
   static const std::map<Processor::Kind, std::vector<StoreTarget>> defaults = {
-    {Processor::LOC_PROC, {StoreTarget::SYSMEM}},
-    {Processor::TOC_PROC, {StoreTarget::FBMEM, StoreTarget::ZCMEM}},
-    {Processor::OMP_PROC, {StoreTarget::SOCKETMEM, StoreTarget::SYSMEM}},
+    {Processor::Kind::TOC_PROC, {StoreTarget::FBMEM, StoreTarget::ZCMEM}},
+    {Processor::Kind::OMP_PROC, {StoreTarget::SOCKETMEM, StoreTarget::SYSMEM}},
+    {Processor::Kind::LOC_PROC, {StoreTarget::SYSMEM}},
   };
 
   auto finder = defaults.find(kind);
@@ -69,74 +69,22 @@ std::string log_mappable(const Legion::Mappable& mappable, bool prefix_only = fa
 
 }  // namespace
 
-BaseMapper::BaseMapper(std::unique_ptr<LegateMapper> legate_mapper,
-                       Legion::Runtime* rt,
-                       Legion::Machine m,
-                       const LibraryContext& ctx)
-  : Mapper(rt->get_mapper_runtime()),
-    legate_mapper_(std::move(legate_mapper)),
-    legion_runtime(rt),
-    machine(m),
-    context(ctx),
-    local_node(get_local_node()),
-    total_nodes_(get_total_nodes(m)),
-    mapper_name(std::move(create_name(local_node))),
+BaseMapper::BaseMapper(mapping::Mapper* legate_mapper,
+                       Legion::Mapping::MapperRuntime* _mapper_runtime,
+                       const LibraryContext* _context)
+  : Mapper(_mapper_runtime),
+    legate_mapper_(legate_mapper),
+    mapper_runtime(_mapper_runtime),
+    legion_machine(Legion::Machine::get_machine()),
+    context(_context),
     logger(create_logger_name().c_str()),
     local_instances(InstanceManager::get_instance_manager()),
-    reduction_instances(ReductionInstanceManager::get_instance_manager())
+    reduction_instances(ReductionInstanceManager::get_instance_manager()),
+    machine()
 {
-  // Query to find all our local processors
-  Legion::Machine::ProcessorQuery local_procs(machine);
-  local_procs.local_address_space();
-  for (auto local_proc : local_procs) {
-    switch (local_proc.kind()) {
-      case Processor::LOC_PROC: {
-        local_cpus.push_back(local_proc);
-        break;
-      }
-      case Processor::TOC_PROC: {
-        local_gpus.push_back(local_proc);
-        break;
-      }
-      case Processor::OMP_PROC: {
-        local_omps.push_back(local_proc);
-        break;
-      }
-      default: break;
-    }
-  }
-  // Now do queries to find all our local memories
-  Legion::Machine::MemoryQuery local_sysmem(machine);
-  local_sysmem.local_address_space();
-  local_sysmem.only_kind(Memory::SYSTEM_MEM);
-  assert(local_sysmem.count() > 0);
-  local_system_memory = local_sysmem.first();
-  if (!local_gpus.empty()) {
-    Legion::Machine::MemoryQuery local_zcmem(machine);
-    local_zcmem.local_address_space();
-    local_zcmem.only_kind(Memory::Z_COPY_MEM);
-    assert(local_zcmem.count() > 0);
-    local_zerocopy_memory = local_zcmem.first();
-  }
-  for (auto& local_gpu : local_gpus) {
-    Legion::Machine::MemoryQuery local_framebuffer(machine);
-    local_framebuffer.local_address_space();
-    local_framebuffer.only_kind(Memory::GPU_FB_MEM);
-    local_framebuffer.best_affinity_to(local_gpu);
-    assert(local_framebuffer.count() > 0);
-    local_frame_buffers[local_gpu] = local_framebuffer.first();
-  }
-  for (auto& local_omp : local_omps) {
-    Legion::Machine::MemoryQuery local_numa(machine);
-    local_numa.local_address_space();
-    local_numa.only_kind(Memory::SOCKET_MEM);
-    local_numa.best_affinity_to(local_omp);
-    if (local_numa.count() > 0)  // if we have NUMA memories then use them
-      local_numa_domains[local_omp] = local_numa.first();
-    else  // Otherwise we just use the local system memory
-      local_numa_domains[local_omp] = local_system_memory;
-  }
-  generate_prime_factors();
+  std::stringstream ss;
+  ss << context->get_library_name() << " on Node " << machine.local_node;
+  mapper_name = ss.str();
 
   legate_mapper_->set_machine(this);
 }
@@ -145,7 +93,7 @@ BaseMapper::~BaseMapper()
 {
   // Compute the size of all our remaining instances in each memory
   const char* show_usage = getenv("LEGATE_SHOW_USAGE");
-  if (show_usage != nullptr) {
+  if (show_usage != nullptr && atoi(show_usage) > 0) {
     auto mem_sizes             = local_instances->aggregate_instance_sizes();
     const char* memory_kinds[] = {
 #define MEM_NAMES(name, desc) desc,
@@ -158,7 +106,7 @@ BaseMapper::~BaseMapper()
       logger.print(
         "%s used %ld bytes of %s memory %llx with "
         "%ld total bytes (%.2g%%)",
-        context.get_library_name().c_str(),
+        context->get_library_name().c_str(),
         pair.second,
         memory_kinds[mem.kind()],
         mem.id,
@@ -168,32 +116,10 @@ BaseMapper::~BaseMapper()
   }
 }
 
-/*static*/ Legion::AddressSpace BaseMapper::get_local_node()
-{
-  Processor p = Processor::get_executing_processor();
-  return p.address_space();
-}
-
-/*static*/ size_t BaseMapper::get_total_nodes(Legion::Machine m)
-{
-  Legion::Machine::ProcessorQuery query(m);
-  query.only_kind(Processor::LOC_PROC);
-  std::set<Legion::AddressSpace> spaces;
-  for (auto proc : query) spaces.insert(proc.address_space());
-  return spaces.size();
-}
-
-std::string BaseMapper::create_name(Legion::AddressSpace node) const
-{
-  std::stringstream ss;
-  ss << context.get_library_name() << " on Node " << node;
-  return ss.str();
-}
-
 std::string BaseMapper::create_logger_name() const
 {
   std::stringstream ss;
-  ss << context.get_library_name() << ".mapper";
+  ss << context->get_library_name() << ".mapper";
   return ss.str();
 }
 
@@ -208,33 +134,49 @@ void BaseMapper::select_task_options(const Legion::Mapping::MapperContext ctx,
                                      const Legion::Task& task,
                                      TaskOptions& output)
 {
+  Task legate_task(&task, context, runtime, ctx);
 #ifdef LEGATE_USE_COLLECTIVE
-  for (uint32_t idx = 0; idx < task.regions.size(); ++idx) {
-    auto& req = task.regions[idx];
+  auto hi = task.index_domain.hi();
+  auto lo = task.index_domain.lo();
+  for (auto& store : legate_task.inputs()) {
+    if (store.is_future()) continue;
+    std::vector<int32_t> promoted_dims = store.find_imaginary_dims();
+    for (auto& d : promoted_dims) {
+      if ((hi[d] - lo[d]) >= 1) {
+        output.check_collective_regions.insert(store.requirement_index());
+        break;
+      }
+    }
+  }
+  for (auto& store : legate_task.reductions()) {
+    if (store.is_future()) continue;
+    auto idx = store.requirement_index();
+    auto req = task.regions[idx];
     if (req.privilege & LEGION_WRITE_PRIV) continue;
-    // Look up the projection for the input region. There are cases where
-    // Legate libraries register their own projection functors that are
-    // not recorded by Legate Core. So, handle the case when these functors
-    // are not present and allow for them to be missing.
-    auto projection = find_legate_projection_functor(req.projection, true /* allow_mising */);
-    if ((req.handle_type == LEGION_SINGULAR_PROJECTION) ||
-        (projection != nullptr && projection->is_collective())) {
+    if (req.handle_type == LEGION_SINGULAR_PROJECTION || req.projection != 0) {
       output.check_collective_regions.insert(idx);
     }
   }
+
 #endif
 
+  auto& machine_desc = legate_task.machine_desc();
+  auto all_targets   = machine_desc.valid_targets();
+
   std::vector<TaskTarget> options;
-  if (!local_gpus.empty() && has_variant(ctx, task, Processor::TOC_PROC))
-    options.push_back(TaskTarget::GPU);
-  if (!local_omps.empty() && has_variant(ctx, task, Processor::OMP_PROC))
-    options.push_back(TaskTarget::OMP);
-  options.push_back(TaskTarget::CPU);
+  for (auto& target : all_targets)
+    if (has_variant(ctx, task, target)) options.push_back(target);
+  if (options.empty()) {
+    logger.error() << "Task " << task.get_task_name() << "[" << task.get_provenance_string()
+                   << "] does not have a valid variant "
+                   << "for this resource configuration: " << machine_desc;
+    LEGATE_ABORT;
+  }
 
-  Task legate_task(&task, context, runtime, ctx);
   auto target = legate_mapper_->task_target(legate_task, options);
+  // The initial processor just needs to have the same kind as the eventual target of this task
+  output.initial_proc = machine.procs(target).front();
 
-  dispatch(target, [&output](auto& procs) { output.initial_proc = procs.front(); });
   // We never want valid instances
   output.valid_instances = false;
 }
@@ -247,11 +189,16 @@ void BaseMapper::premap_task(const Legion::Mapping::MapperContext ctx,
   // NO-op since we know that all our futures should be mapped in the system memory
 }
 
-void BaseMapper::slice_auto_task(const Legion::Mapping::MapperContext ctx,
-                                 const Legion::Task& task,
-                                 const SliceTaskInput& input,
-                                 SliceTaskOutput& output)
+void BaseMapper::slice_task(const Legion::Mapping::MapperContext ctx,
+                            const Legion::Task& task,
+                            const SliceTaskInput& input,
+                            SliceTaskOutput& output)
 {
+  Task legate_task(&task, context, runtime, ctx);
+
+  auto& machine_desc = legate_task.machine_desc();
+  auto local_range   = machine.slice(legate_task.target(), machine_desc);
+
   Legion::ProjectionID projection = 0;
   for (auto& req : task.regions)
     if (req.tag == LEGATE_CORE_KEY_STORE_TAG) {
@@ -270,109 +217,21 @@ void BaseMapper::slice_auto_task(const Legion::Mapping::MapperContext ctx,
   if (task.sharding_space.exists())
     sharding_domain = runtime->get_index_space_domain(ctx, task.sharding_space);
 
-  auto round_robin = [&](auto& procs) {
-    auto lo = key_functor->project_point(sharding_domain.lo(), sharding_domain);
-    auto hi = key_functor->project_point(sharding_domain.hi(), sharding_domain);
-    for (Domain::DomainPointIterator itr(input.domain); itr; itr++) {
-      auto p   = key_functor->project_point(itr.p, sharding_domain);
-      auto idx = linearize(lo, hi, p);
-      output.slices.push_back(TaskSlice(
-        Domain(itr.p, itr.p), procs[idx % procs.size()], false /*recurse*/, false /*stealable*/));
-    }
-  };
-
-  dispatch(task.target_proc.kind(), round_robin);
-}
-
-void BaseMapper::generate_prime_factor(const std::vector<Processor>& processors,
-                                       Processor::Kind kind)
-{
-  std::vector<int32_t>& factors = all_factors[kind];
-  int32_t num_procs             = static_cast<int32_t>(processors.size());
-
-  auto generate_factors = [&](int32_t factor) {
-    while (num_procs % factor == 0) {
-      factors.push_back(factor);
-      num_procs /= factor;
-    }
-  };
-  generate_factors(2);
-  generate_factors(3);
-  generate_factors(5);
-  generate_factors(7);
-  generate_factors(11);
-}
-
-void BaseMapper::generate_prime_factors()
-{
-  if (local_gpus.size() > 0) generate_prime_factor(local_gpus, Processor::TOC_PROC);
-  if (local_omps.size() > 0) generate_prime_factor(local_omps, Processor::OMP_PROC);
-  if (local_cpus.size() > 0) generate_prime_factor(local_cpus, Processor::LOC_PROC);
-}
-
-const std::vector<int32_t> BaseMapper::get_processor_grid(Processor::Kind kind, int32_t ndim)
-{
-  auto key    = std::make_pair(kind, ndim);
-  auto finder = proc_grids.find(key);
-  if (finder != proc_grids.end()) return finder->second;
-
-  int32_t num_procs = dispatch(kind, [](auto& procs) { return procs.size(); });
-
-  std::vector<int32_t> grid;
-  auto factor_it = all_factors[kind].begin();
-  grid.resize(ndim, 1);
-
-  while (num_procs > 1) {
-    auto min_it = std::min_element(grid.begin(), grid.end());
-    auto factor = *factor_it++;
-    (*min_it) *= factor;
-    num_procs /= factor;
+  auto lo = key_functor->project_point(sharding_domain.lo(), sharding_domain);
+  auto hi = key_functor->project_point(sharding_domain.hi(), sharding_domain);
+  for (Domain::DomainPointIterator itr(input.domain); itr; itr++) {
+    auto p   = key_functor->project_point(itr.p, sharding_domain);
+    auto idx = linearize(lo, hi, p);
+    output.slices.push_back(
+      TaskSlice(Domain(itr.p, itr.p), local_range[idx], false /*recurse*/, false /*stealable*/));
   }
-
-  auto& pitches = proc_grids[key];
-  pitches.resize(ndim, 1);
-  for (int32_t dim = 1; dim < ndim; ++dim) pitches[dim] = pitches[dim - 1] * grid[dim - 1];
-
-  return pitches;
-}
-
-void BaseMapper::slice_manual_task(const Legion::Mapping::MapperContext ctx,
-                                   const Legion::Task& task,
-                                   const SliceTaskInput& input,
-                                   SliceTaskOutput& output)
-{
-  output.slices.reserve(input.domain.get_volume());
-
-  auto distribute = [&](auto& procs) {
-    auto ndim       = input.domain.dim;
-    auto& proc_grid = get_processor_grid(task.target_proc.kind(), ndim);
-    for (Domain::DomainPointIterator itr(input.domain); itr; itr++) {
-      int32_t idx = 0;
-      for (int32_t dim = 0; dim < ndim; ++dim) idx += proc_grid[dim] * itr.p[dim];
-      output.slices.push_back(TaskSlice(
-        Domain(itr.p, itr.p), procs[idx % procs.size()], false /*recurse*/, false /*stealable*/));
-    }
-  };
-
-  dispatch(task.target_proc.kind(), distribute);
-}
-
-void BaseMapper::slice_task(const Legion::Mapping::MapperContext ctx,
-                            const Legion::Task& task,
-                            const SliceTaskInput& input,
-                            SliceTaskOutput& output)
-{
-  if (task.tag == LEGATE_CORE_MANUAL_PARALLEL_LAUNCH_TAG)
-    slice_manual_task(ctx, task, input, output);
-  else
-    slice_auto_task(ctx, task, input, output);
 }
 
 bool BaseMapper::has_variant(const Legion::Mapping::MapperContext ctx,
                              const Legion::Task& task,
-                             Processor::Kind kind)
+                             TaskTarget target)
 {
-  return find_variant(ctx, task, kind).has_value();
+  return find_variant(ctx, task, to_kind(target)).has_value();
 }
 
 std::optional<Legion::VariantID> BaseMapper::find_variant(const Legion::Mapping::MapperContext ctx,
@@ -424,10 +283,22 @@ void BaseMapper::map_task(const Legion::Mapping::MapperContext ctx,
   assert(variant.has_value());
 #endif
   output.chosen_variant = *variant;
-  // Just put our target proc in the target processors for now
-  output.target_procs.push_back(task.target_proc);
 
   Task legate_task(&task, context, runtime, ctx);
+
+  if (task.is_index_space)
+    // If this is an index task, point tasks already have the right targets, so we just need to
+    // copy them to the mapper output
+    output.target_procs.push_back(task.target_proc);
+  else {
+    // If this is a single task, here is the right place to compute the final target processor
+    auto local_range =
+      machine.slice(legate_task.target(), legate_task.machine_desc(), task.local_function);
+#ifdef DEBUG_LEGATE
+    assert(!local_range.empty());
+#endif
+    output.target_procs.push_back(local_range.first());
+  }
 
   const auto& options = default_store_targets(task.target_proc.kind());
 
@@ -444,7 +315,7 @@ void BaseMapper::map_task(const Legion::Mapping::MapperContext ctx,
     }
     auto& first_store = mapping.stores.front();
     for (auto it = mapping.stores.begin() + 1; it != mapping.stores.end(); ++it) {
-      if (!it->can_colocate_with(first_store)) {
+      if (!it->get().can_colocate_with(first_store)) {
         logger.error("Mapper %s tried to colocate stores that cannot colocate", get_mapper_name());
         LEGATE_ABORT;
       }
@@ -462,13 +333,21 @@ void BaseMapper::map_task(const Legion::Mapping::MapperContext ctx,
 
   for (auto& mapping : mappings) {
     if (mapping.for_future()) {
-      mapped_futures.insert(mapping.store().future_index());
+      auto fut_idx = mapping.store().future_index();
+      // Only need to map Future-backed Stores corresponding to inputs (i.e. one of task.futures)
+      if (fut_idx >= task.futures.size()) continue;
+      if (mapped_futures.count(fut_idx) > 0) {
+        logger.error("Mapper %s returned duplicate store mappings", get_mapper_name());
+        LEGATE_ABORT;
+      }
+      mapped_futures.insert(fut_idx);
       for_futures.push_back(std::move(mapping));
     } else if (mapping.for_unbound_store()) {
       mapped_regions.insert(mapping.store().unique_region_field_id());
       for_unbound_stores.push_back(std::move(mapping));
     } else {
-      for (auto& store : mapping.stores) mapped_regions.insert(store.unique_region_field_id());
+      for (auto& store : mapping.stores)
+        mapped_regions.insert(store.get().unique_region_field_id());
       for_stores.push_back(std::move(mapping));
     }
   }
@@ -477,7 +356,7 @@ void BaseMapper::map_task(const Legion::Mapping::MapperContext ctx,
     std::map<RegionField::Id, InstanceMappingPolicy> policies;
     for (const auto& mapping : mappings)
       for (auto& store : mapping.stores) {
-        auto key    = store.unique_region_field_id();
+        auto key    = store.get().unique_region_field_id();
         auto finder = policies.find(key);
         if (policies.end() == finder)
           policies[key] = mapping.policy;
@@ -498,6 +377,8 @@ void BaseMapper::map_task(const Legion::Mapping::MapperContext ctx,
       auto mapping = StoreMapping::default_mapping(store, default_option, exact);
       if (store.is_future()) {
         auto fut_idx = store.future_index();
+        // Only need to map Future-backed Stores corresponding to inputs (i.e. one of task.futures)
+        if (fut_idx >= task.futures.size()) continue;
         if (mapped_futures.find(fut_idx) != mapped_futures.end()) continue;
         mapped_futures.insert(fut_idx);
         for_futures.push_back(std::move(mapping));
@@ -515,24 +396,31 @@ void BaseMapper::map_task(const Legion::Mapping::MapperContext ctx,
   generate_default_mappings(legate_task.inputs(), false);
   generate_default_mappings(legate_task.outputs(), false);
   generate_default_mappings(legate_task.reductions(), false);
+#ifdef DEBUG_LEGATE
+  assert(mapped_futures.size() <= task.futures.size());
+  // The launching code should be packing all Store-backing Futures first.
+  if (mapped_futures.size() > 0) {
+    uint32_t max_mapped_fut = *mapped_futures.rbegin();
+    assert(mapped_futures.size() == max_mapped_fut + 1);
+  }
+#endif
 
   // Map future-backed stores
-  auto map_futures = [&](auto& mappings) {
-    for (auto& mapping : mappings) {
-      StoreTarget target = mapping.policy.target;
+  output.future_locations.resize(mapped_futures.size());
+  for (auto& mapping : for_futures) {
+    auto fut_idx       = mapping.store().future_index();
+    StoreTarget target = mapping.policy.target;
 #ifdef LEGATE_NO_FUTURES_ON_FB
-      if (target == StoreTarget::FBMEM) target = StoreTarget::ZCMEM;
+    if (target == StoreTarget::FBMEM) target = StoreTarget::ZCMEM;
 #endif
-      output.future_locations.push_back(get_target_memory(task.target_proc, target));
-    }
-  };
-  map_futures(for_futures);
+    output.future_locations[fut_idx] = machine.get_memory(task.target_proc, target);
+  }
 
   // Map unbound stores
   auto map_unbound_stores = [&](auto& mappings) {
     for (auto& mapping : mappings) {
       auto req_idx                   = mapping.requirement_index();
-      output.output_targets[req_idx] = get_target_memory(task.target_proc, mapping.policy.target);
+      output.output_targets[req_idx] = machine.get_memory(task.target_proc, mapping.policy.target);
       auto ndim                      = mapping.store().dim();
       // FIXME: Unbound stores can have more than one dimension later
       std::vector<Legion::DimensionKind> dimension_ordering;
@@ -562,19 +450,6 @@ void BaseMapper::map_replicate_task(const Legion::Mapping::MapperContext ctx,
                                     MapReplicateTaskOutput& output)
 {
   LEGATE_ABORT;
-}
-
-Memory BaseMapper::get_target_memory(Processor proc, StoreTarget target)
-{
-  switch (target) {
-    case StoreTarget::SYSMEM: return local_system_memory;
-    case StoreTarget::FBMEM: return local_frame_buffers[proc];
-    case StoreTarget::ZCMEM: return local_zerocopy_memory;
-    case StoreTarget::SOCKETMEM: return local_numa_domains[proc];
-    default: LEGATE_ABORT;
-  }
-  assert(false);
-  return Memory::NO_MEMORY;
 }
 
 void BaseMapper::map_legate_stores(const Legion::Mapping::MapperContext ctx,
@@ -687,7 +562,7 @@ bool BaseMapper::map_legate_store(const Legion::Mapping::MapperContext ctx,
   const auto& policy = mapping.policy;
   std::vector<Legion::LogicalRegion> regions;
   for (auto* req : reqs) regions.push_back(req->region);
-  auto target_memory = get_target_memory(target_proc, policy.target);
+  auto target_memory = machine.get_memory(target_proc, policy.target);
 
   auto redop = (*reqs.begin())->redop;
 #ifdef DEBUG_LEGATE
@@ -955,34 +830,52 @@ void BaseMapper::select_task_sources(const Legion::Mapping::MapperContext ctx,
     ctx, input.target, input.source_instances, input.collective_views, output.chosen_ranking);
 }
 
-void add_instance_to_band_ranking(
-  const Legion::Mapping::PhysicalInstance& instance,
-  const Legion::AddressSpace& local_node,
-  std::map<Memory, uint32_t /*bandwidth*/>& source_memories,
-  std::vector<std::pair<Legion::Mapping::PhysicalInstance, uint32_t>>& band_ranking,
-  const Memory& destination_memory,
+namespace {
+
+using Bandwidth = uint32_t;
+
+// Source instance annotated with the memory bandwidth
+struct AnnotatedSourceInstance {
+  AnnotatedSourceInstance(Legion::Mapping::PhysicalInstance _instance, Bandwidth _bandwidth)
+    : instance(_instance), bandwidth(_bandwidth)
+  {
+  }
+  Legion::Mapping::PhysicalInstance instance;
+  Bandwidth bandwidth;
+};
+
+void find_source_instance_bandwidth(
+  std::vector<AnnotatedSourceInstance>& all_sources,     /* output */
+  std::map<Memory, Bandwidth>& source_memory_bandwidths, /* inout */
+  const Legion::Mapping::PhysicalInstance& source_instance,
+  const Memory& target_memory,
   const Legion::Machine& machine)
 {
-  Memory location = instance.get_location();
-  auto finder     = source_memories.find(location);
-  if (finder == source_memories.end()) {
-    std::vector<Legion::MemoryMemoryAffinity> affinity;
+  Memory source_memory = source_instance.get_location();
+  auto finder          = source_memory_bandwidths.find(source_memory);
+
+  uint32_t bandwidth{0};
+  if (source_memory_bandwidths.end() == finder) {
+    std::vector<Legion::MemoryMemoryAffinity> affinities;
     machine.get_mem_mem_affinity(
-      affinity, location, destination_memory, false /*not just local affinities*/);
-    uint32_t memory_bandwidth = 0;
-    if (!affinity.empty()) {
+      affinities, source_memory, target_memory, false /*not just local affinities*/);
+    // affinities being empty means that there's no direct channel between the source
+    // and target memories, in which case we assign the smallest bandwidth
+    // TODO: Not all multi-hop copies are equal
+    if (!affinities.empty()) {
 #ifdef DEBUG_LEGATE
-      assert(affinity.size() == 1);
+      assert(affinities.size() == 1);
 #endif
-      memory_bandwidth = affinity[0].bandwidth;
+      bandwidth = affinities.front().bandwidth;
     }
-    source_memories[location] = memory_bandwidth;
-    band_ranking.push_back(
-      std::pair<Legion::Mapping::PhysicalInstance, uint32_t>(instance, memory_bandwidth));
+    source_memory_bandwidths[source_memory] = bandwidth;
   } else
-    band_ranking.push_back(
-      std::pair<Legion::Mapping::PhysicalInstance, uint32_t>(instance, finder->second));
+    bandwidth = finder->second;
+
+  all_sources.emplace_back(source_instance, bandwidth);
 }
+
+}  // namespace
 
 void BaseMapper::legate_select_sources(
   const Legion::Mapping::MapperContext ctx,
@@ -991,51 +884,42 @@ void BaseMapper::legate_select_sources(
   const std::vector<Legion::Mapping::CollectiveView>& collective_sources,
   std::deque<Legion::Mapping::PhysicalInstance>& ranking)
 {
-  std::map<Memory, uint32_t /*bandwidth*/> source_memories;
+  std::map<Memory, Bandwidth> source_memory_bandwidths;
   // For right now we'll rank instances by the bandwidth of the memory
   // they are in to the destination.
   // TODO: consider layouts when ranking source to help out the DMA system
-  Memory destination_memory = target.get_location();
-  // fill in a vector of the sources with their bandwidths and sort them
-  std::vector<std::pair<Legion::Mapping::PhysicalInstance, uint32_t /*bandwidth*/>> band_ranking;
-  for (uint32_t idx = 0; idx < sources.size(); idx++) {
-    const Legion::Mapping::PhysicalInstance& instance = sources[idx];
-    add_instance_to_band_ranking(
-      instance, local_node, source_memories, band_ranking, destination_memory, machine);
-  }
+  Memory target_memory = target.get_location();
+  // fill in a vector of the sources with their bandwidths
+  std::vector<AnnotatedSourceInstance> all_sources;
+
+  for (uint32_t idx = 0; idx < sources.size(); idx++)
+    find_source_instance_bandwidth(
+      all_sources, source_memory_bandwidths, sources[idx], target_memory, legion_machine);
 
   for (uint32_t idx = 0; idx < collective_sources.size(); idx++) {
-    std::vector<Legion::Mapping::PhysicalInstance> col_instances;
-    collective_sources[idx].find_instances_nearest_memory(destination_memory, col_instances);
+    std::vector<Legion::Mapping::PhysicalInstance> source_instances;
+    collective_sources[idx].find_instances_nearest_memory(target_memory, source_instances);
 #ifdef DEBUG_LEGATE
     // there must exist at least one instance in the collective view
-    assert(!col_instances.empty());
+    assert(!source_instances.empty());
 #endif
     // we need only first instance if there are several
-    const Legion::Mapping::PhysicalInstance& instance = col_instances[0];
-    add_instance_to_band_ranking(
-      instance, local_node, source_memories, band_ranking, destination_memory, machine);
+    find_source_instance_bandwidth(all_sources,
+                                   source_memory_bandwidths,
+                                   source_instances.front(),
+                                   target_memory,
+                                   legion_machine);
   }
 #ifdef DEBUG_LEGATE
-  assert(!band_ranking.empty());
+  assert(!all_sources.empty());
 #endif
-  // Easy case of only one instance
-  if (band_ranking.size() == 1) {
-    ranking.push_back(band_ranking.begin()->first);
-    return;
-  }
-  // Sort them by bandwidth
-  std::sort(band_ranking.begin(), band_ranking.end(), physical_sort_func);
-  // Iterate from largest bandwidth to smallest
-  for (auto it = band_ranking.rbegin(); it != band_ranking.rend(); ++it)
-    ranking.push_back(it->first);
-}
-
-void BaseMapper::speculate(const Legion::Mapping::MapperContext ctx,
-                           const Legion::Task& task,
-                           SpeculativeOutput& output)
-{
-  output.speculate = false;
+  if (all_sources.size() > 1)
+    // Sort source instances by their bandwidths
+    std::sort(all_sources.begin(), all_sources.end(), [](const auto& lhs, const auto& rhs) {
+      return lhs.bandwidth > rhs.bandwidth;
+    });
+  // Record all instances from the one of the largest bandwidth to that of the smallest
+  for (auto& source : all_sources) ranking.emplace_back(source.instance);
 }
 
 void BaseMapper::report_profiling(const Legion::Mapping::MapperContext ctx,
@@ -1046,16 +930,10 @@ void BaseMapper::report_profiling(const Legion::Mapping::MapperContext ctx,
   LEGATE_ABORT;
 }
 
-Legion::ShardingID BaseMapper::find_sharding_functor_by_key_store_projection(
-  const std::vector<Legion::RegionRequirement>& requirements)
+Legion::ShardingID BaseMapper::find_mappable_sharding_functor_id(const Legion::Mappable& mappable)
 {
-  Legion::ProjectionID proj_id = 0;
-  for (auto& requirement : requirements)
-    if (LEGATE_CORE_KEY_STORE_TAG == requirement.tag) {
-      proj_id = requirement.projection;
-      break;
-    }
-  return find_sharding_functor_by_projection_functor(proj_id);
+  Mappable legate_mappable(&mappable);
+  return static_cast<Legion::ShardingID>(legate_mappable.sharding_id());
 }
 
 void BaseMapper::select_sharding_functor(const Legion::Mapping::MapperContext ctx,
@@ -1063,9 +941,7 @@ void BaseMapper::select_sharding_functor(const Legion::Mapping::MapperContext ct
                                          const SelectShardingFunctorInput& input,
                                          SelectShardingFunctorOutput& output)
 {
-  output.chosen_functor = task.is_index_space
-                            ? find_sharding_functor_by_key_store_projection(task.regions)
-                            : find_sharding_functor_by_projection_functor(0);
+  output.chosen_functor = find_mappable_sharding_functor_id(task);
 }
 
 void BaseMapper::map_inline(const Legion::Mapping::MapperContext ctx,
@@ -1074,10 +950,10 @@ void BaseMapper::map_inline(const Legion::Mapping::MapperContext ctx,
                             MapInlineOutput& output)
 {
   Processor target_proc{Processor::NO_PROC};
-  if (!local_omps.empty())
-    target_proc = local_omps.front();
+  if (machine.has_omps())
+    target_proc = machine.omps().front();
   else
-    target_proc = local_cpus.front();
+    target_proc = machine.cpus().front();
 
   auto store_target = default_store_targets(target_proc.kind()).front();
 
@@ -1085,7 +961,7 @@ void BaseMapper::map_inline(const Legion::Mapping::MapperContext ctx,
   assert(inline_op.requirement.instance_fields.size() == 1);
 #endif
 
-  Store store(legion_runtime->get_mapper_runtime(), ctx, &inline_op.requirement);
+  Store store(mapper_runtime, ctx, &inline_op.requirement);
   std::vector<StoreMapping> mappings;
   mappings.push_back(StoreMapping::default_mapping(store, store_target, false));
 
@@ -1118,9 +994,29 @@ void BaseMapper::map_copy(const Legion::Mapping::MapperContext ctx,
                           const MapCopyInput& input,
                           MapCopyOutput& output)
 {
-  Processor target_proc{Processor::NO_PROC};
+  Copy legate_copy(&copy, runtime, ctx);
+  auto& machine_desc = legate_copy.machine_desc();
+  auto copy_target   = [&]() {
+    // If we're mapping an indirect copy and have data resident in GPU memory,
+    // map everything to CPU memory, as indirect copies on GPUs are currently
+    // extremely slow.
+    auto indirect =
+      !copy.src_indirect_requirements.empty() || !copy.dst_indirect_requirements.empty();
+    auto valid_targets = indirect ? machine_desc.valid_targets_except({TaskTarget::GPU})
+                                    : machine_desc.valid_targets();
+    // However, if the machine in the scope doesn't have any CPU or OMP as a fallback for
+    // indirect copies, we have no choice but using GPUs
+    if (valid_targets.empty()) {
+#ifdef DEBUG_LEGATE
+      assert(indirect);
+#endif
+      valid_targets = machine_desc.valid_targets();
+    }
+    return valid_targets.front();
+  }();
 
-  uint32_t proc_id = 0;
+  auto local_range = machine.slice(copy_target, machine_desc, true);
+  Processor target_proc;
   if (copy.is_index_space) {
     Domain sharding_domain = copy.index_domain;
     if (copy.sharding_space.exists())
@@ -1133,28 +1029,12 @@ void BaseMapper::map_copy(const Legion::Mapping::MapperContext ctx,
     auto lo           = key_functor->project_point(sharding_domain.lo(), sharding_domain);
     auto hi           = key_functor->project_point(sharding_domain.hi(), sharding_domain);
     auto p            = key_functor->project_point(copy.index_point, sharding_domain);
-    proc_id           = linearize(lo, hi, p);
-  }
-  if (!local_gpus.empty())
-    target_proc = local_gpus[proc_id % local_gpus.size()];
-  else if (!local_omps.empty())
-    target_proc = local_omps[proc_id % local_omps.size()];
-  else
-    target_proc = local_cpus[proc_id % local_cpus.size()];
+    auto idx          = linearize(lo, hi, p);
+    target_proc       = local_range[idx];
+  } else
+    target_proc = local_range.first();
 
   auto store_target = default_store_targets(target_proc.kind()).front();
-
-  // If we're mapping an indirect copy and have data resident in GPU memory,
-  // map everything to CPU memory, as indirect copies on GPUs are currently
-  // extremely slow.
-  auto indirect =
-    !copy.src_indirect_requirements.empty() || !copy.dst_indirect_requirements.empty();
-  if (indirect && target_proc.kind() == Processor::TOC_PROC) {
-    target_proc  = local_cpus.front();
-    store_target = StoreTarget::SYSMEM;
-  }
-
-  Copy legate_copy(&copy, runtime, ctx);
 
   std::map<const Legion::RegionRequirement*, std::vector<Legion::Mapping::PhysicalInstance>*>
     output_map;
@@ -1203,13 +1083,6 @@ void BaseMapper::select_copy_sources(const Legion::Mapping::MapperContext ctx,
     ctx, input.target, input.source_instances, input.collective_views, output.chosen_ranking);
 }
 
-void BaseMapper::speculate(const Legion::Mapping::MapperContext ctx,
-                           const Legion::Copy& copy,
-                           SpeculativeOutput& output)
-{
-  output.speculate = false;
-}
-
 void BaseMapper::report_profiling(const Legion::Mapping::MapperContext ctx,
                                   const Legion::Copy& copy,
                                   const CopyProfilingInfo& input)
@@ -1224,7 +1097,7 @@ void BaseMapper::select_sharding_functor(const Legion::Mapping::MapperContext ct
                                          SelectShardingFunctorOutput& output)
 {
   // TODO: Copies can have key stores in the future
-  output.chosen_functor = find_sharding_functor_by_projection_functor(0);
+  output.chosen_functor = find_mappable_sharding_functor_id(copy);
 }
 
 void BaseMapper::select_close_sources(const Legion::Mapping::MapperContext ctx,
@@ -1260,13 +1133,6 @@ void BaseMapper::map_acquire(const Legion::Mapping::MapperContext ctx,
   // Nothing to do
 }
 
-void BaseMapper::speculate(const Legion::Mapping::MapperContext ctx,
-                           const Legion::Acquire& acquire,
-                           SpeculativeOutput& output)
-{
-  output.speculate = false;
-}
-
 void BaseMapper::report_profiling(const Legion::Mapping::MapperContext ctx,
                                   const Legion::Acquire& acquire,
                                   const AcquireProfilingInfo& input)
@@ -1298,13 +1164,6 @@ void BaseMapper::select_release_sources(const Legion::Mapping::MapperContext ctx
 {
   legate_select_sources(
     ctx, input.target, input.source_instances, input.collective_views, output.chosen_ranking);
-}
-
-void BaseMapper::speculate(const Legion::Mapping::MapperContext ctx,
-                           const Legion::Release& release,
-                           SpeculativeOutput& output)
-{
-  output.speculate = false;
 }
 
 void BaseMapper::report_profiling(const Legion::Mapping::MapperContext ctx,
@@ -1341,10 +1200,10 @@ void BaseMapper::map_partition(const Legion::Mapping::MapperContext ctx,
                                MapPartitionOutput& output)
 {
   Processor target_proc{Processor::NO_PROC};
-  if (!local_omps.empty())
-    target_proc = local_omps.front();
+  if (machine.has_omps())
+    target_proc = machine.omps().front();
   else
-    target_proc = local_cpus.front();
+    target_proc = machine.cpus().front();
 
   auto store_target = default_store_targets(target_proc.kind()).front();
 
@@ -1352,7 +1211,7 @@ void BaseMapper::map_partition(const Legion::Mapping::MapperContext ctx,
   assert(partition.requirement.instance_fields.size() == 1);
 #endif
 
-  Store store(legion_runtime->get_mapper_runtime(), ctx, &partition.requirement);
+  Store store(mapper_runtime, ctx, &partition.requirement);
   std::vector<StoreMapping> mappings;
   mappings.push_back(StoreMapping::default_mapping(store, store_target, false));
 
@@ -1385,7 +1244,7 @@ void BaseMapper::select_sharding_functor(const Legion::Mapping::MapperContext ct
                                          const SelectShardingFunctorInput& input,
                                          SelectShardingFunctorOutput& output)
 {
-  output.chosen_functor = find_sharding_functor_by_projection_functor(0);
+  output.chosen_functor = find_mappable_sharding_functor_id(partition);
 }
 
 void BaseMapper::select_sharding_functor(const Legion::Mapping::MapperContext ctx,
@@ -1393,9 +1252,7 @@ void BaseMapper::select_sharding_functor(const Legion::Mapping::MapperContext ct
                                          const SelectShardingFunctorInput& input,
                                          SelectShardingFunctorOutput& output)
 {
-  output.chosen_functor = fill.is_index_space
-                            ? find_sharding_functor_by_key_store_projection({fill.requirement})
-                            : find_sharding_functor_by_projection_functor(0);
+  output.chosen_functor = find_mappable_sharding_functor_id(fill);
 }
 
 void BaseMapper::configure_context(const Legion::Mapping::MapperContext ctx,
@@ -1403,6 +1260,31 @@ void BaseMapper::configure_context(const Legion::Mapping::MapperContext ctx,
                                    ContextConfigOutput& output)
 {
   // Use the defaults currently
+}
+
+void BaseMapper::map_future_map_reduction(const Legion::Mapping::MapperContext ctx,
+                                          const FutureMapReductionInput& input,
+                                          FutureMapReductionOutput& output)
+{
+  output.serdez_upper_bound = LEGATE_MAX_SIZE_SCALAR_RETURN;
+
+  if (machine.has_gpus()) {
+    // TODO: It's been reported that blindly mapping target instances of future map reductions
+    // to framebuffers hurts performance. Until we find a better mapping policy, we guard
+    // the current policy with a macro.
+#ifdef LEGATE_MAP_FUTURE_MAP_REDUCTIONS_TO_GPU
+
+    // If this was joining exceptions, we should put instances on a host-visible memory
+    // because they need serdez
+    if (input.tag == LEGATE_CORE_JOIN_EXCEPTION_TAG)
+      output.destination_memories.push_back(machine.zerocopy_memory());
+    else
+      for (auto& pair : machine.frame_buffers()) output.destination_memories.push_back(pair.second);
+#else
+    output.destination_memories.push_back(machine.zerocopy_memory());
+#endif
+  } else if (machine.has_socket_memory())
+    for (auto& pair : machine.socket_memories()) output.destination_memories.push_back(pair.second);
 }
 
 void BaseMapper::select_tunable_value(const Legion::Mapping::MapperContext ctx,

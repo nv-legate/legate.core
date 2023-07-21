@@ -17,7 +17,7 @@
 """
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -26,7 +26,7 @@ from legate.tester.config import Config
 from legate.tester.logger import LOG
 from legate.tester.stages import util as m
 from legate.tester.test_system import ProcessResult
-from legate.util.ui import failed, passed, shell, skipped
+from legate.util.ui import failed, passed, shell, skipped, timeout
 
 
 def test_StageResult() -> None:
@@ -131,6 +131,15 @@ class Test_log_proc:
             ).split("\n")
         )
 
+    def test_timeout(self) -> None:
+        config = Config([])
+        proc = ProcessResult("proc", Path("proc"), timeout=True)
+
+        LOG.clear()
+        m.log_proc("foo", proc, config, verbose=False)
+
+        assert LOG.lines == (timeout(f"(foo) {proc.test_file}"),)
+
     def test_dry_run(self) -> None:
         config = Config([])
         config.dry_run = True
@@ -156,3 +165,18 @@ class Test_log_proc:
             shell(proc.invocation),
             passed(f"(foo) {proc.test_file}"),
         )
+
+    def test_time(self) -> None:
+        config = Config([])
+        config.debug = True
+        start = datetime.now()
+        end = start + timedelta(seconds=2.41)
+
+        proc = ProcessResult("proc", Path("proc"), start=start, end=end)
+
+        LOG.clear()
+        m.log_proc("foo", proc, config, verbose=False)
+
+        assert LOG.lines[0] == shell(proc.invocation)
+        assert LOG.lines[1].startswith(passed("(foo) 2.41s {"))
+        assert LOG.lines[1].endswith(f"}} {proc.test_file}")

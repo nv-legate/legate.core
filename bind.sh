@@ -84,7 +84,7 @@ case "$launcher" in
     global_rank="${SLURM_PROCID:-unknown}"
     ;;
   auto  )
-    local_rank="${SLURM_LOCALID:-${OMPI_COMM_WORLD_LOCAL_RANK:-${MV2_COMM_WORLD_LOCAL_RANK:-unknown}}}"
+    local_rank="${OMPI_COMM_WORLD_LOCAL_RANK:-${MV2_COMM_WORLD_LOCAL_RANK:-${SLURM_LOCALID:-unknown}}}"
     global_rank="${OMPI_COMM_WORLD_RANK:-${PMI_RANK:-${MV2_COMM_WORLD_RANK:-${SLURM_PROCID:-unknown}}}}"
     ;;
   local )

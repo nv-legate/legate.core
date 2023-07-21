@@ -20,7 +20,7 @@
 
 #include "legion.h"
 
-#include "core/task/variant.h"
+#include "core/task/variant_options.h"
 #include "core/utilities/typedefs.h"
 
 /**
@@ -31,7 +31,7 @@
 namespace legate {
 
 class LibraryContext;
-class PendingTaskVariant;
+class TaskInfo;
 
 /**
  * @ingroup task
@@ -43,12 +43,6 @@ class PendingTaskVariant;
  *
  * @code{.cpp}
  * struct MyLibrary {
- *  public:
- *   template <typename... Args>
- *   static void record_variant(Args&&... args)
- *   {
- *     get_registrar().record_variant(std::forward<Args>(args)...);
- *   }
  *   static legate::TaskRegistrar& get_registrar();
  * };
  *
@@ -61,9 +55,8 @@ class PendingTaskVariant;
  * @endcode
  *
  * In the code above, the `MyLibrary` has a static member that returns a singleton
- * `legate::TaskRegistrar` object, and another member `record_variant` that simply forwards all
- * arguments to the registrar. Then, the `MyLibraryTaskBase` points to the class so Legate can find
- * where task variants are registered.
+ * `legate::TaskRegistrar` object. Then, the `MyLibraryTaskBase` points to the class so Legate can
+ * find where task variants are collected.
  *
  * Once this registrar is set up in a library, each library task can simply register itself
  * with the `LegateTask::register_variants` method like the following:
@@ -83,14 +76,7 @@ class PendingTaskVariant;
  */
 class TaskRegistrar {
  public:
-  void record_variant(Legion::TaskID tid,
-                      const char* task_name,
-                      const Legion::CodeDescriptor& desc,
-                      Legion::ExecutionConstraintSet& execution_constraints,
-                      Legion::TaskLayoutConstraintSet& layout_constraints,
-                      LegateVariantCode var,
-                      Processor::Kind kind,
-                      const VariantOptions& options);
+  void record_task(int64_t local_task_id, std::unique_ptr<TaskInfo> task_info);
 
  public:
   /**
@@ -99,10 +85,10 @@ class TaskRegistrar {
    *
    * @param context Context of the library that owns this registrar
    */
-  void register_all_tasks(const LibraryContext& context);
+  void register_all_tasks(LibraryContext* context);
 
  private:
-  std::vector<PendingTaskVariant*> pending_task_variants_;
+  std::vector<std::pair<int64_t, std::unique_ptr<TaskInfo>>> pending_task_infos_;
 };
 
 }  // namespace legate

@@ -23,7 +23,7 @@
 namespace legate {
 
 void register_legate_core_sharding_functors(Legion::Runtime* runtime,
-                                            const LibraryContext& context);
+                                            const LibraryContext* context);
 
 Legion::ShardingID find_sharding_functor_by_projection_functor(Legion::ProjectionID proj_id);
 

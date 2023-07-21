@@ -94,17 +94,19 @@ class TestConfig:
             user_logging_levels=None,
             logdir=Path("."),
             log_to_file=False,
-            keep_logs=False,
         )
 
         assert c.debugging == m.Debugging(
             gdb=False,
             cuda_gdb=False,
             memcheck=False,
+            valgrind=False,
             freeze_on_error=False,
             gasnet_trace=False,
             dataflow=False,
             event=False,
+            collective=False,
+            spy_assert_warning=False,
         )
 
         assert c.info == m.Info(

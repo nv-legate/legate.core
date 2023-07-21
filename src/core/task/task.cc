@@ -43,7 +43,7 @@ std::string generate_task_name(const std::type_info& ti)
 }
 
 void task_wrapper(VariantImpl variant_impl,
-                  const char* task_name,
+                  const std::string& task_name,
                   const void* args,
                   size_t arglen,
                   const void* userdata,
@@ -59,7 +59,11 @@ void task_wrapper(VariantImpl variant_impl,
   Legion::Runtime::legion_task_preamble(args, arglen, p, task, regions, legion_context, runtime);
 
 #ifdef LEGATE_USE_CUDA
-  nvtx::Range auto_range(task_name);
+  std::stringstream ss;
+  ss << task_name;
+  if (!task->get_provenance_string().empty()) ss << " : " + task->get_provenance_string();
+  std::string msg = ss.str();
+  nvtx::Range auto_range(msg.c_str());
 #endif
 
   Core::show_progress(task, legion_context, runtime);

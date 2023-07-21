@@ -19,8 +19,10 @@ from dataclasses import dataclass
 from typing import Iterable, TypeVar
 
 import pytest
+from pytest_mock import MockerFixture
 
 import legate.util.args as m
+import legate.util.info as info
 
 from ...util import powerset
 
@@ -68,6 +70,20 @@ class TestExtendAction:
     def test_repeat(self) -> None:
         ns = self.parser.parse_args(["--foo", "a", "--foo", "a"])
         assert ns.foo == ["a"]
+
+
+class TestInfoAction:
+    parser = ArgumentParser()
+    parser.add_argument("--info", action=m.InfoAction)
+
+    def tests_basic(self, mocker: MockerFixture) -> None:
+        mock_print_info = mocker.patch.object(info, "print_build_info")
+        mock_sys_exit = mocker.patch("sys.exit")
+
+        self.parser.parse_args(["--info"])
+
+        mock_print_info.assert_called_once()
+        mock_sys_exit.assert_called_once()
 
 
 @dataclass(frozen=True)

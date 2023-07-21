@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import traceback
+from ctypes import CDLL, RTLD_GLOBAL
 from types import TracebackType
 from typing import (
     Any,
@@ -86,3 +87,11 @@ def capture_traceback_repr(
             tb_lineno=frame.f_lineno,
         )
     return "".join(traceback.format_tb(tb)) if tb is not None else None
+
+
+def dlopen_no_autoclose(ffi: Any, lib_path: str) -> Any:
+    # Use an already-opened library handle, which cffi will convert to a
+    # regular FFI object (using the definitions previously added using
+    # ffi.cdef), but will not automatically dlclose() on collection.
+    lib = CDLL(lib_path, mode=RTLD_GLOBAL)
+    return ffi.dlopen(ffi.cast("void *", lib._handle))

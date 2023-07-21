@@ -1,3 +1,6 @@
 include versioneer.py
 include legate/_version.py
 include legate/py.typed
+
+# include interface files
+recursive-include legate *.pyi

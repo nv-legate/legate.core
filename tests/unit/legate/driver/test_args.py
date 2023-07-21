@@ -14,6 +14,8 @@
 #
 from __future__ import annotations
 
+from argparse import SUPPRESS
+
 import legate.driver.args as m
 import legate.driver.defaults as defaults
 
@@ -129,9 +131,6 @@ class TestParserDefaults:
     def test_log_to_file(self) -> None:
         assert m.parser.get_default("log_to_file") is False
 
-    def test_keep_logs(self) -> None:
-        assert m.parser.get_default("keep_logs") is False
-
     # debugging
 
     def test_gdb(self) -> None:
@@ -179,6 +178,9 @@ class TestParserDefaults:
 
     def test_rlwrap(self) -> None:
         assert m.parser.get_default("rlwrap") is False
+
+    def test_info(self) -> None:
+        assert m.parser.get_default("info") == SUPPRESS
 
 
 class TestParserConfig:

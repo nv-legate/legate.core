@@ -16,7 +16,10 @@
 
 #pragma once
 
-#include "core/task/variant.h"
+#include "core/runtime/context.h"
+#include "core/task/task_info.h"
+#include "core/task/variant_helper.h"
+#include "core/task/variant_options.h"
 #include "core/utilities/typedefs.h"
 
 /** @defgroup task Task
@@ -27,13 +30,6 @@
  * @brief Class definition fo legate::LegateTask
  */
 namespace legate {
-
-class TaskContext;
-
-/**
- * @brief Function signature for task variants. Each task variant must be a function of this type.
- */
-using VariantImpl = void (*)(TaskContext&);
 
 /**
  * @ingroup task
@@ -61,8 +57,11 @@ struct LegateTask {
   using BASE = LegateTask<T>;
 
   /**
-   * @brief Registers all task variants of the task. The client can optionally specify
-   * variant options.
+   * @brief Records all variants of this task in a registrar.
+   *
+   * The registrar is pointed to by the task's static type alias `Registrar` (see
+   * legate::TaskRegistrar for details about setting up a registrar in a library). The client
+   * can optionally specify variant options.
    *
    * @param all_options Options for task variants. Variants with no entires in `all_options` will
    * use the default set of options
@@ -70,9 +69,22 @@ struct LegateTask {
   static void register_variants(
     const std::map<LegateVariantCode, VariantOptions>& all_options = {});
 
+  /**
+   * @brief Registers all variants of this task immediately.
+   *
+   * Unlike the other method, this one takes a library context so the registration can be done
+   * immediately.
+   *
+   * @param context Library to which the task should be registered
+   * @param all_options Options for task variants. Variants with no entires in `all_options` will
+   * use the default set of options
+   */
+  static void register_variants(
+    LibraryContext* context, const std::map<LegateVariantCode, VariantOptions>& all_options = {});
+
  private:
   template <typename, template <typename...> typename, bool>
-  friend struct detail::RegisterVariantImpl;
+  friend struct detail::VariantHelper;
 
   // A wrapper that wraps all Legate task variant implementations. Provides
   // common functionalities and instrumentations
@@ -80,15 +92,11 @@ struct LegateTask {
   static void legate_task_wrapper(
     const void* args, size_t arglen, const void* userdata, size_t userlen, Processor p);
 
-  // A helper to register a single task variant
-  template <VariantImpl VARIANT_IMPL>
-  static void register_variant(Legion::ExecutionConstraintSet& execution_constraints,
-                               Legion::TaskLayoutConstraintSet& layout_constraints,
-                               LegateVariantCode var,
-                               Processor::Kind kind,
-                               const VariantOptions& options);
+  // A helper to find and register all variants of a task
+  static std::unique_ptr<TaskInfo> create_task_info(
+    const std::map<LegateVariantCode, VariantOptions>& all_options);
 
-  static const char* task_name();
+  static const std::string& task_name();
 };
 
 }  // namespace legate

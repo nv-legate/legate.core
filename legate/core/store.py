@@ -34,6 +34,7 @@ from .allocation import (
     DistributedAllocation,
     InlineMappedAllocation,
 )
+from .legate import Array, Field as LegateField
 from .partition import REPLICATE, PartitionBase, Restriction, Tiling
 from .projection import execute_functor_symbolically
 from .runtime import runtime
@@ -46,7 +47,7 @@ from .transform import (
     Transpose,
     identity,
 )
-from .types import _Dtype
+from .types import Dtype
 
 if TYPE_CHECKING:
     from . import (
@@ -56,8 +57,8 @@ if TYPE_CHECKING:
         Rect,
         Region,
     )
-    from .context import Context
     from .launcher import Proj
+    from .legate import LegateDataInterfaceItem
     from .projection import ProjFn
     from .transform import TransformStackBase
 
@@ -147,7 +148,7 @@ class RegionField:
         )
 
     def attach_external_allocation(
-        self, context: Context, alloc: Attachable, share: bool
+        self, alloc: Attachable, share: bool
     ) -> None:
         assert self.parent is None
         # If we already have some memory attached, detach it first
@@ -175,8 +176,8 @@ class RegionField:
                 self.region,
                 self.field.field_id,
                 alloc,
-                mapper=context.mapper_id,
-                provenance=context.provenance,
+                mapper=runtime.core_context.mapper_id,
+                provenance=runtime.provenance,
             )
             attach.set_restricted(False)
             # If we're not sharing then there is no need to map the attachment
@@ -204,7 +205,7 @@ class RegionField:
             field_type = self.region.field_space.get_type(self.field.field_id)
             field_size = (
                 field_type.size
-                if isinstance(field_type, _Dtype)
+                if isinstance(field_type, Dtype)
                 else field_type
             )
             shard_local_data = {}
@@ -226,8 +227,8 @@ class RegionField:
                 self.region,
                 self.field.field_id,
                 shard_local_data,
-                mapper=context.mapper_id,
-                provenance=context.provenance,
+                mapper=runtime.core_context.mapper_id,
+                provenance=runtime.provenance,
             )
             index_attach.set_deduplicate_across_shards(True)
             index_attach.set_restricted(False)
@@ -253,7 +254,7 @@ class RegionField:
         self.physical_region_refs = 0
         self.attached_alloc = None
 
-    def get_inline_mapped_region(self, context: Context) -> PhysicalRegion:
+    def get_inline_mapped_region(self) -> PhysicalRegion:
         if self.parent is None:
             if self.physical_region is None:
                 # We don't have a valid numpy array so we need to do an inline
@@ -261,8 +262,8 @@ class RegionField:
                 mapping = InlineMapping(
                     self.region,
                     self.field.field_id,
-                    mapper=context.mapper_id,
-                    provenance=context.provenance,
+                    mapper=runtime.core_context.mapper_id,
+                    provenance=runtime.provenance,
                 )
                 self.physical_region = runtime.dispatch(mapping)
                 self.physical_region_mapped = True
@@ -279,7 +280,7 @@ class RegionField:
             self.physical_region_refs += 1
             return self.physical_region
         else:
-            return self.parent.get_inline_mapped_region(context)
+            return self.parent.get_inline_mapped_region()
 
     def decrement_inline_mapped_ref_count(
         self, unordered: bool = False
@@ -299,12 +300,9 @@ class RegionField:
     def get_inline_allocation(
         self,
         shape: Shape,
-        context: Optional[Context] = None,
         transform: Optional[AffineTransform] = None,
     ) -> InlineMappedAllocation:
-        context = runtime.core_context if context is None else context
-
-        physical_region = self.get_inline_mapped_region(context)
+        physical_region = self.get_inline_mapped_region()
         # We need a pointer to the physical allocation for this physical region
         dim = max(shape.ndim, 1)
         # Build the accessor for this physical region
@@ -493,7 +491,7 @@ class Storage:
         self,
         extents: Optional[Shape],
         level: int,
-        dtype: Any,
+        dtype: Dtype,
         data: Optional[Union[RegionField, Future]] = None,
         kind: type = RegionField,
         parent: Optional[StoragePartition] = None,
@@ -556,7 +554,7 @@ class Storage:
         return self._kind
 
     @property
-    def dtype(self) -> Any:
+    def dtype(self) -> Dtype:
         return self._dtype
 
     @property
@@ -664,7 +662,7 @@ class Storage:
         )
 
     def attach_external_allocation(
-        self, context: Context, alloc: Attachable, share: bool
+        self, alloc: Attachable, share: bool
     ) -> None:
         # If the storage has not been set, and this is a non-temporary
         # singleton attachment, we can reuse an existing RegionField that was
@@ -677,7 +675,7 @@ class Storage:
                 return
         # Force the RegionField to be instantiated, do the attachment normally
         assert isinstance(self.data, RegionField)
-        self.data.attach_external_allocation(context, alloc, share)
+        self.data.attach_external_allocation(alloc, share)
 
     def slice(self, tile_shape: Shape, offsets: Shape) -> Storage:
         if self.kind is Future:
@@ -725,13 +723,10 @@ class Storage:
     def get_inline_allocation(
         self,
         shape: Shape,
-        context: Optional[Context] = None,
         transform: Optional[AffineTransform] = None,
     ) -> InlineMappedAllocation:
         assert isinstance(self.data, RegionField)
-        return self.data.get_inline_allocation(
-            shape, context=context, transform=transform
-        )
+        return self.data.get_inline_allocation(shape, transform=transform)
 
     def find_key_partition(
         self, restrictions: tuple[Restriction, ...]
@@ -857,7 +852,7 @@ class StorePartition:
 class Store:
     def __init__(
         self,
-        dtype: _Dtype,
+        dtype: Dtype,
         storage: Storage,
         transform: Optional[TransformStackBase] = None,
         shape: Optional[Shape] = None,
@@ -977,18 +972,15 @@ class Store:
         return prod(self.shape) if self.ndim > 0 else 1
 
     @property
-    def type(self) -> _Dtype:
+    def type(self) -> Dtype:
         """
         Returns the element type of the store.
 
         Returns
         -------
-        _Dtype
+        Dtype
           Type of elements in the store
         """
-        return self._dtype
-
-    def get_dtype(self) -> _Dtype:
         return self._dtype
 
     @property
@@ -1072,8 +1064,17 @@ class Store:
         """
         return not self._transform.bottom
 
+    @property
+    def __legate_data_interface__(self) -> LegateDataInterfaceItem:
+        array = Array(self.type, [None, self])
+        result: LegateDataInterfaceItem = {
+            "version": 1,
+            "data": {LegateField("store", self.type): array},
+        }
+        return result
+
     def attach_external_allocation(
-        self, context: Context, alloc: Attachable, share: bool
+        self, alloc: Attachable, share: bool
     ) -> None:
         if not isinstance(alloc, (memoryview, DistributedAllocation)):
             raise ValueError(
@@ -1089,7 +1090,7 @@ class Store:
         elif self.unbound:
             raise ValueError("Cannot attach buffers to variable-size stores")
 
-        self._storage.attach_external_allocation(context, alloc, share)
+        self._storage.attach_external_allocation(alloc, share)
 
     def has_fake_dims(self) -> bool:
         return self._transform.adds_fake_dims()
@@ -1520,16 +1521,9 @@ class Store:
             shape=new_shape,
         )
 
-    def get_inline_allocation(
-        self, context: Optional[Context] = None
-    ) -> InlineMappedAllocation:
+    def get_inline_allocation(self) -> InlineMappedAllocation:
         """
         Creates an inline allocation for the store.
-
-        Parameters
-        ----------
-        context : Context, optional
-            Library context within which the allocation is created
 
         Notes
         -------
@@ -1544,7 +1538,6 @@ class Store:
         assert self.kind is RegionField
         return self._storage.get_inline_allocation(
             self.shape,
-            context=context,
             transform=self._transform.get_inverse_transform(self.shape.ndim),
         )
 
@@ -1555,7 +1548,7 @@ class Store:
         buf.pack_bool(self.kind is Future)
         buf.pack_bool(self.unbound)
         buf.pack_32bit_int(self.ndim)
-        buf.pack_32bit_int(self._dtype.code)
+        self.type.serialize(buf)
         self._transform.serialize(buf)
 
     def get_key_partition(self) -> Optional[PartitionBase]:

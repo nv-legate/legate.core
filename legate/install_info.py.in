@@ -44,3 +44,14 @@ libpath: str = get_libpath()
 header: str = """@header@"""
 
 networks: list[str] = "@Legion_NETWORKS@".split()
+
+conduit: str = "@GASNet_CONDUIT@"
+
+build_type: str = "@CMAKE_BUILD_TYPE@"
+
+# this is to support simpler templating on the cmake side
+ON, OFF = True, False
+
+use_cuda: bool = @Legion_USE_CUDA@
+
+use_openmp: bool = @Legion_USE_OpenMP@

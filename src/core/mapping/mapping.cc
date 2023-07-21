@@ -23,6 +23,20 @@
 namespace legate {
 namespace mapping {
 
+DimOrdering::DimOrdering(Kind _kind, std::vector<int32_t>&& _dims)
+  : kind(_kind), dims(std::forward<decltype(dims)>(_dims))
+{
+}
+
+/*static*/ DimOrdering DimOrdering::c_order() { return DimOrdering(Kind::C); }
+
+/*static*/ DimOrdering DimOrdering::fortran_order() { return DimOrdering(Kind::FORTRAN); }
+
+/*static*/ DimOrdering DimOrdering::custom_order(std::vector<int32_t>&& dims)
+{
+  return DimOrdering(Kind::CUSTOM, std::forward<decltype(dims)>(dims));
+}
+
 Memory::Kind get_memory_kind(StoreTarget target)
 {
   switch (target) {
@@ -66,11 +80,11 @@ void DimOrdering::populate_dimension_ordering(const Store& store,
   }
 }
 
-void DimOrdering::c_order() { kind = Kind::C; }
+void DimOrdering::set_c_order() { kind = Kind::C; }
 
-void DimOrdering::fortran_order() { kind = Kind::FORTRAN; }
+void DimOrdering::set_fortran_order() { kind = Kind::FORTRAN; }
 
-void DimOrdering::custom_order(std::vector<int32_t>&& dims)
+void DimOrdering::set_custom_order(std::vector<int32_t>&& dims)
 {
   kind = Kind::CUSTOM;
   dims = std::forward<std::vector<int32_t>&&>(dims);
@@ -85,6 +99,13 @@ bool InstanceMappingPolicy::operator==(const InstanceMappingPolicy& other) const
 bool InstanceMappingPolicy::operator!=(const InstanceMappingPolicy& other) const
 {
   return !operator==(other);
+}
+
+bool InstanceMappingPolicy::subsumes(const InstanceMappingPolicy& other) const
+{
+  // the allocation policy doesn't concern the instance layout
+  return target == other.target && layout == other.layout && ordering == other.ordering &&
+         (exact || !other.exact);
 }
 
 void InstanceMappingPolicy::populate_layout_constraints(
@@ -113,14 +134,14 @@ void InstanceMappingPolicy::populate_layout_constraints(
 
 bool StoreMapping::for_future() const
 {
-  for (auto& store : stores) return store.is_future();
+  for (auto& store : stores) return store.get().is_future();
   assert(false);
   return false;
 }
 
 bool StoreMapping::for_unbound_store() const
 {
-  for (auto& store : stores) return store.unbound();
+  for (auto& store : stores) return store.get().unbound();
   assert(false);
   return false;
 }
@@ -139,7 +160,7 @@ uint32_t StoreMapping::requirement_index() const
   assert(stores.size() > 0);
   uint32_t result = -1U;
   for (auto& store : stores) {
-    auto idx = store.requirement_index();
+    auto idx = store.get().requirement_index();
     assert(result == -1U || result == idx);
     result = idx;
   }
@@ -147,7 +168,7 @@ uint32_t StoreMapping::requirement_index() const
 #else
   static constexpr uint32_t invalid = -1U;
   if (stores.empty()) return invalid;
-  return stores.front().requirement_index();
+  return stores.front().get().requirement_index();
 #endif
 }
 
@@ -155,8 +176,8 @@ std::set<uint32_t> StoreMapping::requirement_indices() const
 {
   std::set<uint32_t> indices;
   for (auto& store : stores) {
-    if (store.is_future()) continue;
-    indices.insert(store.region_field().index());
+    if (store.get().is_future()) continue;
+    indices.insert(store.get().region_field().index());
   }
   return std::move(indices);
 }
@@ -165,8 +186,8 @@ std::set<const Legion::RegionRequirement*> StoreMapping::requirements() const
 {
   std::set<const Legion::RegionRequirement*> reqs;
   for (auto& store : stores) {
-    if (store.is_future()) continue;
-    auto* req = store.region_field().get_requirement();
+    if (store.get().is_future()) continue;
+    auto* req = store.get().region_field().get_requirement();
     if (!req->region.exists()) continue;
     reqs.insert(req);
   }
@@ -182,15 +203,16 @@ void StoreMapping::populate_layout_constraints(
   if (stores.size() > 1) {
     std::set<Legion::FieldID> field_set{};
     for (auto& store : stores) {
-      auto field_id = store.region_field().field_id();
+      auto field_id = store.get().region_field().field_id();
       if (field_set.find(field_id) == field_set.end()) {
         fields.push_back(field_id);
         field_set.insert(field_id);
       }
     }
   } else
-    fields.push_back(stores.front().region_field().field_id());
-  layout_constraints.add_constraint(Legion::FieldConstraint(fields, true /*contiguous*/));
+    fields.push_back(stores.front().get().region_field().field_id());
+  layout_constraints.add_constraint(
+    Legion::FieldConstraint(fields, false /*contiguous*/, false /*inorder*/));
 }
 
 /*static*/ StoreMapping StoreMapping::default_mapping(const Store& store,
@@ -199,7 +221,7 @@ void StoreMapping::populate_layout_constraints(
 {
   StoreMapping mapping{};
   mapping.policy = InstanceMappingPolicy::default_policy(target, exact);
-  mapping.stores.push_back(store);
+  mapping.stores.emplace_back(store);
   return std::move(mapping);
 }
 

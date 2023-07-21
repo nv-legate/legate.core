@@ -21,8 +21,9 @@ from __future__ import annotations
 import multiprocessing
 import os
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from pathlib import Path
-from subprocess import PIPE, STDOUT, run as stdlib_run
+from subprocess import PIPE, STDOUT, TimeoutExpired, run as stdlib_run
 from typing import Sequence
 
 from ..util.system import System
@@ -31,22 +32,47 @@ from ..util.types import EnvDict
 __all__ = ("TestSystem",)
 
 
+def _quote(s: str) -> str:
+    if " " in s:
+        return repr(s)
+    return s
+
+
 @dataclass
 class ProcessResult:
     #: The command invovation, including relevant environment vars
     invocation: str
 
-    #  User-friendly test file path to use in reported output
+    #: User-friendly test file path to use in reported output
     test_file: Path
+
+    #: The time the process started
+    start: datetime | None = None
+
+    #: The time the process ended
+    end: datetime | None = None
 
     #: Whether this process was actually invoked
     skipped: bool = False
+
+    #: Whether this process timed-out
+    timeout: bool = False
 
     #: The returncode from the process
     returncode: int = 0
 
     #: The collected stdout and stderr output from the process
     output: str = ""
+
+    @property
+    def time(self) -> timedelta | None:
+        if self.start is None or self.end is None:
+            return None
+        return self.end - self.start
+
+    @property
+    def passed(self) -> bool:
+        return self.returncode == 0 and not self.timeout
 
 
 class TestSystem(System):
@@ -65,6 +91,7 @@ class TestSystem(System):
         *,
         dry_run: bool = False,
     ) -> None:
+        super().__init__()
         self.manager = multiprocessing.Manager()
         self.dry_run: bool = dry_run
 
@@ -75,6 +102,7 @@ class TestSystem(System):
         *,
         env: EnvDict | None = None,
         cwd: str | None = None,
+        timeout: int | None = None,
     ) -> ProcessResult:
         """Wrapper for subprocess.run that encapsulates logging.
 
@@ -98,7 +126,7 @@ class TestSystem(System):
         env = env or {}
 
         envstr = (
-            " ".join(f"{k}={v}" for k, v in env.items())
+            " ".join(f"{k}={_quote(v)}" for k, v in env.items())
             + min(len(env), 1) * " "
         )
 
@@ -110,13 +138,27 @@ class TestSystem(System):
         full_env = dict(os.environ)
         full_env.update(env)
 
-        proc = stdlib_run(
-            cmd, cwd=cwd, env=full_env, stdout=PIPE, stderr=STDOUT, text=True
-        )
+        start = datetime.now()
+        try:
+            proc = stdlib_run(
+                cmd,
+                cwd=cwd,
+                env=full_env,
+                stdout=PIPE,
+                stderr=STDOUT,
+                text=True,
+                timeout=timeout,
+            )
+        except TimeoutExpired:
+            return ProcessResult(invocation, test_file, timeout=True)
+
+        end = datetime.now()
 
         return ProcessResult(
             invocation,
             test_file,
+            start=start,
+            end=end,
             returncode=proc.returncode,
             output=proc.stdout,
         )

@@ -15,133 +15,26 @@
  */
 
 #include "core/mapping/operation.h"
+#include "core/runtime/context.h"
 #include "core/utilities/deserializer.h"
 
 namespace legate {
 namespace mapping {
 
-RegionField::RegionField(const Legion::RegionRequirement* req,
-                         int32_t dim,
-                         uint32_t idx,
-                         Legion::FieldID fid)
-  : req_(req), dim_(dim), idx_(idx), fid_(fid)
+Mappable::Mappable() {}
+
+Mappable::Mappable(const Legion::Mappable* mappable)
 {
-}
-
-bool RegionField::can_colocate_with(const RegionField& other) const
-{
-  auto* my_req    = get_requirement();
-  auto* other_req = other.get_requirement();
-  return my_req->region.get_tree_id() == other_req->region.get_tree_id();
-}
-
-Domain RegionField::domain(Legion::Mapping::MapperRuntime* runtime,
-                           const Legion::Mapping::MapperContext context) const
-{
-  return runtime->get_index_space_domain(context, get_index_space());
-}
-
-Legion::IndexSpace RegionField::get_index_space() const { return req_->region.get_index_space(); }
-
-FutureWrapper::FutureWrapper(uint32_t idx, const Domain& domain) : idx_(idx), domain_(domain) {}
-
-Domain FutureWrapper::domain() const { return domain_; }
-
-Store::Store(int32_t dim,
-             LegateTypeCode code,
-             FutureWrapper future,
-             std::shared_ptr<TransformStack>&& transform)
-  : is_future_(true),
-    is_output_store_(false),
-    dim_(dim),
-    code_(code),
-    redop_id_(-1),
-    future_(future),
-    transform_(std::forward<decltype(transform)>(transform))
-{
-}
-
-Store::Store(Legion::Mapping::MapperRuntime* runtime,
-             const Legion::Mapping::MapperContext context,
-             int32_t dim,
-             LegateTypeCode code,
-             int32_t redop_id,
-             const RegionField& region_field,
-             bool is_output_store,
-             std::shared_ptr<TransformStack>&& transform)
-  : is_future_(false),
-    is_output_store_(is_output_store),
-    dim_(dim),
-    code_(code),
-    redop_id_(redop_id),
-    region_field_(region_field),
-    transform_(std::forward<decltype(transform)>(transform)),
-    runtime_(runtime),
-    context_(context)
-{
-}
-
-Store::Store(Legion::Mapping::MapperRuntime* runtime,
-             const Legion::Mapping::MapperContext context,
-             const Legion::RegionRequirement* requirement)
-  : is_future_(false),
-    is_output_store_(false),
-    dim_(requirement->region.get_dim()),
-    code_(LegateTypeCode::MAX_TYPE_NUMBER),
-    redop_id_(-1),
-    runtime_(runtime),
-    context_(context)
-{
-  region_field_ = RegionField(requirement, dim_, 0, requirement->instance_fields.front());
-}
-
-bool Store::can_colocate_with(const Store& other) const
-{
-  if (is_future() || other.is_future())
-    return false;
-  else if (unbound() || other.unbound())
-    return false;
-  else if (is_reduction() || other.is_reduction())
-    return redop() == other.redop() && region_field_.can_colocate_with(other.region_field_);
-  return region_field_.can_colocate_with(other.region_field_);
-}
-
-const RegionField& Store::region_field() const
-{
-#ifdef DEBUG_LEGATE
-  assert(!is_future());
-#endif
-  return region_field_;
-}
-
-const FutureWrapper& Store::future() const
-{
-#ifdef DEBUG_LEGATE
-  assert(is_future());
-#endif
-  return future_;
-}
-
-RegionField::Id Store::unique_region_field_id() const { return region_field().unique_id(); }
-
-uint32_t Store::requirement_index() const { return region_field().index(); }
-
-uint32_t Store::future_index() const { return future().index(); }
-
-Domain Store::domain() const
-{
-  assert(!unbound());
-  auto result = is_future_ ? future_.domain() : region_field_.domain(runtime_, context_);
-  if (nullptr != transform_) result = transform_->transform(result);
-  assert(result.dim == dim_);
-  return result;
+  MapperDataDeserializer dez(mappable);
+  machine_desc_ = dez.unpack<MachineDesc>();
+  sharding_id_  = dez.unpack<uint32_t>();
 }
 
 Task::Task(const Legion::Task* task,
-           const LibraryContext& library,
+           const LibraryContext* library,
            Legion::Mapping::MapperRuntime* runtime,
            const Legion::Mapping::MapperContext context)
-  : task_(task), library_(library)
+  : Mappable(task), task_(task), library_(library)
 {
   TaskDeserializer dez(task, runtime, context);
   inputs_     = dez.unpack<std::vector<Store>>();
@@ -150,22 +43,37 @@ Task::Task(const Legion::Task* task,
   scalars_    = dez.unpack<std::vector<Scalar>>();
 }
 
-int64_t Task::task_id() const { return library_.get_local_task_id(task_->task_id); }
+int64_t Task::task_id() const { return library_->get_local_task_id(task_->task_id); }
+
+TaskTarget Task::target() const
+{
+  switch (task_->target_proc.kind()) {
+    case Processor::LOC_PROC: return TaskTarget::CPU;
+    case Processor::TOC_PROC: return TaskTarget::GPU;
+    case Processor::OMP_PROC: return TaskTarget::OMP;
+    default: {
+      assert(false);
+    }
+  }
+  assert(false);
+  return TaskTarget::CPU;
+}
 
 Copy::Copy(const Legion::Copy* copy,
            Legion::Mapping::MapperRuntime* runtime,
            const Legion::Mapping::MapperContext context)
-  : copy_(copy)
+  : Mappable(), copy_(copy)
 {
-  CopyDeserializer dez(copy->mapper_data,
-                       copy->mapper_data_size,
+  CopyDeserializer dez(copy,
                        {copy->src_requirements,
                         copy->dst_requirements,
                         copy->src_indirect_requirements,
                         copy->dst_indirect_requirements},
                        runtime,
                        context);
-  inputs_ = dez.unpack<std::vector<Store>>();
+  machine_desc_ = dez.unpack<mapping::MachineDesc>();
+  sharding_id_  = dez.unpack<uint32_t>();
+  inputs_       = dez.unpack<std::vector<Store>>();
   dez.next_requirement_list();
   outputs_ = dez.unpack<std::vector<Store>>();
   dez.next_requirement_list();

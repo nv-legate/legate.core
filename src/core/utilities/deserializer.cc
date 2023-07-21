@@ -27,7 +27,7 @@ namespace legate {
 
 TaskDeserializer::TaskDeserializer(const Legion::Task* task,
                                    const std::vector<Legion::PhysicalRegion>& regions)
-  : BaseDeserializer(static_cast<const int8_t*>(task->args), task->arglen),
+  : BaseDeserializer(task->args, task->arglen),
     futures_{task->futures.data(), task->futures.size()},
     regions_{regions.data(), regions.size()},
     outputs_()
@@ -44,7 +44,7 @@ void TaskDeserializer::_unpack(Store& value)
   auto is_future        = unpack<bool>();
   auto is_output_region = unpack<bool>();
   auto dim              = unpack<int32_t>();
-  auto code             = unpack<LegateTypeCode>();
+  auto type             = unpack_type();
 
   auto transform = unpack_transform();
 
@@ -52,16 +52,16 @@ void TaskDeserializer::_unpack(Store& value)
     auto redop_id = unpack<int32_t>();
     auto fut      = unpack<FutureWrapper>();
     if (redop_id != -1 && !first_task_) fut.initialize_with_identity(redop_id);
-    value = Store(dim, code, redop_id, fut, std::move(transform));
+    value = Store(dim, std::move(type), redop_id, fut, std::move(transform));
   } else if (!is_output_region) {
     auto redop_id = unpack<int32_t>();
     auto rf       = unpack<RegionField>();
-    value         = Store(dim, code, redop_id, std::move(rf), std::move(transform));
+    value         = Store(dim, std::move(type), redop_id, std::move(rf), std::move(transform));
   } else {
     auto redop_id = unpack<int32_t>();
     assert(redop_id == -1);
-    auto out = unpack<OutputRegionField>();
-    value    = Store(dim, code, std::move(out), std::move(transform));
+    auto out = unpack<UnboundRegionField>();
+    value    = Store(dim, std::move(type), std::move(out), std::move(transform));
   }
 }
 
@@ -69,7 +69,7 @@ void TaskDeserializer::_unpack(FutureWrapper& value)
 {
   auto read_only   = unpack<bool>();
   auto has_storage = unpack<bool>();
-  auto field_size  = unpack<int32_t>();
+  auto field_size  = unpack<uint32_t>();
 
   auto point = unpack<std::vector<int64_t>>();
   Domain domain;
@@ -97,13 +97,13 @@ void TaskDeserializer::_unpack(RegionField& value)
   value = RegionField(dim, regions_[idx], fid);
 }
 
-void TaskDeserializer::_unpack(OutputRegionField& value)
+void TaskDeserializer::_unpack(UnboundRegionField& value)
 {
   auto dim = unpack<int32_t>();
   auto idx = unpack<uint32_t>();
   auto fid = unpack<int32_t>();
 
-  value = OutputRegionField(outputs_[idx], fid);
+  value = UnboundRegionField(outputs_[idx], fid);
 }
 
 void TaskDeserializer::_unpack(comm::Communicator& value)
@@ -123,10 +123,15 @@ void TaskDeserializer::_unpack(Legion::PhaseBarrier& barrier)
 
 namespace mapping {
 
+MapperDataDeserializer::MapperDataDeserializer(const Legion::Mappable* mappable)
+  : BaseDeserializer(mappable->mapper_data, mappable->mapper_data_size)
+{
+}
+
 TaskDeserializer::TaskDeserializer(const Legion::Task* task,
                                    Legion::Mapping::MapperRuntime* runtime,
                                    Legion::Mapping::MapperContext context)
-  : BaseDeserializer(static_cast<const int8_t*>(task->args), task->arglen),
+  : BaseDeserializer(task->args, task->arglen),
     task_(task),
     runtime_(runtime),
     context_(context),
@@ -140,7 +145,7 @@ void TaskDeserializer::_unpack(Store& value)
   auto is_future        = unpack<bool>();
   auto is_output_region = unpack<bool>();
   auto dim              = unpack<int32_t>();
-  auto code             = unpack<LegateTypeCode>();
+  auto type             = unpack_type();
 
   auto transform = unpack_transform();
 
@@ -148,13 +153,19 @@ void TaskDeserializer::_unpack(Store& value)
     // We still need to parse the reduction op
     unpack<int32_t>();
     auto fut = unpack<FutureWrapper>();
-    value    = Store(dim, code, fut, std::move(transform));
+    value    = Store(dim, std::move(type), fut, std::move(transform));
   } else {
     auto redop_id = unpack<int32_t>();
     RegionField rf;
     _unpack(rf, is_output_region);
-    value =
-      Store(runtime_, context_, dim, code, redop_id, rf, is_output_region, std::move(transform));
+    value = Store(runtime_,
+                  context_,
+                  dim,
+                  std::move(type),
+                  redop_id,
+                  rf,
+                  is_output_region,
+                  std::move(transform));
   }
 }
 
@@ -163,7 +174,7 @@ void TaskDeserializer::_unpack(FutureWrapper& value)
   // We still need to deserialize these fields to get to the domain
   unpack<bool>();
   unpack<bool>();
-  unpack<int32_t>();
+  unpack<uint32_t>();
 
   auto point = unpack<std::vector<int64_t>>();
   Domain domain;
@@ -186,12 +197,11 @@ void TaskDeserializer::_unpack(RegionField& value, bool is_output_region)
   value    = RegionField(req, dim, idx, fid);
 }
 
-CopyDeserializer::CopyDeserializer(const void* args,
-                                   size_t arglen,
+CopyDeserializer::CopyDeserializer(const Legion::Copy* copy,
                                    std::vector<ReqsRef>&& all_requirements,
                                    Legion::Mapping::MapperRuntime* runtime,
                                    Legion::Mapping::MapperContext context)
-  : BaseDeserializer(static_cast<const int8_t*>(args), arglen),
+  : BaseDeserializer(copy->mapper_data, copy->mapper_data_size),
     all_reqs_(std::forward<std::vector<ReqsRef>>(all_requirements)),
     curr_reqs_(all_reqs_.begin()),
     runtime_(runtime),
@@ -214,7 +224,7 @@ void CopyDeserializer::_unpack(Store& value)
   auto is_future        = unpack<bool>();
   auto is_output_region = unpack<bool>();
   auto dim              = unpack<int32_t>();
-  auto code             = unpack<LegateTypeCode>();
+  auto type             = unpack_type();
 
   auto transform = unpack_transform();
 
@@ -224,8 +234,8 @@ void CopyDeserializer::_unpack(Store& value)
   auto redop_id = unpack<int32_t>();
   RegionField rf;
   _unpack(rf);
-  value =
-    Store(runtime_, context_, dim, code, redop_id, rf, is_output_region, std::move(transform));
+  value = Store(
+    runtime_, context_, dim, std::move(type), redop_id, rf, is_output_region, std::move(transform));
 }
 
 void CopyDeserializer::_unpack(RegionField& value)

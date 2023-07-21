@@ -16,8 +16,9 @@
 
 #pragma once
 
-#include "core/mapping/operation.h"
-#include "core/utilities/typedefs.h"
+#include <functional>
+#include "core/data/scalar.h"
+#include "core/mapping/store.h"
 
 /** @defgroup mapping Mapping API
  */
@@ -30,23 +31,28 @@
 namespace legate {
 namespace mapping {
 
+class Task;
+
+// NOTE: codes are chosen to reflect the precedence between the processor kinds in choosing target
+// processors for tasks.
+
 /**
  * @ingroup mapping
  * @brief An enum class for task targets
  */
 enum class TaskTarget : int32_t {
   /**
-   * @brief Indicates the task be mapped to a CPU
-   */
-  CPU = 1,
-  /**
    * @brief Indicates the task be mapped to a GPU
    */
-  GPU = 2,
+  GPU = 1,
   /**
    * @brief Indicates the task be mapped to an OpenMP processor
    */
-  OMP = 3,
+  OMP = 2,
+  /**
+   * @brief Indicates the task be mapped to a CPU
+   */
+  CPU = 3,
 };
 
 /**
@@ -131,6 +137,29 @@ struct DimOrdering {
 
  public:
   DimOrdering() {}
+  DimOrdering(Kind kind, std::vector<int32_t>&& dims = {});
+
+ public:
+  /**
+   * @brief Creates a C ordering object
+   *
+   * @return A `DimOrdering` object
+   */
+  static DimOrdering c_order();
+  /**
+   * @brief Creates a Fortran ordering object
+   *
+   * @return A `DimOrdering` object
+   */
+  static DimOrdering fortran_order();
+  /**
+   * @brief Creates a custom ordering object
+   *
+   * @param dims A vector that stores the order of dimensions.
+   *
+   * @return A `DimOrdering` object
+   */
+  static DimOrdering custom_order(std::vector<int32_t>&& dims);
 
  public:
   DimOrdering(const DimOrdering&)            = default;
@@ -151,17 +180,17 @@ struct DimOrdering {
   /**
    * @brief Sets the dimension ordering to C
    */
-  void c_order();
+  void set_c_order();
   /**
    * @brief Sets the dimension ordering to Fortran
    */
-  void fortran_order();
+  void set_fortran_order();
   /**
    * @brief Sets a custom dimension ordering
    *
    * @param dims A vector that stores the order of dimensions.
    */
-  void custom_order(std::vector<int32_t>&& dims);
+  void set_custom_order(std::vector<int32_t>&& dims);
 
  public:
   /**
@@ -226,6 +255,19 @@ struct InstanceMappingPolicy {
   bool operator==(const InstanceMappingPolicy&) const;
   bool operator!=(const InstanceMappingPolicy&) const;
 
+ public:
+  /**
+   * @brief Indicates whether this policy subsumes a given policy
+   *
+   * Policy `A` subsumes policy `B`, if every instance created under `B` satisfies `A` as well.
+   *
+   * @param other Policy to check the subsumption against
+   *
+   * @return true If this policy subsumes `other`
+   * @return false Otherwise
+   */
+  bool subsumes(const InstanceMappingPolicy& other) const;
+
  private:
   friend class StoreMapping;
   void populate_layout_constraints(const Store& store,
@@ -244,7 +286,7 @@ struct StoreMapping {
   /**
    * @brief Stores to which the `policy` should be applied
    */
-  std::vector<Store> stores{};
+  std::vector<std::reference_wrapper<const Store>> stores{};
   /**
    * @brief Instance mapping policy
    */
@@ -345,9 +387,9 @@ class MachineQueryInterface {
  *
  * The APIs give Legate libraries high-level control on task and store mappings
  */
-class LegateMapper {
+class Mapper {
  public:
-  virtual ~LegateMapper() {}
+  virtual ~Mapper() {}
   /**
    * @brief Sets a machine query interface. This call gives the mapper a chance
    * to cache the machine query interface.

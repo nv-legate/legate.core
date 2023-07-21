@@ -21,6 +21,8 @@
 #include <unordered_set>
 
 #include "core/runtime/projection.h"
+
+#include "core/runtime/context.h"
 #include "core/utilities/dispatch.h"
 #include "core/utilities/typedefs.h"
 #include "legate_defines.h"
@@ -123,24 +125,6 @@ AffineFunctor<SRC_DIM, TGT_DIM>::AffineFunctor(Legion::Runtime* runtime,
   : LegateProjectionFunctor(runtime), transform_(create_transform(dims, weights))
 {
   for (int32_t dim = 0; dim < TGT_DIM; ++dim) offsets_[dim] = offsets[dim];
-
-  // mapping to a different dimension
-  if (SRC_DIM > TGT_DIM) {
-    set_collective();
-    return;
-  }
-
-  // find if there is `-1` in the dimensions
-  std::set<int32_t> unique;
-  for (int32_t dim = 0; dim < SRC_DIM; ++dim) {
-    if (dims[dim] == -1) {
-      set_collective();
-      return;
-    }
-    unique.insert(dims[dim]);
-  }
-  // if there are repeated dimensions
-  if (unique.size() != SRC_DIM) set_collective();
 }
 
 template <int32_t SRC_DIM, int32_t TGT_DIM>
@@ -239,9 +223,9 @@ struct create_affine_functor_fn {
 };
 
 void register_legate_core_projection_functors(Legion::Runtime* runtime,
-                                              const LibraryContext& context)
+                                              const LibraryContext* context)
 {
-  auto proj_id = context.get_projection_id(LEGATE_CORE_DELINEARIZE_PROJ_ID);
+  auto proj_id = context->get_projection_id(LEGATE_CORE_DELINEARIZE_PROJ_ID);
   auto functor = new DelinearizationFunctor(runtime);
   log_legate.debug("Register delinearizing functor: functor: %p, id: %d", functor, proj_id);
   runtime->register_projection_functor(proj_id, functor, true /*silence warnings*/);

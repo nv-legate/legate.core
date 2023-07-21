@@ -14,6 +14,7 @@
 #
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -49,11 +50,11 @@ def test_CMD_PARTS() -> None:
         m.cmd_nvprof,
         m.cmd_nsys,
         m.cmd_memcheck,
+        m.cmd_valgrind,
         m.cmd_legion,
         m.cmd_python_processor,
         m.cmd_module,
         m.cmd_nocr,
-        m.cmd_local_field,
         m.cmd_kthreads,
         m.cmd_cpus,
         m.cmd_gpus,
@@ -68,7 +69,6 @@ def test_CMD_PARTS() -> None:
         m.cmd_log_levels,
         m.cmd_log_file,
         m.cmd_eager_alloc,
-        m.cmd_ucx,
         m.cmd_user_script,
         m.cmd_user_opts,
     )
@@ -108,6 +108,7 @@ class Test_cmd_bind:
         )
 
     @pytest.mark.parametrize("launch", ("none", "mpirun", "jsrun", "srun"))
+    @pytest.mark.skipif(not install_info.use_cuda, reason="no CUDA support")
     def test_combo_local(
         self,
         genobjs: GenObjs,
@@ -150,7 +151,10 @@ class Test_cmd_bind:
         launch: LauncherType,
         kind: str,
         rank_var: dict[str, str],
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
+        monkeypatch.setattr(install_info, "networks", ["ucx"])
+
         config, system, launcher = genobjs(
             [f"--{kind}-bind", "1/2", "--launcher", launch],
             multi_rank=(2, 2),
@@ -180,7 +184,10 @@ class Test_cmd_bind:
         binding: str,
         kind: str,
         rank_var: dict[str, str],
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
+        monkeypatch.setattr(install_info, "networks", ["ucx"])
+
         config, system, launcher = genobjs(
             [f"--{kind}-bind", binding],
             multi_rank=(2, 2),
@@ -189,6 +196,30 @@ class Test_cmd_bind:
 
         msg = (
             f"Number of groups in --{kind}-bind not equal to --ranks-per-node"
+        )
+        with pytest.raises(RuntimeError, match=msg):
+            m.cmd_bind(config, system, launcher)
+
+    @pytest.mark.parametrize("launch", ("none", "mpirun", "jsrun", "srun"))
+    @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
+    def test_no_networking_error(
+        self,
+        genobjs: GenObjs,
+        launch: LauncherType,
+        rank_var: dict[str, str],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(install_info, "networks", [])
+
+        config, system, launcher = genobjs(
+            ["--launcher", launch],
+            multi_rank=(2, 2),
+            rank_env={rank_var: "1"},
+        )
+
+        msg = (
+            "multi-rank run was requested, but Legate was not built with "
+            "networking support"
         )
         with pytest.raises(RuntimeError, match=msg):
             m.cmd_bind(config, system, launcher)
@@ -361,6 +392,29 @@ class Test_cmd_nsys:
             "none",
         )
 
+    @pytest.mark.parametrize(
+        "nsys_extra",
+        (
+            ["--nsys-extra=--sample=cpu"],
+            ["--nsys-extra", "--backtrace=lbr -s cpu"],
+            ["--nsys-extra", "--sample cpu"],
+            ["--nsys-extra", "-s cpu"],
+            ["--nsys-extra=--sample", "--nsys-extra", "cpu"],
+        ),
+    )
+    def test_explicit_sample(
+        self, genobjs: GenObjs, nsys_extra: list[str]
+    ) -> None:
+        args = ["--nsys"] + nsys_extra
+        config, system, launcher = genobjs(args)
+        result = m.cmd_nsys(config, system, launcher)
+
+        parser = argparse.ArgumentParser()
+        parser.add_argument("-s", "--sample")
+        parsed_args, unparsed = parser.parse_known_args(result)
+
+        assert parsed_args.sample == "cpu"
+
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     def test_multi_rank_with_launcher(
         self, genobjs: GenObjs, launch: str
@@ -517,6 +571,22 @@ class Test_cmd_memcheck:
         assert result == ("compute-sanitizer",)
 
 
+class Test_cmd_valgrind:
+    def test_default(self, genobjs: GenObjs) -> None:
+        config, system, launcher = genobjs([])
+
+        result = m.cmd_valgrind(config, system, launcher)
+
+        assert result == ()
+
+    def test_with_option(self, genobjs: GenObjs) -> None:
+        config, system, launcher = genobjs(["--valgrind"])
+
+        result = m.cmd_valgrind(config, system, launcher)
+
+        assert result == ("valgrind",)
+
+
 class Test_cmd_nocr:
     def test_default(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs([])
@@ -643,15 +713,6 @@ class Test_cmd_python_processor:
         assert result == ("-ll:py", "1")
 
 
-class Test_cmd_local_field:
-    def test_default(self, genobjs: GenObjs) -> None:
-        config, system, launcher = genobjs([])
-
-        result = m.cmd_local_field(config, system, launcher)
-
-        assert result == ("-lg:local", "0")
-
-
 class Test_cmd_kthreads:
     DBG_OPTS = ("--gdb", "--cuda-gdb", "--freeze-on-error")
 
@@ -711,12 +772,27 @@ class Test_cmd_gpus:
         assert result == ()
 
     @pytest.mark.parametrize("value", ("1", "2", "16"))
+    @pytest.mark.skipif(not install_info.use_cuda, reason="no CUDA support")
     def test_nonzero(self, genobjs: GenObjs, value: str) -> None:
         config, system, launcher = genobjs(["--gpus", value])
 
         result = m.cmd_gpus(config, system, launcher)
 
         assert result == ("-ll:gpu", value, "-cuda:skipbusy")
+
+    def test_without_cuda(
+        self, genobjs: GenObjs, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(install_info, "use_cuda", False)
+
+        config, system, launcher = genobjs(["--gpus", "1"])
+
+        with pytest.raises(
+            RuntimeError,
+            match="--gpus was requested, but this build does not have CUDA "
+            "support enabled",
+        ):
+            m.cmd_gpus(config, system, launcher)
 
 
 class Test_cmd_openmp:
@@ -739,7 +815,24 @@ class Test_cmd_openmp:
 
         assert result == ()
 
+    def test_without_openmp(
+        self, genobjs: GenObjs, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(install_info, "use_openmp", False)
+
+        config, system, launcher = genobjs(["--omps", "1"])
+
+        with pytest.raises(
+            RuntimeError,
+            match="--omps was requested, but this build does not have OpenMP "
+            "support enabled",
+        ):
+            m.cmd_openmp(config, system, launcher)
+
     @pytest.mark.parametrize("omps", ("1", "12"))
+    @pytest.mark.skipif(
+        not install_info.use_openmp, reason="no OpenMP support"
+    )
     def test_ompthreads_zero(
         self, genobjs: GenObjs, capsys: Capsys, omps: str
     ) -> None:
@@ -755,6 +848,9 @@ class Test_cmd_openmp:
 
     @pytest.mark.parametrize("omps", ("1", "2", "12"))
     @pytest.mark.parametrize("ompthreads", ("1", "2", "12"))
+    @pytest.mark.skipif(
+        not install_info.use_openmp, reason="no OpenMP support"
+    )
     def test_ompthreads_no_numa(
         self, genobjs: GenObjs, omps: str, ompthreads: str
     ) -> None:
@@ -774,6 +870,9 @@ class Test_cmd_openmp:
 
     @pytest.mark.parametrize("omps", ("1", "2", "12"))
     @pytest.mark.parametrize("ompthreads", ("1", "2", "12"))
+    @pytest.mark.skipif(
+        not install_info.use_openmp, reason="no OpenMP support"
+    )
     def test_ompthreads_with_numa(
         self, genobjs: GenObjs, omps: str, ompthreads: str
     ) -> None:
@@ -1143,6 +1242,7 @@ class Test_cmd_fbmem:
 
         assert result == ()
 
+    @pytest.mark.skipif(not install_info.use_cuda, reason="no CUDA support")
     def test_with_gpus_no_values(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs(["--gpus", "1"])
 
@@ -1157,6 +1257,7 @@ class Test_cmd_fbmem:
 
     @pytest.mark.parametrize("fb", ("10", "1234"))
     @pytest.mark.parametrize("zc", ("10", "1234"))
+    @pytest.mark.skipif(not install_info.use_cuda, reason="no CUDA support")
     def test_with_gpus(self, genobjs: GenObjs, fb: str, zc: str) -> None:
         args = ["--gpus", "1", "--fbmem", fb, "--zcmem", zc]
         config, system, launcher = genobjs(args)
@@ -1312,6 +1413,7 @@ class Test_cmd_log_levels:
             + ("-level", "openmp=5,legion_prof=2")
         )
 
+    @pytest.mark.skipif(not install_info.use_cuda, reason="no CUDA support")
     def test_gpus(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs(["--gpus", "2"])
 
@@ -1331,6 +1433,7 @@ class Test_cmd_log_levels:
 
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
+    @pytest.mark.skipif(not install_info.use_cuda, reason="no CUDA support")
     def test_combined(
         self, genobjs: GenObjs, launch: str, rank_var: str
     ) -> None:
@@ -1423,6 +1526,7 @@ class Test_cmd_user_opts:
         assert result == tuple(opts)
 
     @pytest.mark.parametrize("opts", USER_OPTS, ids=str)
+    @pytest.mark.skipif(not install_info.use_cuda, reason="no CUDA support")
     def test_with_legate_opts(self, genobjs: GenObjs, opts: list[str]) -> None:
         args = ["--verbose", "--rlwrap", "--gpus", "2"] + opts
         config, system, launcher = genobjs(args, fake_module=None)

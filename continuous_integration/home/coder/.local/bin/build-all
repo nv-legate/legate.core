@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+
+build_all() {
+    set -x
+    cd ~/;
+
+    conda info
+
+    set -euo pipefail;
+
+    build-legate-cpp;
+    build-legate-wheel;
+    build-legate-conda;
+}
+
+(build_all "$@");

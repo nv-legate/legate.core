@@ -1,0 +1,92 @@
+name: Build legate.core on GH
+
+on:
+  workflow_call:
+    inputs:
+      build-target:
+        required: true
+        type: string
+      runs-on:
+        required: true
+        type: string
+      sha:
+        required: true
+        type: string
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  IMAGE_NAME: legate.core-${{ inputs.build-target }}
+  USE_CUDA: ${{ (inputs.build-target == 'cpu' && 'OFF') || 'ON' }}
+
+jobs:
+  build:
+    name: build-${{ inputs.build-target }}-sub-workflow
+
+    permissions:
+      id-token: write # This is required for configure-aws-credentials
+      contents: read  # This is required for actions/checkout
+      packages: write # This is required to push docker image to ghcr.io
+
+    runs-on: ${{ inputs.runs-on }}
+
+    steps:
+      - name: Checkout legate.core (= this repo)
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - if: github.repository_owner == 'nv-legate'
+        name: Get AWS credentials for sccache bucket
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-region: us-east-2
+          role-duration-seconds: 28800 # 8 hours
+          role-to-assume: arn:aws:iam::279114543810:role/gha-oidc-nv-legate
+
+      - name: Build docker image
+        run: |
+          echo BUILD_TARGET: ${{ inputs.build-target }}
+          echo USE_CUDA: ${{ env.USE_CUDA }}
+
+          docker build \
+            --build-arg AWS_SESSION_TOKEN=${{ env.AWS_SESSION_TOKEN }} \
+            --build-arg AWS_ACCESS_KEY_ID=${{ env.AWS_ACCESS_KEY_ID }} \
+            --build-arg AWS_SECRET_ACCESS_KEY=${{ env.AWS_SECRET_ACCESS_KEY }} \
+            --build-arg GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} \
+            --build-arg USE_CUDA=${{ env.USE_CUDA }} \
+            --progress=plain \
+            --tag=$IMAGE_NAME:${{ inputs.sha }} \
+            --label "git-commit=${{ inputs.sha }}" \
+            -f continuous_integration/Dockerfile .
+
+      - name: Log in to container image registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
+
+      - name: Push image
+        run: |
+          IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
+
+          # Change all uppercase to lowercase
+          IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
+
+          VERSION=${{ inputs.sha }}
+
+          docker tag $IMAGE_NAME:$VERSION $IMAGE_ID:$VERSION
+          docker push $IMAGE_ID:$VERSION
+
+      - name: Copy artifacts back to the host
+        run: |
+          mkdir -p artifacts
+          docker run  -v "$(pwd)/artifacts:/home/coder/.artifacts" --rm -t $IMAGE_NAME:${{ inputs.sha }} copy-artifacts
+          echo --------- DOCKER HISTORY START -----------
+          docker history $IMAGE_NAME:${{ inputs.sha }}
+          echo --------- DOCKER HISTORY END -----------
+
+      - name: Display structure of workdir
+        run: ls -R
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: "legate.core-${{ inputs.build-target }}-${{ inputs.sha }}"
+          path: artifacts

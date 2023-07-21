@@ -14,38 +14,13 @@
  *
  */
 
-#include "core/task/variant.h"
+#include "world.h"
 
-namespace legate {
+namespace rg {
 
-VariantOptions& VariantOptions::with_leaf(bool _leaf)
+/*static*/ void WorldTask::cpu_variant(legate::TaskContext& context)
 {
-  leaf = _leaf;
-  return *this;
+  log_registry.info() << "World!";
 }
 
-VariantOptions& VariantOptions::with_inner(bool _inner)
-{
-  inner = _inner;
-  return *this;
-}
-
-VariantOptions& VariantOptions::with_idempotent(bool _idempotent)
-{
-  idempotent = _idempotent;
-  return *this;
-}
-
-VariantOptions& VariantOptions::with_concurrent(bool _concurrent)
-{
-  concurrent = _concurrent;
-  return *this;
-}
-
-VariantOptions& VariantOptions::with_return_size(size_t _return_size)
-{
-  return_size = _return_size;
-  return *this;
-}
-
-}  // namespace legate
+}  // namespace rg

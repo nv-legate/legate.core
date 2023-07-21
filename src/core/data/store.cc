@@ -65,7 +65,7 @@ bool RegionField::valid() const
 
 Domain RegionField::domain() const { return dim_dispatch(dim_, get_domain_fn{}, pr_); }
 
-OutputRegionField::OutputRegionField(const Legion::OutputRegion& out, Legion::FieldID fid)
+UnboundRegionField::UnboundRegionField(const Legion::OutputRegion& out, Legion::FieldID fid)
   : out_(out),
     fid_(fid),
     num_elements_(
@@ -73,7 +73,7 @@ OutputRegionField::OutputRegionField(const Legion::OutputRegion& out, Legion::Fi
 {
 }
 
-OutputRegionField::OutputRegionField(OutputRegionField&& other) noexcept
+UnboundRegionField::UnboundRegionField(UnboundRegionField&& other) noexcept
   : bound_(other.bound_), out_(other.out_), fid_(other.fid_), num_elements_(other.num_elements_)
 {
   other.bound_        = false;
@@ -82,7 +82,7 @@ OutputRegionField::OutputRegionField(OutputRegionField&& other) noexcept
   other.num_elements_ = Legion::UntypedDeferredValue();
 }
 
-OutputRegionField& OutputRegionField::operator=(OutputRegionField&& other) noexcept
+UnboundRegionField& UnboundRegionField::operator=(UnboundRegionField&& other) noexcept
 {
   bound_        = other.bound_;
   out_          = other.out_;
@@ -97,7 +97,7 @@ OutputRegionField& OutputRegionField::operator=(OutputRegionField&& other) noexc
   return *this;
 }
 
-void OutputRegionField::make_empty(int32_t ndim)
+void UnboundRegionField::bind_empty_data(int32_t ndim)
 {
   update_num_elements(0);
   DomainPoint extents;
@@ -108,7 +108,7 @@ void OutputRegionField::make_empty(int32_t ndim)
   bound_ = true;
 }
 
-ReturnValue OutputRegionField::pack_weight() const
+ReturnValue UnboundRegionField::pack_weight() const
 {
 #ifdef DEBUG_LEGATE
   if (!bound_) {
@@ -121,22 +121,19 @@ ReturnValue OutputRegionField::pack_weight() const
   return ReturnValue(num_elements_, sizeof(size_t));
 }
 
-void OutputRegionField::update_num_elements(size_t num_elements)
+void UnboundRegionField::update_num_elements(size_t num_elements)
 {
   AccessorWO<size_t, 1> acc(num_elements_, sizeof(size_t), false);
   acc[0] = num_elements;
 }
 
 FutureWrapper::FutureWrapper(bool read_only,
-                             int32_t field_size,
+                             uint32_t field_size,
                              Domain domain,
                              Legion::Future future,
                              bool initialize /*= false*/)
   : read_only_(read_only), field_size_(field_size), domain_(domain), future_(future)
 {
-#ifdef DEBUG_LEGATE
-  assert(field_size > 0);
-#endif
   if (!read_only) {
 #ifdef DEBUG_LEGATE
     assert(!initialize || future_.get_untyped_size() == field_size);
@@ -209,14 +206,14 @@ void FutureWrapper::initialize_with_identity(int32_t redop_id)
 ReturnValue FutureWrapper::pack() const { return ReturnValue(buffer_, field_size_); }
 
 Store::Store(int32_t dim,
-             int32_t code,
+             std::unique_ptr<Type> type,
              int32_t redop_id,
              FutureWrapper future,
              std::shared_ptr<TransformStack>&& transform)
   : is_future_(true),
-    is_output_store_(false),
+    is_unbound_store_(false),
     dim_(dim),
-    code_(code),
+    type_(std::move(type)),
     redop_id_(redop_id),
     future_(future),
     transform_(std::forward<decltype(transform)>(transform)),
@@ -225,14 +222,14 @@ Store::Store(int32_t dim,
 }
 
 Store::Store(int32_t dim,
-             int32_t code,
+             std::unique_ptr<Type> type,
              int32_t redop_id,
              RegionField&& region_field,
              std::shared_ptr<TransformStack>&& transform)
   : is_future_(false),
-    is_output_store_(false),
+    is_unbound_store_(false),
     dim_(dim),
-    code_(code),
+    type_(std::move(type)),
     redop_id_(redop_id),
     region_field_(std::forward<RegionField>(region_field)),
     transform_(std::forward<decltype(transform)>(transform))
@@ -243,28 +240,28 @@ Store::Store(int32_t dim,
 }
 
 Store::Store(int32_t dim,
-             int32_t code,
-             OutputRegionField&& output,
+             std::unique_ptr<Type> type,
+             UnboundRegionField&& unbound_field,
              std::shared_ptr<TransformStack>&& transform)
   : is_future_(false),
-    is_output_store_(true),
+    is_unbound_store_(true),
     dim_(dim),
-    code_(code),
+    type_(std::move(type)),
     redop_id_(-1),
-    output_field_(std::forward<OutputRegionField>(output)),
+    unbound_field_(std::forward<UnboundRegionField>(unbound_field)),
     transform_(std::forward<decltype(transform)>(transform))
 {
 }
 
 Store::Store(Store&& other) noexcept
   : is_future_(other.is_future_),
-    is_output_store_(other.is_output_store_),
+    is_unbound_store_(other.is_unbound_store_),
     dim_(other.dim_),
-    code_(other.code_),
+    type_(std::move(other.type_)),
     redop_id_(other.redop_id_),
     future_(other.future_),
     region_field_(std::forward<RegionField>(other.region_field_)),
-    output_field_(std::forward<OutputRegionField>(other.output_field_)),
+    unbound_field_(std::forward<UnboundRegionField>(other.unbound_field_)),
     transform_(std::move(other.transform_)),
     readable_(other.readable_),
     writable_(other.writable_),
@@ -274,15 +271,15 @@ Store::Store(Store&& other) noexcept
 
 Store& Store::operator=(Store&& other) noexcept
 {
-  is_future_       = other.is_future_;
-  is_output_store_ = other.is_output_store_;
-  dim_             = other.dim_;
-  code_            = other.code_;
-  redop_id_        = other.redop_id_;
+  is_future_        = other.is_future_;
+  is_unbound_store_ = other.is_unbound_store_;
+  dim_              = other.dim_;
+  type_             = std::move(other.type_);
+  redop_id_         = other.redop_id_;
   if (is_future_)
     future_ = other.future_;
-  else if (is_output_store_)
-    output_field_ = std::move(other.output_field_);
+  else if (is_unbound_store_)
+    unbound_field_ = std::move(other.unbound_field_);
   else
     region_field_ = std::move(other.region_field_);
   transform_ = std::move(other.transform_);
@@ -292,13 +289,12 @@ Store& Store::operator=(Store&& other) noexcept
   return *this;
 }
 
-bool Store::valid() const { return is_future_ || is_output_store_ || region_field_.valid(); }
+bool Store::valid() const { return is_future_ || is_unbound_store_ || region_field_.valid(); }
 
 Domain Store::domain() const
 {
-#ifdef DEBUG_LEGATE
-  assert(!is_output_store_);
-#endif
+  if (is_unbound_store_)
+    throw std::invalid_argument("Invalid to retrieve the domain of an unbound store");
   auto result = is_future_ ? future_.domain() : region_field_.domain();
   if (!transform_->identity()) result = transform_->transform(result);
 #ifdef DEBUG_LEGATE
@@ -307,12 +303,10 @@ Domain Store::domain() const
   return result;
 }
 
-void Store::make_empty()
+void Store::bind_empty_data()
 {
-#ifdef DEBUG_LEGATE
-  check_valid_return();
-#endif
-  output_field_.make_empty(dim_);
+  check_valid_binding();
+  unbound_field_.bind_empty_data(dim_);
 }
 
 void Store::remove_transform()
@@ -323,33 +317,37 @@ void Store::remove_transform()
   dim_ = transform_->pop()->target_ndim(dim_);
 }
 
-void Store::check_valid_return() const
+void Store::check_accessor_dimension(const int32_t dim) const
 {
-  if (!is_output_store_) {
-    log_legate.error("Invalid to return a buffer to a bound store");
-    LEGATE_ABORT;
-  }
-  if (output_field_.bound()) {
-    log_legate.error("Invalid to return more than one buffer to an unbound store");
-    LEGATE_ABORT;
+  if (!(dim == dim_ || (dim_ == 0 && dim == 1))) {
+    throw std::invalid_argument("Dimension mismatch: invalid to create a " + std::to_string(dim) +
+                                "-D accessor to a " + std::to_string(dim_) + "-D store");
   }
 }
 
 void Store::check_buffer_dimension(const int32_t dim) const
 {
   if (dim != dim_) {
-    log_legate.error(
-      "Dimension mismatch: invalid to bind a %d-D buffer to a %d-D store", dim, dim_);
-    LEGATE_ABORT;
+    throw std::invalid_argument("Dimension mismatch: invalid to bind a " + std::to_string(dim) +
+                                "-D buffer to a " + std::to_string(dim_) + "-D store");
   }
 }
 
-void Store::check_accessor_dimension(const int32_t dim) const
+void Store::check_shape_dimension(const int32_t dim) const
 {
   if (!(dim == dim_ || (dim_ == 0 && dim == 1))) {
-    log_legate.error(
-      "Dimension mismatch: invalid to create a %d-D accessor to a %d-D store", dim, dim_);
-    LEGATE_ABORT;
+    throw std::invalid_argument("Dimension mismatch: invalid to retrieve a " + std::to_string(dim) +
+                                "-D rect from a " + std::to_string(dim_) + "-D store");
+  }
+}
+
+void Store::check_valid_binding() const
+{
+  if (!is_unbound_store_) {
+    throw std::invalid_argument("Buffer can be bound only to an unbound store");
+  }
+  if (unbound_field_.bound()) {
+    throw std::invalid_argument("A buffer has already been bound to the store");
   }
 }
 

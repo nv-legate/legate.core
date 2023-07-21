@@ -34,9 +34,19 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Set a default build type if none was specified
 rapids_cmake_build_type(Release)
 
-# ##################################################################################################
-# * conda environment -----------------------------------------------------------------------------
+##############################################################################
+# - conda environment --------------------------------------------------------
+
 rapids_cmake_support_conda_env(conda_env MODIFY_PREFIX_PATH)
+
+# We're building python extension libraries, which must always be installed
+# under lib/, even if the system normally uses lib64/. Rapids-cmake currently
+# doesn't realize this when we're going through scikit-build, see
+# https://github.com/rapidsai/rapids-cmake/issues/426
+# Do this before we include Legion, so its build also inherits this setting.
+if(TARGET conda_env)
+  set(CMAKE_INSTALL_LIBDIR "lib")
+endif()
 
 ##############################################################################
 # - Dependencies -------------------------------------------------------------
@@ -198,9 +208,12 @@ list(APPEND legate_core_SOURCES
   src/core/data/transform.cc
   src/core/mapping/base_mapper.cc
   src/core/mapping/core_mapper.cc
+  src/core/mapping/default_mapper.cc
   src/core/mapping/instance_manager.cc
+  src/core/mapping/machine.cc
   src/core/mapping/mapping.cc
   src/core/mapping/operation.cc
+  src/core/mapping/store.cc
   src/core/runtime/context.cc
   src/core/runtime/projection.cc
   src/core/runtime/runtime.cc
@@ -208,7 +221,9 @@ list(APPEND legate_core_SOURCES
   src/core/task/registrar.cc
   src/core/task/return.cc
   src/core/task/task.cc
-  src/core/task/variant.cc
+  src/core/task/task_info.cc
+  src/core/task/variant_options.cc
+  src/core/type/type_info.cc
   src/core/utilities/debug.cc
   src/core/utilities/deserializer.cc
   src/core/utilities/machine.cc
@@ -313,10 +328,12 @@ if (legate_core_BUILD_DOCS)
   if(Doxygen_FOUND)
     set(legate_core_DOC_SOURCES "")
     list(APPEND legate_core_DOC_SOURCES
+      # type
+      src/core/type/type_info.h
       # task
       src/core/task/task.h
       src/core/task/registrar.h
-      src/core/task/variant.h
+      src/core/task/variant_options.h
       src/core/task/exception.h
       src/core/cuda/stream_pool.h
       # data
@@ -402,15 +419,17 @@ install(
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/legate/core/data)
 
 install(
-  FILES src/core/mapping/base_mapper.h
+  FILES src/core/mapping/machine.h
         src/core/mapping/mapping.h
         src/core/mapping/operation.h
         src/core/mapping/operation.inl
+        src/core/mapping/store.h
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/legate/core/mapping)
 
 install(
   FILES src/core/runtime/context.h
         src/core/runtime/context.inl
+        src/core/runtime/resource.h
         src/core/runtime/runtime.h
         src/core/runtime/runtime.inl
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/legate/core/runtime)
@@ -421,9 +440,15 @@ install(
         src/core/task/return.h
         src/core/task/task.h
         src/core/task/task.inl
-        src/core/task/variant.h
+        src/core/task/task_info.h
+        src/core/task/variant_helper.h
+        src/core/task/variant_options.h
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/legate/core/task)
 
+install(
+  FILES src/core/type/type_info.h
+        src/core/type/type_traits.h
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/legate/core/type)
 install(
   FILES src/core/utilities/debug.h
         src/core/utilities/deserializer.h
@@ -432,7 +457,6 @@ install(
         src/core/utilities/machine.h
         src/core/utilities/nvtx_help.h
         src/core/utilities/span.h
-        src/core/utilities/type_traits.h
         src/core/utilities/typedefs.h
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/legate/core/utilities)
 
@@ -448,7 +472,7 @@ Imported Targets:
 
 ]=])
 
-file(READ ${CMAKE_SOURCE_DIR}/cmake/legate_helper_functions.cmake helper_functions)
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/cmake/legate_helper_functions.cmake helper_functions)
 
 string(JOIN "\n" code_string
 [=[
@@ -496,3 +520,11 @@ rapids_export(
   FINAL_CODE_BLOCK code_string
   LANGUAGES ${ENABLED_LANGUAES}
 )
+option(legate_core_EXAMPLE_BUILD_TESTS OFF)
+include(cmake/legate_helper_functions.cmake)
+if (legate_core_EXAMPLE_BUILD_TESTS)
+  set(legate_core_ROOT ${CMAKE_CURRENT_BINARY_DIR})
+  add_subdirectory(examples)
+endif()
+set(legate_core_ROOT ${CMAKE_CURRENT_BINARY_DIR})
+add_subdirectory(tests/integration)

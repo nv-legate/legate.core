@@ -376,6 +376,15 @@ def test_skipped_plain(use_plain_text: UsePlainTextFixture) -> None:
 
 
 @pytest.mark.skipif(colorama is None, reason="colorama required")
+def test_timeout() -> None:
+    assert m.timeout("msg") == f"{colors.yellow('[TIME]')} msg"
+
+
+def test_timeout_plain(use_plain_text: UsePlainTextFixture) -> None:
+    assert m.timeout("msg") == "[TIME] msg"
+
+
+@pytest.mark.skipif(colorama is None, reason="colorama required")
 def test_summary() -> None:
     assert m.summary("foo", 12, 11, timedelta(seconds=2.123)) == colors.bright(
         colors.red(

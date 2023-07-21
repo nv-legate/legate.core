@@ -28,14 +28,9 @@ from .util import GenObjs
 
 class MockHandler(m.LogHandler):
     _process_called = False
-    _cleanup_called = False
 
-    def process(self) -> bool:
+    def process(self) -> None:
         self._process_called = True
-        return False
-
-    def cleanup(self, keep_logs: bool) -> None:
-        self._cleanup_called = True
 
 
 _EXPECTED_RANK_WARN = """\
@@ -60,9 +55,8 @@ class TestLogHandler:
 
         handler = MockHandler(config, system)
 
-        keep_logs = handler.run_processing_cmd(("foo", "bar"), "toolname")
+        handler.run_processing_cmd(("foo", "bar"), "toolname")
 
-        assert keep_logs == config.logging.keep_logs
         mock_run.assert_called_once_with(
             ("foo", "bar"), check=True, cwd=config.logging.logdir
         )
@@ -75,13 +69,12 @@ class TestLogHandler:
 
         handler = MockHandler(config, system)
 
-        keep_logs = handler.run_processing_cmd(("foo", "bar"), "toolname")
+        handler.run_processing_cmd(("foo", "bar"), "toolname")
 
         out, _ = capsys.readouterr()
 
         assert scrub(out).strip() == "Running: foo bar"
 
-        assert keep_logs == config.logging.keep_logs
         mock_run.assert_called_once_with(
             ("foo", "bar"), check=True, cwd=config.logging.logdir
         )
@@ -99,9 +92,8 @@ class TestLogHandler:
 
         handler = MockHandler(config, system)
 
-        keep_logs = handler.run_processing_cmd(("foo", "bar"), "toolname")
+        handler.run_processing_cmd(("foo", "bar"), "toolname")
 
-        assert keep_logs == config.logging.keep_logs
         mock_run.assert_called_once_with(
             ("foo", "bar"), check=True, cwd=config.logging.logdir
         )
@@ -117,9 +109,8 @@ class TestLogHandler:
 
         handler = MockHandler(config, system)
 
-        keep_logs = handler.run_processing_cmd(("foo", "bar"), "toolname")
+        handler.run_processing_cmd(("foo", "bar"), "toolname")
 
-        assert keep_logs == config.logging.keep_logs
         mock_run.assert_called_once_with(
             ("foo", "bar"), check=True, cwd=config.logging.logdir
         )
@@ -141,12 +132,11 @@ class TestLogHandler:
 
         handler = MockHandler(config, system)
 
-        keep_logs = handler.run_processing_cmd(("foo", "bar"), "toolname")
+        handler.run_processing_cmd(("foo", "bar"), "toolname")
 
         out, _ = capsys.readouterr()
 
         assert scrub(out).strip() == _EXPECTED_RANK_WARN
-        assert keep_logs is True
         mock_run.assert_not_called()
 
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
@@ -164,12 +154,11 @@ class TestLogHandler:
 
         handler = MockHandler(config, system)
 
-        keep_logs = handler.run_processing_cmd(("foo", "bar"), "toolname")
+        handler.run_processing_cmd(("foo", "bar"), "toolname")
 
         out, _ = capsys.readouterr()
 
         assert scrub(out).strip() == _EXPECTED_RANK_WARN
-        assert keep_logs is True
         mock_run.assert_not_called()
 
 
@@ -193,7 +182,6 @@ class Test_process_logs:
         assert len(handlers) == 1
         assert isinstance(handlers[0], MockHandler)
         assert handlers[0]._process_called
-        assert handlers[0]._cleanup_called
 
     @pytest.mark.parametrize(
         "args", powerset_nonempty(("--event", "--dataflow"))
@@ -211,7 +199,6 @@ class Test_process_logs:
         assert len(handlers) == 1
         assert isinstance(handlers[0], MockHandler)
         assert handlers[0]._process_called
-        assert handlers[0]._cleanup_called
 
     @pytest.mark.parametrize(
         "args", powerset_nonempty(("--event", "--dataflow"))
@@ -230,10 +217,8 @@ class Test_process_logs:
         assert len(handlers) == 2
         assert isinstance(handlers[0], MockHandler)
         assert handlers[0]._process_called
-        assert handlers[0]._cleanup_called
         assert isinstance(handlers[1], MockHandler)
         assert handlers[1]._process_called
-        assert handlers[1]._cleanup_called
 
 
 def _de_flag(config: Config) -> tuple[str, ...]:
@@ -328,132 +313,79 @@ class TestDebuggingHandler:
         )
         mock_run.assert_called_once_with(expected, "spy")
 
-    def test_cleanup_keep_logs_True(
-        self, genobjs: GenObjs, mocker: MockerFixture
-    ) -> None:
-        config, system, launcher = genobjs([])
-
-        handler = m.DebuggingHandler(config, system)
-        mock_unlink = mocker.patch("pathlib.Path.unlink")
-
-        handler.cleanup(True)
-
-        mock_unlink.assert_not_called()
-
-    def test_cleanup_keep_logs_False(
-        self, genobjs: GenObjs, mocker: MockerFixture
-    ) -> None:
-        config, system, launcher = genobjs([])
-
-        handler = m.DebuggingHandler(config, system)
-        mock_unlink = mocker.patch("pathlib.Path.unlink")
-
-        handler.cleanup(False)
-
-        mock_unlink.assert_called_once()
-
-    @pytest.mark.parametrize("keep_logs", (True, False))
-    def test_cleanup_with_user_log_levels(
-        self, genobjs: GenObjs, mocker: MockerFixture, keep_logs: bool
-    ) -> None:
-        config, system, launcher = genobjs(["--logging", "foo"])
-
-        handler = m.DebuggingHandler(config, system)
-        mock_unlink = mocker.patch("pathlib.Path.unlink")
-
-        handler.cleanup(keep_logs)
-
-        mock_unlink.assert_not_called()
-
 
 class TestProcessingHandler:
     def test_process_single_rank_no_launcher(
-        self, genobjs: GenObjs, mocker: MockerFixture
+        self, genobjs: GenObjs, capsys: Capsys
     ) -> None:
         config, system, launcher = genobjs([])
 
         handler = m.ProfilingHandler(config, system)
-        mock_run = mocker.patch.object(handler, "run_processing_cmd")
 
         handler.process()
 
-        legion_prof_py = str(handler.system.legion_paths.legion_prof_py)
-        expected = (legion_prof_py, "-o", "legate_prof", "legate_0.prof")
-        mock_run.assert_called_once_with(expected, "profiler")
+        out, _ = capsys.readouterr()
+
+        assert scrub(out).strip() == (
+            f"Profiles have been generated under {config.logging.logdir}, "
+            f"run legion_prof --view "
+            f"{config.logging.logdir}/legate_*.prof to view them"
+        )
 
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     def test_process_single_rank_with_launcher(
-        self, genobjs: GenObjs, mocker: MockerFixture, launch: str
+        self, genobjs: GenObjs, capsys: Capsys, launch: str
     ) -> None:
         config, system, launcher = genobjs(["--launcher", launch])
 
         handler = m.ProfilingHandler(config, system)
-        mock_run = mocker.patch.object(handler, "run_processing_cmd")
 
         handler.process()
 
-        legion_prof_py = str(handler.system.legion_paths.legion_prof_py)
-        expected = (legion_prof_py, "-o", "legate_prof", "legate_0.prof")
-        mock_run.assert_called_once_with(expected, "profiler")
+        out, _ = capsys.readouterr()
+
+        assert scrub(out).strip() == (
+            f"Profiles have been generated under {config.logging.logdir}, "
+            f"run legion_prof --view "
+            f"{config.logging.logdir}/legate_*.prof to view them"
+        )
 
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     def test_process_multi_rank_no_launcher(
-        self, genobjs: GenObjs, mocker: MockerFixture, rank_var: str
+        self, genobjs: GenObjs, capsys: Capsys, rank_var: str
     ) -> None:
         config, system, launcher = genobjs(
             [], multi_rank=(3, 2), rank_env={rank_var: "1"}
         )
 
         handler = m.ProfilingHandler(config, system)
-        mock_run = mocker.patch.object(handler, "run_processing_cmd")
 
         handler.process()
 
-        legion_prof_py = str(handler.system.legion_paths.legion_prof_py)
-        expected = (legion_prof_py, "-o", "legate_prof") + tuple(
-            f"legate_{i}.prof" for i in range(6)
+        out, _ = capsys.readouterr()
+
+        assert scrub(out).strip() == (
+            f"Profiles have been generated under {config.logging.logdir}, "
+            f"run legion_prof --view "
+            f"{config.logging.logdir}/legate_*.prof to view them"
         )
-        mock_run.assert_called_once_with(expected, "profiler")
 
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     def test_process_multi_rank_with_launcher(
-        self, genobjs: GenObjs, mocker: MockerFixture, launch: str
+        self, genobjs: GenObjs, capsys: Capsys, launch: str
     ) -> None:
         config, system, launcher = genobjs(
             ["--launcher", launch], multi_rank=(3, 2)
         )
 
         handler = m.ProfilingHandler(config, system)
-        mock_run = mocker.patch.object(handler, "run_processing_cmd")
 
         handler.process()
 
-        legion_prof_py = str(handler.system.legion_paths.legion_prof_py)
-        expected = (legion_prof_py, "-o", "legate_prof") + tuple(
-            f"legate_{i}.prof" for i in range(6)
+        out, _ = capsys.readouterr()
+
+        assert scrub(out).strip() == (
+            f"Profiles have been generated under {config.logging.logdir}, "
+            f"run legion_prof --view "
+            f"{config.logging.logdir}/legate_*.prof to view them"
         )
-        mock_run.assert_called_once_with(expected, "profiler")
-
-    def test_cleanup_keep_logs_True(
-        self, genobjs: GenObjs, mocker: MockerFixture
-    ) -> None:
-        config, system, launcher = genobjs([])
-
-        handler = m.ProfilingHandler(config, system)
-        mock_unlink = mocker.patch("pathlib.Path.unlink")
-
-        handler.cleanup(True)
-
-        mock_unlink.assert_not_called()
-
-    def test_cleanup_keep_logs_False(
-        self, genobjs: GenObjs, mocker: MockerFixture
-    ) -> None:
-        config, system, launcher = genobjs([])
-
-        handler = m.ProfilingHandler(config, system)
-        mock_unlink = mocker.patch("pathlib.Path.unlink")
-
-        handler.cleanup(False)
-
-        mock_unlink.assert_called_once()

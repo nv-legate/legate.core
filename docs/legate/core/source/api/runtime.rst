@@ -22,21 +22,6 @@ typing. (See :meth:`legate.core.runtime.Runtime.register_library`.)
    Library.get_shared_library
    Library.get_c_header
    Library.get_registration_callback
-   Library.get_resource_configuration
-
-
-Resource configuration
-----------------------
-
-A ``ResourceConfig`` object describes the maximum number of handles that a
-library uses.
-
-.. autosummary::
-   :toctree: generated/
-
-   ResourceConfig.max_tasks
-   ResourceConfig.max_reduction_ops
-   ResourceConfig.max_mappers
 
 
 Context
@@ -50,21 +35,13 @@ runtime, the runtime gives back a context object unique to the library.
    :toctree: generated/
 
    context.Context.create_store
-   context.Context.create_task
    context.Context.create_manual_task
    context.Context.create_auto_task
    context.Context.create_copy
-   context.Context.create_fill
+   context.Context.issue_fill
    context.Context.issue_execution_fence
    context.Context.tree_reduce
    context.Context.get_tunable
-   context.Context.provenance
-   context.Context.annotation
-   context.Context.set_provenance
-   context.Context.reset_provenance
-   context.Context.push_provenance
-   context.Context.pop_provenance
-   context.Context.track_provenance
 
 
 Legate Runtime
@@ -73,11 +50,22 @@ Legate Runtime
 .. autosummary::
    :toctree: generated/
 
-   runtime.Runtime.num_cpus
-   runtime.Runtime.num_omps
-   runtime.Runtime.num_gpus
    runtime.Runtime.register_library
+   runtime.Runtime.create_store
+   runtime.Runtime.create_manual_task
+   runtime.Runtime.create_auto_task
+   runtime.Runtime.create_copy
+   runtime.Runtime.issue_fill
+   runtime.Runtime.issue_execution_fence
+   runtime.Runtime.tree_reduce
    runtime.Runtime.create_future
+   runtime.Runtime.provenance
+   runtime.Runtime.annotation
+   runtime.Runtime.set_provenance
+   runtime.Runtime.reset_provenance
+   runtime.Runtime.push_provenance
+   runtime.Runtime.pop_provenance
+   runtime.Runtime.track_provenance
 
 
 Annotation
@@ -98,4 +86,4 @@ which are later rendered in execution profiles.
 .. autosummary::
    :toctree: generated/
 
-   context.Annotation.__init__
+   runtime.Annotation.__init__

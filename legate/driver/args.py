@@ -19,6 +19,7 @@ from __future__ import annotations
 from argparse import REMAINDER, ArgumentDefaultsHelpFormatter, ArgumentParser
 
 from .. import __version__
+from ..util.args import InfoAction
 from ..util.shared_args import (
     CPUS,
     FBMEM,
@@ -224,15 +225,6 @@ logging.add_argument(
 )
 
 
-logging.add_argument(
-    "--keep-logs",
-    dest="keep_logs",
-    action="store_true",
-    required=False,
-    help="don't delete profiler & spy dumps after processing",
-)
-
-
 debugging = parser.add_argument_group("Debugging")
 
 
@@ -262,6 +254,14 @@ debugging.add_argument(
     action="store_true",
     required=False,
     help="run Legate with cuda-memcheck, "
+    "[legate-only, not supported with standard Python invocation]",
+)
+debugging.add_argument(
+    "--valgrind",
+    dest="valgrind",
+    action="store_true",
+    required=False,
+    help="run Legate with valgrind, "
     "[legate-only, not supported with standard Python invocation]",
 )
 
@@ -301,6 +301,23 @@ debugging.add_argument(
     action="store_true",
     required=False,
     help="Generate Legate event graph",
+)
+
+debugging.add_argument(
+    "--spy-validate-collective",
+    dest="collective",
+    action="store_true",
+    required=False,
+    help="Check that Legate made optimal use of collective views "
+    "(developer option)",
+)
+debugging.add_argument(
+    "--spy-assert-warning",
+    dest="spy_assert_warning",
+    action="store_true",
+    required=False,
+    help="Treat warnings as errors during processing of Legion Spy logs "
+    "(developer option)",
 )
 
 
@@ -387,4 +404,11 @@ other.add_argument(
     "--version",
     action="version",
     version=__version__,
+)
+
+other.add_argument(
+    "--info",
+    action=InfoAction,
+    help="Print information about the capabilities of this build of legate, "
+    "and immediately exit.",
 )

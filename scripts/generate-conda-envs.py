@@ -15,7 +15,7 @@ from __future__ import annotations
 from argparse import Action, ArgumentParser
 from dataclasses import dataclass
 from textwrap import indent
-from typing import Literal, Protocol, Tuple
+from typing import Literal, Tuple
 
 # --- Types -------------------------------------------------------------------
 
@@ -24,7 +24,12 @@ Reqs = Tuple[Req, ...]
 OSType = Literal["linux", "osx"]
 
 
-class SectionConfig(Protocol):
+def V(version: str) -> tuple[int, ...]:
+    padded_version = (version.split(".") + ["0"])[:2]
+    return tuple(int(x) for x in padded_version)
+
+
+class SectionConfig:
     header: str
 
     @property
@@ -49,6 +54,8 @@ class SectionConfig(Protocol):
 @dataclass(frozen=True)
 class CUDAConfig(SectionConfig):
     ctk_version: str
+    compilers: bool
+    os: OSType
 
     header = "cuda"
 
@@ -57,12 +64,26 @@ class CUDAConfig(SectionConfig):
         if self.ctk_version == "none":
             return ()
 
-        return (
-            f"cudatoolkit={self.ctk_version}",  # runtime
+        deps = (
+            f"cuda-version={self.ctk_version}",  # runtime
             "cutensor>=1.3.3",  # runtime
             "nccl",  # runtime
             "pynvml",  # tests
         )
+
+        if self.compilers and self.os == "linux":
+            # gcc 11.3 is incompatible with nvcc <= 11.5.
+            if V(self.ctk_version) <= V("11.5"):
+                deps += (
+                    "gcc_linux-64<=11.2",
+                    "gxx_linux-64<=11.2",
+                )
+            else:
+                deps += (
+                    "gcc_linux-64=11.*",
+                    "gxx_linux-64=11.*",
+                )
+        return deps
 
     def __str__(self) -> str:
         if self.ctk_version == "none":
@@ -84,13 +105,18 @@ class BuildConfig(SectionConfig):
         pkgs = (
             # 3.25.0 triggers gitlab.kitware.com/cmake/cmake/-/issues/24119
             "cmake>=3.24,!=3.25.0",
+            "cython",
             "git",
             "make",
             "rust",
             "ninja",
+            "openssl",
+            "pkg-config",
             "scikit-build>=0.13.1",
             "setuptools>=60",
             "zlib",
+            "numba",
+            "valgrind",
         )
         if self.compilers:
             pkgs += ("c-compiler", "cxx-compiler")
@@ -117,9 +143,11 @@ class RuntimeConfig(SectionConfig):
             "cffi",
             "llvm-openmp",
             "numpy>=1.22",
+            "libblas=*=*openblas*",
             "openblas=*=*openmp*",
+            # work around https://github.com/StanfordLegion/legion/issues/1500
+            "openblas<=0.3.21",
             "opt_einsum",
-            "pyarrow>=5",
             "scipy",
             "typing_extensions",
         )
@@ -195,7 +223,7 @@ class EnvConfig:
 
     @property
     def cuda(self) -> CUDAConfig:
-        return CUDAConfig(self.ctk)
+        return CUDAConfig(self.ctk, self.compilers, self.os)
 
     @property
     def build(self) -> BuildConfig:
@@ -234,6 +262,9 @@ CTK_VERSIONS = (
     "11.6",
     "11.7",
     "11.8",
+    "12.0",
+    # TODO: libcublas 12.1 not available on conda-forge as of 2023-06-12
+    # "12.1",
 )
 
 OS_NAMES: Tuple[OSType, ...] = ("linux", "osx")

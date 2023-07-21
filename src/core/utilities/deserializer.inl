@@ -17,24 +17,43 @@
 namespace legate {
 
 template <typename Deserializer>
-BaseDeserializer<Deserializer>::BaseDeserializer(const int8_t* args, size_t arglen)
-  : args_(Span<const int8_t>(args, arglen))
+BaseDeserializer<Deserializer>::BaseDeserializer(const void* args, size_t arglen)
+  : args_(Span<const int8_t>(static_cast<const int8_t*>(args), arglen))
 {
-}
-
-template <typename Deserializer>
-void BaseDeserializer<Deserializer>::_unpack(LegateTypeCode& value)
-{
-  value = static_cast<LegateTypeCode>(unpack<int32_t>());
 }
 
 template <typename Deserializer>
 void BaseDeserializer<Deserializer>::_unpack(Scalar& value)
 {
-  auto tuple = unpack<bool>();
-  auto code  = unpack<LegateTypeCode>();
-  value      = Scalar(tuple, code, args_.ptr());
-  args_      = args_.subspan(value.size());
+  auto type = unpack_type();
+  value     = Scalar(std::move(type), args_.ptr());
+  args_     = args_.subspan(value.size());
+}
+
+template <typename Deserializer>
+void BaseDeserializer<Deserializer>::_unpack(mapping::TaskTarget& value)
+{
+  value = static_cast<mapping::TaskTarget>(unpack<int32_t>());
+}
+
+template <typename Deserializer>
+void BaseDeserializer<Deserializer>::_unpack(mapping::ProcessorRange& value)
+{
+  value.low            = unpack<uint32_t>();
+  value.high           = unpack<uint32_t>();
+  value.per_node_count = unpack<uint32_t>();
+}
+
+template <typename Deserializer>
+void BaseDeserializer<Deserializer>::_unpack(mapping::MachineDesc& value)
+{
+  value.preferred_target = unpack<mapping::TaskTarget>();
+  auto num_ranges        = unpack<uint32_t>();
+  for (uint32_t idx = 0; idx < num_ranges; ++idx) {
+    auto kind  = unpack<mapping::TaskTarget>();
+    auto range = unpack<mapping::ProcessorRange>();
+    if (!range.empty()) value.processor_ranges.insert({kind, range});
+  }
 }
 
 template <typename Deserializer>
@@ -81,6 +100,57 @@ std::shared_ptr<TransformStack> BaseDeserializer<Deserializer>::unpack_transform
     }
   }
   assert(false);
+  return nullptr;
+}
+
+template <typename Deserializer>
+std::unique_ptr<Type> BaseDeserializer<Deserializer>::unpack_type()
+{
+  auto code = static_cast<Type::Code>(unpack<int32_t>());
+  switch (code) {
+    case Type::Code::FIXED_ARRAY: {
+      auto uid  = unpack<uint32_t>();
+      auto N    = unpack<uint32_t>();
+      auto type = unpack_type();
+      return std::make_unique<FixedArrayType>(uid, std::move(type), N);
+    }
+    case Type::Code::STRUCT: {
+      auto uid        = unpack<uint32_t>();
+      auto num_fields = unpack<uint32_t>();
+
+      std::vector<std::unique_ptr<Type>> field_types;
+      field_types.reserve(num_fields);
+      for (uint32_t idx = 0; idx < num_fields; ++idx) field_types.emplace_back(unpack_type());
+
+      auto align = unpack<bool>();
+
+      return std::make_unique<StructType>(uid, std::move(field_types), align);
+    }
+    case Type::Code::BOOL:
+    case Type::Code::INT8:
+    case Type::Code::INT16:
+    case Type::Code::INT32:
+    case Type::Code::INT64:
+    case Type::Code::UINT8:
+    case Type::Code::UINT16:
+    case Type::Code::UINT32:
+    case Type::Code::UINT64:
+    case Type::Code::FLOAT16:
+    case Type::Code::FLOAT32:
+    case Type::Code::FLOAT64:
+    case Type::Code::COMPLEX64:
+    case Type::Code::COMPLEX128: {
+      return std::make_unique<PrimitiveType>(code);
+    }
+    case Type::Code::STRING: {
+      return std::make_unique<StringType>();
+    }
+    default: {
+      LEGATE_ABORT;
+      break;
+    }
+  }
+  LEGATE_ABORT;
   return nullptr;
 }
 

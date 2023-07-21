@@ -16,8 +16,8 @@
 
 #pragma once
 
+#include "core/type/type_traits.h"
 #include "core/utilities/span.h"
-#include "core/utilities/type_traits.h"
 #include "core/utilities/typedefs.h"
 
 /**
@@ -45,15 +45,16 @@ class Scalar {
  public:
   Scalar() = default;
   Scalar(const Scalar& other);
+  Scalar(Scalar&& other);
+
   /**
    * @brief Creates a shared `Scalar` with an existing allocation. The caller is responsible
    * for passing in a sufficiently big allocation.
    *
-   * @param tuple If true, the allocation contains a tuple of scalars.
-   * @param code Type code of the scalar(s)
+   * @param type Type of the scalar(s)
    * @param data Allocation containing the data.
    */
-  Scalar(bool tuple, LegateTypeCode code, const void* data);
+  Scalar(std::unique_ptr<Type> type, const void* data);
   ~Scalar();
 
  public:
@@ -66,6 +67,24 @@ class Scalar {
    */
   template <typename T>
   Scalar(T value);
+  /**
+   * @brief Creates an owned scalar of a specified type from a scalar value
+   *
+   * @tparam T The scalar type to wrap
+   *
+   * @param type The type of the scalar
+   * @param value A scalar value to create a `Scalar` with
+   */
+  template <typename T>
+  Scalar(T value, std::unique_ptr<Type> type);
+  /**
+   * @brief Creates an owned scalar from a string. The value from the
+   * original string will be copied.
+   *
+   * @param string A string to create a `Scalar` with
+   */
+  Scalar(const std::string& string);
+
   /**
    * @brief Creates an owned scalar from a tuple of scalars. The values in the input vector
    * will be copied.
@@ -83,12 +102,11 @@ class Scalar {
 
  public:
   /**
-   * @brief Indicates if the `Scalar` object represents a tuple
+   * @brief Returns the data type of the scalar
    *
-   * @return true The `Scalar` is a tuple
-   * @return false The `Scalar` is a scalar
+   * @return Data type
    */
-  bool is_tuple() const { return tuple_; }
+  const Type& type() const { return *type_; }
   /**
    * @brief Returns the size of allocation for the `Scalar`.
    *
@@ -124,8 +142,7 @@ class Scalar {
 
  private:
   bool own_{false};
-  bool tuple_{false};
-  LegateTypeCode code_{MAX_TYPE_NUMBER};
+  std::unique_ptr<Type> type_{nullptr};
   const void* data_;
 };
 

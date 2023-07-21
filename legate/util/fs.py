@@ -173,8 +173,8 @@ def get_legate_paths() -> LegatePaths:
         return LegatePaths(
             legate_dir=legate_dir,
             legate_build_dir=legate_build_dir,
-            bind_sh_path=Path(sys.argv[0]).parent / "bind.sh",
-            legate_lib_path=Path(sys.argv[0]).parents[1] / "lib",
+            bind_sh_path=legate_dir.parents[2] / "bin" / "bind.sh",
+            legate_lib_path=legate_dir.parents[2] / "lib",
         )
 
     cmake_cache_txt = legate_build_dir.joinpath("CMakeCache.txt")
@@ -258,8 +258,8 @@ def get_legion_paths(legate_paths: LegatePaths) -> LegionPaths:
             realm_defines_h=legion_include_path / "realm_defines.h",
             legion_defines_h=legion_include_path / "legion_defines.h",
             legion_spy_py=legion_bin_path / "legion_spy.py",
-            legion_prof_py=legion_bin_path / "legion_prof.py",
             legion_python=legion_bin_path / "legion_python",
+            legion_prof=legion_bin_path / "legion_prof",
             legion_module=legion_module,
             legion_jupyter_module=legion_module,
         )
@@ -269,7 +269,7 @@ def get_legion_paths(legate_paths: LegatePaths) -> LegionPaths:
 
     # If no local build dir found, assume legate installed into the python env
     if legate_build_dir is None:
-        return installed_legion_paths(Path(sys.argv[0]).parents[1])
+        return installed_legion_paths(legate_paths.legate_dir.parents[2])
 
     # If a legate build dir was found, read `Legion_SOURCE_DIR` and
     # `Legion_BINARY_DIR` from in CMakeCache.txt, return paths into the source
@@ -320,8 +320,8 @@ def get_legion_paths(legate_paths: LegatePaths) -> LegionPaths:
                 realm_defines_h=legion_runtime_dir / "realm_defines.h",
                 legion_defines_h=legion_runtime_dir / "legion_defines.h",
                 legion_spy_py=legion_source_dir / "tools" / "legion_spy.py",
-                legion_prof_py=legion_source_dir / "tools" / "legion_prof.py",
                 legion_python=legion_binary_dir / "bin" / "legion_python",
+                legion_prof=legion_binary_dir / "bin" / "legion_prof",
                 legion_module=legion_bindings_dir / "python" / "build" / "lib",
                 legion_jupyter_module=legion_source_dir / "jupyter_notebook",
             )

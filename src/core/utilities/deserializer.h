@@ -23,9 +23,10 @@
 #include "core/comm/communicator.h"
 #include "core/data/scalar.h"
 #include "core/data/store.h"
+#include "core/mapping/machine.h"
 #include "core/mapping/operation.h"
+#include "core/type/type_traits.h"
 #include "core/utilities/span.h"
-#include "core/utilities/type_traits.h"
 #include "core/utilities/typedefs.h"
 #include "legate_defines.h"
 
@@ -34,7 +35,7 @@ namespace legate {
 template <typename Deserializer>
 class BaseDeserializer {
  public:
-  BaseDeserializer(const int8_t* args, size_t arglen);
+  BaseDeserializer(const void* args, size_t arglen);
 
  public:
   template <typename T>
@@ -46,7 +47,7 @@ class BaseDeserializer {
   }
 
  public:
-  template <typename T, std::enable_if_t<legate_type_code_of<T> != MAX_TYPE_NUMBER>* = nullptr>
+  template <typename T, std::enable_if_t<legate_type_code_of<T> != Type::Code::INVALID>* = nullptr>
   void _unpack(T& value)
   {
     value = *reinterpret_cast<const T*>(args_.ptr());
@@ -58,20 +59,31 @@ class BaseDeserializer {
   void _unpack(std::vector<T>& values)
   {
     auto size = unpack<uint32_t>();
-    for (uint32_t idx = 0; idx < size; ++idx) values.push_back(unpack<T>());
+    values.reserve(size);
+    for (uint32_t idx = 0; idx < size; ++idx) values.emplace_back(unpack<T>());
+  }
+  template <typename T1, typename T2>
+  void _unpack(std::pair<T1, T2>& values)
+  {
+    values.first  = unpack<T1>();
+    values.second = unpack<T2>();
   }
 
  public:
-  void _unpack(LegateTypeCode& value);
   void _unpack(Scalar& value);
+  void _unpack(mapping::TaskTarget& value);
+  void _unpack(mapping::ProcessorRange& value);
+  void _unpack(mapping::MachineDesc& value);
+
+ public:
+  Span<const int8_t> current_args() const { return args_; }
 
  protected:
   std::shared_ptr<TransformStack> unpack_transform();
+  std::unique_ptr<Type> unpack_type();
 
  protected:
   bool first_task_;
-
- private:
   Span<const int8_t> args_;
 };
 
@@ -86,7 +98,7 @@ class TaskDeserializer : public BaseDeserializer<TaskDeserializer> {
   void _unpack(Store& value);
   void _unpack(FutureWrapper& value);
   void _unpack(RegionField& value);
-  void _unpack(OutputRegionField& value);
+  void _unpack(UnboundRegionField& value);
   void _unpack(comm::Communicator& value);
   void _unpack(Legion::PhaseBarrier& barrier);
 
@@ -97,6 +109,14 @@ class TaskDeserializer : public BaseDeserializer<TaskDeserializer> {
 };
 
 namespace mapping {
+
+class MapperDataDeserializer : public BaseDeserializer<MapperDataDeserializer> {
+ public:
+  MapperDataDeserializer(const Legion::Mappable* mappable);
+
+ public:
+  using BaseDeserializer::_unpack;
+};
 
 class TaskDeserializer : public BaseDeserializer<TaskDeserializer> {
  public:
@@ -125,8 +145,7 @@ class CopyDeserializer : public BaseDeserializer<CopyDeserializer> {
   using ReqsRef      = std::reference_wrapper<const Requirements>;
 
  public:
-  CopyDeserializer(const void* args,
-                   size_t arglen,
+  CopyDeserializer(const Legion::Copy* copy,
                    std::vector<ReqsRef>&& all_requirements,
                    Legion::Mapping::MapperRuntime* runtime,
                    Legion::Mapping::MapperContext context);

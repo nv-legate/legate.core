@@ -22,15 +22,12 @@
 # -- Project information -----------------------------------------------------
 
 project = "legate.core"
-copyright = "2021-2022, NVIDIA"
+copyright = "2021-2023, NVIDIA"
 author = "NVIDIA"
 
 
 # -- General configuration ---------------------------------------------------
 
-# Add any Sphinx extension module names here, as strings. They can be
-# extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
-# ones.
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
@@ -39,40 +36,34 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx_copybutton",
     "myst_parser",
+    "legate._sphinxext.settings",
 ]
 
 suppress_warnings = ["ref.myst"]
 
-# The master toctree document.
-master_doc = "index"
-
-# Add any paths that contain templates here, relative to this directory.
-templates_path = ["_templates"]
-
 source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
-
-# List of patterns, relative to source directory, that match files and
-# directories to ignore when looking for source files.
-# This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = []
 
 # -- Options for HTML output -------------------------------------------------
 
-# The theme to use for HTML and HTML Help pages.  See the documentation for
-# a list of builtin themes.
-#
-html_theme = "pydata_sphinx_theme"
-
-# Add any paths that contain custom static files (such as style sheets) here,
-# relative to this directory. They are copied after the builtin static files,
-# so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
 
-pygments_style = "sphinx"
+html_theme = "pydata_sphinx_theme"
 
-intersphinx_mapping = {
-    "python": ("https://docs.python.org/3/", None),
-    "numpy": ("https://numpy.org/doc/stable/", None),
+html_theme_options = {
+    "footer_start": ["copyright"],
+    "github_url": "https://github.com/nv-legate/legate.core",
+    # https://github.com/pydata/pydata-sphinx-theme/issues/1220
+    "icon_links": [],
+    "logo": {
+        "text": project,
+        "link": "https://nv-legate.github.io/legate.core/",
+    },
+    "navbar_align": "left",
+    "navbar_end": ["navbar-icon-links", "theme-switcher"],
+    "primary_sidebar_end": ["indices.html"],
+    "secondary_sidebar_items": ["page-toc"],
+    "show_nav_level": 2,
+    "show_toc_level": 2,
 }
 
 # -- Options for extensions --------------------------------------------------
@@ -81,7 +72,16 @@ autosummary_generate = True
 
 copybutton_prompt_text = ">>> "
 
+intersphinx_mapping = {
+    "python": ("https://docs.python.org/3/", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
+}
+
 mathjax_path = "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
+
+pygments_style = "sphinx"
+
+myst_heading_anchors = 3
 
 
 def setup(app):

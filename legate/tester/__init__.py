@@ -49,6 +49,9 @@ DEFAULT_OMPTHREADS = 4
 #: Value to use if --numamem is not specified.
 DEFAULT_NUMAMEM = 0
 
+#: Value to use if --ranks-per-node is not specified.
+DEFAULT_RANKS_PER_NODE = 1
+
 #: Default values to apply to normalize the testing environment.
 DEFAULT_PROCESS_ENV = {
     "LEGATE_TEST": "1",
@@ -88,3 +91,6 @@ class CustomTest:
 #:
 #: Client test scripts should udpate this set with their own customizations.
 CUSTOM_FILES: list[CustomTest] = []
+
+#: Location to store a list of last-failed tests
+LAST_FAILED_FILENAME: str = ".legate-test-last-failed"

@@ -25,7 +25,7 @@ from sphinx.errors import SphinxError
 from sphinx.util.docutils import SphinxDirective
 from sphinx.util.nodes import nested_parse_with_titles
 
-from legate.util.settings import PrioritizedSetting, _Unset
+from legate.util.settings import EnvOnlySetting, PrioritizedSetting, _Unset
 
 SETTINGS_DETAIL = Template(
     """
@@ -72,19 +72,24 @@ class SettingsDirective(SphinxDirective):
 
         settings = []
         for x in obj.__class__.__dict__.values():
-            if not isinstance(x, PrioritizedSetting):
+            if isinstance(x, PrioritizedSetting):
+                default = "(Unset)" if x.default is _Unset else repr(x.default)
+            elif isinstance(x, EnvOnlySetting):
+                default = repr(x.default)
+                if x._test_default is not _Unset:
+                    default += f" (test-mode default: {x._test_default!r})"
+            else:
                 continue
-            # help = [line.strip() for line in x.help.strip().split("\n")]
-            setting = {
-                "name": x.name,
-                "env_var": x.env_var,
-                "type": x.convert_type,
-                "help": textwrap.dedent(x.help),
-                "default": "(Unset)"
-                if x.default is _Unset
-                else repr(x.default),
-            }
-            settings.append(setting)
+
+            settings.append(
+                {
+                    "name": x.name,
+                    "env_var": x.env_var,
+                    "type": x.convert_type,
+                    "help": textwrap.dedent(x.help),
+                    "default": default,
+                }
+            )
 
         rst_text = SETTINGS_DETAIL.render(
             name=obj_name, module_name=module_name, settings=settings

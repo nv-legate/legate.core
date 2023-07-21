@@ -15,8 +15,10 @@
 from __future__ import annotations
 
 import multiprocessing
+import queue
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from typing_extensions import Protocol
 
@@ -49,7 +51,7 @@ class TestStage(Protocol):
     spec: StageSpec
 
     #: The computed sharding id sets to use for job runs
-    shards: multiprocessing.Queue[Shard]
+    shards: queue.Queue[Any]
 
     #: After the stage completes, results will be stored here
     result: StageResult
@@ -269,7 +271,12 @@ class TestStage(Protocol):
 
         self.delay(shard, config, system)
 
-        result = system.run(cmd, test_file, env=self._env(config, system))
+        result = system.run(
+            cmd,
+            test_file,
+            env=self._env(config, system),
+            timeout=config.timeout,
+        )
         log_proc(self.name, result, config, verbose=config.verbose)
 
         self.shards.put(shard)
@@ -279,6 +286,13 @@ class TestStage(Protocol):
     def _env(self, config: Config, system: TestSystem) -> EnvDict:
         env = dict(config.env)
         env.update(self.env(config, system))
+
+        # special case for LEGATE_CONFIG -- if users have specified this on
+        # their own we still want to see the value since it will affect the
+        # test invocation directly.
+        if "LEGATE_CONFIG" in system.env:
+            env["LEGATE_CONFIG"] = system.env["LEGATE_CONFIG"]
+
         return env
 
     def _init(self, config: Config, system: TestSystem) -> None:
