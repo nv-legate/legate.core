@@ -7,13 +7,16 @@ ENV USE_CUDA=${USE_CUDA}
 ARG BUILD_MARCH=nocona
 ENV BUILD_MARCH=${BUILD_MARCH}
 
+ARG AWS_DEFAULT_REGION
+ENV AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-"us-east-2"}
+
 ARG AWS_REGION
-ENV AWS_REGION=${AWS_REGION}
+ENV AWS_REGION=${AWS_REGION:-${AWS_DEFAULT_REGION}}
 
 ENV DEFAULT_CONDA_ENV=legate
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV SCCACHE_S3_USE_SSL=true
-ENV SCCACHE_REGION=${AWS_REGION:-"us-east-2"}
+ENV SCCACHE_REGION=${AWS_REGION}
 ENV SCCACHE_BUCKET="rapids-sccache-devs"
 ENV SCCACHE_S3_KEY_PREFIX=legate-cunumeric-dev
 ENV VAULT_HOST=https://vault.ops.k8s.rapids.ai
@@ -40,10 +43,9 @@ RUN make-conda-env
 FROM setup as build
 
 # Mount in secrets
-RUN --mount=type=bind,source=.aws,target=/home/coder/.aws          \
-    --mount=type=secret,id=GH_TOKEN,uid=1000,gid=1000              \
-    --mount=type=secret,id=AWS_SESSION_TOKEN,uid=1000,gid=1000     \
+RUN --mount=type=secret,id=GH_TOKEN,uid=1000,gid=1000              \
     --mount=type=secret,id=AWS_ACCESS_KEY_ID,uid=1000,gid=1000     \
+    --mount=type=secret,id=AWS_SESSION_TOKEN,uid=1000,gid=1000     \
     --mount=type=secret,id=AWS_SECRET_ACCESS_KEY,uid=1000,gid=1000 \
 <<EOF
 
@@ -60,7 +62,16 @@ fi
 . devcontainer-utils-post-attach-command;
 
 sccache --stop-server >/dev/null 2>&1 || true;
-SCCACHE_NO_DAEMON=1 SCCACHE_LOG=debug sccache --show-stats;
+
+SCCACHE_LOG=trace \
+SCCACHE_NO_DAEMON=1 \
+SCCACHE_REGION="${SCCACHE_REGION:-}" \
+SCCACHE_BUCKET="${SCCACHE_BUCKET:-}" \
+AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID:-}" \
+AWS_SESSION_TOKEN="${AWS_SESSION_TOKEN:-}" \
+AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY:-}" \
+sccache --show-stats;
+
 sccache --show-stats;
 
 build-all;
