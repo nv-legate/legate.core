@@ -58,10 +58,10 @@ jobs:
             --progress=plain \
             --build-arg USE_CUDA="${USE_CUDA}" \
             --build-arg AWS_REGION="${AWS_REGION}" \
-            --secret "id=GH_TOKEN,src=${PWD}/.creds/GH_TOKEN" \
-            --secret "id=AWS_SESSION_TOKEN,src=${PWD}/.creds/AWS_SESSION_TOKEN" \
-            --secret "id=AWS_ACCESS_KEY_ID,src=${PWD}/.creds/AWS_ACCESS_KEY_ID" \
-            --secret "id=AWS_SECRET_ACCESS_KEY,src=${PWD}/.creds/AWS_SECRET_ACCESS_KEY" \
+            --secret "id=GH_TOKEN,src=$(pwd)/.creds/GH_TOKEN" \
+            --secret "id=AWS_SESSION_TOKEN,src=$(pwd)/.creds/AWS_SESSION_TOKEN" \
+            --secret "id=AWS_ACCESS_KEY_ID,src=$(pwd)/.creds/AWS_ACCESS_KEY_ID" \
+            --secret "id=AWS_SECRET_ACCESS_KEY,src=$(pwd)/.creds/AWS_SECRET_ACCESS_KEY" \
             --tag=$IMAGE_NAME:${{ inputs.sha }} \
             --label "git-commit=${{ inputs.sha }}" \
             -f continuous_integration/Dockerfile \

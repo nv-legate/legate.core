@@ -55,6 +55,11 @@ if ! test -n "${GH_TOKEN:-}" \
     export SCCACHE_BUCKET="";
 fi
 
+if test -n "${GH_TOKEN:-}"; then echo "Has GH_TOKEN"; fi
+if test -n "${AWS_ACCESS_KEY_ID:-}"; then echo "Has AWS_ACCESS_KEY_ID"; fi
+if test -n "${AWS_SECRET_ACCESS_KEY:-}"; then echo "Has AWS_SECRET_ACCESS_KEY"; fi
+if test -n "${SCCACHE_BUCKET:-}"; then echo "Has SCCACHE_BUCKET"; fi
+
 . devcontainer-utils-post-attach-command;
 
 build-all;
