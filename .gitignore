@@ -40,5 +40,3 @@ legate.core.code-workspace
 *.prof
 .legate-test-last-failed
 out/
-.github/
-continuous_integration/Dockerfile
