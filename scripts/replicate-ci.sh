@@ -16,8 +16,14 @@ mv ~/.conda/envs/${DEFAULT_CONDA_ENV:-legate}{,.bak};
 
 # Recreate env from conda package
 mamba create -y -n "${DEFAULT_CONDA_ENV:-legate}"        \
-    -c ~/.artifacts/legate_core -c conda-forge -c nvidia \
-    legate-core pytest pytest-mock ipython jupyter_client;
+    `# local legate_core channel first`                  \
+    -c ~/.artifacts/legate_core                          \
+    `# then conda-forge`                                 \
+    -c conda-forge                                       \
+    `# and finally nvidia`                               \
+    -c nvidia                                            \
+    legate-core                                          \
+    mypy pytest pytest-mock ipython jupyter_client       ;
 
 # Check types
 type-check-legate-python;
