@@ -54,11 +54,13 @@ fi
 
 . devcontainer-utils-post-attach-command;
 
-devcontainer-utils-vault-s3-creds-propagate || true;
-
-SCCACHE_NO_DAEMON=1 SCCACHE_LOG=trace sccache --show-stats;
-
-sccache --start-server >/dev/null 2>&1 || true;
+if ! grep -qE "^$" <<< "${GH_TOKEN:-}" \
+|| ! grep -qE "^$" <<< "${AWS_ACCESS_KEY_ID:-}" \
+|| ! grep -qE "^$" <<< "${AWS_SECRET_ACCESS_KEY:-}"; then
+    devcontainer-utils-vault-s3-creds-propagate;
+    SCCACHE_NO_DAEMON=1 SCCACHE_LOG=trace sccache --show-stats;
+    sccache --start-server >/dev/null 2>&1 || true;
+fi
 
 make-conda-env;
 
