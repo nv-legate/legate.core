@@ -56,11 +56,9 @@ jobs:
           cat <<< "${{ secrets.PERSONAL_ACCESS_TOKEN || secrets.GITHUB_TOKEN }}" > .creds/GH_TOKEN;
 
           docker build \
-            --network host \
-            --progress=plain \
+            --progress plain \
             --build-arg USE_CUDA="${USE_CUDA}" \
             --build-arg AWS_REGION="${AWS_REGION}" \
-            --build-arg AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION}" \
             --secret "id=GH_TOKEN,src=$(pwd)/.creds/GH_TOKEN" \
             --secret "id=AWS_ACCESS_KEY_ID,src=$(pwd)/.creds/AWS_ACCESS_KEY_ID" \
             --secret "id=AWS_SESSION_TOKEN,src=$(pwd)/.creds/AWS_SESSION_TOKEN" \

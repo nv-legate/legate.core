@@ -27,7 +27,6 @@ build_legate_cpp() {
     cmake_args+=(-DCMAKE_BUILD_PARALLEL_LEVEL=${JOBS:-$(nproc --ignore=1)});
     cmake_args+=(${@});
 
-    sccache --stop-server >/dev/null 2>&1 || true;
     sccache --show-stats;
 
     rm -rf ~/legate/build;
