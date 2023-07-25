@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+run_legate_pytest() {
+    set -euo pipefail;
+    echo "Executing mypy...";
+    mamba run \
+        -n "${DEFAULT_CONDA_ENV:-legate}" \
+        --cwd ~/legate \
+        --live-stream \
+        mypy legate;
+}
+
+run_legate_pytest "$@";

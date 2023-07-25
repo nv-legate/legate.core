@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-make_conda_env() {
-    set -xeuo pipefail;
+get_yaml_and_make_conda_env() {
+    set -e;
 
     local cuda_version="${CUDA_VERSION:-${CUDA_VERSION_MAJOR}.${CUDA_VERSION_MINOR}}";
     cuda_version="$(echo "${cuda_version}" | cut -d'.' -f3 --complement)";
@@ -12,9 +12,10 @@ make_conda_env() {
         python_version="$(python3 --version 2>&1 | cut -d' ' -f2 | cut -d'.' -f3 --complement)";
     fi
 
-    cd ~/;
+    mkdir -p ~/.artifacts;
+    cd ~/.artifacts;
 
-    local yaml_file=~/"$(         \
+    local yaml_file=~/.artifacts/"$(            \
         ~/legate/scripts/generate-conda-envs.py \
             --os linux                          \
             --compilers                         \
@@ -27,14 +28,11 @@ make_conda_env() {
 
     sed -i -re "s/legate-test/${DEFAULT_CONDA_ENV:-legate}/g" "${yaml_file}";
     echo "  - boa" >> "${yaml_file}";
+
+    echo YAML file: "${yaml_file}"
     cat "${yaml_file}";
 
-    mkdir -p /tmp/out/;
-    cp "${yaml_file}" /tmp/out/;
-
-    mamba env create -n "${DEFAULT_CONDA_ENV:-legate}" -f "${yaml_file}";
-
-    { set +x; } 2>/dev/null;
+    mamba env create -v -n "${DEFAULT_CONDA_ENV:-legate}" -f "${yaml_file}";
 }
 
-(make_conda_env "$@");
+get_yaml_and_make_conda_env "$@";

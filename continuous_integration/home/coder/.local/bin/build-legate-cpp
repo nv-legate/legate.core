@@ -45,10 +45,10 @@ build_legate_cpp() {
     sccache --show-stats;
 
     (
-    mkdir -p /tmp/out;
+    mkdir -p ~/.artifacts;
     cd ~/legate/build;
     cpack -G TGZ;
-    cp ./*-Linux.tar.gz /tmp/out/;
+    cp ./*-Linux.tar.gz ~/.artifacts/;
     );
 
     { set +x; } 2>/dev/null;

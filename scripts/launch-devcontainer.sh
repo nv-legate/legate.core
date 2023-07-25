@@ -33,9 +33,12 @@ launch_devcontainer() {
     local vols=();
     vols+=(-v "${cwd}:/home/coder/legate");
     vols+=(-v "${cwd}/continuous_integration/home/coder/.local/bin/make-conda-env:/home/coder/.local/bin/make-conda-env");
+    vols+=(-v "${cwd}/continuous_integration/home/coder/.local/bin/build-all:/home/coder/.local/bin/build-all");
     vols+=(-v "${cwd}/continuous_integration/home/coder/.local/bin/build-legate-cpp:/home/coder/.local/bin/build-legate-cpp");
     vols+=(-v "${cwd}/continuous_integration/home/coder/.local/bin/build-legate-wheel:/home/coder/.local/bin/build-legate-wheel");
     vols+=(-v "${cwd}/continuous_integration/home/coder/.local/bin/build-legate-conda:/home/coder/.local/bin/build-legate-conda");
+    vols+=(-v "${cwd}/continuous_integration/home/coder/.local/bin/test-legate-python:/home/coder/.local/bin/test-legate-python");
+    vols+=(-v "${cwd}/continuous_integration/home/coder/.local/bin/type-check-legate-python:/home/coder/.local/bin/type-check-legate-python");
 
     for x in ".aws" ".cache" ".cargo" ".config" ".conda/pkgs" ".local/state" "legion"; do
         if test -d "${cwd}/../${x}"; then
@@ -48,7 +51,7 @@ launch_devcontainer() {
         vols+=(-v "${SSH_AUTH_SOCK}:/tmp/ssh-auth-sock");
     fi
 
-    exec docker run ${args[@]} ${vars[@]} ${vols[@]} ${@};
+    exec docker run ${args[@]} ${vars[@]} ${vols[@]} "${@}";
 }
 
 launch_devcontainer "$@";

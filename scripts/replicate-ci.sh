@@ -4,20 +4,28 @@
 cd "$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )/..";
 
 exec ./scripts/launch-devcontainer-conda.sh bash -licx '
-# Create build env + build libs and conda package
+# Create build env
 make-conda-env;
-mamba run -n "${DEFAULT_CONDA_ENV:-legate}" --cwd ~/ --live-stream build-legate-cpp;
-mamba run -n "${DEFAULT_CONDA_ENV:-legate}" --cwd ~/ --live-stream build-legate-wheel;
-mamba run -n "${DEFAULT_CONDA_ENV:-legate}" --cwd ~/ --live-stream build-legate-conda;
+
+# Build libs + conda package
+build-all;
 
 # Uncreate build env
+rm -rf ~/.conda/envs/${DEFAULT_CONDA_ENV:-legate}.bak;
 mv ~/.conda/envs/${DEFAULT_CONDA_ENV:-legate}{,.bak};
 
 # Recreate env from conda package
 mamba create -y -n "${DEFAULT_CONDA_ENV:-legate}"        \
-    -c /tmp/out/legate_core -c conda-forge -c nvidia     \
+    -c ~/.artifacts/legate_core -c conda-forge -c nvidia \
     legate-core pytest pytest-mock ipython jupyter_client;
 
+# Check types
+type-check-legate-python;
+
 # Test package
-mamba run -n legate --cwd ~/legate/tests/unit --live-stream pytest;
+test-legate-python;
+
+# Restore build env
+rm -rf ~/.conda/envs/${DEFAULT_CONDA_ENV:-legate}/;
+mv ~/.conda/envs/${DEFAULT_CONDA_ENV:-legate}{.bak,};
 ';

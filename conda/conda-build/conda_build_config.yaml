@@ -1,14 +1,14 @@
-gpu_enabled:
-  - true
-  - false
-
+numpy:
+  - 1.22
 python:
-  - 3.9
-  - 3.10
-  - 3.11
-
+  - "3.10"
 numpy_version:
-  - ">=1.22"
-
+  - ">=1.22,<1.25"
+use_local_path:
+  - "true"
+gpu_enabled:
+  - "true"
 cmake_version:
   - ">=3.20.1,!=3.23.0"
+package_version:
+  - "23.07.00"

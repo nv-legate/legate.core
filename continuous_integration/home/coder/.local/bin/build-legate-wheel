@@ -3,12 +3,12 @@
 build_legate_wheel() {
     set -xeuo pipefail;
 
-    mkdir -p /tmp/out;
+    mkdir -p ~/.artifacts;
 
     rm -rf ~/legate/_skbuild;
 
     local pip_args=(-vv);
-    pip_args+=(--wheel-dir /tmp/out);
+    pip_args+=(--wheel-dir ~/.artifacts);
 
     if type conda 2>&1 >/dev/null; then
         pip_args+=(--no-deps);
@@ -20,7 +20,7 @@ build_legate_wheel() {
     cmake_args+=("-Dlegate_core_ROOT=$HOME/legate/build");
 
     # Build + package legate.core Python wheel
-    CMAKE_ARGS="${cmake_args[@]}" \
+    time CMAKE_ARGS="${cmake_args[@]}" \
         pip wheel ${pip_args[@]} ~/legate;
 
     { set +x; } 2>/dev/null;
