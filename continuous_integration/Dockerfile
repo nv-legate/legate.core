@@ -57,7 +57,8 @@ fi
 
 . devcontainer-utils-post-attach-command;
 
-sccache --show-stats;
+sccache --stop-server >/dev/null 2>&1 || true;
+SCCACHE_NO_DAEMON=1 SCCACHE_LOG=debug sccache --show-stats;
 
 build-all;
 
