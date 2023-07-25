@@ -91,9 +91,10 @@ jobs:
 
       - name: Copy artifacts back to the host
         run: |
-          mkdir -p out
-          docker run  -v "$(pwd)/out:/out" --rm -t -u coder \
-            $IMAGE_NAME:${{ inputs.sha }} cp -ar /home/coder/.artifacts /out/
+          mkdir -p out;
+          docker run -v "$(pwd)/out:/out" --rm -t -u root $IMAGE_NAME:${{ inputs.sha }} \
+          sh -c "cp -ar /home/coder/.artifacts /out/ && chown -R $(id -u):$(id -g) /out";
+          mv out/.artifacts artifacts && rmdir out;
           echo --------- DOCKER HISTORY START -----------
           docker history $IMAGE_NAME:${{ inputs.sha }}
           echo --------- DOCKER HISTORY END -------------
@@ -105,4 +106,4 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: "legate.core-${{ inputs.build-target }}-${{ inputs.sha }}"
-          path: out/.artifacts
+          path: artifacts
