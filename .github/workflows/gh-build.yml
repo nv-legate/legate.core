@@ -63,7 +63,7 @@ jobs:
             --secret "id=AWS_ACCESS_KEY_ID,src=$(pwd)/.creds/AWS_ACCESS_KEY_ID" \
             --secret "id=AWS_SESSION_TOKEN,src=$(pwd)/.creds/AWS_SESSION_TOKEN" \
             --secret "id=AWS_SECRET_ACCESS_KEY,src=$(pwd)/.creds/AWS_SECRET_ACCESS_KEY" \
-            --tag=$IMAGE_NAME:${{ inputs.sha }} \
+            --tag $IMAGE_NAME:${{ inputs.sha }} \
             --label "git-commit=${{ inputs.sha }}" \
             -f continuous_integration/Dockerfile \
             .
@@ -91,12 +91,12 @@ jobs:
 
       - name: Copy artifacts back to the host
         run: |
-          mkdir -p artifacts
-          docker run  -v "$(pwd)/artifacts:/artifacts" --rm -t -u coder \
-            $IMAGE_NAME:${{ inputs.sha }} cp -ar /home/coder/.artifacts/* /artifacts
+          mkdir -p out
+          docker run  -v "$(pwd)/out:/out" --rm -t -u coder \
+            $IMAGE_NAME:${{ inputs.sha }} cp -ar /home/coder/.artifacts /out/
           echo --------- DOCKER HISTORY START -----------
           docker history $IMAGE_NAME:${{ inputs.sha }}
-          echo --------- DOCKER HISTORY END -----------
+          echo --------- DOCKER HISTORY END -------------
 
       - name: Display structure of workdir
         run: ls -R
@@ -105,4 +105,4 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: "legate.core-${{ inputs.build-target }}-${{ inputs.sha }}"
-          path: artifacts
+          path: out/.artifacts
