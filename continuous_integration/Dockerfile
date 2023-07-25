@@ -9,16 +9,16 @@ ENV BUILD_MARCH=${BUILD_MARCH}
 
 ARG AWS_REGION
 ENV AWS_REGION=${AWS_REGION}
-ENV SCCACHE_REGION=${AWS_REGION:-${SCCACHE_REGION}}
 
 ENV DEFAULT_CONDA_ENV=legate
 ENV PYTHONDONTWRITEBYTECODE=1
-ENV SCCACHE_REGION="us-east-2"
+ENV SCCACHE_REGION=${AWS_REGION:-"us-east-2"}
 ENV SCCACHE_BUCKET="rapids-sccache-devs"
 ENV SCCACHE_S3_KEY_PREFIX=legate-cunumeric-dev
 ENV VAULT_HOST=https://vault.ops.k8s.rapids.ai
 # 8 hours
 ENV VAULT_S3_TTL="28800s"
+
 
 SHELL ["/bin/bash", "-Eeox", "pipefail", "-c"]
 
@@ -59,6 +59,7 @@ fi
 
 sccache --stop-server >/dev/null 2>&1 || true;
 SCCACHE_NO_DAEMON=1 SCCACHE_LOG=debug sccache --show-stats;
+sccache --show-stats;
 
 build-all;
 
