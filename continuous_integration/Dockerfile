@@ -52,6 +52,12 @@ if grep -qE "^$" <<< "${GH_TOKEN:-}" \
     export SCCACHE_BUCKET="";
 fi
 
+if ! grep -qE "^$" <<< "${SCCACHE_BUCKET:-}"; then export SCCACHE_BUCKET="${SCCACHE_BUCKET:-}"; fi
+if ! grep -qE "^$" <<< "${SCCACHE_REGION:-}"; then export SCCACHE_REGION="${SCCACHE_REGION:-}"; fi
+if ! grep -qE "^$" <<< "${AWS_ACCESS_KEY_ID:-}"; then export AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID:-}"; fi
+if ! grep -qE "^$" <<< "${AWS_SESSION_TOKEN:-}"; then export AWS_SESSION_TOKEN="${AWS_SESSION_TOKEN:-}"; fi
+if ! grep -qE "^$" <<< "${AWS_SECRET_ACCESS_KEY:-}"; then export AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY:-}"; fi
+
 if ! grep -qE "^$" <<< "${SCCACHE_BUCKET:-}" \
 && ! grep -qE "^$" <<< "${AWS_ACCESS_KEY_ID:-}" \
 && ! grep -qE "^$" <<< "${AWS_SECRET_ACCESS_KEY:-}"; then
