@@ -52,15 +52,16 @@ if grep -qE "^$" <<< "${GH_TOKEN:-}" \
     export SCCACHE_BUCKET="";
 fi
 
-. devcontainer-utils-post-attach-command;
-
-if ! grep -qE "^$" <<< "${GH_TOKEN:-}" \
-|| ! grep -qE "^$" <<< "${AWS_ACCESS_KEY_ID:-}" \
-|| ! grep -qE "^$" <<< "${AWS_SECRET_ACCESS_KEY:-}"; then
-    devcontainer-utils-vault-s3-creds-propagate;
+if ! grep -qE "^$" <<< "${SCCACHE_BUCKET:-}" \
+&& ! grep -qE "^$" <<< "${AWS_ACCESS_KEY_ID:-}" \
+&& ! grep -qE "^$" <<< "${AWS_SECRET_ACCESS_KEY:-}"; then
+    devcontainer_utils_debug=1 \
+        devcontainer-utils-vault-s3-creds-propagate;
     SCCACHE_NO_DAEMON=1 SCCACHE_LOG=trace sccache --show-stats;
     sccache --start-server >/dev/null 2>&1 || true;
 fi
+
+. devcontainer-utils-post-attach-command;
 
 make-conda-env;
 
