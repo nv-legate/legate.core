@@ -93,7 +93,7 @@ jobs:
         run: |
           mkdir -p artifacts
           docker run  -v "$(pwd)/artifacts:/artifacts" --rm -t -u coder \
-            $IMAGE_NAME:${{ inputs.sha }} cp -ar ~/.artifacts/* /artifacts
+            $IMAGE_NAME:${{ inputs.sha }} cp -ar /home/coder/.artifacts/* /artifacts
           echo --------- DOCKER HISTORY START -----------
           docker history $IMAGE_NAME:${{ inputs.sha }}
           echo --------- DOCKER HISTORY END -----------

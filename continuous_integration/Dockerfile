@@ -43,7 +43,11 @@ RUN --mount=type=secret,id=GH_TOKEN,uid=1000,gid=1000              \
 <<EOF
 
 { set +xo history; } 2>/dev/null;
-eval "export $(find /run/secrets/ -type f -exec bash -c 'echo ${0/\/run\/secrets\//}=$(<${0})' {} \;)";
+eval "$(                                                   \
+    find /run/secrets/ -type f -exec                       \
+      bash -c 'echo ${0/\/run\/secrets\//}=$(<${0})' {} \; \
+  | xargs -r -d'\n' -I% echo -n export %\;                 \
+)";
 { set -xo history; } 2>/dev/null;
 
 if grep -qE "^$" <<< "${GH_TOKEN:-}" \
@@ -52,17 +56,11 @@ if grep -qE "^$" <<< "${GH_TOKEN:-}" \
     export SCCACHE_BUCKET="";
 fi
 
-if ! grep -qE "^$" <<< "${SCCACHE_BUCKET:-}"; then export SCCACHE_BUCKET="${SCCACHE_BUCKET:-}"; fi
-if ! grep -qE "^$" <<< "${SCCACHE_REGION:-}"; then export SCCACHE_REGION="${SCCACHE_REGION:-}"; fi
-if ! grep -qE "^$" <<< "${AWS_ACCESS_KEY_ID:-}"; then export AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID:-}"; fi
-if ! grep -qE "^$" <<< "${AWS_SESSION_TOKEN:-}"; then export AWS_SESSION_TOKEN="${AWS_SESSION_TOKEN:-}"; fi
-if ! grep -qE "^$" <<< "${AWS_SECRET_ACCESS_KEY:-}"; then export AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY:-}"; fi
-
 if ! grep -qE "^$" <<< "${SCCACHE_BUCKET:-}" \
 && ! grep -qE "^$" <<< "${AWS_ACCESS_KEY_ID:-}" \
 && ! grep -qE "^$" <<< "${AWS_SECRET_ACCESS_KEY:-}"; then
     devcontainer_utils_debug=1 \
-        devcontainer-utils-vault-s3-creds-propagate;
+    devcontainer-utils-vault-s3-creds-propagate;
     SCCACHE_NO_DAEMON=1 SCCACHE_LOG=trace sccache --show-stats;
     sccache --start-server >/dev/null 2>&1 || true;
 fi
