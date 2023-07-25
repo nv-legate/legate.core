@@ -40,7 +40,8 @@ RUN make-conda-env
 FROM setup as build
 
 # Mount in secrets
-RUN --mount=type=secret,id=GH_TOKEN,uid=1000,gid=1000              \
+RUN --mount=type=bind,source=.aws,target=/home/coder/.aws          \
+    --mount=type=secret,id=GH_TOKEN,uid=1000,gid=1000              \
     --mount=type=secret,id=AWS_SESSION_TOKEN,uid=1000,gid=1000     \
     --mount=type=secret,id=AWS_ACCESS_KEY_ID,uid=1000,gid=1000     \
     --mount=type=secret,id=AWS_SECRET_ACCESS_KEY,uid=1000,gid=1000 \

@@ -48,26 +48,43 @@ jobs:
           echo BUILD_TARGET: ${{ inputs.build-target }}
           echo USE_CUDA: ${USE_CUDA}
 
-          mkdir .creds;
-          cat <<< "${AWS_SESSION_TOKEN}" > .creds/AWS_SESSION_TOKEN;
+          mkdir .{aws,creds};
+
           cat <<< "${AWS_ACCESS_KEY_ID}" > .creds/AWS_ACCESS_KEY_ID;
+          cat <<< "${AWS_SESSION_TOKEN}" > .creds/AWS_SESSION_TOKEN;
           cat <<< "${AWS_SECRET_ACCESS_KEY}" > .creds/AWS_SECRET_ACCESS_KEY;
           cat <<< "${{ secrets.PERSONAL_ACCESS_TOKEN || secrets.GITHUB_TOKEN }}" > .creds/GH_TOKEN;
 
+          cat <<EOF > .aws/config
+          [default]
+          bucket=rapids-sccache-devs
+          region=${AWS_REGION:-"us-east-2"}
+          EOF
+
+          cat <<EOF > .aws/credentials
+          [default]
+          aws_access_key_id=${AWS_ACCESS_KEY_ID}
+          aws_session_token=${AWS_SESSION_TOKEN}
+          aws_secret_access_key=${AWS_SECRET_ACCESS_KEY}
+          EOF
+
+          chmod 0600 .aws/credentials;
+
           docker build \
+            --network host \
             --progress=plain \
             --build-arg USE_CUDA="${USE_CUDA}" \
             --build-arg AWS_REGION="${AWS_REGION}" \
             --secret "id=GH_TOKEN,src=$(pwd)/.creds/GH_TOKEN" \
-            --secret "id=AWS_SESSION_TOKEN,src=$(pwd)/.creds/AWS_SESSION_TOKEN" \
             --secret "id=AWS_ACCESS_KEY_ID,src=$(pwd)/.creds/AWS_ACCESS_KEY_ID" \
+            --secret "id=AWS_SESSION_TOKEN,src=$(pwd)/.creds/AWS_SESSION_TOKEN" \
             --secret "id=AWS_SECRET_ACCESS_KEY,src=$(pwd)/.creds/AWS_SECRET_ACCESS_KEY" \
             --tag=$IMAGE_NAME:${{ inputs.sha }} \
             --label "git-commit=${{ inputs.sha }}" \
             -f continuous_integration/Dockerfile \
             .
 
-          rm -rf .creds;
+          rm -rf .{aws,creds};
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
