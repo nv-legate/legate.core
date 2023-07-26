@@ -121,7 +121,8 @@ requirements:
     - numpy {{ numpy_version }}
     - typing_extensions
 {% if gpu_enabled_bool %}
-    - cuda-cudart >={{ cuda_version }},<{{ cuda_major+1 }}
+    - cuda-cudart  >={{ cuda_version }},<{{ cuda_major+1 }}
+    - cuda-version >={{ cuda_version }},<{{ cuda_major+1 }}
     - nccl
 {% endif %}
 
