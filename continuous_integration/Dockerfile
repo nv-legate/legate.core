@@ -1,6 +1,8 @@
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE} as stage0
 
+SHELL ["/bin/bash", "-c"]
+
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV SCCACHE_REGION="us-east-2"
 ENV SCCACHE_BUCKET="rapids-sccache-east"
