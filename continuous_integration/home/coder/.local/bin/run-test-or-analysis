@@ -6,7 +6,7 @@ run_test_or_analysis() {
     set -x
     cd ~/
 
-    modify_env_for_tests;
+    install_legate_core_with_war;
 
     activate_conda_env;
 

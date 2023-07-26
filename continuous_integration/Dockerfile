@@ -37,7 +37,7 @@ FROM stage0 as setup
 USER coder
 WORKDIR /home/coder
 
-RUN get-yaml-and-make-conda-env
+RUN set -x && . conda-utils && get_yaml_and_make_conda_env
 
 #---------------------------------------------------
 FROM setup as build
@@ -65,4 +65,3 @@ WORKDIR /home/coder
 COPY --from=build --chown=coder:coder /tmp/out /tmp/out
 COPY --from=build --chown=coder:coder /tmp/conda-build /tmp/conda-build
 COPY --from=build --chown=coder:coder /tmp/env_yaml /tmp/env_yaml
-
