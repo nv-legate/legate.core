@@ -54,35 +54,42 @@ jobs:
           echo BUILD_TARGET: ${{ inputs.build-target }}
           echo USE_CUDA: ${{ env.USE_CUDA }}
 
+          IMAGE_TAG=${{ env.IMAGE_NAME }}:${{ inputs.sha }}
+
           chmod +x continuous_integration/build-docker-image
           continuous_integration/build-docker-image \
             --base-image "$BASE_IMAGE" \
-            --image-name "$IMAGE_NAME" \
-            --sha ${{ inputs.sha }} \
+            --image-tag "$IMAGE_TAG" \
             --source-dir .
+
+      - name: Dump docker history of image before upload
+        run: |
+          IMAGE_TAG=${{ env.IMAGE_NAME }}:${{ inputs.sha }}
+          docker history $IMAGE_TAG
 
       - name: Log in to container image registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
 
       - name: Push image
         run: |
-          IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
+          IMAGE_TAG=${{ env.IMAGE_NAME }}:${{ inputs.sha }}
+
+          IMAGE_ID=ghcr.io/${{ github.repository_owner }}
 
           # Change all uppercase to lowercase
           IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
 
-          VERSION=${{ inputs.sha }}
+          IMAGE_ID=$IMAGE_ID/$IMAGE_TAG
 
-          docker tag $IMAGE_NAME:$VERSION $IMAGE_ID:$VERSION
-          docker push $IMAGE_ID:$VERSION
+          docker tag $IMAGE_TAG $IMAGE_ID
+          docker push $IMAGE_ID
 
       - name: Copy artifacts back to the host
         run: |
+          IMAGE_TAG=${{ env.IMAGE_NAME }}:${{ inputs.sha }}
           mkdir -p artifacts
-          docker run  -v "$(pwd)/artifacts:/home/coder/.artifacts" --rm -t $IMAGE_NAME:${{ inputs.sha }} copy-artifacts
-          echo --------- DOCKER HISTORY START -----------
-          docker history $IMAGE_NAME:${{ inputs.sha }}
-          echo --------- DOCKER HISTORY END -----------
+          docker run  -v "$(pwd)/artifacts:/home/coder/.artifacts" --rm -t $IMAGE_TAG copy-artifacts
+
 
       - name: Display structure of workdir
         run: ls -R
