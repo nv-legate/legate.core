@@ -1,0 +1,41 @@
+name: Build release packages
+
+concurrency:
+  group: ci-release-on-${{ github.event_name }}-from-${{ github.ref_name }}
+  cancel-in-progress: true
+
+on: workflow_dispatch
+
+jobs:
+  build:
+    permissions:
+      id-token: write # This is required for configure-aws-credentials
+      contents: read  # This is required for actions/checkout
+
+    runs-on: ${{ github.repository == 'nv-legate/legate.core' && 'linux-amd64-cpu4' || 'ubuntu-latest' }}
+
+    steps:
+      - name: Checkout legate.core (= this repo)
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - if: github.repository_owner == 'nv-legate'
+        name: Get AWS credentials for sccache bucket
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-region: us-east-2
+          role-duration-seconds: 28800 # 8 hours
+          role-to-assume: arn:aws:iam::279114543810:role/gha-oidc-nv-legate
+
+      - name: Build release packages
+        run: |
+          . /opt/conda/etc/profile.d/conda.sh;
+          . /opt/conda/etc/profile.d/mamba.sh;
+
+          mamba create -n release
+          mamba activate release
+
+          mamba install conda-build
+
+          conda-build -c nvidia -c conda-forge --no-include-recipe conda/conda-build
