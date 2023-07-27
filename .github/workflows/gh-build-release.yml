@@ -4,7 +4,12 @@ concurrency:
   group: ci-release-on-${{ github.event_name }}-from-${{ github.ref_name }}
   cancel-in-progress: true
 
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "pull-request/[0-9]+"
+      - "branch-*"
 
 jobs:
   build:
