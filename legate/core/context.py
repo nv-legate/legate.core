@@ -338,7 +338,6 @@ class Context:
             data=storage,
             optimize_scalar=optimize_scalar,
             ndim=ndim,
-            provenance=self.provenance,
         )
 
     def get_nccl_communicator(self) -> Communicator:

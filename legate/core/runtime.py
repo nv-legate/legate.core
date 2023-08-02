@@ -1489,7 +1489,6 @@ class Runtime:
         data: Optional[Union[RegionField, Future]] = None,
         optimize_scalar: bool = False,
         ndim: Optional[int] = None,
-        provenance: Optional[str] = None,
     ) -> Store:
         from .store import RegionField, Storage, Store
 
@@ -1531,7 +1530,7 @@ class Runtime:
             dtype,
             data=data,
             kind=kind,
-            provenance=provenance,
+            provenance=self.provenance,
         )
         return Store(
             dtype,
