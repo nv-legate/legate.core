@@ -773,23 +773,8 @@ void BaseMapper::report_failed_mapping(const Legion::Mapping::MapperContext ctx,
   else
     req_ss << "region requirement " << index;
 
-  logger.error("Mapper %s failed to allocate %zd bytes on memory " IDFMT
-               " (of kind %s: %s) for %s of %s%s[%s] (UID %lld).\n"
-               "This means Legate was unable to reserve out of its memory pool the full amount "
-               "required for the above operation. Here are some things to try:\n"
-               "* Make sure your code is not impeding the garbage collection of Legate-backed "
-               "objects, e.g. by storing references in caches, or creating reference cycles.\n"
-               "* Ask Legate to reserve more space on the above memory, using the appropriate "
-               "--*mem legate flag.\n"
-               "* Assign less memory to the eager pool, by reducing --eager-alloc-percentage.\n"
-               "* If running on multiple nodes, increase how often distributed garbage collection "
-               "runs, by reducing LEGATE_FIELD_REUSE_FREQ (default: 32, warning: may "
-               "incur overhead).\n"
-               "* Adapt your code to reduce temporary storage requirements, e.g. by breaking up "
-               "larger operations into batches.\n"
-               "* If the previous steps don't help, and you are confident Legate should be able to "
-               "handle your code's working set, please open an issue on Legate's bug tracker.",
-               get_mapper_name(),
+  logger.error("Out of memory: Legate failed to allocate %zd bytes on memory " IDFMT
+               " (of kind %s: %s) for %s of %s%s[%s] (UID %lld).",
                footprint,
                target_memory.id,
                Legion::Mapping::Utilities::to_string(target_memory.kind()),
@@ -806,8 +791,8 @@ void BaseMapper::report_failed_mapping(const Legion::Mapping::MapperContext ctx,
                                    Legion::LayoutConstraintSet(),
                                    std::vector<Legion::LogicalRegion>(),
                                    results);
-  logger.error() << "At the point when the above operation would run, the above memory is "
-                 << "reserving space for the following PhysicalInstances:";
+  logger.error() << "There is not enough memory available because Legate is reserving space for "
+                 << "the following PhysicalInstances:";
   for (Legion::Mapping::PhysicalInstance inst : results) {
     logger.error() << Legion::Mapping::Utilities::to_string(runtime, ctx, inst);
     std::set<Legion::FieldID> fields;
@@ -825,6 +810,21 @@ void BaseMapper::report_failed_mapping(const Legion::Mapping::MapperContext ctx,
             true /* can_fail */))
         logger.error() << "  backing a Store allocated at " << static_cast<const char*>(provenance);
   }
+
+  logger.error() << "Here are some things to try:";
+  logger.error() << "* Make sure your code is not impeding the garbage collection of Legate-backed "
+                 << "objects, e.g. by storing references in caches, or creating reference cycles.";
+  logger.error() << "* Ask Legate to reserve more space on the above memory, using the appropriate "
+                 << "--*mem legate flag.";
+  logger.error() << "* Assign less memory to the eager pool, by reducing --eager-alloc-percentage.";
+  logger.error() << "* If running on multiple nodes, increase how often distributed garbage "
+                 << "collection runs, by reducing LEGATE_FIELD_REUSE_FREQ (default: 32, warning: "
+                 << "may incur overhead).";
+  logger.error() << "* Adapt your code to reduce temporary storage requirements, e.g. by breaking "
+                 << "up larger operations into batches.";
+  logger.error() << "* If the previous steps don't help, and you are confident Legate should be "
+                 << "able to handle your code's working set, please open an issue on Legate's bug "
+                 << "tracker.";
 
   LEGATE_ABORT;
 }
