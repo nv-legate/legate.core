@@ -30,8 +30,7 @@ COPY --chown=coder:coder . /home/coder/legate
 
 RUN chmod a+x /home/coder/.local/bin/* && \
     mkdir -p /tmp/out && \
-    chown -R coder:coder /tmp/out && \
-    sudo chown -R coder:coder /home/coder
+    chown -R coder:coder /tmp/out
 
 #---------------------------------------------------
 FROM stage0 as setup
