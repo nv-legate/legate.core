@@ -130,12 +130,16 @@ import random as _random
 _np.random.seed(1234)
 _random.seed(1234)
 
+
 def _warn_seed(func):
     def wrapper(*args, **kw):
-        print("WARNING: Seeding the random number generator inside the legate-based code can lead to undefined behavior and/or errors when the program is executed with multiple ranks.")
+        print(
+            "WARNING: Seeding the random number generator inside the legate-based code can lead to undefined behavior and/or errors when the program is executed with multiple ranks."
+        )
         return func(*args, **kw)
+
     return wrapper
 
 
 _np.random.seed = _warn_seed(_np.random.seed)
-_random.seed= _warn_seed(_random.seed)
+_random.seed = _warn_seed(_random.seed)
