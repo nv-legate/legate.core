@@ -791,8 +791,11 @@ void BaseMapper::report_failed_mapping(const Legion::Mapping::MapperContext ctx,
                                    Legion::LayoutConstraintSet(),
                                    std::vector<Legion::LogicalRegion>(),
                                    results);
-  logger.error() << "There is not enough memory available because Legate is reserving space for "
-                 << "the following PhysicalInstances:";
+  size_t total_size = 0;
+  for (Legion::Mapping::PhysicalInstance inst : results) total_size += inst.get_instance_size();
+  // TODO: report total target_memory.capacity(), considering eager allocation percentage
+  logger.error() << "There is not enough space available because Legate is reserving " << total_size
+                 << " bytes for the following PhysicalInstances:";
   for (Legion::Mapping::PhysicalInstance inst : results) {
     logger.error() << Legion::Mapping::Utilities::to_string(runtime, ctx, inst) << " of size "
                    << inst.get_instance_size();
