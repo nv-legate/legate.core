@@ -497,7 +497,7 @@ class Storage:
         parent: Optional[StoragePartition] = None,
         color: Optional[Shape] = None,
         offsets: Optional[Shape] = None,
-        provenance: Optional[str] = None,
+        tb_repr: Optional[str] = None,
     ) -> None:
         assert (
             data is None
@@ -515,7 +515,7 @@ class Storage:
         self._kind = kind
         self._parent = parent
         self._color = color
-        self._provenance = provenance
+        self._tb_repr = tb_repr
 
         if self._offsets is None and self._extents is not None:
             self._offsets = Shape((0,) * self._extents.ndim)
@@ -583,7 +583,7 @@ class Storage:
                 raise ValueError("Illegal to access an uninitialized storage")
             if self._parent is None:
                 self._data = runtime.allocate_field(
-                    self.extents, self._dtype, self._provenance
+                    self.extents, self._dtype, self._tb_repr
                 )
             else:
                 assert self._color
@@ -635,10 +635,6 @@ class Storage:
     @property
     def color(self) -> Optional[Shape]:
         return self._color
-
-    @property
-    def provenance(self) -> Optional[str]:
-        return self._provenance
 
     def get_root(self) -> Storage:
         if self._parent is None:

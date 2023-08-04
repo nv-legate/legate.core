@@ -798,18 +798,19 @@ void BaseMapper::report_failed_mapping(const Legion::Mapping::MapperContext ctx,
                    << inst.get_instance_size();
     std::set<Legion::FieldID> fields;
     size_t size;
-    const void* provenance;
+    const void* tb_repr;
     inst.get_fields(fields);
+    // TODO: instead use full machine-readable provenance, improve formatting
     for (Legion::FieldID fid : fields)
       if (runtime->retrieve_semantic_information(
             ctx,
             inst.get_field_space(),
             fid,
             42,  // FIXME: use an actual enum for the semantic tag
-            provenance,
+            tb_repr,
             size,
             true /* can_fail */))
-        logger.error() << "  backing a Store allocated at " << static_cast<const char*>(provenance);
+        logger.error() << "backing a Store allocated at:\n" << static_cast<const char*>(tb_repr);
   }
 
   logger.error() << "Here are some things to try:";

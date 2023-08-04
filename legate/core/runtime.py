@@ -65,7 +65,7 @@ from .machine import Machine, ProcessorKind
 from .projection import is_identity_projection, pack_symbolic_projection_repr
 from .restriction import Restriction
 from .shape import Shape
-from .utils import dlopen_no_autoclose
+from .utils import capture_traceback_repr, dlopen_no_autoclose
 
 if TYPE_CHECKING:
     from . import ArgumentMap, Detach, IndexDetach, IndexPartition, Library
@@ -1524,13 +1524,14 @@ class Runtime:
             sanitized_shape = shape
             transform = None
 
+        tb_repr = capture_traceback_repr(skip_core_frames=False)
         storage = Storage(
             sanitized_shape,
             0,
             dtype,
             data=data,
             kind=kind,
-            provenance=self.provenance,
+            tb_repr=(None if tb_repr is None else tb_repr[:-1]),
         )
         return Store(
             dtype,
@@ -1786,7 +1787,7 @@ class Runtime:
         return field_mgr
 
     def allocate_field(
-        self, shape: Shape, dtype: Any, provenance: Optional[str]
+        self, shape: Shape, dtype: Any, tb_repr: Optional[str]
     ) -> RegionField:
         from .store import RegionField
 
@@ -1795,8 +1796,8 @@ class Runtime:
         field_id = None
         field_mgr = self.find_or_create_field_manager(shape, dtype.size)
         region, field_id = field_mgr.allocate_field()
-        if provenance is not None:
-            buf = provenance.encode() + bytes([0])  # null-terminate
+        if tb_repr is not None:
+            buf = tb_repr.encode() + bytes([0])  # null-terminate
             legion.legion_field_id_attach_semantic_information(
                 self.legion_runtime,
                 region.handle.field_space,
