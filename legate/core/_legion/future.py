@@ -269,7 +269,7 @@ class FutureMap:
         context: legion.legion_context_t,
         runtime: legion.legion_runtime_t,
         redop: int,
-        deterministic: bool = False,
+        ordered: bool = True,
         mapper: int = 0,
         tag: int = 0,
     ) -> Future:
@@ -285,8 +285,9 @@ class FutureMap:
             The Legion runtime handle
         redop : int
             ID for the reduction operator to use for reducing futures
-        deterministic : bool
-            Whether this reduction needs to be performed deterministically
+        ordered : bool
+            If ``True``, reductions are performed in an ordered manner
+            so the result is deterministic
         mapper : int
             ID of the mapper for managing the mapping of the task
         tag : int
@@ -302,7 +303,7 @@ class FutureMap:
                 context,
                 self.handle,
                 redop,
-                deterministic,
+                ordered,
                 mapper,
                 tag,
             )

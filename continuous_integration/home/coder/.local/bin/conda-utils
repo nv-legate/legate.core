@@ -1,0 +1,72 @@
+make_conda_env_from_yaml() {
+    mamba env create -v -n "${DEFAULT_CONDA_ENV:-legate}" -f "${yaml_file}";
+}
+
+generate_yaml_file() {
+    local cuda_version="${CUDA_VERSION:-${CUDA_VERSION_MAJOR}.${CUDA_VERSION_MINOR}}";
+    cuda_version="$(echo "${cuda_version}" | cut -d'.' -f3 --complement)";
+
+    local python_version="${PYTHON_VERSION:-}";
+
+    if [ -z "${python_version}" ]; then
+        python_version="$(python3 --version 2>&1 | cut -d' ' -f2 | cut -d'.' -f3 --complement)";
+    fi
+
+    yaml_file=~/"$(         \
+        ~/legate/scripts/generate-conda-envs.py \
+            --os linux                          \
+            --compilers                         \
+            --ctk ${cuda_version}               \
+            --python ${python_version}          \
+            --openmpi                           \
+            --no-ucx                            \
+        | head -n1 | cut -d' ' -f3              \
+    )"
+
+    sed -i -re "s/legate-test/${DEFAULT_CONDA_ENV:-legate}/g" "${yaml_file}";
+    echo "  - boa" >> "${yaml_file}";
+
+    cp "${yaml_file}" /tmp/out/
+    mkdir -p /tmp/env_yaml
+    cp "${yaml_file}" /tmp/env_yaml
+}
+
+find_yaml_file() {
+    pattern="/tmp/env_yaml/*.yaml"
+    files=( $pattern )
+    yaml_file="${files[0]}"
+
+    if [ -z "${yaml_file:-}" ] || [ ! -f "$yaml_file" ]; then
+        return 1
+    fi
+
+    return 0
+}
+
+get_yaml_and_make_conda_env() {
+    set -e;
+
+    local yaml_file="";
+
+    if ! find_yaml_file; then
+        generate_yaml_file;
+    fi
+
+    echo YAML file: ${yaml_file}
+    cat "${yaml_file}";
+
+    make_conda_env_from_yaml;
+}
+
+make_conda_env_using_legate_core() {
+    mamba create -n "${DEFAULT_CONDA_ENV:-legate}"
+
+    mamba install -y -n "${DEFAULT_CONDA_ENV:-legate}" -c nvidia -c conda-forge -c /tmp/conda-build/legate_core legate-core
+}
+
+activate_conda_env() {
+    . /opt/conda/etc/profile.d/conda.sh;
+    . /opt/conda/etc/profile.d/mamba.sh;
+
+    conda activate ${DEFAULT_CONDA_ENV:-legate};
+}

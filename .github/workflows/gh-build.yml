@@ -13,51 +13,27 @@ on:
         required: true
         type: string
 
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  IMAGE_NAME: legate.core-${{ inputs.build-target }}
+  USE_CUDA: ${{ (inputs.build-target == 'cpu' && 'OFF') || 'ON' }}
+
 jobs:
   build:
-    name: build-${{inputs.build-target}}-sub-workflow
+    name: build-${{ inputs.build-target }}-sub-workflow
 
     permissions:
       id-token: write # This is required for configure-aws-credentials
       contents: read  # This is required for actions/checkout
+      packages: write # This is required to push docker image to ghcr.io
 
     runs-on: ${{ inputs.runs-on }}
-
-    container:
-      options: -u root
-      image: rapidsai/devcontainers:23.06-cpp-cuda11.8-mambaforge-ubuntu22.04
-      env:
-        USE_CUDA: ${{ (inputs.build-target == 'cpu' && 'OFF') || 'ON' }}
-        DEFAULT_CONDA_ENV: legate
-        PYTHONDONTWRITEBYTECODE: 1
-        SCCACHE_REGION: us-east-2
-        SCCACHE_BUCKET: rapids-sccache-east
-        SCCACHE_S3_KEY_PREFIX: legate-cunumeric-dev
-        GH_TOKEN: "${{ secrets.PERSONAL_ACCESS_TOKEN || secrets.GITHUB_TOKEN }}"
-        GITHUB_TOKEN: "${{ secrets.PERSONAL_ACCESS_TOKEN || secrets.GITHUB_TOKEN }}"
-        VAULT_HOST: "${{ secrets.PERSONAL_ACCESS_TOKEN && 'https://vault.ops.k8s.rapids.ai' || '' }}"
-        VAULT_S3_TTL: "28800s" # 8 hours
 
     steps:
       - name: Checkout legate.core (= this repo)
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
-          path: legate
-
-      - name: Setup
-        shell: bash -eo pipefail {0}
-        run: |
-          git -C legate checkout ${{ inputs.sha }}
-          
-          cp -ar legate/continuous_integration/home/coder/.gitconfig /home/coder/;
-          cp -ar legate/continuous_integration/home/coder/.local /home/coder/;
-          mv legate /home/coder/legate;
-
-          chmod a+x /home/coder/.local/bin/*;
-          chown -R coder:coder /home/coder/;
-          mkdir -p /tmp/out
-          chown -R coder:coder /tmp/out;
 
       - if: github.repository_owner == 'nv-legate'
         name: Get AWS credentials for sccache bucket
@@ -67,27 +43,50 @@ jobs:
           role-duration-seconds: 28800 # 8 hours
           role-to-assume: arn:aws:iam::279114543810:role/gha-oidc-nv-legate
 
-      - name: Create conda env
-        shell: su coder {0}
-        run: cd ~/; exec entrypoint make-conda-env;
+      - name: Build docker image
+        run: |
+          echo BUILD_TARGET: ${{ inputs.build-target }}
+          echo USE_CUDA: ${{ env.USE_CUDA }}
 
-      - name: Build legate.core C++ library
-        shell: su coder {0}
-        run: cd ~/; exec entrypoint build-legate-cpp;
+          docker build \
+            --build-arg AWS_SESSION_TOKEN=${{ env.AWS_SESSION_TOKEN }} \
+            --build-arg AWS_ACCESS_KEY_ID=${{ env.AWS_ACCESS_KEY_ID }} \
+            --build-arg AWS_SECRET_ACCESS_KEY=${{ env.AWS_SECRET_ACCESS_KEY }} \
+            --build-arg GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} \
+            --build-arg USE_CUDA=${{ env.USE_CUDA }} \
+            --progress=plain \
+            --tag=$IMAGE_NAME:${{ inputs.sha }} \
+            --label "git-commit=${{ inputs.sha }}" \
+            -f continuous_integration/Dockerfile .
 
-      - name: Build legate.core Python Wheel
-        shell: su coder {0}
-        run: cd ~/; exec entrypoint build-legate-wheel;
+      - name: Log in to container image registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
 
-      - name: Build legate.core Conda Package
-        shell: su coder {0}
-        run: cd ~/; exec entrypoint build-legate-conda;
+      - name: Push image
+        run: |
+          IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
+
+          # Change all uppercase to lowercase
+          IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
+
+          VERSION=${{ inputs.sha }}
+
+          docker tag $IMAGE_NAME:$VERSION $IMAGE_ID:$VERSION
+          docker push $IMAGE_ID:$VERSION
+
+      - name: Copy artifacts back to the host
+        run: |
+          mkdir -p artifacts
+          docker run  -v "$(pwd)/artifacts:/home/coder/.artifacts" --rm -t $IMAGE_NAME:${{ inputs.sha }} copy-artifacts
+          echo --------- DOCKER HISTORY START -----------
+          docker history $IMAGE_NAME:${{ inputs.sha }}
+          echo --------- DOCKER HISTORY END -----------
+
+      - name: Display structure of workdir
+        run: ls -R
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v3
         with:
           name: "legate.core-${{ inputs.build-target }}-${{ inputs.sha }}"
-          path: |
-            /tmp/conda-build
-            /tmp/out
-
+          path: artifacts

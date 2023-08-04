@@ -134,9 +134,6 @@ FutureWrapper::FutureWrapper(bool read_only,
                              bool initialize /*= false*/)
   : read_only_(read_only), field_size_(field_size), domain_(domain), future_(future)
 {
-#ifdef DEBUG_LEGATE
-  assert(field_size > 0);
-#endif
   if (!read_only) {
 #ifdef DEBUG_LEGATE
     assert(!initialize || future_.get_untyped_size() == field_size);
@@ -296,9 +293,8 @@ bool Store::valid() const { return is_future_ || is_unbound_store_ || region_fie
 
 Domain Store::domain() const
 {
-#ifdef DEBUG_LEGATE
-  assert(!is_unbound_store_);
-#endif
+  if (is_unbound_store_)
+    throw std::invalid_argument("Invalid to retrieve the domain of an unbound store");
   auto result = is_future_ ? future_.domain() : region_field_.domain();
   if (!transform_->identity()) result = transform_->transform(result);
 #ifdef DEBUG_LEGATE
@@ -309,9 +305,7 @@ Domain Store::domain() const
 
 void Store::bind_empty_data()
 {
-#ifdef DEBUG_LEGATE
-  check_valid_return();
-#endif
+  check_valid_binding();
   unbound_field_.bind_empty_data(dim_);
 }
 
@@ -323,33 +317,37 @@ void Store::remove_transform()
   dim_ = transform_->pop()->target_ndim(dim_);
 }
 
-void Store::check_valid_return() const
+void Store::check_accessor_dimension(const int32_t dim) const
 {
-  if (!is_unbound_store_) {
-    log_legate.error("Invalid to return a buffer to a bound store");
-    LEGATE_ABORT;
-  }
-  if (unbound_field_.bound()) {
-    log_legate.error("Invalid to return more than one buffer to an unbound store");
-    LEGATE_ABORT;
+  if (!(dim == dim_ || (dim_ == 0 && dim == 1))) {
+    throw std::invalid_argument("Dimension mismatch: invalid to create a " + std::to_string(dim) +
+                                "-D accessor to a " + std::to_string(dim_) + "-D store");
   }
 }
 
 void Store::check_buffer_dimension(const int32_t dim) const
 {
   if (dim != dim_) {
-    log_legate.error(
-      "Dimension mismatch: invalid to bind a %d-D buffer to a %d-D store", dim, dim_);
-    LEGATE_ABORT;
+    throw std::invalid_argument("Dimension mismatch: invalid to bind a " + std::to_string(dim) +
+                                "-D buffer to a " + std::to_string(dim_) + "-D store");
   }
 }
 
-void Store::check_accessor_dimension(const int32_t dim) const
+void Store::check_shape_dimension(const int32_t dim) const
 {
   if (!(dim == dim_ || (dim_ == 0 && dim == 1))) {
-    log_legate.error(
-      "Dimension mismatch: invalid to create a %d-D accessor to a %d-D store", dim, dim_);
-    LEGATE_ABORT;
+    throw std::invalid_argument("Dimension mismatch: invalid to retrieve a " + std::to_string(dim) +
+                                "-D rect from a " + std::to_string(dim_) + "-D store");
+  }
+}
+
+void Store::check_valid_binding() const
+{
+  if (!is_unbound_store_) {
+    throw std::invalid_argument("Buffer can be bound only to an unbound store");
+  }
+  if (unbound_field_.bound()) {
+    throw std::invalid_argument("A buffer has already been bound to the store");
   }
 }
 

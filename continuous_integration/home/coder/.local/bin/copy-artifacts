@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+copy_artifacts() {
+    set -xeuo pipefail
+    sudo chown coder:coder ~/.artifacts
+    cp -r /tmp/out          ~/.artifacts
+    cp -r /tmp/conda-build  ~/.artifacts
+}
+
+(copy_artifacts "$@");

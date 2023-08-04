@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+
+. conda-utils
+
+run_test_or_analysis() {
+    set -x
+    cd ~/
+
+    make_conda_env_using_legate_core
+
+    activate_conda_env
+
+    conda info
+
+    set -xeuo pipefail
+
+    case "$1" in
+        "unit")
+            echo "Executing unit tests..."
+            mamba install -y -n "${DEFAULT_CONDA_ENV:-legate}" -c conda-forge pytest pytest-mock ipython jupyter_client
+            cd ~/legate/tests/unit
+            pytest
+            ;;
+        "mypy")
+            echo "Executing mypy..."
+            mamba install -y -n "${DEFAULT_CONDA_ENV:-legate}" mypy
+            cd ~/legate
+            mypy legate
+            ;;
+        *)
+            echo "Invalid command: $1"
+            return 1
+            ;;
+    esac
+
+    return 0
+}
+
+(run_test_or_analysis "$@");
