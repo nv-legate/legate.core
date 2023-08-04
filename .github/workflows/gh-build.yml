@@ -56,7 +56,6 @@ jobs:
 
           IMAGE_TAG=${{ env.IMAGE_NAME }}:${{ inputs.sha }}
 
-          chmod +x continuous_integration/build-docker-image
           continuous_integration/build-docker-image \
             --base-image "$BASE_IMAGE" \
             --image-tag "$IMAGE_TAG" \
