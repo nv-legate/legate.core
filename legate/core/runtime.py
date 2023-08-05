@@ -1524,7 +1524,7 @@ class Runtime:
             sanitized_shape = shape
             transform = None
 
-        tb_repr = capture_traceback_repr(skip_core_frames=False)
+        tb_repr = capture_traceback_repr(skip_core_frames=False, skip_frames=1)
         storage = Storage(
             sanitized_shape,
             0,

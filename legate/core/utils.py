@@ -74,11 +74,16 @@ def cast_tuple(value: Any) -> tuple[Any, ...]:
 
 
 def capture_traceback_repr(
-    skip_core_frames: bool = True,
+    skip_core_frames: bool = True, skip_frames: int = 0
 ) -> Optional[str]:
     tb = None
     for frame, _ in traceback.walk_stack(None):
-        if frame.f_globals["__name__"].startswith("legate.core"):
+        if skip_frames > 0:
+            skip_frames -= 1
+            continue
+        if skip_core_frames and frame.f_globals["__name__"].startswith(
+            "legate.core"
+        ):
             continue
         tb = TracebackType(
             tb,
