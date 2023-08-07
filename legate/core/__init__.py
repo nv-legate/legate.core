@@ -131,8 +131,8 @@ _np.random.seed(1234)
 _random.seed(1234)
 
 
-def _warn_seed(func):
-    def wrapper(*args, **kw):
+def _warn_seed(func: AnyCallable)->AnyCallable:
+    def wrapper(*args:Any, **kw:Any)->Any:
         print(
             "WARNING: Seeding the random number generator inside the legate-based code can lead to undefined behavior and/or errors when the program is executed with multiple ranks."
         )
