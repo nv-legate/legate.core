@@ -126,13 +126,15 @@ from .io import CustomSplit, TiledSplit, ingest
 
 import numpy as _np
 import random as _random
+from typing import Any
+from .runtime import AnyCallable
 
 _np.random.seed(1234)
 _random.seed(1234)
 
 
-def _warn_seed(func: AnyCallable)->AnyCallable:
-    def wrapper(*args:Any, **kw:Any)->Any:
+def _warn_seed(func: AnyCallable) -> AnyCallable:
+    def wrapper(*args: Any, **kw: Any) -> Any:
         print(
             "WARNING: Seeding the random number generator inside the legate-based code can lead to undefined behavior and/or errors when the program is executed with multiple ranks."
         )
