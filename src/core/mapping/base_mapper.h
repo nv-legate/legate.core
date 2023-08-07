@@ -269,7 +269,7 @@ class BaseMapper : public Legion::Mapping::Mapper, public MachineQueryInterface 
                         bool can_fail);
   void report_failed_mapping(const Legion::Mapping::MapperContext ctx,
                              const Legion::Mappable& mappable,
-                             unsigned index,
+                             const StoreMapping& mapping,
                              Memory target_memory,
                              Legion::ReductionOpID redop,
                              size_t footprint);

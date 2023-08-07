@@ -638,9 +638,7 @@ bool BaseMapper::map_legate_store(const Legion::Mapping::MapperContext ctx,
       // We already did the acquire
       return false;
     }
-    if (!can_fail)
-      report_failed_mapping(
-        ctx, mappable, mapping.requirement_index(), target_memory, redop, footprint);
+    if (!can_fail) report_failed_mapping(ctx, mappable, mapping, target_memory, redop, footprint);
     return true;
   }
 
@@ -737,27 +735,17 @@ bool BaseMapper::map_legate_store(const Legion::Mapping::MapperContext ctx,
   runtime->enable_reentrant(ctx);
 
   // If we make it here then we failed entirely
-  if (!can_fail) {
-    auto req_indices = mapping.requirement_indices();
-    for (auto req_idx : req_indices)
-      report_failed_mapping(ctx, mappable, req_idx, target_memory, redop, footprint);
-  }
+  if (!can_fail) report_failed_mapping(ctx, mappable, mapping, target_memory, redop, footprint);
   return true;
 }
 
 void BaseMapper::report_failed_mapping(const Legion::Mapping::MapperContext ctx,
                                        const Legion::Mappable& mappable,
-                                       uint32_t index,
+                                       const StoreMapping& mapping,
                                        Memory target_memory,
                                        Legion::ReductionOpID redop,
                                        size_t footprint)
 {
-  static const char* memory_kinds[] = {
-#define MEM_NAMES(name, desc) desc,
-    REALM_MEMORY_KINDS(MEM_NAMES)
-#undef MEM_NAMES
-  };
-
   std::string opname = "";
   if (mappable.get_mappable_type() == Legion::Mappable::TASK_MAPPABLE) {
     const auto task = mappable.as_task();
@@ -769,51 +757,65 @@ void BaseMapper::report_failed_mapping(const Legion::Mapping::MapperContext ctx,
 
   std::stringstream req_ss;
   if (redop > 0)
-    req_ss << "reduction (" << redop << ") requirement " << index;
+    req_ss << "reduction (" << redop << ") requirement(s) ";
   else
-    req_ss << "region requirement " << index;
+    req_ss << "region requirement(s) ";
+  bool past_first = false;
+  for (uint32_t index : mapping.requirement_indices()) {
+    if (past_first)
+      req_ss << ",";
+    else
+      past_first = true;
+    req_ss << index;
+  }
 
   logger.error("Out of memory: Legate failed to allocate %zd bytes on memory " IDFMT
-               " (of kind %s: %s) for %s of %s%s[%s] (UID %lld).",
+               " (of kind %s) for %s of %s%s[%s] (UID %lld)",
                footprint,
                target_memory.id,
                Legion::Mapping::Utilities::to_string(target_memory.kind()),
-               memory_kinds[target_memory.kind()],
                req_ss.str().c_str(),
                log_mappable(mappable, true /*prefix_only*/).c_str(),
                opname.c_str(),
                provenance.c_str(),
                mappable.get_unique_id());
 
-  std::vector<Legion::Mapping::PhysicalInstance> results;
-  runtime->find_physical_instances(ctx,
-                                   target_memory,
-                                   Legion::LayoutConstraintSet(),
-                                   std::vector<Legion::LogicalRegion>(),
-                                   results);
-  size_t total_size = 0;
-  for (Legion::Mapping::PhysicalInstance inst : results) total_size += inst.get_instance_size();
-  // TODO: report total target_memory.capacity(), considering eager allocation percentage
-  logger.error() << "There is not enough space available because Legate is reserving " << total_size
-                 << " bytes for the following PhysicalInstances:";
-  for (Legion::Mapping::PhysicalInstance inst : results) {
-    logger.error() << Legion::Mapping::Utilities::to_string(runtime, ctx, inst) << " of size "
-                   << inst.get_instance_size();
-    std::set<Legion::FieldID> fields;
+  auto log_field_info = [&](Legion::FieldSpace fs, const auto& fields) {
     size_t size;
     const void* tb_repr;
-    inst.get_fields(fields);
     // TODO: instead use full machine-readable provenance, improve formatting
     for (Legion::FieldID fid : fields)
       if (runtime->retrieve_semantic_information(
             ctx,
-            inst.get_field_space(),
+            fs,
             fid,
             42,  // FIXME: use an actual enum for the semantic tag
             tb_repr,
             size,
             true /* can_fail */))
-        logger.error() << "backing a Store allocated at:\n" << static_cast<const char*>(tb_repr);
+        logger.error() << "corresponding to a Store allocated at:\n"
+                       << static_cast<const char*>(tb_repr);
+  };
+  for (const Legion::RegionRequirement* req : mapping.requirements())
+    log_field_info(req->region.get_field_space(), req->instance_fields);
+
+  std::vector<Legion::Mapping::PhysicalInstance> existing;
+  runtime->find_physical_instances(ctx,
+                                   target_memory,
+                                   Legion::LayoutConstraintSet(),
+                                   std::vector<Legion::LogicalRegion>(),
+                                   existing);
+  size_t total_size = 0;
+  for (Legion::Mapping::PhysicalInstance inst : existing) total_size += inst.get_instance_size();
+  // TODO: report total target_memory.capacity(), considering eager allocation percentage
+  logger.error() << "There is not enough space available because Legate is reserving " << total_size
+                 << " bytes for the following PhysicalInstances:";
+  for (Legion::Mapping::PhysicalInstance inst : existing) {
+    logger.error() << Legion::Mapping::Utilities::to_string(runtime, ctx, inst) << " of size "
+                   << inst.get_instance_size();
+    std::set<Legion::FieldID> fields;
+    inst.get_fields(fields);
+    log_field_info(inst.get_field_space(), fields);
   }
 
   logger.error() << "Here are some things to try:";
@@ -1084,12 +1086,12 @@ void BaseMapper::map_copy(const Legion::Mapping::MapperContext ctx,
   assert(copy.dst_indirect_requirements.size() <= 1);
 #endif
   if (!copy.src_indirect_requirements.empty()) {
-    // This is to make the push_back call later add the isntance to the right place
+    // This is to make the push_back call later add the instance to the right place
     output.src_indirect_instances.clear();
     output_map[&copy.src_indirect_requirements.front()] = &output.src_indirect_instances;
   }
   if (!copy.dst_indirect_requirements.empty()) {
-    // This is to make the push_back call later add the isntance to the right place
+    // This is to make the push_back call later add the instance to the right place
     output.dst_indirect_instances.clear();
     output_map[&copy.dst_indirect_requirements.front()] = &output.dst_indirect_instances;
   }
