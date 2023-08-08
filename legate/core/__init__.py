@@ -124,11 +124,11 @@ from .types import (
 )
 from .io import CustomSplit, TiledSplit, ingest
 
+import warnings
 import numpy as _np
 import random as _random
 from typing import Any
 from .runtime import AnyCallable
-from ..util.ui import warn
 
 _np.random.seed(1234)
 _random.seed(1234)
@@ -136,13 +136,11 @@ _random.seed(1234)
 
 def _warn_seed(func: AnyCallable) -> AnyCallable:
     def wrapper(*args: Any, **kw: Any) -> Any:
-        print(
-            warn(
-                "Seeding the random number generator with a non-constant value "
-                "inside Legate can lead to undefined behavior and/or errors when "
-                "the program is executed with multiple ranks."
-            )
-        )
+        msg = """
+        Seeding the random number generator with a non-constant value 
+        inside Legate can lead to undefined behavior and/or errors when 
+        the program is executed with multiple ranks."""
+        warnings.warn(msg, Warning)
         return func(*args, **kw)
 
     return wrapper
