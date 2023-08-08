@@ -22,7 +22,7 @@ jobs:
     name: test-${{ inputs.build-target }}-sub-workflow
     runs-on: ${{ inputs.runs-on }}
     container:
-      options: -u root ${{ (input.build-target == 'gpu' && '--runtime=nvidia --gpus all') || ''}}
+      options: -u root ${{ (inputs.build-target == 'gpu' && '--runtime=nvidia --gpus all') || ''}}
       image: ghcr.io/nv-legate/legate.core-${{ inputs.build-target }}:${{ inputs.sha }}
       env:
         PYTHONDONTWRITEBYTECODE: 1
