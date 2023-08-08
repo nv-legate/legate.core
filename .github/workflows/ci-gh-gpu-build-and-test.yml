@@ -39,14 +39,14 @@ jobs:
       sha: ${{ github.sha }}
       test-scope: ${{ matrix.test-scope }}
 
-  cleanup:
-    needs:
-      - build-gpu
-      - test-gpu
-    # This ensures the cleanup job runs even if previous jobs fail or the workflow is cancelled.
-    if: always()
-    uses:
-      ./.github/workflows/gh-cleanup.yml
-    with:
-      build-target: gpu
-      sha: ${{ github.sha }}
+  # cleanup:
+  #   needs:
+  #     - build-gpu
+  #     - test-gpu
+  #   # This ensures the cleanup job runs even if previous jobs fail or the workflow is cancelled.
+  #   if: always()
+  #   uses:
+  #     ./.github/workflows/gh-cleanup.yml
+  #   with:
+  #     build-target: gpu
+  #     sha: ${{ github.sha }}
