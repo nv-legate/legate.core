@@ -10,9 +10,6 @@ on:
       - "pull-request/[0-9]+"
       - "branch-*"
 
-env:
-  CPU_RUNNER: ${{ github.repository == 'nv-legate/legate.core' && 'linux-amd64-cpu4' || 'ubuntu-latest' }}
-
 jobs:
   build-gpu:
     uses:
@@ -20,7 +17,7 @@ jobs:
     with:
       build-target: gpu
       # Ref: https://docs.rapids.ai/resources/github-actions/#cpu-labels for `linux-amd64-cpu4`
-      runs-on: ${{ env.CPU_RUNNER }}
+      runs-on: ${{ github.repository == 'nv-legate/legate.core' && 'linux-amd64-cpu4' || 'ubuntu-latest' }}
       sha: ${{ github.sha }}
 
   test-gpu:
@@ -32,7 +29,7 @@ jobs:
         include:
           - { name: Pytest Unit Tests, test-scope: unit, runner: linux-amd64-2gpu-v100-latest-1 }
           - { name: Pytest Unit Tests, test-scope: unit, runner: linux-amd64-2gpu }
-          - { name: mypy, test-scope: mypy, runner: $CPU_RUNNER }
+          - { name: mypy, test-scope: mypy, runner: ${{ github.repository == 'nv-legate/legate.core' && 'linux-amd64-cpu4' || 'ubuntu-latest' }} }
     name: ${{ matrix.name }}
     uses:
       ./.github/workflows/gh-test.yml
