@@ -10,9 +10,10 @@ on:
       - "pull-request/[0-9]+"
       - "branch-*"
 
+env:
+  CPU_RUNNER: ${{ github.repository == 'nv-legate/legate.core' && 'linux-amd64-cpu4' || 'ubuntu-latest' }}
+
 jobs:
-  env:
-    CPU_RUNNER: ${{ github.repository == 'nv-legate/legate.core' && 'linux-amd64-cpu4' || 'ubuntu-latest' }}
   build-gpu:
     uses:
       ./.github/workflows/gh-build.yml
@@ -31,7 +32,7 @@ jobs:
         include:
           - { name: Pytest Unit Tests, test-scope: unit, runner: linux-amd64-2gpu-v100-latest-1 }
           - { name: Pytest Unit Tests, test-scope: unit, runner: linux-amd64-2gpu }
-          - { name: mypy, test-scope: mypy, runner: ${{ env.CPU_RUNNER }} }
+          - { name: mypy, test-scope: mypy, runner: $CPU_RUNNER }
     name: ${{ matrix.name }}
     uses:
       ./.github/workflows/gh-test.yml
