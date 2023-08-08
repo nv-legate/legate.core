@@ -11,18 +11,22 @@ on:
       - "branch-*"
 
 jobs:
-  build-gpu:
-    uses:
-      ./.github/workflows/gh-build.yml
-    with:
-      build-target: gpu
-      # Ref: https://docs.rapids.ai/resources/github-actions/#cpu-labels for `linux-amd64-cpu4`
-      runs-on: ${{ github.repository == 'nv-legate/legate.core' && 'linux-amd64-32cpu' || 'ubuntu-latest' }}
-      sha: ${{ github.sha }}
+  # TODO: undo
+  # build-gpu:
+  #   uses:
+  #     ./.github/workflows/gh-build.yml
+  #   with:
+  #     build-target: gpu
+  #     # Ref: https://docs.rapids.ai/resources/github-actions/#cpu-labels for `linux-amd64-cpu4`
+  #     runs-on: ${{ github.repository == 'nv-legate/legate.core' && 'linux-amd64-32cpu' || 'ubuntu-latest' }}
+  #     # TODO: undo
+  #     # sha: ${{ github.sha }}
+  #     sha: 6a79a5a9ff4848377d940e47e7635f563d49fd87
 
   test-gpu:
-    needs:
-      - build-gpu
+    # TODO: undo
+    # needs:
+    #   - build-gpu
     strategy:
       fail-fast: false
       matrix:
@@ -36,9 +40,12 @@ jobs:
     with:
       build-target: gpu
       runs-on: ${{ matrix.runner }}
-      sha: ${{ github.sha }}
+      # TODO: undo
+      # sha: ${{ github.sha }}
+      sha: 6a79a5a9ff4848377d940e47e7635f563d49fd87
       test-scope: ${{ matrix.test-scope }}
 
+  # TODO: undo
   # cleanup:
   #   needs:
   #     - build-gpu
