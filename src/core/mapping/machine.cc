@@ -142,9 +142,9 @@ LocalProcessorRange::LocalProcessorRange(uint32_t offset,
 
 const Processor& LocalProcessorRange::operator[](uint32_t idx) const
 {
-  auto local_idx = (idx % total_proc_count_) - offset_;
+  auto local_idx = (idx - offset_) % procs_.size();
 #ifdef DEBUG_LEGATE
-  assert(local_idx < procs_.size());
+  assert(local_idx >= 0);
 #endif
   return procs_[local_idx];
 }
