@@ -44,6 +44,7 @@ def test_LEGATE_GLOBAL_RANK_SUBSTITUTION() -> None:
 def test_CMD_PARTS() -> None:
     assert m.CMD_PARTS_LEGION == (
         m.cmd_bind,
+        m.cmd_wrapper,
         m.cmd_rlwrap,
         m.cmd_gdb,
         m.cmd_cuda_gdb,
@@ -51,6 +52,7 @@ def test_CMD_PARTS() -> None:
         m.cmd_nsys,
         m.cmd_memcheck,
         m.cmd_valgrind,
+        m.cmd_wrapper_inner,
         m.cmd_legion,
         m.cmd_python_processor,
         m.cmd_module,
@@ -569,6 +571,60 @@ class Test_cmd_memcheck:
         result = m.cmd_memcheck(config, system, launcher)
 
         assert result == ("compute-sanitizer",)
+
+
+class Test_cmd_wrapper:
+    def test_default(self, genobjs: GenObjs) -> None:
+        config, system, launcher = genobjs([])
+
+        result = m.cmd_wrapper(config, system, launcher)
+
+        assert result == ()
+
+    def test_with_option(self, genobjs: GenObjs) -> None:
+        config, system, launcher = genobjs(
+            ["--wrapper", "foo --bar 10 -s -baz=20"]
+        )
+
+        result = m.cmd_wrapper(config, system, launcher)
+
+        assert result == ("foo", "--bar", "10", "-s", "-baz=20")
+
+    def test_multi(self, genobjs: GenObjs) -> None:
+        config, system, launcher = genobjs(
+            ["--wrapper", "foo --bar 10", "--wrapper", "baz -s"]
+        )
+
+        result = m.cmd_wrapper(config, system, launcher)
+
+        assert result == ("foo", "--bar", "10", "baz", "-s")
+
+
+class Test_cmd_wrapper_inner:
+    def test_default(self, genobjs: GenObjs) -> None:
+        config, system, launcher = genobjs([])
+
+        result = m.cmd_wrapper_inner(config, system, launcher)
+
+        assert result == ()
+
+    def test_with_option(self, genobjs: GenObjs) -> None:
+        config, system, launcher = genobjs(
+            ["--wrapper-inner", "foo --bar 10 -s -baz=20"]
+        )
+
+        result = m.cmd_wrapper_inner(config, system, launcher)
+
+        assert result == ("foo", "--bar", "10", "-s", "-baz=20")
+
+    def test_multi(self, genobjs: GenObjs) -> None:
+        config, system, launcher = genobjs(
+            ["--wrapper-inner", "foo --bar 10", "--wrapper-inner", "baz -s"]
+        )
+
+        result = m.cmd_wrapper_inner(config, system, launcher)
+
+        assert result == ("foo", "--bar", "10", "baz", "-s")
 
 
 class Test_cmd_valgrind:
