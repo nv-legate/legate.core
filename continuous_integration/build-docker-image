@@ -1,0 +1,39 @@
+#!/bin/bash
+
+set -xuo pipefail
+
+#Set the options of the getopt command
+format=$(getopt -n "$0" -l "base-image:,image-tag:,source-dir:" -- -- "$@")
+if [ $# -lt 4 ]; then
+   echo "Wrong number of arguments passed."
+   exit
+fi
+eval set -- "$format"
+
+#Read the argument values
+while [ $# -gt 0 ]
+do
+     case "$1" in
+          --base-image) BASE_IMAGE="$2"; shift;;
+          --image-tag) IMAGE_TAG="$2"; shift;;
+          --source-dir) SOURCE_DIR="$2"; shift;;
+          --) shift;;
+     esac
+     shift;
+done
+
+set -e
+
+# Avoid build errors due to a missing .creds folder
+mkdir -p "$SOURCE_DIR/.creds"
+
+docker build \
+     --build-arg BASE_IMAGE="$BASE_IMAGE" \
+     --build-arg AWS_SESSION_TOKEN="$AWS_SESSION_TOKEN" \
+     --build-arg AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" \
+     --build-arg AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" \
+     --build-arg GITHUB_TOKEN="$GITHUB_TOKEN" \
+     --build-arg USE_CUDA="$USE_CUDA" \
+     --progress=plain \
+     --tag="$IMAGE_TAG" \
+     -f "$SOURCE_DIR/continuous_integration/Dockerfile" "$SOURCE_DIR"

@@ -1,5 +1,7 @@
-ARG BASE_IMAGE=rapidsai/devcontainers:23.06-cpp-cuda11.8-mambaforge-ubuntu22.04
+ARG BASE_IMAGE
 FROM ${BASE_IMAGE} as stage0
+
+SHELL ["/bin/bash", "-c"]
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV SCCACHE_REGION="us-east-2"
@@ -28,16 +30,21 @@ COPY --chown=coder:coder . /home/coder/legate
 
 RUN chmod a+x /home/coder/.local/bin/* && \
     mkdir -p /tmp/out && \
-    chown -R coder:coder /tmp/out  && \
-    chown -R coder:coder /home/coder/.artifacts
+    chown -R coder:coder /tmp/out
 
 #---------------------------------------------------
 FROM stage0 as setup
 
-RUN get-yaml-and-make-conda-env
+USER coder
+WORKDIR /home/coder
+
+RUN set -x && . conda-utils && get_yaml_and_make_conda_env
 
 #---------------------------------------------------
 FROM setup as build
+USER coder
+WORKDIR /home/coder
+
 ARG GITHUB_TOKEN
 ENV GITHUB_TOKEN=${GITHUB_TOKEN}
 ARG AWS_SESSION_TOKEN
@@ -47,13 +54,15 @@ ENV AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
 ARG AWS_SECRET_ACCESS_KEY
 ENV AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
 
-# If .creds exists copy it to /run/secrets
-COPY --chown=coder:coder .cred[s] /run/secrets
+COPY --chown=coder:coder .creds /run/secrets
 
-RUN entrypoint build-all
+RUN entrypoint build-legate-all
 
 #---------------------------------------------------
 FROM stage0 as final
-COPY --from=build /tmp/out /tmp/out
-COPY --from=build /tmp/conda-build /tmp/conda-build
-COPY --from=build /tmp/env_yaml /tmp/env_yaml
+USER coder
+WORKDIR /home/coder
+
+COPY --from=build --chown=coder:coder /tmp/out /tmp/out
+COPY --from=build --chown=coder:coder /tmp/conda-build /tmp/conda-build
+COPY --from=build --chown=coder:coder /tmp/env_yaml /tmp/env_yaml

@@ -32,15 +32,15 @@ generate_yaml_file() {
 }
 
 find_yaml_file() {
-    pattern="/tmp/env_yaml/*.yaml"
-    files=( $pattern )
-    yaml_file="${files[0]}"
+    pattern="/tmp/env_yaml/*.yaml";
+    files=( $pattern );
+    yaml_file="${files[0]}";
 
     if [ -z "${yaml_file:-}" ] || [ ! -f "$yaml_file" ]; then
-        return 1
+        return 1;
     fi
 
-    return 0
+    return 0;
 }
 
 get_yaml_and_make_conda_env() {
@@ -58,10 +58,13 @@ get_yaml_and_make_conda_env() {
     make_conda_env_from_yaml;
 }
 
-make_conda_env_using_legate_core() {
-    mamba create -n "${DEFAULT_CONDA_ENV:-legate}"
+install_legate_core_with_war() {
+    # WAR: legate-core depends on a different version of numpy than what is already installed.
+    # The correct version will be installed when legate-core is installed below.
+    # See github issue: https://github.com/nv-legate/legate.core/issues/812
+    mamba uninstall -y -n "${DEFAULT_CONDA_ENV:-legate}" numpy;
 
-    mamba install -y -n "${DEFAULT_CONDA_ENV:-legate}" -c nvidia -c conda-forge -c /tmp/conda-build/legate_core legate-core
+    mamba install -y -n "${DEFAULT_CONDA_ENV:-legate}" -c nvidia -c conda-forge -c /tmp/conda-build/legate_core legate-core;
 }
 
 activate_conda_env() {

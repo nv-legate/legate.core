@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-
-. conda-utils
-
-get_yaml_and_make_conda_env "$@";

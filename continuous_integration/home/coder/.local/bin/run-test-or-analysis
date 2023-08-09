@@ -6,11 +6,11 @@ run_test_or_analysis() {
     set -x
     cd ~/
 
-    make_conda_env_using_legate_core
+    install_legate_core_with_war;
 
-    activate_conda_env
+    activate_conda_env;
 
-    conda info
+    conda info;
 
     set -xeuo pipefail
 
