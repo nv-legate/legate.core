@@ -66,6 +66,10 @@ jobs:
           IMAGE_TAG=${{ env.IMAGE_NAME }}:${{ inputs.sha }}
           docker history $IMAGE_TAG
 
+      - name: Dump docker history of image before upload
+        run: |
+          IMAGE_TAG=${{ env.IMAGE_NAME_CUNUMERIC }}:${{ inputs.sha }}
+
       - name: Log in to container image registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
 
