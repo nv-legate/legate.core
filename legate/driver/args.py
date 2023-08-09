@@ -370,11 +370,12 @@ other.add_argument(
     action="append",
     default=[],
     help="Specify another executable (and any command-line arguments for that "
-    "executable) that will be responsible to indirectly invoke legate, "
-    "including any other wrappers. May contain the special string "
-    "%%%%LEGATE_GLOBAL_RANK%%%% that will be replaced with the rank of the "
-    "current process by bind.sh. If multiple --wrapper values are provided, "
-    "they will execute in the order given. "
+    "executable) to wrap the Legate executable invocation. This wrapper will "
+    "come right after the launcher invocation, and will be passed the rest of "
+    "the Legate invocation (including any other wrappers) to execute. May "
+    "contain the special string %%%%LEGATE_GLOBAL_RANK%%%% that will be "
+    "replaced with the rank of the current process by bind.sh. If multiple "
+    "--wrapper values are provided, they will execute in the order given. "
     "[legate-only, not supported with standard Python invocation]",
 )
 
@@ -385,10 +386,13 @@ other.add_argument(
     action="append",
     default=[],
     help="Specify another executable (and any command-line arguments for that "
-    "executable) that will be responsible to directly invoke legate. May "
-    "contain the special string %%%%LEGATE_GLOBAL_RANK%%%% that will be "
-    "replaced with the rank of the current process by bind.sh. If multiple "
-    "--wrapper-inner values are given, they will execute in the order given. "
+    "executable) to wrap the Legate executable invocation. This wrapper will "
+    "come right before the legion_python invocation (after any other "
+    "wrappers) and will be passed the rest of the legion_python invocation to "
+    "execute. May contain the special string %%%%LEGATE_GLOBAL_RANK%%%% that "
+    "will be replaced with the rank of the current process by bind.sh. If "
+    "multiple --wrapper-inner values are given, they will execute in the "
+    "order given. "
     "[legate-only, not supported with standard Python invocation]",
 )
 
