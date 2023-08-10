@@ -114,6 +114,7 @@ class TestConfig:
         )
 
         assert c.other == m.Other(
+            timing=False,
             wrapper=[],
             wrapper_inner=[],
             module=None,

@@ -263,6 +263,7 @@ class TestInfo:
 class TestOther:
     def test_fields(self) -> None:
         assert set(m.Other.__dataclass_fields__) == {
+            "timing",
             "wrapper",
             "wrapper_inner",
             "module",
@@ -347,6 +348,7 @@ class TestConfig:
         )
 
         assert c.other == m.Other(
+            timing=False,
             wrapper=[],
             wrapper_inner=[],
             module=None,

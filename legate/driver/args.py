@@ -364,6 +364,15 @@ info.add_argument(
 other = parser.add_argument_group("Other options")
 
 other.add_argument(
+    "--timing",
+    dest="timing",
+    action="store_true",
+    required=False,
+    help="Print overall process start and end timestamps to stdout "
+    "[legate-only, not supported with standard Python invocation]",
+)
+
+other.add_argument(
     "--wrapper",
     dest="wrapper",
     required=False,
