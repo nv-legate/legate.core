@@ -172,7 +172,7 @@ class TestsConfig(SectionConfig):
             "pytest-mock",
             "pytest",
             "types-docutils",
-            "pynvml"
+            "pynvml",
         )
 
     @property
