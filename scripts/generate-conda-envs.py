@@ -399,7 +399,8 @@ if __name__ == "__main__":
         "--sections",
         nargs="*",
         help="""List of sections exclusively selected for inclusion in the
-        generated environment file.""")
+        generated environment file.""",
+    )
 
     args = parser.parse_args(sys.argv[1:])
 
@@ -436,12 +437,21 @@ if __name__ == "__main__":
 
     for config in configs:
         conda_sections = indent(
-            "".join(s.format("conda") for s in config.sections if s.conda and section_selected(s)),
+            "".join(
+                s.format("conda")
+                for s in config.sections
+                if s.conda and section_selected(s)
+            ),
             "  ",
         )
 
         pip_sections = indent(
-            "".join(s.format("pip") for s in config.sections if s.pip and section_selected(s)), "    "
+            "".join(
+                s.format("pip")
+                for s in config.sections
+                if s.pip and section_selected(s)
+            ),
+            "    ",
         )
 
         filename = config.filename
