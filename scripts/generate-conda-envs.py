@@ -398,7 +398,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--sections",
         nargs="*",
-        help="List of sections exclusively selected for inclusion in the generated environment file.")
+        help="""List of sections exclusively selected for inclusion in the
+        generated environment file.""")
 
     args = parser.parse_args(sys.argv[1:])
 
