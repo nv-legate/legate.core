@@ -98,4 +98,4 @@ class Config:
             False,
         )
         self.info = Info(False, False, self.verbose > 0, False)
-        self.other = Other(None, False, False)
+        self.other = Other(False, [], [], None, False, False)

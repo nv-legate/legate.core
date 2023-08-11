@@ -142,6 +142,9 @@ class Info(DataclassMixin):
 
 @dataclass(frozen=True)
 class Other(DataclassMixin):
+    timing: bool
+    wrapper: list[str]
+    wrapper_inner: list[str]
     module: str | None
     dry_run: bool
     rlwrap: bool

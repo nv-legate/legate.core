@@ -46,6 +46,8 @@ static const char* const core_library_name = "legate.core";
 
 /*static*/ bool Core::has_socket_mem = false;
 
+/*static*/ bool Core::warmup_nccl = false;
+
 /*static*/ void Core::parse_config(void)
 {
 #ifndef LEGATE_USE_CUDA
@@ -84,6 +86,7 @@ static const char* const core_library_name = "legate.core";
   parse_variable("LEGATE_EMPTY_TASK", use_empty_task);
   parse_variable("LEGATE_SYNC_STREAM_VIEW", synchronize_stream_view);
   parse_variable("LEGATE_LOG_MAPPING", log_mapping_decisions);
+  parse_variable("LEGATE_WARMUP_NCCL", warmup_nccl);
 }
 
 static void extract_scalar_task(

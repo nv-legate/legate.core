@@ -1,6 +1,8 @@
 ARG BASE_IMAGE=rapidsai/devcontainers:23.08-cpp-cuda11.8-mambaforge-ubuntu22.04
 FROM ${BASE_IMAGE} as stage0
 
+SHELL ["/bin/bash", "-Eeox", "pipefail", "-c"]
+
 ARG USE_CUDA=1
 ENV USE_CUDA=${USE_CUDA}
 
@@ -21,8 +23,6 @@ ENV SCCACHE_S3_KEY_PREFIX=legate-cunumeric-dev
 ENV VAULT_HOST=https://vault.ops.k8s.rapids.ai
 # 8 hours
 ENV VAULT_S3_TTL="28800s"
-
-SHELL ["/bin/bash", "-Eeox", "pipefail", "-c"]
 
 USER coder
 
@@ -60,7 +60,7 @@ fi
 
 make-conda-env;
 
-build-all;
+build-legate-all;
 
 EOF
 

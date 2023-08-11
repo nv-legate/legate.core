@@ -259,6 +259,8 @@ class Launcher:
             env["LEGION_FREEZE_ON_ERROR"] = "1"
 
         # Debugging options
+        # TODO: consider also adding UCX_HANDLE_ERRORS=none if using ucx
+        # which stops UCX from installing its own signal handler
         if system.env.get("PYTHONFAULTHANDLER", "") == "":
             env["REALM_BACKTRACE"] = "1"
         elif "REALM_BACKTRACE" in system.env:

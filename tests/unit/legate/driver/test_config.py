@@ -263,6 +263,9 @@ class TestInfo:
 class TestOther:
     def test_fields(self) -> None:
         assert set(m.Other.__dataclass_fields__) == {
+            "timing",
+            "wrapper",
+            "wrapper_inner",
             "module",
             "dry_run",
             "rlwrap",
@@ -344,7 +347,14 @@ class TestConfig:
             progress=False, mem_usage=False, verbose=False, bind_detail=False
         )
 
-        assert c.other == m.Other(module=None, dry_run=False, rlwrap=False)
+        assert c.other == m.Other(
+            timing=False,
+            wrapper=[],
+            wrapper_inner=[],
+            module=None,
+            dry_run=False,
+            rlwrap=False,
+        )
 
     def test_color_arg(self) -> None:
         m.Config(["legate", "--color"])

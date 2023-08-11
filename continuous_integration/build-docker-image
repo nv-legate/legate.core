@@ -1,0 +1,38 @@
+#!/bin/bash
+
+set -xuo pipefail
+
+#Set the options of the getopt command
+format=$(getopt -n "$0" -l "base-image:,image-tag:,source-dir:" -- -- "$@")
+if [ $# -lt 4 ]; then
+   echo "Wrong number of arguments passed."
+   exit
+fi
+eval set -- "$format"
+
+#Read the argument values
+while [ $# -gt 0 ]
+do
+     case "$1" in
+          --base-image) BASE_IMAGE="$2"; shift;;
+          --image-tag) IMAGE_TAG="$2"; shift;;
+          --source-dir) SOURCE_DIR="$2"; shift;;
+          --) shift;;
+     esac
+     shift;
+done
+
+set -e
+
+docker build \
+     --progress plain \
+     --tag "$IMAGE_TAG" \
+     --build-arg USE_CUDA="$USE_CUDA" \
+     --build-arg AWS_REGION="$AWS_REGION" \
+     --build-arg BASE_IMAGE="$BASE_IMAGE" \
+     --secret id=GH_TOKEN,src=<(cat <<< "${GH_TOKEN:-}") \
+     --secret id=AWS_ACCESS_KEY_ID,src=<(cat <<< "${AWS_ACCESS_KEY_ID:-}") \
+     --secret id=AWS_SESSION_TOKEN,src=<(cat <<< "${AWS_SESSION_TOKEN:-}") \
+     --secret id=AWS_SECRET_ACCESS_KEY,src=<(cat <<< "${AWS_SECRET_ACCESS_KEY:-}") \
+     -f "$SOURCE_DIR/continuous_integration/Dockerfile" \
+     "$SOURCE_DIR"
