@@ -94,9 +94,10 @@ class CUDAConfig(SectionConfig):
 
 @dataclass(frozen=True)
 class BuildConfig(SectionConfig):
-    compilers: bool = True
-    openmpi: bool = True
-    ucx: bool = True
+    compilers: bool
+    openmpi: bool
+    ucx: bool
+    os: OSType
 
     header = "build"
 
@@ -124,6 +125,8 @@ class BuildConfig(SectionConfig):
             pkgs += ("openmpi",)
         if self.ucx:
             pkgs += ("ucx>=1.14",)
+        if self.os == "linux":
+            pkgs += ("elfutils", "libdwarf")
         return sorted(pkgs)
 
     def __str__(self) -> str:
@@ -228,7 +231,7 @@ class EnvConfig:
 
     @property
     def build(self) -> BuildConfig:
-        return BuildConfig(self.compilers, self.openmpi, self.ucx)
+        return BuildConfig(self.compilers, self.openmpi, self.ucx, self.os)
 
     @property
     def runtime(self) -> RuntimeConfig:

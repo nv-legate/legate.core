@@ -98,6 +98,8 @@ requirements:
     - cmake {{ cmake_version }}
     - {{ compiler('c') }} =11.2
     - {{ compiler('cxx') }} =11.2
+    - elfutils # [linux]
+    - libdwarf # [linux]
   host:
     - zlib
     - python
