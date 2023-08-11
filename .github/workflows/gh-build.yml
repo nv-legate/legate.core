@@ -15,7 +15,7 @@ on:
 
 env:
   BASE_IMAGE: rapidsai/devcontainers:23.08-cpp-cuda11.8-mambaforge-ubuntu22.04
-  IMAGE_NAME: legate.core-${{ inputs.build-target }}
+  IMAGE_TAG: "legate.core-${{ inputs.build-target }}:${{ inputs.sha }}"
   USE_CUDA: ${{ (inputs.build-target == 'cpu' && 'OFF') || 'ON' }}
 
 jobs:
@@ -28,9 +28,6 @@ jobs:
       packages: write # This is required to push docker image to ghcr.io
 
     runs-on: ${{ inputs.runs-on }}
-
-    env:
-      IMAGE_TAG: "${{ env.IMAGE_NAME }}:${{ inputs.sha }}"
 
     steps:
       - name: Checkout legate.core (= this repo)
