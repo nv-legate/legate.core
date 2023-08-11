@@ -8,7 +8,7 @@ exec ./scripts/launch-devcontainer-conda.sh bash -licx '
 make-conda-env;
 
 # Build libs + conda package
-build-all;
+build-legate-all;
 
 # Uncreate build env
 rm -rf ~/.conda/envs/${DEFAULT_CONDA_ENV:-legate}.bak;
