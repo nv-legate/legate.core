@@ -14,6 +14,8 @@ ENV DEFAULT_CONDA_ENV=legate
 ARG USE_CUDA
 ENV USE_CUDA=${USE_CUDA}
 
+ENV USE_OPENMP=ON
+
 ENV BUILD_MARCH=nocona
 
 ENV PATH="${PATH}:/home/coder/.local/bin"
