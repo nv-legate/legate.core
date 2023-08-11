@@ -116,6 +116,12 @@ function(find_or_configure_legion)
     message(VERBOSE "legate.core: Legion git_branch: ${git_branch}")
     message(VERBOSE "legate.core: Legion exclude_from_all: ${exclude_from_all}")
 
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+      set(Legion_BACKTRACE_USE_LIBDW ON)
+    else()
+      set(Legion_BACKTRACE_USE_LIBDW OFF)
+    endif()
+
     rapids_cpm_find(Legion ${version} ${FIND_PKG_ARGS}
         CPM_ARGS
           ${legion_cpm_git_args}
