@@ -27,9 +27,9 @@ set -e
 docker build \
      --progress plain \
      --tag "$IMAGE_TAG" \
-     --build-arg USE_CUDA="$USE_CUDA" \
-     --build-arg AWS_REGION="$AWS_REGION" \
-     --build-arg BASE_IMAGE="$BASE_IMAGE" \
+     --build-arg USE_CUDA="${USE_CUDA:-}" \
+     --build-arg AWS_REGION="${AWS_REGION:-}" \
+     --build-arg BASE_IMAGE="${BASE_IMAGE:-}" \
      --secret id=GH_TOKEN,src=<(cat <<< "${GH_TOKEN:-}") \
      --secret id=AWS_ACCESS_KEY_ID,src=<(cat <<< "${AWS_ACCESS_KEY_ID:-}") \
      --secret id=AWS_SESSION_TOKEN,src=<(cat <<< "${AWS_SESSION_TOKEN:-}") \
