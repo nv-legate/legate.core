@@ -39,7 +39,7 @@ rapids_cmake_build_type(Release)
 ##############################################################################
 # - conda environment --------------------------------------------------------
 
-rapids_cmake_support_conda_env(conda_env)
+rapids_cmake_support_conda_env(conda_env MODIFY_PREFIX_PATH)
 
 # We're building python extension libraries, which must always be installed
 # under lib/, even if the system normally uses lib64/. Rapids-cmake currently
@@ -150,6 +150,7 @@ if(Legion_USE_CUDA)
   list(APPEND legate_core_CUDA_OPTIONS -Xfatbin=-compress-all)
   list(APPEND legate_core_CUDA_OPTIONS --expt-extended-lambda)
   list(APPEND legate_core_CUDA_OPTIONS --expt-relaxed-constexpr)
+  list(APPEND legate_core_CUDA_OPTIONS -Wno-deprecated-gpu-targets)
 endif()
 
 if(Legion_USE_OpenMP)

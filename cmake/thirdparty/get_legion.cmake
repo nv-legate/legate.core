@@ -75,7 +75,6 @@ function(find_or_configure_legion)
     string(REPLACE "," " " Legion_PYTHON_EXTRA_INSTALL_ARGS "${Legion_PYTHON_EXTRA_INSTALL_ARGS}")
     string(REPLACE ";" " " Legion_PYTHON_EXTRA_INSTALL_ARGS "${Legion_PYTHON_EXTRA_INSTALL_ARGS}")
 
-    set(_cuda_path "")
     set(_legion_cuda_options "")
 
     # Set CMAKE_CXX_STANDARD and CMAKE_CUDA_STANDARD for Legion builds. Legion's FindCUDA.cmake

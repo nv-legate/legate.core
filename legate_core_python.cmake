@@ -65,7 +65,7 @@ add_subdirectory(legate/core/_lib)
 
 set(cython_lib_dir "../../")
 
-if(CMAKE_INSTALL_RPATH_USE_LINK_PATH)
+if(CMAKE_INSTALL_RPATH_USE_LINK_PATH AND (TARGET legate_core))
   get_target_property(cython_lib_dir legate_core LIBRARY_OUTPUT_DIRECTORY)
   get_target_property(legate_cpp_dir legate_core BINARY_DIR)
   if(legate_cpp_dir)
@@ -78,7 +78,7 @@ rapids_cython_add_rpath_entries(TARGET legate_core PATHS "${cython_lib_dir}")
 ##############################################################################
 # - conda environment --------------------------------------------------------
 
-rapids_cmake_support_conda_env(conda_env)
+rapids_cmake_support_conda_env(conda_env MODIFY_PREFIX_PATH)
 
 # We're building python extension libraries, which must always be installed
 # under lib/, even if the system normally uses lib64/. Rapids-cmake currently
