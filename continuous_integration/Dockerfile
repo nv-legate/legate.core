@@ -1,7 +1,7 @@
 ARG BASE_IMAGE=rapidsai/devcontainers:23.08-cpp-cuda11.8-mambaforge-ubuntu22.04
 FROM ${BASE_IMAGE} as stage0
 
-SHELL ["/bin/bash", "-Eeox", "pipefail", "-c"]
+SHELL ["/bin/bash", "-Eeou", "pipefail", "-c"]
 
 ARG USE_CUDA=1
 ENV USE_CUDA=${USE_CUDA}
@@ -41,27 +41,9 @@ RUN --mount=type=secret,id=GH_TOKEN,uid=1000,gid=1000              \
     --mount=type=secret,id=AWS_SESSION_TOKEN,uid=1000,gid=1000     \
     --mount=type=secret,id=AWS_SECRET_ACCESS_KEY,uid=1000,gid=1000 \
 <<EOF
-
-{ set +xo history; } 2>/dev/null;
-eval "$(                                                   \
-    find /run/secrets/ -type f -exec                       \
-      bash -c 'echo ${0/\/run\/secrets\//}=$(<${0})' {} \; \
-  | xargs -r -d'\n' -I% echo -n export %\;                 \
-)";
-{ set -xo history; } 2>/dev/null;
-
-if grep -qE "^$" <<< "${GH_TOKEN:-}" \
-&& grep -qE "^$" <<< "${AWS_ACCESS_KEY_ID:-}" \
-&& grep -qE "^$" <<< "${AWS_SECRET_ACCESS_KEY:-}"; then
-    export SCCACHE_BUCKET="";
-fi
-
-. devcontainer-utils-post-attach-command;
-
+. entrypoint;
 make-conda-env;
-
 build-legate-all;
-
 EOF
 
 #---------------------------------------------------

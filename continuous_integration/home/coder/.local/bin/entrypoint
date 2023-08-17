@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+
+entrypoint() {
+    set -euo pipefail;
+
+    # disable xtrace and history
+    { set +xo history; } 2>/dev/null;
+
+    mkdir -p /home/coder/.cache;
+
+    # export run secrets as shell vars
+    eval "$(                                                   \
+        find /run/secrets/ -type f -exec                       \
+          bash -c 'echo ${0/\/run\/secrets\//}=$(<${0})' {} \; \
+      | xargs -r -d'\n' -I% echo -n export %\;                 \
+    )";
+
+    # set SCCACHE_BUCKET to an empty string if we don't have creds
+    if grep -qE "^$" <<< "${GH_TOKEN:-}" \
+    && grep -qE "^$" <<< "${AWS_ACCESS_KEY_ID:-}" \
+    && grep -qE "^$" <<< "${AWS_SECRET_ACCESS_KEY:-}"; then
+        export SCCACHE_BUCKET="";
+    fi
+
+    . devcontainer-utils-post-attach-command;
+
+    # report sccache variables for debugging
+    for x in "GH_TOKEN"             \
+             "SCCACHE_BUCKET"       \
+             "SCCACHE_REGION"       \
+             "AWS_SESSION_TOKEN"    \
+             "AWS_ACCESS_KEY_ID"    \
+             "AWS_SECRET_ACCESS_KEY"; do
+        if ! grep -qE "^$" <<< "${!x:-}"; then
+            echo "${x}=${!x:-}";
+        fi
+    done
+
+    # reenable xtrace and history
+    { set -xo history; } 2>/dev/null;
+
+    if test "${#@}" -gt 0; then
+        exec;
+    fi
+}
+
+entrypoint "$@";
