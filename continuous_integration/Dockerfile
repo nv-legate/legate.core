@@ -1,9 +1,9 @@
-ARG BASE_IMAGE=rapidsai/devcontainers:23.08-cpp-cuda11.8-mambaforge-ubuntu22.04
+ARG BASE_IMAGE=rapidsai/devcontainers:23.10-cpp-cuda11.8-mambaforge-ubuntu22.04
 FROM ${BASE_IMAGE} as stage0
 
 SHELL ["/bin/bash", "-Eeou", "pipefail", "-c"]
 
-ARG USE_CUDA=1
+ARG USE_CUDA="ON"
 ENV USE_CUDA=${USE_CUDA}
 
 ARG BUILD_MARCH=nocona
@@ -41,9 +41,13 @@ RUN --mount=type=secret,id=GH_TOKEN,uid=1000,gid=1000              \
     --mount=type=secret,id=AWS_SESSION_TOKEN,uid=1000,gid=1000     \
     --mount=type=secret,id=AWS_SECRET_ACCESS_KEY,uid=1000,gid=1000 \
 <<EOF
+
 . entrypoint;
+
 make-conda-env;
+
 build-legate-all;
+
 EOF
 
 #---------------------------------------------------

@@ -14,7 +14,7 @@ on:
         type: string
 
 env:
-  BASE_IMAGE: rapidsai/devcontainers:23.08-cpp-cuda11.8-mambaforge-ubuntu22.04
+  BASE_IMAGE: rapidsai/devcontainers:23.10-cpp-cuda11.8-mambaforge-ubuntu22.04
   IMAGE_TAG: "legate.core-${{ inputs.build-target }}:${{ inputs.sha }}"
   USE_CUDA: ${{ (inputs.build-target == 'cpu' && 'OFF') || 'ON' }}
 
