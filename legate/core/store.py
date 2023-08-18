@@ -121,6 +121,7 @@ class RegionField:
         self.physical_region_mapped = False
 
         self._partitions: dict[Tiling, LegionPartition] = {}
+        self.detach_future: Optional[Future] = None
 
     def __del__(self) -> None:
         if self.attached_alloc is not None:
@@ -246,15 +247,19 @@ class RegionField:
         assert self.attached_alloc is not None
         detach = attachment_manager.remove_detachment(self.detach_key)
         detach.unordered = unordered  # type: ignore[union-attr]
-        attachment_manager.detach_external_allocation(
+        detach_future = attachment_manager.detach_external_allocation(
             self.attached_alloc, detach, defer
         )
         self.physical_region = None
         self.physical_region_mapped = False
         self.physical_region_refs = 0
         self.attached_alloc = None
+        if unordered:
+            self.detach_future = detach_future
 
     def get_inline_mapped_region(self) -> PhysicalRegion:
+        if self.detach_future:
+            self.detach_future.wait()
         if self.parent is None:
             if self.physical_region is None:
                 # We don't have a valid numpy array so we need to do an inline
@@ -294,6 +299,7 @@ class RegionField:
                 runtime.unmap_region(self.physical_region, unordered=unordered)
                 self.physical_region = None
                 self.physical_region_mapped = False
+                self.detach_future = None
         else:
             self.parent.decrement_inline_mapped_ref_count(unordered=unordered)
 

@@ -586,15 +586,16 @@ class AttachmentManager:
         detach: Union[Detach, IndexDetach],
         defer: bool = False,
         previously_deferred: bool = False,
-    ) -> None:
+    ) -> Union[None, Future]:
         # If the detachment was previously deferred, then we don't
         # need to remove the allocation from the map again.
         if not previously_deferred:
             self._remove_allocation(alloc)
         if defer:
             # If we need to defer this until later do that now
+            # IRINA FIXME should I pass unordered here?
             self._deferred_detachments.append((alloc, detach))
-            return
+            return None
         future = self._runtime.dispatch(detach)
         # Dangle a reference to the field off the future to prevent the
         # field from being recycled until the detach is done
@@ -602,8 +603,9 @@ class AttachmentManager:
         future.field_reference = field  # type: ignore[attr-defined]
         # If the future is already ready, then no need to track it
         if future.is_ready():
-            return
+            return None
         self._pending_detachments[future] = alloc
+        return future
 
     def register_detachment(self, detach: Union[Detach, IndexDetach]) -> int:
         key = self._next_detachment_key
