@@ -33,8 +33,9 @@ jobs:
       - name: Checkout legate.core (= this repo)
         uses: actions/checkout@v3
         with:
-          ref: ${{ inputs.sha }}
           fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ inputs.sha }}
 
       - if: github.repository_owner == 'nv-legate'
         name: Get AWS credentials for sccache bucket
