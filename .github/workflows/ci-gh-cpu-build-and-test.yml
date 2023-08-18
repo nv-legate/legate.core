@@ -19,8 +19,8 @@ jobs:
   build-cpu:
     needs: filter-by-triggering-event
     if: needs.filter-by-triggering-event.outputs.ok == 'true'
-    uses:
-      ./.github/workflows/gh-build.yml
+    secrets: inherit
+    uses: ./.github/workflows/gh-build.yml
     with:
       build-target: cpu
       # Ref: https://docs.rapids.ai/resources/github-actions/#cpu-labels for `linux-amd64-cpu4`
@@ -37,8 +37,8 @@ jobs:
           - { name: pytest, test-scope: test }
           - { name: mypy, test-scope: type-check }
     name: ${{ matrix.name }}
-    uses:
-      ./.github/workflows/gh-test.yml
+    secrets: inherit
+    uses: ./.github/workflows/gh-test.yml
     with:
       build-target: cpu
       runs-on: ${{ github.repository == 'nv-legate/legate.core' && 'linux-amd64-cpu4' || 'ubuntu-latest' }}
@@ -52,8 +52,8 @@ jobs:
       - test-cpu
     # This ensures the cleanup job runs even if previous jobs fail or the workflow is cancelled.
     if: always()
-    uses:
-      ./.github/workflows/gh-cleanup.yml
+    secrets: inherit
+    uses: ./.github/workflows/gh-cleanup.yml
     with:
       build-target: cpu
       sha: ${{ github.sha }}
