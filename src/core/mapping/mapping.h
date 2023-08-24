@@ -281,7 +281,7 @@ struct InstanceMappingPolicy {
  * @ingroup mapping
  * @brief A mapping policy for stores
  */
-struct StoreMapping {
+class StoreMapping {
  public:
   /**
    * @brief Stores to which the `policy` should be applied
