@@ -23,13 +23,13 @@
 namespace legate {
 
 struct Transform {
+  virtual ~Transform() {}
   virtual Domain transform(const Domain& input) const                           = 0;
   virtual Legion::DomainAffineTransform inverse_transform(int32_t in_dim) const = 0;
   virtual void print(std::ostream& out) const                                   = 0;
 };
 
 struct StoreTransform : public Transform {
-  virtual ~StoreTransform() {}
   virtual int32_t target_ndim(int32_t source_ndim) const        = 0;
   virtual void find_imaginary_dims(std::vector<int32_t>&) const = 0;
 };
