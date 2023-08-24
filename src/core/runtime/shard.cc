@@ -178,6 +178,8 @@ void legate_create_sharding_functor_using_projection(Legion::ShardID shard_id,
                                                      uint32_t per_node_count)
 {
   auto runtime = Legion::Runtime::get_runtime();
+
+  static_cast<void>(runtime);
   legate::ShardingCallbackArgs args{
     shard_id, proj_id, start_node, end_node, offset, per_node_count};
   {
