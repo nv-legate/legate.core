@@ -136,8 +136,6 @@ int LocalNetwork::alltoallv(const void* sendbuf,
                             CollDataType type,
                             CollComm global_comm)
 {
-  int res;
-
   int total_size  = global_comm->global_comm_size;
   int global_rank = global_comm->global_rank;
 
@@ -196,8 +194,6 @@ int LocalNetwork::alltoallv(const void* sendbuf,
 int LocalNetwork::alltoall(
   const void* sendbuf, void* recvbuf, int count, CollDataType type, CollComm global_comm)
 {
-  int res;
-
   int total_size  = global_comm->global_comm_size;
   int global_rank = global_comm->global_rank;
 

@@ -99,7 +99,6 @@ void TaskDeserializer::_unpack(RegionField& value)
 
 void TaskDeserializer::_unpack(UnboundRegionField& value)
 {
-  auto dim = unpack<int32_t>();
   auto idx = unpack<uint32_t>();
   auto fid = unpack<int32_t>();
 

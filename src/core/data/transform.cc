@@ -351,8 +351,7 @@ Domain Delinearize::transform(const Domain& input) const
 {
   auto delinearize = [](const auto dim, const auto ndim, const auto& strides, const Domain& input) {
     Domain output;
-    output.dim     = input.dim - 1 + ndim;
-    int32_t in_dim = 0;
+    output.dim = input.dim - 1 + ndim;
     for (int32_t in_dim = 0, out_dim = 0; in_dim < input.dim; ++in_dim) {
       if (in_dim == dim) {
         auto lo = input.rect_data[in_dim];
