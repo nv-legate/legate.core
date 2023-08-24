@@ -176,12 +176,14 @@ TaskContext::TaskContext(const Legion::Task* task,
                          Legion::Runtime* runtime)
   : task_(task), regions_(regions), context_(context), runtime_(runtime)
 {
+  static_cast<void>(context_);
+  static_cast<void>(runtime_);
   {
     mapping::MapperDataDeserializer dez(task);
     machine_desc_ = dez.unpack<mapping::MachineDesc>();
   }
 
-  TaskDeserializer dez(task, regions);
+  TaskDeserializer dez(task, regions_);
   inputs_     = dez.unpack<std::vector<Store>>();
   outputs_    = dez.unpack<std::vector<Store>>();
   reductions_ = dez.unpack<std::vector<Store>>();
