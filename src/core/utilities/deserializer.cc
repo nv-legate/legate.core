@@ -35,8 +35,6 @@ TaskDeserializer::TaskDeserializer(const Legion::Task* task,
   auto runtime = Legion::Runtime::get_runtime();
   auto ctx     = Legion::Runtime::get_context();
   runtime->get_output_regions(ctx, outputs_);
-
-  first_task_ = !task->is_index_space || (task->index_point == task->index_domain.lo());
 }
 
 void TaskDeserializer::_unpack(Store& value)
@@ -51,7 +49,7 @@ void TaskDeserializer::_unpack(Store& value)
   if (is_future) {
     auto redop_id = unpack<int32_t>();
     auto fut      = unpack<FutureWrapper>();
-    if (redop_id != -1 && !first_task_) fut.initialize_with_identity(redop_id);
+    if (redop_id != -1 && !fut.valid()) fut.initialize_with_identity(redop_id);
     value = Store(dim, std::move(type), redop_id, fut, std::move(transform));
   } else if (!is_output_region) {
     auto redop_id = unpack<int32_t>();
@@ -67,9 +65,9 @@ void TaskDeserializer::_unpack(Store& value)
 
 void TaskDeserializer::_unpack(FutureWrapper& value)
 {
-  auto read_only   = unpack<bool>();
-  auto has_storage = unpack<bool>();
-  auto field_size  = unpack<uint32_t>();
+  auto read_only    = unpack<bool>();
+  auto future_index = unpack<int32_t>();
+  auto field_size   = unpack<uint32_t>();
 
   auto point = unpack<std::vector<int64_t>>();
   Domain domain;
@@ -79,13 +77,9 @@ void TaskDeserializer::_unpack(FutureWrapper& value)
     domain.rect_data[idx + domain.dim] = point[idx] - 1;
   }
 
-  Legion::Future future;
-  if (has_storage) {
-    future   = futures_[0];
-    futures_ = futures_.subspan(1);
-  }
-
-  value = FutureWrapper(read_only, field_size, domain, future, has_storage && first_task_);
+  auto has_storage      = future_index >= 0;
+  Legion::Future future = has_storage ? futures_[future_index] : Legion::Future();
+  value                 = FutureWrapper(read_only, field_size, domain, future, has_storage);
 }
 
 void TaskDeserializer::_unpack(RegionField& value)
@@ -131,13 +125,8 @@ MapperDataDeserializer::MapperDataDeserializer(const Legion::Mappable* mappable)
 TaskDeserializer::TaskDeserializer(const Legion::Task* task,
                                    Legion::Mapping::MapperRuntime* runtime,
                                    Legion::Mapping::MapperContext context)
-  : BaseDeserializer(task->args, task->arglen),
-    task_(task),
-    runtime_(runtime),
-    context_(context),
-    future_index_(0)
+  : BaseDeserializer(task->args, task->arglen), task_(task), runtime_(runtime), context_(context)
 {
-  first_task_ = false;
 }
 
 void TaskDeserializer::_unpack(Store& value)
@@ -173,7 +162,7 @@ void TaskDeserializer::_unpack(FutureWrapper& value)
 {
   // We still need to deserialize these fields to get to the domain
   unpack<bool>();
-  unpack<bool>();
+  auto future_index = unpack<int32_t>();
   unpack<uint32_t>();
 
   auto point = unpack<std::vector<int64_t>>();
@@ -184,7 +173,7 @@ void TaskDeserializer::_unpack(FutureWrapper& value)
     domain.rect_data[idx + domain.dim] = point[idx] - 1;
   }
 
-  value = FutureWrapper(future_index_++, domain);
+  value = FutureWrapper(future_index, domain);
 }
 
 void TaskDeserializer::_unpack(RegionField& value, bool is_output_region)

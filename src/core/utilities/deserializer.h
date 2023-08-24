@@ -83,7 +83,6 @@ class BaseDeserializer {
   std::unique_ptr<Type> unpack_type();
 
  protected:
-  bool first_task_;
   Span<const int8_t> args_;
 };
 
@@ -136,7 +135,6 @@ class TaskDeserializer : public BaseDeserializer<TaskDeserializer> {
   const Legion::Task* task_;
   Legion::Mapping::MapperRuntime* runtime_;
   Legion::Mapping::MapperContext context_;
-  uint32_t future_index_;
 };
 
 class CopyDeserializer : public BaseDeserializer<CopyDeserializer> {
