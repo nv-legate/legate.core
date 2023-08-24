@@ -77,8 +77,8 @@ set(legate_core_version 23.07.00)
 # For now we want the optimization flags to match on both normal make and cmake
 # builds so we override the cmake defaults here for release, this changes
 # -O3 to -O2 and removes -DNDEBUG
-set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
-set(CMAKE_CUDA_FLAGS_DEBUG "-O0 -g")
+# set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
+# set(CMAKE_CUDA_FLAGS_DEBUG "-O0 -g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O2")
 set(CMAKE_CUDA_FLAGS_RELEASE "-O2")
 set(CMAKE_CXX_FLAGS_MINSIZEREL "-Os")

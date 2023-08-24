@@ -1,0 +1,14 @@
+{
+    // version 4 since CMake 3.23
+    "version": 4,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 23,
+        "patch": 0
+    },
+    // include since version 4
+    "include": [
+        "cmake/presets/debug.json",
+        "cmake/presets/debug_sanitizer.json"
+    ]
+}

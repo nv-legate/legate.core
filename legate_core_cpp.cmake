@@ -161,6 +161,20 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
   list(APPEND legate_core_CUDA_DEFS DEBUG_LEGATE)
 endif()
 
+option(legate_core_CXX_FLAGS "C++ flags for legate core" "")
+if(legate_core_CXX_FLAGS)
+  separate_arguments(legate_core_CXX_FLAGS)
+  list(APPEND legate_core_CXX_OPTIONS ${legate_core_CXX_FLAGS})
+endif()
+
+option(legate_core_CUDA_FLAGS "CUDA flags for legate core" "")
+if(legate_core_CUDA_FLAGS)
+  separate_arguments(legate_core_CUDA_FLAGS)
+  list(APPEND legate_core_CUDA_OPTIONS ${legate_core_CUDA_FLAGS})
+endif()
+
+option(legate_core_LINKER_FLAGS "Linker flags for legate core" "")
+
 if(Legion_USE_CUDA)
   list(APPEND legate_core_CXX_DEFS LEGATE_USE_CUDA)
   list(APPEND legate_core_CUDA_DEFS LEGATE_USE_CUDA)
@@ -254,6 +268,15 @@ elseif (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
   set(platform_rpath_origin "@loader_path")
 endif ()
 
+# HACK: Legion headers contain *many* warnings, but we would like to build with -Wall
+# -Werror. But there is a work-around. Compilers treat system headers as special and do
+# not emit any warnings about suspect code in them, so until legion cleans house, we mark
+# their headers as "system" headers.
+set_target_properties(Legion
+  PROPERTIES
+  INTERFACE_SYSTEM_INCLUDE_DIRECTORIES $<TARGET_PROPERTY:Legion,INTERFACE_INCLUDE_DIRECTORIES>
+)
+
 set_target_properties(legate_core
            PROPERTIES EXPORT_NAME                         core
                       LIBRARY_OUTPUT_NAME                 lgcore
@@ -294,6 +317,10 @@ target_link_libraries(legate_core
 target_compile_options(legate_core
   PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${legate_core_CXX_OPTIONS}>"
           "$<$<COMPILE_LANGUAGE:CUDA>:${legate_core_CUDA_OPTIONS}>")
+
+if(legate_core_LINKER_FLAGS)
+  target_link_options(legate_core PRIVATE "${legate_core_LINKER_FLAGS}")
+endif()
 
 target_compile_definitions(legate_core
   PUBLIC "$<$<COMPILE_LANGUAGE:CXX>:${legate_core_CXX_DEFS}>"

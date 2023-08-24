@@ -1,0 +1,85 @@
+{
+    "version": 7,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 27,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "debug",
+            "displayName": "Debug Config",
+            "description": "Debug build using Make generator",
+            "generator": "Unix Makefiles",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "environment": {
+                "LEGATE_DEBUG_PRESET_CMAKE_CXX_FLAGS": "-O0 -g3",
+                "LEGATE_DEBUG_PRESET_CMAKE_CUDA_FLAGS": "--compiler-options='$env{LEGATE_DEBUG_PRESET_CMAKE_CXX_FLAGS}'",
+                "LEGATE_DEBUG_PRESET_LEGATE_CORE_CXX_FLAGS": "-Werror -Wall -Warray-bounds-pointer-arithmetic -Wassign-enum -fstack-protector -g3 -Wformat-pedantic -Walloca -Wdeprecated -Wimplicit-fallthrough -fdiagnostics-show-template-tree -D_LIBCPP_ENABLE_ASSERTIONS=1 -D_LIBCPP_ENABLE_NODISCARD=1",
+                "LEGATE_DEBUG_PRESET_LEGATE_CORE_CUDA_FLAGS": "--compiler-options='$env{LEGATE_DEBUG_PRESET_LEGATE_CORE_CXX_FLAGS}'"
+            },
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": {
+                    "type": "STRING",
+                    "value": "Debug"
+                },
+                "CMAKE_EXPORT_COMPILE_COMMANDS": {
+                    "type": "BOOL",
+                    "value": "ON"
+                },
+                "CMAKE_CXX_STANDARD": {
+                    "type": "STRING",
+                    "value": "17"
+                },
+                "CMAKE_CXX_FLAGS_DEBUG": {
+                    "type": "STRING",
+                    "value": "$env{LEGATE_DEBUG_PRESET_CMAKE_CXX_FLAGS}"
+                },
+                "legate_core_CXX_FLAGS": {
+                    "type": "STRING",
+                    "value": "$env{LEGATE_DEBUG_PRESET_LEGATE_CORE_CXX_FLAGS}"
+                },
+                "CMAKE_CUDA_FLAGS_DEBUG": {
+                    "type": "STRING",
+                    "value": "$env{LEGATE_DEBUG_PRESET_CMAKE_CUDA_FLAGS}"
+                },
+                "legate_core_CUDA_FLAGS": {
+                    "type": "STRING",
+                    "value": "$env{LEGATE_DEBUG_PRESET_LEGATE_CORE_CUDA_FLAGS}"
+                }
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "debug",
+            "configurePreset": "debug",
+            "jobs": 7
+        }
+    ],
+    "packagePresets": [
+        {
+            "name": "debug",
+            "configurePreset": "debug"
+        }
+    ],
+    "workflowPresets": [
+        {
+            "name": "debug",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "debug"
+                },
+                {
+                    "type": "build",
+                    "name": "debug"
+                },
+                {
+                    "type": "package",
+                    "name": "debug"
+                }
+            ]
+        }
+    ]
+}

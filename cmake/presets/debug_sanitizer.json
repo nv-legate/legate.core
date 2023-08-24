@@ -1,0 +1,79 @@
+{
+    "include": [
+        "debug.json"
+    ],
+    "version": 7,
+    "configurePresets": [
+        {
+            "inherits": "debug",
+            "name": "debug-sanitizer",
+            "displayName": "Debug Config With Sanitizers",
+            "description": "Debug build with sanitizer support",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "environment": {
+                "LEGATE_DEBUG_SANITIZER_PRESET_SANITIZER_FLAGS": "-fsanitize=address,undefined,bounds",
+                "LEGATE_DEBUG_SANITIZER_PRESET_SANITIZER_COMPILER_FLAGS": "$env{LEGATE_DEBUG_SANITIZER_PRESET_SANITIZER_FLAGS} -fno-omit-frame-pointer",
+                "LEGATE_DEBUG_SANITIZER_PRESET_CMAKE_CXX_FLAGS": "$env{LEGATE_DEBUG_PRESET_CMAKE_CXX_FLAGS} $env{LEGATE_DEBUG_SANITIZER_PRESET_SANITIZER_COMPILER_FLAGS}",
+                "LEGATE_DEBUG_SANITIZER_PRESET_CMAKE_CUDA_FLAGS": "$env{LEGATE_DEBUG_PRESET_CMAKE_CUDA_FLAGS} --compiler-options='$env{LEGATE_DEBUG_SANITIZER_PRESET_SANITIZER_COMPILER_FLAGS}'",
+                "LEGATE_DEBUG_SANITIZER_PRESET_LEGATE_CORE_CXX_FLAGS": "$env{LEGATE_DEBUG_PRESET_LEGATE_CORE_CXX_FLAGS} $env{LEGATE_DEBUG_SANITIZER_PRESET_SANITIZER_COMPILER_FLAGS}",
+                "LEGATE_DEBUG_SANITIZER_PRESET_LEGATE_CORE_CUDA_FLAGS": "$env{LEGATE_DEBUG_PRESET_LEGATE_CORE_CUDA_FLAGS} --compiler-options='$env{LEGATE_DEBUG_SANITIZER_PRESET_SANITIZER_COMPILER_FLAGS}'",
+                "LEGATE_DEBUG_SANITIZER_PRESET_LEGATE_CORE_LINKER_FLAGS": "$env{LEGATE_DEBUG_SANITIZER_PRESET_SANITIZER_FLAGS}"
+            },
+            "cacheVariables": {
+                "CMAKE_CXX_FLAGS_DEBUG": {
+                    "type": "STRING",
+                    "value": "$env{LEGATE_DEBUG_SANITIZER_PRESET_CMAKE_CXX_FLAGS}"
+                },
+                "legate_core_CXX_FLAGS": {
+                    "type": "STRING",
+                    "value": "$env{LEGATE_DEBUG_SANITIZER_PRESET_LEGATE_CORE_CXX_FLAGS}"
+                },
+                "CMAKE_CUDA_FLAGS_DEBUG": {
+                    "type": "STRING",
+                    "value": "$env{LEGATE_DEBUG_SANITIZER_PRESET_CMAKE_CUDA_FLAGS}"
+                },
+                "legate_core_CUDA_FLAGS": {
+                    "type": "STRING",
+                    "value": "$env{LEGATE_DEBUG_SANITIZER_PRESET_LEGATE_CORE_CUDA_FLAGS}"
+                },
+                "legate_core_LINKER_FLAGS": {
+                    "type": "STRING",
+                    "value": "$env{LEGATE_DEBUG_SANITIZER_PRESET_LEGATE_CORE_LINKER_FLAGS}"
+                }
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "inherits": "debug",
+            "name": "debug-sanitizer",
+            "configurePreset": "debug-sanitizer"
+        }
+    ],
+    "packagePresets": [
+        {
+            "inherits": "debug",
+            "name": "debug-sanitizer",
+            "configurePreset": "debug-sanitizer"
+        }
+    ],
+    "workflowPresets": [
+        {
+            "name": "debug-sanitizer",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "debug-sanitizer"
+                },
+                {
+                    "type": "build",
+                    "name": "debug-sanitizer"
+                },
+                {
+                    "type": "package",
+                    "name": "debug-sanitizer"
+                }
+            ]
+        }
+    ]
+}
