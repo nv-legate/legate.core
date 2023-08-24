@@ -113,8 +113,8 @@ StructType::StructType(int32_t uid,
                        bool align) noexcept(false)
   : ExtensionType(uid, Type::Code::STRUCT),
     aligned_(align),
-    alignment_(1),
     size_(0),
+    alignment_(1),
     field_types_(std::forward<decltype(field_types_)>(field_types))
 {
   offsets_.reserve(field_types_.size());

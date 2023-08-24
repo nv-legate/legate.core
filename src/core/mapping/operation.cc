@@ -34,7 +34,7 @@ Task::Task(const Legion::Task* task,
            const LibraryContext* library,
            Legion::Mapping::MapperRuntime* runtime,
            const Legion::Mapping::MapperContext context)
-  : Mappable(task), task_(task), library_(library)
+  : Mappable(task), library_(library), task_(task)
 {
   TaskDeserializer dez(task, runtime, context);
   inputs_     = dez.unpack<std::vector<Store>>();

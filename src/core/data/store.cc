@@ -66,15 +66,15 @@ bool RegionField::valid() const
 Domain RegionField::domain() const { return dim_dispatch(dim_, get_domain_fn{}, pr_); }
 
 UnboundRegionField::UnboundRegionField(const Legion::OutputRegion& out, Legion::FieldID fid)
-  : out_(out),
-    fid_(fid),
-    num_elements_(
-      Legion::UntypedDeferredValue(sizeof(size_t), find_memory_kind_for_executing_processor()))
+  : num_elements_(
+      Legion::UntypedDeferredValue(sizeof(size_t), find_memory_kind_for_executing_processor())),
+    out_(out),
+    fid_(fid)
 {
 }
 
 UnboundRegionField::UnboundRegionField(UnboundRegionField&& other) noexcept
-  : bound_(other.bound_), out_(other.out_), fid_(other.fid_), num_elements_(other.num_elements_)
+  : bound_(other.bound_), num_elements_(other.num_elements_), out_(other.out_), fid_(other.fid_)
 {
   other.bound_        = false;
   other.out_          = Legion::OutputRegion();
