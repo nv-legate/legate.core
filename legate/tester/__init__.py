@@ -34,6 +34,9 @@ DEFAULT_CPUS_PER_NODE = 2
 #: Value to use if --gpus is not specified.
 DEFAULT_GPUS_PER_NODE = 1
 
+# Value to use if --bloat-factor is not specified
+DEFAULT_GPU_BLOAT_FACTOR = 1.5
+
 # Delay to introduce between GPU test invocations (ms)
 DEFAULT_GPU_DELAY = 2000
 
