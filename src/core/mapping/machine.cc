@@ -171,6 +171,7 @@ Machine::Machine()
         omps_.push_back(proc);
         continue;
       }
+      default: break;
     }
   }
 
