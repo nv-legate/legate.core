@@ -16,6 +16,25 @@
 
 #pragma once
 
+#ifdef __cplusplus
+// C++98 ignored?
+#if __cplusplus <= 201103L
+#define LEGATE_CPP_VERSION 11
+#elif __cplusplus <= 201402L
+#define LEGATE_CPP_VERSION 14
+#elif __cplusplus <= 201703L
+#define LEGATE_CPP_VERSION 17
+#elif __cplusplus <= 202002L
+#define LEGATE_CPP_VERSION 20
+#else
+#define LEGATE_CPP_VERSION 23  // current year, or date of c++2b ratification
+#endif
+#endif  // __cplusplus
+
+#ifndef LEGATE_CPP_VERSION
+#define LEGATE_CPP_VERSION 0
+#endif
+
 #define LEGATE_ABORT                                                                        \
   do {                                                                                      \
     legate::log_legate.error(                                                               \
