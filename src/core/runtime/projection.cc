@@ -227,7 +227,8 @@ void register_legate_core_projection_functors(Legion::Runtime* runtime,
 {
   auto proj_id = context->get_projection_id(LEGATE_CORE_DELINEARIZE_PROJ_ID);
   auto functor = new DelinearizationFunctor(runtime);
-  log_legate.debug("Register delinearizing functor: functor: %p, id: %d", functor, proj_id);
+  log_legate.debug(
+    "Register delinearizing functor: functor: %p, id: %d", static_cast<void*>(functor), proj_id);
   runtime->register_projection_functor(proj_id, functor, true /*silence warnings*/);
   {
     const std::lock_guard<std::mutex> lock(functor_table_lock);

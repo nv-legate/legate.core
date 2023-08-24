@@ -172,11 +172,11 @@ int LocalNetwork::alltoallv(const void* sendbuf,
       recvfrom_global_rank,
       recvfrom_seg_id,
       sdispls[recvfrom_seg_id],
-      src,
+      static_cast<void*>(src),
       global_rank,
       recvfrom_global_rank,
       rdispls[recvfrom_global_rank],
-      dst);
+      static_cast<void*>(dst));
 #endif
     memcpy(dst, src, recvcounts[recvfrom_global_rank] * type_extent);
   }
@@ -224,10 +224,10 @@ int LocalNetwork::alltoall(
       type_extent,
       recvfrom_global_rank,
       recvfrom_seg_id,
-      src,
+      static_cast<void*>(src),
       global_rank,
       recvfrom_global_rank,
-      dst);
+      static_cast<void*>(dst));
 #endif
     memcpy(dst, src, count * type_extent);
   }
@@ -274,7 +274,7 @@ int LocalNetwork::allgather(
       recvfrom_global_rank,
       src,
       global_rank,
-      dst);
+      static_cast<void*>(dst));
 #endif
     memcpy(dst, src, count * type_extent);
   }
