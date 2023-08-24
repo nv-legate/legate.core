@@ -84,7 +84,7 @@ std::unique_ptr<StoreTransform> TransformStack::pop()
     transform_ = std::move(parent_->transform_);
     parent_    = std::move(parent_->parent_);
   }
-  return std::move(result);
+  return result;
 }
 
 void TransformStack::dump() const { std::cerr << *this << std::endl; }
@@ -94,7 +94,7 @@ std::vector<int32_t> TransformStack::find_imaginary_dims() const
   std::vector<int32_t> dims;
   if (nullptr != parent_) { dims = parent_->find_imaginary_dims(); }
   if (nullptr != transform_) transform_->find_imaginary_dims(dims);
-  return std::move(dims);
+  return dims;
 }
 
 Shift::Shift(int32_t dim, int64_t offset) : dim_(dim), offset_(offset) {}

@@ -129,7 +129,7 @@ void InstanceMappingPolicy::populate_layout_constraints(
   InstanceMappingPolicy policy{};
   policy.target = target;
   policy.exact  = exact;
-  return std::move(policy);
+  return policy;
 }
 
 bool StoreMapping::for_future() const
@@ -179,7 +179,7 @@ std::set<uint32_t> StoreMapping::requirement_indices() const
     if (store.get().is_future()) continue;
     indices.insert(store.get().region_field().index());
   }
-  return std::move(indices);
+  return indices;
 }
 
 std::set<const Legion::RegionRequirement*> StoreMapping::requirements() const
@@ -191,7 +191,7 @@ std::set<const Legion::RegionRequirement*> StoreMapping::requirements() const
     if (!req->region.exists()) continue;
     reqs.insert(req);
   }
-  return std::move(reqs);
+  return reqs;
 }
 
 void StoreMapping::populate_layout_constraints(
@@ -222,7 +222,7 @@ void StoreMapping::populate_layout_constraints(
   StoreMapping mapping{};
   mapping.policy = InstanceMappingPolicy::default_policy(target, exact);
   mapping.stores.emplace_back(store);
-  return std::move(mapping);
+  return mapping;
 }
 
 }  // namespace mapping

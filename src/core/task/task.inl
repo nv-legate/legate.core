@@ -61,7 +61,7 @@ template <typename T>
   detail::VariantHelper<T, detail::CPUVariant>::record(task_info.get(), all_options);
   detail::VariantHelper<T, detail::OMPVariant>::record(task_info.get(), all_options);
   detail::VariantHelper<T, detail::GPUVariant>::record(task_info.get(), all_options);
-  return std::move(task_info);
+  return task_info;
 }
 
 template <typename T>

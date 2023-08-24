@@ -292,7 +292,7 @@ std::vector<ReturnValue> TaskContext::get_return_values() const
     }
   }
 
-  return std::move(return_values);
+  return return_values;
 }
 
 }  // namespace legate
