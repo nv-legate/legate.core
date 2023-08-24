@@ -34,8 +34,7 @@ namespace legate {
 template <typename T>
 struct Span {
  public:
-  Span()            = default;
-  Span(const Span&) = default;
+  Span() = default;
 
  public:
   /**
