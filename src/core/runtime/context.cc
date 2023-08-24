@@ -42,7 +42,7 @@ InvalidTaskIdException::InvalidTaskIdException(const std::string& library_name,
   error_message = std::move(ss).str();
 }
 
-const char* InvalidTaskIdException::what() const throw() { return error_message.c_str(); }
+const char* InvalidTaskIdException::what() const LEGATE_NOEXCEPT { return error_message.c_str(); }
 
 LibraryContext::LibraryContext(const std::string& library_name,
                                const ResourceConfig& config,

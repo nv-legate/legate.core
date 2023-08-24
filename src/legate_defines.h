@@ -35,6 +35,12 @@
 #define LEGATE_CPP_VERSION 0
 #endif
 
+#if LEGATE_CPP_VERSION >= 11
+#define LEGATE_NOEXCEPT noexcept
+#else
+#define LEGATE_NOEXCEPT throw()
+#endif
+
 #define LEGATE_ABORT                                                                        \
   do {                                                                                      \
     legate::log_legate.error(                                                               \

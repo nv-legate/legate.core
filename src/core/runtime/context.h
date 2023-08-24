@@ -48,7 +48,7 @@ class InvalidTaskIdException : public std::exception {
                          int64_t max_task_id);
 
  public:
-  virtual const char* what() const throw();
+  virtual const char* what() const LEGATE_NOEXCEPT;
 
  private:
   std::string error_message;
