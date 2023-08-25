@@ -159,7 +159,7 @@ class RegionField:
         assert self.physical_region_refs == 0
         # Record the attached memory ranges, and confirm no overlaps with
         # previously encountered ranges.
-        if self.detach_future and self.detach_future.is_not_ready():
+        if self.detach_future and not self.detach_future.is_ready():
             self.detach_future.wait()
         attachment_manager.attach_external_allocation(alloc, self)
 
@@ -299,8 +299,6 @@ class RegionField:
                 runtime.unmap_region(self.physical_region, unordered=unordered)
                 self.physical_region = None
                 self.physical_region_mapped = False
-                #FIXME do we need this?
-                self.detach_future = None
         else:
             self.parent.decrement_inline_mapped_ref_count(unordered=unordered)
 
