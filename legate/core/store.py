@@ -159,6 +159,8 @@ class RegionField:
         assert self.physical_region_refs == 0
         # Record the attached memory ranges, and confirm no overlaps with
         # previously encountered ranges.
+        if self.detach_future and self.detach_future.is_not_ready():
+            self.detach_future.wait()
         attachment_manager.attach_external_allocation(alloc, self)
 
         def record_detach(detach: Union[Detach, IndexDetach]) -> None:
@@ -258,8 +260,6 @@ class RegionField:
             self.detach_future = detach_future
 
     def get_inline_mapped_region(self) -> PhysicalRegion:
-        if self.detach_future:
-            self.detach_future.wait()
         if self.parent is None:
             if self.physical_region is None:
                 # We don't have a valid numpy array so we need to do an inline
@@ -299,6 +299,7 @@ class RegionField:
                 runtime.unmap_region(self.physical_region, unordered=unordered)
                 self.physical_region = None
                 self.physical_region_mapped = False
+                #FIXME do we need this?
                 self.detach_future = None
         else:
             self.parent.decrement_inline_mapped_ref_count(unordered=unordered)
