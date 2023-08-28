@@ -272,6 +272,7 @@ class FutureMap:
         ordered: bool = True,
         mapper: int = 0,
         tag: int = 0,
+        init_value: Optional[Future] = None,
     ) -> Future:
         """
         Reduce all the futures in the future map down to a single
@@ -292,11 +293,30 @@ class FutureMap:
             ID of the mapper for managing the mapping of the task
         tag : int
             Tag to pass to the mapper to provide calling context
+        init_value : Future
+            Optional future holding the initial value for reductions
 
         Returns
         -------
         Future representing the reduced value of all the future in the map
         """
+        # TODO: We need to pass a meaningful provenance string intead of
+        # defaulting to an empty string
+        if init_value is not None:
+            return Future(
+                legion.legion_future_map_reduce_with_initial_value(
+                    runtime,
+                    context,
+                    self.handle,
+                    redop,
+                    ordered,
+                    mapper,
+                    tag,
+                    "".encode(),
+                    init_value.handle,
+                )
+            )
+
         return Future(
             legion.legion_future_map_reduce(
                 runtime,
