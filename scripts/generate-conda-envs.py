@@ -94,9 +94,10 @@ class CUDAConfig(SectionConfig):
 
 @dataclass(frozen=True)
 class BuildConfig(SectionConfig):
-    compilers: bool = True
-    openmpi: bool = True
-    ucx: bool = True
+    compilers: bool
+    openmpi: bool
+    ucx: bool
+    os: OSType
 
     header = "build"
 
@@ -124,6 +125,8 @@ class BuildConfig(SectionConfig):
             pkgs += ("openmpi",)
         if self.ucx:
             pkgs += ("ucx>=1.14",)
+        if self.os == "linux":
+            pkgs += ("elfutils", "libdwarf")
         return sorted(pkgs)
 
     def __str__(self) -> str:
@@ -172,6 +175,7 @@ class TestsConfig(SectionConfig):
             "pytest-mock",
             "pytest",
             "types-docutils",
+            "pynvml",
         )
 
     @property
@@ -227,7 +231,7 @@ class EnvConfig:
 
     @property
     def build(self) -> BuildConfig:
-        return BuildConfig(self.compilers, self.openmpi, self.ucx)
+        return BuildConfig(self.compilers, self.openmpi, self.ucx, self.os)
 
     @property
     def runtime(self) -> RuntimeConfig:
@@ -243,7 +247,7 @@ class EnvConfig:
 
     @property
     def filename(self) -> str:
-        return f"environment-{self.use}-{self.os}-py{self.python}{self.cuda}{self.build}.yaml"  # noqa
+        return f"environment-{self.use}-{self.os}-py{self.python}{self.cuda}{self.build}"  # noqa
 
 
 # --- Setup -------------------------------------------------------------------
@@ -395,6 +399,13 @@ if __name__ == "__main__":
         help="Whether to include UCX or not (default: both)",
     )
 
+    parser.add_argument(
+        "--sections",
+        nargs="*",
+        help="""List of sections exclusively selected for inclusion in the
+        generated environment file.""",
+    )
+
     args = parser.parse_args(sys.argv[1:])
 
     configs = ALL_CONFIGS
@@ -414,22 +425,49 @@ if __name__ == "__main__":
     if args.ucx is not None:
         configs = (x for x in configs if x.build.ucx == args.ucx)
 
+    selected_sections = None
+
+    if args.sections is not None:
+        selected_sections = set(args.sections)
+
+    def section_selected(section):
+        if not selected_sections:
+            return True
+
+        if selected_sections and str(section) in selected_sections:
+            return True
+
+        return False
+
     for config in configs:
         conda_sections = indent(
-            "".join(s.format("conda") for s in config.sections if s.conda),
+            "".join(
+                s.format("conda")
+                for s in config.sections
+                if s.conda and section_selected(s)
+            ),
             "  ",
         )
 
         pip_sections = indent(
-            "".join(s.format("pip") for s in config.sections if s.pip), "    "
+            "".join(
+                s.format("pip")
+                for s in config.sections
+                if s.pip and section_selected(s)
+            ),
+            "    ",
         )
 
-        print(f"--- generating: {config.filename}")
+        filename = config.filename
+        if args.sections:
+            filename = config.filename + "-partial"
+
+        print(f"--- generating: {filename}.yaml")
         out = ENV_TEMPLATE.format(
             use=config.use,
             python=config.python,
             conda_sections=conda_sections,
             pip=PIP_TEMPLATE.format(pip_sections=pip_sections),
         )
-        with open(f"{config.filename}", "w") as f:
+        with open(f"{filename}.yaml", "w") as f:
             f.write(out)

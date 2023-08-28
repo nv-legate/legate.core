@@ -174,6 +174,12 @@ function(find_or_configure_legion)
     message(VERBOSE "legate.core: Legion git_branch: ${git_branch}")
     message(VERBOSE "legate.core: Legion exclude_from_all: ${exclude_from_all}")
 
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+      set(Legion_BACKTRACE_USE_LIBDW ON)
+    else()
+      set(Legion_BACKTRACE_USE_LIBDW OFF)
+    endif()
+
     rapids_cpm_find(Legion ${version} ${FIND_PKG_ARGS}
         CPM_ARGS
           ${legion_cpm_git_args}
@@ -190,6 +196,7 @@ function(find_or_configure_legion)
                                  "Legion_REDOP_COMPLEX ON"
                                  "Legion_GPU_REDUCTIONS OFF"
                                  "Legion_BUILD_RUST_PROFILER ON"
+                                 "Legion_BACKTRACE_USE_LIBDW ${Legion_BACKTRACE_USE_LIBDW}"
                                  "Legion_SPY ${Legion_SPY}"
                                  "Legion_USE_LLVM ${Legion_USE_LLVM}"
                                  "Legion_USE_HDF5 ${Legion_USE_HDF5}"

@@ -25,6 +25,7 @@ from pytest_mock import MockerFixture
 
 from legate.tester import (
     DEFAULT_CPUS_PER_NODE,
+    DEFAULT_GPU_BLOAT_FACTOR,
     DEFAULT_GPU_DELAY,
     DEFAULT_GPU_MEMORY_BUDGET,
     DEFAULT_GPUS_PER_NODE,
@@ -58,6 +59,7 @@ class TestConfig:
         assert c.cpu_pin == "partial"
         assert c.gpu_delay == DEFAULT_GPU_DELAY
         assert c.fbmem == DEFAULT_GPU_MEMORY_BUDGET
+        assert c.bloat_factor == DEFAULT_GPU_BLOAT_FACTOR
         assert c.omps == DEFAULT_OMPS_PER_NODE
         assert c.ompthreads == DEFAULT_OMPTHREADS
 

@@ -170,6 +170,15 @@ class TestParserDefaults:
 
     # other
 
+    def test_timing(self) -> None:
+        assert m.parser.get_default("timing") is False
+
+    def test_wrapper(self) -> None:
+        assert m.parser.get_default("wrapper") == []
+
+    def test_wrapper_inner(self) -> None:
+        assert m.parser.get_default("wrapper_inner") == []
+
     def test_module(self) -> None:
         assert m.parser.get_default("module") is None
 

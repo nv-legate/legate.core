@@ -24,6 +24,7 @@
 
 #include <cuda.h>
 #include <nccl.h>
+#include <chrono>
 
 namespace legate {
 namespace comm {
@@ -80,20 +81,37 @@ static ncclComm_t* init_nccl(const Legion::Task* task,
 
   auto id          = task->futures[0].get_result<ncclUniqueId>();
   ncclComm_t* comm = new ncclComm_t{};
-  CHECK_NCCL(ncclGroupStart());
-  CHECK_NCCL(ncclCommInitRank(comm, task->index_domain.get_volume(), id, task->index_point[0]));
-  CHECK_NCCL(ncclGroupEnd());
 
   auto num_ranks = task->index_domain.get_volume();
+  auto rank_id   = task->index_point[0];
+
+  auto ts_init_start = std::chrono::high_resolution_clock::now();
+  CHECK_NCCL(ncclGroupStart());
+  CHECK_NCCL(ncclCommInitRank(comm, num_ranks, id, rank_id));
+  CHECK_NCCL(ncclGroupEnd());
+  auto ts_init_stop = std::chrono::high_resolution_clock::now();
+
+  auto time_init = std::chrono::duration<double>(ts_init_stop - ts_init_start).count() * 1000.0;
+
+  if (0 == rank_id) { log_legate.debug("NCCL initialization took %lf ms", time_init); }
 
   if (num_ranks == 1) return comm;
+
+  if (!Core::warmup_nccl) return comm;
 
   auto stream = cuda::StreamPool::get_stream_pool().get_stream();
 
   // Perform a warm-up all-to-all
 
+  cudaEvent_t ev_start, ev_end_all_to_all, ev_end_all_gather;
+  CHECK_CUDA(cudaEventCreate(&ev_start));
+  CHECK_CUDA(cudaEventCreate(&ev_end_all_to_all));
+  CHECK_CUDA(cudaEventCreate(&ev_end_all_gather));
+
   auto src_buffer = create_buffer<_Payload>(num_ranks, Memory::Kind::GPU_FB_MEM);
   auto tgt_buffer = create_buffer<_Payload>(num_ranks, Memory::Kind::GPU_FB_MEM);
+
+  CHECK_CUDA(cudaEventRecord(ev_start, stream));
 
   CHECK_NCCL(ncclGroupStart());
   for (auto idx = 0; idx < num_ranks; ++idx) {
@@ -102,7 +120,25 @@ static ncclComm_t* init_nccl(const Legion::Task* task,
   }
   CHECK_NCCL(ncclGroupEnd());
 
+  CHECK_CUDA(cudaEventRecord(ev_end_all_to_all, stream));
+
   CHECK_NCCL(ncclAllGather(src_buffer.ptr(0), tgt_buffer.ptr(0), 1, ncclUint64, *comm, stream));
+
+  CHECK_CUDA(cudaEventRecord(ev_end_all_gather, stream));
+
+  CHECK_CUDA(cudaEventSynchronize(ev_end_all_gather));
+
+  float time_all_to_all = 0.;
+  float time_all_gather = 0.;
+  CHECK_CUDA(cudaEventElapsedTime(&time_all_to_all, ev_start, ev_end_all_to_all));
+  CHECK_CUDA(cudaEventElapsedTime(&time_all_gather, ev_end_all_to_all, ev_end_all_gather));
+
+  if (0 == rank_id) {
+    log_legate.debug("NCCL warm-up took %f ms (all-to-all: %f ms, all-gather: %f ms)",
+                     time_all_to_all + time_all_gather,
+                     time_all_to_all,
+                     time_all_gather);
+  }
 
   return comm;
 }

@@ -68,6 +68,7 @@ class Config:
         self.utility = args.utility
         self.cpu_pin = args.cpu_pin
         self.fbmem = args.fbmem
+        self.bloat_factor = args.bloat_factor
         self.gpu_delay = args.gpu_delay
         self.ompthreads = args.ompthreads
         self.numamem = args.numamem

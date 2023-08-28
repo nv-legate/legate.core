@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import argparse
+import shlex
 from typing import TYPE_CHECKING
 
 from .. import install_info
@@ -201,6 +202,34 @@ def cmd_rlwrap(
     config: ConfigProtocol, system: System, launcher: Launcher
 ) -> CommandPart:
     return ("rlwrap",) if config.other.rlwrap else ()
+
+
+def cmd_wrapper(
+    config: ConfigProtocol, system: System, launcher: Launcher
+) -> CommandPart:
+    if not config.other.wrapper:
+        return ()
+
+    parts = []
+
+    for wrapper in config.other.wrapper:
+        parts.extend(shlex.split(wrapper))
+
+    return tuple(parts)
+
+
+def cmd_wrapper_inner(
+    config: ConfigProtocol, system: System, launcher: Launcher
+) -> CommandPart:
+    if not config.other.wrapper_inner:
+        return ()
+
+    parts = []
+
+    for wrapper in config.other.wrapper_inner:
+        parts.extend(shlex.split(wrapper))
+
+    return tuple(parts)
 
 
 def cmd_legion(
@@ -455,6 +484,8 @@ _CMD_PARTS_SHARED = (
 CMD_PARTS_LEGION = (
     (
         cmd_bind,
+        # Add any user supplied (outer) wrappers
+        cmd_wrapper,
         cmd_rlwrap,
         cmd_gdb,
         cmd_cuda_gdb,
@@ -464,6 +495,8 @@ CMD_PARTS_LEGION = (
         cmd_memcheck,
         # Add valgrind right before the binary
         cmd_valgrind,
+        # Add any user supplied inner wrappers
+        cmd_wrapper_inner,
         # Now we're ready to build the actual command to run
         cmd_legion,
         # This has to go before script name

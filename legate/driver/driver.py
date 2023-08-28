@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from shlex import quote
 from subprocess import run
 from textwrap import indent
@@ -125,7 +126,15 @@ class LegateDriver:
             return 0
 
         with process_logs(self.config, self.system, self.launcher):
-            return run(self.cmd, env=self.env).returncode
+            if self.config.other.timing:
+                print(f"Legate start: {datetime.now()}")
+
+            ret = run(self.cmd, env=self.env).returncode
+
+            if self.config.other.timing:
+                print(f"Legate end: {datetime.now()}")
+
+            return ret
 
     def _darwin_gdb_warn(self) -> None:
         gdb = self.config.debugging.gdb

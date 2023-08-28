@@ -15,6 +15,7 @@ on:
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  BASE_IMAGE: rapidsai/devcontainers:23.06-cpp-cuda11.8-mambaforge-ubuntu22.04
   IMAGE_NAME: legate.core-${{ inputs.build-target }}
   USE_CUDA: ${{ (inputs.build-target == 'cpu' && 'OFF') || 'ON' }}
 
@@ -43,44 +44,55 @@ jobs:
           role-duration-seconds: 28800 # 8 hours
           role-to-assume: arn:aws:iam::279114543810:role/gha-oidc-nv-legate
 
+      - name: Docker system prune
+        run: |
+          docker version
+          docker system prune --all --force
+
       - name: Build docker image
         run: |
           echo BUILD_TARGET: ${{ inputs.build-target }}
           echo USE_CUDA: ${{ env.USE_CUDA }}
 
-          docker build \
-            --build-arg AWS_SESSION_TOKEN=${{ env.AWS_SESSION_TOKEN }} \
-            --build-arg AWS_ACCESS_KEY_ID=${{ env.AWS_ACCESS_KEY_ID }} \
-            --build-arg AWS_SECRET_ACCESS_KEY=${{ env.AWS_SECRET_ACCESS_KEY }} \
-            --build-arg GITHUB_TOKEN=${{ env.GITHUB_TOKEN }} \
-            --build-arg USE_CUDA=${{ env.USE_CUDA }} \
-            --progress=plain \
-            --tag=$IMAGE_NAME:${{ inputs.sha }} \
-            --label "git-commit=${{ inputs.sha }}" \
-            -f continuous_integration/Dockerfile .
+          IMAGE_TAG=${{ env.IMAGE_NAME }}:${{ inputs.sha }}
+
+          continuous_integration/build-docker-image \
+            --base-image "$BASE_IMAGE" \
+            --image-tag "$IMAGE_TAG" \
+            --source-dir .
+
+      - name: Dump docker history of image before upload
+        run: |
+          IMAGE_TAG=${{ env.IMAGE_NAME }}:${{ inputs.sha }}
+          docker history $IMAGE_TAG
+
+      - name: Dump docker history of image before upload
+        run: |
+          IMAGE_TAG=${{ env.IMAGE_NAME_CUNUMERIC }}:${{ inputs.sha }}
 
       - name: Log in to container image registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
 
       - name: Push image
         run: |
-          IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
+          IMAGE_TAG=${{ env.IMAGE_NAME }}:${{ inputs.sha }}
+
+          IMAGE_ID=ghcr.io/${{ github.repository_owner }}
 
           # Change all uppercase to lowercase
           IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
 
-          VERSION=${{ inputs.sha }}
+          IMAGE_ID=$IMAGE_ID/$IMAGE_TAG
 
-          docker tag $IMAGE_NAME:$VERSION $IMAGE_ID:$VERSION
-          docker push $IMAGE_ID:$VERSION
+          docker tag $IMAGE_TAG $IMAGE_ID
+          docker push $IMAGE_ID
 
       - name: Copy artifacts back to the host
         run: |
+          IMAGE_TAG=${{ env.IMAGE_NAME }}:${{ inputs.sha }}
           mkdir -p artifacts
-          docker run  -v "$(pwd)/artifacts:/home/coder/.artifacts" --rm -t $IMAGE_NAME:${{ inputs.sha }} copy-artifacts
-          echo --------- DOCKER HISTORY START -----------
-          docker history $IMAGE_NAME:${{ inputs.sha }}
-          echo --------- DOCKER HISTORY END -----------
+          docker run  -v "$(pwd)/artifacts:/home/coder/.artifacts" --rm -t $IMAGE_TAG copy-artifacts
+
 
       - name: Display structure of workdir
         run: ls -R

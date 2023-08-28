@@ -1,20 +1,16 @@
 #!/usr/bin/env bash
 
-make_conda_env_using_legate_core() {
-    mamba create -n "${DEFAULT_CONDA_ENV:-legate}"
-
-    mamba install -y -n "${DEFAULT_CONDA_ENV:-legate}" -c nvidia -c conda-forge -c /tmp/conda-build/legate_core legate-core
-}
+. conda-utils
 
 run_test_or_analysis() {
     set -x
     cd ~/
 
-    make_conda_env_using_legate_core
+    install_legate_core_with_war;
 
-    . activate-conda-env
+    activate_conda_env;
 
-    conda info
+    conda info;
 
     set -xeuo pipefail
 
