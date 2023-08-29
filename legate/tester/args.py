@@ -197,6 +197,15 @@ feature_opts.add_argument(
     help="Number of ranks per node to use",
 )
 
+feature_opts.add_argument(
+    "--launcher",
+    dest="launcher",
+    choices=["mpirun", "jsrun", "srun", "none"],
+    default="none",
+    help='launcher program to use (set to "none" for local runs, or if '
+    "the launch has already happened by the time legate is invoked)",
+)
+
 
 test_opts = parser.add_argument_group("Test run configuration options")
 

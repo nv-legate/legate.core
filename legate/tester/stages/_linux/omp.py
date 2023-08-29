@@ -69,6 +69,8 @@ class OMP(TestStage):
                 "--ranks-per-node",
                 str(config.ranks),
             ]
+        if config.launcher != "none":
+            args += ["--launcher", str(config.launcher)]
         return args
 
     def compute_spec(self, config: Config, system: TestSystem) -> StageSpec:
