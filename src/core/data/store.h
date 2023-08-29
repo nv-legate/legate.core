@@ -250,6 +250,7 @@ class FutureWrapper {
   template <int32_t DIM>
   Rect<DIM> shape() const;
   Domain domain() const;
+  bool valid() const { return future_.valid(); }
 
  public:
   void initialize_with_identity(int32_t redop_id);

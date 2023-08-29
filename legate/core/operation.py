@@ -548,7 +548,13 @@ class Task(TaskProtocol):
             if num_scalar_reds == 1:
                 (output, redop) = self.reductions[self.scalar_reductions[0]]
                 redop_id = output.type.reduction_op_id(redop)
-                output.set_storage(runtime.reduce_future_map(result, redop_id))
+                init_value = output.storage
+                assert isinstance(init_value, Future)
+                output.set_storage(
+                    runtime.reduce_future_map(
+                        result, redop_id, init_value=init_value
+                    )
+                )
             elif num_unbound_outs == 1:
                 output = self.outputs[self.unbound_outputs[0]]
                 # TODO: need to track partitions for N-D unbound stores
@@ -586,7 +592,13 @@ class Task(TaskProtocol):
                 data = runtime.extract_scalar_with_domain(
                     result, idx, launch_domain
                 )
-                output.set_storage(runtime.reduce_future_map(data, redop_id))
+                init_value = output.storage
+                assert isinstance(init_value, Future)
+                output.set_storage(
+                    runtime.reduce_future_map(
+                        data, redop_id, init_value=init_value
+                    )
+                )
                 idx += 1
             if self.can_raise_exception:
                 exn_fut_map = runtime.extract_scalar_with_domain(
