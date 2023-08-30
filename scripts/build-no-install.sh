@@ -8,7 +8,7 @@ source ./scripts/util/build-caching.sh
 source ./scripts/util/compiler-flags.sh
 
 # Remove existing build artifacts
-rm -rf ./{build,_skbuild,dist,legate.core.egg-info}
+rm -rf ./{build,_skbuild,dist,legate_core.egg-info}
 
 # Define CMake configuration arguments
 cmake_args="${CMAKE_ARGS:-}"
@@ -20,7 +20,7 @@ if [[ -n "$(which ninja)" ]]; then cmake_args+=" -GNinja"; fi
 cmake_args+="
 -D Legion_USE_CUDA=ON
 -D Legion_USE_OpenMP=ON
--D CMAKE_CUDA_ARCHITECTURES=NATIVE
+-D Legion_CUDA_ARCH=native
 ";
 
 # Use all but 2 threads to compile
