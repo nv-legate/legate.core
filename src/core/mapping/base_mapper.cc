@@ -217,13 +217,13 @@ void BaseMapper::slice_task(const Legion::Mapping::MapperContext ctx,
   if (task.sharding_space.exists())
     sharding_domain = runtime->get_index_space_domain(ctx, task.sharding_space);
 
-  auto lo                 = key_functor->project_point(sharding_domain.lo(), sharding_domain);
-  auto hi                 = key_functor->project_point(sharding_domain.hi(), sharding_domain);
-  int32_t shards_per_proc = (sharding_domain.get_volume() + local_range.total_proc_count() - 1) /
-                            local_range.total_proc_count();
+  auto lo = key_functor->project_point(sharding_domain.lo(), sharding_domain);
+  auto hi = key_functor->project_point(sharding_domain.hi(), sharding_domain);
+  int32_t tasks_per_proc =
+    (linearize(lo, hi, hi) + local_range.total_proc_count()) / local_range.total_proc_count();
   for (Domain::DomainPointIterator itr(input.domain); itr; itr++) {
     auto p       = key_functor->project_point(itr.p, sharding_domain);
-    uint32_t idx = linearize(lo, hi, p) / shards_per_proc;
+    uint32_t idx = linearize(lo, hi, p) / tasks_per_proc;
     output.slices.push_back(
       TaskSlice(Domain(itr.p, itr.p), local_range[idx], false /*recurse*/, false /*stealable*/));
   }
