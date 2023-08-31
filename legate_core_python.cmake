@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright 2022 NVIDIA Corporation
+# Copyright 2022-2023 NVIDIA Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -65,13 +65,20 @@ add_subdirectory(legate/core/_lib)
 
 set(cython_lib_dir "../../")
 
-if(CMAKE_INSTALL_RPATH_USE_LINK_PATH AND (TARGET legate_core))
-  get_target_property(cython_lib_dir legate_core LIBRARY_OUTPUT_DIRECTORY)
-  get_target_property(legate_cpp_dir legate_core BINARY_DIR)
-  if(legate_cpp_dir)
-    set(cython_lib_dir "${legate_cpp_dir}/${cython_lib_dir}")
+if(CMAKE_INSTALL_RPATH_USE_LINK_PATH)
+  if(NOT TARGET legate_core)
+    get_target_property(cython_lib_dir legate::core LOCATION)
+    cmake_path(GET cython_lib_dir PARENT_PATH cython_lib_dir)
+  else()
+    get_target_property(cython_lib_dir legate_core LIBRARY_OUTPUT_DIRECTORY)
+    get_target_property(legate_cpp_dir legate_core BINARY_DIR)
+    if(legate_cpp_dir)
+      set(cython_lib_dir "${legate_cpp_dir}/${cython_lib_dir}")
+    endif()
   endif()
 endif()
+
+message(STATUS "legate_core_python: cython_lib_dir='${cython_lib_dir}'")
 
 rapids_cython_add_rpath_entries(TARGET legate_core PATHS "${cython_lib_dir}")
 
