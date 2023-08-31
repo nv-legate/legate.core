@@ -228,11 +228,8 @@ def install_legion_python_bindings(
         if verbose:
             print(f"installing legion python bindings to {install_dir}")
         execute_command(
-            [
-                cmake_exe,
-                "--install",
-                join(legion_dir, "bindings", "python")
-            ] + ([] if not install_dir else ["--prefix", install_dir]),
+            [cmake_exe, "--install", join(legion_dir, "bindings", "python")]
+            + ([] if not install_dir else ["--prefix", install_dir]),
             verbose,
         )
 
@@ -259,11 +256,8 @@ def install_legion_jupyter_notebook(
         if verbose:
             print(f"installing legion jupyter notebook to {install_dir}")
         execute_command(
-            [
-                cmake_exe,
-                "--install",
-                join(legion_dir, "jupyter_notebook")
-            ] + ([] if not install_dir else ["--prefix", install_dir]),
+            [cmake_exe, "--install", join(legion_dir, "jupyter_notebook")]
+            + ([] if not install_dir else ["--prefix", install_dir]),
             verbose,
         )
 
@@ -431,7 +425,7 @@ def install(
                 "uninstall",
                 "-y",
                 "legate-core",
-                "legion"
+                "legion",
             ],
             verbose,
             ignore_errors=True,
@@ -548,12 +542,7 @@ def install(
         # If editable, install the Legion python bindings
         # into scikit-build's "cmake-install" directory,
         # not into the real `install_dir`
-        install_args = [
-            "--root",
-            "/",
-            "--prefix",
-            "${CMAKE_INSTALL_PREFIX}"
-        ]
+        install_args = ["--root", "/", "--prefix", "${CMAKE_INSTALL_PREFIX}"]
 
     if len(install_args) > 0:
         cmake_flags += [
@@ -580,20 +569,24 @@ def install(
     execute_command(pip_install_cmd, verbose, cwd=legate_core_dir, env=cmd_env)
 
     install_legion_python_bindings(
-        verbose, cmake_exe, legate_build_dir, legion_dir,
-        None if editable else install_dir
+        verbose,
+        cmake_exe,
+        legate_build_dir,
+        legion_dir,
+        None if editable else install_dir,
     )
     install_legion_jupyter_notebook(
-        verbose, cmake_exe, legate_build_dir, legion_dir,
-        None if editable else install_dir
+        verbose,
+        cmake_exe,
+        legate_build_dir,
+        legion_dir,
+        None if editable else install_dir,
     )
 
 
 def driver():
-
     is_conda = ("CONDA_PREFIX" in os.environ) or (
-        "PREFIX" in os.environ and
-        os.environ.get("CONDA_BUILD", "0") == "1"
+        "PREFIX" in os.environ and os.environ.get("CONDA_BUILD", "0") == "1"
     )
 
     parser = argparse.ArgumentParser(description="Install Legate front end.")
