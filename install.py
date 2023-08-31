@@ -538,7 +538,7 @@ def install(
     if build_examples:
         cmake_flags += ["-Dlegate_core_BUILD_EXAMPLES=ON"]
 
-    if editable:
+    if not is_conda and editable:
         # If editable, install the Legion python bindings
         # into scikit-build's "cmake-install" directory,
         # not into the real `install_dir`
