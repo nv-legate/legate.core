@@ -74,6 +74,7 @@ class CUDAConfig(SectionConfig):
         if V(self.ctk_version) >= V("12.0"):
             deps += (
                 "cuda-cudart-dev",
+                "cuda-nvml-dev",
                 "cuda-nvtx-dev",
             )
 
