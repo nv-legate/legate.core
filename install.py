@@ -73,7 +73,8 @@ def execute_command(args, verbose, ignore_errors=False, **kwargs):
         print(f"Executing: {' '.join(args)} with {kwargs}")
     if ignore_errors:
         subprocess.call(args, **kwargs)
-    subprocess.check_call(args, **kwargs)
+    else:
+        subprocess.check_call(args, **kwargs)
 
 
 def find_active_python_version_and_path():
