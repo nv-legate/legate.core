@@ -79,12 +79,12 @@ class CUDAConfig(SectionConfig):
             )
 
         if self.compilers:
-            if V(self.ctk_version) < V("12.0"):
-                deps += (f"nvcc_linux-64={self.ctk_version}",)
-            else:
-                deps += ("cuda-nvcc",)
-
             if self.os == "linux":
+                if V(self.ctk_version) < V("12.0"):
+                    deps += (f"nvcc_linux-64={self.ctk_version}",)
+                else:
+                    deps += ("cuda-nvcc",)
+
                 # gcc 11.3 is incompatible with nvcc <= 11.5.
                 if V(self.ctk_version) <= V("11.5"):
                     deps += (
@@ -159,7 +159,7 @@ class RuntimeConfig(SectionConfig):
         return (
             "cffi",
             "llvm-openmp",
-            "numpy>=1.22,<1.25",
+            "numpy>=1.22",
             "libblas=*=*openblas*",
             "openblas=*=*openmp*",
             # work around https://github.com/StanfordLegion/legion/issues/1500

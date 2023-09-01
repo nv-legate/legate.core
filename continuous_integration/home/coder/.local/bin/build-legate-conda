@@ -44,7 +44,7 @@ numpy:
 python:
   - "${python_version}"
 numpy_version:
-  - ">=1.22,<1.25"
+  - ">=1.22"
 use_local_path:
   - "true"
 gpu_enabled:
