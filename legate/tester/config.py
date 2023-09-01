@@ -74,6 +74,7 @@ class Config:
         self.numamem = args.numamem
         self.ranks = args.ranks
         self.launcher = args.launcher
+        self.launcher_extra = args.launcher_extra
 
         # test run configuration
         self.timeout = args.timeout

@@ -206,6 +206,15 @@ feature_opts.add_argument(
     "the launch has already happened by the time legate is invoked)",
 )
 
+parser.add_argument(
+    "--launcher-extra",
+    dest="launcher_extra",
+    action="append",
+    default=[],
+    required=False,
+    help="additional argument to pass to the launcher (can appear more "
+    "than once)",
+)
 
 test_opts = parser.add_argument_group("Test run configuration options")
 
