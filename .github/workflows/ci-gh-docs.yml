@@ -4,6 +4,7 @@ on:
   push:
     branches-ignore:
       - gh-pages  # deployment target branch (this workflow should not exist on that branch anyway)
+      - "pull-request/[0-9]+"
   pull_request:
     branches-ignore:
       - gh-pages  # deployment target branch (this workflow should not exist on that branch anyway)
@@ -44,14 +45,14 @@ jobs:
         env:
           MATRIX_CONTEXT: ${{ toJSON(matrix) }}
         run: echo "$MATRIX_CONTEXT"
-      
+
       ####################################
       # Actual build process starts here #
       ####################################
-      
+
       - name: Checkout
         uses: actions/checkout@v3
-      
+
       - name: Generate YAML file listing dependencies
         run: scripts/generate-conda-envs.py --python 3.10 --ctk 11.8 --os linux --compilers --openmpi
 
@@ -61,7 +62,7 @@ jobs:
       - name: Build doxygen documentation through install.py
         run: |
           conda run -n legate /bin/bash -c "./install.py --docs"
-      
+
       - name: Build documentation using Makefile
         working-directory: ./docs/legate/core
         run: |

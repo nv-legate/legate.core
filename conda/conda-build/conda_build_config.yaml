@@ -12,3 +12,9 @@ numpy_version:
 
 cmake_version:
   - ">=3.20.1,!=3.23.0"
+
+numpy:
+  - 1.22
+
+package_version:
+  - "23.09.00"

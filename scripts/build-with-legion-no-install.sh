@@ -10,7 +10,7 @@ source ./scripts/util/compiler-flags.sh
 source ./scripts/util/read-legion-root.sh "$0"
 
 # Remove existing build artifacts
-rm -rf ./{build,_skbuild,dist,legate.core.egg-info}
+rm -rf ./{build,_skbuild,dist,legate_core.egg-info}
 
 # Use all but 2 threads to compile
 ninja_args="-j$(nproc --ignore=2)"
@@ -35,7 +35,7 @@ if [[ -n "$(which ninja)" ]]; then cmake_args+=" -GNinja"; fi
 cmake_args+="
 -D Legion_USE_CUDA=ON
 -D Legion_USE_OpenMP=ON
--D CMAKE_CUDA_ARCHITECTURES=NATIVE
+-D Legion_CUDA_ARCH=native
 -D Legion_ROOT:STRING=\"$Legion_ROOT\"
 ";
 

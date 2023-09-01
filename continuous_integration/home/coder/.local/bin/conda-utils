@@ -12,6 +12,7 @@ generate_yaml_file() {
         python_version="$(python3 --version 2>&1 | cut -d' ' -f2 | cut -d'.' -f3 --complement)";
     fi
 
+    cd ~/;
     yaml_file=~/"$(         \
         ~/legate/scripts/generate-conda-envs.py \
             --os linux                          \
@@ -26,6 +27,7 @@ generate_yaml_file() {
     sed -i -re "s/legate-test/${DEFAULT_CONDA_ENV:-legate}/g" "${yaml_file}";
     echo "  - boa" >> "${yaml_file}";
 
+    mkdir -p /tmp/out/
     cp "${yaml_file}" /tmp/out/
     mkdir -p /tmp/env_yaml
     cp "${yaml_file}" /tmp/env_yaml
