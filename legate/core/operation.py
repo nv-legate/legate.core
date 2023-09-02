@@ -155,7 +155,10 @@ class Operation(OperationProtocol):
         self._provenance = (
             None
             if runtime.provenance is None
-            else (f"{runtime.provenance}$" f"{runtime.get_all_annotations()}")
+            else (
+                f"{runtime.provenance}$"
+                f"{runtime.annotation.machine_string()}"
+            )
         )
 
     @property

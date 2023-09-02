@@ -131,11 +131,17 @@ class LibraryAnnotations:
     def remove(self, key: str) -> None:
         del self._entries[key]
 
-    def __repr__(self) -> str:
+    def machine_string(self) -> str:
         pairs = [f"{key},{value}" for key, value in self._entries.items()]
         if self._provenance is not None:
             pairs.append(f"Provenance,{self._provenance}")
         return "|".join(pairs)
+
+    def user_string(self) -> str:
+        pairs = [f"{key}={value}" for key, value in self._entries.items()]
+        return (
+            "<unknown>" if self._provenance is None else self._provenance
+        ) + ("" if len(pairs) == 0 else f"[{','.join(pairs)}]")
 
 
 # A helper class for doing field management with control replication
@@ -1208,9 +1214,6 @@ class Runtime:
             Library annotations
         """
         return self._annotations[-1]
-
-    def get_all_annotations(self) -> str:
-        return str(self.annotation)
 
     @property
     def provenance(self) -> Optional[str]:
