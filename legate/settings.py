@@ -56,6 +56,17 @@ class LegateRuntimeSettings(Settings):
         """,
     )
 
+    full_bt_on_oom: PrioritizedSetting[bool] = PrioritizedSetting(
+        "full_bt_on_oom",
+        "LEGATE_FULL_BT_ON_OOM",
+        default=False,
+        convert=convert_bool,
+        help="""
+        Whether to print full backtrace information in out-of-memory diagnostic
+        messages.
+        """,
+    )
+
     future_leak_check: PrioritizedSetting[bool] = PrioritizedSetting(
         "future_leak_check",
         "LEGATE_FUTURE_LEAK_CHECK",

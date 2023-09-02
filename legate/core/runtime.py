@@ -1528,9 +1528,12 @@ class Runtime:
             transform = None
 
         alloc_info = self.annotation.user_string()
-        tb_repr = capture_traceback_repr(skip_core_frames=False, skip_frames=1)
-        if tb_repr is not None:
-            alloc_info += "\n" + tb_repr[:-1]
+        if settings.full_bt_on_oom():
+            tb_repr = capture_traceback_repr(
+                skip_core_frames=False, skip_frames=1
+            )
+            if tb_repr is not None:
+                alloc_info += "\n" + tb_repr[:-1]
         storage = Storage(
             sanitized_shape,
             0,
