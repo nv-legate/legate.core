@@ -28,7 +28,7 @@ from . import (
 )
 from .legate import Array, LegateDataInterface, Table
 from .partition import Tiling
-from .runtime import runtime
+from .runtime import runtime, track_provenance
 from .shape import Shape
 from .store import DistributedAllocation, RegionField, Store
 
@@ -134,6 +134,7 @@ class TiledSplit(DataSplit):
         return part
 
 
+@track_provenance()
 def ingest(
     dtype: Dtype,
     shape: Union[int, tuple[int, ...]],

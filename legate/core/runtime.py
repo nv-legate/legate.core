@@ -1527,14 +1527,17 @@ class Runtime:
             sanitized_shape = shape
             transform = None
 
+        alloc_info = self.annotation.user_string()
         tb_repr = capture_traceback_repr(skip_core_frames=False, skip_frames=1)
+        if tb_repr is not None:
+            alloc_info += "\n" + tb_repr[:-1]
         storage = Storage(
             sanitized_shape,
             0,
             dtype,
             data=data,
             kind=kind,
-            tb_repr=(None if tb_repr is None else tb_repr[:-1]),
+            alloc_info=alloc_info,
         )
         return Store(
             dtype,
@@ -1790,7 +1793,7 @@ class Runtime:
         return field_mgr
 
     def allocate_field(
-        self, shape: Shape, dtype: Any, tb_repr: Optional[str]
+        self, shape: Shape, dtype: Any, alloc_info: Optional[str]
     ) -> RegionField:
         from .store import RegionField
 
@@ -1799,8 +1802,8 @@ class Runtime:
         field_id = None
         field_mgr = self.find_or_create_field_manager(shape, dtype.size)
         region, field_id = field_mgr.allocate_field()
-        if tb_repr is not None:
-            buf = tb_repr.encode() + bytes([0])  # null-terminate
+        if alloc_info is not None:
+            buf = alloc_info.encode() + bytes([0])  # null-terminate
             legion.legion_field_id_attach_semantic_information(
                 self.legion_runtime,
                 region.handle.field_space,
