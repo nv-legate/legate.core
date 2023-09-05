@@ -783,16 +783,9 @@ void BaseMapper::report_failed_mapping(const Legion::Mapping::MapperContext ctx,
   auto log_field_info = [&](Legion::FieldSpace fs, const auto& fields) {
     size_t size;
     const void* alloc_info;
-    // TODO: instead use full machine-readable provenance, improve formatting
     for (Legion::FieldID fid : fields)
       if (runtime->retrieve_semantic_information(
-            ctx,
-            fs,
-            fid,
-            42,  // FIXME: use an actual enum for the semantic tag
-            alloc_info,
-            size,
-            true /* can_fail */))
+            ctx, fs, fid, LEGATE_CORE_ALLOC_INFO_TAG, alloc_info, size, true /* can_fail */))
         logger.error() << "corresponding to a Store allocated at "
                        << static_cast<const char*>(alloc_info);
   };

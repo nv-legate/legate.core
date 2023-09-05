@@ -1813,7 +1813,7 @@ class Runtime:
             self.legion_runtime,
             fspace.handle,
             field_id,
-            42,  # FIXME: use an actual enum for the semantic tag
+            legion.LEGATE_CORE_ALLOC_INFO_TAG,
             ffi.from_buffer(memoryview(buf)),
             len(buf),
             True,
