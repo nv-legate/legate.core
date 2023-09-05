@@ -808,8 +808,8 @@ void BaseMapper::report_failed_mapping(const Legion::Mapping::MapperContext ctx,
   size_t total_size = 0;
   for (Legion::Mapping::PhysicalInstance inst : existing) total_size += inst.get_instance_size();
   logger.error() << "There is not enough space because Legate is reserving " << total_size
-                 << " of the available " << target_memory.capacity() << " bytes  (minus the eager"
-                 << " pool allocation) for the following PhysicalInstances:";
+                 << " of the available " << target_memory.capacity() << " bytes (minus the eager"
+                 << " pool allocation) for the following Instances:";
   for (Legion::Mapping::PhysicalInstance inst : existing) {
     logger.error() << Legion::Mapping::Utilities::to_string(runtime, ctx, inst) << " of size "
                    << inst.get_instance_size();
