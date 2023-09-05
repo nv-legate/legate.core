@@ -1795,9 +1795,7 @@ class Runtime:
         self.field_managers[key] = field_mgr
         return field_mgr
 
-    def allocate_field(
-        self, shape: Shape, dtype: Any, alloc_info: Optional[str]
-    ) -> RegionField:
+    def allocate_field(self, shape: Shape, dtype: Any) -> RegionField:
         from .store import RegionField
 
         assert not self.destroyed
@@ -1805,18 +1803,21 @@ class Runtime:
         field_id = None
         field_mgr = self.find_or_create_field_manager(shape, dtype.size)
         region, field_id = field_mgr.allocate_field()
-        if alloc_info is not None:
-            buf = alloc_info.encode() + bytes([0])  # null-terminate
-            legion.legion_field_id_attach_semantic_information(
-                self.legion_runtime,
-                region.handle.field_space,
-                field_id,
-                42,  # FIXME: use an actual enum for the semantic tag
-                ffi.from_buffer(memoryview(buf)),
-                len(buf),
-                True,
-            )
         return RegionField.create(region, field_id, dtype.size, shape)
+
+    def record_alloc_info(
+        self, fspace: FieldSpace, field_id: int, alloc_info: str
+    ) -> None:
+        buf = alloc_info.encode() + bytes([0])  # null-terminate
+        legion.legion_field_id_attach_semantic_information(
+            self.legion_runtime,
+            fspace.handle,
+            field_id,
+            42,  # FIXME: use an actual enum for the semantic tag
+            ffi.from_buffer(memoryview(buf)),
+            len(buf),
+            True,
+        )
 
     def free_field(
         self, region: Region, field_id: int, field_size: int, shape: Shape

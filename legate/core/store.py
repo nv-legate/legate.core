@@ -21,6 +21,7 @@ from . import (
     AffineTransform,
     Attach,
     Detach,
+    FieldSpace,
     Future,
     IndexAttach,
     IndexDetach,
@@ -582,14 +583,20 @@ class Storage:
             if self._kind is Future:
                 raise ValueError("Illegal to access an uninitialized storage")
             if self._parent is None:
-                self._data = runtime.allocate_field(
-                    self.extents, self._dtype, self._alloc_info
+                self._data = runtime.allocate_field(self.extents, self._dtype)
+                self.record_alloc_info(
+                    self._data.region.field_space,
+                    self._data.field.field_id,
                 )
             else:
                 assert self._color
                 self._data = self._parent.get_child_data(self._color)
 
         return self._data
+
+    def record_alloc_info(self, fspace: FieldSpace, field_id: int) -> None:
+        if self._alloc_info is not None:
+            runtime.record_alloc_info(fspace, field_id, self._alloc_info)
 
     @property
     def has_data(self) -> bool:
@@ -1032,6 +1039,9 @@ class Store:
                 "until it is passed to an operation"
             )
         return self._storage.data
+
+    def record_alloc_info(self, fspace: FieldSpace, field_id: int) -> None:
+        self._storage.record_alloc_info(fspace, field_id)
 
     @property
     def has_storage(self) -> bool:
