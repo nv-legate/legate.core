@@ -68,7 +68,7 @@ class CPU(TestStage):
         if config.launcher != "none":
             args += ["--launcher", str(config.launcher)]
         for extra in config.launcher_extra:
-            args += ["--launcher_extra=" + str(extra)]
+            args += ["--launcher-extra=" + str(extra)]
         return args
 
     def compute_spec(self, config: Config, system: TestSystem) -> StageSpec:
