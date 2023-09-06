@@ -190,8 +190,7 @@ class Launcher:
         if config.multi_node.ranks > 1 and "ucx" in install_info.networks:
             # UCX-related environment variables
             env["UCX_CUDA_COPY_MAX_REG_RATIO"] = "1.0"
-            env["UCX_IB_RCACHE_PURGE_ON_FORK"] = "n"
-            env["UCX_RC_TX_POLL_ALWAYS"] = "y"
+            env["UCX_RCACHE_PURGE_ON_FORK"] = "n"
 
             # Link to the UCX bootstrap plugin
             env["REALM_UCP_BOOTSTRAP_PLUGIN"] = str(
