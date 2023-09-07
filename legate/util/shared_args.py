@@ -57,7 +57,8 @@ RANKS_PER_NODE = Argument(
         default=defaults.LEGATE_RANKS_PER_NODE,
         dest="ranks_per_node",
         help="Number of ranks (processes running copies of the program) to "
-        "launch per node.",
+        "launch per node. 1 rank per node will typically result in the best "
+        "performance.",
     ),
 )
 

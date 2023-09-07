@@ -53,20 +53,36 @@ def detect_multi_node_defaults() -> tuple[dict[str, Any], dict[str, Any]]:
     ranks_per_node_kw = dict(RANKS_PER_NODE.kwargs)
     where = None
 
-    if nodes_env := getenv("OMPI_COMM_WORLD_SIZE"):
+    if ranks_env := getenv("OMPI_COMM_WORLD_SIZE"):
         if ranks_per_node_env := getenv("OMPI_COMM_WORLD_LOCAL_SIZE"):
-            nodes, ranks_per_node = int(nodes_env), int(ranks_per_node_env)
+            ranks, ranks_per_node = int(ranks_env), int(ranks_per_node_env)
+            if ranks % ranks_per_node != 0:
+                raise ValueError(
+                    "Detected incompatible ranks and ranks-per-node from "
+                    "the environment"
+                )
+            nodes = ranks // ranks_per_node
             where = "OMPI"
 
-    elif nodes_env := getenv("MV2_COMM_WORLD_SIZE"):
+    elif ranks_env := getenv("MV2_COMM_WORLD_SIZE"):
         if ranks_per_node_env := getenv("MV2_COMM_WORLD_LOCAL_SIZE"):
-            nodes, ranks_per_node = int(nodes_env), int(ranks_per_node_env)
+            ranks, ranks_per_node = int(ranks_env), int(ranks_per_node_env)
+            if ranks % ranks_per_node != 0:
+                raise ValueError(
+                    "Detected incompatible ranks and ranks-per-node from "
+                    "the environment"
+                )
+            nodes = ranks // ranks_per_node
             where = "MV2"
 
     elif nodes_env := getenv("SLURM_JOB_NUM_NODES"):
         if ranks_env := getenv("SLURM_NTASKS"):
             nodes, ranks = int(nodes_env), int(ranks_env)
-            assert ranks % nodes == 0
+            if ranks % nodes != 0:
+                raise ValueError(
+                    "Detected incompatible nodes and ranks from the "
+                    "environment"
+                )
             ranks_per_node = ranks // nodes
             where = "SLURM"
 

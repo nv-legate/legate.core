@@ -218,11 +218,18 @@ class TestMultiNodeDefaults:
 
         node_kw, ranks_per_node_kw = m.detect_multi_node_defaults()
 
-        assert node_kw["default"] == 6
+        assert node_kw["default"] == 3
         assert "OMPI" in node_kw["help"]
 
         assert ranks_per_node_kw["default"] == 2
         assert "OMPI" in ranks_per_node_kw["help"]
+
+    def test_with_OMPI_bad(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("OMPI_COMM_WORLD_SIZE", "5")
+        monkeypatch.setenv("OMPI_COMM_WORLD_LOCAL_SIZE", "3")
+
+        with pytest.raises(ValueError):
+            m.detect_multi_node_defaults()
 
     def test_with_MV2(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("MV2_COMM_WORLD_SIZE", "6")
@@ -230,11 +237,18 @@ class TestMultiNodeDefaults:
 
         node_kw, ranks_per_node_kw = m.detect_multi_node_defaults()
 
-        assert node_kw["default"] == 6
+        assert node_kw["default"] == 3
         assert "MV2" in node_kw["help"]
 
         assert ranks_per_node_kw["default"] == 2
         assert "MV2" in ranks_per_node_kw["help"]
+
+    def test_with_MV2_bad(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("MV2_COMM_WORLD_SIZE", "5")
+        monkeypatch.setenv("MV2_COMM_WORLD_LOCAL_SIZE", "3")
+
+        with pytest.raises(ValueError):
+            m.detect_multi_node_defaults()
 
     def test_with_SLURM(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("SLURM_NTASKS", "6")
@@ -247,6 +261,13 @@ class TestMultiNodeDefaults:
 
         assert ranks_per_node_kw["default"] == 3
         assert "SLURM" in ranks_per_node_kw["help"]
+
+    def test_with_SLURM_bad(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("SLURM_NTASKS", "5")
+        monkeypatch.setenv("SLURM_JOB_NUM_NODES", "3")
+
+        with pytest.raises(ValueError):
+            m.detect_multi_node_defaults()
 
     # test same as no_env -- auto-detect for PMI is unsupported
     def test_with_PMI(self, monkeypatch: pytest.MonkeyPatch) -> None:
