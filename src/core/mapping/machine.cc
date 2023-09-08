@@ -141,10 +141,12 @@ LocalProcessorRange::LocalProcessorRange(uint32_t offset,
 }
 
 const Processor& LocalProcessorRange::operator[](uint32_t idx) const
+
 {
-  auto local_idx = (idx - offset_) % procs_.size();
+  auto local_idx = (idx - offset_);
+  if (offset_ > idx) local_idx = idx;
 #ifdef DEBUG_LEGATE
-  assert(local_idx >= 0);
+  assert(local_idx < procs_.size());
 #endif
   return procs_[local_idx];
 }
