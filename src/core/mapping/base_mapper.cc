@@ -219,11 +219,19 @@ void BaseMapper::slice_task(const Legion::Mapping::MapperContext ctx,
 
   auto lo = key_functor->project_point(sharding_domain.lo(), sharding_domain);
   auto hi = key_functor->project_point(sharding_domain.hi(), sharding_domain);
-  int32_t tasks_per_proc =
+
+  // we assume here that tasks are distributed across processes of all shards.
+  // Nonetheless, there are cases where partitioning occurs such that all
+  // tasks are assigned to a single shard. This scenario is addressed
+  // within the LocalProcessorRange::operator[] method, where we calculate
+  // idx using idx % num_procs."
+  int32_t tasks_per_proc=
     (linearize(lo, hi, hi) + local_range.total_proc_count()) / local_range.total_proc_count();
+  int32_t tasks_per_shard = (linearize(lo, hi, hi) + task.get_total_shards())/task.get_total_shards();
   for (Domain::DomainPointIterator itr(input.domain); itr; itr++) {
     auto p       = key_functor->project_point(itr.p, sharding_domain);
-    uint32_t idx = linearize(lo, hi, p) / tasks_per_proc;
+    //computing local id.
+    uint32_t idx = (linearize(lo, hi, p)-task.get_shard_id()*tasks_per_shard) / tasks_per_proc;
     output.slices.push_back(
       TaskSlice(Domain(itr.p, itr.p), local_range[idx], false /*recurse*/, false /*stealable*/));
   }
