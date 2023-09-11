@@ -67,6 +67,11 @@ class GPU(TestStage):
                 "--ranks-per-node",
                 str(config.ranks),
             ]
+        if config.nodes > 1:
+            args += [
+                "--nodes",
+                str(config.nodes),
+            ]
         if config.launcher != "none":
             args += ["--launcher", str(config.launcher)]
         for extra in config.launcher_extra:

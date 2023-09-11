@@ -29,6 +29,7 @@ from . import (
     DEFAULT_GPU_DELAY,
     DEFAULT_GPU_MEMORY_BUDGET,
     DEFAULT_GPUS_PER_NODE,
+    DEFAULT_NODES,
     DEFAULT_NUMAMEM,
     DEFAULT_OMPS_PER_NODE,
     DEFAULT_OMPTHREADS,
@@ -214,6 +215,14 @@ parser.add_argument(
     required=False,
     help="additional argument to pass to the launcher (can appear more "
     "than once)",
+)
+
+feature_opts.add_argument(
+    "--nodes",
+    dest="nodes",
+    type=int,
+    default=DEFAULT_NODES,
+    help="Number of nodes to use",
 )
 
 test_opts = parser.add_argument_group("Test run configuration options")
