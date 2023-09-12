@@ -32,8 +32,10 @@ def get_libpath():
             return libdir
         return None
 
+    from .util.fs import get_legate_paths
+
     return (
-        find_liblgcore(join(lg_path, "build", "lib")) or
+        find_liblgcore(get_legate_paths().legate_lib_path) or
         find_liblgcore(join(dirname(dirname(dirname(lg_path))), "lib")) or
         find_liblgcore(join(dirname(dirname(sys.executable)), "lib")) or
         ""

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Copyright 2021-2022 NVIDIA Corporation
+# Copyright 2021-2023 NVIDIA Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -68,10 +68,13 @@ class BooleanFlag(argparse.Action):
         setattr(namespace, self.dest, not option_string.startswith("--no"))
 
 
-def execute_command(args, verbose, **kwargs):
+def execute_command(args, verbose, ignore_errors=False, **kwargs):
     if verbose:
         print(f"Executing: {' '.join(args)} with {kwargs}")
-    subprocess.check_call(args, **kwargs)
+    if ignore_errors:
+        subprocess.call(args, **kwargs)
+    else:
+        subprocess.check_call(args, **kwargs)
 
 
 def find_active_python_version_and_path():
@@ -144,27 +147,64 @@ def was_previously_built_with_different_build_isolation(
     return False
 
 
-def get_install_dir():
+def get_install_dir(args: list):
     # Infer the location where to install the Legion Python bindings,
     # otherwise they'll only be installed into the local scikit-build
     # cmake-install dir
 
-    # Install into conda prefix if defined
-    if "CONDA_PREFIX" in os.environ:
-        return os.environ["CONDA_PREFIX"]
+    def get_arg(flag: str):
+        idx = args.index(flag) if flag in args else -1
+        if idx > -1 and idx + 1 < len(args):
+            val = args[idx + 1]
+            args.remove(flag)
+            args.remove(val)
+            return val
+        return None
+
+    install_dir = None
+    install_args = []
+    if root_dir := get_arg("--root"):
+        install_dir = root_dir
+        install_args += ["--root", root_dir]
+
+    if prefix_dir := get_arg("--prefix"):
+        install_dir = [install_dir, prefix_dir]
+        install_dir = filter(lambda x: x, install_dir)
+        install_dir = os.path.join(*install_dir, "")
+        install_args += ["--prefix", prefix_dir]
+
+    if install_dir and os.path.exists(install_dir):
+        return (install_dir, install_args)
+
+    # Install into conda or venv prefix if defined
+    if "PREFIX" in os.environ and (os.environ.get("CONDA_BUILD", "0") == "1"):
+        install_dir = os.environ["PREFIX"]
+        return (install_dir, ["--root", "/", "--prefix", install_dir])
+    elif "CONDA_PREFIX" in os.environ:
+        install_dir = os.environ["CONDA_PREFIX"]
+        return (install_dir, ["--root", "/", "--prefix", install_dir])
+    elif "VIRTUAL_ENV" in os.environ:
+        install_dir = os.environ["VIRTUAL_ENV"]
+        return (install_dir, ["--root", "/", "--prefix", install_dir])
 
     import site
 
     # Try to install into user site packages first?
-    if site.ENABLE_USER_SITE and os.path.exists(
-        user_site_pkgs := site.getusersitepackages()
+    if ("--user" in args or site.ENABLE_USER_SITE) and os.path.exists(
+        user_base := site.getuserbase()
     ):
-        return user_site_pkgs
+        if "--user" in args:
+            args.remove("--user")
+        return (user_base, ["--user"])
 
     # Otherwise fallback to regular site-packages?
     for site_pkgs in site.getsitepackages():
-        if os.path.exists(site_pkgs):
-            return site_pkgs
+        install_dir = os.path.join(site_pkgs, "..", "..", "..")
+        install_dir = os.path.realpath(install_dir)
+        if install_dir != "/" and os.path.exists(install_dir):
+            return (install_dir, ["--root", "/", "--prefix", install_dir])
+
+    return (None, [])
 
 
 def install_legion_python_bindings(
@@ -189,13 +229,8 @@ def install_legion_python_bindings(
         if verbose:
             print(f"installing legion python bindings to {install_dir}")
         execute_command(
-            [
-                cmake_exe,
-                "--install",
-                join(legion_dir, "bindings", "python"),
-                "--prefix",
-                install_dir,
-            ],
+            [cmake_exe, "--install", join(legion_dir, "bindings", "python")]
+            + ([] if not install_dir else ["--prefix", install_dir]),
             verbose,
         )
 
@@ -222,13 +257,8 @@ def install_legion_jupyter_notebook(
         if verbose:
             print(f"installing legion jupyter notebook to {install_dir}")
         execute_command(
-            [
-                cmake_exe,
-                "--install",
-                join(legion_dir, "jupyter_notebook"),
-                "--prefix",
-                install_dir,
-            ],
+            [cmake_exe, "--install", join(legion_dir, "jupyter_notebook")]
+            + ([] if not install_dir else ["--prefix", install_dir]),
             verbose,
         )
 
@@ -258,8 +288,11 @@ def install(
     check_bounds,
     clean_first,
     extra_flags,
+    build_tests,
     build_examples,
+    is_conda,
     editable,
+    with_dependencies,
     build_isolation,
     thread_count,
     verbose,
@@ -309,6 +342,7 @@ def install(
         print(f"clean_first: {clean_first}")
         print(f"extra_flags: {extra_flags}")
         print(f"editable: {editable}")
+        print(f"with_dependencies: {with_dependencies}")
         print(f"build_isolation: {build_isolation}")
         print(f"thread_count: {thread_count}")
         print(f"verbose: {verbose}")
@@ -364,64 +398,89 @@ def install(
     legate_build_dir = scikit_build_cmake_build_dir(skbuild_dir)
 
     if was_previously_built_with_different_build_isolation(
-        build_isolation and not editable, legate_build_dir
+        build_isolation, legate_build_dir
     ):
         print("Performing a clean build to accommodate build isolation.")
         clean_first = True
+
+    cmd_env = dict(os.environ.items())
+
+    # Explicitly uninstall legate.core if doing a clean/isolated build.
+    #
+    # A prior installation may have built and installed legate.core C++
+    # dependencies (like Legion).
+    #
+    # CMake will find and use them for the current build, which would normally
+    # be correct, but pip uninstalls files from any existing installation as
+    # the last step of the install process, including the libraries found by
+    # CMake during the current build.
+    #
+    # Therefore this uninstall step must occur *before* CMake attempts to find
+    # these dependencies, triggering CMake to build and install them again.
+    if clean_first or build_isolation:
+        execute_command(
+            [
+                sys.executable,
+                "-m",
+                "pip",
+                "uninstall",
+                "-y",
+                "legate-core",
+                "legion",
+            ],
+            verbose,
+            ignore_errors=True,
+            cwd=legate_core_dir,
+            env=cmd_env,
+        )
 
     if clean_first:
         shutil.rmtree(skbuild_dir, ignore_errors=True)
         shutil.rmtree(join(legate_core_dir, "dist"), ignore_errors=True)
         shutil.rmtree(join(legate_core_dir, "build"), ignore_errors=True)
         shutil.rmtree(
-            join(legate_core_dir, "legate.core.egg-info"),
+            join(legate_core_dir, "legate_core.egg-info"),
             ignore_errors=True,
         )
 
     # Configure and build legate.core via setup.py
     pip_install_cmd = [sys.executable, "-m", "pip", "install"]
-    cmd_env = dict(os.environ.items())
 
-    if "OPENSSL_DIR" not in cmd_env and "CONDA_PREFIX" in cmd_env:
-        cmd_env.update({"OPENSSL_DIR": cmd_env["CONDA_PREFIX"]})
+    # Use preexisting CMAKE_ARGS from conda if set
+    cmake_flags = cmd_env.get("CMAKE_ARGS", "").split(" ")
 
-    if unknown is not None:
-        try:
-            prefix_loc = unknown.index("--prefix")
-            prefix_dir = validate_path(unknown[prefix_loc + 1])
-            if prefix_dir is not None:
-                install_dir = prefix_dir
-                unknown = unknown[:prefix_loc] + unknown[prefix_loc + 2 :]
-        except Exception:
-            pass
+    if unknown is None:
+        unknown = []
 
-    install_dir = get_install_dir()
+    install_dir, install_args = get_install_dir(unknown)
+
+    pip_install_cmd += install_args
+    pip_install_cmd += unknown
 
     if verbose:
         print(f"install_dir: {install_dir}")
+        print("install_args:", install_args)
 
-    if install_dir is not None:
-        pip_install_cmd += ["--root", "/", "--prefix", str(install_dir)]
+    if is_conda and "OPENSSL_DIR" not in os.environ:
+        cmd_env.update({"OPENSSL_DIR": install_dir})
+
+    if not with_dependencies:
+        pip_install_cmd += ["--no-deps"]
+
+    if not build_isolation:
+        pip_install_cmd += ["--no-build-isolation"]
 
     if editable:
-        # editable implies build_isolation = False
-        pip_install_cmd += ["--no-deps", "--no-build-isolation", "--editable"]
         cmd_env.update({"SETUPTOOLS_ENABLE_FEATURES": "legacy-editable"})
+        cmake_flags += ["-DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON"]
+        pip_install_cmd += ["--editable"]
     else:
-        if not build_isolation:
-            pip_install_cmd += ["--no-deps", "--no-build-isolation"]
         pip_install_cmd += ["--upgrade"]
-
-    if unknown is not None:
-        pip_install_cmd += unknown
 
     pip_install_cmd += ["."]
 
     if verbose:
         pip_install_cmd += ["-vv"]
-
-    # Also use preexisting CMAKE_ARGS from conda if set
-    cmake_flags = cmd_env.get("CMAKE_ARGS", "").split(" ")
 
     if debug or verbose:
         cmake_flags += [f"--log-level={'DEBUG' if debug else 'VERBOSE'}"]
@@ -432,7 +491,6 @@ def install(
 )}
 -DBUILD_SHARED_LIBS=ON
 -DBUILD_MARCH={march}
--DCMAKE_CUDA_ARCHITECTURES={arch}
 -DLegion_MAX_DIM={str(maxdim)}
 -DLegion_MAX_FIELDS={str(maxfields)}
 -DLegion_SPY={("ON" if spy else "OFF")}
@@ -444,13 +502,12 @@ def install(
 -DLegion_USE_HDF5={("ON" if hdf else "OFF")}
 -DLegion_USE_Python=ON
 -DLegion_Python_Version={pyversion}
--DLegion_REDOP_COMPLEX=ON
--DLegion_REDOP_HALF=ON
--DLegion_BUILD_BINDINGS=ON
 -DLegion_BUILD_JUPYTER=ON
 -DLegion_EMBED_GASNet_CONFIGURE_ARGS="--with-ibv-max-hcas=8"
 """.splitlines()
 
+    if cuda:
+        cmake_flags += [f"-DLegion_CUDA_ARCH={arch}"]
     if nccl_dir:
         cmake_flags += [f"-DNCCL_DIR={nccl_dir}"]
     if gasnet_dir:
@@ -477,8 +534,21 @@ def install(
         cmake_flags += [f"-Dlegate_core_LEGION_BRANCH={legion_branch}"]
     if build_docs:
         cmake_flags += ["-Dlegate_core_BUILD_DOCS=ON"]
+    if build_tests:
+        cmake_flags += ["-Dlegate_core_BUILD_TESTS=ON"]
     if build_examples:
-        cmake_flags += ["-Dlegate_core_EXAMPLE_BUILD_TESTS=ON"]
+        cmake_flags += ["-Dlegate_core_BUILD_EXAMPLES=ON"]
+
+    if not is_conda and editable:
+        # If editable, install the Legion python bindings
+        # into scikit-build's "cmake-install" directory,
+        # not into the real `install_dir`
+        install_args = ["--root", "/", "--prefix", "${CMAKE_INSTALL_PREFIX}"]
+
+    if len(install_args) > 0:
+        cmake_flags += [
+            f'-DLegion_PYTHON_EXTRA_INSTALL_ARGS="{";".join(install_args)}"'
+        ]
 
     cmake_flags += extra_flags
     build_flags = [f"-j{str(thread_count)}"]
@@ -499,16 +569,27 @@ def install(
     # execute python -m pip install <args> .
     execute_command(pip_install_cmd, verbose, cwd=legate_core_dir, env=cmd_env)
 
-    if not editable:
-        install_legion_python_bindings(
-            verbose, cmake_exe, legate_build_dir, legion_dir, install_dir
-        )
-        install_legion_jupyter_notebook(
-            verbose, cmake_exe, legate_build_dir, legion_dir, install_dir
-        )
+    install_legion_python_bindings(
+        verbose,
+        cmake_exe,
+        legate_build_dir,
+        legion_dir,
+        None if editable else install_dir,
+    )
+    install_legion_jupyter_notebook(
+        verbose,
+        cmake_exe,
+        legate_build_dir,
+        legion_dir,
+        None if editable else install_dir,
+    )
 
 
 def driver():
+    is_conda = ("CONDA_PREFIX" in os.environ) or (
+        "PREFIX" in os.environ and os.environ.get("CONDA_BUILD", "0") == "1"
+    )
+
     parser = argparse.ArgumentParser(description="Install Legate front end.")
     parser.add_argument(
         "--debug",
@@ -594,7 +675,7 @@ def driver():
         dest="arch",
         action="store",
         required=False,
-        default="NATIVE",
+        default="all-major",
         help="Specify the target GPU architecture.",
     )
     parser.add_argument(
@@ -706,6 +787,13 @@ def driver():
         help="Extra CMake flags.",
     )
     parser.add_argument(
+        "--build-tests",
+        dest="build_tests",
+        action=BooleanFlag,
+        default=False,
+        help="Whether to build the tests",
+    )
+    parser.add_argument(
         "--build-examples",
         dest="build_examples",
         action=BooleanFlag,
@@ -726,16 +814,23 @@ def driver():
         action="store_true",
         required=False,
         default=False,
-        help="Perform an editable install. Disables --build-isolation if set "
-        "(passing --no-deps --no-build-isolation to pip), and defaults to "
+        help="Perform an editable install. Defaults to "
         "--no-clean unless --clean is passed explicitly.",
+    )
+    parser.add_argument(
+        "--deps",
+        dest="with_dependencies",
+        action=BooleanFlag,
+        required=False,
+        default=(not is_conda),
+        help="Don't install package dependencies.",
     )
     parser.add_argument(
         "--build-isolation",
         dest="build_isolation",
         action=BooleanFlag,
         required=False,
-        default=True,
+        default=(not is_conda),
         help="Enable isolation when building a modern source distribution. "
         "Build dependencies specified by PEP 518 must be already "
         "installed if this option is used.",
@@ -804,7 +899,7 @@ def driver():
         print(f"Attempted to execute: {args.cmake_exe}")
         sys.exit(1)
 
-    install(unknown=unknown, **vars(args))
+    install(unknown=unknown, is_conda=is_conda, **vars(args))
 
 
 if __name__ == "__main__":

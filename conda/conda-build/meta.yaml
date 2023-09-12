@@ -98,8 +98,6 @@ requirements:
     - cmake {{ cmake_version }}
     - {{ compiler('c') }} =11.2
     - {{ compiler('cxx') }} =11.2
-    - elfutils # [linux]
-    - libdwarf # [linux]
   host:
     - zlib
     - python
@@ -107,6 +105,8 @@ requirements:
     - llvm-openmp
     - scikit-build
     - numpy {{ numpy_version }}
+    - elfutils # [linux]
+    - libdwarf # [linux]
 {% if gpu_enabled_bool %}
     - nccl
     - cuda-nvcc ={{ cuda_version }}
@@ -122,6 +122,8 @@ requirements:
     - llvm-openmp
     - numpy {{ numpy_version }}
     - typing_extensions
+    - elfutils # [linux]
+    - libdwarf # [linux]
 {% if gpu_enabled_bool %}
     - cuda-cudart  >={{ cuda_version }},<{{ cuda_major+1 }}
     - cuda-version >={{ cuda_version }},<{{ cuda_major+1 }}

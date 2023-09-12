@@ -10,13 +10,13 @@ CMAKE_ARGS+="
 -DBUILD_MARCH=haswell
 -DLegion_USE_OpenMP=ON
 -DLegion_USE_Python=ON
--DLegion_BUILD_BINDINGS=ON"
+-DLegion_Python_Version=$($PYTHON --version 2>&1 | cut -d' ' -f2 | cut -d'.' -f3 --complement)"
 
 # We rely on an environment variable to determine if we need to build cpu-only bits
 if [ -z "$CPU_ONLY" ]; then
   CMAKE_ARGS+="
 -DLegion_USE_CUDA=ON
--DCMAKE_CUDA_ARCHITECTURES:LIST=60-real;70-real;75-real;80-real;90
+-DLegion_CUDA_ARCH:LIST=60-real;70-real;75-real;80-real;90
 "
 fi
 
