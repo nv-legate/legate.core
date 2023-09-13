@@ -80,9 +80,13 @@ class Field:
         self.field_id = field_id
         self.field_size = field_size
         self.shape = shape
+        self.detach_future: Optional[Future] = None
 
     def same_handle(self, other: Field) -> bool:
         return type(self) == type(other) and self.field_id == other.field_id
+
+    def add_detach_future(self, future: Future) -> None:
+        self.detach_future = future
 
     def __str__(self) -> str:
         return f"Field({self.field_id})"
@@ -94,6 +98,7 @@ class Field:
             self.field_id,
             self.field_size,
             self.shape,
+            self.detach_future,
         )
 
 
@@ -258,6 +263,8 @@ class RegionField:
         self.attached_alloc = None
         if unordered:
             self.detach_future = detach_future
+            if self.detach_future is not None:
+                self.field.add_detach_future(self.detach_future)
 
     def get_inline_mapped_region(self) -> PhysicalRegion:
         if self.parent is None:

@@ -144,9 +144,15 @@ class FreeFieldInfo:
     manager: FieldManager
     region: Region
     field_id: int
+    detach_future: Union[Future, None]
 
     def free(self, ordered: bool = False) -> None:
-        self.manager.free_field(self.region, self.field_id, ordered=ordered)
+        self.manager.free_field(
+            self.region,
+            self.field_id,
+            detach_future=self.detach_future,
+            ordered=ordered,
+        )
 
 
 class FieldMatch(Dispatchable[Future]):
@@ -246,9 +252,15 @@ class FieldMatchManager:
         self._match_frequency = runtime.max_field_reuse_frequency
 
     def add_free_field(
-        self, manager: FieldManager, region: Region, field_id: int
+        self,
+        manager: FieldManager,
+        region: Region,
+        field_id: int,
+        detach_future: Union[Future, None],
     ) -> None:
-        self._freed_fields.append(FreeFieldInfo(manager, region, field_id))
+        self._freed_fields.append(
+            FreeFieldInfo(manager, region, field_id, detach_future)
+        )
 
     def issue_field_match(self, credit: int) -> None:
         # Increment our match counter
@@ -346,6 +358,31 @@ class RegionManager:
         return self._region, field_id, revived
 
 
+def _try_reuse_field(
+    free_fields: Deque[tuple[Region, int, Union[Future, None]]]
+) -> Optional[tuple[Region, int]]:
+    is_ready = False
+    if len(free_fields) == 0:
+        return None
+    count = len(free_fields)
+    while not is_ready and count > 0:
+        field_info = free_fields.popleft()
+        if field_info[2] is not None and field_info[2].is_ready():
+            is_ready = True
+        elif field_info[2] is None:
+            is_ready = True
+        else:
+            free_fields.append(field_info)
+        count -= 1
+    # FIXME: should I return None here instead waiting for future?
+    if not is_ready:
+        assert len(free_fields) > 0
+        field_info = free_fields.popleft()
+        if field_info[2] is not None:
+            field_info[2].wait()
+    return field_info[0], field_info[1]
+
+
 # This class manages the allocation and reuse of fields
 class FieldManager:
     def __init__(
@@ -358,15 +395,36 @@ class FieldManager:
         # This is a sanitized list of (region,field_id) pairs that is
         # guaranteed to be ordered across all the shards even with
         # control replication
-        self.free_fields: Deque[tuple[Region, int]] = deque()
+        self.free_fields: Deque[
+            tuple[Region, int, Union[Future, None]]
+        ] = deque()
 
     def destroy(self) -> None:
         self.free_fields = deque()
 
     def try_reuse_field(self) -> Optional[tuple[Region, int]]:
-        return (
-            self.free_fields.popleft() if len(self.free_fields) > 0 else None
-        )
+        return _try_reuse_field(self.free_fields)
+
+    #        is_ready = False
+    #        if len(self.free_fields) == 0:
+    #            return None
+    #        count = len(self.free_fields)
+    #        while not is_ready and count > 0:
+    #            field_info = self.free_fields.popleft()
+    #            if field_info[2] is not None and field_info[2].is_ready():
+    #                is_ready = True
+    #            elif field_info[2] is None:
+    #                is_ready = True
+    #            else:
+    #                self.free_fields.append(field_info)
+    #            count -= 1
+    #        # FIXME: should I return None here instead waiting for future?
+    #        if not is_ready:
+    #            assert len(self.free_fields) > 0
+    #            field_info = self.free_fields.popleft()
+    #            if field_info[2] is not None:
+    #                field_info[2].wait()
+    #        return field_info[0], field_info[1]
 
     def allocate_field(self) -> tuple[Region, int]:
         if (result := self.try_reuse_field()) is not None:
@@ -383,9 +441,13 @@ class FieldManager:
         return region, field_id
 
     def free_field(
-        self, region: Region, field_id: int, ordered: bool = False
+        self,
+        region: Region,
+        field_id: int,
+        detach_future: Union[Future, None] = None,
+        ordered: bool = False,
     ) -> None:
-        self.free_fields.append((region, field_id))
+        self.free_fields.append((region, field_id, detach_future))
         region_manager = self.runtime.find_region_manager(region)
         if region_manager.decrease_active_field_count():
             self.runtime.free_region_manager(
@@ -428,22 +490,30 @@ class ConsensusMatchingFieldManager(FieldManager):
 
         # First, if we have a free field then we know everyone has one of those
         if len(self.free_fields) > 0:
-            return self.free_fields.popleft()
+            return _try_reuse_field(self.free_fields)
 
         self._field_match_manager.update_free_fields()
 
         # Check again to see if we have any free fields
-        return (
-            self.free_fields.popleft() if len(self.free_fields) > 0 else None
-        )
+        if len(self.free_fields) == 0:
+            return None
+        return _try_reuse_field(self.free_fields)
 
     def free_field(
-        self, region: Region, field_id: int, ordered: bool = False
+        self,
+        region: Region,
+        field_id: int,
+        detach_future: Union[Future, None] = None,
+        ordered: bool = False,
     ) -> None:
         if ordered:
-            super().free_field(region, field_id, ordered=ordered)
+            super().free_field(
+                region, field_id, detach_future=detach_future, ordered=ordered
+            )
         else:  # Put this on the unordered list
-            self._field_match_manager.add_free_field(self, region, field_id)
+            self._field_match_manager.add_free_field(
+                self, region, field_id, detach_future
+            )
 
 
 class Attachment:
@@ -1797,7 +1867,12 @@ class Runtime:
         return RegionField.create(region, field_id, dtype.size, shape)
 
     def free_field(
-        self, region: Region, field_id: int, field_size: int, shape: Shape
+        self,
+        region: Region,
+        field_id: int,
+        field_size: int,
+        shape: Shape,
+        detach_future: Optional[Future] = None,
     ) -> None:
         # Have a guard here to make sure that we don't try to
         # do this after we have been destroyed
@@ -1808,7 +1883,7 @@ class Runtime:
         if key not in self.field_managers:
             return
 
-        self.field_managers[key].free_field(region, field_id)
+        self.field_managers[key].free_field(region, field_id, detach_future)
 
     def import_output_region(
         self, out_region: OutputRegion, field_id: int, dtype: Any
