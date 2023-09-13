@@ -121,14 +121,17 @@ class LegateShardingFunctor : public Legion::ShardingFunctor {
     auto hi    = proj_functor_->project_point(launch_space.hi(), launch_space);
     auto point = proj_functor_->project_point(p, launch_space);
 
-    auto per_node_count = per_node_count_;
-    auto diff           = launch_space.get_volume() - per_node_count_ * total_shards;
+    auto tasks_per_node     = per_node_count_;
+    auto diff               = launch_space.get_volume() - per_node_count_ * total_shards;
+    uint32_t tasks_per_proc = 1;
     if (diff > 0) {
-      auto num_shards    = end_node_id_ - start_node_id_;
-      uint32_t new_count = (launch_space.get_volume() + num_shards - 1) / num_shards;
-      per_node_count     = std::max(per_node_count_, new_count);
+      auto num_shards      = end_node_id_ - start_node_id_;
+      uint32_t tasks_count = (launch_space.get_volume() + num_shards - 1) / num_shards;
+      tasks_per_node       = std::max(per_node_count_, tasks_count);
+      tasks_per_proc       = (tasks_per_node + per_node_count_ - 1) / per_node_count_;
     }
-    auto shard_id = (linearize(lo, hi, point) + offset_) / per_node_count + start_node_id_;
+    auto proc_id  = (linearize(lo, hi, point) + offset_) / tasks_per_proc + start_node_id_;
+    auto shard_id = proc_id / per_node_count_;
 
 #ifdef DEBUG_LEGATE
     assert(start_node_id_ <= shard_id && shard_id < end_node_id_);
