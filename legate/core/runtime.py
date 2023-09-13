@@ -405,27 +405,6 @@ class FieldManager:
     def try_reuse_field(self) -> Optional[tuple[Region, int]]:
         return _try_reuse_field(self.free_fields)
 
-    #        is_ready = False
-    #        if len(self.free_fields) == 0:
-    #            return None
-    #        count = len(self.free_fields)
-    #        while not is_ready and count > 0:
-    #            field_info = self.free_fields.popleft()
-    #            if field_info[2] is not None and field_info[2].is_ready():
-    #                is_ready = True
-    #            elif field_info[2] is None:
-    #                is_ready = True
-    #            else:
-    #                self.free_fields.append(field_info)
-    #            count -= 1
-    #        # FIXME: should I return None here instead waiting for future?
-    #        if not is_ready:
-    #            assert len(self.free_fields) > 0
-    #            field_info = self.free_fields.popleft()
-    #            if field_info[2] is not None:
-    #                field_info[2].wait()
-    #        return field_info[0], field_info[1]
-
     def allocate_field(self) -> tuple[Region, int]:
         if (result := self.try_reuse_field()) is not None:
             region_manager = self.runtime.find_region_manager(result[0])
@@ -494,9 +473,6 @@ class ConsensusMatchingFieldManager(FieldManager):
 
         self._field_match_manager.update_free_fields()
 
-        # Check again to see if we have any free fields
-        if len(self.free_fields) == 0:
-            return None
         return _try_reuse_field(self.free_fields)
 
     def free_field(
