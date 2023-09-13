@@ -1492,6 +1492,13 @@ class Runtime:
     ) -> Store:
         from .store import RegionField, Storage, Store
 
+        if (
+            data is not None
+            and not isinstance(data, RegionField)
+            and not isinstance(data, Future)
+        ):
+            raise TypeError(f"Unexpected type for `data`: {type(data)}")
+
         if not isinstance(dtype, ty.Dtype):
             raise ValueError(f"Unsupported type: {dtype}")
 
@@ -1504,7 +1511,9 @@ class Runtime:
             shape = Shape(shape)
 
         kind = (
-            Future
+            type(data)
+            if data is not None
+            else Future
             if optimize_scalar and shape is not None and shape.volume() == 1
             else RegionField
         )
