@@ -221,9 +221,11 @@ void BaseMapper::slice_task(const Legion::Mapping::MapperContext ctx,
   auto hi                    = key_functor->project_point(sharding_domain.hi(), sharding_domain);
   uint32_t total_tasks_count = linearize(lo, hi, hi) + 1;
 
+  uint32_t start_proc_id = machine_desc.processor_range().low;
   for (Domain::DomainPointIterator itr(input.domain); itr; itr++) {
-    auto p       = key_functor->project_point(itr.p, sharding_domain);
-    uint32_t idx = linearize(lo, hi, p) * local_range.total_proc_count() / total_tasks_count;
+    auto p = key_functor->project_point(itr.p, sharding_domain);
+    uint32_t idx =
+      linearize(lo, hi, p) * local_range.total_proc_count() / total_tasks_count + start_proc_id;
     output.slices.push_back(
       TaskSlice(Domain(itr.p, itr.p), local_range[idx], false /*recurse*/, false /*stealable*/));
   }
@@ -1031,8 +1033,13 @@ void BaseMapper::map_copy(const Legion::Mapping::MapperContext ctx,
     auto lo           = key_functor->project_point(sharding_domain.lo(), sharding_domain);
     auto hi           = key_functor->project_point(sharding_domain.hi(), sharding_domain);
     auto p            = key_functor->project_point(copy.index_point, sharding_domain);
-    auto idx          = linearize(lo, hi, p);
-    target_proc       = local_range[idx];
+
+    uint32_t start_proc_id     = machine_desc.processor_range().low;
+    uint32_t total_tasks_count = linearize(lo, hi, hi) + 1;
+    auto idx =
+      linearize(lo, hi, p) * local_range.total_proc_count() / total_tasks_count + start_proc_id;
+    ;
+    target_proc = local_range[idx];
   } else
     target_proc = local_range.first();
 

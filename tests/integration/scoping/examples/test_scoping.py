@@ -59,7 +59,7 @@ def test_scoping():
         task.add_scalar_arg(m.count(ProcessorKind.CPU), ty.int32)
         task.execute()
 
-    store.get_inline_allocation(user_context)
+    store.get_inline_allocation()
 
 
 def test_cpu_only():
@@ -90,7 +90,20 @@ def test_cpu_only():
                     user_lib.shared_object.CPU_VARIANT_ONLY
                 )
 
-    store.get_inline_allocation(user_context)
+    store.get_inline_allocation()
+
+
+def test_shifted_slices():
+    # this will test processor slicing of the machine
+    m = get_machine()
+    for i in range(len(m)):
+        for j in range(i + 1, len(m)):
+            print("IRINA DEBUG inside test i, j = ", i, j)
+            with m.slice(i, j):
+                task = user_context.create_auto_task(
+                    user_lib.shared_object.EMPTY
+                )
+                task.execute()
 
 
 if __name__ == "__main__":

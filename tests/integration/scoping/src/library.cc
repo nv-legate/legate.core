@@ -61,12 +61,24 @@ class CpuVariantOnlyTask : public Task<CpuVariantOnlyTask, CPU_VARIANT_ONLY> {
   static void cpu_variant(legate::TaskContext& context) { validate(context); }
 };
 
+class EmptyTask : public Task<EmptyTask, EMPTY> {
+ public:
+  static void cpu_variant(legate::TaskContext& context) {}
+#ifdef LEGATE_USE_OPENMP
+  static void omp_variant(legate::TaskContext& context) {}
+#endif
+#ifdef LEGATE_USE_CUDA
+  static void gpu_variant(legate::TaskContext& context) {}
+#endif
+};
+
 void registration_callback()
 {
   auto context = legate::Runtime::get_runtime()->create_library(library_name);
 
   MultiVariantTask::register_variants(context);
   CpuVariantOnlyTask::register_variants(context);
+  EmptyTask::register_variants(context);
 }
 
 }  // namespace scoping

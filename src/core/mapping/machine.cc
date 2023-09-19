@@ -142,9 +142,9 @@ LocalProcessorRange::LocalProcessorRange(uint32_t offset,
 
 const Processor& LocalProcessorRange::operator[](uint32_t idx) const
 {
-  auto local_idx = idx % procs_.size();
+  auto local_idx = idx - offset_;
 #ifdef DEBUG_LEGATE
-  assert(idx >= 0);
+  assert(local_idx >= 0 && local_idx < procs_.size());
 #endif
   return procs_[local_idx];
 }
@@ -263,7 +263,7 @@ LocalProcessorRange Machine::slice(TaskTarget target,
       return LocalProcessorRange();
   }
 
-  return LocalProcessorRange(slice.low - global_range.low,
+  return LocalProcessorRange(slice.low - global_range.low + machine_desc.processor_range().low,
                              global_range.count(),
                              local_procs.data() + (slice.low - my_low),
                              slice.count());

@@ -1428,8 +1428,8 @@ class Runtime:
         self.core_library.legate_create_sharding_functor_using_projection(
             shard_id,
             proj_id,
-            node_range[0],
-            node_range[1],
+            proc_range.low,
+            proc_range.high,
             offset,
             proc_range.per_node_count,
         )
