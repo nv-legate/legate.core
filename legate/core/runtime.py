@@ -1460,7 +1460,12 @@ class Runtime:
             self.core_library, f"LEGATE_CORE_TRANSFORM_{name.upper()}"
         )
 
-    def create_future(self, data: Any, size: int) -> Future:
+    def create_future(
+        self,
+        data: Any,
+        size: int,
+        shard_local: bool = False,
+    ) -> Future:
         """
         Creates a future from a buffer holding a scalar value. The value is
         copied to the future.
@@ -1479,7 +1484,13 @@ class Runtime:
             A new future
         """
         future = Future()
-        future.set_value(self.legion_runtime, data, size)
+        future.set_value(
+            self.legion_runtime,
+            data,
+            size,
+            provenance=self.provenance,
+            shard_local=shard_local,
+        )
         return future
 
     def create_store(
