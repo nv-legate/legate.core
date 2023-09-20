@@ -17,7 +17,7 @@ import pytest
 from scoping import user_context, user_lib
 
 import legate.core.types as ty
-from legate.core import ProcessorKind, get_machine
+from legate.core import ProcessorKind, Rect, get_machine
 
 
 def test_scoping():
@@ -94,14 +94,20 @@ def test_cpu_only():
 
 
 def test_shifted_slices():
-    # this will test processor slicing of the machine
     m = get_machine()
+    # this will test processor slicing of the machine
     for i in range(len(m)):
         for j in range(i + 1, len(m)):
             with m[slice(i, j)]:
-                task = user_context.create_auto_task(
-                    user_lib.shared_object.EMPTY
+                task = user_context.create_manual_task(
+                    user_lib.shared_object.EMPTY,
+                    launch_domain=Rect(
+                        [
+                            (j - i) * 2,
+                        ]
+                    ),
                 )
+
                 task.execute()
 
 

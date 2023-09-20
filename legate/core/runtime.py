@@ -1414,8 +1414,14 @@ class Runtime:
 
     def get_sharding(self, proj_id: int) -> int:
         proc_range = self.machine.get_processor_range()
-        node_range = self.machine.get_node_range()
-        shard_spec = (proj_id, node_range, proc_range.per_node_count)
+        shard_spec = (
+            proj_id,
+            (
+                proc_range.low,
+                proc_range.high,
+            ),
+            proc_range.per_node_count,
+        )
 
         if shard_spec in self._registered_shardings:
             return self._registered_shardings[shard_spec]
