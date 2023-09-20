@@ -98,7 +98,7 @@ def test_shifted_slices():
     m = get_machine()
     for i in range(len(m)):
         for j in range(i + 1, len(m)):
-            with m.slice(i, j):
+            with m[slice(i, j)]:
                 task = user_context.create_auto_task(
                     user_lib.shared_object.EMPTY
                 )

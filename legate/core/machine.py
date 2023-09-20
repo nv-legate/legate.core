@@ -196,15 +196,6 @@ class Machine:
     def only(self, *kinds: ProcessorKind) -> Machine:
         return Machine([self._get_range(kind) for kind in kinds])
 
-    def slice(self, start_proc_id: int, end_proc_id: int) -> Machine:
-        return Machine(
-            [
-                self.get_processor_range().slice(
-                    slice(start_proc_id, end_proc_id)
-                ),
-            ]
-        )
-
     def count(self, kind: ProcessorKind) -> int:
         return len(self._get_range(kind))
 

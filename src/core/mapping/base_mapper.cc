@@ -1038,7 +1038,6 @@ void BaseMapper::map_copy(const Legion::Mapping::MapperContext ctx,
     uint32_t total_tasks_count = linearize(lo, hi, hi) + 1;
     auto idx =
       linearize(lo, hi, p) * local_range.total_proc_count() / total_tasks_count + start_proc_id;
-    ;
     target_proc = local_range[idx];
   } else
     target_proc = local_range.first();

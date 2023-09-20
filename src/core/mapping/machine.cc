@@ -263,10 +263,8 @@ LocalProcessorRange Machine::slice(TaskTarget target,
       return LocalProcessorRange();
   }
 
-  return LocalProcessorRange(slice.low - global_range.low + machine_desc.processor_range().low,
-                             global_range.count(),
-                             local_procs.data() + (slice.low - my_low),
-                             slice.count());
+  return LocalProcessorRange(
+    slice.low, global_range.count(), local_procs.data() + (slice.low - my_low), slice.count());
 }
 
 Legion::Memory Machine::get_memory(Processor proc, StoreTarget target) const
