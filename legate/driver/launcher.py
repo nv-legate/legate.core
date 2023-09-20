@@ -163,8 +163,8 @@ class Launcher:
         # Set the path to the Legate module as an environment variable
         # The current directory should be added to PYTHONPATH as well
         extra_python_paths = []
-        if "PYTHONPATH" in env:
-            extra_python_paths.append(env["PYTHONPATH"])
+        if "PYTHONPATH" in system.env:
+            extra_python_paths.append(system.env["PYTHONPATH"])
 
         if system.legion_paths.legion_module is not None:
             extra_python_paths.append(str(system.legion_paths.legion_module))
