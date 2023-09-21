@@ -631,6 +631,7 @@ class AttachmentManager:
         if not previously_deferred:
             self._remove_allocation(alloc)
         if defer:
+            assert dependent_field is not None
             # If we need to defer this until later do that now
             self._deferred_detachments.append((alloc, detach, dependent_field))
             return None
