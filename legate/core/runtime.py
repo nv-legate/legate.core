@@ -473,6 +473,12 @@ class ConsensusMatchingFieldManager(FieldManager):
 
         self._field_match_manager.update_free_fields()
 
+        # If any free fields were discovered on all shards, push their
+        # unordered detachments to the task stream now, so we can safely
+        # block on them later without fear of deadlock.
+        if self.free_fields > 0:
+            self._runtime._progress_unordered_operations()
+
         return _try_reuse_field(self.free_fields)
 
     def free_field(
