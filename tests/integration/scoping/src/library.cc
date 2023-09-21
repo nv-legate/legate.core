@@ -46,7 +46,7 @@ void validate(legate::TaskContext& context)
 void map_check(legate::TaskContext& context)
 {
   int32_t task_count          = context.get_launch_domain().get_volume();
-  int32_t shard_id            = context._get_shard_id();
+  int32_t shard_id            = legate::Processor::get_executing_processor().address_space();
   int32_t task_id             = context.get_task_index()[0];
   int32_t per_node_count      = context.scalars().at(0).value<int32_t>();
   int32_t proc_count          = context.scalars().at(1).value<int32_t>();

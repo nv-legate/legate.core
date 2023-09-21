@@ -237,11 +237,6 @@ DomainPoint TaskContext::get_task_index() const { return task_->index_point; }
 
 Domain TaskContext::get_launch_domain() const { return task_->index_domain; }
 
-Legion::ShardID TaskContext::_get_shard_id() const
-{
-  return task_->get_parent_task()->get_shard_id();
-}
-
 void TaskContext::make_all_unbound_stores_empty()
 {
   for (auto& output : outputs_)

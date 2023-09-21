@@ -259,8 +259,6 @@ class TaskContext {
    */
   Domain get_launch_domain() const;
 
-  Legion::ShardID _get_shard_id() const;
-
  public:
   const mapping::MachineDesc& machine_desc() const { return machine_desc_; }
 
