@@ -80,7 +80,9 @@ class Future:
         runtime: legion.legion_runtime_t,
         data: Any,
         size: int,
+        shard_local: bool = False,
         type: Optional[Any] = None,
+        provenance: Optional[str] = None,
     ) -> None:
         """
         Parameters
@@ -94,10 +96,17 @@ class Future:
         type : object
             An optional object to represent the type of the future
         """
+        if provenance is None:
+            provenance = ""
         if self.handle is not None:
             raise RuntimeError("Future must be unset to set its value")
-        self.handle = legion.legion_future_from_untyped_pointer(
-            runtime, ffi.from_buffer(data), size
+        self.handle = legion.legion_future_from_untyped_pointer_detailed(
+            runtime,
+            ffi.from_buffer(data),
+            size,
+            False,
+            provenance.encode("ascii"),
+            shard_local,
         )
         self._type = type
 
@@ -106,7 +115,9 @@ class Future:
         cls,
         runtime: legion.legion_runtime_t,
         buf: Any,
+        shard_local: bool = False,
         type: Optional[Any] = None,
+        provenance: Optional[str] = None,
     ) -> Future:
         """
         Construct a future from a buffer storing data
@@ -119,9 +130,16 @@ class Future:
         -------
         Future
         """
+        if provenance is None:
+            provenance = ""
         return cls(
-            legion.legion_future_from_untyped_pointer(
-                runtime, ffi.from_buffer(buf), len(buf)
+            legion.legion_future_from_untyped_pointer_detailed(
+                runtime,
+                ffi.from_buffer(buf),
+                len(buf),
+                False,
+                provenance.encode("ascii"),
+                shard_local,
             ),
             type=type,
         )
@@ -131,10 +149,14 @@ class Future:
         cls,
         runtime: legion.legion_runtime_t,
         cdata: Any,
+        shard_local: bool = False,
         type: Optional[Any] = None,
     ) -> Future:
         return cls.from_buffer(
-            runtime, ffi.buffer(ffi.addressof(cdata)), type=type
+            runtime,
+            ffi.buffer(ffi.addressof(cdata)),
+            shard_local=shard_local,
+            type=type,
         )
 
     def get_buffer(self, size: Optional[int] = None) -> Any:
@@ -272,6 +294,7 @@ class FutureMap:
         ordered: bool = True,
         mapper: int = 0,
         tag: int = 0,
+        init_value: Optional[Future] = None,
     ) -> Future:
         """
         Reduce all the futures in the future map down to a single
@@ -292,11 +315,30 @@ class FutureMap:
             ID of the mapper for managing the mapping of the task
         tag : int
             Tag to pass to the mapper to provide calling context
+        init_value : Future
+            Optional future holding the initial value for reductions
 
         Returns
         -------
         Future representing the reduced value of all the future in the map
         """
+        # TODO: We need to pass a meaningful provenance string intead of
+        # defaulting to an empty string
+        if init_value is not None:
+            return Future(
+                legion.legion_future_map_reduce_with_initial_value(
+                    runtime,
+                    context,
+                    self.handle,
+                    redop,
+                    ordered,
+                    mapper,
+                    tag,
+                    "".encode(),
+                    init_value.handle,
+                )
+            )
+
         return Future(
             legion.legion_future_map_reduce(
                 runtime,

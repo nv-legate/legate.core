@@ -137,18 +137,18 @@ class ScalarArg:
 
 class FutureStoreArg:
     def __init__(
-        self, store: Store, read_only: bool, has_storage: bool, redop: int
+        self, store: Store, read_only: bool, future_index: int, redop: int
     ) -> None:
         self._store = store
         self._read_only = read_only
-        self._has_storage = has_storage
+        self._future_index = future_index
         self._redop = redop
 
     def pack(self, buf: BufferBuilder) -> None:
         self._store.serialize(buf)
         buf.pack_32bit_int(self._redop)
         buf.pack_bool(self._read_only)
-        buf.pack_bool(self._has_storage)
+        buf.pack_32bit_int(self._future_index)
         buf.pack_32bit_uint(self._store.type.size)
         extents = self._store.extents
         buf.pack_32bit_uint(len(extents))
@@ -790,11 +790,11 @@ class TaskLauncher:
             # current value whenever the store has a storage. (if this
             # was a write-only store, it would not have a storage yet, but
             # the inverse isn't true.)
-            has_storage = store.has_storage
+            future_index = -1
             read_only = perm == Permission.READ
-            if has_storage:
-                self.add_future(store.storage)
-            args.append(FutureStoreArg(store, read_only, has_storage, redop))
+            if store.has_storage and perm != Permission.REDUCTION:
+                future_index = self.add_future(store.storage)
+            args.append(FutureStoreArg(store, read_only, future_index, redop))
 
         else:
             if TYPE_CHECKING:
@@ -837,7 +837,7 @@ class TaskLauncher:
         flags: int = 0,
         read_write: bool = False,
     ) -> None:
-        if read_write and store.kind is not Future:
+        if read_write:
             self.add_store(
                 self._reductions,
                 store,
@@ -869,8 +869,10 @@ class TaskLauncher:
             )
         )
 
-    def add_future(self, future: Future) -> None:
+    def add_future(self, future: Future) -> int:
+        idx = len(self._future_args)
         self._future_args.append(future)
+        return idx
 
     def add_future_map(self, future_map: FutureMap) -> None:
         self._future_map_args.append(future_map)

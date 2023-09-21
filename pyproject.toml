@@ -14,12 +14,12 @@
 
 [build-system]
 requires = [
-    "wheel",
-    "ninja",
-    "setuptools",
-    "scikit-build>=0.13.1",
     "cmake>=3.22.1,!=3.23.0,!=3.25.0",
     "cython",
+    "ninja",
+    "scikit-build>=0.13.1",
+    "setuptools>=60",
+    "wheel",
 ]
 
 [tool.black]
@@ -98,5 +98,6 @@ module = [
     "legate.__main__",
     "legate.install_info",
     "legate._sphinxext.*",
+    "legate.jupyter.*",
 ]
 ignore_errors = true

@@ -163,8 +163,8 @@ class Launcher:
         # Set the path to the Legate module as an environment variable
         # The current directory should be added to PYTHONPATH as well
         extra_python_paths = []
-        if "PYTHONPATH" in env:
-            extra_python_paths.append(env["PYTHONPATH"])
+        if "PYTHONPATH" in system.env:
+            extra_python_paths.append(system.env["PYTHONPATH"])
 
         if system.legion_paths.legion_module is not None:
             extra_python_paths.append(str(system.legion_paths.legion_module))
@@ -190,8 +190,7 @@ class Launcher:
         if config.multi_node.ranks > 1 and "ucx" in install_info.networks:
             # UCX-related environment variables
             env["UCX_CUDA_COPY_MAX_REG_RATIO"] = "1.0"
-            env["UCX_IB_RCACHE_PURGE_ON_FORK"] = "n"
-            env["UCX_RC_TX_POLL_ALWAYS"] = "y"
+            env["UCX_RCACHE_PURGE_ON_FORK"] = "n"
 
             # Link to the UCX bootstrap plugin
             env["REALM_UCP_BOOTSTRAP_PLUGIN"] = str(

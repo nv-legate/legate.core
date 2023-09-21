@@ -33,8 +33,8 @@ environment file listing all the packages that are required to build, run and
 test Legate Core and all downstream libraries. For example:
 
 ```shell
-$ ./scripts/generate-conda-envs.py --python 3.10 --ctk 11.7 --os linux --compilers --openmpi
---- generating: environment-test-linux-py310-cuda-11.7-compilers-openmpi.yaml
+$ ./scripts/generate-conda-envs.py --python 3.10 --ctk 11.8 --os linux --compilers --openmpi
+--- generating: environment-test-linux-py310-cuda-11.8-compilers-openmpi.yaml
 ```
 
 Run this script with `-h` to see all available configuration options for the

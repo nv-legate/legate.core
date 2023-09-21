@@ -17,6 +17,10 @@
 from __future__ import annotations
 
 from argparse import REMAINDER, ArgumentDefaultsHelpFormatter, ArgumentParser
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import Any
 
 from .. import __version__
 from ..util.args import InfoAction
@@ -42,6 +46,61 @@ from . import defaults
 __all__ = ("parser",)
 
 
+def detect_multi_node_defaults() -> tuple[dict[str, Any], dict[str, Any]]:
+    from os import getenv
+
+    nodes_kw = dict(NODES.kwargs)
+    ranks_per_node_kw = dict(RANKS_PER_NODE.kwargs)
+    where = None
+
+    if ranks_env := getenv("OMPI_COMM_WORLD_SIZE"):
+        if ranks_per_node_env := getenv("OMPI_COMM_WORLD_LOCAL_SIZE"):
+            ranks, ranks_per_node = int(ranks_env), int(ranks_per_node_env)
+            if ranks % ranks_per_node != 0:
+                raise ValueError(
+                    "Detected incompatible ranks and ranks-per-node from "
+                    "the environment"
+                )
+            nodes = ranks // ranks_per_node
+            where = "OMPI"
+
+    elif ranks_env := getenv("MV2_COMM_WORLD_SIZE"):
+        if ranks_per_node_env := getenv("MV2_COMM_WORLD_LOCAL_SIZE"):
+            ranks, ranks_per_node = int(ranks_env), int(ranks_per_node_env)
+            if ranks % ranks_per_node != 0:
+                raise ValueError(
+                    "Detected incompatible ranks and ranks-per-node from "
+                    "the environment"
+                )
+            nodes = ranks // ranks_per_node
+            where = "MV2"
+
+    elif nodes_env := getenv("SLURM_JOB_NUM_NODES"):
+        if ranks_env := getenv("SLURM_NTASKS"):
+            nodes, ranks = int(nodes_env), int(ranks_env)
+            if ranks % nodes != 0:
+                raise ValueError(
+                    "Detected incompatible nodes and ranks from the "
+                    "environment"
+                )
+            ranks_per_node = ranks // nodes
+            where = "SLURM"
+
+    else:
+        nodes = defaults.LEGATE_NODES
+        ranks_per_node = defaults.LEGATE_RANKS_PER_NODE
+
+    nodes_kw["default"] = nodes
+    ranks_per_node_kw["default"] = ranks_per_node
+
+    if where:
+        extra = f" [default auto-detected from {where}]"
+        nodes_kw["help"] += extra
+        ranks_per_node_kw["help"] += extra
+
+    return nodes_kw, ranks_per_node_kw
+
+
 parser = ArgumentParser(
     description="Legate Driver",
     allow_abbrev=False,
@@ -56,9 +115,12 @@ parser.add_argument(
     "NOT used as arguments to legate itself.",
 )
 
+nodes_kw, ranks_per_node_kw = detect_multi_node_defaults()
+
+
 multi_node = parser.add_argument_group("Multi-node configuration")
-multi_node.add_argument(NODES.name, **NODES.kwargs)
-multi_node.add_argument(RANKS_PER_NODE.name, **RANKS_PER_NODE.kwargs)
+multi_node.add_argument(NODES.name, **nodes_kw)
+multi_node.add_argument(RANKS_PER_NODE.name, **ranks_per_node_kw)
 multi_node.add_argument(NOCR.name, **NOCR.kwargs)
 multi_node.add_argument(LAUNCHER.name, **LAUNCHER.kwargs)
 multi_node.add_argument(LAUNCHER_EXTRA.name, **LAUNCHER_EXTRA.kwargs)

@@ -71,18 +71,32 @@ class CUDAConfig(SectionConfig):
             "pynvml",  # tests
         )
 
-        if self.compilers and self.os == "linux":
-            # gcc 11.3 is incompatible with nvcc <= 11.5.
-            if V(self.ctk_version) <= V("11.5"):
-                deps += (
-                    "gcc_linux-64<=11.2",
-                    "gxx_linux-64<=11.2",
-                )
-            else:
-                deps += (
-                    "gcc_linux-64=11.*",
-                    "gxx_linux-64=11.*",
-                )
+        if V(self.ctk_version) >= V("12.0"):
+            deps += (
+                "cuda-cudart-dev",
+                "cuda-nvml-dev",
+                "cuda-nvtx-dev",
+            )
+
+        if self.compilers:
+            if self.os == "linux":
+                if V(self.ctk_version) < V("12.0"):
+                    deps += (f"nvcc_linux-64={self.ctk_version}",)
+                else:
+                    deps += ("cuda-nvcc",)
+
+                # gcc 11.3 is incompatible with nvcc <= 11.5.
+                if V(self.ctk_version) <= V("11.5"):
+                    deps += (
+                        "gcc_linux-64<=11.2",
+                        "gxx_linux-64<=11.2",
+                    )
+                else:
+                    deps += (
+                        "gcc_linux-64=11.*",
+                        "gxx_linux-64=11.*",
+                    )
+
         return deps
 
     def __str__(self) -> str:
@@ -278,6 +292,7 @@ ENV_TEMPLATE = """\
 name: legate-{use}
 channels:
   - conda-forge
+  - nvidia
 dependencies:
 
   - python={python},!=3.9.7  # avoid https://bugs.python.org/issue45121
