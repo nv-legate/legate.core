@@ -80,7 +80,7 @@ if TYPE_CHECKING:
     from .operation import AutoTask, Copy, ManualTask, Operation
     from .partition import PartitionBase
     from .projection import SymbolicPoint
-    from .store import RegionField, Store
+    from .store import Field, RegionField, Store
 
     ProjSpec = Tuple[int, SymbolicPoint]
     ShardSpec = Tuple[int, tuple[int, int], int, int]
@@ -361,25 +361,11 @@ class RegionManager:
 def _try_reuse_field(
     free_fields: Deque[tuple[Region, int, Union[Future, None]]]
 ) -> Optional[tuple[Region, int]]:
-    is_ready = False
     if len(free_fields) == 0:
         return None
-    count = len(free_fields)
-    while not is_ready and count > 0:
-        field_info = free_fields.popleft()
-        if field_info[2] is not None and field_info[2].is_ready():
-            is_ready = True
-        elif field_info[2] is None:
-            is_ready = True
-        else:
-            free_fields.append(field_info)
-        count -= 1
-    # FIXME: should I return None here instead waiting for future?
-    if not is_ready:
-        assert len(free_fields) > 0
-        field_info = free_fields.popleft()
-        if field_info[2] is not None:
-            field_info[2].wait()
+    field_info = free_fields.popleft()
+    if field_info[2] is not None and not field_info[2].is_ready():
+        field_info[2].wait()
     return field_info[0], field_info[1]
 
 
@@ -476,8 +462,8 @@ class ConsensusMatchingFieldManager(FieldManager):
         # If any free fields were discovered on all shards, push their
         # unordered detachments to the task stream now, so we can safely
         # block on them later without fear of deadlock.
-        if self.free_fields > 0:
-            self._runtime._progress_unordered_operations()
+        if len(self.free_fields) > 0:
+            self.runtime._progress_unordered_operations()
 
         return _try_reuse_field(self.free_fields)
 
@@ -533,7 +519,7 @@ class AttachmentManager:
             int, Union[Detach, IndexDetach]
         ] = dict()
         self._deferred_detachments: List[
-            tuple[Attachable, Union[Detach, IndexDetach]]
+            tuple[Attachable, Union[Detach, IndexDetach], Union[Field, None]]
         ] = list()
         self._pending_detachments: dict[Future, Attachable] = dict()
         self._destroyed = False
@@ -638,6 +624,7 @@ class AttachmentManager:
         detach: Union[Detach, IndexDetach],
         defer: bool = False,
         previously_deferred: bool = False,
+        dependent_field: Optional[Field] = None,
     ) -> Union[None, Future]:
         # If the detachment was previously deferred, then we don't
         # need to remove the allocation from the map again.
@@ -645,8 +632,7 @@ class AttachmentManager:
             self._remove_allocation(alloc)
         if defer:
             # If we need to defer this until later do that now
-            # IRINA FIXME should I pass unordered here?
-            self._deferred_detachments.append((alloc, detach))
+            self._deferred_detachments.append((alloc, detach, dependent_field))
             return None
         future = self._runtime.dispatch(detach)
         # Dangle a reference to the field off the future to prevent the
@@ -673,10 +659,12 @@ class AttachmentManager:
     def perform_detachments(self) -> None:
         detachments = self._deferred_detachments
         self._deferred_detachments = list()
-        for alloc, detach in detachments:
-            self.detach_external_allocation(
+        for alloc, detach, field in detachments:
+            detach_future = self.detach_external_allocation(
                 alloc, detach, defer=False, previously_deferred=True
             )
+            if field is not None and detach_future is not None:
+                field.add_detach_future(detach_future)
 
     def prune_detachments(self) -> None:
         to_remove = []

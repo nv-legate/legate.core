@@ -126,7 +126,6 @@ class RegionField:
         self.physical_region_mapped = False
 
         self._partitions: dict[Tiling, LegionPartition] = {}
-        self.detach_future: Optional[Future] = None
 
     def __del__(self) -> None:
         if self.attached_alloc is not None:
@@ -160,12 +159,15 @@ class RegionField:
         # If we already have some memory attached, detach it first
         if self.attached_alloc is not None:
             raise RuntimeError("A RegionField cannot be re-attached")
+        if (
+            self.field.detach_future is not None
+            and not self.field.detach_future.is_ready()
+        ):
+            raise RuntimeError("A RegionField cannot be re-attached")
         # All inline mappings should have been unmapped by now
         assert self.physical_region_refs == 0
         # Record the attached memory ranges, and confirm no overlaps with
         # previously encountered ranges.
-        if self.detach_future and not self.detach_future.is_ready():
-            self.detach_future.wait()
         attachment_manager.attach_external_allocation(alloc, self)
 
         def record_detach(detach: Union[Detach, IndexDetach]) -> None:
@@ -255,7 +257,7 @@ class RegionField:
         detach = attachment_manager.remove_detachment(self.detach_key)
         detach.unordered = unordered  # type: ignore[union-attr]
         detach_future = attachment_manager.detach_external_allocation(
-            self.attached_alloc, detach, defer, self.field
+            self.attached_alloc, detach, defer, dependent_field=self.field
         )
         self.physical_region = None
         self.physical_region_mapped = False
