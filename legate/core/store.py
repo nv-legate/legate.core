@@ -261,10 +261,8 @@ class RegionField:
         self.physical_region_mapped = False
         self.physical_region_refs = 0
         self.attached_alloc = None
-        if unordered:
-            self.detach_future = detach_future
-            if self.detach_future is not None:
-                self.field.add_detach_future(self.detach_future)
+        if detach_future is not None:
+            self.field.add_detach_future(detach_future)
 
     def get_inline_mapped_region(self) -> PhysicalRegion:
         if self.parent is None:
