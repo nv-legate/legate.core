@@ -24,7 +24,7 @@ extern "C" {
 enum RegistryOpCode {
   MULTI_VARIANT    = 0,
   CPU_VARIANT_ONLY = 1,
-  EMPTY            = 2,
+  MAP_CHECK        = 2,
 };
 
 void perform_registration(void);

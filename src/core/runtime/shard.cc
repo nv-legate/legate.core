@@ -122,7 +122,6 @@ class LegateShardingFunctor : public Legion::ShardingFunctor {
     uint32_t proc_count     = end_proc_id_ - start_proc_id_;
     uint32_t global_proc_id = (linearize(lo, hi, point) * proc_count) / task_count + start_proc_id_;
     auto shard_id           = global_proc_id / per_node_count_;
-
 #ifdef DEBUG_LEGATE
     assert(shard_id < total_shards);
 #endif

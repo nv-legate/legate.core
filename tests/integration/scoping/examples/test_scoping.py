@@ -95,19 +95,24 @@ def test_cpu_only():
 
 def test_shifted_slices():
     m = get_machine()
+    num_nodes = len(m.get_node_range())
+    per_node_count = int((len(m) + num_nodes - 1) / num_nodes)
     # this will test processor slicing of the machine
     for i in range(len(m)):
         for j in range(i + 1, len(m)):
             with m[slice(i, j)]:
+                num_tasks = (j - i) * 2
                 task = user_context.create_manual_task(
-                    user_lib.shared_object.EMPTY,
+                    user_lib.shared_object.MAP_CHECK,
                     launch_domain=Rect(
                         [
-                            (j - i) * 2,
+                            num_tasks,
                         ]
                     ),
                 )
-
+                task.add_scalar_arg(per_node_count, ty.int32)
+                task.add_scalar_arg(j - i, ty.int32)  # proc_count
+                task.add_scalar_arg(i, ty.int32)  # start_proc_id
                 task.execute()
 
 

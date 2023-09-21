@@ -43,6 +43,23 @@ void validate(legate::TaskContext& context)
   }
 }
 
+void map_check(legate::TaskContext& context)
+{
+  int32_t task_count          = context.get_launch_domain().get_volume();
+  int32_t shard_id            = context._get_shard_id();
+  int32_t task_id             = context.get_task_index()[0];
+  int32_t per_node_count      = context.scalars().at(0).value<int32_t>();
+  int32_t proc_count          = context.scalars().at(1).value<int32_t>();
+  int32_t start_proc_id       = context.scalars().at(2).value<int32_t>();
+  int32_t global_proc_id      = task_id * proc_count / task_count + start_proc_id;
+  int32_t calculated_shard_id = global_proc_id / per_node_count;
+  if (shard_id != calculated_shard_id) {
+    log_scoping.error(
+      "Test failed: expected %d shard, but got %d shard", shard_id, calculated_shard_id);
+    LEGATE_ABORT;
+  }
+}
+
 }  // namespace
 
 class MultiVariantTask : public Task<MultiVariantTask, MULTI_VARIANT> {
@@ -61,14 +78,14 @@ class CpuVariantOnlyTask : public Task<CpuVariantOnlyTask, CPU_VARIANT_ONLY> {
   static void cpu_variant(legate::TaskContext& context) { validate(context); }
 };
 
-class EmptyTask : public Task<EmptyTask, EMPTY> {
+class MapCheckTask : public Task<MapCheckTask, MAP_CHECK> {
  public:
-  static void cpu_variant(legate::TaskContext& context) {}
+  static void cpu_variant(legate::TaskContext& context) { map_check(context); }
 #ifdef LEGATE_USE_OPENMP
-  static void omp_variant(legate::TaskContext& context) {}
+  static void omp_variant(legate::TaskContext& context) { map_check(context); }
 #endif
 #ifdef LEGATE_USE_CUDA
-  static void gpu_variant(legate::TaskContext& context) {}
+  static void gpu_variant(legate::TaskContext& context) { map_check(context); }
 #endif
 };
 
@@ -78,7 +95,7 @@ void registration_callback()
 
   MultiVariantTask::register_variants(context);
   CpuVariantOnlyTask::register_variants(context);
-  EmptyTask::register_variants(context);
+  MapCheckTask::register_variants(context);
 }
 
 }  // namespace scoping
