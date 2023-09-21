@@ -255,7 +255,7 @@ class RegionField:
         detach = attachment_manager.remove_detachment(self.detach_key)
         detach.unordered = unordered  # type: ignore[union-attr]
         detach_future = attachment_manager.detach_external_allocation(
-            self.attached_alloc, detach, defer
+            self.attached_alloc, detach, defer, self.field
         )
         self.physical_region = None
         self.physical_region_mapped = False
