@@ -1477,11 +1477,8 @@ class Test_cmd_log_levels:
 
         assert result == ("-level", "openmp=5,gpu=5")
 
-    @pytest.mark.parametrize(
-        "args", powerset_nonempty(("--event", "--dataflow"))
-    )
-    def test_debugging(self, genobjs: GenObjs, args: tuple[str, ...]) -> None:
-        config, system, launcher = genobjs(list(args))
+    def test_spy(self, genobjs: GenObjs) -> None:
+        config, system, launcher = genobjs(["--spy"])
 
         result = m.cmd_log_levels(config, system, launcher)
 

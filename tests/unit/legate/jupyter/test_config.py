@@ -103,10 +103,7 @@ class TestConfig:
             valgrind=False,
             freeze_on_error=False,
             gasnet_trace=False,
-            dataflow=False,
-            event=False,
-            collective=False,
-            spy_assert_warning=False,
+            spy=False,
         )
 
         assert c.info == m.Info(
