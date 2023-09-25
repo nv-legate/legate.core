@@ -143,7 +143,7 @@ class LegateDriver:
         if self.config.debugging.spy:
             print(
                 f"Legion Spy logs have been generated under {log_dir}, run "
-                f"legion_spy.py {log_dir}/legate_*.log to view them"
+                f"legion_spy.py {log_dir}/legate_*.log to process them"
             )
 
         return ret
