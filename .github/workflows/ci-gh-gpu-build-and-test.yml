@@ -12,8 +12,8 @@ on:
 
 jobs:
   build-gpu:
+    if: ${{ github.repository_owner == 'nv-legate' }}
     uses:
-      if: ${{ github.repository_owner == 'nv-legate' }}
       ./.github/workflows/gh-build.yml
     with:
       build-target: gpu
