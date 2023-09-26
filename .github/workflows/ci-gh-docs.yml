@@ -54,10 +54,10 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Generate YAML file listing dependencies
-        run: scripts/generate-conda-envs.py --python 3.10 --ctk 11.8 --os linux --compilers --openmpi
+        run: scripts/generate-conda-envs.py --python 3.10 --ctk 12.0 --os linux --compilers --openmpi
 
       - name: Install dependencies from generated YAML file
-        run: conda env create -n legate -f environment-test-linux-py3.10-cuda11.8-compilers-openmpi.yaml
+        run: conda env create -n legate -f environment-test-linux-py3.10-cuda12.0-compilers-openmpi.yaml
 
       - name: Build doxygen documentation through install.py
         run: |
