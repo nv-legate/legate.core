@@ -8,16 +8,18 @@ on:
   push:
     branches:
       - "pull-request/[0-9]+"
-      - "branch-*"
+      - "*branch-*"
 
 jobs:
   build-cpu:
+    if: ${{ github.repository_owner == 'nv-legate' }}
     uses:
       ./.github/workflows/gh-build.yml
     with:
       build-target: cpu
       # Ref: https://docs.rapids.ai/resources/github-actions/#cpu-labels for `linux-amd64-cpu4`
-      runs-on: ${{ github.repository == 'nv-legate/legate.core' && 'linux-amd64-cpu4' || 'ubuntu-latest' }}
+      repos-name: ${{ github.event.repository.name }}
+      runs-on: ${{ contains(github.repository, 'nv-legate/legate.core') && 'linux-amd64-cpu4' || 'ubuntu-latest' }}
       sha: ${{ github.sha }}
 
   test-cpu:
@@ -30,11 +32,13 @@ jobs:
           - { name: Pytest Unit Tests, test-scope: unit }
           - { name: mypy, test-scope: mypy }
     name: ${{ matrix.name }}
+    if: ${{ github.repository_owner == 'nv-legate' }}
     uses:
       ./.github/workflows/gh-test.yml
     with:
       build-target: cpu
-      runs-on: ${{ github.repository == 'nv-legate/legate.core' && 'linux-amd64-cpu4' || 'ubuntu-latest' }}
+      repos-name: ${{ github.event.repository.name }}
+      runs-on: ${{ contains(github.repository, 'nv-legate/legate.core') && 'linux-amd64-cpu4' || 'ubuntu-latest' }}
       sha: ${{ github.sha }}
       test-scope: ${{ matrix.test-scope }}
 
