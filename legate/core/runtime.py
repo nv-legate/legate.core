@@ -526,19 +526,15 @@ class AttachmentManager:
 
     def destroy(self) -> None:
         self._destroyed = True
-        gc.collect()
-        while self._deferred_detachments:
-            self.perform_detachments()
-            # Make sure progress is made on any of these operations
-            self._runtime._progress_unordered_operations()
-            gc.collect()
+        # Schedule any queued detachments
+        self.perform_detachments()
+        # Make sure progress is made on any of these operations
+        self._runtime._progress_unordered_operations()
         # Always make sure we wait for any pending detachments to be done
         # so that we don't lose the references and make the GC unhappy
-        gc.collect()
-        while self._pending_detachments:
-            self.prune_detachments()
-            gc.collect()
-
+        for future in self._pending_detachments.keys():
+            future.wait()
+        self._pending_detachments.clear()
         # Clean up our attachments so that they can be collected
         self._attachments = dict()
 
