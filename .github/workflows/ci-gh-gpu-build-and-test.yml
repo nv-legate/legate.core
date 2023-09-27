@@ -53,5 +53,4 @@ jobs:
       ./.github/workflows/gh-cleanup.yml
     with:
       build-target: gpu
-      repos-name: ${{ github.event.repository.name }}
       sha: ${{ github.sha }}
