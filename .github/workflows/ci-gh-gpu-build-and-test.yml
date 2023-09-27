@@ -38,6 +38,7 @@ jobs:
       ./.github/workflows/gh-test.yml
     with:
       build-target: gpu
+      repos-name: ${{ github.event.repository.name }}
       runs-on: ${{ matrix.runner }}
       sha: ${{ github.sha }}
       test-scope: ${{ matrix.test-scope }}
