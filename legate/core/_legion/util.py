@@ -64,7 +64,6 @@ def legate_task_progress(
     """
 
     from .future import Future, FutureMap
-    from .operation import Detach
     from .region import OutputRegion, PhysicalRegion, Region
     from .space import FieldSpace, IndexSpace
     from .task import ArgumentMap
@@ -97,19 +96,6 @@ def legate_task_progress(
                 )
             elif type is PhysicalRegion:
                 handle.unmap(runtime, context, unordered=False)
-            elif type is Detach:
-                detach = handle[0]
-                future = handle[1]
-                assert future.handle is None
-                future.handle = (
-                    legion.legion_unordered_detach_external_resource(
-                        runtime,
-                        context,
-                        detach.physical_region.handle,
-                        detach.flush,
-                        True,
-                    )
-                )
             else:
                 raise TypeError(
                     "Internal legate type error on unordered operations"

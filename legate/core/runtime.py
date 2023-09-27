@@ -80,7 +80,7 @@ if TYPE_CHECKING:
     from .operation import AutoTask, Copy, ManualTask, Operation
     from .partition import PartitionBase
     from .projection import SymbolicPoint
-    from .store import Field, RegionField, Store
+    from .store import RegionField, Store
 
     ProjSpec = Tuple[int, SymbolicPoint]
     ShardSpec = Tuple[int, tuple[int, int], int]
@@ -144,13 +144,15 @@ class FreeFieldInfo:
     manager: FieldManager
     region: Region
     field_id: int
-    detach_future: Union[Future, None]
+    attached_alloc: Union[None, Attachable]
+    detach: Union[Detach, IndexDetach, None]
 
     def free(self, ordered: bool = False) -> None:
         self.manager.free_field(
             self.region,
             self.field_id,
-            detach_future=self.detach_future,
+            self.attached_alloc,
+            self.detach,
             ordered=ordered,
         )
 
@@ -256,10 +258,11 @@ class FieldMatchManager:
         manager: FieldManager,
         region: Region,
         field_id: int,
-        detach_future: Union[Future, None],
+        attached_alloc: Union[None, Attachable],
+        detach: Union[Detach, IndexDetach, None],
     ) -> None:
         self._freed_fields.append(
-            FreeFieldInfo(manager, region, field_id, detach_future)
+            FreeFieldInfo(manager, region, field_id, attached_alloc, detach)
         )
 
     def issue_field_match(self, credit: int) -> None:
@@ -409,10 +412,17 @@ class FieldManager:
         self,
         region: Region,
         field_id: int,
-        detach_future: Union[Future, None] = None,
+        attached_alloc: Union[None, Attachable],
+        detach: Union[Detach, IndexDetach, None],
         ordered: bool = False,
     ) -> None:
-        self.free_fields.append((region, field_id, detach_future))
+        detach_fut: Union[Future, None] = None
+        if attached_alloc is not None:
+            assert detach is not None
+            detach_fut = runtime.attachment_manager.detach_external_allocation(
+                attached_alloc, detach
+            )
+        self.free_fields.append((region, field_id, detach_fut))
         region_manager = self.runtime.find_region_manager(region)
         if region_manager.decrease_active_field_count():
             self.runtime.free_region_manager(
@@ -459,28 +469,23 @@ class ConsensusMatchingFieldManager(FieldManager):
 
         self._field_match_manager.update_free_fields()
 
-        # If any free fields were discovered on all shards, push their
-        # unordered detachments to the task stream now, so we can safely
-        # block on them later without fear of deadlock.
-        if len(self.free_fields) > 0:
-            self.runtime._progress_unordered_operations()
-
         return _try_reuse_field(self.free_fields)
 
     def free_field(
         self,
         region: Region,
         field_id: int,
-        detach_future: Union[Future, None] = None,
+        attached_alloc: Union[None, Attachable],
+        detach: Union[Detach, IndexDetach, None],
         ordered: bool = False,
     ) -> None:
         if ordered:
             super().free_field(
-                region, field_id, detach_future=detach_future, ordered=ordered
+                region, field_id, attached_alloc, detach, ordered
             )
         else:  # Put this on the unordered list
             self._field_match_manager.add_free_field(
-                self, region, field_id, detach_future
+                self, region, field_id, attached_alloc, detach
             )
 
 
@@ -518,27 +523,16 @@ class AttachmentManager:
         self._registered_detachments: dict[
             int, Union[Detach, IndexDetach]
         ] = dict()
-        self._deferred_detachments: List[
-            tuple[Attachable, Union[Detach, IndexDetach], Union[Field, None]]
-        ] = list()
         self._pending_detachments: dict[Future, Attachable] = dict()
         self._destroyed = False
 
     def destroy(self) -> None:
         self._destroyed = True
-        gc.collect()
-        while self._deferred_detachments:
-            self.perform_detachments()
-            # Make sure progress is made on any of these operations
-            self._runtime._progress_unordered_operations()
-            gc.collect()
         # Always make sure we wait for any pending detachments to be done
         # so that we don't lose the references and make the GC unhappy
-        gc.collect()
-        while self._pending_detachments:
-            self.prune_detachments()
-            gc.collect()
-
+        for future in self._pending_detachments.keys():
+            future.wait()
+        self._pending_detachments.clear()
         # Clean up our attachments so that they can be collected
         self._attachments = dict()
 
@@ -620,30 +614,15 @@ class AttachmentManager:
 
     def detach_external_allocation(
         self,
-        alloc: Attachable,
+        attached_alloc: Attachable,
         detach: Union[Detach, IndexDetach],
-        defer: bool = False,
-        previously_deferred: bool = False,
-        dependent_field: Optional[Field] = None,
     ) -> Union[None, Future]:
-        # If the detachment was previously deferred, then we don't
-        # need to remove the allocation from the map again.
-        if not previously_deferred:
-            self._remove_allocation(alloc)
-        if defer:
-            assert dependent_field is not None
-            # If we need to defer this until later do that now
-            self._deferred_detachments.append((alloc, detach, dependent_field))
-            return None
+        self._remove_allocation(attached_alloc)
         future = self._runtime.dispatch(detach)
-        # Dangle a reference to the field off the future to prevent the
-        # field from being recycled until the detach is done
-        field = detach.field  # type: ignore[union-attr]
-        future.field_reference = field  # type: ignore[attr-defined]
         # If the future is already ready, then no need to track it
         if future.is_ready():
             return None
-        self._pending_detachments[future] = alloc
+        self._pending_detachments[future] = attached_alloc
         return future
 
     def register_detachment(self, detach: Union[Detach, IndexDetach]) -> int:
@@ -656,16 +635,6 @@ class AttachmentManager:
         detach = self._registered_detachments[detach_key]
         del self._registered_detachments[detach_key]
         return detach
-
-    def perform_detachments(self) -> None:
-        detachments = self._deferred_detachments
-        self._deferred_detachments = list()
-        for alloc, detach, field in detachments:
-            detach_future = self.detach_external_allocation(
-                alloc, detach, defer=False, previously_deferred=True
-            )
-            if field is not None and detach_future is not None:
-                field.add_detach_future(detach_future)
 
     def prune_detachments(self) -> None:
         to_remove = []
@@ -1370,12 +1339,10 @@ class Runtime:
         return self._next_storage_id
 
     def dispatch(self, op: Dispatchable[T]) -> T:
-        self._attachment_manager.perform_detachments()
         self._attachment_manager.prune_detachments()
         return op.launch(self.legion_runtime, self.legion_context)
 
     def dispatch_single(self, op: Dispatchable[T]) -> T:
-        self._attachment_manager.perform_detachments()
         self._attachment_manager.prune_detachments()
         return op.launch(self.legion_runtime, self.legion_context)
 
@@ -1861,7 +1828,8 @@ class Runtime:
         field_id: int,
         field_size: int,
         shape: Shape,
-        detach_future: Optional[Future] = None,
+        attached_alloc: Union[None, Attachable],
+        detach: Union[Detach, IndexDetach, None],
     ) -> None:
         # Have a guard here to make sure that we don't try to
         # do this after we have been destroyed
@@ -1872,7 +1840,9 @@ class Runtime:
         if key not in self.field_managers:
             return
 
-        self.field_managers[key].free_field(region, field_id, detach_future)
+        self.field_managers[key].free_field(
+            region, field_id, attached_alloc, detach
+        )
 
     def import_output_region(
         self, out_region: OutputRegion, field_id: int, dtype: Any
