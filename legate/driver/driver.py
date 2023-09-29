@@ -27,7 +27,6 @@ from ..util.ui import kvtable, rule, section, value, warn
 from .command import CMD_PARTS_CANONICAL, CMD_PARTS_LEGION
 from .config import ConfigProtocol
 from .launcher import Launcher, SimpleLauncher
-from .logs import process_logs
 
 if TYPE_CHECKING:
     from ..util.types import Command, EnvDict
@@ -125,16 +124,29 @@ class LegateDriver:
         if self.dry_run:
             return 0
 
-        with process_logs(self.config, self.system, self.launcher):
-            if self.config.other.timing:
-                print(f"Legate start: {datetime.now()}")
+        if self.config.other.timing:
+            print(f"Legate start: {datetime.now()}")
 
-            ret = run(self.cmd, env=self.env).returncode
+        ret = run(self.cmd, env=self.env).returncode
 
-            if self.config.other.timing:
-                print(f"Legate end: {datetime.now()}")
+        if self.config.other.timing:
+            print(f"Legate end: {datetime.now()}")
 
-            return ret
+        log_dir = self.config.logging.logdir
+
+        if self.config.profiling.profile:
+            print(
+                f"Profiles have been generated under {log_dir}, run "
+                f"legion_prof --view {log_dir}/legate_*.prof to view them"
+            )
+
+        if self.config.debugging.spy:
+            print(
+                f"Legion Spy logs have been generated under {log_dir}, run "
+                f"legion_spy.py {log_dir}/legate_*.log to process them"
+            )
+
+        return ret
 
     def _darwin_gdb_warn(self) -> None:
         gdb = self.config.debugging.gdb
