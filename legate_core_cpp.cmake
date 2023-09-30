@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright 2022 NVIDIA Corporation
+# Copyright 2022-2023 NVIDIA Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@
 ##############################################################################
 # - User Options  ------------------------------------------------------------
 
+option(legate_core_BUILD_TESTS OFF)
+option(legate_core_BUILD_EXAMPLES OFF)
 include(cmake/Modules/legate_core_options.cmake)
 
 ##############################################################################
@@ -64,41 +66,6 @@ macro(_find_package_Python3)
   message(VERBOSE "legate.core: Python 3 version: ${Python3_VERSION}")
 endmacro()
 
-# CUDA initialization might need to happen at different times depending on
-# how Legion is built. If building Legion inline, CUDA must be enabled
-# BEFORE get_legion.cmake because of how Legion handles CMAKE_CUDA_ARCHITECURES.
-# If using an external Legion, CUDA must be enabled AFTER get_legion.cmake.
-# This function executes all the enable CUDA functions with a boolean guard
-# to make sure it is only executed once.
-macro(_enable_cuda_language)
-  if (NOT legate_core_CUDA_ENABLED)
-    include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/cuda_arch_helpers.cmake)
-    # Needs to run before `rapids_cuda_init_architectures`
-    set_cuda_arch_from_names()
-    # Must come before `enable_language(CUDA)`
-    rapids_cuda_init_architectures(legate_core)
-    # Enable the CUDA language
-    enable_language(CUDA)
-    # Since legate_core only enables CUDA optionally we need to manually include
-    # the file that rapids_cuda_init_architectures relies on `project` calling
-    if(CMAKE_PROJECT_legate_core_INCLUDE)
-      include("${CMAKE_PROJECT_legate_core_INCLUDE}")
-    endif()
-    # Must come after `enable_language(CUDA)`
-    # Use `-isystem <path>` instead of `-isystem=<path>`
-    # because the former works with clangd intellisense
-    set(CMAKE_INCLUDE_SYSTEM_FLAG_CUDA "-isystem ")
-    # set to TRUE so the macro does not repeat if called again.
-    set(legate_core_CUDA_ENABLED TRUE)
-    # Find the CUDAToolkit
-    rapids_find_package(
-      CUDAToolkit REQUIRED
-      BUILD_EXPORT_SET legate-core-exports
-      INSTALL_EXPORT_SET legate-core-exports
-    )
-  endif()
-endmacro()
-
 if(Legion_USE_Python)
   _find_package_Python3()
   if(Python3_FOUND AND Python3_VERSION)
@@ -106,8 +73,11 @@ if(Legion_USE_Python)
   endif()
 endif()
 
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/cuda_arch_helpers.cmake)
+
 if(Legion_USE_CUDA)
-  _enable_cuda_language()
+  # Needs to run before find_package(Legion)
+  set_cuda_arch_from_names()
 endif()
 
 ###
@@ -131,8 +101,18 @@ if(Legion_NETWORKS)
 endif()
 
 if(Legion_USE_CUDA)
-  # If CUDA has not yet been enabled, make sure it is now.
-  _enable_cuda_language()
+  # Enable the CUDA language
+  enable_language(CUDA)
+  # Must come after `enable_language(CUDA)`
+  # Use `-isystem <path>` instead of `-isystem=<path>`
+  # because the former works with clangd intellisense
+  set(CMAKE_INCLUDE_SYSTEM_FLAG_CUDA "-isystem ")
+  # Find the CUDAToolkit
+  rapids_find_package(
+    CUDAToolkit REQUIRED
+    BUILD_EXPORT_SET legate-core-exports
+    INSTALL_EXPORT_SET legate-core-exports
+  )
   # Find NCCL
   include(cmake/thirdparty/get_nccl.cmake)
 endif()
@@ -165,11 +145,12 @@ if(Legion_USE_CUDA)
   list(APPEND legate_core_CXX_DEFS LEGATE_USE_CUDA)
   list(APPEND legate_core_CUDA_DEFS LEGATE_USE_CUDA)
 
-  add_cuda_architecture_defines(legate_core_CUDA_DEFS)
+  add_cuda_architecture_defines(legate_core_CUDA_DEFS ARCHS ${Legion_CUDA_ARCH})
 
   list(APPEND legate_core_CUDA_OPTIONS -Xfatbin=-compress-all)
   list(APPEND legate_core_CUDA_OPTIONS --expt-extended-lambda)
   list(APPEND legate_core_CUDA_OPTIONS --expt-relaxed-constexpr)
+  list(APPEND legate_core_CUDA_OPTIONS -Wno-deprecated-gpu-targets)
 endif()
 
 if(Legion_USE_OpenMP)
@@ -267,6 +248,10 @@ set_target_properties(legate_core
                       INTERFACE_POSITION_INDEPENDENT_CODE ON
                       LIBRARY_OUTPUT_DIRECTORY            lib)
 
+if(Legion_USE_CUDA)
+  set_property(TARGET legate_core PROPERTY CUDA_ARCHITECTURES ${Legion_CUDA_ARCH})
+endif()
+
 # Add Conda library, and include paths if specified
 if(TARGET conda_env)
   target_link_libraries(legate_core PRIVATE conda_env)
@@ -306,20 +291,6 @@ target_include_directories(legate_core
     $<INSTALL_INTERFACE:include/legate>
 )
 
-if(Legion_USE_CUDA)
-  file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld"
-          [=[
-SECTIONS
-{
-.nvFatBinSegment : { *(.nvFatBinSegment) }
-.nv_fatbin : { *(.nv_fatbin) }
-}
-]=])
-
-  # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
-  target_link_options(legate_core PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
-endif()
-
 ##############################################################################
 # - Doxygen target------------------------------------------------------------
 
@@ -330,6 +301,7 @@ if (legate_core_BUILD_DOCS)
     list(APPEND legate_core_DOC_SOURCES
       # type
       src/core/type/type_info.h
+      src/core/type/type_traits.h
       # task
       src/core/task/task.h
       src/core/task/registrar.h
@@ -354,7 +326,6 @@ if (legate_core_BUILD_DOCS)
       # utilities
       src/core/utilities/debug.h
       src/core/utilities/dispatch.h
-      src/core/utilities/type_traits.h
       # main page
       src/legate.h
     )
@@ -483,6 +454,7 @@ endif()
   "set(Legion_USE_CUDA ${Legion_USE_CUDA})"
   "set(Legion_USE_OpenMP ${Legion_USE_OpenMP})"
   "set(Legion_USE_Python ${Legion_USE_Python})"
+  "set(Legion_CUDA_ARCH ${Legion_CUDA_ARCH})"
   "set(Legion_NETWORKS ${Legion_NETWORKS})"
   "set(Legion_BOUNDS_CHECKS ${Legion_BOUNDS_CHECKS})"
 [=[
@@ -492,13 +464,6 @@ endif()
 ]=]
 "${helper_functions}"
 )
-
-if(DEFINED legate_core_cuda_stubs_path)
-  string(JOIN "\n" code_string "${code_string}"
-    "list(APPEND CMAKE_C_IMPLICIT_LINK_DIRECTORIES ${legate_core_cuda_stubs_path})"
-    "list(APPEND CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES ${legate_core_cuda_stubs_path})"
-    "list(APPEND CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES ${legate_core_cuda_stubs_path})")
-endif()
 
 rapids_export(
   INSTALL legate_core
@@ -520,11 +485,15 @@ rapids_export(
   FINAL_CODE_BLOCK code_string
   LANGUAGES ${ENABLED_LANGUAES}
 )
-option(legate_core_EXAMPLE_BUILD_TESTS OFF)
+
 include(cmake/legate_helper_functions.cmake)
-if (legate_core_EXAMPLE_BUILD_TESTS)
-  set(legate_core_ROOT ${CMAKE_CURRENT_BINARY_DIR})
+
+set(legate_core_ROOT ${CMAKE_CURRENT_BINARY_DIR})
+
+if(legate_core_BUILD_TESTS)
+  add_subdirectory(tests/integration)
+endif()
+
+if(legate_core_BUILD_EXAMPLES)
   add_subdirectory(examples)
 endif()
-set(legate_core_ROOT ${CMAKE_CURRENT_BINARY_DIR})
-add_subdirectory(tests/integration)

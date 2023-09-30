@@ -80,10 +80,10 @@ if TYPE_CHECKING:
     from .operation import AutoTask, Copy, ManualTask, Operation
     from .partition import PartitionBase
     from .projection import SymbolicPoint
-    from .store import RegionField, Store
+    from .store import Field, RegionField, Store
 
     ProjSpec = Tuple[int, SymbolicPoint]
-    ShardSpec = Tuple[int, tuple[int, int], int, int]
+    ShardSpec = Tuple[int, tuple[int, int], int]
 
 from math import prod
 
@@ -144,9 +144,15 @@ class FreeFieldInfo:
     manager: FieldManager
     region: Region
     field_id: int
+    detach_future: Union[Future, None]
 
     def free(self, ordered: bool = False) -> None:
-        self.manager.free_field(self.region, self.field_id, ordered=ordered)
+        self.manager.free_field(
+            self.region,
+            self.field_id,
+            detach_future=self.detach_future,
+            ordered=ordered,
+        )
 
 
 class FieldMatch(Dispatchable[Future]):
@@ -246,9 +252,15 @@ class FieldMatchManager:
         self._match_frequency = runtime.max_field_reuse_frequency
 
     def add_free_field(
-        self, manager: FieldManager, region: Region, field_id: int
+        self,
+        manager: FieldManager,
+        region: Region,
+        field_id: int,
+        detach_future: Union[Future, None],
     ) -> None:
-        self._freed_fields.append(FreeFieldInfo(manager, region, field_id))
+        self._freed_fields.append(
+            FreeFieldInfo(manager, region, field_id, detach_future)
+        )
 
     def issue_field_match(self, credit: int) -> None:
         # Increment our match counter
@@ -346,6 +358,17 @@ class RegionManager:
         return self._region, field_id, revived
 
 
+def _try_reuse_field(
+    free_fields: Deque[tuple[Region, int, Union[Future, None]]]
+) -> Optional[tuple[Region, int]]:
+    if len(free_fields) == 0:
+        return None
+    field_info = free_fields.popleft()
+    if field_info[2] is not None and not field_info[2].is_ready():
+        field_info[2].wait()
+    return field_info[0], field_info[1]
+
+
 # This class manages the allocation and reuse of fields
 class FieldManager:
     def __init__(
@@ -358,15 +381,15 @@ class FieldManager:
         # This is a sanitized list of (region,field_id) pairs that is
         # guaranteed to be ordered across all the shards even with
         # control replication
-        self.free_fields: Deque[tuple[Region, int]] = deque()
+        self.free_fields: Deque[
+            tuple[Region, int, Union[Future, None]]
+        ] = deque()
 
     def destroy(self) -> None:
         self.free_fields = deque()
 
     def try_reuse_field(self) -> Optional[tuple[Region, int]]:
-        return (
-            self.free_fields.popleft() if len(self.free_fields) > 0 else None
-        )
+        return _try_reuse_field(self.free_fields)
 
     def allocate_field(self) -> tuple[Region, int]:
         if (result := self.try_reuse_field()) is not None:
@@ -383,9 +406,13 @@ class FieldManager:
         return region, field_id
 
     def free_field(
-        self, region: Region, field_id: int, ordered: bool = False
+        self,
+        region: Region,
+        field_id: int,
+        detach_future: Union[Future, None] = None,
+        ordered: bool = False,
     ) -> None:
-        self.free_fields.append((region, field_id))
+        self.free_fields.append((region, field_id, detach_future))
         region_manager = self.runtime.find_region_manager(region)
         if region_manager.decrease_active_field_count():
             self.runtime.free_region_manager(
@@ -428,22 +455,33 @@ class ConsensusMatchingFieldManager(FieldManager):
 
         # First, if we have a free field then we know everyone has one of those
         if len(self.free_fields) > 0:
-            return self.free_fields.popleft()
+            return _try_reuse_field(self.free_fields)
 
         self._field_match_manager.update_free_fields()
 
-        # Check again to see if we have any free fields
-        return (
-            self.free_fields.popleft() if len(self.free_fields) > 0 else None
-        )
+        # If any free fields were discovered on all shards, push their
+        # unordered detachments to the task stream now, so we can safely
+        # block on them later without fear of deadlock.
+        if len(self.free_fields) > 0:
+            self.runtime._progress_unordered_operations()
+
+        return _try_reuse_field(self.free_fields)
 
     def free_field(
-        self, region: Region, field_id: int, ordered: bool = False
+        self,
+        region: Region,
+        field_id: int,
+        detach_future: Union[Future, None] = None,
+        ordered: bool = False,
     ) -> None:
         if ordered:
-            super().free_field(region, field_id, ordered=ordered)
+            super().free_field(
+                region, field_id, detach_future=detach_future, ordered=ordered
+            )
         else:  # Put this on the unordered list
-            self._field_match_manager.add_free_field(self, region, field_id)
+            self._field_match_manager.add_free_field(
+                self, region, field_id, detach_future
+            )
 
 
 class Attachment:
@@ -481,7 +519,7 @@ class AttachmentManager:
             int, Union[Detach, IndexDetach]
         ] = dict()
         self._deferred_detachments: List[
-            tuple[Attachable, Union[Detach, IndexDetach]]
+            tuple[Attachable, Union[Detach, IndexDetach], Union[Field, None]]
         ] = list()
         self._pending_detachments: dict[Future, Attachable] = dict()
         self._destroyed = False
@@ -586,15 +624,17 @@ class AttachmentManager:
         detach: Union[Detach, IndexDetach],
         defer: bool = False,
         previously_deferred: bool = False,
-    ) -> None:
+        dependent_field: Optional[Field] = None,
+    ) -> Union[None, Future]:
         # If the detachment was previously deferred, then we don't
         # need to remove the allocation from the map again.
         if not previously_deferred:
             self._remove_allocation(alloc)
         if defer:
+            assert dependent_field is not None
             # If we need to defer this until later do that now
-            self._deferred_detachments.append((alloc, detach))
-            return
+            self._deferred_detachments.append((alloc, detach, dependent_field))
+            return None
         future = self._runtime.dispatch(detach)
         # Dangle a reference to the field off the future to prevent the
         # field from being recycled until the detach is done
@@ -602,8 +642,9 @@ class AttachmentManager:
         future.field_reference = field  # type: ignore[attr-defined]
         # If the future is already ready, then no need to track it
         if future.is_ready():
-            return
+            return None
         self._pending_detachments[future] = alloc
+        return future
 
     def register_detachment(self, detach: Union[Detach, IndexDetach]) -> int:
         key = self._next_detachment_key
@@ -619,10 +660,12 @@ class AttachmentManager:
     def perform_detachments(self) -> None:
         detachments = self._deferred_detachments
         self._deferred_detachments = list()
-        for alloc, detach in detachments:
-            self.detach_external_allocation(
+        for alloc, detach, field in detachments:
+            detach_future = self.detach_external_allocation(
                 alloc, detach, defer=False, previously_deferred=True
             )
+            if field is not None and detach_future is not None:
+                field.add_detach_future(detach_future)
 
     def prune_detachments(self) -> None:
         to_remove = []
@@ -1414,9 +1457,14 @@ class Runtime:
 
     def get_sharding(self, proj_id: int) -> int:
         proc_range = self.machine.get_processor_range()
-        offset = proc_range.low % proc_range.per_node_count
-        node_range = self.machine.get_node_range()
-        shard_spec = (proj_id, node_range, offset, proc_range.per_node_count)
+        shard_spec = (
+            proj_id,
+            (
+                proc_range.low,
+                proc_range.high,
+            ),
+            proc_range.per_node_count,
+        )
 
         if shard_spec in self._registered_shardings:
             return self._registered_shardings[shard_spec]
@@ -1428,9 +1476,8 @@ class Runtime:
         self.core_library.legate_create_sharding_functor_using_projection(
             shard_id,
             proj_id,
-            node_range[0],
-            node_range[1],
-            offset,
+            proc_range.low,
+            proc_range.high,
             proc_range.per_node_count,
         )
 
@@ -1460,7 +1507,12 @@ class Runtime:
             self.core_library, f"LEGATE_CORE_TRANSFORM_{name.upper()}"
         )
 
-    def create_future(self, data: Any, size: int) -> Future:
+    def create_future(
+        self,
+        data: Any,
+        size: int,
+        shard_local: bool = False,
+    ) -> Future:
         """
         Creates a future from a buffer holding a scalar value. The value is
         copied to the future.
@@ -1479,7 +1531,13 @@ class Runtime:
             A new future
         """
         future = Future()
-        future.set_value(self.legion_runtime, data, size)
+        future.set_value(
+            self.legion_runtime,
+            data,
+            size,
+            provenance=self.provenance,
+            shard_local=shard_local,
+        )
         return future
 
     def create_store(
@@ -1492,6 +1550,9 @@ class Runtime:
     ) -> Store:
         from .store import RegionField, Storage, Store
 
+        if data is not None and not isinstance(data, (RegionField, Future)):
+            raise TypeError(f"Unexpected type for `data`: {type(data)}")
+
         if not isinstance(dtype, ty.Dtype):
             raise ValueError(f"Unsupported type: {dtype}")
 
@@ -1503,11 +1564,11 @@ class Runtime:
         if shape is not None and not isinstance(shape, Shape):
             shape = Shape(shape)
 
-        kind = (
-            Future
-            if optimize_scalar and shape is not None and shape.volume() == 1
-            else RegionField
-        )
+        kind: type = RegionField
+        if data is not None:
+            kind = type(data)
+        elif optimize_scalar and shape is not None and shape.volume() == 1:
+            kind = Future
 
         sanitized_shape: Optional[Shape]
         if kind is RegionField and shape is not None and shape.ndim == 0:
@@ -1795,7 +1856,12 @@ class Runtime:
         return RegionField.create(region, field_id, dtype.size, shape)
 
     def free_field(
-        self, region: Region, field_id: int, field_size: int, shape: Shape
+        self,
+        region: Region,
+        field_id: int,
+        field_size: int,
+        shape: Shape,
+        detach_future: Optional[Future] = None,
     ) -> None:
         # Have a guard here to make sure that we don't try to
         # do this after we have been destroyed
@@ -1806,7 +1872,7 @@ class Runtime:
         if key not in self.field_managers:
             return
 
-        self.field_managers[key].free_field(region, field_id)
+        self.field_managers[key].free_field(region, field_id, detach_future)
 
     def import_output_region(
         self, out_region: OutputRegion, field_id: int, dtype: Any
@@ -1911,6 +1977,7 @@ class Runtime:
         future_map: Union[Future, FutureMap],
         redop: int,
         ordered: bool = True,
+        init_value: Optional[Future] = None,
     ) -> Future:
         if isinstance(future_map, Future):
             return future_map
@@ -1921,6 +1988,7 @@ class Runtime:
                 redop,
                 ordered=ordered,
                 mapper=self.core_context.mapper_id,
+                init_value=init_value,
             )
 
     def reduce_exception_future_map(

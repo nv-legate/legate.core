@@ -261,7 +261,12 @@ class TestStage(Protocol):
             [str(config.legate_path)]
             + stage_args
             + cov_args
-            + [str(test_path)]
+            # If both the python and Realm signal handlers are active, we may
+            # not get good reporting of backtraces on crashes at the C++ level.
+            # We are typically more interested in seeing the backtrace of the
+            # crashing C++ thread, not the python code, so we ask pytest to not
+            # install the python fault handler.
+            + [str(test_path), "-p", "no:faulthandler"]
             + file_args
             + config.extra_args
         )

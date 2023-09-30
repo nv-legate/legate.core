@@ -142,7 +142,19 @@ class TestLauncherEnv:
 
         assert env["PYTHONDONTWRITEBYTECODE"] == "1"
 
-    # TODO: pythonpath
+    def test_pythonpath(
+        self,
+        genconfig: GenConfig,
+        monkeypatch: pytest.MonkeyPatch,
+        launch: LauncherType,
+    ) -> None:
+        monkeypatch.setenv("PYTHONPATH", "/foo/bar")
+        system = System()
+        config = genconfig(["--launcher", launch])
+
+        env = m.Launcher.create(config, system).env
+
+        assert env["PYTHONPATH"].split(os.pathsep)[0] == "/foo/bar"
 
     def test_nccl_launch_mode(
         self, genconfig: GenConfig, launch: LauncherType

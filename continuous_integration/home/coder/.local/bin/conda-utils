@@ -1,8 +1,4 @@
-#!/usr/bin/env bash
-
-yaml_file="";
-
-make_conda_env() {
+make_conda_env_from_yaml() {
     mamba env create -v -n "${DEFAULT_CONDA_ENV:-legate}" -f "${yaml_file}";
 }
 
@@ -16,6 +12,7 @@ generate_yaml_file() {
         python_version="$(python3 --version 2>&1 | cut -d' ' -f2 | cut -d'.' -f3 --complement)";
     fi
 
+    cd ~/;
     yaml_file=~/"$(         \
         ~/legate/scripts/generate-conda-envs.py \
             --os linux                          \
@@ -30,25 +27,29 @@ generate_yaml_file() {
     sed -i -re "s/legate-test/${DEFAULT_CONDA_ENV:-legate}/g" "${yaml_file}";
     echo "  - boa" >> "${yaml_file}";
 
+    mkdir -p /tmp/out/
     cp "${yaml_file}" /tmp/out/
     mkdir -p /tmp/env_yaml
     cp "${yaml_file}" /tmp/env_yaml
 }
 
 find_yaml_file() {
-    pattern="/tmp/env_yaml/*.yaml"
-    files=( $pattern )
-    yaml_file="${files[0]}"
+    pattern="/tmp/env_yaml/*.yaml";
+    files=( $pattern );
+    yaml_file="${files[0]}";
 
     if [ -z "${yaml_file:-}" ] || [ ! -f "$yaml_file" ]; then
-        return 1
+        return 1;
     fi
 
-    return 0
+    return 0;
 }
 
-main() {
+get_yaml_and_make_conda_env() {
     set -e;
+
+    local yaml_file="";
+
     if ! find_yaml_file; then
         generate_yaml_file;
     fi
@@ -56,7 +57,21 @@ main() {
     echo YAML file: ${yaml_file}
     cat "${yaml_file}";
 
-    make_conda_env;
+    make_conda_env_from_yaml;
 }
 
-main "$@";
+install_legate_core_with_war() {
+    # WAR: legate-core depends on a different version of numpy than what is already installed.
+    # The correct version will be installed when legate-core is installed below.
+    # See github issue: https://github.com/nv-legate/legate.core/issues/812
+    mamba uninstall -y -n "${DEFAULT_CONDA_ENV:-legate}" numpy;
+
+    mamba install -y -n "${DEFAULT_CONDA_ENV:-legate}" -c nvidia -c conda-forge -c /tmp/conda-build/legate_core legate-core;
+}
+
+activate_conda_env() {
+    . /opt/conda/etc/profile.d/conda.sh;
+    . /opt/conda/etc/profile.d/mamba.sh;
+
+    conda activate ${DEFAULT_CONDA_ENV:-legate};
+}
