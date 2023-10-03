@@ -100,7 +100,7 @@ class Region:
 
     def same_handle(self, other: Region) -> bool:
         return (
-            type(self) == type(other)
+            isinstance(other, type(self))
             and self.handle.tree_id == other.handle.tree_id
             and self.handle.index_space.id == other.handle.index_space.id
             and self.handle.field_space.id == other.handle.field_space.id

@@ -83,7 +83,9 @@ class Field:
         self.detach_future: Optional[Future] = None
 
     def same_handle(self, other: Field) -> bool:
-        return type(self) == type(other) and self.field_id == other.field_id
+        return (
+            isinstance(other, type(self)) and self.field_id == other.field_id
+        )
 
     def add_detach_future(self, future: Future) -> None:
         self.detach_future = future
@@ -139,7 +141,7 @@ class RegionField:
         return RegionField(region, field, shape)
 
     def same_handle(self, other: RegionField) -> bool:
-        return type(self) == type(other) and self.field.same_handle(
+        return isinstance(other, type(self)) and self.field.same_handle(
             other.field
         )
 

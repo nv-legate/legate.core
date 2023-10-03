@@ -49,7 +49,7 @@ class Future:
     # change during the lifetime of a Future object, and thus so would the
     # object's hash. So we just leave the default `f1 == f2 <==> f1 is f2`.
     def same_handle(self, other: Future) -> bool:
-        return type(self) == type(other) and self.handle == other.handle
+        return isinstance(other, type(self)) and self.handle == other.handle
 
     def __str__(self) -> str:
         if self.handle:
