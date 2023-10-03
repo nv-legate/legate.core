@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import os
 import platform
+from itertools import chain
 
 import pytest
 from pytest_mock import MockerFixture
@@ -105,3 +106,29 @@ class TestSystem:
         msg = "GPU execution is not available on OSX."
         with pytest.raises(RuntimeError, match=msg):
             s.gpus
+
+    def test_expand_range(self) -> None:
+        def convert(line: str) -> tuple[int, ...]:
+            return tuple(
+                sorted(
+                    chain.from_iterable(
+                        m.expand_range(r) for r in line.strip().split(",")
+                    )
+                )
+            )
+
+        old_line: str = "1"
+        new_line: tuple[int, ...] = (1,)
+        assert convert(old_line) == new_line
+
+        old_line = "1,3"
+        new_line = (1, 3)
+        assert convert(old_line) == new_line
+
+        old_line = "1-3"
+        new_line = (1, 2, 3)
+        assert convert(old_line) == new_line
+
+        old_line = "1-3,4,5,8-12,15,20"
+        new_line = (1, 2, 3, 4, 5, 8, 9, 10, 11, 12, 15, 20)
+        assert convert(old_line) == new_line
