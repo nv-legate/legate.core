@@ -84,8 +84,8 @@ class Field:
 
     def same_handle(self, other: Field) -> bool:
         return (
-            isinstance(other, type(self)) and self.field_id == other.field_id
-        )
+            type(self) == type(other) and self.field_id == other.field_id
+        )  # noqa
 
     def add_detach_future(self, future: Future) -> None:
         self.detach_future = future
@@ -141,7 +141,7 @@ class RegionField:
         return RegionField(region, field, shape)
 
     def same_handle(self, other: RegionField) -> bool:
-        return isinstance(other, type(self)) and self.field.same_handle(
+        return type(self) == type(other) and self.field.same_handle(  # noqa
             other.field
         )
 
