@@ -86,6 +86,13 @@ class System:
     def cpus(self) -> tuple[CPUInfo, ...]:
         """A list of CPUs on the system."""
 
+        def expand_range(value: str) -> tuple[int, ...]:
+            if "-" not in value:
+                return tuple((int(value),))
+            start, stop = value.split("-")
+
+            return tuple(x for x in range(int(start), int(stop) + 1))
+
         N = multiprocessing.cpu_count()
 
         if sys.platform == "darwin":
@@ -98,9 +105,11 @@ class System:
                 line = open(
                     f"/sys/devices/system/cpu/cpu{i}/topology/thread_siblings_list"  # noqa E501
                 ).read()
-                sibling_sets.add(
-                    tuple(sorted(int(x) for x in line.strip().split(",")))
-                )
+
+                flattened = []
+                for x in (expand_range(value) for value in line.strip().split(",")):
+                    flattened += [y for y in x]
+                sibling_sets.add(tuple(sorted(flattened)))
             return tuple(
                 CPUInfo(siblings) for siblings in sorted(sibling_sets)
             )
