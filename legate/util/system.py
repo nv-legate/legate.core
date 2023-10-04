@@ -154,8 +154,7 @@ def extract_values(line: str) -> tuple[int, ...]:
     return tuple(
         sorted(
             chain.from_iterable(
-                expand_range(r)
-                for r in line.strip().split(",")
+                expand_range(r) for r in line.strip().split(",")
             )
         )
     )
