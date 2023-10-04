@@ -76,6 +76,10 @@ class CUDAConfig(SectionConfig):
                 "cuda-cudart-dev",
                 "cuda-nvml-dev",
                 "cuda-nvtx-dev",
+                "libcublas-dev",
+                "libcufft-dev",
+                "libcurand-dev",
+                "libcusolver-dev",
             )
 
         if self.compilers:
