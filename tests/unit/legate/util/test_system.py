@@ -165,21 +165,21 @@ class Test_extract_values:
     def test_range(self, val: str, expected: tuple[int, ...]) -> None:
         assert m.extract_values(val) == expected
 
-    testdata_range_ordered = {
+    testdata_range_ordered = [
         ("2-3,0-1", (0, 1, 2, 3)),
         ("0-1,4-5,2-3", (0, 1, 2, 3, 4, 5)),
-    }
+    ]
 
     @pytest.mark.parametrize("val,expected", testdata_range_ordered)
     def test_range_ordered(self, val: str, expected: tuple[int, ...]) -> None:
         assert m.extract_values(val) == expected
 
-    testdata_mixed = {
+    testdata_mixed = [
         ("0,1-2", (0, 1, 2)),
         ("1-2,0", (0, 1, 2)),
         ("0,1-2,3,4-5,6", (0, 1, 2, 3, 4, 5, 6)),
         ("5-6,4,1-3,0", (0, 1, 2, 3, 4, 5, 6)),
-    }
+    ]
 
     @pytest.mark.parametrize("val,expected", testdata_mixed)
     def test_mixed(self, val: str, expected: tuple[int, ...]) -> None:
