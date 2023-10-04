@@ -99,16 +99,7 @@ class System:
                 line = open(
                     f"/sys/devices/system/cpu/cpu{i}/topology/thread_siblings_list"  # noqa E501
                 ).read()
-                sibling_sets.add(
-                    tuple(
-                        sorted(
-                            chain.from_iterable(
-                                expand_range(r)
-                                for r in line.strip().split(",")
-                            )
-                        )
-                    )
-                )
+                sibling_sets.add(extract_values(line.strip()))
             return tuple(
                 CPUInfo(siblings) for siblings in sorted(sibling_sets)
             )
@@ -150,8 +141,21 @@ class System:
 
 
 def expand_range(value: str) -> tuple[int, ...]:
+    if value == "":
+        return tuple()
     if "-" not in value:
         return tuple((int(value),))
     start, stop = value.split("-")
 
     return tuple(range(int(start), int(stop) + 1))
+
+
+def extract_values(line: str) -> tuple[int, ...]:
+    return tuple(
+        sorted(
+            chain.from_iterable(
+                expand_range(r)
+                for r in line.strip().split(",")
+            )
+        )
+    )

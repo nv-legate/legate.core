@@ -107,28 +107,72 @@ class TestSystem:
         with pytest.raises(RuntimeError, match=msg):
             s.gpus
 
-    def test_expand_range(self) -> None:
-        def convert(line: str) -> tuple[int, ...]:
-            return tuple(
-                sorted(
-                    chain.from_iterable(
-                        m.expand_range(r) for r in line.strip().split(",")
-                    )
-                )
-            )
+class Test_expand_range:
 
-        old_line: str = "1"
-        new_line: tuple[int, ...] = (1,)
-        assert convert(old_line) == new_line
+    def test_errors(self) -> None:
+        msg = ""
+        with pytest.raises(ValueError):
+            m.expand_range("foo")
 
-        old_line = "1,3"
-        new_line = (1, 3)
-        assert convert(old_line) == new_line
+    def test_empty(self) -> None:
+        assert m.expand_range("") == ()
 
-        old_line = "1-3"
-        new_line = (1, 2, 3)
-        assert convert(old_line) == new_line
+    @pytest.mark.parametrize("val", ("0", "1", "12", "100"))
+    def test_single_number(self, val) -> None:
+        assert m.expand_range(val) == (int(val),)
 
-        old_line = "1-3,4,5,8-12,15,20"
-        new_line = (1, 2, 3, 4, 5, 8, 9, 10, 11, 12, 15, 20)
-        assert convert(old_line) == new_line
+    @pytest.mark.parametrize("val", ("0-10", "1-2", "12-25"))
+    def test_range(self, val) -> None:
+        start, stop = val.split('-')
+        assert m.expand_range(val) == tuple(range(int(start), int(stop) + 1))
+
+
+class Test_extract_values:
+
+    def test_errors(self) -> None:
+        msg = ""
+        with pytest.raises(ValueError):
+            m.extract_values("foo")
+
+    def test_empty(self) -> None:
+        assert m.extract_values("") == ()
+
+    @pytest.mark.parametrize("val", ("0", "1,2", "3,5,7"))
+    def test_individual(self, val) -> None:
+        expected = {"0": (0,),
+                    "1,2": (1, 2),
+                    "3,5,7": (3, 5, 7),
+                    }
+        assert m.extract_values(val) == expected[val]
+
+    @pytest.mark.parametrize("val", ("2,1", "8,5,3,2", "1,3,2,5,4,7,6"))
+    def test_individual_ordered(self, val) -> None:
+        expected = {"2,1": (1, 2),
+                    "8,5,3,2": (2, 3, 5, 8),
+                    "1,3,2,5,4,7,6": (1, 2, 3, 4, 5, 6, 7),
+                    }
+        assert m.extract_values(val) == expected[val]
+
+    @pytest.mark.parametrize("val", ("0-2", "0-2,4-5", "0-1,3-5,8-11"))
+    def test_range(self, val) -> None:
+        expected = {"0-2": (0, 1, 2),
+                    "0-2,4-5": (0, 1, 2, 4, 5),
+                    "0-1,3-5,8-11": (0, 1, 3, 4, 5, 8, 9, 10 ,11),
+                    }
+        assert m.extract_values(val) == expected[val]
+
+    @pytest.mark.parametrize("val", ("2-3,0-1", "0-1,4-5,2-3"))
+    def test_range_ordered(self, val) -> None:
+        expected = {"2-3,0-1": (0, 1, 2, 3),
+                    "0-1,4-5,2-3": (0, 1, 2, 3, 4, 5),
+                    }
+        assert m.extract_values(val) == expected[val]
+
+    @pytest.mark.parametrize("val", ("0,1-2", "1-2,0", "0,1-2,3,4-5,6", "5-6,4,1-3,0"))
+    def test_mixed(self, val) -> None:
+        expected = {"0,1-2": (0, 1, 2),
+                    "1-2,0": (0, 1, 2),
+                    "0,1-2,3,4-5,6": (0, 1, 2, 3, 4, 5, 6),
+                    "5-6,4,1-3,0": (0, 1, 2, 3, 4, 5, 6),
+                    }
+        assert m.extract_values(val) == expected[val]
