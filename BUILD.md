@@ -131,15 +131,15 @@ tested, but Legate should be compatible with them. We will not actively work to
 fix any incompatibilities discovered under these versions, but we accept
 contributions that fix such incompatibilities.
 
-| Dependency       | Full support                        | Best-effort support                    |
-| ---------------- | ----------------------------------- | -------------------------------------- |
-| CPU architecture | x86-64 (Haswell+), aarch64          | ppc64le, x86-64 (other), Apple Silicon |
-| OS               | Linux (RHEL, Ubuntu), MacOS         | Linux (other)                          |
-| C++ compiler     | gcc 8, clang 7, nvc++ 19.1          | any compiler with C++17 support        |
-| GPU architecture | Volta                               | Pascal                                 |
-| CUDA toolkit     | 11.4                                | 10.X                                   |
-| Python           | 3.9                                 |                                        |
-| NumPy            | 1.22                                |                                        |
+| Dependency       | Full support                    | Best-effort support                  |
+| ---------------- | ------------------------------- | ------------------------------------ |
+| CPU architecture | x86-64 (Haswell+), aarch64      | ppc64le, older x86-64, Apple Silicon |
+| OS               | RHEL 8, Ubuntu 20.04, MacOS 12  | other Linux                          |
+| C++ compiler     | gcc 8, clang 7, nvc++ 19.1      | any compiler with C++17 support      |
+| GPU architecture | Volta                           | Pascal                               |
+| CUDA toolkit     | 11.4                            | 10.X                                 |
+| Python           | 3.9                             |                                      |
+| NumPy            | 1.22                            |                                      |
 
 ## Dependency listing
 
