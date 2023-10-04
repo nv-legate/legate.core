@@ -120,6 +120,10 @@ To see all available configuration options, run with the `--help` flag:
 
 ## Dependency listing
 
+In this section we list our major dependencies. Please consult an environment
+file created by `generate-conda-envs.py` for a full listing of dependencies,
+e.g. building and testing tools.
+
 ### Operating system
 
 Legate has been tested on Linux and MacOS, although only a few flavors of Linux
@@ -129,7 +133,7 @@ Windows.
 Specify your OS when creating a conda environment file through the `--os` flag
 of `generate-conda-envs.py`.
 
-### Python >= 3.9
+### Python
 
 In terms of Python compatibility, Legate *roughly* follows the timeline outlined
 in [NEP 29](https://numpy.org/neps/nep-0029-deprecation_policy.html).
@@ -137,9 +141,7 @@ in [NEP 29](https://numpy.org/neps/nep-0029-deprecation_policy.html).
 Specify your desired Python version when creating a conda environment file
 through the `--python` flag of `generate-conda-envs.py`.
 
-### C++17 compatible compiler
-
-For example: g++, clang, or nvc++.
+### C++ compiler
 
 If you want to pull the compilers from conda, use an environment file created by
 `generate-conda-envs.py` using the `--compilers` flag. An appropriate compiler
@@ -153,7 +155,7 @@ since the system compilers will typically produce executables
 that link against the system-provided libraries, which can shadow the
 conda-provided equivalents.
 
-### CUDA >= 10.2 (optional)
+### CUDA (optional)
 
 Only necessary if you wish to run with Nvidia GPUs.
 
@@ -174,7 +176,7 @@ architectures. You can use Legate with Pascal GPUs as well, but there could
 be issues due to lack of independent thread scheduling. Please report any such
 issues on GitHub.
 
-### CUDA Libraries (optional)
+### CUDA libraries (optional)
 
 Only necessary if you wish to run with Nvidia GPUs.
 
@@ -191,23 +193,14 @@ them from the environment file (or invoke `generate-conda-envs.py` with `--ctk
 none`, which will skip them all), and pass the corresponding `--with-<dep>` flag
 to `install.py` (or let the build process attempt to locate them automatically).
 
-### Build tools
-
-The following tools are used for building Legate, and are automatically included
-in the environment file:
-
-- `cmake`
-- `git`
-- `make`
-- `ninja` (this is optional, but produces more informative build output)
-- `rust`
-- `scikit-build`
-
 ### OpenBLAS
+
+Used by cuNumeric for implementing linear algebra routines on CPUs.
 
 This library is automatically pulled from conda. If you wish to provide an
 alternative installation, then you can manually remove `openblas` from the
-generated environment file and pass `--with-openblas` to `install.py`.
+generated environment file and pass `--with-openblas` to cuNumeric's
+`install.py`.
 
 Note that if you want to build OpenBLAS from source you will need to get a
 Fortran compiler, e.g. by pulling `fortran-compiler` from conda-forge.
@@ -223,6 +216,14 @@ OpenBLAS configured with the following options:
   separate OpenMP group per NUMA domain, and each group can launch independent
   BLAS work. If `NUM_PARALLEL` is not high enough, some of this parallel work
   will be serialized.
+
+### TBLIS
+
+Used by cuNumeric for implementing tensor contraction routines on CPUs.
+
+This library will be automatically downloaded and built during cuNumeric
+installation. If you wish to provide an alternative installation, pass
+`--with-tblis` to cuNumeric's `install.py`.
 
 ### Numactl (optional)
 
@@ -251,6 +252,15 @@ networking hardware.
 
 Not available on conda; typically available through MOFED or the system-level
 package manager.
+
+### GASNet
+
+Only necessary if you wish to run on multiple nodes, using the GASNet1 or
+GASNetEx Realm networking backend.
+
+This library will be automatically downloaded and built during Legate
+installation. If you wish to provide an alternative installation, pass
+`--with-gasnet` to `install.py`.
 
 ### UCX >= 1.14
 
