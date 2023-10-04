@@ -118,6 +118,18 @@ To see all available configuration options, run with the `--help` flag:
 
 # Advanced topics
 
+## Support matrix
+
+| Component        | Full support                        | Best-effort support                |
+| ---------------- | ----------------------------------- | ---------------------------------- |
+| CPU architecture | x86-64 (Haswell+), aarch64          | ppc64le, any x86-64, Apple Silicon |
+| OS               | Linux (RHEL, Ubuntu), MacOS (Intel) | any Linux, MacOS (Apple Silicon)   |
+| C++ compiler     | gcc 8, clang 7, nvc++ 19.1          | any compiler with C++17 support    |
+| GPU architecture | Volta+                              | Pascal                             |
+| CUDA toolkit     | 11.X+                               | 10.X                               |
+| Python           | 3.9+                                |                                    |
+| NumPy            | 1.22+                               |                                    |
+
 ## Dependency listing
 
 In this section we list our major dependencies. Please consult an environment
@@ -245,13 +257,17 @@ file generated with `--no-openmpi`.
 
 Legate requires a build of MPI that supports `MPI_THREAD_MULTIPLE`.
 
-### Infiniband/RoCE networking libraries (optional)
+### RDMA/networking libraries (e.g. Infiniband, RoCE, Slingshot)  (optional)
 
 Only necessary if you wish to run on multiple nodes, using the corresponding
 networking hardware.
 
 Not available on conda; typically available through MOFED or the system-level
 package manager.
+
+Depending on your hardware, you may need to use a particular Realm
+networking backend, e.g. as of October 2023 HPE Slingshot is only
+compatible with GASNet
 
 ### GASNet
 
