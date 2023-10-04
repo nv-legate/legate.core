@@ -120,21 +120,32 @@ To see all available configuration options, run with the `--help` flag:
 
 ## Support matrix
 
-| Component        | Full support                        | Best-effort support                |
-| ---------------- | ----------------------------------- | ---------------------------------- |
-| CPU architecture | x86-64 (Haswell+), aarch64          | ppc64le, any x86-64, Apple Silicon |
-| OS               | Linux (RHEL, Ubuntu), MacOS (Intel) | any Linux, MacOS (Apple Silicon)   |
-| C++ compiler     | gcc 8, clang 7, nvc++ 19.1          | any compiler with C++17 support    |
-| GPU architecture | Volta+                              | Pascal                             |
-| CUDA toolkit     | 11.X+                               | 10.X                               |
-| Python           | 3.9+                                |                                    |
-| NumPy            | 1.22+                               |                                    |
+The following table lists Legate's minimum supported versions of major dependencies.
+
+"Full support" means that the corresponding versions (and all later ones) are
+being tested with some regularity, and are expected to work. Please report any
+incompatibility you find against a fully-supported version by opening a bug.
+
+"Best-effor support" means that the corresponding versions are not actively
+tested, but Legate should be compatible with them. We will not actively work to
+fix any incompatibilities discovered under these versions, but we accept
+contributions that fix such incompatibilities.
+
+| Dependency       | Full support                        | Best-effort support                    |
+| ---------------- | ----------------------------------- | -------------------------------------- |
+| CPU architecture | x86-64 (Haswell+), aarch64          | ppc64le, x86-64 (other), Apple Silicon |
+| OS               | Linux (RHEL, Ubuntu), MacOS         | Linux (other)                          |
+| C++ compiler     | gcc 8, clang 7, nvc++ 19.1          | any compiler with C++17 support        |
+| GPU architecture | Volta                               | Pascal                                 |
+| CUDA toolkit     | 11.4                                | 10.X                                   |
+| Python           | 3.9                                 |                                        |
+| NumPy            | 1.22                                |                                        |
 
 ## Dependency listing
 
-In this section we list our major dependencies. Please consult an environment
-file created by `generate-conda-envs.py` for a full listing of dependencies,
-e.g. building and testing tools.
+In this section we comment further on our major dependencies. Please consult an
+environment file created by `generate-conda-envs.py` for a full listing of
+dependencies, e.g. building and testing tools.
 
 ### Operating system
 
