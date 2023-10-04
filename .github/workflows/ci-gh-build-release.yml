@@ -17,7 +17,7 @@ jobs:
       ./.github/workflows/gh-build.yml
     with:
       build-target: all
-      # Ref: https://docs.rapids.ai/resources/github-actions/#cpu-labels for `linux-amd64-cpu4`
+      repos-name: ${{ github.event.repository.name }}
       runs-on: ${{ github.repository_owner == 'nv-legate' && 'linux-amd64-32cpu' || 'ubuntu-latest' }}
       sha: ${{ github.sha }}
       build-type: release
