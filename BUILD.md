@@ -178,8 +178,9 @@ issues on GitHub.
 
 Only necessary if you wish to run with Nvidia GPUs.
 
-The following additional CUDA libraries are required (unless noted otherwise,
-these are included in the conda environment file):
+The following additional CUDA libraries are required, for use by legate.core or
+downstream libraries. Unless noted otherwise, these are included in the conda
+environment file.
 
 - `cublas`
 - `cufft`
