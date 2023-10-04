@@ -178,12 +178,18 @@ issues on GitHub.
 
 Only necessary if you wish to run with Nvidia GPUs.
 
-The following additional CUDA libraries are required:
+The following additional CUDA libraries are required (unless noted otherwise,
+these are included in the conda environment file):
 
-- `curand` (only necessary to provide this if building without CUDA support;
-  CUDA-enabled installations will use the version bundled with CUDA)
-- `cutensor` >= 1.3.3 (included in conda environment file)
-- `nccl` (included in conda environment file)
+- `cublas`
+- `cufft`
+- `curand` (can optionally be used for its host fallback implementations even
+  when building without CUDA support)
+- `cusolver`
+- `cutensor` >= 1.3.3
+- `nccl`
+- `nvml`
+- `nvtx`
 - `thrust` >= 1.15 (pulled from github)
 
 If you wish to provide alternative installations for these, then you can remove
