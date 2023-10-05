@@ -126,7 +126,7 @@ The following table lists Legate's minimum supported versions of major dependenc
 being tested with some regularity, and are expected to work. Please report any
 incompatibility you find against a fully-supported version by opening a bug.
 
-"Best-effor support" means that the corresponding versions are not actively
+"Best-effort support" means that the corresponding versions are not actively
 tested, but Legate should be compatible with them. We will not actively work to
 fix any incompatibilities discovered under these versions, but we accept
 contributions that fix such incompatibilities.
