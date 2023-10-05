@@ -104,7 +104,6 @@ requirements:
     - cython
     - llvm-openmp
     - scikit-build
-    - numpy {{ numpy_version }}
     - elfutils # [linux]
     - libdwarf # [linux]
 {% if gpu_enabled_bool %}
