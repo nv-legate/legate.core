@@ -43,7 +43,9 @@ numpy:
   - 1.22
 python:
   - "${python_version}"
-numpy_version:
+numpy_build_version:
+  - "=1.22"
+numpy_run_version:
   - ">=1.22"
 use_local_path:
   - "true"
