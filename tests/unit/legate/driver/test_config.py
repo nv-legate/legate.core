@@ -27,7 +27,7 @@ from legate.util import colors
 from legate.util.colors import scrub
 from legate.util.types import DataclassMixin
 
-from ...util import Capsys, powerset, powerset_nonempty
+from ...util import Capsys, powerset
 
 DEFAULTS_ENV_VARS = (
     "LEGATE_EAGER_ALLOC_PERCENTAGE",
@@ -237,10 +237,7 @@ class TestDebugging:
             "valgrind",
             "freeze_on_error",
             "gasnet_trace",
-            "dataflow",
-            "event",
-            "collective",
-            "spy_assert_warning",
+            "spy",
         }
 
     def test_mixin(self) -> None:
@@ -337,10 +334,7 @@ class TestConfig:
             valgrind=False,
             freeze_on_error=False,
             gasnet_trace=False,
-            dataflow=False,
-            event=False,
-            collective=False,
-            spy_assert_warning=False,
+            spy=False,
         )
 
         assert c.info == m.Info(
@@ -418,16 +412,9 @@ class TestConfig:
             == "WARNING: Disabling control replication for interactive run"
         )
 
-    @pytest.mark.parametrize(
-        "args", powerset_nonempty(("--event", "--dataflow"))
-    )
-    def test_log_to_file_fixup(
-        self, capsys: Capsys, args: tuple[str, ...]
-    ) -> None:
+    def test_log_to_file_fixup(self, capsys: Capsys) -> None:
         # add --no-replicate to suppress unrelated stdout warning
-        c = m.Config(
-            ["legate", "--no-replicate", "--logging", "foo"] + list(args)
-        )
+        c = m.Config(["legate", "--no-replicate", "--logging", "foo", "--spy"])
 
         assert c.logging.log_to_file
 
@@ -447,7 +434,7 @@ class TestConfig:
             (
                 "--no-replicate",
                 "--rlwrap",
-                "--dataflow",
+                "--spy",
                 "--progress",
                 "--gdb",
                 "--profile",

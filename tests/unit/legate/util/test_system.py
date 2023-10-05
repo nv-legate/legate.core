@@ -105,3 +105,82 @@ class TestSystem:
         msg = "GPU execution is not available on OSX."
         with pytest.raises(RuntimeError, match=msg):
             s.gpus
+
+
+class Test_expand_range:
+    def test_errors(self) -> None:
+        with pytest.raises(ValueError):
+            m.expand_range("foo")
+
+    def test_empty(self) -> None:
+        assert m.expand_range("") == ()
+
+    @pytest.mark.parametrize("val", ("0", "1", "12", "100"))
+    def test_single_number(self, val: str) -> None:
+        assert m.expand_range(val) == (int(val),)
+
+    @pytest.mark.parametrize("val", ("0-10", "1-2", "12-25"))
+    def test_range(self, val: str) -> None:
+        start, stop = val.split("-")
+        assert m.expand_range(val) == tuple(range(int(start), int(stop) + 1))
+
+
+class Test_extract_values:
+    def test_errors(self) -> None:
+        with pytest.raises(ValueError):
+            m.extract_values("foo")
+
+    def test_empty(self) -> None:
+        assert m.extract_values("") == ()
+
+    testdata_individual = [
+        ("0", (0,)),
+        ("1,2", (1, 2)),
+        ("3,5,7", (3, 5, 7)),
+    ]
+
+    @pytest.mark.parametrize("val,expected", testdata_individual)
+    def test_individual(self, val: str, expected: tuple[int, ...]) -> None:
+        assert m.extract_values(val) == expected
+
+    testdata_individual_ordered = [
+        ("2,1", (1, 2)),
+        ("8,5,3,2", (2, 3, 5, 8)),
+        ("1,3,2,5,4,7,6", (1, 2, 3, 4, 5, 6, 7)),
+    ]
+
+    @pytest.mark.parametrize("val,expected", testdata_individual_ordered)
+    def test_individual_ordered(
+        self, val: str, expected: tuple[int, ...]
+    ) -> None:
+        assert m.extract_values(val) == expected
+
+    testdata_range = [
+        ("0-2", (0, 1, 2)),
+        ("0-2,4-5", (0, 1, 2, 4, 5)),
+        ("0-1,3-5,8-11", (0, 1, 3, 4, 5, 8, 9, 10, 11)),
+    ]
+
+    @pytest.mark.parametrize("val,expected", testdata_range)
+    def test_range(self, val: str, expected: tuple[int, ...]) -> None:
+        assert m.extract_values(val) == expected
+
+    testdata_range_ordered = [
+        ("2-3,0-1", (0, 1, 2, 3)),
+        ("0-1,4-5,2-3", (0, 1, 2, 3, 4, 5)),
+    ]
+
+    @pytest.mark.parametrize("val,expected", testdata_range_ordered)
+    def test_range_ordered(self, val: str, expected: tuple[int, ...]) -> None:
+        assert m.extract_values(val) == expected
+
+    testdata_mixed = [
+        ("0,1-2", (0, 1, 2)),
+        ("1-2,0", (0, 1, 2)),
+        ("0,1-2,3,4-5,6", (0, 1, 2, 3, 4, 5, 6)),
+        ("5-6,4,1-3,0", (0, 1, 2, 3, 4, 5, 6)),
+    ]
+
+    @pytest.mark.parametrize("val,expected", testdata_mixed)
+    def test_mixed(self, val: str, expected: tuple[int, ...]) -> None:
+        assert m.extract_values(val) == expected

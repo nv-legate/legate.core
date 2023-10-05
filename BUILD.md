@@ -33,8 +33,8 @@ environment file listing all the packages that are required to build, run and
 test Legate Core and all downstream libraries. For example:
 
 ```shell
-$ ./scripts/generate-conda-envs.py --python 3.10 --ctk 11.8 --os linux --compilers --openmpi
---- generating: environment-test-linux-py310-cuda-11.8-compilers-openmpi.yaml
+$ ./scripts/generate-conda-envs.py --python 3.10 --ctk 12.0 --os linux --compilers --openmpi
+--- generating: environment-test-linux-py310-cuda-12.0-compilers-openmpi.yaml
 ```
 
 Run this script with `-h` to see all available configuration options for the
@@ -178,12 +178,19 @@ issues on GitHub.
 
 Only necessary if you wish to run with Nvidia GPUs.
 
-The following additional CUDA libraries are required:
+The following additional CUDA libraries are required, for use by legate.core or
+downstream libraries. Unless noted otherwise, these are included in the conda
+environment file.
 
-- `curand` (only necessary to provide this if building without CUDA support;
-  CUDA-enabled installations will use the version bundled with CUDA)
-- `cutensor` >= 1.3.3 (included in conda environment file)
-- `nccl` (included in conda environment file)
+- `cublas`
+- `cufft`
+- `curand` (can optionally be used for its host fallback implementations even
+  when building without CUDA support)
+- `cusolver`
+- `cutensor` >= 1.3.3
+- `nccl`
+- `nvml`
+- `nvtx`
 - `thrust` >= 1.15 (pulled from github)
 
 If you wish to provide alternative installations for these, then you can remove
