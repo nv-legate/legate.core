@@ -99,8 +99,8 @@ class Region:
             self.destroy(unordered=True)
 
     def same_handle(self, other: Region) -> bool:
-        return (
-            type(self) == type(other)  # noqa
+        return (  # noqa
+            type(self) == type(other)
             and self.handle.tree_id == other.handle.tree_id
             and self.handle.index_space.id == other.handle.index_space.id
             and self.handle.field_space.id == other.handle.field_space.id
