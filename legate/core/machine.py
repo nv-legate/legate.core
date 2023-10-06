@@ -75,12 +75,41 @@ class ProcessorRange:
 
     @property
     def empty(self) -> bool:
+        """
+        Indiciates if the processor range is empty
+
+        Returns
+        -------
+        bool
+            ``True`` if the machine is empty, ``False`` otherwise.
+        """
         return self.high <= self.low
 
     def __len__(self) -> int:
+        """
+        Returns the number of processors in the range
+
+        Returns
+        -------
+        int
+            Processor count
+        """
         return self.high - self.low
 
     def __and__(self, other: ProcessorRange) -> ProcessorRange:
+        """
+        Computes an intersection with a given processor range
+
+        Parameters
+        ----------
+        other : ProcessorRange
+            A processor range to intersect with
+
+        Returns
+        -------
+        ProcessorRange
+            Intersection result
+        """
         if self.kind != other.kind:
             raise ValueError(
                 "Intersection between different processor kinds: "
@@ -95,6 +124,19 @@ class ProcessorRange:
         )
 
     def slice(self, sl: slice) -> ProcessorRange:
+        """
+        Slices the processor range by a given ``slice``
+
+        Parameters
+        ----------
+        sl : slice
+            A ``slice`` to slice this processor range by
+
+        Returns
+        -------
+        ProcessorRange
+            Processor range after slicing
+        """
         if sl.step is not None and sl.step != 1:
             raise ValueError("The slicing step must be 1 or None")
         sz = len(self)
@@ -119,6 +161,21 @@ class ProcessorRange:
         )
 
     def __getitem__(self, key: PROC_RANGE_KEY) -> ProcessorRange:
+        """
+        Slices the processor range with a given slicer
+
+        Parameters
+        ----------
+        key : slice, int
+            Key to slice the processor range by. If the ``key`` is an ``int``,
+            it is treated like a singleton slice (i.e., ```slice(key, key +
+            1)```)
+
+        Returns
+        -------
+        ProcessorRange
+            Processor range after slicing
+        """
         if isinstance(key, int):
             return self.slice(slice(key, key + 1))
         elif isinstance(key, slice):
@@ -127,6 +184,14 @@ class ProcessorRange:
         raise KeyError(f"Invalid slicing key: {key}")
 
     def get_node_range(self) -> tuple[int, int]:
+        """
+        Returns the range of node IDs for this processor range
+
+        Returns
+        -------
+        tuple[int, int]
+            Half-open interval of node IDs
+        """
         if self.empty:
             raise ValueError(
                 "Illegal to get a node range of an empty processor range"
@@ -158,6 +223,14 @@ class Machine:
         )
 
     def __len__(self) -> int:
+        """
+        Returns the number of processors of the preferred kind
+
+        Returns
+        -------
+        int
+            Processor count
+        """
         return len(self._get_range(self._preferred_kind))
 
     def __eq__(self, other: object) -> bool:
@@ -170,15 +243,44 @@ class Machine:
 
     @property
     def preferred_kind(self) -> ProcessorKind:
+        """
+        Returns the preferred kind of processors
+
+        Returns
+        -------
+        ProcessorKind
+            Processor kind
+        """
         return self._preferred_kind
 
     @property
     def kinds(self) -> tuple[ProcessorKind, ...]:
+        """
+        Returns the kinds of processors available in this machine
+
+        Returns
+        -------
+        tuple[ProcessorKind]
+            Processor kinds
+        """
         return self._non_empty_kinds
 
     def get_processor_range(
         self, kind: Optional[ProcessorKind] = None
     ) -> ProcessorRange:
+        """
+        Returns the processor range of a given kind.
+
+        Parameters
+        ----------
+        kind : ProcessorKind, optional
+            Kind of processor to query. If None, the preferred kind is used.
+
+        Returns
+        -------
+        ProcessorRange
+            Processor range of the chosen kind
+        """
         if kind is None:
             kind = self._preferred_kind
         return self._get_range(kind)
@@ -186,6 +288,21 @@ class Machine:
     def get_node_range(
         self, kind: Optional[ProcessorKind] = None
     ) -> tuple[int, int]:
+        """
+        Returns the node range for processor of a given kind.
+
+        If no kind is given, the preferred kind is used.
+
+        Parameters
+        ----------
+        kind : ProcessorKind, optional
+            Processor kind to query
+
+        Returns
+        -------
+        tuple[int, int]
+            Node range for the chosen processor kind
+        """
         return self.get_processor_range(kind).get_node_range()
 
     def _get_range(self, kind: ProcessorKind) -> ProcessorRange:
@@ -194,9 +311,35 @@ class Machine:
         return self._proc_ranges[kind]
 
     def only(self, *kinds: ProcessorKind) -> Machine:
+        """
+        Returns a machine that contains only the processors of given kinds
+
+        Parameters
+        ----------
+        kinds : ProcessorKinds
+            Kinds of processors to leave in the returned machine
+
+        Returns
+        -------
+        Machine
+            A new machine only with the chosen processors
+        """
         return Machine([self._get_range(kind) for kind in kinds])
 
     def count(self, kind: ProcessorKind) -> int:
+        """
+        Returns the number of processors of a given kind
+
+        Parameters
+        ----------
+        kind : ProcessorKind
+            Kind of processor to query.
+
+        Returns
+        -------
+        int
+            Processor count
+        """
         return len(self._get_range(kind))
 
     def filter_ranges(
@@ -213,6 +356,31 @@ class Machine:
             return self.only(*valid_kinds)
 
     def __getitem__(self, key: MACHINE_KEY) -> Machine:
+        """
+        Slices the machine with a given slicer
+
+        Parameters
+        ----------
+        key : ProcessorKind, slice, int, tuple[ProcessorKind, slice]
+            Key to slice the machine by
+
+            If the ``key`` is a ``ProcessorKind``, a machine with only the
+            processors of the chosen kind is returned.
+
+            If the ``key`` is a ``slice``, the returned machine only has a
+            processor range for the preferred kind, which is sliced by the
+            ``key``. An integer ``key`` is treated like a singleton slice
+            (i.e., ``slice(key, key + 1)``).
+
+            If the `key` is a pair of a processor kind and a slice, the
+            returned machine only has a processor range of the chosen kind,
+            which is sliced by the ``key``.
+
+        Returns
+        -------
+        Machine
+            A new machine after slicing
+        """
         if isinstance(key, ProcessorKind):
             return self.only(key)
         elif isinstance(key, (slice, int)):
@@ -260,6 +428,19 @@ class Machine:
         return result
 
     def __and__(self, other: Machine) -> Machine:
+        """
+        Computes an intersection with a given machine
+
+        Parameters
+        ----------
+        other : Machine
+            A machine to intersect with
+
+        Returns
+        -------
+        Machine
+            Intersection result
+        """
         if self is other:
             return self
         result = [
@@ -271,6 +452,17 @@ class Machine:
 
     @property
     def empty(self) -> bool:
+        """
+        Indiciates if the machine is empty
+
+        An empty machine is a machine with all its processor ranges being
+        empty.
+
+        Returns
+        -------
+        bool
+            ``True`` if the machine is empty, ``False`` otherwise.
+        """
         return all(r.empty for r in self._proc_ranges.values())
 
     def __repr__(self) -> str:
