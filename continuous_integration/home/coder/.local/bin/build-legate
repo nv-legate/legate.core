@@ -11,10 +11,8 @@ build_legate_release() {
     . conda-utils
     activate_conda_env
     mkdir -p /tmp/env_yaml /tmp/conda-build
-    conda env export > /tmp/env_yaml/pre_build.yml
     cd legate
     conda mambabuild --output-folder /tmp/conda-build -c nvidia -c conda-forge --no-include-recipe conda/conda-build
-    conda env export > /tmp/env_yaml/post_build.yml
 }
 
 build_legate() {
