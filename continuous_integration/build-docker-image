@@ -4,7 +4,12 @@ set -xuo pipefail
 
 #Set the options of the getopt command
 # NOTE: local-build is optional
-format=$(getopt -n "$0" -l "base-image:,image-tag:,source-dir:,build-type:,local-build:" -- -- "$@")
+format=$(getopt -n "$0" -l "base-image:,image-tag:,source-dir:,build-type:,local-build" -- -- "$@")
+if [ $? != 0 ]; then
+    echo "Getopt failed"
+    exit 1
+fi
+
 if [ $# -lt 5 ]; then
    echo "Wrong number of arguments passed."
    exit
@@ -20,7 +25,8 @@ do
           --source-dir) SOURCE_DIR="$2"; shift;;
           --build-type) BUILD_TYPE="$2"; shift;;
           --local-build) LOCAL_BUILD="1";;
-          --) shift;;
+          --) shift; break;;
+          *) echo "Invalid option: $1"; exit 1;;
      esac
      shift;
 done
@@ -32,7 +38,7 @@ mkdir -p "$SOURCE_DIR/.creds"
 
 export DOCKER_BUILDKIT=1
 
-if [ -z ${LOCAL_BUILD+x} ]; then
+if [[ -z "${LOCAL_BUILD+x}" ]]; then
      docker build \
           --build-arg BASE_IMAGE="$BASE_IMAGE" \
           --build-arg AWS_REGION="$AWS_REGION" \
