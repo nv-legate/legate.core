@@ -248,6 +248,15 @@ This library will be automatically downloaded and built during cuNumeric
 installation. If you wish to provide an alternative installation, pass
 `--with-tblis` to cuNumeric's `install.py`.
 
+cuNumeric requires a build of TBLIS configured as follows:
+
+```
+--with-label-type=int32_t --with-length-type=int64_t --with-stride-type=int64_t
+```
+
+and additionally `--enable-thread-model=openmp` if cuNumeric is compiled
+with OpenMP support.
+
 ### Numactl (optional)
 
 Required to support CPU and memory binding in the Legate launcher.
@@ -278,7 +287,7 @@ package manager.
 
 Depending on your hardware, you may need to use a particular Realm
 networking backend, e.g. as of October 2023 HPE Slingshot is only
-compatible with GASNet
+compatible with GASNet.
 
 ### GASNet
 
