@@ -3,7 +3,8 @@
 set -xuo pipefail
 
 #Set the options of the getopt command
-format=$(getopt -n "$0" -l "base-image:,image-tag:,source-dir:,build-type:" -- -- "$@")
+# NOTE: local-build is optional
+format=$(getopt -n "$0" -l "base-image:,image-tag:,source-dir:,build-type:,local-build:" -- -- "$@")
 if [ $# -lt 5 ]; then
    echo "Wrong number of arguments passed."
    exit
@@ -18,6 +19,7 @@ do
           --image-tag) IMAGE_TAG="$2"; shift;;
           --source-dir) SOURCE_DIR="$2"; shift;;
           --build-type) BUILD_TYPE="$2"; shift;;
+          --local-build) LOCAL_BUILD="1";;
           --) shift;;
      esac
      shift;
@@ -30,15 +32,25 @@ mkdir -p "$SOURCE_DIR/.creds"
 
 export DOCKER_BUILDKIT=1
 
-docker build \
-     --build-arg BASE_IMAGE="$BASE_IMAGE" \
-     --build-arg AWS_REGION="$AWS_REGION" \
-     --build-arg AWS_SESSION_TOKEN="$AWS_SESSION_TOKEN" \
-     --build-arg AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" \
-     --build-arg AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" \
-     --build-arg GITHUB_TOKEN="$GITHUB_TOKEN" \
-     --build-arg USE_CUDA="$USE_CUDA" \
-     --build-arg BUILD_TYPE="$BUILD_TYPE" \
-     --progress=plain \
-     --tag="$IMAGE_TAG" \
-     -f "$SOURCE_DIR/continuous_integration/Dockerfile" "$SOURCE_DIR"
+if [ -z ${LOCAL_BUILD+x} ]; then
+     docker build \
+          --build-arg BASE_IMAGE="$BASE_IMAGE" \
+          --build-arg AWS_REGION="$AWS_REGION" \
+          --build-arg AWS_SESSION_TOKEN="$AWS_SESSION_TOKEN" \
+          --build-arg AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" \
+          --build-arg AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" \
+          --build-arg GITHUB_TOKEN="$GITHUB_TOKEN" \
+          --build-arg USE_CUDA="$USE_CUDA" \
+          --build-arg BUILD_TYPE="$BUILD_TYPE" \
+          --progress=plain \
+          --tag="$IMAGE_TAG" \
+          -f "$SOURCE_DIR/continuous_integration/Dockerfile" "$SOURCE_DIR";
+else
+     docker build \
+          --build-arg BASE_IMAGE="$BASE_IMAGE" \
+          --build-arg USE_CUDA="$USE_CUDA" \
+          --build-arg BUILD_TYPE="$BUILD_TYPE" \
+          --progress=plain \
+          --tag="$IMAGE_TAG" \
+          -f "$SOURCE_DIR/continuous_integration/Dockerfile" "$SOURCE_DIR";
+fi

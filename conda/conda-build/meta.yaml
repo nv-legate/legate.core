@@ -108,6 +108,7 @@ build:
 {% endif %}
 
 requirements:
+  # Compilers and build system
   build:
     - make
     - rust
@@ -115,6 +116,8 @@ requirements:
     - cmake {{ cmake_version }}
     - {{ compiler('c') }} =11.2
     - {{ compiler('cxx') }} =11.2
+
+  # Libraries and header files (C/C++).
   host:
     - zlib
     - python
@@ -126,6 +129,8 @@ requirements:
 {% if gpu_enabled_bool %}
     - nccl
     - cuda-nvcc ={{ cuda_version }}
+    - gcc_linux-64=11.*
+    - gxx_linux-64=11.*
     - cuda-nvtx ={{ cuda_version }}
     - cuda-cccl ={{ cuda_version }}
     - cuda-cudart ={{ cuda_version }}
@@ -133,7 +138,13 @@ requirements:
     - cuda-nvml-dev ={{ cuda_version }}
     - cuda-driver-dev ={{ cuda_version }}
     - cuda-cudart-dev ={{ cuda_version }}
+    - libcublas-dev
+    - libcufft-dev
+    - libcurand-dev
+    - libcusolver-dev
 {% endif %}
+
+  # Runtime python dependencies
   run:
     - cffi
     - llvm-openmp
