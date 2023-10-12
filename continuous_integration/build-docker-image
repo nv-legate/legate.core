@@ -27,6 +27,8 @@ set -e
 # Avoid build errors due to a missing .creds folder
 mkdir -p "$SOURCE_DIR/.creds"
 
+export DOCKER_BUILDKIT=1
+
 docker build \
      --build-arg BASE_IMAGE="$BASE_IMAGE" \
      --build-arg AWS_SESSION_TOKEN="$AWS_SESSION_TOKEN" \
