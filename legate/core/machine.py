@@ -76,7 +76,7 @@ class ProcessorRange:
     @property
     def empty(self) -> bool:
         """
-        Indiciates if the processor range is empty
+        Indicates if the processor range is empty
 
         Returns
         -------
@@ -260,7 +260,7 @@ class Machine:
 
         Returns
         -------
-        tuple[ProcessorKind]
+        tuple[ProcessorKind, ...]
             Processor kinds
         """
         return self._non_empty_kinds
@@ -453,7 +453,7 @@ class Machine:
     @property
     def empty(self) -> bool:
         """
-        Indiciates if the machine is empty
+        Indicates if the machine is empty
 
         An empty machine is a machine with all its processor ranges being
         empty.

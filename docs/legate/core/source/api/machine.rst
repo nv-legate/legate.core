@@ -12,7 +12,7 @@ programmatic way to control resource assignment, called a *resource scoping*.
 
 To scope the resource, a client takes two steps. First, the client queries the
 machine resource available in the given scope and shrinks it to a subset to
-assign to a scope. Then, the client assigns that subset of machine to a scope
+assign to a scope. Then, the client assigns that subset of the machine to a scope
 with a  usual ``with`` statement. All Legate operations issued within that
 ``with`` block are now subject to the resource scoping. The steps look like the
 following pseudocode:
@@ -33,7 +33,7 @@ part of the machine for the outer scope, they will be removed during the
 resource scoping. The machine used in a scoping must not be empty; otherwise,
 an ``EmptyMachineError`` will be raised.
 
-In case where a machine of the scope has more than one kind of processors, the
+In cases where a machine has more than one kind of processor, the
 parallelization heuristic has the following precedence on preference between
 different types: GPU > OpenMP > CPU.
 
