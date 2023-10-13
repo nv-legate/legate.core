@@ -8,6 +8,7 @@ Classes
    runtime
    operation
    store
+   machine
    allocation
    shape
 .. partition
