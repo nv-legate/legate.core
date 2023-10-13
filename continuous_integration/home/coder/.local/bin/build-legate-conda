@@ -11,6 +11,7 @@ build_legate_conda_package() {
 
     local conda_build_args=();
     conda_build_args+=(--override-channels);
+    conda_build_args+=(-n ucx);
     conda_build_args+=(-c conda-forge);
     conda_build_args+=(-c nvidia);
     conda_build_args+=(--croot /tmp/conda-croot/legate_core);
