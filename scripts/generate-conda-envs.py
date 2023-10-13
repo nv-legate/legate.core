@@ -193,11 +193,12 @@ class TestsConfig(SectionConfig):
             "pytest",
             "types-docutils",
             "pynvml",
+            "tifffile",
         )
 
     @property
     def pip(self) -> Reqs:
-        return ("tifffile",)
+        return ()
 
 
 @dataclass(frozen=True)
@@ -206,11 +207,9 @@ class DocsConfig(SectionConfig):
 
     @property
     def conda(self) -> Reqs:
-        return ("pandoc", "doxygen")
-
-    @property
-    def pip(self) -> Reqs:
         return (
+            "pandoc",
+            "doxygen",
             "ipython",
             "jinja2",
             "markdown<3.4.0",
@@ -220,6 +219,10 @@ class DocsConfig(SectionConfig):
             "sphinx-copybutton",
             "sphinx>=4.4.0",
         )
+
+    @property
+    def pip(self) -> Reqs:
+        return ()
 
 
 @dataclass(frozen=True)
@@ -485,7 +488,7 @@ if __name__ == "__main__":
             use=config.use,
             python=config.python,
             conda_sections=conda_sections,
-            pip=PIP_TEMPLATE.format(pip_sections=pip_sections),
+            pip=PIP_TEMPLATE.format(pip_sections=pip_sections) if pip_sections else "",
         )
         with open(f"{filename}.yaml", "w") as f:
             f.write(out)
