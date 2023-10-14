@@ -76,6 +76,10 @@ class CUDAConfig(SectionConfig):
                 "cuda-cudart-dev",
                 "cuda-nvml-dev",
                 "cuda-nvtx-dev",
+                "libcublas-dev",
+                "libcufft-dev",
+                "libcurand-dev",
+                "libcusolver-dev",
             )
 
         if self.compilers:
@@ -131,7 +135,6 @@ class BuildConfig(SectionConfig):
             "setuptools>=60",
             "zlib",
             "numba",
-            "valgrind",
         )
         if self.compilers:
             pkgs += ("c-compiler", "cxx-compiler")
@@ -140,7 +143,7 @@ class BuildConfig(SectionConfig):
         if self.ucx:
             pkgs += ("ucx>=1.14",)
         if self.os == "linux":
-            pkgs += ("elfutils", "libdwarf")
+            pkgs += ("elfutils",)
         return sorted(pkgs)
 
     def __str__(self) -> str:

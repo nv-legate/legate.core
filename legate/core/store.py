@@ -83,9 +83,9 @@ class Field:
         self.detach_future: Optional[Future] = None
 
     def same_handle(self, other: Field) -> bool:
-        return (
+        return (  # noqa
             type(self) == type(other) and self.field_id == other.field_id
-        )  # noqa
+        )
 
     def add_detach_future(self, future: Future) -> None:
         self.detach_future = future

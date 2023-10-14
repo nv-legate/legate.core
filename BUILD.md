@@ -118,7 +118,34 @@ To see all available configuration options, run with the `--help` flag:
 
 # Advanced topics
 
+## Support matrix
+
+The following table lists Legate's minimum supported versions of major dependencies.
+
+"Full support" means that the corresponding versions (and all later ones) are
+being tested with some regularity, and are expected to work. Please report any
+incompatibility you find against a fully-supported version by opening a bug.
+
+"Best-effort support" means that the corresponding versions are not actively
+tested, but Legate should be compatible with them. We will not actively work to
+fix any incompatibilities discovered under these versions, but we accept
+contributions that fix such incompatibilities.
+
+| Dependency       | Full support (min version)      | Best-effort support (min version)    |
+| ---------------- | ------------------------------- | ------------------------------------ |
+| CPU architecture | x86-64 (Haswell), aarch64       | ppc64le, older x86-64, Apple Silicon |
+| OS               | RHEL 8, Ubuntu 20.04, MacOS 12  | other Linux                          |
+| C++ compiler     | gcc 8, clang 7, nvc++ 19.1      | any compiler with C++17 support      |
+| GPU architecture | Volta                           | Pascal                               |
+| CUDA toolkit     | 11.4                            | 10.0                                 |
+| Python           | 3.9                             |                                      |
+| NumPy            | 1.22                            |                                      |
+
 ## Dependency listing
+
+In this section we comment further on our major dependencies. Please consult an
+environment file created by `generate-conda-envs.py` for a full listing of
+dependencies, e.g. building and testing tools.
 
 ### Operating system
 
@@ -129,7 +156,7 @@ Windows.
 Specify your OS when creating a conda environment file through the `--os` flag
 of `generate-conda-envs.py`.
 
-### Python >= 3.9
+### Python
 
 In terms of Python compatibility, Legate *roughly* follows the timeline outlined
 in [NEP 29](https://numpy.org/neps/nep-0029-deprecation_policy.html).
@@ -137,9 +164,7 @@ in [NEP 29](https://numpy.org/neps/nep-0029-deprecation_policy.html).
 Specify your desired Python version when creating a conda environment file
 through the `--python` flag of `generate-conda-envs.py`.
 
-### C++17 compatible compiler
-
-For example: g++, clang, or nvc++.
+### C++ compiler
 
 If you want to pull the compilers from conda, use an environment file created by
 `generate-conda-envs.py` using the `--compilers` flag. An appropriate compiler
@@ -153,7 +178,7 @@ since the system compilers will typically produce executables
 that link against the system-provided libraries, which can shadow the
 conda-provided equivalents.
 
-### CUDA >= 10.2 (optional)
+### CUDA (optional)
 
 Only necessary if you wish to run with Nvidia GPUs.
 
@@ -174,16 +199,23 @@ architectures. You can use Legate with Pascal GPUs as well, but there could
 be issues due to lack of independent thread scheduling. Please report any such
 issues on GitHub.
 
-### CUDA Libraries (optional)
+### CUDA libraries (optional)
 
 Only necessary if you wish to run with Nvidia GPUs.
 
-The following additional CUDA libraries are required:
+The following additional CUDA libraries are required, for use by legate.core or
+downstream libraries. Unless noted otherwise, these are included in the conda
+environment file.
 
-- `curand` (only necessary to provide this if building without CUDA support;
-  CUDA-enabled installations will use the version bundled with CUDA)
-- `cutensor` >= 1.3.3 (included in conda environment file)
-- `nccl` (included in conda environment file)
+- `cublas`
+- `cufft`
+- `curand` (can optionally be used for its host fallback implementations even
+  when building without CUDA support)
+- `cusolver`
+- `cutensor` >= 1.3.3
+- `nccl`
+- `nvml`
+- `nvtx`
 - `thrust` >= 1.15 (pulled from github)
 
 If you wish to provide alternative installations for these, then you can remove
@@ -191,23 +223,14 @@ them from the environment file (or invoke `generate-conda-envs.py` with `--ctk
 none`, which will skip them all), and pass the corresponding `--with-<dep>` flag
 to `install.py` (or let the build process attempt to locate them automatically).
 
-### Build tools
-
-The following tools are used for building Legate, and are automatically included
-in the environment file:
-
-- `cmake`
-- `git`
-- `make`
-- `ninja` (this is optional, but produces more informative build output)
-- `rust`
-- `scikit-build`
-
 ### OpenBLAS
+
+Used by cuNumeric for implementing linear algebra routines on CPUs.
 
 This library is automatically pulled from conda. If you wish to provide an
 alternative installation, then you can manually remove `openblas` from the
-generated environment file and pass `--with-openblas` to `install.py`.
+generated environment file and pass `--with-openblas` to cuNumeric's
+`install.py`.
 
 Note that if you want to build OpenBLAS from source you will need to get a
 Fortran compiler, e.g. by pulling `fortran-compiler` from conda-forge.
@@ -223,6 +246,23 @@ OpenBLAS configured with the following options:
   separate OpenMP group per NUMA domain, and each group can launch independent
   BLAS work. If `NUM_PARALLEL` is not high enough, some of this parallel work
   will be serialized.
+
+### TBLIS
+
+Used by cuNumeric for implementing tensor contraction routines on CPUs.
+
+This library will be automatically downloaded and built during cuNumeric
+installation. If you wish to provide an alternative installation, pass
+`--with-tblis` to cuNumeric's `install.py`.
+
+cuNumeric requires a build of TBLIS configured as follows:
+
+```
+--with-label-type=int32_t --with-length-type=int64_t --with-stride-type=int64_t
+```
+
+and additionally `--enable-thread-model=openmp` if cuNumeric is compiled
+with OpenMP support.
 
 ### Numactl (optional)
 
@@ -244,13 +284,26 @@ file generated with `--no-openmpi`.
 
 Legate requires a build of MPI that supports `MPI_THREAD_MULTIPLE`.
 
-### Infiniband/RoCE networking libraries (optional)
+### RDMA/networking libraries (e.g. Infiniband, RoCE, Slingshot)  (optional)
 
 Only necessary if you wish to run on multiple nodes, using the corresponding
 networking hardware.
 
 Not available on conda; typically available through MOFED or the system-level
 package manager.
+
+Depending on your hardware, you may need to use a particular Realm
+networking backend, e.g. as of October 2023 HPE Slingshot is only
+compatible with GASNet.
+
+### GASNet
+
+Only necessary if you wish to run on multiple nodes, using the GASNet1 or
+GASNetEx Realm networking backend.
+
+This library will be automatically downloaded and built during Legate
+installation. If you wish to provide an alternative installation, pass
+`--with-gasnet` to `install.py`.
 
 ### UCX >= 1.14
 
