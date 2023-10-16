@@ -12,6 +12,8 @@ run_test_or_analysis() {
 
     conda info;
 
+    ls -laRT /home/coder/.conda/envs/legate/lib
+
     set -xeuo pipefail
 
     case "$1" in

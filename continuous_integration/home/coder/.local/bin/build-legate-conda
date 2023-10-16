@@ -45,6 +45,8 @@ python:
   - "${python_version}"
 numpy_version:
   - ">=1.22"
+ucx:
+  - ">=1.14"
 use_local_path:
   - "true"
 gpu_enabled:
