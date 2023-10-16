@@ -6,13 +6,13 @@ run_test_or_analysis() {
     set -x
     cd ~/
 
-    install_legate_core_with_war;
+    # install_legate_core_with_war;
 
     activate_conda_env;
 
     conda info;
 
-    ls -laRT /home/coder/.conda/envs/legate/lib
+    ls -lART /home/coder/.conda/envs/legate/lib
 
     set -xeuo pipefail
 
