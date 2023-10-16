@@ -64,7 +64,7 @@ install_legate_core_with_war() {
     # WAR: legate-core depends on a different version of numpy than what is already installed.
     # The correct version will be installed when legate-core is installed below.
     # See github issue: https://github.com/nv-legate/legate.core/issues/812
-    mamba uninstall -y -n "${DEFAULT_CONDA_ENV:-legate}" numpy;
+    #mamba uninstall -y -n "${DEFAULT_CONDA_ENV:-legate}" numpy;
 
     mamba install -y -n "${DEFAULT_CONDA_ENV:-legate}" -c nvidia -c conda-forge -c /tmp/conda-build/legate_core legate-core;
 }
