@@ -17,7 +17,7 @@ run_test_or_analysis() {
     case "$1" in
         "unit")
             echo "Executing unit tests..."
-            mamba install -y -n "${DEFAULT_CONDA_ENV:-legate}" -c conda-forge pytest pytest-mock ipython jupyter_client
+            mamba install -y -n "${DEFAULT_CONDA_ENV:-legate}" -c conda-forge pytest pytest-mock ipython jupyter_client ucx
             cd ~/legate/tests/unit
             pytest
             ;;
