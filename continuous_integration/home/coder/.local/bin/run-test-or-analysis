@@ -19,8 +19,7 @@ run_test_or_analysis() {
     case "$1" in
         "unit")
             echo "Executing unit tests..."
-            mamba install -y -n "${DEFAULT_CONDA_ENV:-legate}" -c conda-forge pytest pytest-mock ipython jupyter_client
-            ls -lART /home/coder/.conda/envs/legate/lib
+            mamba install -y -n "${DEFAULT_CONDA_ENV:-legate}" -c conda-forge pytest pytest-mock ipython jupyter_client ucx
             cd ~/legate/tests/unit
             pytest
             ;;
@@ -31,7 +30,6 @@ run_test_or_analysis() {
             # is done on a job which does not checkout the repo (and hence cannot read the
             # .pre-commit.yaml).
             mamba install -y -n "${DEFAULT_CONDA_ENV:-legate}" mypy=1.5.1
-            ls -lART /home/coder/.conda/envs/legate/lib
             cd ~/legate
             mypy legate
             ;;
