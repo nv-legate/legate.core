@@ -18,6 +18,7 @@ import json
 import platform
 import re
 import sys
+from contextlib import redirect_stderr
 from importlib import import_module
 from subprocess import CalledProcessError, check_output
 from textwrap import indent
@@ -28,7 +29,9 @@ FAILED_TO_DETECT = "(failed to detect)"
 
 def try_version(module_name: str, attr: str) -> str:
     try:
-        module = import_module(module_name)
+        # some tools are chatty on stderr in a way thats not relevant here
+        with redirect_stderr(None):
+            module = import_module(module_name)
         return getattr(module, attr) if module else None
     except ModuleNotFoundError:
         return FAILED_TO_DETECT
