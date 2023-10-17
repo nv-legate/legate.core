@@ -223,7 +223,7 @@ conda install -c nvidia -c conda-forge -c legate legate-core
 
 Only linux-64 packages are available at the moment.
 
-The default package contains GPU support, and is compatible with CUDA >= 11.8
+The default package contains GPU support, and is compatible with CUDA >= 12.0
 (CUDA driver version >= r520), and Volta or later GPU architectures. There are
 also CPU-only packages available, and will be automatically selected by `conda`
 when installing on a machine without GPUs.

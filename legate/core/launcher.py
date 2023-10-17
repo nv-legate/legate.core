@@ -721,7 +721,7 @@ class TaskLauncher:
         side_effect: bool = False,
         provenance: Optional[str] = None,
     ) -> None:
-        assert type(tag) != bool
+        assert not isinstance(tag, bool)
         self._context = context
         self._mapper_id = context.mapper_id
         self._task_id = task_id
@@ -1016,7 +1016,7 @@ class CopyLauncher:
         tag: int = 0,
         provenance: Optional[str] = None,
     ) -> None:
-        assert type(tag) != bool
+        assert not isinstance(tag, bool)
         self._context = context
         self._mapper_id = context.mapper_id
         self._inputs: list[LauncherArg] = []

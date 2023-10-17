@@ -85,7 +85,9 @@ class Field:
         self.detach_key: int = -1
 
     def same_handle(self, other: Field) -> bool:
-        return type(self) == type(other) and self.field_id == other.field_id
+        return (  # noqa
+            type(self) == type(other) and self.field_id == other.field_id
+        )
 
     def __str__(self) -> str:
         return f"Field({self.field_id})"
@@ -138,7 +140,7 @@ class RegionField:
         return RegionField(region, field, shape)
 
     def same_handle(self, other: RegionField) -> bool:
-        return type(self) == type(other) and self.field.same_handle(
+        return type(self) == type(other) and self.field.same_handle(  # noqa
             other.field
         )
 

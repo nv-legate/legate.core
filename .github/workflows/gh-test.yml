@@ -6,6 +6,9 @@ on:
       build-target:
         required: true
         type: string
+      repos-name:
+        required: true
+        type: string
       runs-on:
         required: true
         type: string
@@ -23,7 +26,7 @@ jobs:
     runs-on: ${{ inputs.runs-on }}
     container:
       options: -u root
-      image: ghcr.io/nv-legate/legate.core-${{ inputs.build-target }}:${{ inputs.sha }}
+      image: ghcr.io/nv-legate/${{ inputs.repos-name }}-${{ inputs.build-target }}:${{ inputs.sha }}
       env:
         PYTHONDONTWRITEBYTECODE: 1
         NVIDIA_VISIBLE_DEVICES: ${{ env.NVIDIA_VISIBLE_DEVICES }}

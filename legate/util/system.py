@@ -19,6 +19,7 @@ import os
 import platform
 import sys
 from functools import cached_property
+from itertools import chain
 
 from .fs import get_legate_paths, get_legion_paths
 from .types import CPUInfo, GPUInfo, LegatePaths, LegionPaths
@@ -98,9 +99,7 @@ class System:
                 line = open(
                     f"/sys/devices/system/cpu/cpu{i}/topology/thread_siblings_list"  # noqa E501
                 ).read()
-                sibling_sets.add(
-                    tuple(sorted(int(x) for x in line.strip().split(",")))
-                )
+                sibling_sets.add(extract_values(line.strip()))
             return tuple(
                 CPUInfo(siblings) for siblings in sorted(sibling_sets)
             )
@@ -139,3 +138,23 @@ class System:
             results.append(GPUInfo(i, info.total))
 
         return tuple(results)
+
+
+def expand_range(value: str) -> tuple[int, ...]:
+    if value == "":
+        return tuple()
+    if "-" not in value:
+        return tuple((int(value),))
+    start, stop = value.split("-")
+
+    return tuple(range(int(start), int(stop) + 1))
+
+
+def extract_values(line: str) -> tuple[int, ...]:
+    return tuple(
+        sorted(
+            chain.from_iterable(
+                expand_range(r) for r in line.strip().split(",")
+            )
+        )
+    )

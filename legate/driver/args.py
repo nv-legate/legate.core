@@ -348,38 +348,13 @@ debugging.add_argument(
     "--enable-trace)",
 )
 
-debugging.add_argument(
-    "--dataflow",
-    dest="dataflow",
-    action="store_true",
-    required=False,
-    help="Generate Legate dataflow graph",
-)
-
 
 debugging.add_argument(
-    "--event",
-    dest="event",
+    "--spy",
+    dest="spy",
     action="store_true",
     required=False,
-    help="Generate Legate event graph",
-)
-
-debugging.add_argument(
-    "--spy-validate-collective",
-    dest="collective",
-    action="store_true",
-    required=False,
-    help="Check that Legate made optimal use of collective views "
-    "(developer option)",
-)
-debugging.add_argument(
-    "--spy-assert-warning",
-    dest="spy_assert_warning",
-    action="store_true",
-    required=False,
-    help="Treat warnings as errors during processing of Legion Spy logs "
-    "(developer option)",
+    help="Generate Legion Spy logs",
 )
 
 
