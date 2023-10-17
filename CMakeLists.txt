@@ -101,6 +101,10 @@ else()
   include(${CMAKE_CURRENT_SOURCE_DIR}/legate_core_python.cmake)
 endif()
 
+
+# Set the verbose flag for nvcc
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --verbose")
+
 if(CMAKE_GENERATOR STREQUAL "Ninja")
   function(add_touch_legate_core_ninja_build_target)
     set(_suf )
