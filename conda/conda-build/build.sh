@@ -1,8 +1,35 @@
 #!/bin/bash
 
-echo -e "\n\n--------------------- CONDA/CONDA-BUILD/BUILD.SH -----------------------"
+echo -e "\n\n--------------------- CONDA/CONDA-BUILD/BUILD.SH -----------------------\n"
 
-set -x
+set -xeo pipefail
+
+check_and_create_gcc_symlink() {
+    # Check if /usr/bin/gcc exists and is a symlink
+    if [ -L /usr/bin/gcc ]; then
+        echo "/usr/bin/gcc is a symlink. Overwriting..."
+        sudo rm /usr/bin/gcc
+    elif [ -e /usr/bin/gcc ]; then
+        echo "/usr/bin/gcc exists but is not a symlink. Exiting."
+        return 1
+    fi
+
+    # Define the path to the GCC binary using CONDA_PREFIX
+    local GCC_BINARY="$CONDA_PREFIX/bin/x86_64-conda-linux-gnu-gcc"
+
+    # Check if the GCC binary exists
+    if [ -f "$GCC_BINARY" ]; then
+        # Create a symlink to GCC in /usr/bin/
+        sudo ln -s "$GCC_BINARY" /usr/bin/gcc
+        echo "Symlink /usr/bin/gcc created."
+        return 0
+    else
+        echo "GCC binary not found at $GCC_BINARY. Please make sure it exists."
+        return 1
+    fi
+}
+
+check_and_create_gcc_symlink
 
 # export CPU_COUNT=1
 
