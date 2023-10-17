@@ -21,7 +21,7 @@ run_test_or_analysis() {
             echo "Executing unit tests..."
             mamba install -y -n "${DEFAULT_CONDA_ENV:-legate}" -c conda-forge pytest pytest-mock ipython jupyter_client ucx openmpi
             cd ~/legate/tests/unit
-            pytest
+            pytest -v  --verbosity=4
             ;;
         "mypy")
           echo "Executing mypy..."
