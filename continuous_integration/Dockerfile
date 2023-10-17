@@ -3,6 +3,9 @@ FROM ${BASE_IMAGE} as stage0
 
 SHELL ["/bin/bash", "-c"]
 
+RUN apt-get update && \
+    apt-get install -y vim build-essential
+
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV SCCACHE_REGION="us-east-2"
 ENV SCCACHE_BUCKET="rapids-sccache-east"

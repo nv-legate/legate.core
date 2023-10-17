@@ -4,13 +4,13 @@ set -xuo pipefail
 
 #Set the options of the getopt command
 # NOTE: local-build is optional
-format=$(getopt -n "$0" -l "base-image:,image-tag:,source-dir:,build-type:,local-build" -- -- "$@")
+format=$(getopt -n "$0" -l "base-image:,image-tag:,source-dir:,build-type:,use-cuda:,local-build" -- -- "$@")
 if [ $? != 0 ]; then
     echo "Getopt failed"
     exit 1
 fi
 
-if [ $# -lt 5 ]; then
+if [ $# -lt 6 ]; then
    echo "Wrong number of arguments passed."
    exit
 fi
@@ -20,10 +20,11 @@ eval set -- "$format"
 while [ $# -gt 0 ]
 do
      case "$1" in
-          --base-image) BASE_IMAGE="$2"; shift;;
-          --image-tag) IMAGE_TAG="$2"; shift;;
-          --source-dir) SOURCE_DIR="$2"; shift;;
-          --build-type) BUILD_TYPE="$2"; shift;;
+          --base-image)  BASE_IMAGE="$2"; shift;;
+          --image-tag)   IMAGE_TAG="$2"; shift;;
+          --source-dir)  SOURCE_DIR="$2"; shift;;
+          --build-type)  BUILD_TYPE="$2"; shift;;
+          --use-cuda)    USE_CUDA="$2"; shift;;
           --local-build) LOCAL_BUILD="1";;
           --) shift; break;;
           *) echo "Invalid option: $1"; exit 1;;
@@ -53,6 +54,7 @@ if [[ -z "${LOCAL_BUILD+x}" ]]; then
           -f "$SOURCE_DIR/continuous_integration/Dockerfile" "$SOURCE_DIR";
 else
      docker build \
+          --target setup \
           --build-arg BASE_IMAGE="$BASE_IMAGE" \
           --build-arg USE_CUDA="$USE_CUDA" \
           --build-arg BUILD_TYPE="$BUILD_TYPE" \
