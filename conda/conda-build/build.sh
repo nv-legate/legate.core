@@ -11,7 +11,7 @@ check_and_create_gcc_symlink() {
         sudo rm /usr/bin/gcc
     elif [ -e /usr/bin/gcc ]; then
         echo "/usr/bin/gcc exists but is not a symlink. Exiting."
-        return 1
+        return 0
     fi
 
     # Define the path to the GCC binary using CONDA_PREFIX
