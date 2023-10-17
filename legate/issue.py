@@ -22,7 +22,8 @@ from importlib import import_module
 from subprocess import CalledProcessError, check_output
 from textwrap import indent
 
-NL = "\n"
+NEWLINE = "\n"
+FAILED_TO_DETECT = "(failed to detect)"
 
 
 def try_version(module_name: str, attr: str) -> str:
@@ -30,14 +31,49 @@ def try_version(module_name: str, attr: str) -> str:
         module = import_module(module_name)
         return getattr(module, attr) if module else None
     except ModuleNotFoundError:
-        return "(not installed)"
+        return FAILED_TO_DETECT
     except ImportError as e:
         err = re.sub(r" \(.*\)", "", str(e))  # remove any local path
         return f"(ImportError: {err})"
 
 
+def cuda_version() -> str:
+    try:
+        if out := check_output("conda list cuda-version --json".split()):
+            info = json.loads(out.decode("utf-8"))[0]
+            return f"{info['dist_name']} ({info['channel']})"
+        return FAILED_TO_DETECT
+    except (CalledProcessError, IndexError, KeyError):
+        return FAILED_TO_DETECT
+    except FileNotFoundError:
+        return "(conda missing)"
+
+
+def driver_version() -> str:
+    try:
+        out = check_output(
+            "nvidia-smi --query-gpu=driver_version --format=csv,noheader --id=0".split()  # noqa
+        )
+        return out.decode("utf-8").strip()
+    except (CalledProcessError, IndexError, KeyError):
+        return FAILED_TO_DETECT
+    except FileNotFoundError:
+        return "(nvidia-smi missing)"
+
+
+def devices() -> str:
+    try:
+        out = check_output("nvidia-smi -L".split())
+        gpus = re.sub(r" \(UUID: .*\)", "", out.decode("utf-8").strip())
+        return f"\n{indent(gpus, '  ')}"
+    except (CalledProcessError, IndexError, KeyError):
+        return FAILED_TO_DETECT
+    except FileNotFoundError:
+        return "(nvidia-smi missing)"
+
+
 def main() -> None:
-    print(f"Python      :  {sys.version.split(NL)[0]}")
+    print(f"Python      :  {sys.version.split(NEWLINE)[0]}")
     print(f"Platform    :  {platform.platform()}")
     print(f"Legion      :  {try_version('legion_info', '__version__')}")
     print(f"Legate      :  {try_version('legate', '__version__')}")
@@ -45,34 +81,6 @@ def main() -> None:
     print(f"Numpy       :  {try_version('numpy', '__version__')}")
     print(f"Scipy       :  {try_version('scipy', '__version__')}")
     print(f"Numba       :  {try_version('numba', '__version__')}")
-
-    try:
-        if out := check_output("conda list cuda-version --json".split()):
-            info = json.loads(out.decode("utf-8"))[0]
-            print(f"CTK package :  {info['dist_name']} ({info['channel']})")
-        else:
-            print("CTK package :  (failed to detect)")
-    except (CalledProcessError, IndexError, KeyError):
-        print("CTK package :  (failed to detect)")
-    except FileNotFoundError:
-        print("CTK package :  (conda missing)")
-
-    try:
-        out = check_output(
-            "nvidia-smi --query-gpu=driver_version --format=csv,noheader --id=0".split()  # noqa
-        )
-        print(f"GPU Driver  :  {out.decode('utf-8').strip()}")
-    except CalledProcessError:
-        print("GPU Driver  :  (failed to detect)")
-    except FileNotFoundError:
-        print("GPU Driver  :  (nvidia-smi missing)")
-
-    try:
-        out = check_output("nvidia-smi -L".split())
-        gpus = re.sub(r" \(UUID: .*\)", "", out.decode("utf-8").strip())
-        print("GPU Devices :")
-        print(indent(gpus, "  "))
-    except CalledProcessError:
-        print("GPU Devices :  (failed to detect)")
-    except FileNotFoundError:
-        print("GPU Devices :  (nvidia-smi missing)")
+    print(f"CTK package :  {cuda_version()}")
+    print(f"GPU driver  :  {driver_version()}")
+    print(f"GPU devices :  {devices()}")
