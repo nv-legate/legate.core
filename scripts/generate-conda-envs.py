@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION. All rights reserved.
 #
 # NVIDIA CORPORATION and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -488,7 +488,7 @@ if __name__ == "__main__":
             use=config.use,
             python=config.python,
             conda_sections=conda_sections,
-            pip=PIP_TEMPLATE.format(pip_sections=pip_sections) if pip_sections else "",
+            pip=PIP_TEMPLATE.format(pip_sections=pip_sections),
         )
         with open(f"{filename}.yaml", "w") as f:
             f.write(out)
