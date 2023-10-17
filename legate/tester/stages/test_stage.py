@@ -306,6 +306,37 @@ class TestStage(Protocol):
         for shard in self.spec.shards:
             self.shards.put(shard)
 
+    @staticmethod
+    def _handle_multi_node_args(config: Config) -> ArgList:
+        args: ArgList = []
+        if config.ranks_per_node > 1:
+            args += [
+                "--ranks-per-node",
+                str(config.ranks_per_node),
+            ]
+        if config.nodes > 1:
+            args += [
+                "--nodes",
+                str(config.nodes),
+            ]
+        if config.launcher != "none":
+            args += ["--launcher", str(config.launcher)]
+        for extra in config.launcher_extra:
+            args += ["--launcher-extra=" + str(extra)]
+
+        return args
+
+    @staticmethod
+    def _handle_cpu_pin_args(config: Config, shard: Shard) -> ArgList:
+        args: ArgList = []
+        if config.cpu_pin != "none":
+            args += [
+                "--cpu-bind",
+                str(shard),
+            ]
+
+        return args
+
     def _launch(
         self, config: Config, system: TestSystem
     ) -> list[ProcessResult]:

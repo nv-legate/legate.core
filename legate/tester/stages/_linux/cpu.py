@@ -55,25 +55,8 @@ class CPU(TestStage):
             "--cpus",
             str(config.cpus),
         ]
-        if config.cpu_pin != "none":
-            args += [
-                "--cpu-bind",
-                str(shard),
-            ]
-        if config.ranks_per_node > 1:
-            args += [
-                "--ranks-per-node",
-                str(config.ranks_per_node),
-            ]
-        if config.nodes > 1:
-            args += [
-                "--nodes",
-                str(config.nodes),
-            ]
-        if config.launcher != "none":
-            args += ["--launcher", str(config.launcher)]
-        for extra in config.launcher_extra:
-            args += ["--launcher-extra=" + str(extra)]
+        args += self._handle_cpu_pin_args(config, shard)
+        args += self._handle_multi_node_args(config)
         return args
 
     def compute_spec(self, config: Config, system: TestSystem) -> StageSpec:
