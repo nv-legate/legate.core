@@ -47,29 +47,32 @@ def main() -> None:
     print(f"Numba       :  {try_version('numba', '__version__')}")
 
     try:
-        out = check_output("conda list cuda-version --json".split())
-        info = json.loads(out.decode("utf-8"))[0]
-        print(f"CTK package : {info['dist_name']} ({info['channel']})")
-    except CalledProcessError:
-        print("CTK package : (failed to detect)")
+        if out := check_output("conda list cuda-version --json".split()):
+            info = json.loads(out.decode("utf-8"))[0]
+            print(f"CTK package :  {info['dist_name']} ({info['channel']})")
+        else:
+            print("CTK package :  (failed to detect)")
+    except (CalledProcessError, IndexError, KeyError):
+        print("CTK package :  (failed to detect)")
+    except FileNotFoundError:
+        print("CTK package :  (conda missing)")
 
     try:
         out = check_output(
             "nvidia-smi --query-gpu=driver_version --format=csv,noheader --id=0".split()  # noqa
         )
-        print(f"GPU Driver  : {out.decode('utf-8').strip()}")
+        print(f"GPU Driver  :  {out.decode('utf-8').strip()}")
     except CalledProcessError:
-        print("GPU Driver  : (failed to detect)")
+        print("GPU Driver  :  (failed to detect)")
+    except FileNotFoundError:
+        print("GPU Driver  :  (nvidia-smi missing)")
 
     try:
-        out = check_output("nvidia-smi -L", shell=True)
+        out = check_output("nvidia-smi -L".split())
         gpus = re.sub(r" \(UUID: .*\)", "", out.decode("utf-8").strip())
         print("GPU Devices :")
         print(indent(gpus, "  "))
     except CalledProcessError:
-        print("GPU Devices : (failed to detect)")
-
-
-# just helpful for testing
-if __name__ == "__main__":
-    main()
+        print("GPU Devices :  (failed to detect)")
+    except FileNotFoundError:
+        print("GPU Devices :  (nvidia-smi missing)")
