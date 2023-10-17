@@ -64,7 +64,7 @@ class TestConsts:
         assert DEFAULT_PROCESS_ENV == {
             "LEGATE_TEST": "1",
         }
-    
+
     def test_FEATURES(self) -> None:
         assert FEATURES == ("cpus", "cuda", "eager", "openmp")
 
