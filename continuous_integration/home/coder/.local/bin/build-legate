@@ -8,8 +8,8 @@ build_legate_all() {
 }
 
 build_legate_release() {
-    export CONDA_BUILD_THREADS=1
-    export NVCC_PREPEND_FLAGS='--verbose'
+    # export CONDA_BUILD_THREADS=1
+    # export NVCC_PREPEND_FLAGS='--verbose'
     . conda-utils
     activate_conda_env
     mkdir -p /tmp/env_yaml /tmp/conda-build

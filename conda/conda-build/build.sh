@@ -4,7 +4,7 @@ echo -e "\n\n--------------------- CONDA/CONDA-BUILD/BUILD.SH ------------------
 
 set -x
 
-export CPU_COUNT=1
+# export CPU_COUNT=1
 
 # Rewrite conda's -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY to
 #                 -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=BOTH
