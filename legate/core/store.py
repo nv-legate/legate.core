@@ -80,8 +80,6 @@ class Field:
         self.field_id = field_id
         self.field_size = field_size
         self.shape = shape
-        # External allocation we attached to this field
-        self.attached_alloc: Union[None, Attachable] = None
         self.detach_key: int = -1
 
     def same_handle(self, other: Field) -> bool:
@@ -96,7 +94,7 @@ class Field:
         # Detach any existing allocation
         detach = (
             None
-            if self.attached_alloc is None
+            if self.detach_key < 0
             else attachment_manager.remove_detachment(self.detach_key)
         )
         # Return our field back to the runtime
@@ -105,7 +103,6 @@ class Field:
             self.field_id,
             self.field_size,
             self.shape,
-            self.attached_alloc,
             detach,
         )
 
@@ -158,7 +155,7 @@ class RegionField:
     ) -> None:
         assert self.parent is None
         # If we already have some memory attached, detach it first
-        if self.field.attached_alloc is not None:
+        if self.field.detach_key >= 0:
             raise RuntimeError("A RegionField cannot be re-attached")
         # All inline mappings should have been unmapped by now
         assert self.physical_region_refs == 0
@@ -167,6 +164,9 @@ class RegionField:
         attachment_manager.attach_external_allocation(alloc, self)
 
         def record_detach(detach: Union[Detach, IndexDetach]) -> None:
+            # Hang the allocation on the detach operation, so it won't be
+            # deallocated until the detach is processed.
+            detach.attached_alloc = alloc
             # Don't store the detachment operation here, instead register it
             # on the attachment manager and record its unique key
             # TODO: This might not be necessary anymore
@@ -240,8 +240,6 @@ class RegionField:
             # We don't need to flush the contents back to the attached memory
             # if this is an internal temporary allocation.
             record_detach(IndexDetach(external_resources, flush=share))
-        # Record the attachment
-        self.field.attached_alloc = alloc
 
     def get_inline_mapped_region(self) -> PhysicalRegion:
         if self.parent is None:

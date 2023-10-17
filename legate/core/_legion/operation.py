@@ -1233,6 +1233,10 @@ class Detach(Dispatchable[Future]):
         # it is not deleted before this detach operation can run
         self.region = region.region
         self.flush = flush
+        # The following fields aren't part of the operation itself, but are
+        # used for managing the lifetime of attached objects
+        self.attached_alloc: Any = None
+        self.future: Optional[Future] = None
 
     @dispatch
     def launch(
@@ -1401,6 +1405,10 @@ class IndexDetach(Dispatchable[Future]):
         """
         self.external_resources = external_resources
         self.flush = flush
+        # The following fields aren't part of the operation itself, but are
+        # used for managing the lifetime of attached objects
+        self.attached_alloc: Any = None
+        self.future: Optional[Future] = None
 
     def launch(
         self,
