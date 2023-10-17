@@ -64,7 +64,7 @@ class TestConfig:
         assert c.bloat_factor == DEFAULT_GPU_BLOAT_FACTOR
         assert c.omps == DEFAULT_OMPS_PER_NODE
         assert c.ompthreads == DEFAULT_OMPTHREADS
-        assert c.ranks == DEFAULT_RANKS_PER_NODE
+        assert c.ranks_per_node == DEFAULT_RANKS_PER_NODE
         assert c.launcher == "none"
         assert c.launcher_extra == []
         assert c.nodes == DEFAULT_NODES

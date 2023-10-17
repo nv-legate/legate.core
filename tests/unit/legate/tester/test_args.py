@@ -68,8 +68,8 @@ class TestParserDefaults:
     def test_numamem(self) -> None:
         assert m.parser.get_default("numamem") == DEFAULT_NUMAMEM
 
-    def test_ranks(self) -> None:
-        assert m.parser.get_default("ranks") == DEFAULT_RANKS_PER_NODE
+    def test_ranks_per_node(self) -> None:
+        assert m.parser.get_default("ranks_per_node") == DEFAULT_RANKS_PER_NODE
 
     def test_launcher(self) -> None:
         assert m.parser.get_default("launcher") == "none"

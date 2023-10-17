@@ -60,10 +60,10 @@ class CPU(TestStage):
                 "--cpu-bind",
                 str(shard),
             ]
-        if config.ranks > 1:
+        if config.ranks_per_node > 1:
             args += [
                 "--ranks-per-node",
-                str(config.ranks),
+                str(config.ranks_per_node),
             ]
         if config.nodes > 1:
             args += [
@@ -81,16 +81,17 @@ class CPU(TestStage):
 
         procs = config.cpus + config.utility + int(config.cpu_pin == "strict")
         workers = adjust_workers(
-            len(cpus) // (procs * config.ranks), config.requested_workers
+            len(cpus) // (procs * config.ranks_per_node),
+            config.requested_workers,
         )
 
         shards: list[Shard] = []
         for i in range(workers):
             rank_shards = []
-            for j in range(config.ranks):
+            for j in range(config.ranks_per_node):
                 shard_cpus = range(
-                    (j + i * config.ranks) * procs,
-                    (j + i * config.ranks + 1) * procs,
+                    (j + i * config.ranks_per_node) * procs,
+                    (j + i * config.ranks_per_node + 1) * procs,
                 )
                 shard = chain.from_iterable(cpus[k].ids for k in shard_cpus)
                 rank_shards.append(tuple(sorted(shard)))

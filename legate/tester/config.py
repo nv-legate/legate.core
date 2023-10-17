@@ -72,7 +72,7 @@ class Config:
         self.gpu_delay = args.gpu_delay
         self.ompthreads = args.ompthreads
         self.numamem = args.numamem
-        self.ranks = args.ranks
+        self.ranks_per_node = args.ranks_per_node
         self.launcher = args.launcher
         self.launcher_extra = args.launcher_extra
         self.nodes = args.nodes

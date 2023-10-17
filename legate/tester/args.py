@@ -192,7 +192,7 @@ feature_opts.add_argument(
 
 feature_opts.add_argument(
     "--ranks-per-node",
-    dest="ranks",
+    dest="ranks_per_node",
     type=int,
     default=DEFAULT_RANKS_PER_NODE,
     help="Number of ranks per node to use",
