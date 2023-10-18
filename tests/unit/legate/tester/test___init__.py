@@ -23,6 +23,7 @@ from legate.tester import (
     DEFAULT_GPU_DELAY,
     DEFAULT_GPU_MEMORY_BUDGET,
     DEFAULT_GPUS_PER_NODE,
+    DEFAULT_NODES,
     DEFAULT_NUMAMEM,
     DEFAULT_OMPS_PER_NODE,
     DEFAULT_OMPTHREADS,
@@ -63,6 +64,9 @@ class TestConsts:
         assert DEFAULT_PROCESS_ENV == {
             "LEGATE_TEST": "1",
         }
+
+    def test_DEFAULT_NODES(self) -> None:
+        assert DEFAULT_NODES == 1
 
     def test_FEATURES(self) -> None:
         assert FEATURES == ("cpus", "cuda", "eager", "openmp")
