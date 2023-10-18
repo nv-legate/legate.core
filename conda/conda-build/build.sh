@@ -4,37 +4,6 @@ echo -e "\n\n--------------------- CONDA/CONDA-BUILD/BUILD.SH ------------------
 
 set -xeo pipefail
 
-# WAR: There is an sccache + NVCC bug where the absence of a system compiler
-# causes it to report nvcc as an unsupported compiler. As a workaround this
-# creates a symlink (/usr/bin/gcc) to point to the version of gcc installed by
-# conda.
-check_and_create_gcc_symlink() {
-    # Check if /usr/bin/gcc exists and is a symlink
-    if [ -L /usr/bin/gcc ]; then
-        echo "/usr/bin/gcc is a symlink. Overwriting..."
-        sudo rm /usr/bin/gcc
-    elif [ -e /usr/bin/gcc ]; then
-        echo "/usr/bin/gcc exists but is not a symlink. Exiting."
-        return 0
-    fi
-
-    # Define the path to the GCC binary using CONDA_PREFIX
-    local GCC_BINARY="$CONDA_PREFIX/bin/x86_64-conda-linux-gnu-gcc"
-
-    # Check if the GCC binary exists
-    if [ -f "$GCC_BINARY" ]; then
-        # Create a symlink to GCC in /usr/bin/
-        sudo ln -s "$GCC_BINARY" /usr/bin/gcc
-        echo "Symlink /usr/bin/gcc created."
-        return 0
-    else
-        echo "GCC binary not found at $GCC_BINARY. Please make sure it exists."
-        return 1
-    fi
-}
-
-check_and_create_gcc_symlink
-
 # Rewrite conda's -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY to
 #                 -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=BOTH
 CMAKE_ARGS="$(echo "$CMAKE_ARGS" | sed -r "s@_INCLUDE=ONLY@_INCLUDE=BOTH@g")"

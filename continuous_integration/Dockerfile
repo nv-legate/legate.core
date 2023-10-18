@@ -3,6 +3,10 @@ FROM ${BASE_IMAGE} as stage0
 
 SHELL ["/bin/bash", "-c"]
 
+RUN wget https://github.com/mozilla/sccache/releases/download/v0.5.4/sccache-v0.5.4-x86_64-unknown-linux-musl.tar.gz && \
+    tar -xf sccache-v0.5.4-x86_64-unknown-linux-musl.tar.gz && \
+    sudo mv sccache-v0.5.4-x86_64-unknown-linux-musl/sccache /usr/bin/sccache
+
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV SCCACHE_REGION="us-east-2"
 ENV SCCACHE_BUCKET="rapids-sccache-east"
