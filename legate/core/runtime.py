@@ -1324,14 +1324,14 @@ class Runtime:
                 self.legion_runtime, self.legion_context, barrier
             )
 
+        self._attachment_manager.destroy()
+
         # Destroy all libraries. Note that we should do this
         # from the lastly added one to the first one
         for context in reversed(self._context_list):
             context.destroy()
         del self._contexts
         del self._context_list
-
-        self._attachment_manager.destroy()
 
         # Remove references to our legion resources so they can be collected
         self.active_region_managers = {}
