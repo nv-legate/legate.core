@@ -4,6 +4,10 @@ echo -e "\n\n--------------------- CONDA/CONDA-BUILD/BUILD.SH ------------------
 
 set -xeo pipefail
 
+# WAR: There is an sccache + NVCC bug where the absence of a system compiler
+# causes it to report nvcc as an unsupported compiler. As a workaround this
+# creates a symlink (/usr/bin/gcc) to point to the version of gcc installed by
+# conda.
 check_and_create_gcc_symlink() {
     # Check if /usr/bin/gcc exists and is a symlink
     if [ -L /usr/bin/gcc ]; then
@@ -31,8 +35,6 @@ check_and_create_gcc_symlink() {
 
 check_and_create_gcc_symlink
 
-# export CPU_COUNT=1
-
 # Rewrite conda's -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY to
 #                 -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=BOTH
 CMAKE_ARGS="$(echo "$CMAKE_ARGS" | sed -r "s@_INCLUDE=ONLY@_INCLUDE=BOTH@g")"
@@ -40,7 +42,7 @@ CMAKE_ARGS="$(echo "$CMAKE_ARGS" | sed -r "s@_INCLUDE=ONLY@_INCLUDE=BOTH@g")"
 # Add our options to conda's CMAKE_ARGS
 CMAKE_ARGS+="
 --log-level=VERBOSE
--DBUILD_MARCH=nocona
+-DBUILD_MARCH=haswell
 -DLegion_USE_OpenMP=ON
 -DLegion_USE_Python=ON
 -DLegion_Python_Version=$($PYTHON --version 2>&1 | cut -d' ' -f2 | cut -d'.' -f3 --complement)"

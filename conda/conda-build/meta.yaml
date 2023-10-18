@@ -129,8 +129,6 @@ requirements:
 {% if gpu_enabled_bool %}
     - nccl
     - cuda-nvcc ={{ cuda_version }}
-    - gcc_linux-64=11.*
-    - gxx_linux-64=11.*
     - cuda-nvtx ={{ cuda_version }}
     - cuda-cccl ={{ cuda_version }}
     - cuda-cudart ={{ cuda_version }}
@@ -165,10 +163,9 @@ requirements:
     - __cuda >={{ cuda_version }}
 {% endif %}
 
-# TODO: uncomment
-# test:
-#   imports:
-#     - legate
+test:
+  imports:
+    - legate
 
 about:
   home: https://github.com/nv-legate/legate.core
