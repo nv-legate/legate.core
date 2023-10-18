@@ -16,10 +16,8 @@ generate_yaml_file() {
     yaml_file=~/"$(         \
         ~/legate/scripts/generate-conda-envs.py \
             --os linux                          \
-            --compilers                         \
             --ctk ${cuda_version}               \
             --python ${python_version}          \
-            --openmpi                           \
             --no-ucx                            \
         | head -n1 | cut -d' ' -f3              \
     )"
