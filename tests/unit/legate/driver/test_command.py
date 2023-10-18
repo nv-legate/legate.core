@@ -1111,6 +1111,7 @@ class Test_cmd_bgwork:
         networks_orig = list(install_info.networks)
         install_info.networks.append("ucx")
         result = m.cmd_bgwork(config, system, launcher)
+        install_info.networks.remove("ucx")
         install_info.networks[:] = networks_orig[:]
 
         assert result == ("-ll:bgwork", "2", "-ll:bgworkpin", "1")
@@ -1140,6 +1141,7 @@ class Test_cmd_bgwork:
         networks_orig = list(install_info.networks)
         install_info.networks.append("ucx")
         result = m.cmd_bgwork(config, system, launcher)
+        install_info.networks.remove("ucx")
         install_info.networks[:] = networks_orig[:]
 
         assert result == ("-ll:bgwork", "2", "-ll:bgworkpin", "1")
@@ -1167,6 +1169,7 @@ class Test_cmd_bgwork:
         networks_orig = list(install_info.networks)
         install_info.networks.append("ucx")
         result = m.cmd_bgwork(config, system, launcher)
+        install_info.networks.remove("ucx")
         install_info.networks[:] = networks_orig[:]
 
         assert result == ("-ll:bgwork", "2", "-ll:bgworkpin", "1")
@@ -1198,6 +1201,7 @@ class Test_cmd_bgwork:
         networks_orig = list(install_info.networks)
         install_info.networks.append("ucx")
         result = m.cmd_bgwork(config, system, launcher)
+        install_info.networks.remove("ucx")
         install_info.networks[:] = networks_orig[:]
 
         assert result == ("-ll:bgwork", value, "-ll:bgworkpin", "1")
@@ -1227,6 +1231,7 @@ class Test_cmd_bgwork:
         networks_orig = list(install_info.networks)
         install_info.networks.append("ucx")
         result = m.cmd_bgwork(config, system, launcher)
+        install_info.networks.remove("ucx")
         install_info.networks[:] = networks_orig[:]
 
         assert result == ("-ll:bgwork", value, "-ll:bgworkpin", "1")
