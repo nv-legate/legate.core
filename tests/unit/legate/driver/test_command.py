@@ -1088,7 +1088,9 @@ class Test_cmd_bgwork:
 
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("rank", ("0", "1", "2"))
-    @pytest.mark.skipif("ucx" in install_info.networks, reason="ucx already defined")
+    @pytest.mark.skipif(
+        "ucx" in install_info.networks, reason="ucx already defined"
+    )
     def test_default_multi_rank(
         self, genobjs: GenObjs, rank: str, rank_var: dict[str, str]
     ) -> None:
@@ -1118,7 +1120,9 @@ class Test_cmd_bgwork:
 
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("rank", ("0", "1", "2"))
-    @pytest.mark.skipif("ucx" in install_info.networks, reason="ucx already defined")
+    @pytest.mark.skipif(
+        "ucx" in install_info.networks, reason="ucx already defined"
+    )
     def test_utility_1_multi_rank_no_launcher(
         self, genobjs: GenObjs, rank: str, rank_var: dict[str, str]
     ) -> None:
@@ -1147,7 +1151,9 @@ class Test_cmd_bgwork:
         assert result == ("-ll:bgwork", "2", "-ll:bgworkpin", "1")
 
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
-    @pytest.mark.skipif("ucx" in install_info.networks, reason="ucx already defined")
+    @pytest.mark.skipif(
+        "ucx" in install_info.networks, reason="ucx already defined"
+    )
     def test_utility_1_multi_rank_with_launcher(
         self, genobjs: GenObjs, launch: str
     ) -> None:
@@ -1177,7 +1183,9 @@ class Test_cmd_bgwork:
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("rank", ("0", "1", "2"))
     @pytest.mark.parametrize("value", ("2", "3", "10"))
-    @pytest.mark.skipif("ucx" in install_info.networks, reason="ucx already defined")
+    @pytest.mark.skipif(
+        "ucx" in install_info.networks, reason="ucx already defined"
+    )
     def test_utility_n_multi_rank_no_launcher(
         self, genobjs: GenObjs, value: str, rank: str, rank_var: dict[str, str]
     ) -> None:
@@ -1208,7 +1216,9 @@ class Test_cmd_bgwork:
 
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     @pytest.mark.parametrize("value", ("2", "3", "10"))
-    @pytest.mark.skipif("ucx" in install_info.networks, reason="ucx already defined")
+    @pytest.mark.skipif(
+        "ucx" in install_info.networks, reason="ucx already defined"
+    )
     def test_utility_n_multi_rank_with_launcher(
         self, genobjs: GenObjs, value: str, launch: str
     ) -> None:
