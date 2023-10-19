@@ -16,6 +16,8 @@ ENV CUDA_VERSION_MINOR=0
 
 ARG USE_CUDA
 ENV USE_CUDA=${USE_CUDA}
+ARG UCX_ENABLED
+ENV UCX_ENABLED=${UCX_ENABLED}
 
 ENV USE_OPENMP=ON
 
@@ -28,6 +30,14 @@ USER coder
 WORKDIR /home/coder/.cache
 WORKDIR /home/coder/.artifacts
 WORKDIR /home/coder
+
+if [ "$UCX_ENABLED" = "ucx" ]; then
+     echo "PRGX: $PWD"
+     sed -i 's@DLegion_NETWORKS=@DLegion_NETWORKS=ucx@g' continuous_integration/home/coder/.local/bin/build-legate-cpp
+     sed -i '\/conda-build\/conda_build_config\.yaml/a ucx:\n\  - ">=1.14"' continuous_integration/home/coder/.local/bin/build-legate-conda
+     sed -i '/\/scripts\/generate-conda-envs\.py/a \           \ --ucx                               \\' continuous_integration/home/coder/.local/bin/conda-utils
+     sed -i  '/-c conda-forge pytest/s/$/ ucx openmpi/g' continuous_integration/home/coder/.local/bin/run-test-or-analysis
+fi
 
 COPY --chown=coder:coder continuous_integration/home/coder/.gitconfig /home/coder/
 COPY --chown=coder:coder continuous_integration/home/coder/.local/bin/* /home/coder/.local/bin/
@@ -42,6 +52,7 @@ FROM stage0 as setup
 
 USER coder
 WORKDIR /home/coder
+cat run-test-or-analysis 
 
 RUN set -x && . conda-utils && get_yaml_and_make_conda_env
 
