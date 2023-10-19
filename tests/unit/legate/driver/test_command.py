@@ -1100,7 +1100,7 @@ class Test_cmd_bgwork:
         if "ucx" in install_info.networks:
             assert result == ("-ll:bgwork", "2", "-ll:bgworkpin", "1")
         else:
-            assert result == ("-ll:bgwork", "2")        
+            assert result == ("-ll:bgwork", "2")
 
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("rank", ("0", "1", "2"))
