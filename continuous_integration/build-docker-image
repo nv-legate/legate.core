@@ -28,7 +28,7 @@ if [ "$UCX_ENABLED" = "ON" ]; then
      echo "PRGX: $SOURCE_DIR, $PWD"
      sed -i 's@DLegion_NETWORKS=@DLegion_NETWORKS=ucx@g' $SOURCE_DIR/continuous_integration/home/coder/.local/bin/build-legate-cpp
      sed -i '\/conda-build\/conda_build_config\.yaml/a ucx:\n\  - ">=1.14"' $SOURCE_DIR/continuous_integration/home/coder/.local/bin/build-legate-conda
-     sed -i '/\/scripts\/generate-conda-envs\.py/a \           \ --ucx                               \\' $SOURCE_DIR/continuous_integration/home/coder/.local/bin/conda-utils
+     sed -i 's/\-\-no\-ucx/\-\-ucx   /g' $SOURCE_DIR/continuous_integration/home/coder/.local/bin/conda-utils
      sed -i  '/-c conda-forge pytest/s/$/ ucx openmpi/g' $SOURCE_DIR/continuous_integration/home/coder/.local/bin/run-test-or-analysis
 fi
 
