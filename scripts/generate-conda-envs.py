@@ -488,7 +488,7 @@ if __name__ == "__main__":
             use=config.use,
             python=config.python,
             conda_sections=conda_sections,
-            pip=PIP_TEMPLATE.format(pip_sections=pip_sections),
+            pip=PIP_TEMPLATE.format(pip_sections=pip_sections) if pip_sections else "",
         )
         with open(f"{filename}.yaml", "w") as f:
             f.write(out)
