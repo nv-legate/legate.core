@@ -20,7 +20,7 @@ generate_yaml_file() {
             --ctk ${cuda_version}               \
             --python ${python_version}          \
             --openmpi                           \
-            --no-ucx                            \
+            --ucx                               \
         | head -n1 | cut -d' ' -f3              \
     )"
 

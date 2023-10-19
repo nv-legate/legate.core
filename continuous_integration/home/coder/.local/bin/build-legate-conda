@@ -47,6 +47,8 @@ numpy_version:
   - ">=1.22"
 use_local_path:
   - "true"
+ucx:
+  - ">=1.14"
 gpu_enabled:
   - "${GPU_ENABLED}"
 cmake_version:
