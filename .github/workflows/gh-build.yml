@@ -15,12 +15,17 @@ on:
       sha:
         required: true
         type: string
+      build-name:
+          required: true
+          type: string
+  
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   BASE_IMAGE: rapidsai/devcontainers:23.06-cpp-mambaforge-ubuntu22.04
   IMAGE_NAME: ${{ inputs.repos-name }}-${{ inputs.build-target }}
   USE_CUDA: ${{ (inputs.build-target == 'cpu' && 'OFF') || 'ON' }}
+  UCX_ENABLED: ${{ (inputs.build-name == 'ucx' && 'ON') || 'OFF' }}
 
 jobs:
   build:
@@ -56,6 +61,7 @@ jobs:
         run: |
           echo BUILD_TARGET: ${{ inputs.build-target }}
           echo USE_CUDA: ${{ env.USE_CUDA }}
+          echo UCX_ENABLED: ${{ env.UCX_ENABLED }}
 
           IMAGE_TAG=${{ env.IMAGE_NAME }}:${{ inputs.sha }}
 

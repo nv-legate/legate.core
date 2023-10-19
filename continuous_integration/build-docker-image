@@ -22,6 +22,14 @@ do
      shift;
 done
 
+if [ "$UCX_ENABLED" = "ucx" ]
+     echo "PRGX: $SOURCE_DIR"
+     sed -i 's@DLegion_NETWORKS=@DLegion_NETWORKS=ucx@g' $SOURCE_DIR/continuous_integration/build-legate-cpp
+     sed -i '\/conda-build\/conda_build_config\.yaml/a ucx:\n\  - ">=1.14"' $SOURCE_DIR/continuous_integration/build-legate-conda
+     sed -i '/\/scripts\/generate-conda-envs\.py/a \           \ --ucx                               \\' $SOURCE_DIR/continuous_integration/conda-utils
+     sed -i  '/-c conda-forge pytest/s/$/ ucx openmpi/g' $SOURCE_DIR/continuous_integration/run-test-or-analysis
+fi
+
 set -e
 
 # Avoid build errors due to a missing .creds folder
