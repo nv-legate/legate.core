@@ -12,6 +12,13 @@ on:
 
 jobs:
   build-cpu:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: UCX Build, build-name: ucx }
+          - { name: Normal Build, build-name: no-ucx }
+    name: ${{ matrix.name }}
     if: ${{ github.repository_owner == 'nv-legate' }}
     uses:
       ./.github/workflows/gh-build.yml
@@ -21,6 +28,7 @@ jobs:
       repos-name: ${{ github.event.repository.name }}
       runs-on: ${{ contains(github.repository, 'nv-legate/legate.core') && 'linux-amd64-cpu4' || 'ubuntu-latest' }}
       sha: ${{ github.sha }}
+      build-name: ${{ matrix.build-name }}
 
   test-cpu:
     needs:
