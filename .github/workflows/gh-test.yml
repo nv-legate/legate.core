@@ -15,6 +15,9 @@ on:
       sha:
         required: true
         type: string
+      ucx-config:
+        required: true
+        type: string
       test-scope:
         required: true
         type: string
@@ -26,7 +29,7 @@ jobs:
     runs-on: ${{ inputs.runs-on }}
     container:
       options: -u root
-      image: ghcr.io/nv-legate/${{ inputs.repos-name }}-${{ inputs.build-target }}:${{ inputs.sha }}
+      image: ghcr.io/nv-legate/${{ inputs.repos-name }}-${{ inputs.build-target }}-${{ inputs.ucx-config }}:${{ inputs.sha }}
       env:
         PYTHONDONTWRITEBYTECODE: 1
         NVIDIA_VISIBLE_DEVICES: ${{ env.NVIDIA_VISIBLE_DEVICES }}

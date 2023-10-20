@@ -15,21 +15,21 @@ on:
       sha:
         required: true
         type: string
-      build-name:
-          required: true
-          type: string
+      ucx-config:
+        required: true
+        type: string
   
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   BASE_IMAGE: rapidsai/devcontainers:23.06-cpp-mambaforge-ubuntu22.04
-  IMAGE_NAME: ${{ inputs.repos-name }}-${{ inputs.build-target }}
+  IMAGE_NAME: ${{ inputs.repos-name }}-${{ inputs.build-target }}-${{ inputs.ucx-config }}
   USE_CUDA: ${{ (inputs.build-target == 'cpu' && 'OFF') || 'ON' }}
-  UCX_ENABLED: ${{ (inputs.build-name == 'ucx' && 'ON') || 'OFF' }}
+  UCX_ENABLED: ${{ (inputs.ucx-config == 'ucx' && 'ON') || 'OFF' }}
 
 jobs:
   build:
-    name: build-${{ inputs.build-target }}-sub-workflow
+    name: build-${{ inputs.build-target }}-${{ inputs.ucx-config }}-sub-workflow
 
     permissions:
       id-token: write # This is required for configure-aws-credentials
