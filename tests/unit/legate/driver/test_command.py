@@ -972,6 +972,7 @@ class Test_cmd_utility:
 
         assert result == ("-ll:util", value)
 
+    @pytest.mark.parametrize("value", ("2", "3", "10"))
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("rank", ("0", "1", "2"))
     def test_default_multi_rank(
