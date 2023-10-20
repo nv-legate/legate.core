@@ -972,7 +972,6 @@ class Test_cmd_utility:
 
         assert result == ("-ll:util", value)
 
-    @pytest.mark.parametrize("value", ("2", "3", "10"))
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("rank", ("0", "1", "2"))
     def test_default_multi_rank(
@@ -1087,7 +1086,6 @@ class Test_cmd_bgwork:
 
         assert result == ()
 
-    @pytest.mark.parametrize("value", ("2", "3", "10"))
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("rank", ("0", "1", "2"))
     def test_default_multi_rank(
@@ -1120,7 +1118,6 @@ class Test_cmd_bgwork:
 
         assert result == ("-ll:bgwork", "2", "-ll:bgworkpin", "1")
 
-    @pytest.mark.parametrize("value", ("2", "3", "10"))
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("rank", ("0", "1", "2"))
     def test_utility_1_multi_rank_no_launcher(
@@ -1153,7 +1150,6 @@ class Test_cmd_bgwork:
 
         assert result == ("-ll:bgwork", "2", "-ll:bgworkpin", "1")
 
-    @pytest.mark.parametrize("value", ("2", "3", "10"))
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     def test_utility_1_multi_rank_with_launcher(
         self, genobjs: GenObjs, launch: str
