@@ -1098,9 +1098,9 @@ class Test_cmd_bgwork:
         result = m.cmd_bgwork(config, system, launcher)
 
         if "ucx" in install_info.networks:
-            assert result == ("-ll:bgwork", "2", "-ll:bgworkpin", "1")
+            assert result == ("-ll:bgwork", value, "-ll:bgworkpin", "1")
         else:
-            assert result == ("-ll:bgwork", "2")
+            assert result == ("-ll:bgwork", value)
 
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("rank", ("0", "1", "2"))
@@ -1130,9 +1130,9 @@ class Test_cmd_bgwork:
         result = m.cmd_bgwork(config, system, launcher)
 
         if "ucx" in install_info.networks:
-            assert result == ("-ll:bgwork", "2", "-ll:bgworkpin", "1")
+            assert result == ("-ll:bgwork", value, "-ll:bgworkpin", "1")
         else:
-            assert result == ("-ll:bgwork", "2")
+            assert result == ("-ll:bgwork", value)
 
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("rank", ("0", "1", "2"))
@@ -1161,9 +1161,9 @@ class Test_cmd_bgwork:
         result = m.cmd_bgwork(config, system, launcher)
 
         if "ucx" in install_info.networks:
-            assert result == ("-ll:bgwork", "2", "-ll:bgworkpin", "1")
+            assert result == ("-ll:bgwork", value, "-ll:bgworkpin", "1")
         else:
-            assert result == ("-ll:bgwork", "2")
+            assert result == ("-ll:bgwork", value)
 
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     def test_utility_1_multi_rank_with_launcher_and_ucx(
@@ -1193,9 +1193,9 @@ class Test_cmd_bgwork:
         result = m.cmd_bgwork(config, system, launcher)
 
         if "ucx" in install_info.networks:
-            assert result == ("-ll:bgwork", "2", "-ll:bgworkpin", "1")
+            assert result == ("-ll:bgwork", value, "-ll:bgworkpin", "1")
         else:
-            assert result == ("-ll:bgwork", "2")
+            assert result == ("-ll:bgwork", value)
 
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("rank", ("0", "1", "2"))
@@ -1213,9 +1213,9 @@ class Test_cmd_bgwork:
         install_info.networks[:] = networks_orig[:]
 
         if "ucx" in install_info.networks:
-            assert result == ("-ll:bgwork", "2", "-ll:bgworkpin", "1")
+            assert result == ("-ll:bgwork", value, "-ll:bgworkpin", "1")
         else:
-            assert result == ("-ll:bgwork", "2")
+            assert result == ("-ll:bgwork", value)
 
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     @pytest.mark.parametrize("value", ("2", "3", "10"))
