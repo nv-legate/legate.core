@@ -109,5 +109,5 @@ jobs:
       - name: Upload build artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: "${{ inputs.repos-name }}-${{ inputs.build-target }}-${{ inputs.sha }}"
+          name: "${{ inputs.repos-name }}-${{ inputs.build-target }}-${{ inputs.ucx-config }}-${{ inputs.sha }}"
           path: artifacts

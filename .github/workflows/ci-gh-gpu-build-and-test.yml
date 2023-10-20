@@ -44,7 +44,7 @@ jobs:
     with:
       build-target: gpu
       repos-name: ${{ github.event.repository.name }}
-      runs-on: ${{ matrix.runner }}
+      runs-on: ${{ matrix.test-config.runner }}
       sha: ${{ github.sha }}
       ucx-config: ${{ matrix.ucx-config }}
       test-scope: ${{ matrix.test-config.test-scope }}
