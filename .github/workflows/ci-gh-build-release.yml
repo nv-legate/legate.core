@@ -1,0 +1,23 @@
+name: Build conda release packages
+
+concurrency:
+  group: ci-release-on-${{ github.event_name }}-from-${{ github.ref_name }}
+  cancel-in-progress: true
+
+on:
+  push:
+    workflow_dispatch:
+    branches:
+      - "pull-request/[0-9]+"
+      - "branch-*"
+
+jobs:
+  build:
+    uses:
+      ./.github/workflows/gh-build.yml
+    with:
+      build-target: all
+      repos-name: ${{ github.event.repository.name }}
+      runs-on: ${{ github.repository_owner == 'nv-legate' && 'linux-amd64-32cpu' || 'ubuntu-latest' }}
+      sha: ${{ github.sha }}
+      build-type: release
