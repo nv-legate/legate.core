@@ -25,7 +25,6 @@ on:
 jobs:
   test:
     if: github.repository_owner == 'nv-legate'
-    name: test-${{ inputs.build-target }}-sub-workflow
     name: test-${{ inputs.build-target }}-${{ inputs.ucx-config }}-sub-workflow
     runs-on: ${{ inputs.runs-on }}
     container:
