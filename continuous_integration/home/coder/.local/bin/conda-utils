@@ -75,3 +75,8 @@ activate_conda_env() {
 
     conda activate ${DEFAULT_CONDA_ENV:-legate};
 }
+
+make_release_env() {
+    mamba create -n "${DEFAULT_CONDA_ENV:-legate}"
+    mamba install -y -n "${DEFAULT_CONDA_ENV:-legate}" boa
+}

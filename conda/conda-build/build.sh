@@ -1,5 +1,9 @@
 #!/bin/bash
 
+echo -e "\n\n--------------------- CONDA/CONDA-BUILD/BUILD.SH -----------------------\n"
+
+set -xeo pipefail
+
 # Rewrite conda's -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY to
 #                 -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=BOTH
 CMAKE_ARGS="$(echo "$CMAKE_ARGS" | sed -r "s@_INCLUDE=ONLY@_INCLUDE=BOTH@g")"
@@ -20,11 +24,21 @@ if [ -z "$CPU_ONLY" ]; then
 "
 fi
 
+# We rely on an environment variable to determine if we need to make a debug build.
+if [ -n "$DEBUG_BUILD" ]; then
+  CMAKE_ARGS+="
+-DCMAKE_BUILD_TYPE=Debug
+"
+fi
+
 # Do not compile with NDEBUG until Legion handles it without warnings
+# Note: -UNDEBUG undefines any NDEBUG that may be present on the C compiler commandline.
+# See: https://stackoverflow.com/questions/1978155/how-to-undefine-a-define-at-commandline-using-gcc
 export CFLAGS="-UNDEBUG"
 export CXXFLAGS="-UNDEBUG"
 export CPPFLAGS="-UNDEBUG"
 export CUDAFLAGS="-UNDEBUG"
+
 export CMAKE_GENERATOR=Ninja
 export CUDAHOSTCXX=${CXX}
 export OPENSSL_DIR="$CONDA_PREFIX"

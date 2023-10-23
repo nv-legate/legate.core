@@ -1,3 +1,7 @@
+debug_build:
+  - true
+  - false
+
 gpu_enabled:
   - true
   - false
