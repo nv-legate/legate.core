@@ -38,7 +38,6 @@ jobs:
                       { name: Pytest Unit Tests, test-scope: unit, runner: linux-amd64-2gpu },
                       { name: mypy, test-scope: mypy, runner: 'linux-amd64-gpu-v100-latest-1' }]
     name: ${{ matrix.test-config.name }}
-    name: ${{ matrix.name }}
     if: ${{ github.repository_owner == 'nv-legate' }}
     uses:
       ./.github/workflows/gh-test.yml
