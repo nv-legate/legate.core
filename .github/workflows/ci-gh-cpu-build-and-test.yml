@@ -12,6 +12,10 @@ on:
 
 jobs:
   build-cpu:
+    strategy:
+      fail-fast: false
+      matrix:
+        ucx-config: [ucx, no-ucx]
     if: ${{ github.repository_owner == 'nv-legate' }}
     uses:
       ./.github/workflows/gh-build.yml
@@ -21,6 +25,7 @@ jobs:
       runs-on: ${{ contains(github.repository, 'nv-legate/legate.core') && 'linux-amd64-cpu4' || 'ubuntu-latest' }}
       sha: ${{ github.sha }}
       build-type: ci
+      ucx-config: ${{ matrix.ucx-config }}
 
   test-cpu:
     needs:
@@ -28,10 +33,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - { name: Pytest Unit Tests, test-scope: unit }
-          - { name: mypy, test-scope: mypy }
-    name: ${{ matrix.name }}
+        ucx-config: [ucx, no-ucx]
+        test-config: [{ name: Pytest Unit Tests, test-scope: unit }, { name: mypy, test-scope: mypy }]
+    name: ${{ matrix.test-config.name }}
     if: ${{ github.repository_owner == 'nv-legate' }}
     uses:
       ./.github/workflows/gh-test.yml
@@ -40,6 +44,7 @@ jobs:
       repos-name: ${{ github.event.repository.name }}
       runs-on: ${{ contains(github.repository, 'nv-legate/legate.core') && 'linux-amd64-32cpu' || 'ubuntu-latest' }}
       sha: ${{ github.sha }}
+      ucx-config: ${{ matrix.ucx-config }}
       test-scope: ${{ matrix.test-scope }}
 
   cleanup:

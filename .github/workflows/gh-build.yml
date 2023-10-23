@@ -21,17 +21,21 @@ on:
         required: true
         type: string
         description: One of ci / release
+      ucx-config:
+        required: true
+        type: string
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   BASE_IMAGE: rapidsai/devcontainers:23.06-cpp-mambaforge-ubuntu22.04
-  IMAGE_NAME: ${{ inputs.repos-name }}-${{ inputs.build-target }}
+  IMAGE_NAME: ${{ inputs.repos-name }}-${{ inputs.build-target }}-${{ inputs.ucx-config }}
   USE_CUDA: ${{ (inputs.build-target == 'cpu' && 'OFF') || 'ON' }}
+  UCX_ENABLED: ${{ (inputs.ucx-config == 'ucx' && 'ON') || 'OFF' }}
   PUSH_IMAGE: ${{ inputs.build-type == 'ci' && 'true' || 'false'}}
 
 jobs:
   build:
-    name: build-${{ inputs.build-target }}-sub-workflow
+    name: build-${{ inputs.build-target }}-${{ inputs.ucx-config }}-sub-workflow
 
     permissions:
       id-token: write # This is required for configure-aws-credentials
@@ -106,5 +110,5 @@ jobs:
       - name: Upload build artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: "${{ inputs.repos-name }}-${{ inputs.build-target }}-${{ inputs.sha }}"
+          name: "${{ inputs.repos-name }}-${{ inputs.build-target }}-${{ inputs.ucx-config }}-${{ inputs.sha }}"
           path: artifacts
