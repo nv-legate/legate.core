@@ -47,7 +47,7 @@ jobs:
       runs-on: ${{ matrix.test-config.runner }}
       sha: ${{ github.sha }}
       ucx-config: ${{ matrix.ucx-config }}
-      test-scope: ${{ matrix.test-scope }}
+      test-scope: ${{ matrix.test-config.test-scope }}
 
   cleanup:
     needs:
