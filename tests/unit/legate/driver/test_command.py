@@ -1212,10 +1212,7 @@ class Test_cmd_bgwork:
         result = m.cmd_bgwork(config, system, launcher)
         install_info.networks[:] = networks_orig[:]
 
-        if "ucx" in install_info.networks:
-            assert result == ("-ll:bgwork", value, "-ll:bgworkpin", "1")
-        else:
-            assert result == ("-ll:bgwork", value)
+        assert result == ("-ll:bgwork", value, "-ll:bgworkpin", "1")
 
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     @pytest.mark.parametrize("value", ("2", "3", "10"))
