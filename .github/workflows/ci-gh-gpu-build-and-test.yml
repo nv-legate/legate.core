@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ucx-config: [ucx, no-ucx]
+        ucx-config: [ucx, no_ucx]
     if: ${{ github.repository_owner == 'nv-legate' }}
     uses:
       ./.github/workflows/gh-build.yml
@@ -33,9 +33,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ucx-config: [ucx, no-ucx]
-        test-config: [{ name: Pytest Unit Tests, test-scope: unit, runner: linux-amd64-gpu-v100-latest-1 }, 
-                      { name: Pytest Unit Tests, test-scope: unit, runner: linux-amd64-2gpu },
+        ucx-config: [ucx, no_ucx]
+        test-config: [{ name: Pytest Unit Tests (v100), test-scope: unit, runner: linux-amd64-gpu-v100-latest-1 }, 
+                      { name: Pytest Unit Tests (2gpu), test-scope: unit, runner: linux-amd64-2gpu },
                       { name: mypy, test-scope: mypy, runner: 'linux-amd64-gpu-v100-latest-1' }]
     name: ${{ matrix.test-config.name }}
     if: ${{ github.repository_owner == 'nv-legate' }}
