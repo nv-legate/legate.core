@@ -1,24 +1,44 @@
 #!/usr/bin/env bash
 
-. conda-utils
+set_repo_dir() {
+    set -xeuo pipefail
+
+    # Resolve the directory of the script
+    SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
+    # Navigate to the parent of the parent of SCRIPT_DIR, then get the full path
+    REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+    export REPO_DIR
+
+    export PATH="${PATH}:${REPO_DIR}/continuous_integration/scripts"
+    export ARTIFACTS_DIR="${REPO_DIR}/.artifacts"
+}
 
 run_test_or_analysis() {
     set -x
-    cd ~/
+
+    set_repo_dir;
+
+    . conda-utils
+    . setup-utils;
+
+    set_base_defs;
+    install_test_tools;
 
     install_legate_core_with_war;
 
     activate_conda_env;
 
-    conda info;
+    conda_info;
 
     set -xeuo pipefail
 
     case "$1" in
         "unit")
             echo "Executing unit tests..."
-            mamba install -y -n "${DEFAULT_CONDA_ENV:-legate}" -c conda-forge pytest pytest-mock ipython jupyter_client
-            cd ~/legate/tests/unit
+            mamba install -y -n "${CONDA_ENV}" -c conda-forge pytest pytest-mock ipython jupyter_client
+            cd $REPO_DIR/tests/unit
             pytest
             ;;
         "mypy")
@@ -27,8 +47,8 @@ run_test_or_analysis() {
             # reason we don't read it directly here is because when this is run in CI, it
             # is done on a job which does not checkout the repo (and hence cannot read the
             # .pre-commit.yaml).
-            mamba install -y -n "${DEFAULT_CONDA_ENV:-legate}" mypy=1.5.1
-            cd ~/legate
+            mamba install -y -n "${CONDA_ENV}" mypy=1.5.1
+            cd $REPO_DIR
             mypy legate
             ;;
         *)

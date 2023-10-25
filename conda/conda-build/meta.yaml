@@ -67,7 +67,7 @@ source:
 {% endif %}
 
 build:
-  skip: true # [not linux]
+  skip: true # [not (linux or osx)]
   number: {{ build_number }}
   missing_dso_whitelist:
     -  '*libcuda.so*'
@@ -85,6 +85,7 @@ build:
     - CMAKE_C_COMPILER_LAUNCHER
     - CMAKE_CXX_COMPILER_LAUNCHER
     - CMAKE_CUDA_COMPILER_LAUNCHER
+    - SED
 {% if not gpu_enabled_bool %}
     - CPU_ONLY=1
   track_features:
@@ -114,8 +115,10 @@ requirements:
     - rust
     - ninja
     - cmake {{ cmake_version }}
-    - {{ compiler('c') }} =11.2
-    - {{ compiler('cxx') }} =11.2
+    - {{ compiler('c') }} =11.2   # [linux]
+    - {{ compiler('cxx') }} =11.2 # [linux]
+    - {{ compiler('c') }}         # [osx]
+    - {{ compiler('cxx') }}       # [osx]
 
   # Libraries and header files (C/C++).
   host:
