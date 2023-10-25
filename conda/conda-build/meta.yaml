@@ -7,14 +7,6 @@
   {# We need to have a default value for the initial pass over the recipe #}
   {% set gpu_enabled_bool = false %}
 {% endif %}
-{% if ucx_enabled == "true" %}
-  {% set ucx_enabled_bool = true %}
-{% elif ucx_enabled == "false" %}
-  {% set ucx_enabled_bool = false %}
-{% else %}
-  {# We need to have a default value for the initial pass over the recipe #}
-  {% set ucx_enabled_bool = false %}
-{% endif %}
 
 {% if debug_build == "true" %}
   {% set debug_build_bool = true %}
@@ -56,13 +48,6 @@
 {% set cpu_tag='' %}
 {% endif %}
 
-{% if not ucx_enabled_bool %}
-{% set ucx_tag='_ucx' %}
-{% else %}
-{% set ucx_tag='' %}
-{% endif %}
-
-
 {% if debug_build_bool %}
 {% set debug_tag='_debug' %}
 {% else %}
@@ -88,7 +73,7 @@ build:
   missing_dso_whitelist:
     -  '*libcuda.so*'
 
-  string: "cuda{{ cuda_major }}_py{{ py_version }}{{ git_describe_hash }}_{{ PKG_BUILDNUM }}{{ cpu_tag }}{{ ucx_tag }}{{ debug_tag }}"
+  string: "cuda{{ cuda_major }}_py{{ py_version }}{{ git_describe_hash }}_{{ PKG_BUILDNUM }}{{ cpu_tag }}{{ debug_tag }}"
 
   script_env:
     - SCCACHE_BUCKET
