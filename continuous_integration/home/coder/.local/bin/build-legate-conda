@@ -63,7 +63,7 @@ EOF
 if [ "$UCX_ENABLED" = "ON" ]; then
     cat <<EOF >> /tmp/legate/conda/conda-build/conda_build_config.yaml
 ucx:
-  >=1.14
+  - ">=1.14"
 EOF
 fi
     cat /tmp/legate/conda/conda-build/conda_build_config.yaml
