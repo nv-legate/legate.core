@@ -49,6 +49,7 @@ if [[ -z "${LOCAL_BUILD+x}" ]]; then
           --build-arg AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" \
           --build-arg GITHUB_TOKEN="$GITHUB_TOKEN" \
           --build-arg USE_CUDA="$USE_CUDA" \
+          --build-arg UCX_ENABLED="$UCX_ENABLED" \
           --build-arg BUILD_TYPE="$BUILD_TYPE" \
           --progress=plain \
           --tag="$IMAGE_TAG" \
@@ -58,6 +59,7 @@ else
           --target setup \
           --build-arg BASE_IMAGE="$BASE_IMAGE" \
           --build-arg USE_CUDA="$USE_CUDA" \
+          --build-arg UCX_ENABLED="$UCX_ENABLED" \
           --build-arg BUILD_TYPE="$BUILD_TYPE" \
           --progress=plain \
           --tag="$IMAGE_TAG" \

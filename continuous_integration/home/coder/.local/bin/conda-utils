@@ -14,7 +14,7 @@ generate_yaml_file() {
 
     cd ~/;
     CONFIGURE_UCX=ucx
-    [ "${UCS_ENABLED:-}" = "OFF" ] && CONFIGURE_UCX=no-ucx
+    [ "${UCX_ENABLED:-}" = "OFF" ] && CONFIGURE_UCX=no-ucx
     yaml_file=~/"$(         \
         ~/legate/scripts/generate-conda-envs.py \
             --os linux                          \
