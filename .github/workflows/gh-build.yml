@@ -71,7 +71,7 @@ jobs:
             --base-image "$BASE_IMAGE" \
             --image-tag "$IMAGE_TAG" \
             --use-cuda "$USE_CUDA" \
-            --ucx-enabled "$USX-ENABLED" \
+            --ucx-enabled "$UCX_ENABLED" \
             --source-dir . \
             --build-type "${{ inputs.build-type }}"
 

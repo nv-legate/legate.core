@@ -28,7 +28,7 @@ build_legate_conda_package() {
     [ "${USE_CUDA:-}" = "OFF" ] && GPU_ENABLED=false
 
     CONFIGURE_UCX=true
-    [ "${UCX_ENABLED:-}" = "OF" ] && CONFIGURE_UCX=false
+    [ "${UCX_ENABLED:-}" = "OFF" ] && CONFIGURE_UCX=false
 
     conda_build_args+=(--variants "{gpu_enabled:${GPU_ENABLED},python:${python_version},ucx_enabled:${UCX_ENABLED}}");
 
