@@ -27,7 +27,10 @@ build_legate_conda_package() {
     GPU_ENABLED=true
     [ "${USE_CUDA:-}" = "OFF" ] && GPU_ENABLED=false
 
-    conda_build_args+=(--variants "{gpu_enabled:${GPU_ENABLED},python:${python_version}}");
+    CONFIGURE_UCX=true
+    [ "${UCX_ENABLED:-}" = "OF" ] && CONFIGURE_UCX=false
+
+    conda_build_args+=(--variants "{gpu_enabled:${GPU_ENABLED},python:${python_version},ucx_enabled:${UCX_ENABLED}}");
 
     rm -rf /tmp/legate;
     cp -ar ~/legate /tmp/legate;
@@ -57,6 +60,13 @@ package_version:
   - "$(git -C /tmp/legate describe --abbrev=0 --tags | sed 's/[a-zA-Z]//g' | cut -d '.' -f -2).00"
 EOF
 
+if [ "$UCX_ENABLED" = "ON" ]; then
+    cat <<EOF >> /tmp/legate/conda/conda-build/conda_build_config.yaml
+ucx:
+  >=1.14
+EOF
+fi
+    cat /tmp/legate/conda/conda-build/conda_build_config.yaml
     cat <<EOF > /tmp/legate/conda/conda-build/build.sh
 # Install legate_core C++ libs
 tar -C "\$PREFIX" --exclude="*.a" --strip-components=1 -xf /tmp/out/legate_core-*-Linux.tar.gz;

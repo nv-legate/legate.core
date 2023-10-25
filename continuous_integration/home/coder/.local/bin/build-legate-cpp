@@ -9,7 +9,7 @@ build_legate_cpp() {
     cmake_args+=(-DBUILD_MARCH=${BUILD_MARCH:-haswell});
     cmake_args+=(-DCMAKE_BUILD_TYPE=Release);
     cmake_args+=(-DLegion_CUDA_ARCH=all-major);
-    cmake_args+=(-DLegion_NETWORKS=);
+    cmake_args+=(-DLegion_NETWORKS=${UCS_ENABLED:-ucx});
     cmake_args+=(-DLegion_USE_Python=ON);
     cmake_args+=(-DLegion_PYTHON_EXTRA_INSTALL_ARGS="--root;/;--prefix;\"\${CMAKE_INSTALL_PREFIX}\"");
     cmake_args+=(-DLegion_Python_Version=$(python3 --version 2>&1 | cut -d' ' -f2 | cut -d'.' -f3 --complement));
