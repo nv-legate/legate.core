@@ -17,7 +17,7 @@ run_test_or_analysis() {
     case "$1" in
         "unit")
             ucx_libs=
-            [ "${UCX_ENABLED:-}" = "ON" ] && usx_libs=ucx openmpi
+            [ "${UCX_ENABLED:-}" = "ON" ] && ucx_libs=ucx openmpi
             echo "Executing unit tests..."
             echo "ucx_libs=$ucx_libs"
             mamba install -y -n "${DEFAULT_CONDA_ENV:-legate}" -c conda-forge pytest pytest-mock ipython jupyter_client $ucx_libs
