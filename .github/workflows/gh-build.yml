@@ -26,8 +26,8 @@ env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   BASE_IMAGE: rapidsai/devcontainers:23.06-cpp-mambaforge-ubuntu22.04
   IMAGE_NAME: ${{ inputs.repos-name }}-${{ inputs.build-target }}
-  USE_CUDA: ${{ (inputs.build-target == 'cpu' && 'OFF') || 'ON' }}
   PUSH_IMAGE: ${{ inputs.build-type == 'ci' && 'true' || 'false'}}
+  # USE_CUDA: is defined in the steps section since it should remain undefined when build-type = release.
 
 jobs:
   build:
@@ -41,6 +41,14 @@ jobs:
     runs-on: ${{ inputs.runs-on }}
 
     steps:
+      - if: inputs.build-type == 'ci' && inputs.build-target != 'cpu'
+        name: Conditionally set USE_CUDA to ON
+        run: echo "USE_CUDA=ON" >> $GITHUB_ENV
+
+      - if: inputs.build-type == 'ci' && inputs.build-target == 'cpu'
+        name: Conditionally set USE_CUDA to OFF
+        run: echo "USE_CUDA=OFF" >> $GITHUB_ENV
+
       - name: Checkout ${{ inputs.repos-name }} (= this repo)
         uses: actions/checkout@v3
         with:
