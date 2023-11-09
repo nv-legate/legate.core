@@ -87,8 +87,11 @@ build:
     - CMAKE_CUDA_COMPILER_LAUNCHER
 {% if not gpu_enabled_bool %}
     - CPU_ONLY=1
+    - USE_CUDA=OFF
   track_features:
     - cpu_only
+{% else %}
+    - USE_CUDA=ON
 {% endif %}
 {% if debug_build_bool %}
     - DEBUG_BUILD=1
