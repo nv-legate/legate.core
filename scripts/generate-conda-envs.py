@@ -82,7 +82,7 @@ class CUDAConfig(SectionConfig):
                 "libcusolver-dev",
                 "libcusparse-dev",
                 # needed by cusparse starting with 12.1
-                "libnvjitlink"
+                "libnvjitlink",
             )
 
         if self.compilers:
@@ -291,7 +291,7 @@ CTK_VERSIONS = (
     "11.8",
     "12.0",
     # TODO: libcublas 12.1 not available on conda-forge as of 2023-06-12
-    "12.1"
+    "12.1",
 )
 
 OS_NAMES: Tuple[OSType, ...] = ("linux", "osx")
