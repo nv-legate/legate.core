@@ -1124,8 +1124,10 @@ class Test_cmd_bgwork:
         install_info.networks.append("ucx")
         result = m.cmd_bgwork(config, system, launcher)
         install_info.networks[:] = networks_orig[:]
-
-        assert result == ("-ll:bgwork", "2", "-ll:bgworkpin", "1")
+        if "ucx" in install_info.networks:
+            assert result == ("-ll:bgwork", value, "-ll:bgworkpin", "1")
+        else:
+            assert result == ("-ll:bgwork", value)
 
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("rank", ("0", "1", "2"))
@@ -1159,8 +1161,10 @@ class Test_cmd_bgwork:
         install_info.networks.append("ucx")
         result = m.cmd_bgwork(config, system, launcher)
         install_info.networks[:] = networks_orig[:]
-
-        assert result == ("-ll:bgwork", "2", "-ll:bgworkpin", "1")
+        if "ucx" in install_info.networks:
+            assert result == ("-ll:bgwork", "2", "-ll:bgworkpin", "1")
+        else:
+            assert result == ("-ll:bgwork", "2")
 
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     def test_utility_1_multi_rank_with_launcher_no_ucx(
@@ -1209,7 +1213,6 @@ class Test_cmd_bgwork:
         install_info.networks = [x for x in networks_orig if x != "ucx"]
         result = m.cmd_bgwork(config, system, launcher)
         install_info.networks[:] = networks_orig[:]
-
         if "ucx" in install_info.networks:
             assert result == ("-ll:bgwork", value, "-ll:bgworkpin", "1")
         else:
@@ -1245,7 +1248,6 @@ class Test_cmd_bgwork:
         install_info.networks = [x for x in networks_orig if x != "ucx"]
         result = m.cmd_bgwork(config, system, launcher)
         install_info.networks[:] = networks_orig[:]
-
         if "ucx" in install_info.networks:
             assert result == ("-ll:bgwork", value, "-ll:bgworkpin", "1")
         else:

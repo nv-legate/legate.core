@@ -13,6 +13,10 @@ generate_yaml_file() {
     fi
 
     cd ~/;
+
+    UCX_PKG=ucx
+        [ "${UCX_ENABLED:-}" = "OFF" ] && UCX_PKG=no-ucx
+
     yaml_file=~/"$(         \
         ~/legate/scripts/generate-conda-envs.py \
             --os linux                          \
@@ -20,7 +24,7 @@ generate_yaml_file() {
             --ctk ${cuda_version}               \
             --python ${python_version}          \
             --openmpi                           \
-            --no-ucx                            \
+            --${UCX_PKG}                        \
         | head -n1 | cut -d' ' -f3              \
     )"
 
