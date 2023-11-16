@@ -1046,10 +1046,13 @@ class Test_cmd_bgwork:
 
         assert result == ()
 
-    def test_utility_1_single_rank(self, genobjs: GenObjs) -> None:
+    def test_utility_1_single_rank_no_ucx(self, genobjs: GenObjs) -> None:
         config, system, launcher = genobjs(["--utility", "1"])
 
+        networks_orig = list(install_info.networks)
+        install_info.networks = [x for x in networks_orig if x != "ucx"]
         result = m.cmd_bgwork(config, system, launcher)
+        install_info.networks[:] = networks_orig[:]
 
         assert result == ()
 
@@ -1064,12 +1067,15 @@ class Test_cmd_bgwork:
         assert result == ()
 
     @pytest.mark.parametrize("value", ("2", "3", "10"))
-    def test_utiltity_n_single_rank(
+    def test_utiltity_n_single_rank_no_ucx(
         self, genobjs: GenObjs, value: str
     ) -> None:
         config, system, launcher = genobjs(["--utility", value])
 
+        networks_orig = list(install_info.networks)
+        install_info.networks = [x for x in networks_orig if x != "ucx"]
         result = m.cmd_bgwork(config, system, launcher)
+        install_info.networks[:] = networks_orig[:]
 
         assert result == ()
 
@@ -1088,19 +1094,19 @@ class Test_cmd_bgwork:
 
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("rank", ("0", "1", "2"))
-    def test_default_multi_rank(
+    def test_default_multi_rank_no_ucx(
         self, genobjs: GenObjs, rank: str, rank_var: dict[str, str]
     ) -> None:
         config, system, launcher = genobjs(
             [], multi_rank=(2, 2), rank_env={rank_var: rank}
         )
 
+        networks_orig = list(install_info.networks)
+        install_info.networks = [x for x in networks_orig if x != "ucx"]
         result = m.cmd_bgwork(config, system, launcher)
+        install_info.networks[:] = networks_orig[:]
 
-        if "ucx" in install_info.networks:
-            assert result == ("-ll:bgwork", "2", "-ll:bgworkpin", "1")
-        else:
-            assert result == ("-ll:bgwork", "2")
+        assert result == ("-ll:bgwork", "2")
 
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("rank", ("0", "1", "2"))
@@ -1120,19 +1126,19 @@ class Test_cmd_bgwork:
 
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("rank", ("0", "1", "2"))
-    def test_utility_1_multi_rank_no_launcher(
+    def test_utility_1_multi_rank_no_launcher_no_ucx(
         self, genobjs: GenObjs, rank: str, rank_var: dict[str, str]
     ) -> None:
         config, system, launcher = genobjs(
             ["--utility", "1"], multi_rank=(2, 2), rank_env={rank_var: rank}
         )
 
+        networks_orig = list(install_info.networks)
+        install_info.networks = [x for x in networks_orig if x != "ucx"]
         result = m.cmd_bgwork(config, system, launcher)
+        install_info.networks[:] = networks_orig[:]
 
-        if "ucx" in install_info.networks:
-            assert result == ("-ll:bgwork", "2", "-ll:bgworkpin", "1")
-        else:
-            assert result == ("-ll:bgwork", "2")
+        assert result == ("-ll:bgwork", "2")
 
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("rank", ("0", "1", "2"))
@@ -1151,19 +1157,19 @@ class Test_cmd_bgwork:
         assert result == ("-ll:bgwork", "2", "-ll:bgworkpin", "1")
 
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
-    def test_utility_1_multi_rank_with_launcher(
+    def test_utility_1_multi_rank_with_launcher_no_ucx(
         self, genobjs: GenObjs, launch: str
     ) -> None:
         config, system, launcher = genobjs(
             ["--utility", "1", "--launcher", launch], multi_rank=(2, 2)
         )
 
+        networks_orig = list(install_info.networks)
+        install_info.networks = [x for x in networks_orig if x != "ucx"]
         result = m.cmd_bgwork(config, system, launcher)
+        install_info.networks[:] = networks_orig[:]
 
-        if "ucx" in install_info.networks:
-            assert result == ("-ll:bgwork", "2", "-ll:bgworkpin", "1")
-        else:
-            assert result == ("-ll:bgwork", "2")
+        assert result == ("-ll:bgwork", "2")
 
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     def test_utility_1_multi_rank_with_launcher_and_ucx(
@@ -1183,19 +1189,19 @@ class Test_cmd_bgwork:
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("rank", ("0", "1", "2"))
     @pytest.mark.parametrize("value", ("2", "3", "10"))
-    def test_utility_n_multi_rank_no_launcher(
+    def test_utility_n_multi_rank_no_launcher_no_ucx(
         self, genobjs: GenObjs, value: str, rank: str, rank_var: dict[str, str]
     ) -> None:
         config, system, launcher = genobjs(
             ["--utility", value], multi_rank=(2, 2), rank_env={rank_var: rank}
         )
 
+        networks_orig = list(install_info.networks)
+        install_info.networks = [x for x in networks_orig if x != "ucx"]
         result = m.cmd_bgwork(config, system, launcher)
+        install_info.networks[:] = networks_orig[:]
 
-        if "ucx" in install_info.networks:
-            assert result == ("-ll:bgwork", value, "-ll:bgworkpin", "1")
-        else:
-            assert result == ("-ll:bgwork", value)
+        assert result == ("-ll:bgwork", value)
 
     @pytest.mark.parametrize("rank_var", RANK_ENV_VARS)
     @pytest.mark.parametrize("rank", ("0", "1", "2"))
@@ -1216,19 +1222,19 @@ class Test_cmd_bgwork:
 
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     @pytest.mark.parametrize("value", ("2", "3", "10"))
-    def test_utility_n_multi_rank_with_launcher(
+    def test_utility_n_multi_rank_with_launcher_no_ucx(
         self, genobjs: GenObjs, value: str, launch: str
     ) -> None:
         config, system, launcher = genobjs(
             ["--utility", value, "--launcher", launch], multi_rank=(2, 2)
         )
 
+        networks_orig = list(install_info.networks)
+        install_info.networks = [x for x in networks_orig if x != "ucx"]
         result = m.cmd_bgwork(config, system, launcher)
+        install_info.networks[:] = networks_orig[:]
 
-        if "ucx" in install_info.networks:
-            assert result == ("-ll:bgwork", value, "-ll:bgworkpin", "1")
-        else:
-            assert result == ("-ll:bgwork", value)
+        assert result == ("-ll:bgwork", value)
 
     @pytest.mark.parametrize("launch", ("mpirun", "jsrun", "srun"))
     @pytest.mark.parametrize("value", ("2", "3", "10"))
