@@ -18,6 +18,9 @@ on:
       ucx-config:
         required: true
         type: string
+      ucx-string:
+        required: true
+        type: string
       test-scope:
         required: true
         type: string
@@ -25,11 +28,11 @@ on:
 jobs:
   test:
     if: github.repository_owner == 'nv-legate'
-    name: test-${{ inputs.build-target }}-${{ inputs.ucx-config }}-sub-workflow
+    name: test-${{ inputs.build-target }}${{ inputs.ucx-string }}-sub-workflow
     runs-on: ${{ inputs.runs-on }}
     container:
       options: -u root
-      image: ghcr.io/nv-legate/${{ inputs.repos-name }}-${{ inputs.build-target }}-${{ inputs.ucx-config }}:${{ inputs.sha }}
+      image: ghcr.io/nv-legate/${{ inputs.repos-name }}-${{ inputs.build-target }}${{ inputs.ucx-string }}:${{ inputs.sha }}
       env:
         PYTHONDONTWRITEBYTECODE: 1
         NVIDIA_VISIBLE_DEVICES: ${{ env.NVIDIA_VISIBLE_DEVICES }}

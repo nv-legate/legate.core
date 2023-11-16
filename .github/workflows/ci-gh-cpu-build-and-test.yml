@@ -26,6 +26,7 @@ jobs:
       sha: ${{ github.sha }}
       build-type: ci
       ucx-config: ${{ matrix.ucx-config }}
+      ucx-string: ${{ (matrix.ucx-config == 'ucx' && '-ucx') || '' }}
 
   test-cpu:
     needs:
@@ -45,6 +46,7 @@ jobs:
       runs-on: ${{ contains(github.repository, 'nv-legate/legate.core') && 'linux-amd64-32cpu' || 'ubuntu-latest' }}
       sha: ${{ github.sha }}
       ucx-config: ${{ matrix.ucx-config }}
+      ucx-string: ${{ (matrix.ucx-config == 'ucx' && '-ucx') || '' }}
       test-scope: ${{ matrix.test-config.test-scope }}
 
   cleanup:

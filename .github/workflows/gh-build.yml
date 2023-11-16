@@ -24,11 +24,14 @@ on:
       ucx-config:
         required: true
         type: string
+      ucx-string:
+        required: true
+        type: string
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   BASE_IMAGE: rapidsai/devcontainers:23.06-cpp-mambaforge-ubuntu22.04
-  IMAGE_NAME: ${{ inputs.repos-name }}-${{ inputs.build-target }}-${{ inputs.ucx-config }}
+  IMAGE_NAME: ${{ inputs.repos-name }}-${{ inputs.build-target }}${{ inputs.ucx-string }}
   USE_CUDA: ${{ (inputs.build-target == 'cpu' && 'OFF') || 'ON' }}
   UCX_ENABLED: ${{ (inputs.ucx-config == 'ucx' && 'ON') || 'OFF' }}
   PUSH_IMAGE: ${{ inputs.build-type == 'ci' && 'true' || 'false'}}
@@ -110,5 +113,5 @@ jobs:
       - name: Upload build artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: "${{ inputs.repos-name }}-${{ inputs.build-target }}-${{ inputs.ucx-config }}-${{ inputs.sha }}"
+          name: "${{ inputs.repos-name }}-${{ inputs.build-target }}${{ inputs.ucx-string }}-${{ inputs.sha }}"
           path: artifacts
