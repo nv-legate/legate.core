@@ -1233,14 +1233,7 @@ class Store:
             If ``dim`` is not a valid dimension name or ``index`` is
             out of bounds
         """
-        # This is a workaround for NumPy's expected behavior when adding
-        # an integer to np.uint64, resulting in float64.
-        if type(index) is not int:
-            import numpy as np
-
-            assert np.issubdtype(type(index), np.integer)
-            index = int(index)
-
+        index = int(index)
         dim = dim + self.ndim if dim < 0 else dim
         if dim < 0 or dim >= self.ndim:
             raise ValueError(
