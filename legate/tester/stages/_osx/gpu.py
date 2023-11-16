@@ -18,13 +18,14 @@ import time
 from typing import TYPE_CHECKING
 
 from ..test_stage import TestStage
-from ..util import UNPIN_ENV, Shard
+from ..util import UNPIN_ENV
 
 if TYPE_CHECKING:
     from ....util.types import ArgList, EnvDict
     from ... import FeatureType
     from ...config import Config
     from ...test_system import TestSystem
+    from ..util import Shard, StageSpec
 
 
 class GPU(TestStage):
@@ -52,3 +53,9 @@ class GPU(TestStage):
 
     def delay(self, shard: Shard, config: Config, system: TestSystem) -> None:
         time.sleep(config.gpu_delay / 1000)
+
+    def shard_args(self, shard: Shard, config: Config) -> ArgList:
+        raise NotImplementedError()
+
+    def compute_spec(self, config: Config, system: TestSystem) -> StageSpec:
+        raise NotImplementedError()
