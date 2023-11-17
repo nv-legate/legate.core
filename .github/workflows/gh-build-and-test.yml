@@ -21,7 +21,7 @@ on:
 jobs:
   build:
     strategy:
-      failfast: false
+      fail-fast: false
       matrix:
         ucx-config: [ucx, no_ucx]
         exclude:
