@@ -46,7 +46,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-      ucx-config: [ucx, no_ucx]
+        ucx-config: [ucx, no_ucx]
         include:
           - name: Pytest Unit Tests
             test-scope: unit
