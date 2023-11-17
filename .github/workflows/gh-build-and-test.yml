@@ -10,13 +10,6 @@ on:
       platform:
         type: string
         required: true
-      ucx-config:
-        type: string
-        required: true
-      ucx-string:
-        type: string
-        required: true
-
 
 jobs:
   build:
