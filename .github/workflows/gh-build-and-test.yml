@@ -10,10 +10,10 @@ on:
       platform:
         type: string
         required: true
-       ucx-config:
+      ucx-config:
         type: string
         required: true
-       ucx-string:
+      ucx-string:
         type: string
         required: true
 
