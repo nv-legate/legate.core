@@ -19,6 +19,8 @@ jobs:
           - device: gpu
             build-runner: ${{ contains(github.repository, 'nv-legate/legate.core') && 'linux-amd64-32cpu' || 'ubuntu-latest' }}
             platform: linux
+            matrix:
+              ucx-config: [ucx, no_ucx]
 
           - device: cpu
             build-runner: ${{ contains(github.repository, 'nv-legate/legate.core') && 'linux-amd64-32cpu' || 'ubuntu-latest' }}
