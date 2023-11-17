@@ -49,6 +49,8 @@ use_local_path:
   - "true"
 gpu_enabled:
   - "${GPU_ENABLED}"
+debug_build:
+  - "false"
 cmake_version:
   - ">=3.20.1,!=3.23.0"
 package_version:

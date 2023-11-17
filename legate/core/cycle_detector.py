@@ -53,18 +53,14 @@ def _find_cycles(root: Any, all_ids: Set[int]) -> bool:
 
 
 def _find_field(src: Any, dst: Any) -> Union[str, None]:
-    if type(src) == dict:
+    if isinstance(src, dict):
         for k, v in src.items():
             if v is dst and isinstance(k, str):
                 return f'["{k}"]'
-    if type(src) == tuple:
+    if isinstance(src, (tuple, list)):
         for k, v in enumerate(src):
             if v is dst:
                 return f"[{k}]"
-    if type(src) == list:
-        for i, v in enumerate(src):
-            if v is dst:
-                return f"[{i}]"
     try:
         for fld in dir(src):
             try:

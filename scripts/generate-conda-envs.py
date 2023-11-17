@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Copyright (c) 2020-2022, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2020-2023, NVIDIA CORPORATION. All rights reserved.
 #
 # NVIDIA CORPORATION and its licensors retain all intellectual property
 # and proprietary rights in and to this software, related documentation
@@ -76,6 +76,10 @@ class CUDAConfig(SectionConfig):
                 "cuda-cudart-dev",
                 "cuda-nvml-dev",
                 "cuda-nvtx-dev",
+                "libcublas-dev",
+                "libcufft-dev",
+                "libcurand-dev",
+                "libcusolver-dev",
             )
 
         if self.compilers:
@@ -131,7 +135,6 @@ class BuildConfig(SectionConfig):
             "setuptools>=60",
             "zlib",
             "numba",
-            "valgrind",
         )
         if self.compilers:
             pkgs += ("c-compiler", "cxx-compiler")
@@ -140,7 +143,7 @@ class BuildConfig(SectionConfig):
         if self.ucx:
             pkgs += ("ucx>=1.14",)
         if self.os == "linux":
-            pkgs += ("elfutils", "libdwarf")
+            pkgs += ("elfutils",)
         return sorted(pkgs)
 
     def __str__(self) -> str:
@@ -190,11 +193,12 @@ class TestsConfig(SectionConfig):
             "pytest",
             "types-docutils",
             "pynvml",
+            "tifffile",
         )
 
     @property
     def pip(self) -> Reqs:
-        return ("tifffile",)
+        return ()
 
 
 @dataclass(frozen=True)
@@ -203,11 +207,9 @@ class DocsConfig(SectionConfig):
 
     @property
     def conda(self) -> Reqs:
-        return ("pandoc", "doxygen")
-
-    @property
-    def pip(self) -> Reqs:
         return (
+            "pandoc",
+            "doxygen",
             "ipython",
             "jinja2",
             "markdown<3.4.0",
@@ -217,6 +219,10 @@ class DocsConfig(SectionConfig):
             "sphinx-copybutton",
             "sphinx>=4.4.0",
         )
+
+    @property
+    def pip(self) -> Reqs:
+        return ()
 
 
 @dataclass(frozen=True)
@@ -482,7 +488,9 @@ if __name__ == "__main__":
             use=config.use,
             python=config.python,
             conda_sections=conda_sections,
-            pip=PIP_TEMPLATE.format(pip_sections=pip_sections),
+            pip=PIP_TEMPLATE.format(pip_sections=pip_sections)
+            if pip_sections
+            else "",
         )
         with open(f"{filename}.yaml", "w") as f:
             f.write(out)

@@ -62,16 +62,12 @@ class GPU(TestStage):
             "--gpu-bind",
             str(shard),
         ]
-        if config.ranks > 1:
-            args += [
-                "--ranks-per-node",
-                str(config.ranks),
-            ]
+        args += self._handle_multi_node_args(config)
         return args
 
     def compute_spec(self, config: Config, system: TestSystem) -> StageSpec:
         N = len(system.gpus)
-        degree = N // (config.gpus * config.ranks)
+        degree = N // (config.gpus * config.ranks_per_node)
 
         fbsize = min(gpu.total for gpu in system.gpus) / (1 << 20)  # MB
         oversub_factor = int(fbsize // (config.fbmem * config.bloat_factor))
@@ -82,15 +78,17 @@ class GPU(TestStage):
         shards: list[Shard] = []
         for i in range(degree):
             rank_shards = []
-            for j in range(config.ranks):
+            for j in range(config.ranks_per_node):
                 shard_gpus = range(
-                    (j + i * config.ranks) * config.gpus,
-                    (j + i * config.ranks + 1) * config.gpus,
+                    (j + i * config.ranks_per_node) * config.gpus,
+                    (j + i * config.ranks_per_node + 1) * config.gpus,
                 )
                 shard = tuple(shard_gpus)
                 rank_shards.append(shard)
             shards.append(Shard(rank_shards))
 
-        shard_factor = workers if config.ranks == 1 else oversub_factor
+        shard_factor = (
+            workers if config.ranks_per_node == 1 else oversub_factor
+        )
 
         return StageSpec(workers, shards * shard_factor)

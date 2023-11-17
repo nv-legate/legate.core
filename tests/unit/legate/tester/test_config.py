@@ -29,8 +29,10 @@ from legate.tester import (
     DEFAULT_GPU_DELAY,
     DEFAULT_GPU_MEMORY_BUDGET,
     DEFAULT_GPUS_PER_NODE,
+    DEFAULT_NODES,
     DEFAULT_OMPS_PER_NODE,
     DEFAULT_OMPTHREADS,
+    DEFAULT_RANKS_PER_NODE,
     FEATURES,
     config as m,
 )
@@ -62,6 +64,10 @@ class TestConfig:
         assert c.bloat_factor == DEFAULT_GPU_BLOAT_FACTOR
         assert c.omps == DEFAULT_OMPS_PER_NODE
         assert c.ompthreads == DEFAULT_OMPTHREADS
+        assert c.ranks_per_node == DEFAULT_RANKS_PER_NODE
+        assert c.launcher == "none"
+        assert c.launcher_extra == []
+        assert c.nodes == DEFAULT_NODES
 
         assert c.timeout is None
         assert c.debug is False

@@ -22,8 +22,12 @@ run_test_or_analysis() {
             pytest
             ;;
         "mypy")
-            echo "Executing mypy..."
-            mamba install -y -n "${DEFAULT_CONDA_ENV:-legate}" mypy
+          echo "Executing mypy..."
+            # Keep mypy version identical to mypy version in .pre-commit.yaml. The only
+            # reason we don't read it directly here is because when this is run in CI, it
+            # is done on a job which does not checkout the repo (and hence cannot read the
+            # .pre-commit.yaml).
+            mamba install -y -n "${DEFAULT_CONDA_ENV:-legate}" mypy=1.5.1
             cd ~/legate
             mypy legate
             ;;

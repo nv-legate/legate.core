@@ -93,9 +93,6 @@ class Config:
             False,
             False,
             False,
-            False,
-            False,
-            False,
         )
         self.info = Info(False, False, self.verbose > 0, False)
         self.other = Other(False, [], [], None, False, False)

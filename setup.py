@@ -63,6 +63,7 @@ setup(
     entry_points={
         "console_scripts": [
             "legate = legate.driver:main",
+            "legate-issue = legate.issue:main",
             "legate-jupyter = legate.jupyter:main",
             "lgpatch = legate.lgpatch:main",
         ],

@@ -6,18 +6,28 @@ on:
       build-target:
         required: true
         type: string
+        description: One of CPU / GPU
+      repos-name:
+        required: true
+        type: string
       runs-on:
         required: true
         type: string
       sha:
         required: true
         type: string
+        description: A unique identifier for labeling the images / artifacts
+      build-type:
+        required: true
+        type: string
+        description: One of ci / release
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   BASE_IMAGE: rapidsai/devcontainers:23.06-cpp-mambaforge-ubuntu22.04
-  IMAGE_NAME: legate.core-${{ inputs.build-target }}
+  IMAGE_NAME: ${{ inputs.repos-name }}-${{ inputs.build-target }}
   USE_CUDA: ${{ (inputs.build-target == 'cpu' && 'OFF') || 'ON' }}
+  PUSH_IMAGE: ${{ inputs.build-type == 'ci' && 'true' || 'false'}}
 
 jobs:
   build:
@@ -31,7 +41,7 @@ jobs:
     runs-on: ${{ inputs.runs-on }}
 
     steps:
-      - name: Checkout legate.core (= this repo)
+      - name: Checkout ${{ inputs.repos-name }} (= this repo)
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
@@ -51,29 +61,26 @@ jobs:
 
       - name: Build docker image
         run: |
-          echo BUILD_TARGET: ${{ inputs.build-target }}
-          echo USE_CUDA: ${{ env.USE_CUDA }}
-
           IMAGE_TAG=${{ env.IMAGE_NAME }}:${{ inputs.sha }}
 
           continuous_integration/build-docker-image \
             --base-image "$BASE_IMAGE" \
             --image-tag "$IMAGE_TAG" \
-            --source-dir .
+            --use-cuda "$USE_CUDA" \
+            --source-dir . \
+            --build-type "${{ inputs.build-type }}"
 
       - name: Dump docker history of image before upload
         run: |
           IMAGE_TAG=${{ env.IMAGE_NAME }}:${{ inputs.sha }}
           docker history $IMAGE_TAG
 
-      - name: Dump docker history of image before upload
-        run: |
-          IMAGE_TAG=${{ env.IMAGE_NAME_CUNUMERIC }}:${{ inputs.sha }}
-
-      - name: Log in to container image registry
+      - if: env.PUSH_IMAGE == 'true'
+        name: Log in to container image registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
 
-      - name: Push image
+      - if: env.PUSH_IMAGE == 'true'
+        name: Push image
         run: |
           IMAGE_TAG=${{ env.IMAGE_NAME }}:${{ inputs.sha }}
 
@@ -91,8 +98,7 @@ jobs:
         run: |
           IMAGE_TAG=${{ env.IMAGE_NAME }}:${{ inputs.sha }}
           mkdir -p artifacts
-          docker run  -v "$(pwd)/artifacts:/home/coder/.artifacts" --rm -t $IMAGE_TAG copy-artifacts
-
+          docker run  -v "$(pwd)/artifacts:/home/coder/.artifacts" --rm -t $IMAGE_TAG copy-artifacts ${{ inputs.build-type }}
 
       - name: Display structure of workdir
         run: ls -R
@@ -100,5 +106,5 @@ jobs:
       - name: Upload build artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: "legate.core-${{ inputs.build-target }}-${{ inputs.sha }}"
+          name: "${{ inputs.repos-name }}-${{ inputs.build-target }}-${{ inputs.sha }}"
           path: artifacts

@@ -3,6 +3,10 @@ FROM ${BASE_IMAGE} as stage0
 
 SHELL ["/bin/bash", "-c"]
 
+RUN wget https://github.com/mozilla/sccache/releases/download/v0.5.4/sccache-v0.5.4-x86_64-unknown-linux-musl.tar.gz && \
+    tar -xf sccache-v0.5.4-x86_64-unknown-linux-musl.tar.gz && \
+    sudo mv sccache-v0.5.4-x86_64-unknown-linux-musl/sccache /usr/bin/sccache
+
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV SCCACHE_REGION="us-east-2"
 ENV SCCACHE_BUCKET="rapids-sccache-east"
@@ -19,7 +23,9 @@ ENV USE_CUDA=${USE_CUDA}
 
 ENV USE_OPENMP=ON
 
-ENV BUILD_MARCH=nocona
+ENV BUILD_MARCH=haswell
+
+ARG BUILD_TYPE
 
 ENV PATH="${PATH}:/home/coder/.local/bin"
 
@@ -43,7 +49,7 @@ FROM stage0 as setup
 USER coder
 WORKDIR /home/coder
 
-RUN set -x && . conda-utils && get_yaml_and_make_conda_env
+RUN make-conda-env ${BUILD_TYPE}
 
 #---------------------------------------------------
 FROM setup as build
@@ -52,6 +58,8 @@ WORKDIR /home/coder
 
 ARG GITHUB_TOKEN
 ENV GITHUB_TOKEN=${GITHUB_TOKEN}
+ARG AWS_REGION
+ENV AWS_REGION=${AWS_REGION}
 ARG AWS_SESSION_TOKEN
 ENV AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
 ARG AWS_ACCESS_KEY_ID
@@ -61,7 +69,7 @@ ENV AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
 
 COPY --chown=coder:coder .creds /run/secrets
 
-RUN entrypoint build-legate-all
+RUN entrypoint build-legate ${BUILD_TYPE}
 
 #---------------------------------------------------
 FROM stage0 as final
