@@ -15,6 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        ucx-config: [ucx, no_ucx]
         include:
           - device: gpu
             build-runner: ${{ contains(github.repository, 'nv-legate/legate.core') && 'linux-amd64-32cpu' || 'ubuntu-latest' }}
@@ -27,9 +28,11 @@ jobs:
           - device: cpu
             build-runner: macos-latest
             platform: osx
+            ucx-config: no_ucx
     uses:
       ./.github/workflows/gh-build-and-test.yml
     with:
       device: ${{ matrix.device }}
       build-runner: ${{ matrix.build-runner }}
       platform: ${{ matrix.platform }}
+      ucx-config: ${{ matrix.ucx-config }}
