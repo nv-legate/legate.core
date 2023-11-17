@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+
+set_repo_dir() {
+    set -xeuo pipefail
+
+    # Resolve the directory of the script
+    SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
+    # Navigate to the parent of the parent of SCRIPT_DIR, then get the full path
+    REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+    export REPO_DIR
+
+    export PATH="${PATH}:${REPO_DIR}/continuous_integration/scripts"
+    export ARTIFACTS_DIR="${REPO_DIR}/.artifacts"
+}
+
+build_legate_ci() {
+    build-legate-cpp;
+    build-legate-wheel;
+    build-legate-conda;
+}
+
+build_legate_release() {
+    mkdir -p /tmp/env_yaml /tmp/conda-build
+
+    conda mambabuild --output-folder /tmp/conda-build -c nvidia -c conda-forge --no-include-recipe conda/conda-build
+}
+
+copy_release_artifacts() {
+    echo Copying release artifacts
+    cp /tmp/conda-build/linux-64/legate-core-*.tar.bz2 "$ARTIFACTS_DIR"
+}
+
+copy_ci_artifacts() {
+    echo Copying CI artifacts
+
+    cp -r /tmp/out          "$ARTIFACTS_DIR"
+    cp -r /tmp/conda-build  "$ARTIFACTS_DIR"
+}
+
+build_legate() {
+    set -x;
+
+    set_repo_dir;
+    . conda-utils;
+    . setup-utils;
+
+    export BUILD_TYPE=$1
+
+    set -xeuo pipefail;
+    setup_build_env;
+    init_sccache;
+    cd $REPO_DIR;
+
+    make-conda-env "$BUILD_TYPE";
+
+    set -xeo pipefail;
+    activate_conda_env;
+    conda_info;
+
+    case "$BUILD_TYPE" in
+        ci) build_legate_ci && copy_ci_artifacts;;
+        release) build_legate_release && copy_release_artifacts;;
+        *) return 1;;
+    esac
+}
+
+(build_legate "$@");
