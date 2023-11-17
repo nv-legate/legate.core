@@ -27,6 +27,9 @@ build_legate_conda_package() {
     GPU_ENABLED=true
     [ "${USE_CUDA:-}" = "OFF" ] && GPU_ENABLED=false
 
+    UCX_CONFIGURED=true
+    [ "${UCX_ENABLED:-}" = "OFF" ] && UCX_CONFIGURED=false
+
     conda_build_args+=(--variants "{gpu_enabled:${GPU_ENABLED},python:${python_version}}");
 
     rm -rf /tmp/legate;
@@ -55,7 +58,15 @@ cmake_version:
   - ">=3.20.1,!=3.23.0"
 package_version:
   - "$(git -C /tmp/legate describe --abbrev=0 --tags | sed 's/[a-zA-Z]//g' | cut -d '.' -f -2).00"
+ucx_configured:
+  - "${UCX_CONFIGURED}"
 EOF
+if [ "$UCX_ENABLED" = "ON" ]; then
+    cat <<EOF >> /tmp/legate/conda/conda-build/conda_build_config.yaml
+ucx:
+  - ">=1.14"
+EOF
+fi
 
     cat <<EOF > /tmp/legate/conda/conda-build/build.sh
 # Install legate_core C++ libs
