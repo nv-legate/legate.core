@@ -79,6 +79,7 @@ jobs:
             -e AWS_SECRET_ACCESS_KEY \
             -e GITHUB_TOKEN \
             -e USE_CUDA \
+            -e UCX_ENABLED \
             -v "$(pwd):$(pwd)" \
             -v "$ARTIFACTS_DIR:$(pwd)/.artifacts" \
             --rm "condaforge/miniforge3:latest" \

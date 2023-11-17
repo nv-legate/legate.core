@@ -20,6 +20,13 @@ on:
 
 jobs:
   build:
+  strategy:
+    failfast: false
+    matrix:
+      ucx-config: [ucx, no_ucx]
+      exclude:
+      - platform: osx 
+      - ucx-config: ucx
     if: ${{ github.repository_owner == 'nv-legate' }}
     uses:
       ./.github/workflows/gh-build.yml
@@ -30,8 +37,8 @@ jobs:
       sha: ${{ github.sha }}
       build-type: ci
       use-container: ${{ inputs.platform == 'linux' }}
-      ucx-config: ${{ inputs.ucx-config }}
-      ucx-string: ${{ inputs.ucx-string }}
+      ucx-config: ${{ matrix.ucx-config }}
+      ucx-string: ${{ (matrix.ucx-config == 'ucx' && '-ucx') || '' }}
 
   test:
     needs:
@@ -39,6 +46,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+      ucx-config: [ucx, no_ucx]
         include:
           - name: Pytest Unit Tests
             test-scope: unit
@@ -49,6 +57,7 @@ jobs:
             test-scope: unit
             runner: macos-latest
             enabled: ${{ inputs.platform == 'osx' }}
+            ucx-config: no_ucx
 
           - name: Pytest Unit Tests
             test-scope: unit
@@ -64,6 +73,7 @@ jobs:
             test-scope: mypy
             runner: macos-latest
             enabled: ${{ inputs.platform == 'osx' }}
+            ucx-config: no_ucx
 
     name: ${{ matrix.name }}
     if: github.repository_owner == 'nv-legate'
@@ -77,3 +87,5 @@ jobs:
       test-scope: ${{ matrix.test-scope }}
       use-container: ${{ inputs.platform == 'linux' }}
       enabled: ${{ matrix.enabled }}
+      ucx-config: ${{ matrix.ucx-config }}
+      ucx-string: ${{ (matrix.ucx-config == 'ucx' && '-ucx') || '' }}
