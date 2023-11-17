@@ -30,7 +30,7 @@ build_legate_conda_package() {
     UCX_CONFIGURED=true
     [ "${UCX_ENABLED:-}" = "OFF" ] && UCX_CONFIGURED=false
 
-    conda_build_args+=(--variants "{gpu_enabled:${GPU_ENABLED},python:${python_version}}");
+    conda_build_args+=(--variants "{gpu_enabled:${GPU_ENABLED},python:${python_version},ucx_configured:${UCX_CONFIGURED}}");
 
     rm -rf /tmp/legate;
     cp -ar ~/legate /tmp/legate;
