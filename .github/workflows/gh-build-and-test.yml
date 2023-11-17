@@ -20,13 +20,13 @@ on:
 
 jobs:
   build:
-  strategy:
-    failfast: false
-    matrix:
-      ucx-config: [ucx, no_ucx]
-      exclude:
-      - platform: osx 
-      - ucx-config: ucx
+    strategy:
+      failfast: false
+      matrix:
+        ucx-config: [ucx, no_ucx]
+        exclude:
+        - platform: osx 
+        - ucx-config: ucx
     if: ${{ github.repository_owner == 'nv-legate' }}
     uses:
       ./.github/workflows/gh-build.yml
