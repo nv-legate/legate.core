@@ -17,9 +17,9 @@ jobs:
       fail-fast: false
       matrix:
         ucx-config: [ucx, no_ucx]
-        os-platform: [ ${{ inputs.platform }} ]
+        os-platform: [ "${{ inputs.platform }}" ]
         exclude:
-        - os-platform: osx
+        - os-platform: "osx"
           ucx-config: ucx
 
     if: ${{ github.repository_owner == 'nv-legate' }}
