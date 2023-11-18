@@ -66,6 +66,6 @@ jobs:
       sha: ${{ github.sha }}
       test-scope: ${{ matrix.test-config.test-scope }}
       use-container: ${{ inputs.platform == 'linux' }}
-      enabled: ${{ inputs.platform == ${{ matrix.test-config.os-platform }} }}
+      enabled: ${{ inputs.platform }} == ${{ matrix.test-config.os-platform }}
       ucx-config: ${{ matrix.ucx-config }}
       ucx-string: ${{ (matrix.ucx-config == 'ucx' && '-ucx') || '' }}
