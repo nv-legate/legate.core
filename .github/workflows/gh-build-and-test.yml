@@ -10,12 +10,18 @@ on:
       platform:
         type: string
         required: true
-      ucx-config:
-        required: true
-        type: string
 
 jobs:
   build:
+    strategy:
+      fail-fast: false
+      matrix:
+        ucx-config: [ucx, no_ucx]
+        os-platform: [ inputs.platform ]
+        exclude:
+        - os-platform: osx
+        - ucx-config: ucx
+        
     if: ${{ github.repository_owner == 'nv-legate' }}
     uses:
       ./.github/workflows/gh-build.yml

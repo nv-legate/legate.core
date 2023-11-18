@@ -1,8 +1,5 @@
 name: Build and test on GH
 
-env:
-  BUILD_RUNNER: ${{ contains(github.repository, 'nv-legate/legate.core') && 'linux-amd64-32cpu' || 'ubuntu-latest' }}
-
 concurrency:
   group: ci-build-and-test-on-${{ github.event_name }}-from-${{ github.ref_name }}
   cancel-in-progress: true
@@ -18,19 +15,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ucx-config: [ucx, no_ucx]
-        _build-config: [
-          { device: gpu, build-runner: 'linux-amd64-32cpu', platform: linux },
-          { device: cpu, build-runner: 'linux-amd64-32cpu', platform: linux },
-          { device: cpu, build-runner: macos-latest, platform: osx }
-        ]
-        exclude:
-          - _build-config: { device: cpu, build-runner: macos-latest, platform: osx }
-          - ucx-config: ucx
+        include:
+          - device: gpu
+            build-runner: ${{ contains(github.repository, 'nv-legate/legate.core') && 'linux-amd64-32cpu' || 'ubuntu-latest' }}
+            platform: linux
+
+          - device: cpu
+            build-runner: ${{ contains(github.repository, 'nv-legate/legate.core') && 'linux-amd64-32cpu' || 'ubuntu-latest' }}
+            platform: linux
+
+          - device: cpu
+            build-runner: macos-latest
+            platform: osx
     uses:
       ./.github/workflows/gh-build-and-test.yml
     with:
-      device: ${{ matrix._build-config.device }}
-      build-runner: ${{ matrix._build-config.build-runner }}
-      platform: ${{ matrix._build-config.platform }}
-      ucx-config: ${{ matrix.ucx-config }}
+      device: ${{ matrix.device }}
+      build-runner: ${{ matrix.build-runner }}
+      platform: ${{ matrix.platform }}
