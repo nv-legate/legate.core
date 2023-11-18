@@ -41,20 +41,31 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        test-config: [
-          { name: Pytest Unit Tests, test-scope: unit, runner: linux-amd64-gpu-v100-latest-1, os-platform: '${{ inputs.platform }}' },
-          { name: Pytest Unit Tests (OS X), test-scope: unit, runner: macos-latest, os-platform: '${{ inputs.platform }}' },
-          { name: Pytest Unit Tests, test-scope: unit, runner: linux-amd64-2gpu, os-platform: '${{ inputs.platform }}' },
-          { name: mypy, test-scope: mypy, runner: linux-amd64-gpu-v100-latest-1, os-platform: '${{ inputs.platform }}' },
-          { name: mypy (OS X), test-scope: mypy, runner: macos-latest, os-platform: '${{ inputs.platform }}' }
-        ]
         ucx-config: [ucx, no_ucx ]
+        test-config: 
+        - name: Pytest Unit Tests
+          test-scope: unit 
+          runner: linux-amd64-gpu-v100-latest-1
+          os-platform: '${{ inputs.platform }}'
+        - name: Pytest Unit Tests (OS X)
+          test-scope: unit
+          runner: macos-latest
+          os-platform: '${{ inputs.platform }}'
+        - name: Pytest Unit Tests
+          test-scope: unit
+          runner: linux-amd64-2gpu
+          os-platform: '${{ inputs.platform }}'
+        - name: mypy
+          test-scope: mypy
+          runner: linux-amd64-gpu-v100-latest-1
+          os-platform: '${{ inputs.platform }}'
+        - name: mypy (OS X)
+          test-scope: mypy
+          runner: macos-latest
+          os-platform: '${{ inputs.platform }}'
         exclude:
-          - {test-config: { name: Pytest Unit Tests (OS X), test-scope: unit, runner: macos-latest, os-platform: '${{ inputs.platform }}' }}
+          - {test-config: {runner: macos-latest}}
             ucx-config: ucx
-          - {test-config: { name: mypy (OS X), test-scope: mypy, runner: macos-latest, os-platform: '${{ inputs.platform }}' }}
-            ucx-config: ucx
-
 
     name: ${{ matrix.test-config.name }}
     if: github.repository_owner == 'nv-legate'
