@@ -20,8 +20,8 @@ jobs:
         os-platform: [ inputs.platform ]
         exclude:
         - os-platform: osx
-        - ucx-config: ucx
-        
+          ucx-config: ucx
+
     if: ${{ github.repository_owner == 'nv-legate' }}
     uses:
       ./.github/workflows/gh-build.yml
