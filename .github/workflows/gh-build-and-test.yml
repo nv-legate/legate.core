@@ -41,44 +41,31 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - name: Pytest Unit Tests
-            test-scope: unit
-            runner: linux-amd64-gpu-v100-latest-1
-            enabled: ${{ inputs.platform == 'linux' }}
-
-          - name: Pytest Unit Tests (OS X)
-            test-scope: unit
-            runner: macos-latest
-            enabled: ${{ inputs.platform == 'osx' }}
-            ucx-config: no_ucx
-
-          - name: Pytest Unit Tests
-            test-scope: unit
-            runner: linux-amd64-2gpu
-            enabled: ${{ inputs.platform == 'linux' }}
-
-          - name: mypy
-            test-scope: mypy
-            runner: linux-amd64-gpu-v100-latest-1
-            enabled: ${{ inputs.platform == 'linux' }}
-
-          - name: mypy (OS X)
-            test-scope: mypy
-            runner: macos-latest
-            enabled: ${{ inputs.platform == 'osx' }}
-
-    name: ${{ matrix.name }}
+        test-config: [
+          { name: Pytest Unit Tests, test-scope: unit, runner: linux-amd64-gpu-v100-latest-1, enabled: ${{ inputs.platform == 'linux' }} },
+          { name: Pytest Unit Tests (OS X), test-scope: unit, runner: macos-latest, enabled: ${{ inputs.platform == 'osx' }} },
+          { name: Pytest Unit Tests, test-scope: unit, runner: linux-amd64-2gpu, enabled: ${{ inputs.platform == 'linux' }} },
+          { name: mypy, test-scope: mypy, runner: linux-amd64-gpu-v100-latest-1, enabled: ${{ inputs.platform == 'linux' }} },
+          { name: mypy (OS X), test-scope: mypy, runner: macos-latest, enabled: ${{ inputs.platform == 'osx' }} }
+        ]
+        ucx-config: [ucx, no_ucx ]
+        exclude:
+          - test-config.runner: macos-latest
+            ucx-config: ucx
+          - test-config.runner: macos-latest
+            ucx-config: ucx
+  
+    name: ${{ matrix.test-config.name }}
     if: github.repository_owner == 'nv-legate'
     uses:
       ./.github/workflows/gh-test.yml
     with:
       build-target: ${{ inputs.device }}
       repos-name: ${{ github.event.repository.name }}
-      runs-on: ${{ matrix.runner }}
+      runs-on: ${{ matrix.test-config.runner }}
       sha: ${{ github.sha }}
-      test-scope: ${{ matrix.test-scope }}
+      test-scope: ${{ matrix.test-config.test-scope }}
       use-container: ${{ inputs.platform == 'linux' }}
-      enabled: ${{ matrix.enabled }}
-      ucx-config: ${{ inputs.ucx-config }}
-      ucx-string: ${{ (inputs.ucx-config == 'ucx' && '-ucx') || '' }}
+      enabled: ${{ matrix.test-config.enabled }}
+      ucx-config: ${{ matrix.ucx-config }}
+      ucx-string: ${{ (matrix.ucx-config == 'ucx' && '-ucx') || '' }}
