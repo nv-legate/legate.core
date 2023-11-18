@@ -1,5 +1,8 @@
 name: Build and test on GH
 
+env:
+  BUILD_RUNNER: ${{ contains(github.repository, 'nv-legate/legate.core') && 'linux-amd64-32cpu' || 'ubuntu-latest' }}
+
 concurrency:
   group: ci-build-and-test-on-${{ github.event_name }}-from-${{ github.ref_name }}
   cancel-in-progress: true
@@ -16,8 +19,8 @@ jobs:
       fail-fast: false
       matrix:
         _build-config: [
-        #  { device: gpu, build-runner: ${{ contains(github.repository, 'nv-legate/legate.core') && 'linux-amd64-32cpu' || 'ubuntu-latest' }}, platform: linux },
-        #  { device: cpu, build-runner: ${{ contains(github.repository, 'nv-legate/legate.core') && 'linux-amd64-32cpu' || 'ubuntu-latest' }}, platform: linux },
+          { device: gpu, build-runner: ${ env.BUILD_RUNNER }, platform: linux },
+          { device: cpu, build-runner: ${ env.BUILD_RUNNER }, platform: linux },
           { device: cpu, build-runner: macos-latest, platform: osx }
         ]
         ucx-config: [ucx, no_ucx]
