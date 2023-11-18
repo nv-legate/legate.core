@@ -50,9 +50,12 @@ jobs:
         ]
         ucx-config: [ucx, no_ucx ]
         exclude:
-          - {test-config: { runner: macos-latest }}
+          - {test-config: { name: Pytest Unit Tests (OS X), test-scope: unit, runner: macos-latest, os-platform: '${{ inputs.platform }}' }}
             ucx-config: ucx
-  
+          - {test-config: { name: mypy (OS X), test-scope: mypy, runner: macos-latest, os-platform: '${{ inputs.platform }}' }}
+            ucx-config: ucx
+
+
     name: ${{ matrix.test-config.name }}
     if: github.repository_owner == 'nv-legate'
     uses:
