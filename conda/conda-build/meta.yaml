@@ -15,6 +15,14 @@
   {# We need to have a default value for the initial pass over the recipe #}
   {% set debug_build_bool = false %}
 {% endif %}
+{% if ucx_configured == "true" %}
+  {% set ucx_configured_bool = true %}
+{% elif ucx_configured == "false" %}
+  {% set ucx_configured_bool = false %}
+{% else %}
+  {# We need to have a default value for the initial pass over the recipe #}
+  {% set ucx_configured_bool = false %}
+{% endif %}
 {% set default_env_var = '' %}
 {% if build_number is defined %}
     {# do nothing if defined #}

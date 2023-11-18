@@ -32,7 +32,10 @@ build_legate_conda_package() {
     GPU_ENABLED=true
     [ "${USE_CUDA:-}" = "OFF" ] && GPU_ENABLED=false
 
-    conda_build_args+=(--variants "{gpu_enabled:${GPU_ENABLED},python:${python_version}}");
+    UCX_CONFIGURED=true
+    [ "${UCX_ENABLED:-}" = "OFF" ] && UCX_CONFIGURED=false
+
+    conda_build_args+=(--variants "{gpu_enabled:${GPU_ENABLED},python:${python_version}},ucx_configured:${UCX_CONFIGURED}");
 
     rm -rf /tmp/conda-croot/legate_core;
     mkdir -p /tmp/conda-croot/legate_core;
@@ -58,7 +61,15 @@ cmake_version:
   - ">=3.20.1,!=3.23.0"
 package_version:
   - "$(git -C $REPO_DIR describe --abbrev=0 --tags | $SED 's/[a-zA-Z]//g' | cut -d '.' -f -2).00"
+ucx_configured:
+  - "${UCX_CONFIGURED}"
 EOF
+if [ "$UCX_ENABLED" = "ON" ]; then
+    cat <<EOF >> /tmp/legate/conda/conda-build/conda_build_config.yaml
+ucx:
+  - ">=1.14"
+EOF
+fi
 
     cat <<EOF > $REPO_DIR/conda/conda-build/build.sh
 echo "---------------------build.sh-------------------------"
