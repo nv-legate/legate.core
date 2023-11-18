@@ -32,8 +32,8 @@ jobs:
       sha: ${{ github.sha }}
       build-type: ci
       use-container: ${{ inputs.platform == 'linux' }}
-      ucx-config: ${{ inputs.ucx-config }}
-      ucx-string: ${{ (inputs.ucx-config == 'ucx' && '-ucx') || '' }}
+      ucx-config: ${{ matrix.ucx-config }}
+      ucx-string: ${{ (matrix.ucx-config == 'ucx' && '-ucx') || '' }}
 
   test:
     needs:
