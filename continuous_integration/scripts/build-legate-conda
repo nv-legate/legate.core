@@ -65,7 +65,7 @@ ucx_configured:
   - "${UCX_CONFIGURED}"
 EOF
 if [ "$UCX_ENABLED" = "ON" ]; then
-    cat <<EOF >> /tmp/legate/conda/conda-build/conda_build_config.yaml
+    cat <<EOF >> $REPO_DIR/conda/conda-build/conda_build_config.yaml
 ucx:
   - ">=1.14"
 EOF
