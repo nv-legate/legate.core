@@ -18,12 +18,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        ucx-config: [ucx, no_ucx]
         _build-config: [
-          { device: gpu, build-runner: ${ env.BUILD_RUNNER }, platform: linux },
-          { device: cpu, build-runner: ${ env.BUILD_RUNNER }, platform: linux },
+          { device: gpu, build-runner: 'linux-amd64-32cpu', platform: linux },
+          { device: cpu, build-runner: 'linux-amd64-32cpu', platform: linux },
           { device: cpu, build-runner: macos-latest, platform: osx }
         ]
-        ucx-config: [ucx, no_ucx]
         exclude:
           - _build-config: { device: cpu, build-runner: macos-latest, platform: osx }
           - ucx-config: ucx
