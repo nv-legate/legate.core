@@ -43,10 +43,10 @@ jobs:
       matrix:
         test-config: [
           { name: Pytest Unit Tests, test-scope: unit, runner: linux-amd64-gpu-v100-latest-1, os-platform: ${{ inputs.platform }} },
-          { name: Pytest Unit Tests (OS X), test-scope: unit, runner: macos-latest, os-platform: '${{ inputs.platform }}' },
-          { name: Pytest Unit Tests, test-scope: unit, runner: linux-amd64-2gpu, os-platform: '${{ inputs.platform }}' },
-          { name: mypy, test-scope: mypy, runner: linux-amd64-gpu-v100-latest-1, os-platform: '${{ inputs.platform }}' },
-          { name: mypy (OS X), test-scope: mypy, runner: macos-latest, os-platform: '${{ inputs.platform }}' }
+          { name: Pytest Unit Tests (OS X), test-scope: unit, runner: macos-latest, os-platform: "${{ inputs.platform }}" },
+          { name: Pytest Unit Tests, test-scope: unit, runner: linux-amd64-2gpu, os-platform: "${{ inputs.platform }}" },
+          { name: mypy, test-scope: mypy, runner: linux-amd64-gpu-v100-latest-1, os-platform: "${{ inputs.platform }}" },
+          { name: mypy (OS X), test-scope: mypy, runner: macos-latest, os-platform: "${{ inputs.platform }}" }
         ]
         ucx-config: [ucx, no_ucx ]
         exclude:
@@ -66,6 +66,6 @@ jobs:
       sha: ${{ github.sha }}
       test-scope: ${{ matrix.test-config.test-scope }}
       use-container: ${{ inputs.platform == 'linux' }}
-      enabled: ${{ inputs.platform == ${{ matrix.test-config.platform }} }}
+      enabled: ${{ inputs.platform == ${{ matrix.test-config.os-platform }} }}
       ucx-config: ${{ matrix.ucx-config }}
       ucx-string: ${{ (matrix.ucx-config == 'ucx' && '-ucx') || '' }}
