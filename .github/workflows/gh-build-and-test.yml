@@ -50,9 +50,7 @@ jobs:
         ]
         ucx-config: [ucx, no_ucx ]
         exclude:
-          - test-config: { name: Pytest Unit Tests (OS X), test-scope: unit, runner: macos-latest, enabled: ${{ inputs.platform == 'osx' }} }
-            ucx-config: ucx
-          - test-config: { name: mypy (OS X), test-scope: mypy, runner: macos-latest, enabled: ${{ inputs.platform == 'osx' }} }
+          - {test-config: { runner: macos-latest }}
             ucx-config: ucx
   
     name: ${{ matrix.test-config.name }}
