@@ -33,9 +33,9 @@ env:
 jobs:
   test-in-container:
     strategy:
-    fail-fast: false
-    matrix:
-      ucx-config: [ucx, no_ucx]
+      fail-fast: false
+      matrix:
+        ucx-config: [ucx, no_ucx]
     env:
       ucx-string: ${{ (matrix.ucx-config == 'ucx' && '-ucx') || '' }}
     if: github.repository_owner == 'nv-legate' && inputs.use-container && inputs.enabled
