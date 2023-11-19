@@ -39,7 +39,7 @@ jobs:
     env:
       ucx-string: ${{ (matrix.ucx-config == 'ucx' && '-ucx') || '' }}
     if: github.repository_owner == 'nv-legate' && inputs.use-container && inputs.enabled
-    name: test-${{ inputs.build-target }}${{ inputs.ucx-string }}-sub-workflow
+    name: test-${{ inputs.build-target }}${{ env.ucx-string }}-sub-workflow
     runs-on: ${{ inputs.runs-on }}
 
     defaults:
