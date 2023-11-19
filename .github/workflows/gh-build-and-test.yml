@@ -79,4 +79,5 @@ jobs:
       test-scope: ${{ matrix.test-scope }}
       use-container: ${{ inputs.platform == 'linux' }}
       enabled: ${{ matrix.enabled }}
+      ucx-string: ''
     
