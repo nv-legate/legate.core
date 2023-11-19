@@ -46,13 +46,12 @@ jobs:
             test-scope: unit
             runner: linux-amd64-gpu-v100-latest-1
             enabled: ${{ inputs.platform == 'linux' }}
-            ucx-config: ucx
-
+            ucx-config: no_ucx
           - name: Pytest Unit Tests
             test-scope: unit
             runner: linux-amd64-gpu-v100-latest-1
             enabled: ${{ inputs.platform == 'linux' }}
-            ucx-config: no_ucx
+            ucx-config: ucx
 
           - name: Pytest Unit Tests (OS X)
             test-scope: unit
@@ -64,18 +63,11 @@ jobs:
             test-scope: unit
             runner: linux-amd64-2gpu
             enabled: ${{ inputs.platform == 'linux' }}
-            ucx-config: ucx
-
+            ucx-config: no_ucx
           - name: Pytest Unit Tests
             test-scope: unit
             runner: linux-amd64-2gpu
             enabled: ${{ inputs.platform == 'linux' }}
-            ucx-config: no_ucx
-
-          - name: mypy
-            test-scope: mypy
-            runner: linux-amd64-gpu-v100-latest-1
-            enabled: ${{ inputs.platform == 'linux' }}
             ucx-config: ucx
 
           - name: mypy
@@ -83,6 +75,11 @@ jobs:
             runner: linux-amd64-gpu-v100-latest-1
             enabled: ${{ inputs.platform == 'linux' }}
             ucx-config: no_ucx
+          - name: mypy
+            test-scope: mypy
+            runner: linux-amd64-gpu-v100-latest-1
+            enabled: ${{ inputs.platform == 'linux' }}
+            ucx-config: ucx
 
           - name: mypy (OS X)
             test-scope: mypy
