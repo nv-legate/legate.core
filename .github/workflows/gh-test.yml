@@ -24,6 +24,9 @@ on:
       enabled:
         required: true
         type: boolean
+      ucx-config:
+        required: true
+        type: string
       ucx-string:
         required: true
         type: string
@@ -35,11 +38,6 @@ env:
 
 jobs:
   test-in-container:
-    strategy:
-      fail-fast: false
-      matrix:
-        ucx-config: [ucx, no_ucx]
-      inputs.ucx-string: ${{ (matrix.ucx-config == 'ucx' && '-ucx') || '' }}
     if: github.repository_owner == 'nv-legate' && inputs.use-container && inputs.enabled
     name: test-${{ inputs.build-target }}${{ inputs.ucx-string }}-sub-workflow
     runs-on: ${{ inputs.runs-on }}
