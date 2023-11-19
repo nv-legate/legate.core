@@ -42,37 +42,11 @@ jobs:
       fail-fast: false
       matrix:
         ucx-config: [ucx, no_ucx ]
-        test-config: [
-          [ name: Pytest Unit Tests,
-            test-scope: unit,
-            runner: linux-amd64-gpu-v100-latest-1,
-            enabled: ${{ inputs.platform == 'linux' }}
-          ],
-          [
-            name: Pytest Unit Tests (OS X),
-            test-scope: unit,
-            runner: macos-latest,
-            enabled: ${{ inputs.platform == 'osx' }}
-          ],
-          [
-            name: Pytest Unit Tests,
-            test-scope: unit,
-            runner: linux-amd64-2gpu,
-            enabled: ${{ inputs.platform == 'linux' }}
-          ],
-          [
-            name: mypy,
-            test-scope: mypy,
-            runner: linux-amd64-gpu-v100-latest-1,
-            enabled: ${{ inputs.platform == 'linux' }}
-          ],
-          [
-            name: mypy (OS X),
-            test-scope: mypy,
-            runner: macos-latest,
-            enabled: ${{ inputs.platform == 'osx' }}
-          ]
-        ]
+        test-config: [[name: Pytest Unit Tests, test-scope: unit, runner: linux-amd64-gpu-v100-latest-1, enabled: ${{ inputs.platform == 'linux' }}],
+          [name: Pytest Unit Tests (OS X), test-scope: unit, runner: macos-latest, enabled: ${{ inputs.platform == 'osx' }}],
+          [name: Pytest Unit Tests, test-scope: unit, runner: linux-amd64-2gpu, enabled: ${{ inputs.platform == 'linux' }}],
+          [name: mypy, test-scope: mypy, runner: linux-amd64-gpu-v100-latest-1, enabled: ${{ inputs.platform == 'linux' }}],
+          [name: mypy (OS X), test-scope: mypy, runner: macos-latest, enabled: ${{ inputs.platform == 'osx' }}]]
         exclude:
           - test-config: test-config[0]
             ucx-config: ucx
