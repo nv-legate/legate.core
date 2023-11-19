@@ -14,6 +14,14 @@ on:
 
 jobs:
   build:
+    strategy:
+    fail-fast: false
+    matrix:
+      ucx-config: [ucx, no_ucx]
+      os-platform: [ "${{ inputs.platform }}" ]
+      exclude:
+      - os-platform: "osx"
+        ucx-config: ucx
     if: ${{ github.repository_owner == 'nv-legate' }}
     uses:
       ./.github/workflows/gh-build.yml
@@ -24,6 +32,8 @@ jobs:
       sha: ${{ github.sha }}
       build-type: ci
       use-container: ${{ inputs.platform == 'linux' }}
+      ucx-config: ${{ matrix.ucx-config }}
+      ucx-string: ${{ (matrix.ucx-config == 'ucx' && '-ucx') || '' }}
 
   test:
     needs:
@@ -36,26 +46,49 @@ jobs:
             test-scope: unit
             runner: linux-amd64-gpu-v100-latest-1
             enabled: ${{ inputs.platform == 'linux' }}
+            ucx-config: no_ucx
+
+          - name: Pytest Unit Tests
+            test-scope: unit
+            runner: linux-amd64-gpu-v100-latest-1
+            enabled: ${{ inputs.platform == 'linux' }}
+            ucx-config: ucx
 
           - name: Pytest Unit Tests (OS X)
             test-scope: unit
             runner: macos-latest
             enabled: ${{ inputs.platform == 'osx' }}
+            ucx-config: no_ucx
 
           - name: Pytest Unit Tests
             test-scope: unit
             runner: linux-amd64-2gpu
             enabled: ${{ inputs.platform == 'linux' }}
+            ucx-config: no_ucx
+
+          - name: Pytest Unit Tests
+            test-scope: unit
+            runner: linux-amd64-2gpu
+            enabled: ${{ inputs.platform == 'linux' }}
+            ucx-config: ucx
 
           - name: mypy
             test-scope: mypy
             runner: linux-amd64-gpu-v100-latest-1
             enabled: ${{ inputs.platform == 'linux' }}
+            ucx-config: no_ucx
+
+          - name: mypy
+            test-scope: mypy
+            runner: linux-amd64-gpu-v100-latest-1
+            enabled: ${{ inputs.platform == 'linux' }}
+            ucx-config: ucx
 
           - name: mypy (OS X)
             test-scope: mypy
             runner: macos-latest
             enabled: ${{ inputs.platform == 'osx' }}
+            ucx-config: no_ucx
 
     name: ${{ matrix.name }}
     if: github.repository_owner == 'nv-legate'
@@ -69,3 +102,5 @@ jobs:
       test-scope: ${{ matrix.test-scope }}
       use-container: ${{ inputs.platform == 'linux' }}
       enabled: ${{ matrix.enabled }}
+      ucx-config: ${{ matrix.ucx-config }}
+      ucx-string: ${{ (matrix.ucx-config == 'ucx' && '-ucx') || '' }}

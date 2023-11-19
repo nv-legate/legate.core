@@ -22,3 +22,5 @@ jobs:
       sha: ${{ github.sha }}
       build-type: release
       use-container: true
+      ucx-config: no_ucx
+      ucx-string: ''

@@ -37,7 +37,9 @@ run_test_or_analysis() {
     case "$1" in
         "unit")
             echo "Executing unit tests..."
-            mamba install -y -n "${CONDA_ENV}" -c conda-forge pytest pytest-mock ipython jupyter_client
+            ucx_libs=
+            [ "${UCX_ENABLED:-}" = "ON" ] && ucx_libs=ucx\ openmpi
+            mamba install -y -n "${CONDA_ENV}" -c conda-forge pytest pytest-mock ipython jupyter_client $ucx_libs
             cd $REPO_DIR/tests/unit
             pytest
             ;;
