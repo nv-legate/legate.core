@@ -28,7 +28,6 @@ build_legate_release() {
 }
 
 build_legate_nightly_release() {
-    mkdir -p /tmp/env_yaml /tmp/conda-build
     cat <<EOF >> $REPO_DIR/conda/conda-build/conda_build_config.yaml
 nightly_package_version:
   - "true"
