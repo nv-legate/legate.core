@@ -9,6 +9,11 @@ build_legate_conda_package() {
         python_version="$(python3 --version 2>&1 | cut -d' ' -f2 | cut -d'.' -f3 --complement)";
     fi
 
+    # Patch post.py
+    if [[ "$(uname)" == "Darwin" ]]; then
+      patch "/usr/local/Caskroom/mambaforge/base/envs/legate/lib/python${python_version}/site-packages/conda_build/post.py" < "$REPO_DIR/continuous_integration/post_py.patch"
+    fi
+
     local conda_build_args=();
     conda_build_args+=(--override-channels);
     conda_build_args+=(-c conda-forge);
@@ -29,8 +34,6 @@ build_legate_conda_package() {
 
     conda_build_args+=(--variants "{gpu_enabled:${GPU_ENABLED},python:${python_version}}");
 
-    rm -rf /tmp/legate;
-    cp -ar ~/legate /tmp/legate;
     rm -rf /tmp/conda-croot/legate_core;
     mkdir -p /tmp/conda-croot/legate_core;
     rm -rf /tmp/conda-build/legate_core;
@@ -38,7 +41,7 @@ build_legate_conda_package() {
 
     # Synthesize new legate_core conda-build build.sh script
 
-    cat <<EOF > /tmp/legate/conda/conda-build/conda_build_config.yaml
+    cat <<EOF > $REPO_DIR/conda/conda-build/conda_build_config.yaml
 numpy:
   - 1.22
 python:
@@ -49,17 +52,22 @@ use_local_path:
   - "true"
 gpu_enabled:
   - "${GPU_ENABLED}"
+debug_build:
+  - "false"
 cmake_version:
   - ">=3.20.1,!=3.23.0"
 package_version:
-  - "$(git -C /tmp/legate describe --abbrev=0 --tags | sed 's/[a-zA-Z]//g' | cut -d '.' -f -2).00"
+  - "$(git -C $REPO_DIR describe --abbrev=0 --tags | $SED 's/[a-zA-Z]//g' | cut -d '.' -f -2).00"
 EOF
 
-    cat <<EOF > /tmp/legate/conda/conda-build/build.sh
+    cat <<EOF > $REPO_DIR/conda/conda-build/build.sh
+echo "---------------------build.sh-------------------------"
+set -x
+
 # Install legate_core C++ libs
-tar -C "\$PREFIX" --exclude="*.a" --strip-components=1 -xf /tmp/out/legate_core-*-Linux.tar.gz;
-sed -E -i "s@$HOME/\.conda/envs/legate@\$PREFIX@g" "\$PREFIX/share/Legion/cmake/LegionConfigCommon.cmake";
-sed -E -i "s@$HOME/legate/build/_CPack_Packages/Linux/TGZ/legate_core-(.*)-Linux@\$PREFIX@g" "\$SP_DIR/legion_canonical_cffi.py";
+tar -C "\$PREFIX" --exclude="*.a" --strip-components=1 -xf /tmp/out/legate_core-*-$(uname).tar.gz;
+$SED -E -i "s@$CONDA_PREFIX@\$PREFIX@g" "\$PREFIX/share/Legion/cmake/LegionConfigCommon.cmake";
+$SED -E -i "s@$REPO_DIR/build/_CPack_Packages/$(uname)/TGZ/legate_core-(.*)-$(uname)@\$PREFIX@g" "\$SP_DIR/legion_canonical_cffi.py";
 
 # Install legate_core Python wheel
 pip install --no-deps --root / --prefix "\$PREFIX" /tmp/out/legate_core-*.whl;
@@ -69,20 +77,15 @@ pip install --no-deps --root / --prefix "\$PREFIX" /tmp/out/legate_core-*.whl;
 rm -rf "\$SP_DIR"/legion*egg-info;
 EOF
 
-    git -C /tmp/legate add .;
-    git -C /tmp/legate commit --allow-empty --allow-empty-message -n -m "";
+    git -C $REPO_DIR add .;
+    git -C $REPO_DIR commit --allow-empty --allow-empty-message -n -m "";
 
     # Build legate_core conda package
-    CUDA=${CUDA_VERSION_MAJOR}.${CUDA_VERSION_MINOR} \
-    conda mambabuild ${conda_build_args[@]} /tmp/legate/conda/conda-build;
+    conda mambabuild ${conda_build_args[@]} $REPO_DIR/conda/conda-build;
 
-    git -C /tmp/legate reset --hard HEAD~1;
+    git -C $REPO_DIR reset --hard HEAD~1;
 
-    rm -rf /tmp/legate;
-
-    cp /tmp/conda-build/legate_core/linux-64/legate-*.tar.bz2 /tmp/out/;
-
-    { set +x; } 2>/dev/null;
+    cp /tmp/conda-build/legate_core/${CONDA_PLATFORM}/legate-*.tar.bz2 /tmp/out/;
 }
 
 (build_legate_conda_package "$@");

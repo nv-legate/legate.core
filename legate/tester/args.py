@@ -29,6 +29,7 @@ from . import (
     DEFAULT_GPU_DELAY,
     DEFAULT_GPU_MEMORY_BUDGET,
     DEFAULT_GPUS_PER_NODE,
+    DEFAULT_NODES,
     DEFAULT_NUMAMEM,
     DEFAULT_OMPS_PER_NODE,
     DEFAULT_OMPTHREADS,
@@ -191,12 +192,38 @@ feature_opts.add_argument(
 
 feature_opts.add_argument(
     "--ranks-per-node",
-    dest="ranks",
+    dest="ranks_per_node",
     type=int,
     default=DEFAULT_RANKS_PER_NODE,
     help="Number of ranks per node to use",
 )
 
+feature_opts.add_argument(
+    "--launcher",
+    dest="launcher",
+    choices=["mpirun", "jsrun", "srun", "none"],
+    default="none",
+    help='launcher program to use (set to "none" for local runs, or if '
+    "the launch has already happened by the time legate is invoked)",
+)
+
+parser.add_argument(
+    "--launcher-extra",
+    dest="launcher_extra",
+    action="append",
+    default=[],
+    required=False,
+    help="additional argument to pass to the launcher (can appear more "
+    "than once)",
+)
+
+feature_opts.add_argument(
+    "--nodes",
+    dest="nodes",
+    type=int,
+    default=DEFAULT_NODES,
+    help="Number of nodes to use",
+)
 
 test_opts = parser.add_argument_group("Test run configuration options")
 

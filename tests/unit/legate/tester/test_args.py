@@ -22,9 +22,11 @@ from legate.tester import (
     DEFAULT_GPU_DELAY,
     DEFAULT_GPU_MEMORY_BUDGET,
     DEFAULT_GPUS_PER_NODE,
+    DEFAULT_NODES,
     DEFAULT_NUMAMEM,
     DEFAULT_OMPS_PER_NODE,
     DEFAULT_OMPTHREADS,
+    DEFAULT_RANKS_PER_NODE,
     args as m,
 )
 
@@ -65,6 +67,18 @@ class TestParserDefaults:
 
     def test_numamem(self) -> None:
         assert m.parser.get_default("numamem") == DEFAULT_NUMAMEM
+
+    def test_ranks_per_node(self) -> None:
+        assert m.parser.get_default("ranks_per_node") == DEFAULT_RANKS_PER_NODE
+
+    def test_launcher(self) -> None:
+        assert m.parser.get_default("launcher") == "none"
+
+    def test_launcher_extra(self) -> None:
+        assert m.parser.get_default("launcher_extra") == []
+
+    def test_nodes(self) -> None:
+        assert m.parser.get_default("nodes") == DEFAULT_NODES
 
     def test_timeout(self) -> None:
         assert m.parser.get_default("timeout") is None

@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+. conda-utils
+
+make_conda_env() {
+    set -xeuo pipefail
+
+    case "$1" in
+        ci) get_yaml_and_make_conda_env;;
+        release) make_release_env;;
+        *) return 1;;
+    esac
+
+    return 0;
+}
+
+(make_conda_env "$@");

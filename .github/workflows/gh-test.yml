@@ -18,24 +18,84 @@ on:
       test-scope:
         required: true
         type: string
+      use-container:
+        required: true
+        type: boolean
+      enabled:
+        required: true
+        type: boolean
+
+env:
+  ARTIFACT_NAME: "${{ inputs.repos-name }}-${{ inputs.build-target }}-${{ inputs.sha }}"
+  ARTIFACTS_DIR: "${{ github.workspace }}/.artifacts"
 
 jobs:
-  test:
-    if: github.repository_owner == 'nv-legate'
+  test-in-container:
+    if: github.repository_owner == 'nv-legate' && inputs.use-container && inputs.enabled
     name: test-${{ inputs.build-target }}-sub-workflow
     runs-on: ${{ inputs.runs-on }}
+
+    defaults:
+      run:
+        shell: bash
+
     container:
       options: -u root
-      image: ghcr.io/nv-legate/${{ inputs.repos-name }}-${{ inputs.build-target }}:${{ inputs.sha }}
+      image: condaforge/miniforge3:latest
       env:
         PYTHONDONTWRITEBYTECODE: 1
         NVIDIA_VISIBLE_DEVICES: ${{ env.NVIDIA_VISIBLE_DEVICES }}
+      volumes:
+        - "${{ github.workspace }}/.artifacts:${{ github.workspace }}/.artifacts"
+    steps:
+      - if: inputs.build-target == 'gpu'
+        name: Run nvidia-smi to make sure GPU is working
+        run: nvidia-smi
+
+      - name: Checkout repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: ${{ env.ARTIFACTS_DIR }}
+
+      - name: Run ${{ inputs.repos-name }} test / analysis
+        run: |
+          set -xeuo pipefail
+          continuous_integration/scripts/run-test-or-analysis ${{ inputs.test-scope }}
+
+  test:
+    if: github.repository_owner == 'nv-legate' && !inputs.use-container && inputs.enabled
+    name: test-${{ inputs.build-target }}-sub-workflow
+    runs-on: ${{ inputs.runs-on }}
+
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - if: inputs.build-target == 'gpu'
         name: Run nvidia-smi to make sure GPU is working
         run: nvidia-smi
 
-      - name: Run legate.core test / analysis
-        shell: su coder {0}
-        run: run-test-or-analysis ${{ inputs.test-scope }}
+      - name: Checkout repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: ${{ env.ARTIFACTS_DIR }}
+
+      - name: Run ${{ inputs.repos-name }} test / analysis
+        run: |
+          set -xeuo pipefail
+          continuous_integration/scripts/run-test-or-analysis ${{ inputs.test-scope }}

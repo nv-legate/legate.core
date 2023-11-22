@@ -45,13 +45,13 @@ Once you have this environment file, you can install the required packages by
 creating a new conda environment:
 
 ```shell
-conda env create -n legate -f <env-file>.yaml
+mamba env create -n legate -f <env-file>.yaml
 ```
 
 or by updating an existing environment:
 
 ```shell
-conda env update -f <env-file>.yaml
+mamba env update -f <env-file>.yaml
 ```
 
 ## Building through install.py

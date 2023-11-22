@@ -39,3 +39,4 @@ legate.core.code-workspace
 *.prof
 .legate-test-last-failed
 out/
+.artifacts/
