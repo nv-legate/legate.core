@@ -58,7 +58,7 @@
 {% if not enable_nightly_package_bool %}
 {% set nightly_tag='' %}
 {% else %}
-{% set set nightly_tag='_nightly' %}
+{% set nightly_tag='_nightly' %}
 {% endif %}
 
 {% if debug_build_bool %}
