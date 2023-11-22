@@ -26,10 +26,12 @@
 ## The tag must be in one of the two formats (where N is a digit):
 ## vNN.NN.NN
 ## vNN.NN.NN.dev
+{% elif nightly_package_version is defined %}
+    {% set version = (environ.get('GIT_DESCRIBE_TAG') ~ '_' ~ environ.get('GIT_DESCRIBE_NUMBER', default_env_var)).lstrip('v') ~ '_nightly' %}
 {% elif 'dev' in environ.get('GIT_DESCRIBE_TAG', default_env_var) %}
-    {% set version = (environ.get('GIT_DESCRIBE_TAG') ~ environ.get('GIT_DESCRIBE_NUMBER', default_env_var)).lstrip('v') ~ '_PRGX' %}
+    {% set version = (environ.get('GIT_DESCRIBE_TAG') ~ environ.get('GIT_DESCRIBE_NUMBER', default_env_var)).lstrip('v') %}
 {% else %}
-    {% set version = environ.get('GIT_DESCRIBE_TAG', default_env_var).lstrip('v') ~ '_PRGY' %}
+    {% set version = environ.get('GIT_DESCRIBE_TAG', default_env_var).lstrip('v') %}
 {% endif %}
 {% set cuda_version='.'.join(environ.get('CUDA', '12.0').split('.')[:2]) %}
 {% set cuda_major=cuda_version.split('.')[0]|int %}

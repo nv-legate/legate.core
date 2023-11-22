@@ -5,8 +5,8 @@ concurrency:
   cancel-in-progress: true
 
 on:
-  schedule:
-    - cron: '0 22 * * *' # Every day at 10:00 pm
+  # schedule:
+  #  - cron: '0 22 * * *' # Every day at 10:00 pm
   push:
     workflow_dispatch:
     branches:
