@@ -54,6 +54,7 @@ class SectionConfig:
 @dataclass(frozen=True)
 class CUDAConfig(SectionConfig):
     ctk_version: str
+    compilers: bool
     os: OSType
 
     header = "cuda"
@@ -81,6 +82,25 @@ class CUDAConfig(SectionConfig):
                 "libcusolver-dev",
             )
 
+        if self.compilers:
+            if self.os == "linux":
+                if V(self.ctk_version) < V("12.0"):
+                    deps += (f"nvcc_linux-64={self.ctk_version}",)
+                else:
+                    deps += ("cuda-nvcc",)
+
+                # gcc 11.3 is incompatible with nvcc <= 11.5.
+                if V(self.ctk_version) <= V("11.5"):
+                    deps += (
+                        "gcc_linux-64<=11.2",
+                        "gxx_linux-64<=11.2",
+                    )
+                else:
+                    deps += (
+                        "gcc_linux-64=11.*",
+                        "gxx_linux-64=11.*",
+                    )
+
         return deps
 
     def __str__(self) -> str:
@@ -92,6 +112,8 @@ class CUDAConfig(SectionConfig):
 
 @dataclass(frozen=True)
 class BuildConfig(SectionConfig):
+    compilers: bool
+    openmpi: bool
     ucx: bool
     os: OSType
 
@@ -114,6 +136,10 @@ class BuildConfig(SectionConfig):
             "zlib",
             "numba",
         )
+        if self.compilers:
+            pkgs += ("c-compiler", "cxx-compiler")
+        if self.openmpi:
+            pkgs += ("openmpi",)
         if self.ucx:
             pkgs += ("ucx>=1.14",)
         if self.os == "linux":
@@ -121,7 +147,9 @@ class BuildConfig(SectionConfig):
         return sorted(pkgs)
 
     def __str__(self) -> str:
-        val = "-ucx" if self.ucx else ""
+        val = "-compilers" if self.compilers else ""
+        val += "-openmpi" if self.openmpi else ""
+        val += "-ucx" if self.ucx else ""
         return val
 
 
@@ -200,6 +228,8 @@ class EnvConfig:
     python: str
     os: OSType
     ctk: str
+    compilers: bool
+    openmpi: bool
     ucx: bool
 
     @property
@@ -214,11 +244,11 @@ class EnvConfig:
 
     @property
     def cuda(self) -> CUDAConfig:
-        return CUDAConfig(self.ctk, self.os)
+        return CUDAConfig(self.ctk, self.compilers, self.os)
 
     @property
     def build(self) -> BuildConfig:
-        return BuildConfig(self.ucx, self.os)
+        return BuildConfig(self.compilers, self.openmpi, self.ucx, self.os)
 
     @property
     def runtime(self) -> RuntimeConfig:
@@ -286,13 +316,17 @@ PIP_TEMPLATE = """\
 """
 
 ALL_CONFIGS = [
-    EnvConfig("test", python, "linux", ctk, ucx)
+    EnvConfig("test", python, "linux", ctk, compilers, openmpi, ucx)
     for python in PYTHON_VERSIONS
     for ctk in CTK_VERSIONS
+    for compilers in (True, False)
+    for openmpi in (True, False)
     for ucx in (True, False)
 ] + [
-    EnvConfig("test", python, "osx", "none", False)
+    EnvConfig("test", python, "osx", "none", compilers, openmpi, False)
     for python in PYTHON_VERSIONS
+    for compilers in (True, False)
+    for openmpi in (True, False)
 ]
 
 # --- Code --------------------------------------------------------------------
@@ -362,6 +396,20 @@ if __name__ == "__main__":
         help="OS to generate for (default: all OSes)",
     )
     parser.add_argument(
+        "--compilers",
+        action=BooleanFlag,
+        dest="compilers",
+        default=None,
+        help="Whether to include conda compilers or not (default: both)",
+    )
+    parser.add_argument(
+        "--openmpi",
+        action=BooleanFlag,
+        dest="openmpi",
+        default=None,
+        help="Whether to include openmpi or not (default: both)",
+    )
+    parser.add_argument(
         "--ucx",
         action=BooleanFlag,
         dest="ucx",
@@ -386,8 +434,12 @@ if __name__ == "__main__":
         configs = (
             x for x in configs if x.cuda.ctk_version == args.ctk_version
         )
+    if args.compilers is not None:
+        configs = (x for x in configs if x.build.compilers == args.compilers)
     if args.os is not None:
         configs = (x for x in configs if x.os == args.os)
+    if args.openmpi is not None:
+        configs = (x for x in configs if x.build.openmpi == args.openmpi)
     if args.ucx is not None:
         configs = (x for x in configs if x.build.ucx == args.ucx)
 

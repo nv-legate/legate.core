@@ -33,8 +33,8 @@ environment file listing all the packages that are required to build, run and
 test Legate Core and all downstream libraries. For example:
 
 ```shell
-$ ./scripts/generate-conda-envs.py --python 3.10 --ctk 12.0 --os linux --ucx
---- generating: environment-test-linux-py310-cuda-12.0-ucx.yaml
+$ ./scripts/generate-conda-envs.py --python 3.10 --ctk 12.0 --os linux --compilers --openmpi
+--- generating: environment-test-linux-py310-cuda-12.0-compilers-openmpi.yaml
 ```
 
 Run this script with `-h` to see all available configuration options for the
@@ -166,10 +166,17 @@ through the `--python` flag of `generate-conda-envs.py`.
 
 ### C++ compiler
 
-We suggest that you avoid using the compiler packages available on conda-forge.
-These compilers are configured with the specific goal of building
-redistributable conda packages (e.g. they explicitly avoid linking to system
-directories), which tends to cause issues for development builds.
+If you want to pull the compilers from conda, use an environment file created by
+`generate-conda-envs.py` using the `--compilers` flag. An appropriate compiler
+for the target OS will be chosen automatically.
+
+If you need/prefer to use the system-provided compilers (typical for HPC
+installations), please use a conda environment generated with `--no-compilers`.
+Note that this will likely result in a
+[conda/system library conflict](#alternative-sources-for-dependencies),
+since the system compilers will typically produce executables
+that link against the system-provided libraries, which can shadow the
+conda-provided equivalents.
 
 ### CUDA (optional)
 
@@ -268,12 +275,12 @@ manager.
 
 Only necessary if you wish to run on multiple nodes.
 
-We suggest that you avoid using the version of OpenMPI available on conda-forge.
-Instead prefer an MPI installation provided by your HPC vendor, or from
-system-wide distribution channels like apt/yum and
+Environments created using the `--openmpi` flag of `generate-conda-envs.py` will
+contain the (generic) build of OpenMPI that is available on conda-forge. You may
+need/prefer to use a more specialized build, e.g. the one distributed by
 [MOFED](https://network.nvidia.com/products/infiniband-drivers/linux/mlnx_ofed/),
-since these will likely be more compatible with (and tuned for) your particular
-system.
+or one provided by your HPC vendor. In that case you should use an environment
+file generated with `--no-openmpi`.
 
 Legate requires a build of MPI that supports `MPI_THREAD_MULTIPLE`.
 
