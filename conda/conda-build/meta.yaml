@@ -15,6 +15,14 @@
   {# We need to have a default value for the initial pass over the recipe #}
   {% set debug_build_bool = false %}
 {% endif %}
+{% if enable_nightly_package == "true" %}
+  {% set enable_nightly_package_bool = true %}
+{% elif enable_nightly_package == "false" %}
+  {% set enable_nightly_package_bool = false %}
+{% else %}
+  {# We need to have a default value for the initial pass over the recipe #}
+  {% set enable_nightly_package_bool = false %}
+{% endif %}
 {% set default_env_var = '' %}
 {% if build_number is defined %}
     {# do nothing if defined #}
@@ -26,8 +34,6 @@
 ## The tag must be in one of the two formats (where N is a digit):
 ## vNN.NN.NN
 ## vNN.NN.NN.dev
-{% elif nightly_package_version is defined %}
-    {% set version = (environ.get('GIT_DESCRIBE_TAG') ~ '_' ~ environ.get('GIT_DESCRIBE_NUMBER', default_env_var)).lstrip('v') ~ '_nightly' %}
 {% elif 'dev' in environ.get('GIT_DESCRIBE_TAG', default_env_var) %}
     {% set version = (environ.get('GIT_DESCRIBE_TAG') ~ environ.get('GIT_DESCRIBE_NUMBER', default_env_var)).lstrip('v') %}
 {% else %}
@@ -47,6 +53,12 @@
 {% set cpu_tag='_cpu' %}
 {% else %}
 {% set cpu_tag='' %}
+{% endif %}
+
+{% if not enable_nightly_package_bool %}
+{% set nightly_tag='' %}
+{% else %}
+{% set set nightly_tag='_nightly' %}
 {% endif %}
 
 {% if debug_build_bool %}
@@ -74,7 +86,7 @@ build:
   missing_dso_whitelist:
     -  '*libcuda.so*'
 
-  string: "cuda{{ cuda_major }}_py{{ py_version }}{{ git_describe_hash }}_{{ PKG_BUILDNUM }}{{ cpu_tag }}{{ debug_tag }}"
+  string: "cuda{{ cuda_major }}_py{{ py_version }}{{ git_describe_hash }}_{{ PKG_BUILDNUM }}{{ cpu_tag }}{{ debug_tag }}{{ nightly_tag }}"
 
   script_env:
     - SCCACHE_BUCKET
