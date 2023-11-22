@@ -4,16 +4,14 @@ concurrency:
   group: ci-nightly-release-on-${{ github.event_name }}-from-${{ github.ref_name }}
   cancel-in-progress: true
 
-on:
-  # schedule:
-  #  - cron: '0 22 * * *' # Every day at 10:00 pm
+ons:
   push:
     workflow_dispatch:
     branches:
       - "pull-request/[0-9]+"
       - "branch-*"
 
-jobs:
+jobss:
   build:
     uses:
       ./.github/workflows/gh-build.yml
