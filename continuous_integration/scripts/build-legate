@@ -42,6 +42,14 @@ copy_release_artifacts() {
     cp /tmp/conda-build/linux-64/legate-core-*.tar.bz2 "$ARTIFACTS_DIR"
 }
 
+copy_nightly_release_artifacts() {
+    echo Copying release artifacts
+    cp /tmp/conda-build/linux-64/legate-core-*.tar.bz2 "$ARTIFACTS_DIR"
+    echo "NIGHTLY -PRGX"
+    conda install anaconda-client.
+    anaconda -V
+}
+
 copy_ci_artifacts() {
     echo Copying CI artifacts
 
@@ -72,7 +80,7 @@ build_legate() {
     case "$BUILD_TYPE" in
         ci) build_legate_ci && copy_ci_artifacts;;
         release) build_legate_release && copy_release_artifacts;;
-        nightly-release) build_legate_nightly_release && copy_release_artifacts;;
+        nightly-release) build_legate_nightly_release && copy_nightly_release_artifacts;;
 
         *) return 1;;
     esac

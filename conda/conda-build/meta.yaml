@@ -15,12 +15,9 @@
   {# We need to have a default value for the initial pass over the recipe #}
   {% set debug_build_bool = false %}
 {% endif %}
-{% if enable_nightly_package == "true" %}
+{% if enable_nightly_package is defined %}
   {% set enable_nightly_package_bool = true %}
-{% elif enable_nightly_package == "false" %}
-  {% set enable_nightly_package_bool = false %}
 {% else %}
-  {# We need to have a default value for the initial pass over the recipe #}
   {% set enable_nightly_package_bool = false %}
 {% endif %}
 {% set default_env_var = '' %}
