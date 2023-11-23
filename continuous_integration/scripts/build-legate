@@ -46,7 +46,7 @@ post_nightly_release_artifacts() {
     echo Copying release artifacts
     cp /tmp/conda-build/linux-64/legate-core-*.tar.bz2 "$ARTIFACTS_DIR"
     echo "NIGHTLY -PRGX"
-    conda install -c anaconda anaconda-client
+    #conda install -c anaconda anaconda-client
     anaconda -V
 }
 
