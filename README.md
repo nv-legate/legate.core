@@ -215,7 +215,14 @@ as though they are running on a single processor.
 
 ## How Do I Install Legate?
 
-Legate Core is available [on conda](https://anaconda.org/legate/legate-core):
+Legate Core is available [on conda](https://anaconda.org/legate/legate-core).
+Create a new environment containing Legate Core:
+
+```
+mamba create -n myenv -c nvidia -c conda-forge -c legate legate-core
+```
+
+or install it into an existing environment:
 
 ```
 mamba install -c nvidia -c conda-forge -c legate legate-core
@@ -226,7 +233,12 @@ Only linux-64 packages are available at the moment.
 The default package contains GPU support, and is compatible with CUDA >= 12.0
 (CUDA driver version >= r520), and Volta or later GPU architectures. There are
 also CPU-only packages available, and will be automatically selected when
-installing on a machine without GPUs.
+installing on a machine without GPUs. You can force installation of a CPU-only
+package by requesting it as follows:
+
+```
+mamba ... legate-core=*=*_cpu
+```
 
 See [BUILD.md](BUILD.md) for instructions on building Legate Core from source.
 
