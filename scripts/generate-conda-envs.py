@@ -14,7 +14,6 @@ from __future__ import annotations
 
 from argparse import Action, ArgumentParser
 from dataclasses import dataclass
-from subprocess import check_output
 from textwrap import indent
 from typing import Literal, Tuple
 
@@ -358,29 +357,6 @@ class BooleanFlag(Action):
         setattr(namespace, self.dest, not option_string.startswith("--no"))
 
 
-def pick_ctk_version() -> str:
-    try:
-        # If the user already has a CTK installed system-wide, match that
-        out = check_output(
-            "nvcc --version | head -4 | tail -1 | cut -d' ' -f5 | "
-            "cut -d',' -f1",
-            shell=True,
-        )
-        return out.decode("utf-8").strip()
-    except Exception:
-        pass
-    try:
-        # If not, use the max CTK that the installed driver supports
-        out = check_output(
-            "nvidia-smi | head -3 | tail -1 | awk '{ print $9 }'",
-            shell=True,
-        )
-        return out.decode("utf-8").strip()
-    except Exception:
-        pass
-    return "none"
-
-
 if __name__ == "__main__":
     import sys
 
@@ -394,7 +370,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--ctk",
         choices=CTK_VERSIONS,
-        default=pick_ctk_version(),
+        default="none",
         dest="ctk_version",
         help="CTK version to generate for",
     )
