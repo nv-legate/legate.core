@@ -159,7 +159,7 @@ requirements:
     - libcusolver-dev
 {% endif %}
 {% if ucx_configured_bool %}
-    - ucx
+    - ucx >=1.14
 {% endif %}
 
   # Runtime python dependencies
@@ -176,7 +176,7 @@ requirements:
     - nccl
 {% endif %}
 {% if ucx_configured_bool %}
-    - ucx
+    - ucx >=1.14
 {% endif %}
 
   run_constrained:
