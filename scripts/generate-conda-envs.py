@@ -276,11 +276,6 @@ PYTHON_VERSIONS = ("3.9", "3.10", "3.11")
 
 CTK_VERSIONS = (
     "none",
-    "10.2",
-    "11.0",
-    "11.1",
-    "11.2",
-    "11.3",
     "11.4",
     "11.5",
     "11.6",
@@ -318,19 +313,6 @@ PIP_TEMPLATE = """\
 {pip_sections}
 """
 
-ALL_CONFIGS = [
-    EnvConfig("test", python, "linux", ctk, compilers, openmpi, ucx)
-    for python in PYTHON_VERSIONS
-    for ctk in CTK_VERSIONS
-    for compilers in (True, False)
-    for openmpi in (True, False)
-    for ucx in (True, False)
-] + [
-    EnvConfig("test", python, "osx", "none", compilers, openmpi, False)
-    for python in PYTHON_VERSIONS
-    for compilers in (True, False)
-    for openmpi in (True, False)
-]
 
 # --- Code --------------------------------------------------------------------
 
@@ -382,42 +364,42 @@ if __name__ == "__main__":
     parser.add_argument(
         "--python",
         choices=PYTHON_VERSIONS,
-        default=None,
-        help="Python version to generate for, (default: all python versions)",
+        default="3.10",
+        help="Python version to generate for",
     )
     parser.add_argument(
         "--ctk",
         choices=CTK_VERSIONS,
-        default=None,
+        default="none",
         dest="ctk_version",
-        help="CTK version to generate for (default: all CTK versions)",
+        help="CTK version to generate for",
     )
     parser.add_argument(
         "--os",
         choices=OS_NAMES,
-        default=None,
-        help="OS to generate for (default: all OSes)",
+        default=("osx" if sys.platform == "darwin" else "linux"),
+        help="OS to generate for",
     )
     parser.add_argument(
         "--compilers",
         action=BooleanFlag,
         dest="compilers",
-        default=None,
-        help="Whether to include conda compilers or not (default: both)",
+        default=False,
+        help="Whether to include conda compilers or not",
     )
     parser.add_argument(
         "--openmpi",
         action=BooleanFlag,
         dest="openmpi",
-        default=None,
-        help="Whether to include openmpi or not (default: both)",
+        default=False,
+        help="Whether to include openmpi or not",
     )
     parser.add_argument(
         "--ucx",
         action=BooleanFlag,
         dest="ucx",
-        default=None,
-        help="Whether to include UCX or not (default: both)",
+        default=False,
+        help="Whether to include UCX or not",
     )
 
     parser.add_argument(
@@ -428,23 +410,6 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args(sys.argv[1:])
-
-    configs = ALL_CONFIGS
-
-    if args.python is not None:
-        configs = (x for x in configs if x.python == args.python)
-    if args.ctk_version is not None:
-        configs = (
-            x for x in configs if x.cuda.ctk_version == args.ctk_version
-        )
-    if args.compilers is not None:
-        configs = (x for x in configs if x.build.compilers == args.compilers)
-    if args.os is not None:
-        configs = (x for x in configs if x.os == args.os)
-    if args.openmpi is not None:
-        configs = (x for x in configs if x.build.openmpi == args.openmpi)
-    if args.ucx is not None:
-        configs = (x for x in configs if x.build.ucx == args.ucx)
 
     selected_sections = None
 
@@ -460,37 +425,46 @@ if __name__ == "__main__":
 
         return False
 
-    for config in configs:
-        conda_sections = indent(
-            "".join(
-                s.format("conda")
-                for s in config.sections
-                if s.conda and section_selected(s)
-            ),
-            "  ",
-        )
+    config = EnvConfig(
+        "test",
+        args.python,
+        args.os,
+        args.ctk_version,
+        args.compilers,
+        args.openmpi,
+        args.ucx,
+    )
 
-        pip_sections = indent(
-            "".join(
-                s.format("pip")
-                for s in config.sections
-                if s.pip and section_selected(s)
-            ),
-            "    ",
-        )
+    conda_sections = indent(
+        "".join(
+            s.format("conda")
+            for s in config.sections
+            if s.conda and section_selected(s)
+        ),
+        "  ",
+    )
 
-        filename = config.filename
-        if args.sections:
-            filename = config.filename + "-partial"
+    pip_sections = indent(
+        "".join(
+            s.format("pip")
+            for s in config.sections
+            if s.pip and section_selected(s)
+        ),
+        "    ",
+    )
 
-        print(f"--- generating: {filename}.yaml")
-        out = ENV_TEMPLATE.format(
-            use=config.use,
-            python=config.python,
-            conda_sections=conda_sections,
-            pip=PIP_TEMPLATE.format(pip_sections=pip_sections)
-            if pip_sections
-            else "",
-        )
-        with open(f"{filename}.yaml", "w") as f:
-            f.write(out)
+    filename = config.filename
+    if args.sections:
+        filename = config.filename + "-partial"
+
+    print(f"--- generating: {filename}.yaml")
+    out = ENV_TEMPLATE.format(
+        use=config.use,
+        python=config.python,
+        conda_sections=conda_sections,
+        pip=PIP_TEMPLATE.format(pip_sections=pip_sections)
+        if pip_sections
+        else "",
+    )
+    with open(f"{filename}.yaml", "w") as f:
+        f.write(out)

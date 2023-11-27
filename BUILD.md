@@ -33,8 +33,8 @@ environment file listing all the packages that are required to build, run and
 test Legate Core and all downstream libraries. For example:
 
 ```shell
-$ ./scripts/generate-conda-envs.py --python 3.10 --ctk 12.0 --os linux --compilers --openmpi
---- generating: environment-test-linux-py310-cuda-12.0-compilers-openmpi.yaml
+$ ./scripts/generate-conda-envs.py --python 3.10 --ctk 12.0 --os linux --ucx
+--- generating: environment-test-linux-py310-cuda-12.0-ucx.yaml
 ```
 
 Run this script with `-h` to see all available configuration options for the
@@ -166,17 +166,16 @@ through the `--python` flag of `generate-conda-envs.py`.
 
 ### C++ compiler
 
-If you want to pull the compilers from conda, use an environment file created by
-`generate-conda-envs.py` using the `--compilers` flag. An appropriate compiler
-for the target OS will be chosen automatically.
+We suggest that you avoid using the compiler packages available on conda-forge.
+These compilers are configured with the specific goal of building
+redistributable conda packages (e.g. they explicitly avoid linking to system
+directories), which tends to cause issues for development builds. Instead prefer
+the compilers available from your distribution's package manager (e.g. apt/yum)
+or your HPC vendor.
 
-If you need/prefer to use the system-provided compilers (typical for HPC
-installations), please use a conda environment generated with `--no-compilers`.
-Note that this will likely result in a
-[conda/system library conflict](#alternative-sources-for-dependencies),
-since the system compilers will typically produce executables
-that link against the system-provided libraries, which can shadow the
-conda-provided equivalents.
+If you want to pull the compilers from conda, use an environment file created
+by `generate-conda-envs.py` using the `--compilers` flag. An appropriate
+compiler for the target OS will be chosen automatically.
 
 ### CUDA (optional)
 
@@ -275,12 +274,15 @@ manager.
 
 Only necessary if you wish to run on multiple nodes.
 
-Environments created using the `--openmpi` flag of `generate-conda-envs.py` will
-contain the (generic) build of OpenMPI that is available on conda-forge. You may
-need/prefer to use a more specialized build, e.g. the one distributed by
+We suggest that you avoid using the generic build of OpenMPI available on
+conda-forge. Instead prefer an MPI installation provided by your HPC vendor, or
+from system-wide distribution channels like apt/yum and
 [MOFED](https://network.nvidia.com/products/infiniband-drivers/linux/mlnx_ofed/),
-or one provided by your HPC vendor. In that case you should use an environment
-file generated with `--no-openmpi`.
+since these will likely be more compatible with (and tuned for) your particular
+system.
+
+If you want to use the OpenMPI distributed on conda-forge, use an environment
+file created by `generate-conda-envs.py` using the `--openmpi` flag.
 
 Legate requires a build of MPI that supports `MPI_THREAD_MULTIPLE`.
 
@@ -314,10 +316,10 @@ You can use the version of UCX available on conda-forge by using an environment
 file created by `generate-conda-envs.py` using the `--ucx` flag. Note that this
 build of UCX might not include support for the particular networking hardware on
 your machine (or may not be optimally tuned for such). In that case you may want
-to use an environment file generated with `--no-ucx`, get UCX from another
-source (e.g. MOFED, the system-level package manager, or compiled manually from
-[source](https://github.com/openucx/ucx)), and pass the location of your
-installation to `install.py` (if necessary) using `--with-ucx`.
+to use an environment file generated with `--no-ucx` (default), get UCX from
+another source (e.g. MOFED, the system-level package manager, or compiled
+manually from [source](https://github.com/openucx/ucx)), and pass the location
+of your UCX installation to `install.py` (if necessary) using `--with-ucx`.
 
 Legate requires a build of UCX configured with `--enable-mt`.
 
