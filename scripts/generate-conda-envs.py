@@ -383,18 +383,21 @@ if __name__ == "__main__":
     parser.add_argument(
         "--compilers",
         action=BooleanFlag,
+        dest="compilers",
         default=False,
         help="Whether to include conda compilers or not",
     )
     parser.add_argument(
         "--openmpi",
         action=BooleanFlag,
+        dest="openmpi",
         default=False,
         help="Whether to include openmpi or not",
     )
     parser.add_argument(
         "--ucx",
         action=BooleanFlag,
+        dest="ucx",
         default=False,
         help="Whether to include UCX or not",
     )
