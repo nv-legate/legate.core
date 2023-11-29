@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+set -xeuo pipefail
+
+if [ type conda 2>&1 | grep -q function ]; then
+    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O $HOME//miniconda.sh
+    bash ~/miniconda.sh -b -p $HOME/miniconda
+
+    if [ -n "${CONDA_EXE:-}" ]; then
+        export PATH="$PATH:$CONDA_EXE";
+cat <<EOF >> $HOME/.bashrc
+    export PATH="$PATH:$CONDA_EXE";
+EOF
+    fi
+
+    echo "Verify Path is set"
+    cat $HOME/.bashrc
+fi

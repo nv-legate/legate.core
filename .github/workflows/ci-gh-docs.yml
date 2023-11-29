@@ -4,7 +4,6 @@ on:
   push:
     branches-ignore:
       - gh-pages  # deployment target branch (this workflow should not exist on that branch anyway)
-      - "pull-request/[0-9]+"
   pull_request:
     branches-ignore:
       - gh-pages  # deployment target branch (this workflow should not exist on that branch anyway)
@@ -19,7 +18,7 @@ env:
   PYTHONUNBUFFERED: 1
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: linux-amd64-cpu32
     steps:
       - name: Dump GitHub context
         env:
@@ -52,6 +51,9 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v3
+
+      - name: Install conda if not present
+        run: continuous_integration/scripts/setup_conda_env
 
       - name: Generate YAML file listing dependencies
         run: scripts/generate-conda-envs.py --python 3.10 --ctk 12.0 --os linux --compilers --openmpi
