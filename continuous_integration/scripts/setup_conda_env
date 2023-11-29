@@ -5,9 +5,9 @@ set -xeuo pipefail
 if [ ! type conda 2>&1 | grep -q function ]; then
     echo "conda already installed"
 else
-    curl -o $HOME//miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh 
+    curl -o $HOME/miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh 
     #wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O $HOME//miniconda.sh
-    . $HOME/miniconda.sh -b -p $HOME/miniconda
+    $HOME/miniconda.sh -b -p $HOME/miniconda
     echo "CONDA_EXE=$CONDA_EXE"
 
     if [ -n "${CONDA_EXE:-}" ]; then
