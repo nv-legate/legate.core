@@ -9,7 +9,7 @@ else
     #wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O $HOME//miniconda.sh
     chmod +x $HOME/miniconda.sh
     $HOME/miniconda.sh -b -p $HOME/miniconda
-    echo "CONDA_EXE=$CONDA_EXE"
+    #echo "CONDA_EXE=$CONDA_EXE"
 
     #if [ -n "${CONDA_EXE:-}" ]; then
     if test -f $HOME/miniconda/bin/conda; then
