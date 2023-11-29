@@ -2,7 +2,7 @@
 
 set -xeuo pipefail
 
-if [ type conda 2>&1 | grep -q function ]; then
+if [ ! type conda 2>&1 | grep -q function ]; then
     wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O $HOME//miniconda.sh
     bash ~/miniconda.sh -b -p $HOME/miniconda
 
