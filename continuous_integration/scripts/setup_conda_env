@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+
 set -x
 
 if [ type conda 2>&1 | grep -q function ]; then
