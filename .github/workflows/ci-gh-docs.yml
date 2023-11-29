@@ -5,9 +5,7 @@ on:
     branches-ignore:
       - gh-pages  # deployment target branch (this workflow should not exist on that branch anyway)
       - "pull-request/[0-9]+"
-  pull_request:
-    branches-ignore:
-      - gh-pages  # deployment target branch (this workflow should not exist on that branch anyway)
+
 env:
   COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
   PROJECT: github-core-ci
