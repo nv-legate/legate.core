@@ -1,11 +1,13 @@
 name: Build legate.core documentation
 on:
+  workflow_dispatch:
   push:
-    branches:
-      - "pull-request/[0-9]+"
-      - "branch-*"
     branches-ignore:
-       - gh-pages
+      - gh-pages  # deployment target branch (this workflow should not exist on that branch anyway)
+  pull_request:
+    branches-ignore:
+      - gh-pages  # deployment target branch (this workflow should not exist on that branch anyway)
+
 env:
   COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
   PROJECT: github-core-ci
