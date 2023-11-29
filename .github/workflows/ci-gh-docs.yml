@@ -53,6 +53,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+      - name: Install conda if not present
+        run: |
+          chmod +x continuous_integration/scripts/setup_conda_env
+          ./continuous_integration/scripts/setup_conda_env
+        shell: bash
+
       - name: Generate YAML file listing dependencies
         run: scripts/generate-conda-envs.py --python 3.10 --ctk 12.0 --os linux --compilers --openmpi
 
