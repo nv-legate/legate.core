@@ -1,4 +1,3 @@
-
 set -x
 
 if [ type conda 2>&1 | grep -q function ]; then
@@ -9,7 +8,7 @@ if [ type conda 2>&1 | grep -q function ]; then
         export PATH="$PATH:$CONDA_EXE";
     fi
 
-    cat <<EOF >> $HOME/.bashrc;
+    cat <<EOF >> $HOME/.bashrc
     if [ -n "${CONDA_EXE:-}" ]; then
         conda_bin_paths="";
         conda_bin_paths="${conda_bin_paths} $(dirname "$(dirname "${CONDA_EXE}")")/condabin";
