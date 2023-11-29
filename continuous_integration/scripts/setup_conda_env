@@ -11,7 +11,7 @@ else
     $HOME/miniconda.sh -b -p $HOME/miniconda
     echo "CONDA_EXE=$CONDA_EXE"
 
-    if [ -n "${CONDA_EXE:-}" ]; then
+    #if [ -n "${CONDA_EXE:-}" ]; then
     if test -f $HOME/miniconda/bin/conda; then
         export PATH="$PATH:$HOME/miniconda/bin/conda";
 cat <<EOF >> $HOME/.bashrc
