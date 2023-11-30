@@ -12,7 +12,6 @@ set_repo_dir() {
     REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
     export REPO_DIR
-    export SCRIPT_DIR
 
     export PATH="${PATH}:${REPO_DIR}/continuous_integration/scripts"
 }
@@ -37,17 +36,7 @@ EOF
 fi
 }
 
-_setup_conda_env() {
-    set -x
-
-    set_repo_dir
-    _install_conda
-
-    if test -f $HOME/miniconda/bin/conda; then
-        export PATH="$PATH:$HOME/miniconda/bin";
-        export CONDAB=$HOME/miniconda/bin/conda;
-    fi
-    
+_build_docs() {
     echo "Generate YAML file listing dependencies"
     $REPO_DIR/scripts/generate-conda-envs.py --python 3.10 --ctk 12.0 --os linux --compilers --openmpi
 
@@ -64,6 +53,15 @@ _setup_conda_env() {
     echo "Run link checker"
    cd $REPO_DIR/docs/legate/core
    conda run -n legate /bin/bash -c "make linkcheck"
+}
+
+
+_setup_conda_env() {
+    set -x
+
+    set_repo_dir
+    _install_conda
+    #_build_docs
 }
 
 (_setup_conda_env "$@");
