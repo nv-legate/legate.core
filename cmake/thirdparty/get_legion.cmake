@@ -133,6 +133,7 @@ function(find_or_configure_legion)
                                  "Legion_REDOP_HALF ON"
                                  "Legion_REDOP_COMPLEX ON"
                                  "Legion_BUILD_RUST_PROFILER ON"
+                                 "Legion_UCX_DYNAMIC_LOAD ON"
     )
   endif()
 
