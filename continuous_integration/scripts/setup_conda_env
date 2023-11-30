@@ -14,7 +14,8 @@ set_repo_dir() {
     export REPO_DIR
 
     export PATH="${PATH}:${REPO_DIR}/continuous_integration/scripts"
-    echo "I AM $USER, HOME:$HOME"
+    echo "$(whoami)"
+    echo "HOME:$HOME"
 }
 
 _install_conda() {

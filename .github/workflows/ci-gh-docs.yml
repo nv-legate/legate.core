@@ -57,7 +57,7 @@ jobs:
 
       - name: Check if conda is in the path
         run: |
-          echo "PATH=$PATH, I AM $USER"
+          echo "PATH=$PATH, I AM $(whoami)"
           echo "PWD:$PWD, HOME:$HOME"
           ls -la
 
