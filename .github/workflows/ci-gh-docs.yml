@@ -19,6 +19,11 @@ env:
 jobs:
   build:
     runs-on: linux-amd64-cpu32
+
+    defaults:
+      run:
+        shell: bash
+         
     steps:
       - name: Dump GitHub context
         env:
