@@ -295,7 +295,7 @@ Depending on your hardware, you may need to use a particular Realm
 networking backend, e.g. as of October 2023 HPE Slingshot is only
 compatible with GASNet.
 
-### GASNet
+### GASNet (optional)
 
 Only necessary if you wish to run on multiple nodes, using the GASNet1 or
 GASNetEx Realm networking backend.
@@ -307,7 +307,7 @@ installation. If you wish to provide an alternative installation, pass
 When using GASNet, you also need to specify the interconnect network of the
 target machine using the `--conduit` flag.
 
-### UCX
+### UCX (optional)
 
 Only necessary if you wish to run on multiple nodes, using the UCX Realm
 networking backend.
