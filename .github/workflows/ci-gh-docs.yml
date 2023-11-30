@@ -4,6 +4,7 @@ on:
   push:
     branches-ignore:
       - gh-pages  # deployment target branch (this workflow should not exist on that branch anyway)
+      - "pull-request/[0-9]+"
   pull_request:
     branches-ignore:
       - gh-pages  # deployment target branch (this workflow should not exist on that branch anyway)
@@ -23,7 +24,7 @@ jobs:
     defaults:
       run:
         shell: bash
-         
+
     steps:
       - name: Dump GitHub context
         env:
@@ -64,6 +65,7 @@ jobs:
         run: |
           echo "PATH=$PATH, I AM $(whoami)"
           echo "PWD:$PWD, HOME:$HOME"
+          cat $HOME/.bashrc
           ls -laRt $HOME
 
       - name: Generate YAML file listing dependencies
