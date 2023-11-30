@@ -57,8 +57,8 @@ jobs:
 
       - name: Check if conda is in the path
         run: |
-          echo "PATH=$PATH"
-          echo "PWD:$PWD"
+          echo "PATH=$PATH, I AM $USER"
+          echo "PWD:$PWD, HOME:$HOME"
           ls -la
 
       - name: Generate YAML file listing dependencies
