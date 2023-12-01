@@ -113,7 +113,7 @@ class TestDriver:
         mock_run.assert_called_once_with(driver.cmd, env=driver.env)
 
     @pytest.mark.parametrize("launch", LAUNCHERS)
-    def test_verbose(
+    def test_format_verbose(
         self,
         capsys: Capsys,
         genconfig: GenConfig,
@@ -127,9 +127,7 @@ class TestDriver:
 
         run_out = scrub(capsys.readouterr()[0]).strip()
 
-        m.print_verbose(driver.system, driver)
-
-        pv_out = scrub(capsys.readouterr()[0]).strip()
+        pv_out = scrub(m.format_verbose(driver.system, driver)).strip()
 
         assert pv_out in run_out
 
@@ -157,9 +155,7 @@ class TestDriver:
 
         run_out = scrub(capsys.readouterr()[0]).strip()
 
-        m.print_verbose(driver.system, driver)
-
-        pv_out = scrub(capsys.readouterr()[0]).strip()
+        pv_out = scrub(m.format_verbose(driver.system, driver)).strip()
 
         assert pv_out not in run_out
 
@@ -186,13 +182,11 @@ class TestDriver:
         assert re.search(DARWIN_GDB_WARN_EXPECTED_PAT, scrub(out))
 
 
-class Test_print_verbose:
-    def test_system_only(self, capsys: Capsys) -> None:
+class Test_format_verbose:
+    def test_system_only(self) -> None:
         system = System()
 
-        m.print_verbose(system)
-
-        out = scrub(capsys.readouterr()[0]).strip()
+        out = scrub(m.format_verbose(system)).strip()
 
         assert out.startswith(f"{'--- Legion Python Configuration ':-<80}")
         assert "Legate paths:" in out
@@ -208,9 +202,7 @@ class Test_print_verbose:
         system = System()
         driver = m.LegateDriver(config, system)
 
-        m.print_verbose(system, driver)
-
-        out = scrub(capsys.readouterr()[0]).strip()
+        out = scrub(m.format_verbose(system, driver)).strip()
 
         assert out.startswith(f"{'--- Legion Python Configuration ':-<80}")
         assert "Legate paths:" in out
