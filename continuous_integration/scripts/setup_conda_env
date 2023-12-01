@@ -41,7 +41,7 @@ fi
 }
 copy_artifacts() {
     echo Copying artifacts
-    cp $REPO_DIR/docs/legate/core/build/html/* "$ARTIFACTS_DIR/."
+    cp -r $REPO_DIR/docs/legate/core/build/html/* "$ARTIFACTS_DIR/."
 }
 
 _build_docs() {
