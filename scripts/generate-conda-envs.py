@@ -66,8 +66,12 @@ class CUDAConfig(SectionConfig):
 
         deps = (
             f"cuda-version={self.ctk_version}",  # runtime
-            # See https://github.com/nv-legate/cunumeric/issues/1092
-            "cutensor>=1.3.3,<2",  # runtime
+            # cuTensor pakcage notes:
+            # - pinning to 1.X major version
+            #   see https://github.com/nv-legate/cunumeric/issues/1092
+            # - the packages on nvidia channel are broken, pin to conda-forge
+            #   conda-forge uses build numbers starting with h
+            "cutensor=1.7*=h*",  # runtime
             "nccl",  # runtime
             "pynvml",  # tests
         )
@@ -128,7 +132,7 @@ class BuildConfig(SectionConfig):
         pkgs = (
             # 3.25.0 triggers gitlab.kitware.com/cmake/cmake/-/issues/24119
             "cmake>=3.24,!=3.25.0",
-            "cython",
+            "cython>=3",
             "git",
             "make",
             "rust",
@@ -286,8 +290,8 @@ CTK_VERSIONS = (
     "11.7",
     "11.8",
     "12.0",
-    # TODO: libcublas 12.1 not available on conda-forge as of 2023-06-12
     "12.1",
+    "12.2",
 )
 
 OS_NAMES: Tuple[OSType, ...] = ("linux", "osx")
