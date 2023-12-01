@@ -85,9 +85,9 @@ explicitly, using a `--with-<dep>` flag, e.g. `--with-nccl` and
 `--with-openblas`.
 
 For multi-node execution Legate can use [GASNet](https://gasnet.lbl.gov/) (use
-`--network gasnet1` or `--network gasnetex`, see [below](#gasnet) for more
-details) or [UCX](https://openucx.org) (use `--network ucx`, see [below](#ucx)
-for more details).
+`--network gasnet1` or `--network gasnetex`, see [below](#gasnet-optional) for
+more details) or [UCX](https://openucx.org) (use `--network ucx`, see
+[below](#ucx-optional) for more details).
 
 Compiling with networking support requires MPI.
 
