@@ -71,7 +71,7 @@ jobs:
             -v "$(pwd):$(pwd)" \
             -v "$ARTIFACTS_DIR:$(pwd)/.artifacts" \
             --rm "condaforge/miniforge3:latest" \
-            /bin/bash -c "echo $(pwd) && ls -lArt"
+            /bin/bash -c "cd $(pwd) && ls -lArt"
 #            /bin/bash -c "cd $(pwd) && continuous_integration/scripts/setup_conda_env"
 
       - name: Upload documentation
