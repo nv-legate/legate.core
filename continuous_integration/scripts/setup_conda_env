@@ -2,27 +2,75 @@
 
 set -xeuo pipefail
 
-if [ type conda 2>&1 | grep -q function ]; then
-    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O $HOME//miniconda.sh
-    bash ~/miniconda.sh -b -p $HOME/miniconda
+set_repo_dir() {
+    set -xeuo pipefail
 
-    if [ -n "${CONDA_EXE:-}" ]; then
-        export PATH="$PATH:$CONDA_EXE";
+    # Resolve the directory of the script
+    SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
+    # Navigate to the parent of the parent of SCRIPT_DIR, then get the full path
+    REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+    export REPO_DIR
+    export ARTIFACTS_DIR="${REPO_DIR}/.artifacts"
+
+    export PATH="${PATH}:${REPO_DIR}/continuous_integration/scripts"
+    echo "$(whoami)"
+    echo "HOME:$HOME"
+}
+
+_install_conda() {
+if type conda 2>&1 | grep -q function; then
+    echo "conda already installed"
+else
+    curl -o $HOME/miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh 
+    #wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O $HOME//miniconda.sh
+    chmod +x $HOME/miniconda.sh
+    $HOME/miniconda.sh -b -p $HOME/miniconda
+    #echo "CONDA_EXE=$CONDA_EXE"
+
+    #if [ -n "${CONDA_EXE:-}" ]; then
+    if test -f $HOME/miniconda/bin/conda; then
+        export PATH="$PATH:$HOME/miniconda/bin/";
+cat <<EOF >> $HOME/.bashrc
+    export PATH="$PATH:$HOME/miniconda/bin/";
+EOF
     fi
-
-    cat <<EOF >> $HOME/.bashrc
-    if [ -n "${CONDA_EXE:-}" ]; then
-        conda_bin_paths="";
-        conda_bin_paths="${conda_bin_paths} $(dirname "$(dirname "${CONDA_EXE}")")/condabin";
-        for conda_bin_path in ${conda_bin_paths}; do
-            if [ -n "${PATH##*"$conda_bin_path"*}" ]; then
-                export PATH="$conda_bin_path:$PATH";
-            fi
-        done
-        unset conda_bin_paths;
-    fi
-    EOF
-
-    echo "Verify Path is set"
-    cat $HOME/.bashrc
 fi
+    cat $HOME/.bashrc
+}
+copy_artifacts() {
+    echo Copying artifacts
+    cp $REPO_DIR/docs/legate/core/build/html/* "$ARTIFACTS_DIR/."
+}
+
+_build_docs() {
+    echo "Generate YAML file listing dependencies"
+    $REPO_DIR/scripts/generate-conda-envs.py --python 3.10 --ctk 12.0 --os linux --compilers --openmpi
+
+    echo "Install dependencies from generated YAML file"
+    conda env create -n legate -f environment-test-linux-py3.10-cuda12.0-compilers-openmpi.yaml
+
+    echo "Build doxygen documentation through install.py"
+    conda run -n legate /bin/bash -c "./install.py --docs"
+
+    echo "Build documentation using Makefile"
+    cd $REPO_DIR/docs/legate/core
+    conda run -n legate /bin/bash -c "make html"
+
+    echo "Run link checker"
+   cd $REPO_DIR/docs/legate/core
+   conda run -n legate /bin/bash -c "make linkcheck"
+}
+
+
+_setup_conda_env() {
+    set -x
+
+    set_repo_dir
+    #_install_conda
+    _build_docs
+    copy_artifacts
+}
+
+(_setup_conda_env "$@");
