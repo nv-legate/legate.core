@@ -229,24 +229,24 @@ def format_verbose(
     """
     out = StringIO()
 
-    out.write(f"\n{rule('Legion Python Configuration')}")
+    out.write(f"\n{rule('Legion Python Configuration')}\n")
 
-    out.write(section("\nLegate paths:"))
+    out.write(section("\nLegate paths:\n"))
     out.write(indent(str(system.legate_paths), prefix="  "))
 
-    out.write(section("\nLegion paths:"))
+    out.write(section("\n\nLegion paths:\n"))
     out.write(indent(str(system.legion_paths), prefix="  "))
 
-    out.write(section("\nVersions:"))
+    out.write(section("\n\nVersions:\n"))
     out.write(indent(str(get_versions()), prefix="  "))
 
     if driver:
-        out.write(section("\nCommand:"))
+        out.write(section("\n\nCommand:\n"))
         cmd = " ".join(quote(t) for t in driver.cmd)
         out.write(f"  {value(cmd)}")
 
         if keys := sorted(driver.custom_env_vars):
-            out.write(section("\nCustomized Environment:"))
+            out.write(section("\n\nCustomized Environment:\n"))
             out.write(
                 indent(
                     kvtable(driver.env, delim="=", align=False, keys=keys),
@@ -254,6 +254,6 @@ def format_verbose(
                 )
             )
 
-    out.write(f"\n{rule()}")
+    out.write(f"\n\n{rule()}\n")
 
     return out.getvalue()
