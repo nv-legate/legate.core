@@ -13,32 +13,9 @@ set_repo_dir() {
 
     export REPO_DIR
     export ARTIFACTS_DIR="${REPO_DIR}/.artifacts"
-
     export PATH="${PATH}:${REPO_DIR}/continuous_integration/scripts"
-    echo "$(whoami)"
-    echo "HOME:$HOME"
 }
 
-_install_conda() {
-if type conda 2>&1 | grep -q function; then
-    echo "conda already installed"
-else
-    curl -o $HOME/miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh 
-    #wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O $HOME//miniconda.sh
-    chmod +x $HOME/miniconda.sh
-    $HOME/miniconda.sh -b -p $HOME/miniconda
-    #echo "CONDA_EXE=$CONDA_EXE"
-
-    #if [ -n "${CONDA_EXE:-}" ]; then
-    if test -f $HOME/miniconda/bin/conda; then
-        export PATH="$PATH:$HOME/miniconda/bin/";
-cat <<EOF >> $HOME/.bashrc
-    export PATH="$PATH:$HOME/miniconda/bin/";
-EOF
-    fi
-fi
-    cat $HOME/.bashrc
-}
 copy_artifacts() {
     echo Copying artifacts
     cp -r $REPO_DIR/docs/legate/core/build/html/* "$ARTIFACTS_DIR/."
@@ -68,7 +45,6 @@ _setup_conda_env() {
     set -x
 
     set_repo_dir
-    #_install_conda
     _build_docs
     copy_artifacts
 }
