@@ -1233,6 +1233,7 @@ class Store:
             If ``dim`` is not a valid dimension name or ``index`` is
             out of bounds
         """
+        index = int(index)
         dim = dim + self.ndim if dim < 0 else dim
         if dim < 0 or dim >= self.ndim:
             raise ValueError(

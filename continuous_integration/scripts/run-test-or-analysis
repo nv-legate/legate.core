@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+
+set_repo_dir() {
+    set -xeuo pipefail
+
+    # Resolve the directory of the script
+    SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
+    # Navigate to the parent of the parent of SCRIPT_DIR, then get the full path
+    REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+    export REPO_DIR
+
+    export PATH="${PATH}:${REPO_DIR}/continuous_integration/scripts"
+    export ARTIFACTS_DIR="${REPO_DIR}/.artifacts"
+}
+
+run_test_or_analysis() {
+    set -x
+
+    set_repo_dir;
+
+    . conda-utils
+    . setup-utils;
+
+    set_base_defs;
+    install_test_tools;
+
+    install_legate_core_with_war;
+
+    activate_conda_env;
+
+    conda_info;
+
+    set -xeuo pipefail
+
+    case "$1" in
+        "unit")
+            echo "Executing unit tests..."
+            ucx_libs=
+            [ "${UCX_ENABLED:-}" = "ON" ] && ucx_libs=ucx\ openmpi
+            mamba install -y -n "${CONDA_ENV}" -c conda-forge pytest pytest-mock ipython jupyter_client $ucx_libs
+            cd $REPO_DIR/tests/unit
+            pytest
+            ;;
+        "mypy")
+          echo "Executing mypy..."
+            # Keep mypy version identical to mypy version in .pre-commit.yaml. The only
+            # reason we don't read it directly here is because when this is run in CI, it
+            # is done on a job which does not checkout the repo (and hence cannot read the
+            # .pre-commit.yaml).
+            mamba install -y -n "${CONDA_ENV}" mypy=1.5.1
+            cd $REPO_DIR
+            mypy legate
+            ;;
+        *)
+            echo "Invalid command: $1"
+            return 1
+            ;;
+    esac
+
+    return 0
+}
+
+(run_test_or_analysis "$@");

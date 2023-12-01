@@ -21,3 +21,6 @@ jobs:
       runs-on: ${{ github.repository_owner == 'nv-legate' && 'linux-amd64-32cpu' || 'ubuntu-latest' }}
       sha: ${{ github.sha }}
       build-type: release
+      use-container: true
+      ucx-config: no_ucx
+      ucx-string: ''
