@@ -20,7 +20,7 @@ from io import StringIO
 from shlex import quote
 from subprocess import run
 from textwrap import indent
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from ..util.system import System
 from ..util.types import DataclassMixin
@@ -145,7 +145,7 @@ class LegateDriver:
 
         return ret
 
-    def print_on_head_node(self, *args, **kw) -> None:
+    def print_on_head_node(self, *args: Any, **kw: Any) -> None:
         launcher = self.launcher
 
         if launcher.kind != "none" or launcher.detected_rank_id == "0":
