@@ -67,12 +67,11 @@ jobs:
         run: |
           set -xeuo pipefail
           docker run \
-            -e GITHUB_TOKEN \
+#            -e GITHUB_TOKEN \
             -v "$(pwd):$(pwd)" \
             -v "$ARTIFACTS_DIR:$(pwd)/.artifacts" \
             --rm "condaforge/miniforge3:latest" \
             /bin/bash -c "cd $(pwd) && sed -i 's/\r$//' $(pwd)/continuous_integration/scripts/setup_conda_env && $(pwd)/continuous_integration/scripts/setup_conda_env"
-#            /bin/bash -c "cd $(pwd) && continuous_integration/scripts/setup_conda_env"
 
       - name: Upload documentation
         uses: actions/upload-artifact@v3
