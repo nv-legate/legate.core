@@ -67,7 +67,6 @@ jobs:
         run: |
           set -xeuo pipefail
           docker run \
-#            -e GITHUB_TOKEN \
             -v "$(pwd):$(pwd)" \
             -v "$ARTIFACTS_DIR:$(pwd)/.artifacts" \
             --rm "condaforge/miniforge3:latest" \
