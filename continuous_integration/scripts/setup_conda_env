@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
 
-set -xeuo pipefail
-
 set_repo_dir() {
-    set -xeuo pipefail
-
     # Resolve the directory of the script
     SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
@@ -42,7 +38,7 @@ _build_docs() {
 
 
 _setup_conda_env() {
-    set -x
+    set -xeuo pipefail
 
     set_repo_dir
     _build_docs

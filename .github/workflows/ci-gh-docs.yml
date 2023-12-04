@@ -22,6 +22,7 @@ env:
 
 jobs:
   build:
+    if: github.repository_owner == 'nv-legate'
     runs-on: linux-amd64-cpu32
 
     defaults:
@@ -70,7 +71,8 @@ jobs:
             -v "$(pwd):$(pwd)" \
             -v "$ARTIFACTS_DIR:$(pwd)/.artifacts" \
             --rm "condaforge/miniforge3:latest" \
-            /bin/bash -c "cd $(pwd) && sed -i 's/\r$//' $(pwd)/continuous_integration/scripts/setup_conda_env && $(pwd)/continuous_integration/scripts/setup_conda_env"
+             /bin/bash -c "sed -i 's/\r$//' continuous_integration/scripts/setup_conda_env && continuous_integration/scripts/setup_conda_env"
+#            /bin/bash -c "cd $(pwd) && sed -i 's/\r$//' $(pwd)/continuous_integration/scripts/setup_conda_env && $(pwd)/continuous_integration/scripts/setup_conda_env"
 
       - name: Upload documentation
         uses: actions/upload-artifact@v3
