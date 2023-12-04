@@ -71,7 +71,7 @@ jobs:
             -v "$(pwd):$(pwd)" \
             -v "$ARTIFACTS_DIR:$(pwd)/.artifacts" \
             --rm "condaforge/miniforge3:latest" \
-             /bin/bash -c "cd $(pwd) && sed -i 's/\r$//' ./continuous_integration/scripts/setup_conda_env && ./continuous_integration/scripts/build-docs"
+             /bin/bash -c "cd $(pwd) && sed -i 's/\r$//' ./continuous_integration/scripts/build-docs && ./continuous_integration/scripts/build-docs"
 
       - name: Upload documentation
         uses: actions/upload-artifact@v3
