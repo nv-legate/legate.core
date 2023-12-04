@@ -17,7 +17,11 @@ copy_artifacts() {
     cp -r $REPO_DIR/docs/legate/core/build/html/* "$ARTIFACTS_DIR/."
 }
 
-_build_docs() {
+build_docs() {
+    set -xeuo pipefail
+
+    set_repo_dir
+ 
     echo "Generate YAML file listing dependencies"
     $REPO_DIR/scripts/generate-conda-envs.py --python 3.10 --ctk 12.0 --os linux --compilers --openmpi
 
@@ -32,17 +36,10 @@ _build_docs() {
     conda run -n legate /bin/bash -c "make html"
 
     echo "Run link checker"
-   cd $REPO_DIR/docs/legate/core
-   conda run -n legate /bin/bash -c "make linkcheck"
-}
+    cd $REPO_DIR/docs/legate/core
+    conda run -n legate /bin/bash -c "make linkcheck"
 
-
-_setup_conda_env() {
-    set -xeuo pipefail
-
-    set_repo_dir
-    _build_docs
     copy_artifacts
 }
 
-(_setup_conda_env "$@");
+(build_docs "$@");
