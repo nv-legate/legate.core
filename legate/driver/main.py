@@ -31,7 +31,7 @@ def prepare_driver(
     from ..util.system import System
     from ..util.ui import error
     from . import Config
-    from .driver import print_verbose
+    from .driver import format_verbose
 
     try:
         config = Config(argv)
@@ -50,7 +50,7 @@ def prepare_driver(
     except Exception as e:
         msg = "Could not initialize driver, path config and exception follow:"  # noqa
         print(error(msg))
-        print_verbose(system)
+        print(format_verbose(system), flush=True)
         raise e
 
     return driver
