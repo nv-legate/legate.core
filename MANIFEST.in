@@ -1,6 +1,9 @@
 include versioneer.py
 include legate/_version.py
 include legate/py.typed
+include legate/cpp_source_template
+include legate/cpp_header_template
+include legate/python_template
 
 # include interface files
 recursive-include legate *.pyi

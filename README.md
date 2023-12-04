@@ -429,6 +429,30 @@ Memory:
   Registered CPU-side pinned memory per rank (in MBs) : 0
 ```
 
+## Getting Your Own Legate Project Started
+
+
+### Hello World
+
+For basic code examples illustrating how Legate tasks are created
+and enqueued, users can look at the [hello world](examples/hello/README.md) example.
+The folder includes both a basic "Hello World" as well numerical
+examples like variance showing both elementwise array operations
+and distributed reductions.
+
+### Library Template
+
+To bootstrap your own Legate library, the `legate-create-library` script
+can be used to generate both the build system and initial set of
+C++ and Python files.
+
+```bash
+$ legate-create-library myproject
+$ ls myproject
+CMakeLists.txt  editable-install.sh  install.sh  myproject  setup.py  src
+```
+
+
 ## Other FAQs
 
 * *Does Legate only work on NVIDIA hardware?*
@@ -477,7 +501,7 @@ See the discussion of contributing in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Documentation
 
-A complete list of available features can is found in the [Legate Core
+A complete list of available features can be found in the [Legate Core
 documentation](https://nv-legate.github.io/legate.core).
 
 ## Next Steps

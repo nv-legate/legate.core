@@ -68,7 +68,7 @@ setup(
             "lgpatch = legate.lgpatch:main",
         ],
     },
-    scripts=["bind.sh"],
+    scripts=["bind.sh", "legate-create-library"],
     cmdclass=versioneer.get_cmdclass(),
     install_requires=[
         "cffi",
