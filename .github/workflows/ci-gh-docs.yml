@@ -6,7 +6,6 @@ on:
       - "branch-*"
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  USE_CUDA: 'OFF'
   COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
   PROJECT: github-core-ci
   REF: ${{ github.event.pull_request.head.ref || github.ref }}
@@ -78,7 +77,6 @@ jobs:
             -e AWS_ACCESS_KEY_ID \
             -e AWS_SECRET_ACCESS_KEY \
             -e GITHUB_TOKEN \
-            -e USE_CUDA \
             -v "$(pwd):$(pwd)" \
             -v "$ARTIFACTS_DIR:$(pwd)/.artifacts" \
             --rm "condaforge/miniforge3:latest" \
