@@ -29,11 +29,8 @@ build_legate_release() {
 
 build_docs() {
     set_repo_dir
-    . conda-utils;
-    . setup-utils;
 
     set -xeuo pipefail;
-    setup_build_env;
     init_sccache;
 
     cd $REPO_DIR;
