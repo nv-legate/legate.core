@@ -83,7 +83,7 @@ build_legate() {
     case "$BUILD_TYPE" in
         ci) build_legate_ci && copy_ci_artifacts;;
         release) build_legate_release && copy_release_artifacts;;
-        docs) build_docs && 
+        docs) build_docs && copy_docs_artifacts;;
         *) return 1;;
     esac
 }
