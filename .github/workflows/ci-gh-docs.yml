@@ -15,8 +15,14 @@ env:
   PYTHONUNBUFFERED: 1
   ARTIFACTS_DIR: "${{ github.workspace }}/.artifacts"
   ARTIFACT_NAME: "legate-core-docs"
+
 jobs:
   build:
+    permissions:
+      id-token: write # This is required for configure-aws-credentials
+      contents: read  # This is required for actions/checkout
+      packages: write # This is required to push docker image to ghcr.io
+
     runs-on: ${{ contains(github.repository, 'nv-legate/legate.core') && 'linux-amd64-32cpu' || 'ubuntu-latest' }}
     steps:
       - name: Dump GitHub context
