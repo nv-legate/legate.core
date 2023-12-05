@@ -29,7 +29,14 @@ build_legate_release() {
 
 build_docs() {
     set_repo_dir
- 
+    . conda-utils;
+    . setup-utils;
+
+    set -xeuo pipefail;
+    setup_build_env;
+    init_sccache;
+
+    cd $REPO_DIR;
     echo "Generate YAML file listing dependencies"
     $REPO_DIR/scripts/generate-conda-envs.py --python 3.10 --ctk 12.0 --os linux --compilers --openmpi
 
@@ -88,9 +95,19 @@ build_legate() {
     case "$BUILD_TYPE" in
         ci) build_legate_ci && copy_ci_artifacts;;
         release) build_legate_release && copy_release_artifacts;;
-        docs) build_docs && copy_docs_artifacts;;
         *) return 1;;
     esac
 }
 
-(build_legate "$@");
+build_legate_all() {
+    set -x
+    
+    if [[ "$1" == "docs" ]]; then
+        build_docs;;
+        copy_docs_artifacts;;
+    else
+        build_legate $1;;
+    fi
+}
+
+(build_legate_all "$@");
