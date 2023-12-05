@@ -6,7 +6,7 @@ on:
       - "branch-*"
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  USE_CUDA: 'ON'
+  USE_CUDA: 'OFF'
   COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
   PROJECT: github-core-ci
   REF: ${{ github.event.pull_request.head.ref || github.ref }}
