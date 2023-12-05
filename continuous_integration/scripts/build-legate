@@ -101,12 +101,12 @@ build_legate() {
 
 build_legate_all() {
     set -x
-    
+
     if [[ "$1" == "docs" ]]; then
-        build_docs;;
-        copy_docs_artifacts;;
+        build_docs;
+        copy_docs_artifacts;
     else
-        build_legate $1;;
+        build_legate $1;
     fi
 }
 
