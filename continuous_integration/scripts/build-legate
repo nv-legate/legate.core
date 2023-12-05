@@ -32,6 +32,7 @@ build_docs() {
 
     set -xeuo pipefail;
     . setup-utils;
+    . conda-utils;
     
     init_sccache;
 
