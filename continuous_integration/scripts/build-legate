@@ -31,6 +31,8 @@ build_docs() {
     set_repo_dir
 
     set -xeuo pipefail;
+    . setup-utils;
+    
     init_sccache;
 
     cd $REPO_DIR;
