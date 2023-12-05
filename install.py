@@ -490,7 +490,6 @@ def install(
     "Debug" if debug else "RelWithDebInfo" if debug_release else "Release"
 )}
 -DBUILD_SHARED_LIBS=ON
--DBUILD_MARCH={march}
 -DLegion_MAX_DIM={str(maxdim)}
 -DLegion_MAX_FIELDS={str(maxfields)}
 -DLegion_SPY={("ON" if spy else "OFF")}
@@ -506,6 +505,8 @@ def install(
 -DLegion_EMBED_GASNet_CONFIGURE_ARGS="--with-ibv-max-hcas=8"
 """.splitlines()
 
+    if march:
+        cmake_flags += [f"-DBUILD_MARCH={march}"]
     if cuda:
         cmake_flags += [f"-DLegion_CUDA_ARCH={arch}"]
     if nccl_dir:
@@ -688,7 +689,7 @@ def driver():
         "--march",
         dest="march",
         required=False,
-        default=("haswell" if platform.machine() == "x86_64" else "native"),
+        default=("haswell" if platform.machine() == "x86_64" else None),
         help="Specify the target CPU architecture.",
     )
     parser.add_argument(
