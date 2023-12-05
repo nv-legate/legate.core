@@ -5,16 +5,17 @@ on:
       - "pull-request/[0-9]+"
       - "branch-*"
 env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
   PROJECT: github-core-ci
   REF: ${{ github.event.pull_request.head.ref || github.ref }}
   EVENT_NAME: ${{ github.event_name }}
   LABEL: ${{ github.event.pull_request.head.label }}
   REPO_URL: ${{ github.event.pull_request.head.repo.html_url || github.event.repository.html_url }}
-  # Prevent output buffering
-  PYTHONUNBUFFERED: 1
   ARTIFACTS_DIR: "${{ github.workspace }}/.artifacts"
   ARTIFACT_NAME: "legate-core-docs"
+  # Prevent output buffering
+  PYTHONUNBUFFERED: 1
 
 jobs:
   build:
@@ -71,6 +72,11 @@ jobs:
         run: |
           set -xeuo pipefail
           docker run \
+            -e AWS_REGION \
+            -e AWS_SESSION_TOKEN \
+            -e AWS_ACCESS_KEY_ID \
+            -e AWS_SECRET_ACCESS_KEY \
+            -e GITHUB_TOKEN \
             -v "$(pwd):$(pwd)" \
             -v "$ARTIFACTS_DIR:$(pwd)/.artifacts" \
             --rm "condaforge/miniforge3:latest" \
