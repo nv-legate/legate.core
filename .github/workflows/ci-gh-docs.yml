@@ -17,7 +17,7 @@ env:
   ARTIFACT_NAME: "legate-core-docs"
 jobs:
   build:
-    runs-on: linux-amd64-cpu32
+    runs-on: ${{ contains(github.repository, 'nv-legate/legate.core') && 'linux-amd64-32cpu' || 'ubuntu-latest' }}
     steps:
       - name: Dump GitHub context
         env:
@@ -60,7 +60,7 @@ jobs:
             -v "$(pwd):$(pwd)" \
             -v "$ARTIFACTS_DIR:$(pwd)/.artifacts" \
             --rm "condaforge/miniforge3:latest" \
-             /bin/bash -c "cd $(pwd) && ./continuous_integration/scripts/build-docs"
+             /bin/bash -c "cd $(pwd) && ./continuous_integration/scripts/build-legate docs"
 
       - name: Upload documentation
         uses: actions/upload-artifact@v3
