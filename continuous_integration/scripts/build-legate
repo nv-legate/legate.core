@@ -28,13 +28,6 @@ build_legate_release() {
 }
 
 build_docs() {
-    set_repo_dir
-
-    set -xeuo pipefail;
-    . setup-utils;
-    . conda-utils;
-    
-    init_sccache;
 
     cd $REPO_DIR;
     echo "Generate YAML file listing dependencies"
@@ -73,17 +66,9 @@ copy_ci_artifacts() {
 }
 
 build_legate() {
-    set -x;
-
-    set_repo_dir;
-    . conda-utils;
-    . setup-utils;
 
     export BUILD_TYPE=$1
 
-    set -xeuo pipefail;
-    setup_build_env;
-    init_sccache;
     cd $REPO_DIR;
 
     make-conda-env "$BUILD_TYPE";
@@ -101,6 +86,13 @@ build_legate() {
 
 build_legate_all() {
     set -x
+
+    set_repo_dir;
+    . conda-utils;
+    . setup-utils;
+    set -xeuo pipefail;
+    setup_build_env;
+    init_sccache;
 
     if [[ "$1" == "docs" ]]; then
         build_docs;
