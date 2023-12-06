@@ -315,6 +315,13 @@ def install(
     if legion_dir is not None and legion_src_dir is not None:
         sys.exit("Cannot specify both --legion-dir and --legion-src-dir")
 
+    join = os.path.join
+    exists = os.path.exists
+    dirname = os.path.dirname
+    realpath = os.path.realpath
+
+    cmake_exe = realpath(cmake_exe)
+
     print(f"Verbose build is {'on' if verbose else 'off'}")
     if verbose:
         print(f"networks: {networks}")
@@ -352,11 +359,6 @@ def install(
         print(f"legion_url: {legion_url}")
         print(f"legion_branch: {legion_branch}")
         print(f"unknown: {unknown}")
-
-    join = os.path.join
-    exists = os.path.exists
-    dirname = os.path.dirname
-    realpath = os.path.realpath
 
     legate_core_dir = dirname(realpath(__file__))
 
@@ -469,6 +471,8 @@ def install(
 
     if not build_isolation:
         pip_install_cmd += ["--no-build-isolation"]
+
+    pip_install_cmd += [f"--global-option=--cmake-executable={cmake_exe}"]
 
     if editable:
         cmd_env.update({"SETUPTOOLS_ENABLE_FEATURES": "legacy-editable"})
