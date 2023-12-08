@@ -8,6 +8,7 @@ make_conda_env() {
     case "$1" in
         ci) get_yaml_and_make_conda_env;;
         release) make_release_env;;
+        docs) get_yaml_and_make_conda_env;;
         *) return 1;;
     esac
 

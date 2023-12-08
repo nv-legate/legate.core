@@ -39,6 +39,27 @@ copy_ci_artifacts() {
     cp -r /tmp/conda-build  "$ARTIFACTS_DIR"
 }
 
+copy_docs_artifacts() {
+    echo Copying artifacts
+    cp -r $REPO_DIR/docs/legate/core/build/html/* "$ARTIFACTS_DIR/."
+}
+
+build_docs() {
+    set -x;
+    cd $REPO_DIR;
+
+    echo "Build doxygen documentation through install.py"
+    conda run -n legate /bin/bash -c "./install.py --docs"
+
+    echo "Build documentation using Makefile"
+    cd $REPO_DIR/docs/legate/core
+    conda run -n legate /bin/bash -c "make html"
+
+    echo "Run link checker"
+    cd $REPO_DIR/docs/legate/core
+    conda run -n legate /bin/bash -c "make linkcheck"
+}
+
 build_legate() {
     set -x;
 
@@ -62,6 +83,7 @@ build_legate() {
     case "$BUILD_TYPE" in
         ci) build_legate_ci && copy_ci_artifacts;;
         release) build_legate_release && copy_release_artifacts;;
+        docs) build_docs && copy_docs_artifacts;;
         *) return 1;;
     esac
 }
