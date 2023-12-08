@@ -26,7 +26,9 @@ specific cluster is not covered, you may be able to adapt an existing workflow.
 
 The primary method of retrieving dependencies for Legate Core and downstream
 libraries is through [conda](https://docs.conda.io/en/latest/). You will need
-an installation of conda to follow the instructions below.
+an installation of conda to follow the instructions below. We suggest using
+the [mamba](https://github.com/mamba-org/mamba) implementation of the conda
+package manager.
 
 Please use the `scripts/generate-conda-envs.py` script to create a conda
 environment file listing all the packages that are required to build, run and
@@ -83,15 +85,9 @@ explicitly, using a `--with-<dep>` flag, e.g. `--with-nccl` and
 `--with-openblas`.
 
 For multi-node execution Legate can use [GASNet](https://gasnet.lbl.gov/) (use
-`--network gasnet1` or `--network gasnetex`) or [UCX](https://openucx.org) (use
-`--network ucx`).
-With gasnet1 or gasnetex, GASNet will be automatically downloaded and built,
-but if you have an existing installation then you can inform the install script
-using the `--with-gasnet` flag. You also need to specify the interconnect network
-of the target machine using the `--conduit` flag.
-With UCX, the library must be already installed and `--with-ucx` can be used
-to point to the installation path if UCX is not installed under common system paths.
-At least version 1.14 is required, configured with `--enable-mt`.
+`--network gasnet1` or `--network gasnetex`, see [below](#gasnet-optional) for
+more details) or [UCX](https://openucx.org) (use `--network ucx`, see
+[below](#ucx-optional) for more details).
 
 Compiling with networking support requires MPI.
 
@@ -145,7 +141,8 @@ contributions that fix such incompatibilities.
 
 In this section we comment further on our major dependencies. Please consult an
 environment file created by `generate-conda-envs.py` for a full listing of
-dependencies, e.g. building and testing tools.
+dependencies, e.g. building and testing tools, and for exact version
+requirements.
 
 ### Operating system
 
@@ -211,11 +208,11 @@ environment file.
 - `curand` (can optionally be used for its host fallback implementations even
   when building without CUDA support)
 - `cusolver`
-- `cutensor` >= 1.3.3
+- `cutensor`
 - `nccl`
 - `nvml`
 - `nvtx`
-- `thrust` >= 1.15 (pulled from github)
+- `thrust` (pulled from github)
 
 If you wish to provide alternative installations for these, then you can remove
 them from the environment file (or invoke `generate-conda-envs.py` with `--ctk
@@ -298,7 +295,7 @@ Depending on your hardware, you may need to use a particular Realm
 networking backend, e.g. as of October 2023 HPE Slingshot is only
 compatible with GASNet.
 
-### GASNet
+### GASNet (optional)
 
 Only necessary if you wish to run on multiple nodes, using the GASNet1 or
 GASNetEx Realm networking backend.
@@ -307,7 +304,10 @@ This library will be automatically downloaded and built during Legate
 installation. If you wish to provide an alternative installation, pass
 `--with-gasnet` to `install.py`.
 
-### UCX >= 1.14
+When using GASNet, you also need to specify the interconnect network of the
+target machine using the `--conduit` flag.
+
+### UCX (optional)
 
 Only necessary if you wish to run on multiple nodes, using the UCX Realm
 networking backend.
