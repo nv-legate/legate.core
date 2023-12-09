@@ -15,7 +15,7 @@ from __future__ import annotations
 from argparse import Action, ArgumentParser
 from dataclasses import dataclass
 from textwrap import indent
-from typing import Literal, Tuple
+from typing import Literal, Tuple, Union
 
 # --- Types -------------------------------------------------------------------
 
@@ -53,7 +53,7 @@ class SectionConfig:
 
 @dataclass(frozen=True)
 class CUDAConfig(SectionConfig):
-    ctk_version: str
+    ctk_version: Union[str, None]
     compilers: bool
     os: OSType
 
@@ -61,7 +61,7 @@ class CUDAConfig(SectionConfig):
 
     @property
     def conda(self) -> Reqs:
-        if self.ctk_version == "none":
+        if not self.ctk_version:
             return ()
 
         deps = (
@@ -137,7 +137,7 @@ class CUDAConfig(SectionConfig):
         return deps
 
     def __str__(self) -> str:
-        if self.ctk_version == "none":
+        if not self.ctk_version:
             return ""
 
         return f"-cuda{self.ctk_version}"
@@ -263,7 +263,7 @@ class EnvConfig:
     use: str
     python: str
     os: OSType
-    ctk: str
+    ctk_version: Union[str, None]
     compilers: bool
     openmpi: bool
     ucx: bool
@@ -280,7 +280,7 @@ class EnvConfig:
 
     @property
     def cuda(self) -> CUDAConfig:
-        return CUDAConfig(self.ctk, self.compilers, self.os)
+        return CUDAConfig(self.ctk_version, self.compilers, self.os)
 
     @property
     def build(self) -> BuildConfig:
@@ -306,18 +306,6 @@ class EnvConfig:
 # --- Setup -------------------------------------------------------------------
 
 PYTHON_VERSIONS = ("3.9", "3.10", "3.11")
-
-CTK_VERSIONS = (
-    "none",
-    "11.4",
-    "11.5",
-    "11.6",
-    "11.7",
-    "11.8",
-    "12.0",
-    "12.1",
-    "12.2",
-)
 
 OS_NAMES: Tuple[OSType, ...] = ("linux", "osx")
 
@@ -402,8 +390,6 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--ctk",
-        choices=CTK_VERSIONS,
-        default="none",
         dest="ctk_version",
         help="CTK version to generate for",
     )
