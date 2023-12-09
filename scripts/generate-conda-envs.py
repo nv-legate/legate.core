@@ -29,6 +29,10 @@ def V(version: str) -> tuple[int, ...]:
     return tuple(int(x) for x in padded_version)
 
 
+def drop_patch(version: str) -> str:
+    return ".".join(version.split(".")[:2])
+
+
 class SectionConfig:
     header: str
 
@@ -65,7 +69,7 @@ class CUDAConfig(SectionConfig):
             return ()
 
         deps = (
-            f"cuda-version={self.ctk_version}",  # runtime
+            f"cuda-version={drop_patch(self.ctk_version)}",  # runtime
             # cuTensor package notes:
             # - We are pinning to 1.X major version.
             #   See https://github.com/nv-legate/cunumeric/issues/1092.
@@ -100,7 +104,7 @@ class CUDAConfig(SectionConfig):
         if self.compilers:
             if self.os == "linux":
                 if V(self.ctk_version) < (12, 0, 0):
-                    deps += (f"nvcc_linux-64={self.ctk_version}",)
+                    deps += (f"nvcc_linux-64={drop_patch(self.ctk_version)}",)
                 else:
                     deps += ("cuda-nvcc",)
 
@@ -418,13 +422,13 @@ if __name__ == "__main__":
 
     args = parser.parse_args(sys.argv[1:])
 
-    if args.ctk_version:
-        if V(args.ctk_version) < (12, 0, 0):
-            if len(args.ctk_version.split(".")) != 2:
-                raise ValueError("CTK 11 versions must be in the form 11.X")
-        else:
-            if len(args.ctk_version.split(".")) != 3:
-                raise ValueError("CTK 12 versions must be in the form 12.X.Y")
+    if (
+        args.ctk_version
+        and V(args.ctk_version) >= (12, 0, 0)
+        and len(args.ctk_version.split(".")) != 3
+    ):
+        # This is necessary to match on the exact label on the nvidia channel
+        raise ValueError("CTK 12 versions must be in the form 12.X.Y")
 
     selected_sections = None
 
