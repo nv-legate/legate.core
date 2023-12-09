@@ -80,7 +80,7 @@ class CUDAConfig(SectionConfig):
             "pynvml",  # tests
         )
 
-        if V(self.ctk_version) < V("12.0.0"):
+        if V(self.ctk_version) < (12, 0, 0):
             deps += (f"cudatoolkit={self.ctk_version}",)
         else:
             deps += (
@@ -99,13 +99,13 @@ class CUDAConfig(SectionConfig):
 
         if self.compilers:
             if self.os == "linux":
-                if V(self.ctk_version) < V("12.0.0"):
+                if V(self.ctk_version) < (12, 0, 0):
                     deps += (f"nvcc_linux-64={self.ctk_version}",)
                 else:
                     deps += ("cuda-nvcc",)
 
                 # gcc 11.3 is incompatible with nvcc < 11.6.
-                if V(self.ctk_version) < V("11.6.0"):
+                if V(self.ctk_version) < (11, 6, 0):
                     deps += (
                         "gcc_linux-64<=11.2",
                         "gxx_linux-64<=11.2",
@@ -253,7 +253,7 @@ class EnvConfig:
     @property
     def channels(self) -> str:
         channels = ("conda-forge",)
-        if self.ctk_version and V(self.ctk_version) >= V("12.0.0"):
+        if self.ctk_version and V(self.ctk_version) >= (12, 0, 0):
             channels += (f"nvidia/label/cuda-{self.ctk_version}",)
         return "- " + "\n- ".join(channels)
 
@@ -419,7 +419,7 @@ if __name__ == "__main__":
     args = parser.parse_args(sys.argv[1:])
 
     if args.ctk_version:
-        if V(args.ctk_version) < V("12.0.0"):
+        if V(args.ctk_version) < (12, 0, 0):
             if len(args.ctk_version.split(".")) != 2:
                 raise ValueError("CTK 11 versions must be in the form 11.X")
         else:
