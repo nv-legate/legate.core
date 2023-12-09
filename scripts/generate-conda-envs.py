@@ -256,9 +256,10 @@ class EnvConfig:
 
     @property
     def channels(self) -> str:
-        channels = ("conda-forge",)
+        channels = []
         if self.ctk_version and V(self.ctk_version) >= (12, 0, 0):
-            channels += (f"nvidia/label/cuda-{self.ctk_version}",)
+            channels.append(f"nvidia/label/cuda-{self.ctk_version}")
+        channels.append("conda-forge")
         return "- " + "\n- ".join(channels)
 
     @property
