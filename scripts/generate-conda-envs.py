@@ -25,7 +25,7 @@ OSType = Literal["linux", "osx"]
 
 
 def V(version: str) -> tuple[int, ...]:
-    padded_version = (version.split(".") + ["0"])[:2]
+    padded_version = (version.split(".") + ["0", "0"])[:3]
     return tuple(int(x) for x in padded_version)
 
 
@@ -66,64 +66,46 @@ class CUDAConfig(SectionConfig):
 
         deps = (
             f"cuda-version={self.ctk_version}",  # runtime
-            # cuTensor pakcage notes:
+            # cuTensor package notes:
             # - We are pinning to 1.X major version.
             #   See https://github.com/nv-legate/cunumeric/issues/1092.
-            # - The cuTensor packages on the nvidia channel are broken; the
-            #   multiple levels of packages and their dependencies are not
-            #   connected by dependencies, and there is no constraint to ensure
-            #   compatibility with the currently selected CTK version. Thus, we
-            #   pin to conda-forge (which uses build numbers starting with h).
+            # - The cuTensor packages on the nvidia channel are not well
+            #   structured. The multiple levels of packages are not connected
+            #   by strict dependencies, and the CTK compatibility is encoded
+            #   in the package name, rather than a constraint or label.
+            #   For now we pin to the conda-forge versions (which use build
+            #   numbers starting with h).
             "cutensor=1.7*=h*",  # runtime
             "nccl",  # runtime
             "pynvml",  # tests
         )
 
-        if V(self.ctk_version) < V("12.0"):
+        if V(self.ctk_version) < V("12.0.0"):
             deps += (f"cudatoolkit={self.ctk_version}",)
         else:
             deps += (
-                # As of 2023-12-08, these are only available for >12.0 on the
-                # nvidia conda channel. Packages on the nvidia channel don't
-                # carry constraints to tie them to the selected cuda-version,
-                # so we have to pin ALL of them.
-                f"cuda-cudart={self.ctk_version}",
-                f"cuda-cudart-dev={self.ctk_version}",
-                f"libcublas={self.ctk_version}",
-                f"libcublas-dev={self.ctk_version}",
-                f"libnvjitlink={self.ctk_version}",
-                f"libnvjitlink-dev={self.ctk_version}",
-                # no cuda-driver package on the nvidia channel
-                f"cuda-driver-dev={self.ctk_version}",
-                # no cuda-nvml package on the nvidia channel
-                f"cuda-nvml-dev={self.ctk_version}",
-                f"cuda-nvtx={self.ctk_version}",
-                # no cuda-nvtx-dev package on the nvidia channel
-                f"cuda-cccl={self.ctk_version}",
-                # no cuda-cccl-dev package on the nvidia channel
-                # These aren't published for 12.3 yet on the nvidia channel
-                # as of 2023-12-08
-                f"libcusparse={self.ctk_version}",
-                f"libcusparse-dev={self.ctk_version}",
-                # These aren't published for 12.X at all on the nvidia channel,
-                # so leave them unpinned and hope for no incompatibilities.
-                "libcufft",
+                "cuda-cccl",  # no cuda-cccl-dev package on the nvidia channel
+                "cuda-cudart-dev",
+                "cuda-driver-dev",
+                "cuda-nvml-dev",
+                "cuda-nvtx",  # no cuda-nvtx-dev package on the nvidia channel
+                "libcublas-dev",
                 "libcufft-dev",
-                "libcusolver",
-                "libcusolver-dev",
-                "libcurand",
                 "libcurand-dev",
+                "libcusolver-dev",
+                "libcusparse-dev",
+                "libnvjitlink-dev",
             )
 
         if self.compilers:
             if self.os == "linux":
-                if V(self.ctk_version) < V("12.0"):
+                if V(self.ctk_version) < V("12.0.0"):
                     deps += (f"nvcc_linux-64={self.ctk_version}",)
                 else:
                     deps += ("cuda-nvcc",)
 
-                # gcc 11.3 is incompatible with nvcc <= 11.5.
-                if V(self.ctk_version) <= V("11.5"):
+                # gcc 11.3 is incompatible with nvcc < 11.6.
+                if V(self.ctk_version) < V("11.6.0"):
                     deps += (
                         "gcc_linux-64<=11.2",
                         "gxx_linux-64<=11.2",
@@ -269,6 +251,13 @@ class EnvConfig:
     ucx: bool
 
     @property
+    def channels(self) -> str:
+        channels = ("conda-forge",)
+        if self.ctk_version and V(self.ctk_version) >= V("12.0.0"):
+            channels += (f"nvidia/label/cuda-{self.ctk_version}",)
+        return "- " + "\n- ".join(channels)
+
+    @property
     def sections(self) -> Tuple[SectionConfig, ...]:
         return (
             self.cuda,
@@ -313,8 +302,7 @@ OS_NAMES: Tuple[OSType, ...] = ("linux", "osx")
 ENV_TEMPLATE = """\
 name: legate-{use}
 channels:
-  - nvidia
-  - conda-forge
+{channels}
 dependencies:
 
   - python={python},!=3.9.7  # avoid https://bugs.python.org/issue45121
@@ -430,6 +418,14 @@ if __name__ == "__main__":
 
     args = parser.parse_args(sys.argv[1:])
 
+    if args.ctk_version:
+        if V(args.ctk_version) < V("12.0.0"):
+            if len(args.ctk_version.split(".")) != 2:
+                raise ValueError("CTK 11 versions must be in the form 11.X")
+        else:
+            if len(args.ctk_version.split(".")) != 3:
+                raise ValueError("CTK 12 versions must be in the form 12.X.Y")
+
     selected_sections = None
 
     if args.sections is not None:
@@ -479,6 +475,7 @@ if __name__ == "__main__":
     print(f"--- generating: {filename}.yaml")
     out = ENV_TEMPLATE.format(
         use=config.use,
+        channels=config.channels,
         python=config.python,
         conda_sections=conda_sections,
         pip=PIP_TEMPLATE.format(pip_sections=pip_sections)
