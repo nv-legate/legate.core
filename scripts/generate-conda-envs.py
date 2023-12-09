@@ -67,27 +67,52 @@ class CUDAConfig(SectionConfig):
         deps = (
             f"cuda-version={self.ctk_version}",  # runtime
             # cuTensor pakcage notes:
-            # - pinning to 1.X major version
-            #   see https://github.com/nv-legate/cunumeric/issues/1092
-            # - the packages on nvidia channel are broken, pin to conda-forge
-            #   conda-forge uses build numbers starting with h
+            # - We are pinning to 1.X major version.
+            #   See https://github.com/nv-legate/cunumeric/issues/1092.
+            # - The cuTensor packages on the nvidia channel are broken; the
+            #   multiple levels of packages and their dependencies are not
+            #   connected by dependencies, and there is no constraint to ensure
+            #   compatibility with the currently selected CTK version. Thus, we
+            #   pin to conda-forge (which uses build numbers starting with h).
             "cutensor=1.7*=h*",  # runtime
             "nccl",  # runtime
             "pynvml",  # tests
         )
 
-        if V(self.ctk_version) >= V("12.0"):
+        if V(self.ctk_version) < V("12.0"):
+            deps += (f"cudatoolkit={self.ctk_version}",)
+        else:
             deps += (
-                "cuda-cudart-dev",
-                "cuda-nvml-dev",
-                "cuda-nvtx",
-                "libcublas-dev",
+                # As of 2023-12-08, these are only available for >12.0 on the
+                # nvidia conda channel. Packages on the nvidia channel don't
+                # carry constraints to tie them to the selected cuda-version,
+                # so we have to pin ALL of them.
+                f"cuda-cudart={self.ctk_version}",
+                f"cuda-cudart-dev={self.ctk_version}",
+                f"libcublas={self.ctk_version}",
+                f"libcublas-dev={self.ctk_version}",
+                f"libnvjitlink={self.ctk_version}",
+                f"libnvjitlink-dev={self.ctk_version}",
+                # no cuda-driver package on the nvidia channel
+                f"cuda-driver-dev={self.ctk_version}",
+                # no cuda-nvml package on the nvidia channel
+                f"cuda-nvml-dev={self.ctk_version}",
+                f"cuda-nvtx={self.ctk_version}",
+                # no cuda-nvtx-dev package on the nvidia channel
+                f"cuda-cccl={self.ctk_version}",
+                # no cuda-cccl-dev package on the nvidia channel
+                # These aren't published for 12.3 yet on the nvidia channel
+                # as of 2023-12-08
+                f"libcusparse={self.ctk_version}",
+                f"libcusparse-dev={self.ctk_version}",
+                # These aren't published for 12.X at all on the nvidia channel,
+                # so leave them unpinned and hope for no incompatibilities.
+                "libcufft",
                 "libcufft-dev",
-                "libcurand-dev",
+                "libcusolver",
                 "libcusolver-dev",
-                "libcusparse-dev",
-                # needed by cusparse starting with 12.1
-                "libnvjitlink",
+                "libcurand",
+                "libcurand-dev",
             )
 
         if self.compilers:
