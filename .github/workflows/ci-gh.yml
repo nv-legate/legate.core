@@ -17,11 +17,11 @@ jobs:
       matrix:
         include:
           - device: gpu
-            build-runner: ${{ contains(github.repository, 'nv-legate/legate.core') && 'linux-amd64-128cpu-dl325-0201' || 'ubuntu-latest' }}
+            build-runner: ${{ contains(github.repository, 'nv-legate/legate.core') && 'linux-amd64-cpu16' || 'ubuntu-latest' }}
             platform: linux
 
           - device: cpu
-            build-runner: ${{ contains(github.repository, 'nv-legate/legate.core') && 'linux-amd64-128cpu-dl325-0201' || 'ubuntu-latest' }}
+            build-runner: ${{ contains(github.repository, 'nv-legate/legate.core') && 'linux-amd64-cpu16' || 'ubuntu-latest' }}
             platform: linux
 
           - device: cpu
