@@ -24,7 +24,7 @@ jobs:
       contents: read  # This is required for actions/checkout
       packages: write # This is required to push docker image to ghcr.io
 
-    runs-on: ${{ contains(github.repository, 'nv-legate/legate.core') && 'linux-amd64-32cpu' || 'ubuntu-latest' }}
+    runs-on: ${{ contains(github.repository, 'nv-legate/legate.core') && 'linux-amd64-128cpu-dl325-0201' || 'ubuntu-latest' }}
     steps:
       - name: Dump GitHub context
         env:
