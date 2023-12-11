@@ -15,7 +15,7 @@ from __future__ import annotations
 from argparse import Action, ArgumentParser
 from dataclasses import dataclass
 from textwrap import indent
-from typing import Literal, Tuple
+from typing import Literal, Tuple, Union
 
 # --- Types -------------------------------------------------------------------
 
@@ -25,8 +25,12 @@ OSType = Literal["linux", "osx"]
 
 
 def V(version: str) -> tuple[int, ...]:
-    padded_version = (version.split(".") + ["0"])[:2]
+    padded_version = (version.split(".") + ["0", "0"])[:3]
     return tuple(int(x) for x in padded_version)
+
+
+def drop_patch(version: str) -> str:
+    return ".".join(version.split(".")[:2])
 
 
 class SectionConfig:
@@ -53,7 +57,7 @@ class SectionConfig:
 
 @dataclass(frozen=True)
 class CUDAConfig(SectionConfig):
-    ctk_version: str
+    ctk_version: Union[str, None]
     compilers: bool
     os: OSType
 
@@ -61,45 +65,52 @@ class CUDAConfig(SectionConfig):
 
     @property
     def conda(self) -> Reqs:
-        if self.ctk_version == "none":
+        if not self.ctk_version:
             return ()
 
         deps = (
-            f"cuda-version={self.ctk_version}",  # runtime
-            # cuTensor pakcage notes:
-            # - pinning to 1.X major version
-            #   see https://github.com/nv-legate/cunumeric/issues/1092
-            # - the packages on nvidia channel are broken, pin to conda-forge
-            #   conda-forge uses build numbers starting with h
+            f"cuda-version={drop_patch(self.ctk_version)}",  # runtime
+            # cuTensor package notes:
+            # - We are pinning to 1.X major version.
+            #   See https://github.com/nv-legate/cunumeric/issues/1092.
+            # - The cuTensor packages on the nvidia channel are not well
+            #   structured. The multiple levels of packages are not connected
+            #   by strict dependencies, and the CTK compatibility is encoded
+            #   in the package name, rather than a constraint or label.
+            #   For now we pin to the conda-forge versions (which use build
+            #   numbers starting with h).
             "cutensor=1.7*=h*",  # runtime
             "nccl",  # runtime
             "pynvml",  # tests
         )
 
-        if V(self.ctk_version) >= V("12.0"):
+        if V(self.ctk_version) < (12, 0, 0):
+            deps += (f"cudatoolkit={self.ctk_version}",)
+        else:
             deps += (
+                "cuda-cccl",  # no cuda-cccl-dev package on the nvidia channel
                 "cuda-cudart-dev",
                 "cuda-cudart-static",
+                "cuda-driver-dev",
                 "cuda-nvml-dev",
-                "cuda-nvtx",
+                "cuda-nvtx",  # no cuda-nvtx-dev package on the nvidia channel
                 "libcublas-dev",
                 "libcufft-dev",
                 "libcurand-dev",
                 "libcusolver-dev",
                 "libcusparse-dev",
-                # needed by cusparse starting with 12.1
-                "libnvjitlink",
+                "libnvjitlink-dev",
             )
 
         if self.compilers:
             if self.os == "linux":
-                if V(self.ctk_version) < V("12.0"):
-                    deps += (f"nvcc_linux-64={self.ctk_version}",)
+                if V(self.ctk_version) < (12, 0, 0):
+                    deps += (f"nvcc_linux-64={drop_patch(self.ctk_version)}",)
                 else:
                     deps += ("cuda-nvcc",)
 
-                # gcc 11.3 is incompatible with nvcc <= 11.5.
-                if V(self.ctk_version) <= V("11.5"):
+                # gcc 11.3 is incompatible with nvcc < 11.6.
+                if V(self.ctk_version) < (11, 6, 0):
                     deps += (
                         "gcc_linux-64<=11.2",
                         "gxx_linux-64<=11.2",
@@ -113,7 +124,7 @@ class CUDAConfig(SectionConfig):
         return deps
 
     def __str__(self) -> str:
-        if self.ctk_version == "none":
+        if not self.ctk_version:
             return ""
 
         return f"-cuda{self.ctk_version}"
@@ -239,10 +250,18 @@ class EnvConfig:
     use: str
     python: str
     os: OSType
-    ctk: str
+    ctk_version: Union[str, None]
     compilers: bool
     openmpi: bool
     ucx: bool
+
+    @property
+    def channels(self) -> str:
+        channels = []
+        if self.ctk_version and V(self.ctk_version) >= (12, 0, 0):
+            channels.append(f"nvidia/label/cuda-{self.ctk_version}")
+        channels.append("conda-forge")
+        return "- " + "\n- ".join(channels)
 
     @property
     def sections(self) -> Tuple[SectionConfig, ...]:
@@ -256,7 +275,7 @@ class EnvConfig:
 
     @property
     def cuda(self) -> CUDAConfig:
-        return CUDAConfig(self.ctk, self.compilers, self.os)
+        return CUDAConfig(self.ctk_version, self.compilers, self.os)
 
     @property
     def build(self) -> BuildConfig:
@@ -283,26 +302,13 @@ class EnvConfig:
 
 PYTHON_VERSIONS = ("3.9", "3.10", "3.11")
 
-CTK_VERSIONS = (
-    "none",
-    "11.4",
-    "11.5",
-    "11.6",
-    "11.7",
-    "11.8",
-    "12.0",
-    "12.1",
-    "12.2",
-)
-
 OS_NAMES: Tuple[OSType, ...] = ("linux", "osx")
 
 
 ENV_TEMPLATE = """\
 name: legate-{use}
 channels:
-  - nvidia
-  - conda-forge
+{channels}
 dependencies:
 
   - python={python},!=3.9.7  # avoid https://bugs.python.org/issue45121
@@ -378,8 +384,6 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--ctk",
-        choices=CTK_VERSIONS,
-        default="none",
         dest="ctk_version",
         help="CTK version to generate for",
     )
@@ -419,6 +423,14 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args(sys.argv[1:])
+
+    if (
+        args.ctk_version
+        and V(args.ctk_version) >= (12, 0, 0)
+        and len(args.ctk_version.split(".")) != 3
+    ):
+        # This is necessary to match on the exact label on the nvidia channel
+        raise ValueError("CTK 12 versions must be in the form 12.X.Y")
 
     selected_sections = None
 
@@ -469,6 +481,7 @@ if __name__ == "__main__":
     print(f"--- generating: {filename}.yaml")
     out = ENV_TEMPLATE.format(
         use=config.use,
+        channels=config.channels,
         python=config.python,
         conda_sections=conda_sections,
         pip=PIP_TEMPLATE.format(pip_sections=pip_sections)
