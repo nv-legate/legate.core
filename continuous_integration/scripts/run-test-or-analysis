@@ -41,7 +41,7 @@ run_test_or_analysis() {
             [ "${UCX_ENABLED:-}" = "ON" ] && ucx_libs=ucx\ openmpi
             mamba install -y -n "${CONDA_ENV}" -c conda-forge pytest pytest-mock ipython jupyter_client $ucx_libs
             cd $REPO_DIR/tests/unit
-            pytest
+            REALM_BACKTRACE=1 pytest
             ;;
         "mypy")
           echo "Executing mypy..."
