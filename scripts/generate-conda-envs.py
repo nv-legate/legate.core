@@ -69,7 +69,6 @@ class CUDAConfig(SectionConfig):
             return ()
 
         deps = (
-            f"cuda-version={drop_patch(self.ctk_version)}",  # runtime
             # cuTensor package notes:
             # - We are pinning to 1.X major version.
             #   See https://github.com/nv-legate/cunumeric/issues/1092.
