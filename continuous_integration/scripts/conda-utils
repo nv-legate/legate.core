@@ -24,7 +24,6 @@ generate_yaml_file() {
         )"
     else
         local cuda_version="${CUDA_VERSION:-${CUDA_VERSION_MAJOR}.${CUDA_VERSION_MINOR}}";
-        cuda_version="$(echo "${cuda_version}" | cut -d'.' -f3 --complement)";
         yaml_file="$(\
             $REPO_DIR/scripts/generate-conda-envs.py \
                 --os "$OS_SHORT_NAME" \

@@ -35,8 +35,8 @@ environment file listing all the packages that are required to build, run and
 test Legate Core and all downstream libraries. For example:
 
 ```shell
-$ ./scripts/generate-conda-envs.py --python 3.10 --ctk 12.0 --os linux --ucx
---- generating: environment-test-linux-py310-cuda-12.0-ucx.yaml
+$ ./scripts/generate-conda-envs.py --python 3.10 --ctk 12.3.1 --os linux --ucx
+--- generating: environment-test-linux-py310-cuda-12.3.1-ucx.yaml
 ```
 
 Run this script with `-h` to see all available configuration options for the
