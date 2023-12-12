@@ -160,7 +160,6 @@ requirements:
 {% endif %}
 {% if ucx_configured_bool %}
     - ucx >=1.14
-    - openmpi
 {% endif %}
 
   # Runtime python dependencies
