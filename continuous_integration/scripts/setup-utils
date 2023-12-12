@@ -159,7 +159,7 @@ set_base_defs() {
     export CUDA_VERSION_MAJOR=12
     export CUDA_VERSION_MINOR=0
 
-    export PYTHON_VERSION=3.12
+    export PYTHON_VERSION=3.11
 
     export USE_OPENMP=ON
 }
