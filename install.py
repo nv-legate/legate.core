@@ -269,6 +269,7 @@ def install(
     arch,
     openmp,
     march,
+    profiler,
     spy,
     build_docs,
     conduit,
@@ -320,6 +321,7 @@ def install(
         print(f"arch: {arch}")
         print(f"openmp: {openmp}")
         print(f"march: {march}")
+        print(f"profiler: {profiler}")
         print(f"spy: {spy}")
         print(f"build_docs: {build_docs}")
         print(f"conduit: {conduit}")
@@ -501,6 +503,8 @@ def install(
 
     if march:
         cmake_flags += [f"-DBUILD_MARCH={march}"]
+    if profiler:
+        cmake_flags += ["-DLegion_BUILD_RUST_PROFILER=ON"]
     if cuda:
         cmake_flags += [f"-DLegion_CUDA_ARCH={arch}"]
     if nccl_dir:
@@ -685,6 +689,13 @@ def driver():
         required=False,
         default=("haswell" if platform.machine() == "x86_64" else None),
         help="Specify the target CPU architecture.",
+    )
+    parser.add_argument(
+        "--profiler",
+        dest="profiler",
+        action=BooleanFlag,
+        default=False,
+        help="Build Rust version of Legion profiler.",
     )
     parser.add_argument(
         "--spy",
