@@ -120,7 +120,7 @@ GPUS = Argument(
         type=int,
         default=defaults.LEGATE_GPUS,
         dest="gpus",
-        help="Number of OpenMP groups to use per rank",
+        help="Number of GPUs to use per rank",
     ),
 )
 
