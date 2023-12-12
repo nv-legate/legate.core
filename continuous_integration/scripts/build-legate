@@ -60,8 +60,8 @@ post_nightly_release_artifacts() {
     echo "NIGHTLY -PRGX"
     conda install -c anaconda anaconda-client
     anaconda -V
-    anaconda -t ${{ secrets.NV_LEGATE_NIGHTLY_CHANNEL_ACCESS }} upload --skip-existing -u legate-nightly /tmp/conda-build/linux-64/legate-core-*.tar.bz2
-    }
+    anaconda -t $CHANNEL_TOKEN upload --skip-existing -u legate-nightly /tmp/conda-build/linux-64/legate-core-*.tar.bz2
+}
 
 build_docs() {
     set -x;

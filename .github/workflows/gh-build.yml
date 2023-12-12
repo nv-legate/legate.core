@@ -37,6 +37,7 @@ env:
   ARTIFACTS_DIR: "${{ github.workspace }}/.artifacts"
   ARTIFACT_NAME: "${{ inputs.repos-name }}-${{ inputs.build-target }}${{ inputs.ucx-string }}-${{ inputs.sha }}"
   UCX_ENABLED: ${{ (inputs.ucx-config == 'ucx' && 'ON') || 'OFF' }}
+  CHANNEL_TOKEN: ${{ secrets.NV_LEGATE_NIGHTLY_CHANNEL_ACCESS }}
 jobs:
   build:
     name: build-${{ inputs.build-target }}${{ inputs.ucx-string }}-sub-workflow
@@ -79,6 +80,7 @@ jobs:
             -e GITHUB_TOKEN \
             -e USE_CUDA \
             -e UCX_ENABLED \
+            -e CHANNEL_TOKEN \
             -v "$(pwd):$(pwd)" \
             -v "$ARTIFACTS_DIR:$(pwd)/.artifacts" \
             --rm "condaforge/miniforge3:latest" \
