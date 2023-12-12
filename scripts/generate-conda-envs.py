@@ -300,7 +300,7 @@ class EnvConfig:
 
 # --- Setup -------------------------------------------------------------------
 
-PYTHON_VERSIONS = ("3.9", "3.10", "3.11")
+PYTHON_VERSIONS = ("3.9", "3.10", "3.11", "3.12")
 
 OS_NAMES: Tuple[OSType, ...] = ("linux", "osx")
 
