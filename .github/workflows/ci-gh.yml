@@ -17,14 +17,6 @@ jobs:
       matrix:
         include:
           - device: gpu
-            build-runner: ${{ contains(github.repository, 'nv-legate/legate.core') && 'linux-amd64-cpu4' || 'ubuntu-latest' }}
-            platform: linux
-
-          - device: cpu
-            build-runner: ${{ contains(github.repository, 'nv-legate/legate.core') && 'linux-amd64-cpu4' || 'ubuntu-latest' }}
-            platform: linux
-
-          - device: gpu
             build-runner: ${{ contains(github.repository, 'nv-legate/legate.core') && 'linux-amd64-cpu32' || 'ubuntu-latest' }}
             platform: linux
 
