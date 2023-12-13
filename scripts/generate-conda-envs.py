@@ -90,6 +90,7 @@ class CUDAConfig(SectionConfig):
             deps += (
                 "cuda-cccl",  # no cuda-cccl-dev package on the nvidia channel
                 "cuda-cudart-dev",
+                "cuda-cudart-static",
                 "cuda-driver-dev",
                 "cuda-nvml-dev",
                 "cuda-nvtx",  # no cuda-nvtx-dev package on the nvidia channel

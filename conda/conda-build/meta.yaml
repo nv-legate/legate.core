@@ -39,7 +39,7 @@
 {% else %}
     {% set version = environ.get('GIT_DESCRIBE_TAG', default_env_var).lstrip('v') %}
 {% endif %}
-{% set cuda_version='.'.join(environ.get('CUDA', '12.0').split('.')[:2]) %}
+{% set cuda_version='.'.join(environ.get('CUDA', '12.2.2').split('.')[:2]) %}
 {% set cuda_major=cuda_version.split('.')[0]|int %}
 {% set py_version=environ.get('CONDA_PY', 36) %}
 
@@ -160,6 +160,7 @@ requirements:
 {% endif %}
 {% if ucx_configured_bool %}
     - ucx >=1.14
+    - openmpi
 {% endif %}
 
   # Runtime python dependencies
@@ -177,13 +178,14 @@ requirements:
 {% endif %}
 {% if ucx_configured_bool %}
     - ucx >=1.14
+    - openmpi
 {% endif %}
 
   run_constrained:
     - __glibc >=2.17  # [linux]
     - python != 3.9.7
 {% if gpu_enabled_bool %}
-    - __cuda >={{ cuda_version }}
+    - __cuda
 {% endif %}
 
 test:

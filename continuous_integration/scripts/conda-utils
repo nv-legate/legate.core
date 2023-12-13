@@ -24,7 +24,6 @@ generate_yaml_file() {
         )"
     else
         local cuda_version="${CUDA_VERSION:-${CUDA_VERSION_MAJOR}.${CUDA_VERSION_MINOR}}";
-        cuda_version="$(echo "${cuda_version}" | cut -d'.' -f3 --complement)";
         yaml_file="$(\
             $REPO_DIR/scripts/generate-conda-envs.py \
                 --os "$OS_SHORT_NAME" \
@@ -77,7 +76,7 @@ install_legate_core_with_war() {
     # See github issue: https://github.com/nv-legate/legate.core/issues/812
     mamba uninstall -y -n "${CONDA_ENV}" numpy;
 
-    mamba install -y -n "${CONDA_ENV}" -c nvidia -c conda-forge -c "${ARTIFACTS_DIR}/conda-build/legate_core" legate-core;
+    mamba install -y -n "${CONDA_ENV}" -c nvidia/label/cuda-${CUDA_VERSION} -c conda-forge -c "${ARTIFACTS_DIR}/conda-build/legate_core" legate-core;
 }
 
 activate_conda_env() {

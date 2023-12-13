@@ -14,7 +14,7 @@ conda mambabuild \
     --numpy 1.22 \
     --python $PYTHON_VERSION \
     --override-channels \
-    -c conda-forge -c nvidia \
+    -c conda-forge -c nvidia/label/cuda-${CUDA_VERSION} \
     --croot /tmp/conda-build/legate_core \
     --no-test \
     --no-verify \
