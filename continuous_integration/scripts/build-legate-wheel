@@ -21,7 +21,7 @@ build_legate_wheel() {
 
     local cmake_args=(${CMAKE_ARGS:-});
     cmake_args+=("-DFIND_LEGATE_CORE_CPP=ON");
-    cmake_args+=("-Dlegate_core_ROOT=$REPO_DIR/legate/build");
+    cmake_args+=("-Dlegate_core_ROOT=$REPO_DIR/build");
     cmake_args+=("-DLegion_USE_CUDA=${USE_CUDA:-OFF}");
     cmake_args+=("-DLegion_USE_OpenMP=${USE_OPENMP:-OFF}");
 

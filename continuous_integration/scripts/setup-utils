@@ -155,7 +155,7 @@ set_base_defs() {
 
     export BUILD_MARCH=$(uname -m | tr '_' '-')
 
-    export CUDA_VERSION=12.0
+    export CUDA_VERSION=12.2.2
     export CUDA_VERSION_MAJOR=12
     export CUDA_VERSION_MINOR=0
 

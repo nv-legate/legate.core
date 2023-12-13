@@ -24,7 +24,7 @@ build_legate_ci() {
 build_legate_release() {
     mkdir -p /tmp/env_yaml /tmp/conda-build
 
-    conda mambabuild --output-folder /tmp/conda-build -c nvidia -c conda-forge --no-include-recipe conda/conda-build
+    conda mambabuild --output-folder /tmp/conda-build -c nvidia/label/cuda-${CUDA_VERSION} -c conda-forge --no-include-recipe conda/conda-build
 }
 
 build_legate_nightly_release() {

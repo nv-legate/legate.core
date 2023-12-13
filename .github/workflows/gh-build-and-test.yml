@@ -45,13 +45,13 @@ jobs:
           - name: Pytest Unit Tests
             test-scope: unit
             runner: linux-amd64-gpu-v100-latest-1
-            enabled: ${{ inputs.platform == 'linux' }}
+            enabled: ${{ inputs.platform == 'linux' && inputs.device == 'gpu' }}
             ucx-config: no_ucx
 
           - name: Pytest Unit Tests
             test-scope: unit
             runner: linux-amd64-gpu-v100-latest-1
-            enabled: ${{ inputs.platform == 'linux' }}
+            enabled: ${{ inputs.platform == 'linux' && inputs.device == 'gpu' }}
             ucx-config: ucx
 
           - name: Pytest Unit Tests (OS X)
@@ -63,25 +63,37 @@ jobs:
           - name: Pytest Unit Tests
             test-scope: unit
             runner: linux-amd64-2gpu
-            enabled: ${{ inputs.platform == 'linux' }}
+            enabled: ${{ inputs.platform == 'linux' && inputs.device == 'gpu' }}
             ucx-config: no_ucx
 
           - name: Pytest Unit Tests
             test-scope: unit
             runner: linux-amd64-2gpu
-            enabled: ${{ inputs.platform == 'linux' }}
+            enabled: ${{ inputs.platform == 'linux' && inputs.device == 'gpu' }}
+            ucx-config: ucx
+
+          - name: Pytest Unit Tests
+            test-scope: unit
+            runner: linux-amd64-cpu4
+            enabled: ${{ inputs.platform == 'linux' && inputs.device == 'cpu' }}
+            ucx-config: no_ucx
+
+          - name: Pytest Unit Tests
+            test-scope: unit
+            runner: linux-amd64-cpu4
+            enabled: ${{ inputs.platform == 'linux' && inputs.device == 'cpu' }}
             ucx-config: ucx
 
           - name: mypy
             test-scope: mypy
-            runner: linux-amd64-gpu-v100-latest-1
-            enabled: ${{ inputs.platform == 'linux' }}
+            runner: linux-amd64-cpu4
+            enabled: ${{ inputs.platform == 'linux' && inputs.device == 'cpu' }}
             ucx-config: no_ucx
 
           - name: mypy
             test-scope: mypy
-            runner: linux-amd64-gpu-v100-latest-1
-            enabled: ${{ inputs.platform == 'linux' }}
+            runner: linux-amd64-cpu4
+            enabled: ${{ inputs.platform == 'linux' && inputs.device == 'cpu' }}
             ucx-config: ucx
 
           - name: mypy (OS X)
