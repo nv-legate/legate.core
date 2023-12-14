@@ -100,3 +100,13 @@ jobs:
         with:
           name: ${{ env.ARTIFACT_NAME }}
           path: ${{ env.ARTIFACTS_DIR }}
+
+      - if: ${{ inputs.build-type }} == 'nightly-release'
+        name: Post Nightly-release
+        run: |
+          set -xeuo pipefail
+          conda install -c anaconda anaconda-client
+          anaconda -V
+          anaconda -t $CHANNEL_TOKEN upload --skip-existing -u legate-nightly /tmp/conda-build/linux-64/legate-core-*.tar.bz2
+
+        

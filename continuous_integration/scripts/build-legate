@@ -30,10 +30,6 @@ build_legate_release() {
 build_legate_nightly_release() {
     mkdir -p /tmp/env_yaml /tmp/conda-build
 
-    cat <<EOF >> $REPO_DIR/conda/conda-build/conda_build_config.yaml
-enable_nightly_package:
-  - "true"
-EOF
     conda mambabuild --output-folder /tmp/conda-build -c nvidia -c conda-forge --no-include-recipe conda/conda-build
 }
 
@@ -103,7 +99,7 @@ build_legate() {
         ci) build_legate_ci && copy_ci_artifacts;;
         release) build_legate_release && copy_release_artifacts;;
         docs) build_docs && copy_docs_artifacts;;
-        nightly-release) build_legate_nightly_release && post_nightly_release_artifacts;;
+        nightly-release) build_legate_release && copy_release_artifacts;;
         *) return 1;;
     esac
 }
