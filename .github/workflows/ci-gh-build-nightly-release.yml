@@ -40,16 +40,21 @@ jobs:
       image: condaforge/miniforge3:latest
     
     steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
       - name: Download build artifacts
         uses: actions/download-artifact@v3
         with:
           name: ${{ env.ARTIFACT_NAME }}
-          path: /tmp/artifacts
+          path: ${{ env.ARTIFACTS_DIR }}
 
       - name: View the downloads
         run: |
           echo "pwd = $PWD"
-          ls -laRt /tmp/
           ls -laRt ${{ github.workspace }}
 
       - name: Post Nightly-release to legate-nightly channel
