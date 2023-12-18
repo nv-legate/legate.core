@@ -24,3 +24,4 @@ jobs:
       use-container: true
       ucx-config: no_ucx
       ucx-string: ''
+      nightly-string: ''

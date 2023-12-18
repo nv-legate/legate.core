@@ -104,7 +104,7 @@ build_legate() {
         ci) build_legate_ci && copy_ci_artifacts;;
         release) build_legate_release && copy_release_artifacts;;
         docs) build_docs && copy_docs_artifacts;;
-        nightly-release) build_legate_release && copy_release_artifacts;;
+        nightly-release) build_legate_nightly_release && copy_release_artifacts;;
         *) return 1;;
     esac
 }

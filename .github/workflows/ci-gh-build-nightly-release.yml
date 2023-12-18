@@ -29,6 +29,7 @@ jobs:
       use-container: true
       ucx-config: no_ucx
       ucx-string: ''
+      nightly-string: '-nightly'
 
   post-in-container:
     needs:
@@ -40,21 +41,20 @@ jobs:
       image: condaforge/miniforge3:latest
     
     steps:
-
       - name: Download build artifacts
         uses: actions/download-artifact@v3
         with:
           name: ${{ env.ARTIFACT_NAME }}
+          path: ~/artifact
 
-      - name: View the downloads
+      - name: View and zip the downloads
         run: |
           echo "pwd = $PWD"
           ls -laRt
+          cd ~/artifact; zip $ARTIFACT_NAME.zip *
 
       - name: Post Nightly-release to legate-nightly channel
         run: |
           conda install -c anaconda anaconda-client
           anaconda -V
-          echo PRGX
-
-#            anaconda -t $CHANNEL_TOKEN upload --skip-existing -u legate-nightly ${{ env.ARTIFACTS_DIR }}/${{ env.ARTIFACT_NAME }}
+          anaconda -t $CHANNEL_TOKEN upload --skip-existing -u legate-nightly ~/artifact/$ARTIFACT_NAME.zip
