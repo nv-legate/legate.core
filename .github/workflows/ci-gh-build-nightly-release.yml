@@ -49,7 +49,7 @@ jobs:
       - name: View the downloads
         run: |
           echo "pwd = $PWD"
-          ls -laRT /tmp/
+          ls -laRt /tmp/
           ls -laRt ${{ github.workspace }}
 
       - name: Post Nightly-release to legate-nightly channel
