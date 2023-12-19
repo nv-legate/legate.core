@@ -41,17 +41,18 @@ jobs:
       image: condaforge/miniforge3:latest
     
     steps:
-      - name: Download build artifacts
-        uses: actions/download-artifact@v3
+      - name: Download conda artifacts
+        uses: dawidd6/action-download-artifact@v2
         with:
           name: ${{ env.ARTIFACT_NAME }}
           path: ~/artifact
+          name_is_regexp: true
+          skip_unpack: true
 
-      - name: View and zip the downloads
+      - name: Display Artifact structure
         run: |
           echo "pwd = $PWD"
-          ls -laRt
-          cd ~/artifact; zip $ARTIFACT_NAME.zip *
+          ls -laRt ~/artifact
 
       - name: Post Nightly-release to legate-nightly channel
         run: |
