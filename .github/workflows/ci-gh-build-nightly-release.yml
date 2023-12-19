@@ -41,21 +41,21 @@ jobs:
       image: condaforge/miniforge3:latest
     
     steps:
-      - name: Download conda artifacts
-        uses: dawidd6/action-download-artifact@v2
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
         with:
           name: ${{ env.ARTIFACT_NAME }}
           path: ~/artifact
-          name_is_regexp: true
-          skip_unpack: true
 
       - name: Display Artifact structure
         run: |
           echo "pwd = $PWD"
           ls -laRt ~/artifact
+          cd ~/artifact; tar cf $ARTIFACT_NAME.tar *
+          cd ~/artifact; gzip $ARTIFACT_NAME.tar
 
       - name: Post Nightly-release to legate-nightly channel
         run: |
           conda install -c anaconda anaconda-client
           anaconda -V
-          anaconda -t $CHANNEL_TOKEN upload --skip-existing -u legate-nightly ~/artifact/$ARTIFACT_NAME.zip
+          anaconda -t $CHANNEL_TOKEN upload --skip-existing -u legate-nightly ~/artifact/$ARTIFACT_NAME.tar.gz
