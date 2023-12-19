@@ -17,8 +17,8 @@ env:
   NIGHTLY_STR: "nightly"
 
 jobs:
-  if: github.repository_owner == 'nv-legate'
   Build:
+    if: github.repository_owner == 'nv-legate'
     name: Build legate core (Nightly release)
     uses:
       ./.github/workflows/gh-build.yml
@@ -34,6 +34,7 @@ jobs:
       nightly-string: '-nightly'
 
   Test:
+    if: github.repository_owner == 'nv-legate'
     needs:
       - Build
     strategy:
@@ -68,6 +69,7 @@ jobs:
       ucx-string: '-ucx'
 
   Post-to-Nightly-channel:
+    if: github.repository_owner == 'nv-legate'
     name: Post artifact to nightly channel
     needs:
       - Test
