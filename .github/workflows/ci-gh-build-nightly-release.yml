@@ -46,13 +46,7 @@ jobs:
             runner: linux-amd64-gpu-v100-latest-1
           - name: Pytest Unit Tests
             test-scope: unit
-            runner: linux-amd64-2gpu
-          - name: Pytest Unit Tests
-            test-scope: unit
-            runner: linux-amd64-cpu4
-          - name: mypy
-            test-scope: mypy
-            runner: linux-amd64-cpu4
+            runner: linux-amd64-2gpu4
 
     name: ${{ matrix.name }}
     uses:
