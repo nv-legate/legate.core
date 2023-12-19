@@ -47,19 +47,18 @@ jobs:
           path: ~/artifact
 
       - name: Display Artifact structure
-        env:
-          CHANNEL_TOKEN: "${{ secrets.NV_LEGATE_NIGHTLY_CHANNEL_ACCESS }}"
-          ARTIFACT_NAME: "${{ github.event.repository.name }}-${{ env.DEVICE_STR }}-${{ env.UCX_STR }}-${{ env.NIGHTLY_STR }}-${{ github.sha }}"
-
         run: |
           echo "pwd = $PWD"
           ls -laRt ~/artifact
 
       - name: Post Nightly-release to legate-nightly channel
+        env:
+          CHANNEL_TOKEN: "${{ secrets.NV_LEGATE_NIGHTLY_CHANNEL_ACCESS }}"
+          ARTIFACT_NAME: "${{ github.event.repository.name }}-${{ env.DEVICE_STR }}-${{ env.UCX_STR }}-${{ env.NIGHTLY_STR }}-${{ github.sha }}"
         run: |
           conda install -c anaconda anaconda-client
           anaconda -V
-          for pkgFile in $(find ~/artifact/$ARTIFACT_NAME/ -type f -print0 -name "*.bz2"); do
-            anaconda -t $CHANNEL_TOKEN upload --skip-existing -u legate-nightly $pkgFile
-          done
+          anaconda -t $CHANNEL_TOKEN upload --skip-existing -u legate-nightly $pkgFile ~/artifact/$ARTIFACT_NAME/**
+
+
 
