@@ -67,12 +67,13 @@ jobs:
       enabled: true
       ucx-config: ucx
       ucx-string: '-ucx'
+      nightly-string: '-nightly'
 
   Post-to-Nightly-channel:
     if: github.repository_owner == 'nv-legate'
     name: Post artifact to nightly channel
     needs:
-      - Test
+      - Build
     runs-on: ${{ github.repository_owner == 'nv-legate' && 'linux-amd64-cpu16' || 'ubuntu-latest' }}
 
     container:

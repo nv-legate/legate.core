@@ -117,3 +117,4 @@ jobs:
       enabled: ${{ matrix.enabled }}
       ucx-config: ${{ matrix.ucx-config }}
       ucx-string: ${{ (matrix.ucx-config == 'ucx' && '-ucx') || '' }}
+      nightly-string: ''
