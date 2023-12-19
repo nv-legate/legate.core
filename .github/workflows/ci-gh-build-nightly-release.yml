@@ -15,6 +15,7 @@ env:
   CHANNEL_TOKEN: "${{ secrets.NV_LEGATE_NIGHTLY_CHANNEL_ACCESS }}"
   ARTIFACTS_DIR: "${{ github.workspace }}/.artifacts"
   ARTIFACT_NAME: "${{ github.event.repository.name }}-gpu-nightly-${{ github.sha }}"
+  PKG_NAME: "${{ github.event.repository.name }}"
 
 jobs:
   build:
@@ -26,9 +27,9 @@ jobs:
       runs-on: ${{ github.repository_owner == 'nv-legate' && 'linux-amd64-cpu16' || 'ubuntu-latest' }}
       sha: ${{ github.sha }}
       build-type: nightly-release
-      use-container: true
-      ucx-config: no_ucx
-      ucx-string: ''
+      use-container: false
+      ucx-config: ucx
+      ucx-string: '-ucx'
       nightly-string: '-nightly'
 
   post-in-container:
@@ -51,11 +52,9 @@ jobs:
         run: |
           echo "pwd = $PWD"
           ls -laRt ~/artifact
-          cd ~/artifact; tar cf $ARTIFACT_NAME.tar *
-          cd ~/artifact; gzip $ARTIFACT_NAME.tar
 
       - name: Post Nightly-release to legate-nightly channel
         run: |
           conda install -c anaconda anaconda-client
           anaconda -V
-          anaconda -t $CHANNEL_TOKEN upload --skip-existing -u legate-nightly ~/artifact/$ARTIFACT_NAME.tar.gz
+        #  anaconda -t $CHANNEL_TOKEN upload --skip-existing -u legate-nightly ~/artifact/$ARTIFACT_NAME.tar.gz
