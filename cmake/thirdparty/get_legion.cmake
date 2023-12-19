@@ -121,8 +121,6 @@ function(find_or_configure_legion)
       set(Legion_BACKTRACE_USE_LIBDW OFF)
     endif()
 
-    set(Legion_BUILD_RUST_PROFILER OFF CACHE BOOL "Whether to build the Legion profiler" FORCE)
-
     rapids_cpm_find(Legion ${version} ${FIND_PKG_ARGS}
         CPM_ARGS
           ${legion_cpm_git_args}
