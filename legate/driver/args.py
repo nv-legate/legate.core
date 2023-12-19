@@ -113,16 +113,6 @@ def _get_slurm_config() -> tuple[int, int] | None:
 
     # use SLURM_TASKS_PER_NODE if it is given
     if tasks_per_node_env is not None:
-        if ntasks_env is not None:
-            raise ValueError(
-                "Ambiguous congfiguration, both SLURM_TASKS_PER_NODE and "
-                "SLURM_NTASKS are set."
-            )
-        if nprocs_env is not None:
-            raise ValueError(
-                "Ambiguous congfiguration, both SLURM_TASKS_PER_NODE and "
-                "SLURM_NPROCS are set."
-            )
         try:
             nodes, ranks_per_node = int(nodes_env), int(tasks_per_node_env)
         except ValueError:

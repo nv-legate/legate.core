@@ -342,18 +342,6 @@ class TestMultiNodeDefaults:
         assert ranks_per_node_kw["default"] == 3
         assert "SLURM" in ranks_per_node_kw["help"]
 
-    @pytest.mark.parametrize("name", ("SLURM_NPROCS", "SLURM_NTASKS"))
-    def test_with_SLURM_abiguous(
-        self, monkeypatch: pytest.MonkeyPatch, name: str
-    ) -> None:
-        monkeypatch.setenv("SLURM_TASKS_PER_NODE", "3")
-        monkeypatch.setenv("SLURM_JOB_NUM_NODES", "2")
-        monkeypatch.setenv(name, "80")
-
-        with pytest.raises(ValueError) as e:
-            m.detect_multi_node_defaults()
-        assert "Ambiguous congfiguration" in str(e.value)
-
     def test_with_SLURM_prefers_ntasks_over_procs(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
