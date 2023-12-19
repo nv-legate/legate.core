@@ -16,10 +16,6 @@ env:
   UCX_STR: "ucx"
   NIGHTLY_STR: "nightly"
 
-
-
-
-
 jobs:
   build:
     uses:
@@ -63,7 +59,7 @@ jobs:
         run: |
           conda install -c anaconda anaconda-client
           anaconda -V
-          for pkgFile in $(find ~/artifact/$ARTIFACT_NAME/ -type f -print0 -name "*.bz2") do
+          for pkgFile in $(find ~/artifact/$ARTIFACT_NAME/ -type f -print0 -name "*.bz2"); do
             anaconda -t $CHANNEL_TOKEN upload --skip-existing -u legate-nightly $pkgFile
           done
 
