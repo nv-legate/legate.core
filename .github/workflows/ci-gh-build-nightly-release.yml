@@ -14,7 +14,7 @@ on:
 env:
   CHANNEL_TOKEN: "${{ secrets.NV_LEGATE_NIGHTLY_CHANNEL_ACCESS }}"
   ARTIFACTS_DIR: "${{ github.workspace }}/.artifacts"
-  ARTIFACT_NAME: "${{ github.event.repository.name }}-gpu-nightly-${{ github.sha }}"
+  ARTIFACT_NAME: "${{ github.event.repository.name }}*nightly-${{ github.sha }}"
 
 jobs:
   build:
