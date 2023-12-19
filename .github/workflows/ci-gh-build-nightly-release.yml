@@ -55,4 +55,4 @@ jobs:
         run: |
           conda install -c anaconda anaconda-client
           anaconda -V
-        #  anaconda -t $CHANNEL_TOKEN upload --skip-existing -u legate-nightly ~/artifact/$ARTIFACT_NAME.tar.gz
+          anaconda -t $CHANNEL_TOKEN upload --skip-existing -u legate-nightly ~/artifact/**
