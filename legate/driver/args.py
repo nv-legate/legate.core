@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 from argparse import REMAINDER, ArgumentDefaultsHelpFormatter, ArgumentParser
+from os import getenv
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -46,50 +47,153 @@ from . import defaults
 __all__ = ("parser",)
 
 
-def detect_multi_node_defaults() -> tuple[dict[str, Any], dict[str, Any]]:
-    from os import getenv
+def _get_ompi_config() -> tuple[int, int] | None:
+    if not (ranks_env := getenv("OMPI_COMM_WORLD_SIZE")):
+        return None
 
+    if not (ranks_per_node_env := getenv("OMPI_COMM_WORLD_LOCAL_SIZE")):
+        return None
+
+    try:
+        ranks, ranks_per_node = int(ranks_env), int(ranks_per_node_env)
+    except ValueError:
+        raise ValueError(
+            "Expected OMPI_COMM_WORLD_SIZE and OMPI_COMM_WORLD_LOCAL_SIZE to "
+            f"be integers, got OMPI_COMM_WORLD_SIZE={ranks_env} and "
+            f"OMPI_COMM_WORLD_LOCAL_SIZE={ranks_per_node_env}"
+        )
+
+    if ranks % ranks_per_node != 0:
+        raise ValueError(
+            "Detected incompatible ranks and ranks-per-node from "
+            f"OMPI_COMM_WORLD_SIZE={ranks} and "
+            f"OMPI_COMM_WORLD_LOCAL_SIZE={ranks_per_node}"
+        )
+
+    return ranks // ranks_per_node, ranks_per_node
+
+
+def _get_mv2_config() -> tuple[int, int] | None:
+    if not (ranks_env := getenv("MV2_COMM_WORLD_SIZE")):
+        return None
+
+    if not (ranks_per_node_env := getenv("MV2_COMM_WORLD_LOCAL_SIZE")):
+        return None
+
+    try:
+        ranks, ranks_per_node = int(ranks_env), int(ranks_per_node_env)
+    except ValueError:
+        raise ValueError(
+            "Expected MV2_COMM_WORLD_SIZE and MV2_COMM_WORLD_LOCAL_SIZE to "
+            f"be integers, got MV2_COMM_WORLD_SIZE={ranks_env} and "
+            f"MV2_COMM_WORLD_LOCAL_SIZE={ranks_per_node_env}"
+        )
+
+    if ranks % ranks_per_node != 0:
+        raise ValueError(
+            "Detected incompatible ranks and ranks-per-node from "
+            f"MV2_COMM_WORLD_SIZE={ranks} and "
+            f"MV2_COMM_WORLD_LOCAL_SIZE={ranks_per_node}"
+        )
+
+    return ranks // ranks_per_node, ranks_per_node
+
+
+def _get_slurm_config() -> tuple[int, int] | None:
+    if not (nodes_env := getenv("SLURM_JOB_NUM_NODES")):
+        return None
+
+    nprocs_env = getenv("SLURM_NPROCS")
+    ntasks_env = getenv("SLURM_NTASKS")
+    tasks_per_node_env = getenv("SLURM_TASKS_PER_NODE")
+
+    # at least one of these needs to be set
+    if (nprocs_env, ntasks_env, tasks_per_node_env) == (None, None, None):
+        return None
+
+    # use SLURM_TASKS_PER_NODE if it is given
+    if tasks_per_node_env is not None:
+        if ntasks_env is not None:
+            raise ValueError(
+                "Ambiguous congfiguration, both SLURM_TASKS_PER_NODE and "
+                "SLURM_NTASKS are set."
+            )
+        if nprocs_env is not None:
+            raise ValueError(
+                "Ambiguous congfiguration, both SLURM_TASKS_PER_NODE and "
+                "SLURM_NPROCS are set."
+            )
+        try:
+            nodes, ranks_per_node = int(nodes_env), int(tasks_per_node_env)
+        except ValueError:
+            raise ValueError(
+                "Expected SLURM_JOB_NUM_NODES and SLURM_TASKS_PER_NODE to "
+                f"be integers, got SLURM_JOB_NUM_NODES={nodes_env} and "
+                f"SLURM_TASKS_PER_NODE={tasks_per_node_env}"
+            )
+
+        return nodes, ranks_per_node
+
+    # prefer newer SLURM_NTASKS over SLURM_NPROCS
+    if ntasks_env is not None:
+        try:
+            nodes, ranks = int(nodes_env), int(ntasks_env)
+        except ValueError:
+            raise ValueError(
+                "Expected SLURM_JOB_NUM_NODES and SLURM_NTASKS to "
+                f"be integers, got SLURM_JOB_NUM_NODES={nodes_env} and "
+                f"SLURM_NTASKS={ntasks_env}"
+            )
+
+        if ranks % nodes != 0:
+            raise ValueError(
+                "Detected incompatible ranks and ranks-per-node from "
+                f"SLURM_JOB_NUM_NODES={nodes} and "
+                f"SLURM_NTASKS={ranks}"
+            )
+
+        return nodes, ranks // nodes
+
+    # fall back to older SLURM_NPROCS
+    if nprocs_env is not None:
+        try:
+            nodes, ranks = int(nodes_env), int(nprocs_env)
+        except ValueError:
+            raise ValueError(
+                "Expected SLURM_JOB_NUM_NODES and SLURM_NPROCS to "
+                f"be integers, got SLURM_JOB_NUM_NODES={nodes_env} and "
+                f"SLURM_NPROCS={nprocs_env}"
+            )
+
+        if ranks % nodes != 0:
+            raise ValueError(
+                "Detected incompatible ranks and ranks-per-node from "
+                f"SLURM_JOB_NUM_NODES={nodes} and "
+                f"SLURM_NPROCS={ranks}"
+            )
+
+        return nodes, ranks // nodes
+
+    # should be unreachable
+    return None
+
+
+def detect_multi_node_defaults() -> tuple[dict[str, Any], dict[str, Any]]:
     nodes_kw = dict(NODES.kwargs)
     ranks_per_node_kw = dict(RANKS_PER_NODE.kwargs)
     where = None
 
-    if ranks_env := getenv("OMPI_COMM_WORLD_SIZE"):
-        if ranks_per_node_env := getenv("OMPI_COMM_WORLD_LOCAL_SIZE"):
-            ranks, ranks_per_node = int(ranks_env), int(ranks_per_node_env)
-            if ranks % ranks_per_node != 0:
-                raise ValueError(
-                    "Detected incompatible ranks and ranks-per-node from "
-                    "the environment"
-                )
-            nodes = ranks // ranks_per_node
-            where = "OMPI"
-
-    elif ranks_env := getenv("MV2_COMM_WORLD_SIZE"):
-        if ranks_per_node_env := getenv("MV2_COMM_WORLD_LOCAL_SIZE"):
-            ranks, ranks_per_node = int(ranks_env), int(ranks_per_node_env)
-            if ranks % ranks_per_node != 0:
-                raise ValueError(
-                    "Detected incompatible ranks and ranks-per-node from "
-                    "the environment"
-                )
-            nodes = ranks // ranks_per_node
-            where = "MV2"
-
-    elif nodes_env := getenv("SLURM_JOB_NUM_NODES"):
-        if ranks_env := getenv("SLURM_NTASKS"):
-            nodes, ranks = int(nodes_env), int(ranks_env)
-            if ranks % nodes != 0:
-                raise ValueError(
-                    "Detected incompatible nodes and ranks from the "
-                    "environment"
-                )
-            ranks_per_node = ranks // nodes
-            where = "SLURM"
-
+    if config := _get_ompi_config():
+        where = "OMPI"
+    elif config := _get_mv2_config():
+        where = "MV2"
+    elif config := _get_slurm_config():
+        where = "SLURM"
     else:
-        nodes = defaults.LEGATE_NODES
-        ranks_per_node = defaults.LEGATE_RANKS_PER_NODE
+        config = defaults.LEGATE_NODES, defaults.LEGATE_RANKS_PER_NODE
+        where = None
 
+    nodes, ranks_per_node = config
     nodes_kw["default"] = nodes
     ranks_per_node_kw["default"] = ranks_per_node
 
