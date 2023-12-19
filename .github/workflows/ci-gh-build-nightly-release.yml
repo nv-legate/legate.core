@@ -15,7 +15,6 @@ env:
   CHANNEL_TOKEN: "${{ secrets.NV_LEGATE_NIGHTLY_CHANNEL_ACCESS }}"
   ARTIFACTS_DIR: "${{ github.workspace }}/.artifacts"
   ARTIFACT_NAME: "${{ github.event.repository.name }}-gpu-nightly-${{ github.sha }}"
-  PKG_NAME: "${{ github.event.repository.name }}"
 
 jobs:
   build:
@@ -27,7 +26,7 @@ jobs:
       runs-on: ${{ github.repository_owner == 'nv-legate' && 'linux-amd64-cpu16' || 'ubuntu-latest' }}
       sha: ${{ github.sha }}
       build-type: nightly-release
-      use-container: false
+      use-container: true
       ucx-config: ucx
       ucx-string: '-ucx'
       nightly-string: '-nightly'
