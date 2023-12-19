@@ -58,7 +58,12 @@ jobs:
         run: |
           conda install -c anaconda anaconda-client
           anaconda -V
-          anaconda -t $CHANNEL_TOKEN upload --skip-existing -u legate-nightly $pkgFile ~/artifact/$ARTIFACT_NAME/**
+          for pkgFile in $(find ~/artifact/$ARTIFACT_NAME/ -type f -print0 -name "*.bz2"); do
+            echo "File to upload = $pkFile"
+            anaconda -t $CHANNEL_TOKEN upload --skip-existing -u legate-nightly $pkgFile
+          done
+        #  anaconda -t $CHANNEL_TOKEN upload --skip-existing -u legate-nightly $pkgFile ~/artifact/$ARTIFACT_NAME/**
+
 
 
 
