@@ -90,7 +90,9 @@ jobs:
           ARTIFACT_NAME: "${{ github.event.repository.name }}-${{ env.DEVICE_STR }}-${{ env.UCX_STR }}-${{ env.NIGHTLY_STR }}-${{ github.sha }}"
         run: |
           conda install -c anaconda anaconda-client
-          for pkgFile in $(find ~/artifact/$ARTIFACT_NAME/ -type f -print0 -name "*.bz2"); do
-            echo "File to upload = $pkFile"
-            anaconda -t $CHANNEL_TOKEN upload --skip-existing -u legate-nightly $pkgFile
+          for pkgFile in ~/artifact/$ARTIFACT_NAME/*; do 
+            echo "File to upload = $pkgFile"
+            if [ "${pkgFile##*.}" = "bz2" ]; then
+              anaconda -t $CHANNEL_TOKEN upload --skip-existing -u legate-nightly $pkgFile
+            fi
           done
