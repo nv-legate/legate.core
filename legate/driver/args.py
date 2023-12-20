@@ -105,24 +105,6 @@ def _get_slurm_config() -> tuple[int, int] | None:
 
     nprocs_env = getenv("SLURM_NPROCS")
     ntasks_env = getenv("SLURM_NTASKS")
-    tasks_per_node_env = getenv("SLURM_TASKS_PER_NODE")
-
-    # at least one of these needs to be set
-    if (nprocs_env, ntasks_env, tasks_per_node_env) == (None, None, None):
-        return None
-
-    # use SLURM_TASKS_PER_NODE if it is given
-    if tasks_per_node_env is not None:
-        try:
-            nodes, ranks_per_node = int(nodes_env), int(tasks_per_node_env)
-        except ValueError:
-            raise ValueError(
-                "Expected SLURM_JOB_NUM_NODES and SLURM_TASKS_PER_NODE to "
-                f"be integers, got SLURM_JOB_NUM_NODES={nodes_env} and "
-                f"SLURM_TASKS_PER_NODE={tasks_per_node_env}"
-            )
-
-        return nodes, ranks_per_node
 
     # prefer newer SLURM_NTASKS over SLURM_NPROCS
     if ntasks_env is not None:
@@ -164,7 +146,6 @@ def _get_slurm_config() -> tuple[int, int] | None:
 
         return nodes, ranks // nodes
 
-    # should be unreachable
     return None
 
 

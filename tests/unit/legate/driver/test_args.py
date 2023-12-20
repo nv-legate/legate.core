@@ -300,20 +300,6 @@ class TestMultiNodeDefaults:
         assert "MV2_COMM_WORLD_SIZE=5" in str(e.value)
         assert "MV2_COMM_WORLD_LOCAL_SIZE=3.2" in str(e.value)
 
-    def test_with_SLURM_with_tasks_per_node(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        monkeypatch.setenv("SLURM_TASKS_PER_NODE", "3")
-        monkeypatch.setenv("SLURM_JOB_NUM_NODES", "2")
-
-        node_kw, ranks_per_node_kw = m.detect_multi_node_defaults()
-
-        assert node_kw["default"] == 2
-        assert "SLURM" in node_kw["help"]
-
-        assert ranks_per_node_kw["default"] == 3
-        assert "SLURM" in ranks_per_node_kw["help"]
-
     def test_with_SLURM_with_ntasks(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
