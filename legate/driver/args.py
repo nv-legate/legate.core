@@ -16,6 +16,7 @@
 #
 from __future__ import annotations
 
+import re
 from argparse import REMAINDER, ArgumentDefaultsHelpFormatter, ArgumentParser
 from os import getenv
 from typing import TYPE_CHECKING
@@ -99,12 +100,39 @@ def _get_mv2_config() -> tuple[int, int] | None:
     return ranks // ranks_per_node, ranks_per_node
 
 
+_SLURM_CONFIG_ERROR = (
+    "Expected SLURM_TASKS_PER_NODE to be a single integer ranks per node, or "
+    "of the form 'A(xB)' where A is an integer ranks per node, and B is an "
+    "integer number of nodes, got SLURM_TASKS_PER_NODE={value}"
+)
+
+
 def _get_slurm_config() -> tuple[int, int] | None:
     if not (nodes_env := getenv("SLURM_JOB_NUM_NODES")):
         return None
 
     nprocs_env = getenv("SLURM_NPROCS")
     ntasks_env = getenv("SLURM_NTASKS")
+    tasks_per_node_env = getenv("SLURM_TASKS_PER_NODE")
+
+    # at least one of these needs to be set
+    if not any((nprocs_env, ntasks_env, tasks_per_node_env)):
+        return None
+
+    # use SLURM_TASKS_PER_NODE if it is given
+    if tasks_per_node_env is not None:
+        try:
+            return 1, int(tasks_per_node_env)
+        except ValueError:
+            m = re.match(r"^(\d*)\(x(\d*)\)$", tasks_per_node_env.strip())
+            if m:
+                try:
+                    return int(m.group(2)), int(m.group(1))
+                except ValueError:
+                    pass
+            raise ValueError(
+                _SLURM_CONFIG_ERROR.format(value=tasks_per_node_env)
+            )
 
     # prefer newer SLURM_NTASKS over SLURM_NPROCS
     if ntasks_env is not None:
