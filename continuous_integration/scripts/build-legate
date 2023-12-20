@@ -40,6 +40,8 @@ gpu_enabled:
 ucx_configured:
   - true
 python:
+  - 3.9
+  - 3.10
   - 3.11
 ucx:
   - ">=1.14"
