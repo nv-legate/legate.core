@@ -1,9 +1,11 @@
 name: Build legate.core documentation
+
 on:
   push:
     branches:
       - "pull-request/[0-9]+"
       - "branch-*"
+
 env:
   COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
   PROJECT: github-core-ci
@@ -11,20 +13,14 @@ env:
   EVENT_NAME: ${{ github.event_name }}
   LABEL: ${{ github.event.pull_request.head.label }}
   REPO_URL: ${{ github.event.pull_request.head.repo.html_url || github.event.repository.html_url }}
-  ARTIFACTS_DIR: "${{ github.workspace }}/.artifacts"
-  ARTIFACT_NAME: "legate-core-docs"
   # Prevent output buffering
   PYTHONUNBUFFERED: 1
-
 jobs:
-  build-in-container:
-    if: github.repository_owner == 'nv-legate'
+  build:
     runs-on: ${{ contains(github.repository, 'nv-legate/legate.core') && 'linux-amd64-cpu32' || 'ubuntu-latest' }}
-
     defaults:
       run:
         shell: bash
-
     container:
       options: -u root
       image: condaforge/miniforge3:latest
@@ -61,10 +57,6 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-
-      - if: github.repository_owner == 'nv-legate'
 
       - name: Generate YAML file listing dependencies
         run: scripts/generate-conda-envs.py --python 3.10 --ctk 12.0 --os linux --compilers --openmpi
