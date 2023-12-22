@@ -5,7 +5,7 @@ on:
     branches:
       - "pull-request/[0-9]+"
       - "branch-*"
-      
+
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -27,6 +27,15 @@ jobs:
       packages: write # This is required to push docker image to ghcr.io
 
     runs-on: ${{ contains(github.repository, 'nv-legate/legate.core') && 'linux-amd64-cpu16' || 'ubuntu-latest' }}
+
+    defaults:
+      run:
+        shell: bash
+
+    container:
+      options: -u root
+      image: condaforge/miniforge3:latest
+      
     steps:
       - name: Dump GitHub context
         env:
