@@ -75,9 +75,8 @@ install_legate_core_with_war() {
     # The correct version will be installed when legate-core is installed below.
     # See github issue: https://github.com/nv-legate/legate.core/issues/812
     mamba uninstall -y -n "${CONDA_ENV}" numpy;
-    mamba clean -i
-
     mamba install -y -n "${CONDA_ENV}" -c nvidia/label/cuda-${CUDA_VERSION} -c conda-forge -c "${ARTIFACTS_DIR}/conda-build/legate_core" legate-core;
+    mamba index .
 }
 
 activate_conda_env() {
