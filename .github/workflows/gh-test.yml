@@ -104,6 +104,9 @@ jobs:
           name: ${{ env.ARTIFACT_NAME }}
           path: ${{ env.ARTIFACTS_DIR }}
 
+      - name: Display structure of the artifacts folder
+        run: ls -aR ${{ env.ARTIFACTS_DIR }}
+        
       - name: Run ${{ inputs.repos-name }} test / analysis
         run: |
           set -xeuo pipefail
