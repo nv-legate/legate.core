@@ -26,7 +26,7 @@ run_test_or_analysis() {
     set_base_defs;
     install_test_tools;
 
-    install_legate_core_with_war;
+    #install_legate_core_with_war;
 
     activate_conda_env;
 
