@@ -31,7 +31,7 @@ jobs:
       use-container: true
       ucx-config: ucx
       ucx-string: '-ucx'
-      nightly-string: '-nightly'
+      nightly-string: ''
 
   Test:
     if: github.repository_owner == 'nv-legate'
@@ -61,7 +61,7 @@ jobs:
       enabled: true
       ucx-config: ucx
       ucx-string: '-ucx'
-      nightly-string: '-nightly'
+      nightly-string: ''
 
   Post-to-Nightly-channel:
     if: github.repository_owner == 'nv-legate'
