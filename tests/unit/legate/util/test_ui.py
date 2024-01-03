@@ -24,7 +24,7 @@ from typing_extensions import TypeAlias
 from legate.util import colors, ui as m
 
 try:
-    import colorama  # type: ignore [import]
+    import colorama  # type: ignore [import-untyped]
 except ImportError:
     colorama = None
 
