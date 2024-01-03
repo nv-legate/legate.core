@@ -19,17 +19,25 @@ jobs:
           - device: gpu
             build-runner: ${{ contains(github.repository, 'nv-legate/legate.core') && 'linux-amd64-cpu32' || 'ubuntu-latest' }}
             platform: linux
+            ucx-config: [ucx, no_ucx]
 
           - device: cpu
             build-runner: ${{ contains(github.repository, 'nv-legate/legate.core') && 'linux-amd64-cpu32' || 'ubuntu-latest' }}
             platform: linux
+            ucx-config: [ucx, no_ucx]
 
           - device: cpu
             build-runner: macos-latest
             platform: osx
+
     uses:
-      ./.github/workflows/gh-build-and-test.yml
+      ./.github/workflows/gh-build.yml
     with:
-      device: ${{ matrix.device }}
-      build-runner: ${{ matrix.build-runner }}
-      platform: ${{ matrix.platform }}
+      build-target: ${{ matrix.device }}
+      repos-name: ${{ github.event.repository.name }}
+      runs-on: ${{ matrix.build-runner }}
+      sha: ${{ github.sha }}
+      build-type: ci
+      use-container: ${{ matrix.platform == 'linux' }}
+      ucx-config: ${{ matrix.ucx-config }}
+      ucx-string: ${{ (matrix.ucx-config == 'ucx' && '-ucx') || '' }}

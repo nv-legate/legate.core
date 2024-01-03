@@ -10,34 +10,8 @@ on:
       platform:
         type: string
         required: true
-
-
 jobs:
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        ucx-config: [ucx, no_ucx]
-        os-platform: [ "${{ inputs.platform }}" ]
-        exclude:
-        - os-platform: "osx"
-          ucx-config: ucx
-    if: ${{ github.repository_owner == 'nv-legate' }}
-    uses:
-      ./.github/workflows/gh-build.yml
-    with:
-      build-target: ${{ inputs.device }}
-      repos-name: ${{ github.event.repository.name }}
-      runs-on: ${{ inputs.build-runner }}
-      sha: ${{ github.sha }}
-      build-type: ci
-      use-container: ${{ inputs.platform == 'linux' }}
-      ucx-config: ${{ matrix.ucx-config }}
-      ucx-string: ${{ (matrix.ucx-config == 'ucx' && '-ucx') || '' }}
-
   test:
-    needs:
-      - build
     strategy:
       fail-fast: false
       matrix:
