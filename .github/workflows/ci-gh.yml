@@ -11,7 +11,7 @@ on:
       - "branch-*"
 
 jobs:
-  build-and-test:
+  build:
     strategy:
       fail-fast: false
       matrix:
@@ -51,3 +51,33 @@ jobs:
       use-container: ${{ matrix.platform == 'linux' }}
       ucx-config: ${{ matrix.ucx-config }}
       ucx-string: ${{ (matrix.ucx-config == 'ucx' && '-ucx') || '' }}
+
+  test:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - device: gpu
+            platform: linux
+            ucx-config: ucx
+
+          - device: gpu
+            platform: linux
+            ucx-config: no_ucx
+
+          - device: cpu
+            platform: linux
+            ucx-config: ucx
+
+          - device: cpu
+            platform: linux
+            ucx-config: no_ucx
+
+          - device: cpu
+            platform: osx
+    uses:
+      ./.github/workflows/gh-build-and-test.yml
+    with:
+      device: ${{ matrix.device }}
+      platform: ${{ matrix.platform }}

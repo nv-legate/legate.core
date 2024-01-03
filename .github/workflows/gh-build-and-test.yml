@@ -4,9 +4,6 @@ on:
       device:
         type: string
         required: true
-      build-runner:
-        type: string
-        required: true
       platform:
         type: string
         required: true
