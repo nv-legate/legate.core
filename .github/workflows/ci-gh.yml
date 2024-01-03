@@ -19,12 +19,22 @@ jobs:
           - device: gpu
             build-runner: ${{ contains(github.repository, 'nv-legate/legate.core') && 'linux-amd64-cpu32' || 'ubuntu-latest' }}
             platform: linux
-            ucx-config: [ucx, no_ucx]
+            ucx-config: ucx
+
+          - device: gpu
+            build-runner: ${{ contains(github.repository, 'nv-legate/legate.core') && 'linux-amd64-cpu32' || 'ubuntu-latest' }}
+            platform: linux
+            ucx-config: no_ucx
 
           - device: cpu
             build-runner: ${{ contains(github.repository, 'nv-legate/legate.core') && 'linux-amd64-cpu32' || 'ubuntu-latest' }}
             platform: linux
-            ucx-config: [ucx, no_ucx]
+            ucx-config: ucx
+
+          - device: cpu
+            build-runner: ${{ contains(github.repository, 'nv-legate/legate.core') && 'linux-amd64-cpu32' || 'ubuntu-latest' }}
+            platform: linux
+            ucx-config: no_ucx
 
           - device: cpu
             build-runner: macos-latest
