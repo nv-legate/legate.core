@@ -48,7 +48,7 @@ def _text(text: str) -> str:
 
 
 try:
-    import colorama  # type: ignore[import]
+    import colorama  # type: ignore[import-untyped]
 
     def bright(text: str) -> str:
         if not ENABLED:

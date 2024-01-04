@@ -20,7 +20,9 @@ import numpy as np
 
 from . import Future, legion
 from ._legion.util import Logger
-from ._lib.context import Context as CppContext  # type: ignore[import]
+from ._lib.context import (  # type: ignore[import-not-found]
+    Context as CppContext,
+)
 
 if TYPE_CHECKING:
     import numpy.typing as npt
