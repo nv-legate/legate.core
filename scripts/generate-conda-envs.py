@@ -159,7 +159,17 @@ class BuildConfig(SectionConfig):
         if self.compilers:
             pkgs += ("c-compiler", "cxx-compiler")
         if self.openmpi:
-            pkgs += ("openmpi",)
+            # Using a more recent version of OpenMPI in combination with the
+            # system compilers fails with: "Could NOT find MPI (missing:
+            # MPI_CXX_FOUND CXX)". The reason is that conda-forge's libmpi.so
+            # v5 is linked against the conda-forge libstdc++.so. CMake will not
+            # use the mpicc-suggested host compiler (conda-forge's gcc) when
+            # running the FindMPI tests. Instead it will use the "main"
+            # compiler it was configured with, i.e. the system compiler, which
+            # links agains the system libstdc++.so, causing libmpi.so's symbol
+            # version checks to fail. Using v5+ OpenMPI from conda-forge
+            # requires using the conda-forge compilers.
+            pkgs += ("openmpi<5",)
         if self.ucx:
             pkgs += ("ucx>=1.14",)
         if self.os == "linux":
