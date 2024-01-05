@@ -133,6 +133,7 @@ requirements:
     - {{ compiler('cxx') }} =11.2 # [linux]
     - {{ compiler('c') }}         # [osx]
     - {{ compiler('cxx') }}       # [osx]
+    - libhwloc =* =*default*
 
   # Libraries and header files (C/C++).
   host:
@@ -157,6 +158,7 @@ requirements:
     - libcufft-dev
     - libcurand-dev
     - libcusolver-dev
+    - libhwloc =* =*default*
 {% endif %}
 {% if ucx_configured_bool %}
     - ucx >=1.14
@@ -171,6 +173,7 @@ requirements:
     - typing_extensions
     - elfutils # [linux]
     - libdwarf # [linux]
+    - libhwloc =* =*default*
 {% if gpu_enabled_bool %}
     - cuda-cudart  >={{ cuda_version }},<{{ cuda_major+1 }}
     - cuda-version >={{ cuda_version }},<{{ cuda_major+1 }}

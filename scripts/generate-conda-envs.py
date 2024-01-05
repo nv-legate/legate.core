@@ -155,6 +155,7 @@ class BuildConfig(SectionConfig):
             "setuptools>=60",
             "zlib",
             "numba",
+            "libhwloc=*=*default*",
         )
         if self.compilers:
             pkgs += ("c-compiler", "cxx-compiler")
@@ -200,6 +201,7 @@ class RuntimeConfig(SectionConfig):
             "opt_einsum",
             "scipy",
             "typing_extensions",
+            "libhwloc=*=*default*",
         )
 
 
@@ -224,6 +226,7 @@ class TestsConfig(SectionConfig):
             "types-docutils",
             "pynvml",
             "tifffile",
+            "libhwloc=*=*default*",
         )
 
     @property
