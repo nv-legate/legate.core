@@ -40,18 +40,17 @@ jobs:
             build-runner: macos-latest
             platform: osx
 
-    steps:
-      - name: mbx
-      uses: ./.github/workflows/gh-build.yml
-      with:
-        build-target: ${{ matrix.device }}
-        repos-name: ${{ github.event.repository.name }}
-        runs-on: ${{ matrix.build-runner }}
-        sha: ${{ github.sha }}
-        build-type: ci
-        use-container: ${{ matrix.platform == 'linux' }}
-        ucx-config: ${{ matrix.ucx-config }}
-        ucx-string: ${{ (matrix.ucx-config == 'ucx' && '-ucx') || '' }}
+    uses:
+      ./.github/workflows/gh-build.yml
+    with:
+      build-target: ${{ matrix.device }}
+      repos-name: ${{ github.event.repository.name }}
+      runs-on: ${{ matrix.build-runner }}
+      sha: ${{ github.sha }}
+      build-type: ci
+      use-container: ${{ matrix.platform == 'linux' }}
+      ucx-config: ${{ matrix.ucx-config }}
+      ucx-string: ${{ (matrix.ucx-config == 'ucx' && '-ucx') || '' }}
 
   test:
     needs: build
