@@ -35,6 +35,9 @@ build_legate_conda_package() {
     UCX_CONFIGURED=true
     [ "${UCX_ENABLED:-}" = "OFF" ] && UCX_CONFIGURED=false
 
+    NIGHTLY_RELEASE_ENABLED=false
+    [ "${NIGHTLY_RELEASE_BUILD:-}" = "ON" ] && NIGHTLY_RELEASE_ENABLED=true
+
     conda_build_args+=(--variants "{gpu_enabled:${GPU_ENABLED},python:${python_version},ucx_configured:${UCX_CONFIGURED}}");
     
     rm -rf /tmp/conda-croot/legate_core;
@@ -63,6 +66,8 @@ package_version:
   - "$(git -C $REPO_DIR describe --abbrev=0 --tags | $SED 's/[a-zA-Z]//g' | cut -d '.' -f -2).00"
 ucx_configured:
   - "${UCX_CONFIGURED}"
+enable_nightly_package:
+  - "${NIGHTLY_RELEASE_ENABLED}"
 EOF
 if [ "$UCX_ENABLED" = "ON" ]; then
     cat <<EOF >> $REPO_DIR/conda/conda-build/conda_build_config.yaml

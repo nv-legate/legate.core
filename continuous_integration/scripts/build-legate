@@ -88,15 +88,6 @@ copy_docs_artifacts() {
     cp -r $REPO_DIR/docs/legate/core/build/html/* "$ARTIFACTS_DIR/."
 }
 
-post_nightly_release_artifacts() {
-    echo Copying release artifacts
-    cp /tmp/conda-build/linux-64/legate-core-*.tar.bz2 "$ARTIFACTS_DIR"
-    echo "NIGHTLY -PRGX"
-    conda install -c anaconda anaconda-client
-    anaconda -V
-    anaconda -t $CHANNEL_TOKEN upload --skip-existing -u legate-nightly /tmp/conda-build/linux-64/legate-core-*.tar.bz2
-}
-
 build_docs() {
     set -x;
     cd $REPO_DIR;
@@ -137,7 +128,6 @@ build_legate() {
         ci) build_legate_ci && copy_ci_artifacts;;
         release) build_legate_release && copy_release_artifacts;;
         docs) build_docs && copy_docs_artifacts;;
-        nightly-release) build_legate_nightly_release && copy_release_artifacts;;
         *) return 1;;
     esac
 }
