@@ -41,21 +41,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-        - name: Python Unit Tests
-          test-scope: python
+        - name: Python Tests
+          test-scope: unit
           runner: linux-amd64-gpu-v100-latest-1
 
-        - name: Python Unit Tests
-          test-scope: python
+        - name: Python Tests
+          test-scope: unit
           runner: linux-amd64-2gpu
 
-        - name: C++ Unit Tests
-          test-scope: cpp
-          runner: linux-amd64-gpu-v100-latest-1
-
-        - name: C++ Unit Tests
-          test-scope: cpp
-          runner: linux-amd64-2gpu
 
     name: ${{ matrix.name }}
     uses:
