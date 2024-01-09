@@ -43,16 +43,6 @@ run_test_or_analysis() {
             cd $REPO_DIR/tests/unit
             pytest
             ;;
-        "mypy")
-          echo "Executing mypy..."
-            # Keep mypy version identical to mypy version in .pre-commit.yaml. The only
-            # reason we don't read it directly here is because when this is run in CI, it
-            # is done on a job which does not checkout the repo (and hence cannot read the
-            # .pre-commit.yaml).
-            mamba install -y -n "${CONDA_ENV}" mypy=1.5.1
-            cd $REPO_DIR
-            mypy legate
-            ;;
         *)
             echo "Invalid command: $1"
             return 1

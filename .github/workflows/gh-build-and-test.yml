@@ -84,24 +84,6 @@ jobs:
             enabled: ${{ inputs.platform == 'linux' && inputs.device == 'cpu' }}
             ucx-config: ucx
 
-          - name: mypy
-            test-scope: mypy
-            runner: linux-amd64-cpu4
-            enabled: ${{ inputs.platform == 'linux' && inputs.device == 'cpu' }}
-            ucx-config: no_ucx
-
-          - name: mypy
-            test-scope: mypy
-            runner: linux-amd64-cpu4
-            enabled: ${{ inputs.platform == 'linux' && inputs.device == 'cpu' }}
-            ucx-config: ucx
-
-          - name: mypy (OS X)
-            test-scope: mypy
-            runner: macos-latest
-            enabled: ${{ inputs.platform == 'osx' }}
-            ucx-config: no_ucx
-
     name: ${{ matrix.name }}
     if: github.repository_owner == 'nv-legate'
     uses:
