@@ -14,7 +14,6 @@
 #
 from __future__ import annotations
 
-import re
 from shlex import quote
 
 import pytest
@@ -34,14 +33,6 @@ from ...util import Capsys
 from .util import GenConfig
 
 SYSTEM = System()
-
-DARWIN_GDB_WARN_EXPECTED_PAT = """\
-WARNING: You must start the debugging session with the following command,
-as LLDB no longer forwards the environment to subprocesses for security
-reasons:
-
-[(]lldb[)] process launch -v LIB_PATH=(.*) -v PYTHONPATH=(.*)
-"""
 
 
 class TestDriver:
@@ -158,28 +149,6 @@ class TestDriver:
         pv_out = scrub(m.format_verbose(driver.system, driver)).strip()
 
         assert pv_out not in run_out
-
-    @pytest.mark.parametrize("launch", LAUNCHERS)
-    def test_darwin_gdb_warning(
-        self,
-        mocker: MockerFixture,
-        capsys: Capsys,
-        genconfig: GenConfig,
-        launch: str,
-    ) -> None:
-        mocker.patch("platform.system", return_value="Darwin")
-
-        system = m.System()
-
-        # set --dry-run to avoid needing to mock anything
-        config = genconfig(["--launcher", launch, "--gdb", "--dry-run"])
-        driver = m.LegateDriver(config, system)
-
-        driver.run()
-
-        out, _ = capsys.readouterr()
-
-        assert re.search(DARWIN_GDB_WARN_EXPECTED_PAT, scrub(out))
 
 
 class Test_format_verbose:

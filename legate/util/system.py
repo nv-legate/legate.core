@@ -73,17 +73,6 @@ class System:
         return os
 
     @cached_property
-    def LIB_PATH(self) -> str:
-        """An ld library path environment variable name suitable for the OS
-
-        Returns
-        -------
-            str
-
-        """
-        return "LD_LIBRARY_PATH" if self.os == "Linux" else "DYLD_LIBRARY_PATH"
-
-    @cached_property
     def cpus(self) -> tuple[CPUInfo, ...]:
         """A list of CPUs on the system."""
 
