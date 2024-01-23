@@ -14,7 +14,6 @@
 #
 from __future__ import annotations
 
-import re
 from shlex import quote
 
 import pytest
@@ -34,14 +33,6 @@ from ...util import Capsys
 from .util import GenConfig
 
 SYSTEM = System()
-
-DARWIN_GDB_WARN_EXPECTED_PAT = """\
-WARNING: You must start the debugging session with the following command,
-as LLDB no longer forwards the environment to subprocesses for security
-reasons:
-
-[(]lldb[)] process launch -v LIB_PATH=(.*) -v PYTHONPATH=(.*)
-"""
 
 
 class TestDriver:
@@ -93,7 +84,6 @@ class TestDriver:
         config = genconfig(["--launcher", launch, "--dry-run"])
         driver = m.LegateDriver(config, SYSTEM)
 
-        mocker.patch.object(m, "process_logs")
         mock_run = mocker.patch.object(m, "run")
 
         driver.run()
@@ -107,7 +97,6 @@ class TestDriver:
         config = genconfig(["--launcher", launch])
         driver = m.LegateDriver(config, SYSTEM)
 
-        mocker.patch.object(m, "process_logs")
         mock_run = mocker.patch.object(m, "run")
 
         driver.run()
@@ -115,7 +104,7 @@ class TestDriver:
         mock_run.assert_called_once_with(driver.cmd, env=driver.env)
 
     @pytest.mark.parametrize("launch", LAUNCHERS)
-    def test_verbose(
+    def test_format_verbose(
         self,
         capsys: Capsys,
         genconfig: GenConfig,
@@ -129,9 +118,7 @@ class TestDriver:
 
         run_out = scrub(capsys.readouterr()[0]).strip()
 
-        m.print_verbose(driver.system, driver)
-
-        pv_out = scrub(capsys.readouterr()[0]).strip()
+        pv_out = scrub(m.format_verbose(driver.system, driver)).strip()
 
         assert pv_out in run_out
 
@@ -159,43 +146,16 @@ class TestDriver:
 
         run_out = scrub(capsys.readouterr()[0]).strip()
 
-        m.print_verbose(driver.system, driver)
-
-        pv_out = scrub(capsys.readouterr()[0]).strip()
+        pv_out = scrub(m.format_verbose(driver.system, driver)).strip()
 
         assert pv_out not in run_out
 
-    @pytest.mark.parametrize("launch", LAUNCHERS)
-    def test_darwin_gdb_warning(
-        self,
-        mocker: MockerFixture,
-        capsys: Capsys,
-        genconfig: GenConfig,
-        launch: str,
-    ) -> None:
-        mocker.patch("platform.system", return_value="Darwin")
-        mocker.patch.object(m, "process_logs")
 
-        system = m.System()
-
-        # set --dry-run to avoid needing to mock anything
-        config = genconfig(["--launcher", launch, "--gdb", "--dry-run"])
-        driver = m.LegateDriver(config, system)
-
-        driver.run()
-
-        out, _ = capsys.readouterr()
-
-        assert re.search(DARWIN_GDB_WARN_EXPECTED_PAT, scrub(out))
-
-
-class Test_print_verbose:
-    def test_system_only(self, capsys: Capsys) -> None:
+class Test_format_verbose:
+    def test_system_only(self) -> None:
         system = System()
 
-        m.print_verbose(system)
-
-        out = scrub(capsys.readouterr()[0]).strip()
+        out = scrub(m.format_verbose(system)).strip()
 
         assert out.startswith(f"{'--- Legion Python Configuration ':-<80}")
         assert "Legate paths:" in out
@@ -211,9 +171,7 @@ class Test_print_verbose:
         system = System()
         driver = m.LegateDriver(config, system)
 
-        m.print_verbose(system, driver)
-
-        out = scrub(capsys.readouterr()[0]).strip()
+        out = scrub(m.format_verbose(system, driver)).strip()
 
         assert out.startswith(f"{'--- Legion Python Configuration ':-<80}")
         assert "Legate paths:" in out

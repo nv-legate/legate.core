@@ -57,8 +57,8 @@ RANKS_PER_NODE = Argument(
         default=defaults.LEGATE_RANKS_PER_NODE,
         dest="ranks_per_node",
         help="Number of ranks (processes running copies of the program) to "
-        "launch per node. The default (1 rank per node) will typically result "
-        "in the best performance.",
+        "launch per node. 1 rank per node will typically result in the best "
+        "performance.",
     ),
 )
 
@@ -120,7 +120,7 @@ GPUS = Argument(
         type=int,
         default=defaults.LEGATE_GPUS,
         dest="gpus",
-        help="Number of OpenMP groups to use per rank",
+        help="Number of GPUs to use per rank",
     ),
 )
 

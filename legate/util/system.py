@@ -19,6 +19,7 @@ import os
 import platform
 import sys
 from functools import cached_property
+from itertools import chain
 
 from .fs import get_legate_paths, get_legion_paths
 from .types import CPUInfo, GPUInfo, LegatePaths, LegionPaths
@@ -72,17 +73,6 @@ class System:
         return os
 
     @cached_property
-    def LIB_PATH(self) -> str:
-        """An ld library path environment variable name suitable for the OS
-
-        Returns
-        -------
-            str
-
-        """
-        return "LD_LIBRARY_PATH" if self.os == "Linux" else "DYLD_LIBRARY_PATH"
-
-    @cached_property
     def cpus(self) -> tuple[CPUInfo, ...]:
         """A list of CPUs on the system."""
 
@@ -98,9 +88,7 @@ class System:
                 line = open(
                     f"/sys/devices/system/cpu/cpu{i}/topology/thread_siblings_list"  # noqa E501
                 ).read()
-                sibling_sets.add(
-                    tuple(sorted(int(x) for x in line.strip().split(",")))
-                )
+                sibling_sets.add(extract_values(line.strip()))
             return tuple(
                 CPUInfo(siblings) for siblings in sorted(sibling_sets)
             )
@@ -114,7 +102,7 @@ class System:
             # case pynvml is not installed, tests stages that don't need gpu
             # info (e.g. cpus, eager) will proceed unaffected. Test stages
             # that do require gpu info will fail here with an ImportError.
-            import pynvml  # type: ignore[import]
+            import pynvml  # type: ignore[import-not-found]
 
             # Also a pynvml package is available on some platforms that won't
             # have GPUs for some reason. In which case this init call will
@@ -139,3 +127,23 @@ class System:
             results.append(GPUInfo(i, info.total))
 
         return tuple(results)
+
+
+def expand_range(value: str) -> tuple[int, ...]:
+    if value == "":
+        return tuple()
+    if "-" not in value:
+        return tuple((int(value),))
+    start, stop = value.split("-")
+
+    return tuple(range(int(start), int(stop) + 1))
+
+
+def extract_values(line: str) -> tuple[int, ...]:
+    return tuple(
+        sorted(
+            chain.from_iterable(
+                expand_range(r) for r in line.strip().split(",")
+            )
+        )
+    )

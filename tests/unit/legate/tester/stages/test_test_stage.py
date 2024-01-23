@@ -29,8 +29,6 @@ from legate.util.types import ArgList, EnvDict
 
 from . import FakeSystem
 
-s = FakeSystem()
-
 
 class MockTestStage(m.TestStage):
     kind: FeatureType = "eager"
@@ -56,17 +54,17 @@ class MockTestStage(m.TestStage):
 class TestTestStage:
     def test_name(self) -> None:
         c = Config([])
-        stage = MockTestStage(c, s)
+        stage = MockTestStage(c, FakeSystem())
         assert stage.name == "mock"
 
     def test_intro(self) -> None:
         c = Config([])
-        stage = MockTestStage(c, s)
+        stage = MockTestStage(c, FakeSystem())
         assert "Entering stage: mock" in stage.intro
 
     def test_outro(self) -> None:
         c = Config([])
-        stage = MockTestStage(c, s)
+        stage = MockTestStage(c, FakeSystem())
         stage.result = StageResult(
             [ProcessResult("invoke", Path("test/file"))],
             timedelta(seconds=2.123),
@@ -78,25 +76,25 @@ class TestTestStage:
 
     def test_file_args_default(self) -> None:
         c = Config([])
-        stage = MockTestStage(c, s)
+        stage = MockTestStage(c, FakeSystem())
         assert stage.file_args(Path("integration/foo"), c) == []
         assert stage.file_args(Path("unit/foo"), c) == []
 
     def test_file_args_v(self) -> None:
         c = Config(["test.py", "-v"])
-        stage = MockTestStage(c, s)
+        stage = MockTestStage(c, FakeSystem())
         assert stage.file_args(Path("integration/foo"), c) == ["-v"]
         assert stage.file_args(Path("unit/foo"), c) == []
 
     def test_file_args_vv(self) -> None:
         c = Config(["test.py", "-vv"])
-        stage = MockTestStage(c, s)
+        stage = MockTestStage(c, FakeSystem())
         assert stage.file_args(Path("integration/foo"), c) == ["-v", "-s"]
         assert stage.file_args(Path("unit/foo"), c) == []
 
     def test_cov_args_without_cov_bin(self) -> None:
         c = m.Config(["test.py", "--cov-args", "run -a"])
-        stage = MockTestStage(c, s)
+        stage = MockTestStage(c, FakeSystem())
         assert stage.cov_args(c) == []
 
     def test_cov_args_with_cov_bin(self) -> None:
@@ -104,7 +102,7 @@ class TestTestStage:
         args = ["--cov-bin", cov_bin]
         c = m.Config(["test.py"] + args)
         expected_result = [cov_bin] + c.cov_args.split()
-        stage = MockTestStage(c, s)
+        stage = MockTestStage(c, FakeSystem())
         assert stage.cov_args(c) == expected_result
 
     def test_cov_args_with_cov_bin_args_and_src_path(self) -> None:
@@ -120,5 +118,5 @@ class TestTestStage:
         expected_result = (
             [cov_bin] + cov_args.split() + ["--source", cov_src_path]
         )
-        stage = MockTestStage(c, s)
+        stage = MockTestStage(c, FakeSystem())
         assert stage.cov_args(c) == expected_result

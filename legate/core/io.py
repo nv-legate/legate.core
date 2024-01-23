@@ -84,7 +84,9 @@ class CustomSplit(DataSplit):
         futures = {}
         for c in local_colors:
             rect = self.get_subdomain(c)
-            futures[c] = Future.from_cdata(legion_runtime, rect.raw())
+            futures[c] = Future.from_cdata(
+                legion_runtime, rect.raw(), shard_local=True
+            )
         domains = FutureMap.from_dict(
             legion_context,
             legion_runtime,

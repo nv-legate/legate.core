@@ -19,7 +19,6 @@ specific features.
 from __future__ import annotations
 
 import sys
-from typing import Dict, Type
 
 from .. import FeatureType
 from .test_stage import TestStage
@@ -33,7 +32,7 @@ else:
     raise RuntimeError(f"unsupported platform: {sys.platform}")
 
 #: All the available test stages that can be selected
-STAGES: Dict[FeatureType, Type[TestStage]] = {
+STAGES: dict[FeatureType, type[TestStage]] = {
     "cpus": CPU,
     "cuda": GPU,
     "openmp": OMP,

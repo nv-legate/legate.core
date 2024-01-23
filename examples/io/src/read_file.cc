@@ -48,7 +48,8 @@ struct read_fn {
     // Compute the absolute offsets to the section that this reader task
     // is supposed to read from the file
     int64_t my_lo = my_id * size / num_readers;
-    int64_t my_hi = std::min((my_id + 1) * size / num_readers, size);
+    auto ssize    = static_cast<int64_t>(size);
+    int64_t my_hi = std::min((my_id + 1) * ssize / num_readers, ssize);
 
     // Then compute the extent for the output and create the output buffer to populate
     int64_t my_ext = my_hi - my_lo;

@@ -49,7 +49,9 @@ class Future:
     # change during the lifetime of a Future object, and thus so would the
     # object's hash. So we just leave the default `f1 == f2 <==> f1 is f2`.
     def same_handle(self, other: Future) -> bool:
-        return type(self) == type(other) and self.handle == other.handle
+        return (  # noqa
+            type(self) == type(other) and self.handle == other.handle
+        )
 
     def __str__(self) -> str:
         if self.handle:
@@ -80,7 +82,9 @@ class Future:
         runtime: legion.legion_runtime_t,
         data: Any,
         size: int,
+        shard_local: bool = False,
         type: Optional[Any] = None,
+        provenance: Optional[str] = None,
     ) -> None:
         """
         Parameters
@@ -94,10 +98,17 @@ class Future:
         type : object
             An optional object to represent the type of the future
         """
+        if provenance is None:
+            provenance = ""
         if self.handle is not None:
             raise RuntimeError("Future must be unset to set its value")
-        self.handle = legion.legion_future_from_untyped_pointer(
-            runtime, ffi.from_buffer(data), size
+        self.handle = legion.legion_future_from_untyped_pointer_detailed(
+            runtime,
+            ffi.from_buffer(data),
+            size,
+            False,
+            provenance.encode("ascii"),
+            shard_local,
         )
         self._type = type
 
@@ -106,7 +117,9 @@ class Future:
         cls,
         runtime: legion.legion_runtime_t,
         buf: Any,
+        shard_local: bool = False,
         type: Optional[Any] = None,
+        provenance: Optional[str] = None,
     ) -> Future:
         """
         Construct a future from a buffer storing data
@@ -119,9 +132,16 @@ class Future:
         -------
         Future
         """
+        if provenance is None:
+            provenance = ""
         return cls(
-            legion.legion_future_from_untyped_pointer(
-                runtime, ffi.from_buffer(buf), len(buf)
+            legion.legion_future_from_untyped_pointer_detailed(
+                runtime,
+                ffi.from_buffer(buf),
+                len(buf),
+                False,
+                provenance.encode("ascii"),
+                shard_local,
             ),
             type=type,
         )
@@ -131,10 +151,14 @@ class Future:
         cls,
         runtime: legion.legion_runtime_t,
         cdata: Any,
+        shard_local: bool = False,
         type: Optional[Any] = None,
     ) -> Future:
         return cls.from_buffer(
-            runtime, ffi.buffer(ffi.addressof(cdata)), type=type
+            runtime,
+            ffi.buffer(ffi.addressof(cdata)),
+            shard_local=shard_local,
+            type=type,
         )
 
     def get_buffer(self, size: Optional[int] = None) -> Any:

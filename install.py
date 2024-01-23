@@ -269,8 +269,7 @@ def install(
     arch,
     openmp,
     march,
-    hdf,
-    llvm,
+    profiler,
     spy,
     build_docs,
     conduit,
@@ -322,8 +321,7 @@ def install(
         print(f"arch: {arch}")
         print(f"openmp: {openmp}")
         print(f"march: {march}")
-        print(f"hdf: {hdf}")
-        print(f"llvm: {llvm}")
+        print(f"profiler: {profiler}")
         print(f"spy: {spy}")
         print(f"build_docs: {build_docs}")
         print(f"conduit: {conduit}")
@@ -490,22 +488,23 @@ def install(
     "Debug" if debug else "RelWithDebInfo" if debug_release else "Release"
 )}
 -DBUILD_SHARED_LIBS=ON
--DBUILD_MARCH={march}
 -DLegion_MAX_DIM={str(maxdim)}
 -DLegion_MAX_FIELDS={str(maxfields)}
 -DLegion_SPY={("ON" if spy else "OFF")}
 -DLegion_BOUNDS_CHECKS={("ON" if check_bounds else "OFF")}
 -DLegion_USE_CUDA={("ON" if cuda else "OFF")}
 -DLegion_USE_OpenMP={("ON" if openmp else "OFF")}
--DLegion_USE_LLVM={("ON" if llvm else "OFF")}
 -DLegion_NETWORKS={";".join(networks)}
--DLegion_USE_HDF5={("ON" if hdf else "OFF")}
 -DLegion_USE_Python=ON
 -DLegion_Python_Version={pyversion}
 -DLegion_BUILD_JUPYTER=ON
 -DLegion_EMBED_GASNet_CONFIGURE_ARGS="--with-ibv-max-hcas=8"
 """.splitlines()
 
+    if march:
+        cmake_flags += [f"-DBUILD_MARCH={march}"]
+    if profiler:
+        cmake_flags += ["-DLegion_BUILD_RUST_PROFILER=ON"]
     if cuda:
         cmake_flags += [f"-DLegion_CUDA_ARCH={arch}"]
     if nccl_dir:
@@ -688,25 +687,15 @@ def driver():
         "--march",
         dest="march",
         required=False,
-        default=("haswell" if platform.machine() == "x86_64" else "native"),
+        default=("haswell" if platform.machine() == "x86_64" else None),
         help="Specify the target CPU architecture.",
     )
     parser.add_argument(
-        "--llvm",
-        dest="llvm",
-        action="store_true",
-        required=False,
-        default=os.environ.get("USE_LLVM", "0") == "1",
-        help="Build Legate with LLVM support.",
-    )
-    parser.add_argument(
-        "--hdf5",
-        "--hdf",
-        dest="hdf",
-        action="store_true",
-        required=False,
-        default=os.environ.get("USE_HDF", "0") == "1",
-        help="Build Legate with HDF support.",
+        "--profiler",
+        dest="profiler",
+        action=BooleanFlag,
+        default=False,
+        help="Build Rust version of Legion profiler.",
     )
     parser.add_argument(
         "--spy",

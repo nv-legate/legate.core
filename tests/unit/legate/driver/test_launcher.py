@@ -142,7 +142,19 @@ class TestLauncherEnv:
 
         assert env["PYTHONDONTWRITEBYTECODE"] == "1"
 
-    # TODO: pythonpath
+    def test_pythonpath(
+        self,
+        genconfig: GenConfig,
+        monkeypatch: pytest.MonkeyPatch,
+        launch: LauncherType,
+    ) -> None:
+        monkeypatch.setenv("PYTHONPATH", "/foo/bar")
+        system = System()
+        config = genconfig(["--launcher", launch])
+
+        env = m.Launcher.create(config, system).env
+
+        assert env["PYTHONPATH"].split(os.pathsep)[0] == "/foo/bar"
 
     def test_nccl_launch_mode(
         self, genconfig: GenConfig, launch: LauncherType
@@ -161,49 +173,6 @@ class TestLauncherEnv:
         env = m.Launcher.create(config, SYSTEM).env
 
         assert env["GASNET_MPI_THREAD"] == "MPI_THREAD_MULTIPLE"
-
-    def test_libpath_no_system(
-        self,
-        genconfig: GenConfig,
-        monkeypatch: pytest.MonkeyPatch,
-        launch: LauncherType,
-    ) -> None:
-        # need to create a new System after env update, we will assume
-        # that SYSTEM.LIB_PATH and later system.LIB_PATH are the same
-        monkeypatch.delenv(SYSTEM.LIB_PATH, raising=False)
-        system = System()
-        config = genconfig(["--launcher", launch])
-
-        env = m.Launcher.create(config, system).env
-
-        assert env[system.LIB_PATH] == os.pathsep.join(
-            [
-                str(system.legion_paths.legion_lib_path),
-                str(system.legate_paths.legate_lib_path),
-            ]
-        )
-
-    def test_libpath_with_system(
-        self,
-        genconfig: GenConfig,
-        monkeypatch: pytest.MonkeyPatch,
-        launch: LauncherType,
-    ) -> None:
-        # need to create a new System after env update, we will assume
-        # that SYSTEM.LIB_PATH and later system.LIB_PATH are the same
-        monkeypatch.setenv(SYSTEM.LIB_PATH, "TEST/LIB/PATH")
-        system = System()
-        config = genconfig(["--launcher", launch])
-
-        env = m.Launcher.create(config, system).env
-
-        assert env[system.LIB_PATH] == os.pathsep.join(
-            [
-                str(system.legion_paths.legion_lib_path),
-                str(system.legate_paths.legate_lib_path),
-                "TEST/LIB/PATH",
-            ]
-        )
 
     def test_need_cuda_false(
         self, genconfig: GenConfig, launch: LauncherType

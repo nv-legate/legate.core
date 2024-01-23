@@ -1,0 +1,35 @@
+name: Build and test on GH
+
+concurrency:
+  group: ci-build-and-test-on-${{ github.event_name }}-from-${{ github.ref_name }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches:
+      - "pull-request/[0-9]+"
+      - "branch-*"
+
+jobs:
+  build-and-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - device: gpu
+            build-runner: ${{ contains(github.repository, 'nv-legate/legate.core') && 'linux-amd64-cpu32' || 'ubuntu-latest' }}
+            platform: linux
+
+          - device: cpu
+            build-runner: ${{ contains(github.repository, 'nv-legate/legate.core') && 'linux-amd64-cpu32' || 'ubuntu-latest' }}
+            platform: linux
+
+          - device: cpu
+            build-runner: macos-latest
+            platform: osx
+    uses:
+      ./.github/workflows/gh-build-and-test.yml
+    with:
+      device: ${{ matrix.device }}
+      build-runner: ${{ matrix.build-runner }}
+      platform: ${{ matrix.platform }}

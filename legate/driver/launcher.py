@@ -15,7 +15,6 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .. import install_info
@@ -163,8 +162,8 @@ class Launcher:
         # Set the path to the Legate module as an environment variable
         # The current directory should be added to PYTHONPATH as well
         extra_python_paths = []
-        if "PYTHONPATH" in env:
-            extra_python_paths.append(env["PYTHONPATH"])
+        if "PYTHONPATH" in system.env:
+            extra_python_paths.append(system.env["PYTHONPATH"])
 
         if system.legion_paths.legion_module is not None:
             extra_python_paths.append(str(system.legion_paths.legion_module))
@@ -173,9 +172,6 @@ class Launcher:
             extra_python_paths.append(
                 str(system.legion_paths.legion_jupyter_module)
             )
-
-        # Make sure the base directory for this file is in the python path
-        extra_python_paths.append(str(Path(__file__).parents[1]))
 
         env["PYTHONPATH"] = os.pathsep.join(extra_python_paths)
 
@@ -190,25 +186,13 @@ class Launcher:
         if config.multi_node.ranks > 1 and "ucx" in install_info.networks:
             # UCX-related environment variables
             env["UCX_CUDA_COPY_MAX_REG_RATIO"] = "1.0"
-            env["UCX_IB_RCACHE_PURGE_ON_FORK"] = "n"
-            env["UCX_RC_TX_POLL_ALWAYS"] = "y"
+            env["UCX_RCACHE_PURGE_ON_FORK"] = "n"
 
             # Link to the UCX bootstrap plugin
             env["REALM_UCP_BOOTSTRAP_PLUGIN"] = str(
                 system.legion_paths.legion_lib_path
                 / "realm_ucp_bootstrap_mpi.so"
             )
-
-        # Set some environment variables depending on our configuration that
-        # we will check in the Legate binary to ensure that it is properly.
-        # configured. Always make sure we include the Legion library
-        lpaths = [
-            str(system.legion_paths.legion_lib_path),
-            str(system.legate_paths.legate_lib_path),
-        ]
-        if system.LIB_PATH in system.env:
-            lpaths.append(system.env[system.LIB_PATH])
-        env[system.LIB_PATH] = os.pathsep.join(lpaths)
 
         if config.core.gpus > 0:
             assert "LEGATE_NEED_CUDA" not in system.env

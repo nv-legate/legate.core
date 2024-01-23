@@ -90,7 +90,13 @@ from .legate import (
     Library,
     Table,
 )
-from .machine import EmptyMachineError, Machine, ProcessorKind, ProcessorSlice
+from .machine import (
+    EmptyMachineError,
+    Machine,
+    ProcessorKind,
+    ProcessorRange,
+    ProcessorSlice,
+)
 from .runtime import (
     Annotation,
     get_legate_runtime,
