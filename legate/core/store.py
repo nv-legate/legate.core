@@ -80,27 +80,30 @@ class Field:
         self.field_id = field_id
         self.field_size = field_size
         self.shape = shape
-        self.detach_future: Optional[Future] = None
+        self.detach_key: int = -1
 
     def same_handle(self, other: Field) -> bool:
         return (  # noqa
             type(self) == type(other) and self.field_id == other.field_id
         )
 
-    def add_detach_future(self, future: Future) -> None:
-        self.detach_future = future
-
     def __str__(self) -> str:
         return f"Field({self.field_id})"
 
     def __del__(self) -> None:
+        # Detach any existing allocation
+        detach = (
+            None
+            if self.detach_key < 0
+            else attachment_manager.remove_detachment(self.detach_key)
+        )
         # Return our field back to the runtime
         runtime.free_field(
             self.region,
             self.field_id,
             self.field_size,
             self.shape,
-            self.detach_future,
+            detach,
         )
 
 
@@ -119,19 +122,12 @@ class RegionField:
         self.field = field
         self.shape = shape
         self.parent = parent
-        # External allocation we attached to this field
-        self.attached_alloc: Union[None, Attachable] = None
-        self.detach_key: int = -1
         # Physical region for attach
         self.physical_region: Union[None, PhysicalRegion] = None
         self.physical_region_refs = 0
         self.physical_region_mapped = False
 
         self._partitions: dict[Tiling, LegionPartition] = {}
-
-    def __del__(self) -> None:
-        if self.attached_alloc is not None:
-            self.detach_external_allocation(unordered=True, defer=True)
 
     @staticmethod
     def create(
@@ -159,12 +155,7 @@ class RegionField:
     ) -> None:
         assert self.parent is None
         # If we already have some memory attached, detach it first
-        if self.attached_alloc is not None:
-            raise RuntimeError("A RegionField cannot be re-attached")
-        if (
-            self.field.detach_future is not None
-            and not self.field.detach_future.is_ready()
-        ):
+        if self.field.detach_key >= 0:
             raise RuntimeError("A RegionField cannot be re-attached")
         # All inline mappings should have been unmapped by now
         assert self.physical_region_refs == 0
@@ -173,14 +164,15 @@ class RegionField:
         attachment_manager.attach_external_allocation(alloc, self)
 
         def record_detach(detach: Union[Detach, IndexDetach]) -> None:
-            # Dangle these fields off the detachment operation, to prevent
-            # premature collection
-            detach.field = self.field  # type: ignore[union-attr]
-            detach.alloc = alloc  # type: ignore[union-attr]
+            # Hang the allocation on the detach operation, so it won't be
+            # deallocated until the detach is processed.
+            detach.attached_alloc = alloc
             # Don't store the detachment operation here, instead register it
             # on the attachment manager and record its unique key
             # TODO: This might not be necessary anymore
-            self.detach_key = attachment_manager.register_detachment(detach)
+            self.field.detach_key = attachment_manager.register_detachment(
+                detach
+            )
 
         if isinstance(alloc, memoryview):
             # Singleton attachment
@@ -248,25 +240,6 @@ class RegionField:
             # We don't need to flush the contents back to the attached memory
             # if this is an internal temporary allocation.
             record_detach(IndexDetach(external_resources, flush=share))
-        # Record the attachment
-        self.attached_alloc = alloc
-
-    def detach_external_allocation(
-        self, unordered: bool, defer: bool = False
-    ) -> None:
-        assert self.parent is None
-        assert self.attached_alloc is not None
-        detach = attachment_manager.remove_detachment(self.detach_key)
-        detach.unordered = unordered  # type: ignore[union-attr]
-        detach_future = attachment_manager.detach_external_allocation(
-            self.attached_alloc, detach, defer, dependent_field=self.field
-        )
-        self.physical_region = None
-        self.physical_region_mapped = False
-        self.physical_region_refs = 0
-        self.attached_alloc = None
-        if detach_future is not None:
-            self.field.add_detach_future(detach_future)
 
     def get_inline_mapped_region(self) -> PhysicalRegion:
         if self.parent is None:

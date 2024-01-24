@@ -1233,13 +1233,16 @@ class Detach(Dispatchable[Future]):
         # it is not deleted before this detach operation can run
         self.region = region.region
         self.flush = flush
+        # The following fields aren't part of the operation itself, but are
+        # used for managing the lifetime of attached objects
+        self.attached_alloc: Any = None
+        self.future: Optional[Future] = None
 
     @dispatch
     def launch(
         self,
         runtime: legion.legion_runtime_t,
         context: legion.legion_context_t,
-        unordered: bool = False,
         **kwargs: Any,
     ) -> Future:
         """
@@ -1248,27 +1251,20 @@ class Detach(Dispatchable[Future]):
         Returns
         -------
         Future containing no data that completes when detach operation is done
-        If 'unordered' is set to true then you must call legate_task_progress
-        before using the returned Future
         """
         # Check to see if we're still inside the context of the task
         # If not then we just need to leak this detach because it can't be done
         if context not in _pending_unordered:
             return Future()
-        if unordered:
-            future = Future()
-            _pending_unordered[context].append(((self, future), type(self)))
-            return future
-        else:
-            return Future(
-                legion.legion_unordered_detach_external_resource(
-                    runtime,
-                    context,
-                    self.physical_region.handle,
-                    self.flush,
-                    True,
-                )
+        return Future(
+            legion.legion_unordered_detach_external_resource(
+                runtime,
+                context,
+                self.physical_region.handle,
+                self.flush,
+                False,  # unordered
             )
+        )
 
 
 class IndexAttach(Dispatchable[ExternalResources]):
@@ -1409,6 +1405,10 @@ class IndexDetach(Dispatchable[Future]):
         """
         self.external_resources = external_resources
         self.flush = flush
+        # The following fields aren't part of the operation itself, but are
+        # used for managing the lifetime of attached objects
+        self.attached_alloc: Any = None
+        self.future: Optional[Future] = None
 
     def launch(
         self,
@@ -1429,7 +1429,7 @@ class IndexDetach(Dispatchable[Future]):
                 context,
                 self.external_resources.handle,
                 self.flush,
-                True,  # unordered
+                False,  # unordered
             )
         )
 
