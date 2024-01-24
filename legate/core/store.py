@@ -82,11 +82,6 @@ class Field:
         self.shape = shape
         self.detach_future: Optional[Future] = None
 
-    def same_handle(self, other: Field) -> bool:
-        return (  # noqa
-            type(self) == type(other) and self.field_id == other.field_id
-        )
-
     def add_detach_future(self, future: Future) -> None:
         self.detach_future = future
 
@@ -140,9 +135,11 @@ class RegionField:
         field = Field(region, field_id, field_size, shape)
         return RegionField(region, field, shape)
 
-    def same_handle(self, other: RegionField) -> bool:
-        return type(self) == type(other) and self.field.same_handle(  # noqa
-            other.field
+    def same_handle(self, other: Any) -> bool:
+        return (  # noqa
+            type(self) == type(other)
+            and self.region.same_handle(other.region)
+            and self.field.field_id == other.field.field_id
         )
 
     def __str__(self) -> str:
@@ -665,6 +662,12 @@ class Storage:
         if lhs.get_root() is not rhs.get_root():
             return False
 
+        # At this point we have to flush the scheduling window, to retrieve the
+        # actual extents of the Store. But there's still one cheap check to do.
+        if lhs.data.same_handle(rhs.data):
+            return True
+
+        # The scalar case should have already been handled by the checks above
         if lhs.volume() == 0 or rhs.volume() == 0:
             return False
 
