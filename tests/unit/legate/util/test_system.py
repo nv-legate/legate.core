@@ -56,20 +56,6 @@ class TestSystem:
         with pytest.raises(RuntimeError, match=msg):
             s.os
 
-    def test_LIBPATH_Linux(self, mocker: MockerFixture) -> None:
-        mocker.patch("platform.system", return_value="Linux")
-
-        s = m.System()
-
-        assert s.LIB_PATH == "LD_LIBRARY_PATH"
-
-    def test_LIBPATH_Darwin(self, mocker: MockerFixture) -> None:
-        mocker.patch("platform.system", return_value="Darwin")
-
-        s = m.System()
-
-        assert s.LIB_PATH == "DYLD_LIBRARY_PATH"
-
     # These properties delegate to util functions, just verify plumbing
 
     def test_legate_paths(self, mocker: MockerFixture) -> None:

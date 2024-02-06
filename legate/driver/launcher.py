@@ -194,17 +194,6 @@ class Launcher:
                 / "realm_ucp_bootstrap_mpi.so"
             )
 
-        # Set some environment variables depending on our configuration that
-        # we will check in the Legate binary to ensure that it is properly.
-        # configured. Always make sure we include the Legion library
-        lpaths = [
-            str(system.legion_paths.legion_lib_path),
-            str(system.legate_paths.legate_lib_path),
-        ]
-        if system.LIB_PATH in system.env:
-            lpaths.append(system.env[system.LIB_PATH])
-        env[system.LIB_PATH] = os.pathsep.join(lpaths)
-
         if config.core.gpus > 0:
             assert "LEGATE_NEED_CUDA" not in system.env
             env["LEGATE_NEED_CUDA"] = "1"

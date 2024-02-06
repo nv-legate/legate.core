@@ -222,7 +222,9 @@ class TestsConfig(SectionConfig):
             "pytest-cov",
             "pytest-lazy-fixture",
             "pytest-mock",
-            "pytest",
+            # https://github.com/TvoroG/pytest-lazy-fixture/issues/65
+            # pytest-lazy-fixture 0.6.0 is incompatible with pytest 8.0.0
+            "pytest<8",
             "types-docutils",
             "pynvml",
             "tifffile",

@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, Any
 
 from ..util.system import System
 from ..util.types import DataclassMixin
-from ..util.ui import kvtable, rule, section, value, warn
+from ..util.ui import kvtable, rule, section, value
 from .command import CMD_PARTS_CANONICAL, CMD_PARTS_LEGION
 from .config import ConfigProtocol
 from .launcher import Launcher, SimpleLauncher
@@ -33,15 +33,6 @@ if TYPE_CHECKING:
     from ..util.types import Command, EnvDict
 
 __all__ = ("LegateDriver", "CanonicalDriver", "format_verbose")
-
-_DARWIN_GDB_WARN = """\
-You must start the debugging session with the following command,
-as LLDB no longer forwards the environment to subprocesses for security
-reasons:
-
-(lldb) process launch -v LIB_PATH={libpath} -v PYTHONPATH={pythonpath}
-
-"""
 
 
 @dataclass(frozen=True)
@@ -106,8 +97,6 @@ class LegateDriver:
             msg = format_verbose(self.system, self)
             self.print_on_head_node(msg, flush=True)
 
-        self._darwin_gdb_warn()
-
         return self.config.other.dry_run
 
     def run(self) -> int:
@@ -150,15 +139,6 @@ class LegateDriver:
 
         if launcher.kind != "none" or launcher.detected_rank_id == "0":
             print(*args, **kw)
-
-    def _darwin_gdb_warn(self) -> None:
-        gdb = self.config.debugging.gdb
-
-        if gdb and self.system.os == "Darwin":
-            libpath = self.env[self.system.LIB_PATH]
-            pypath = self.env["PYTHONPATH"]
-            msg = _DARWIN_GDB_WARN.format(libpath=libpath, pythonpath=pypath)
-            self.print_on_head_node(warn(msg))
 
 
 class CanonicalDriver(LegateDriver):
