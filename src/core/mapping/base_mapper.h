@@ -78,11 +78,10 @@ class BaseMapper : public Legion::Mapping::Mapper, public MachineQueryInterface 
                         const Legion::Task& task,
                         const MapTaskInput& input,
                         MapTaskOutput& output) override;
-  virtual void map_replicate_task(const Legion::Mapping::MapperContext ctx,
-                                  const Legion::Task& task,
-                                  const MapTaskInput& input,
-                                  const MapTaskOutput& default_output,
-                                  MapReplicateTaskOutput& output) override;
+  virtual void replicate_task(const Legion::Mapping::MapperContext ctx,
+                              const Legion::Task& task,
+                              const ReplicateTaskInput& input,
+                              ReplicateTaskOutput& output) override;
   virtual void select_task_variant(const Legion::Mapping::MapperContext ctx,
                                    const Legion::Task& task,
                                    const SelectVariantInput& input,
