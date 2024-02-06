@@ -447,10 +447,11 @@ void BaseMapper::map_task(const Legion::Mapping::MapperContext ctx,
   map_legate_stores(ctx, task, for_stores, task.target_proc, output_map);
 }
 
-void BaseMapper::replicate_task(const Legion::Mapping::MapperContext ctx,
-                                const Legion::Task& task,
-                                const ReplicateTaskInput& input,
-                                ReplicateTaskOutput& output)
+void BaseMapper::map_replicate_task(const Legion::Mapping::MapperContext ctx,
+                                    const Legion::Task& task,
+                                    const MapTaskInput& input,
+                                    const MapTaskOutput& def_output,
+                                    MapReplicateTaskOutput& output)
 {
   LEGATE_ABORT;
 }
