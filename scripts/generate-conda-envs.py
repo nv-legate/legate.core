@@ -155,6 +155,7 @@ class BuildConfig(SectionConfig):
             "setuptools>=60",
             "zlib",
             "numba",
+            "libhwloc=*=*default*",
         )
         if self.compilers:
             pkgs += ("c-compiler", "cxx-compiler")
@@ -200,6 +201,7 @@ class RuntimeConfig(SectionConfig):
             "opt_einsum",
             "scipy",
             "typing_extensions",
+            "libhwloc=*=*default*",
         )
 
 
@@ -220,10 +222,13 @@ class TestsConfig(SectionConfig):
             "pytest-cov",
             "pytest-lazy-fixture",
             "pytest-mock",
-            "pytest",
+            # https://github.com/TvoroG/pytest-lazy-fixture/issues/65
+            # pytest-lazy-fixture 0.6.0 is incompatible with pytest 8.0.0
+            "pytest<8",
             "types-docutils",
             "pynvml",
             "tifffile",
+            "libhwloc=*=*default*",
         )
 
     @property
