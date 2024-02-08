@@ -67,6 +67,9 @@ function(find_or_configure_legion)
 
     include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules/cpm_helpers.cmake)
     get_cpm_git_args(legion_cpm_git_args REPOSITORY ${git_repo} BRANCH ${git_branch})
+    if(NOT DEFINED Legion_PYTHON_EXTRA_INSTALL_ARGS)
+      set(Legion_PYTHON_EXTRA_INSTALL_ARGS "--root / --prefix \"\${CMAKE_INSTALL_PREFIX}\"")
+    endif()
 
     # Support comma and semicolon delimited lists
     string(REPLACE "," " " Legion_PYTHON_EXTRA_INSTALL_ARGS "${Legion_PYTHON_EXTRA_INSTALL_ARGS}")
