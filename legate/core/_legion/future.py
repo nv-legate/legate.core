@@ -48,7 +48,7 @@ class Future:
     # compatible __hash__, which would not be sound because self.handle can
     # change during the lifetime of a Future object, and thus so would the
     # object's hash. So we just leave the default `f1 == f2 <==> f1 is f2`.
-    def same_handle(self, other: Future) -> bool:
+    def same_handle(self, other: Any) -> bool:
         return (  # noqa
             type(self) == type(other) and self.handle == other.handle
         )
