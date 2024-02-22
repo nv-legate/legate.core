@@ -57,6 +57,3 @@
 #endif
 
 #define LEGATE_MAX_DIM LEGION_MAX_DIM
-
-// TODO: 2022-10-04: Work around a Legion bug, by not instantiating futures on framebuffer.
-#define LEGATE_NO_FUTURES_ON_FB
