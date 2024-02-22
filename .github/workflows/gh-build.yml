@@ -30,12 +30,16 @@ on:
       ucx-string:
         required: true
         type: string
-
+      nightly-string:
+        required: true
+        type: string
+        
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   USE_CUDA: ${{ (inputs.build-target == 'cpu' && 'OFF') || 'ON' }}
+  NIGHTLY_RELEASE_BUILD: ${{ (inputs.nightly-string == '-nightly' && 'ON') || 'OFF' }}
   ARTIFACTS_DIR: "${{ github.workspace }}/.artifacts"
-  ARTIFACT_NAME: "${{ inputs.repos-name }}-${{ inputs.build-target }}${{ inputs.ucx-string }}-${{ inputs.sha }}"
+  ARTIFACT_NAME: "${{ inputs.repos-name }}-${{ inputs.build-target }}${{ inputs.ucx-string }}${{ inputs.nightly-string }}-${{ inputs.sha }}"
   UCX_ENABLED: ${{ (inputs.ucx-config == 'ucx' && 'ON') || 'OFF' }}
 jobs:
   build:
@@ -79,6 +83,7 @@ jobs:
             -e GITHUB_TOKEN \
             -e USE_CUDA \
             -e UCX_ENABLED \
+            -e NIGHTLY_RELEASE_BUILD \
             -v "$(pwd):$(pwd)" \
             -v "$ARTIFACTS_DIR:$(pwd)/.artifacts" \
             --rm "condaforge/miniforge3:latest" \
@@ -98,3 +103,12 @@ jobs:
         with:
           name: ${{ env.ARTIFACT_NAME }}
           path: ${{ env.ARTIFACTS_DIR }}
+
+
+
+
+
+
+
+
+        

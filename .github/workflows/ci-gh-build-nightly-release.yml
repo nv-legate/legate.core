@@ -1,0 +1,100 @@
+name: Build conda nightly release packages
+
+concurrency:
+  group: ci-nightly-release-on-${{ github.event_name }}-from-${{ github.ref_name }}
+  cancel-in-progress: true
+
+on:
+  workflow_dispatch:
+  push:
+      branches:
+        - "pull-request/[0-9]+"
+        - "branch-*"
+
+env:
+  DEVICE_STR: "gpu"
+  UCX_STR: "ucx"
+  NIGHTLY_STR: "nightly"
+
+jobs:
+  Build:
+    if: github.repository_owner == 'nv-legate'
+    name: Build legate core (Nightly release)
+    uses:
+      ./.github/workflows/gh-build.yml
+    with:
+      build-target: gpu
+      repos-name: ${{ github.event.repository.name }}
+      runs-on: ${{ github.repository_owner == 'nv-legate' && 'linux-amd64-cpu16' || 'ubuntu-latest' }}
+      sha: ${{ github.sha }}
+      build-type: ci
+      use-container: true
+      ucx-config: ucx
+      ucx-string: '-ucx'
+      nightly-string: '-nightly'
+
+  Test:
+    if: github.repository_owner == 'nv-legate'
+    needs:
+      - Build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - name: Python Tests
+          test-scope: unit
+          runner: linux-amd64-gpu-v100-latest-1
+
+        - name: Python Tests
+          test-scope: unit
+          runner: linux-amd64-2gpu
+
+
+    name: ${{ matrix.name }}
+    uses:
+      ./.github/workflows/gh-test.yml
+    with:
+      build-target: gpu
+      repos-name: ${{ github.event.repository.name }}
+      runs-on: ${{ matrix.runner }}
+      sha: ${{ github.sha }}
+      test-scope: ${{ matrix.test-scope }}
+      use-container: true
+      enabled: true
+      ucx-config: ucx
+      ucx-string: '-ucx'
+      nightly-string: '-nightly'
+
+  Post-to-Nightly-channel:
+    if: github.repository_owner == 'nv-legate'
+    name: Post artifact to nightly channel
+    needs:
+      - Build
+    runs-on: ${{ github.repository_owner == 'nv-legate' && 'linux-amd64-cpu16' || 'ubuntu-latest' }}
+
+    container:
+      options: -u root
+      image: condaforge/miniforge3:latest
+    
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: ~/artifact
+
+      - name: Display downloaded artifact structure
+        run: |
+          ls -laRt ~/artifact
+
+      - name: Post Nightly-release to legate-nightly channel
+        env:
+          CHANNEL_TOKEN: "${{ secrets.NV_LEGATE_NIGHTLY_CHANNEL_ACCESS }}"
+          ARTIFACT_NAME: "${{ github.event.repository.name }}-${{ env.DEVICE_STR }}-${{ env.UCX_STR }}-${{ env.NIGHTLY_STR }}-${{ github.sha }}"
+        run: |
+          conda install -c anaconda anaconda-client
+          for pkgFile in ~/artifact/$ARTIFACT_NAME/*; do 
+            echo "File to upload = $pkgFile"
+            if [ "${pkgFile##*.}" = "bz2" ]; then
+              echo anaconda -t $CHANNEL_TOKEN upload --skip-existing -u legate-nightly $pkgFile
+            fi
+          done
