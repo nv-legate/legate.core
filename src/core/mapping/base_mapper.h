@@ -266,8 +266,9 @@ class BaseMapper : public Legion::Mapping::Mapper, public MachineQueryInterface 
                         Processor target_proc,
                         Legion::Mapping::PhysicalInstance& result,
                         bool can_fail);
-  void report_failed_mapping(const Legion::Mappable& mappable,
-                             unsigned index,
+  void report_failed_mapping(const Legion::Mapping::MapperContext ctx,
+                             const Legion::Mappable& mappable,
+                             const StoreMapping& mapping,
                              Memory target_memory,
                              Legion::ReductionOpID redop,
                              size_t footprint);

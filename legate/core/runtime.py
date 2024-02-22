@@ -65,7 +65,7 @@ from .machine import Machine, ProcessorKind
 from .projection import is_identity_projection, pack_symbolic_projection_repr
 from .restriction import Restriction
 from .shape import Shape
-from .utils import dlopen_no_autoclose
+from .utils import capture_traceback_repr, dlopen_no_autoclose
 
 if TYPE_CHECKING:
     from . import ArgumentMap, Detach, IndexDetach, IndexPartition, Library
@@ -131,11 +131,17 @@ class LibraryAnnotations:
     def remove(self, key: str) -> None:
         del self._entries[key]
 
-    def __repr__(self) -> str:
+    def machine_string(self) -> str:
         pairs = [f"{key},{value}" for key, value in self._entries.items()]
         if self._provenance is not None:
             pairs.append(f"Provenance,{self._provenance}")
         return "|".join(pairs)
+
+    def user_string(self) -> str:
+        pairs = [f"{key}={value}" for key, value in self._entries.items()]
+        return (
+            "<unknown>" if self._provenance is None else self._provenance
+        ) + ("" if len(pairs) == 0 else f"[{','.join(pairs)}]")
 
 
 # A helper class for doing field management with control replication
@@ -1248,9 +1254,6 @@ class Runtime:
         """
         return self._annotations[-1]
 
-    def get_all_annotations(self) -> str:
-        return str(self.annotation)
-
     @property
     def provenance(self) -> Optional[str]:
         """
@@ -1581,12 +1584,20 @@ class Runtime:
             sanitized_shape = shape
             transform = None
 
+        alloc_info = self.annotation.user_string()
+        if settings.full_bt_on_oom():
+            tb_repr = capture_traceback_repr(
+                skip_core_frames=False, skip_frames=1
+            )
+            if tb_repr is not None:
+                alloc_info += "\n" + tb_repr[:-1]
         storage = Storage(
             sanitized_shape,
             0,
             dtype,
             data=data,
             kind=kind,
+            alloc_info=alloc_info,
         )
         return Store(
             dtype,
@@ -1850,6 +1861,20 @@ class Runtime:
         field_mgr = self.find_or_create_field_manager(shape, dtype.size)
         region, field_id = field_mgr.allocate_field()
         return RegionField.create(region, field_id, dtype.size, shape)
+
+    def record_alloc_info(
+        self, fspace: FieldSpace, field_id: int, alloc_info: str
+    ) -> None:
+        buf = alloc_info.encode() + bytes([0])  # null-terminate
+        legion.legion_field_id_attach_semantic_information(
+            self.legion_runtime,
+            fspace.handle,
+            field_id,
+            legion.LEGATE_CORE_ALLOC_INFO_TAG,
+            ffi.from_buffer(memoryview(buf)),
+            len(buf),
+            True,
+        )
 
     def free_field(
         self,

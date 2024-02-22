@@ -869,6 +869,8 @@ class TaskLauncher:
             )
         )
 
+        store.record_alloc_info(fspace, field_id)
+
     def add_future(self, future: Future) -> int:
         idx = len(self._future_args)
         self._future_args.append(future)

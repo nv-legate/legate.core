@@ -74,6 +74,8 @@ LEGATE_CORE_TUNABLE_NUM_NODES: int
 LEGATE_CORE_TUNABLE_MIN_SHARD_VOLUME: int
 LEGATE_CORE_TUNABLE_NCCL_NEEDS_BARRIER: int
 
+LEGATE_CORE_ALLOC_INFO_TAG: int
+
 def legion_acquire_launcher_add_field(*args: Any) -> Any: ...
 def legion_acquire_launcher_create(*args: Any) -> Any: ...
 def legion_acquire_launcher_destroy(*args: Any) -> Any: ...
@@ -138,6 +140,7 @@ def legion_field_allocator_create(*args: Any) -> Any: ...
 def legion_field_allocator_destroy(*args: Any) -> Any: ...
 def legion_field_allocator_free_field(*args: Any) -> Any: ...
 def legion_field_allocator_free_field_unordered(*args: Any) -> Any: ...
+def legion_field_id_attach_semantic_information(*args: Any) -> Any: ...
 def legion_field_space_create(*args: Any) -> Any: ...
 def legion_field_space_destroy_unordered(*args: Any) -> Any: ...
 def legion_fill_launcher_create_from_future(*args: Any) -> Any: ...
@@ -404,8 +407,15 @@ __all__ = (
     "LEGATE_CORE_TUNABLE_WINDOW_SIZE",
     "LEGATE_CORE_TUNABLE_FIELD_REUSE_SIZE",
     "LEGATE_CORE_TUNABLE_FIELD_REUSE_FREQUENCY",
-    "LEGATE_CORE_TUNABLE_NUM_PIECES",
+    "LEGATE_CORE_TUNABLE_MAX_LRU_LENGTH",
+    "LEGATE_CORE_TUNABLE_MAX_PENDING_EXCEPTIONS",
+    "LEGATE_CORE_TUNABLE_PRECISE_EXCEPTION_TRACE",
+    "LEGATE_CORE_TUNABLE_TOTAL_CPUS",
+    "LEGATE_CORE_TUNABLE_TOTAL_OMPS",
+    "LEGATE_CORE_TUNABLE_TOTAL_GPUS",
+    "LEGATE_CORE_TUNABLE_NUM_NODES",
     "LEGATE_CORE_TUNABLE_MIN_SHARD_VOLUME",
+    "LEGATE_CORE_TUNABLE_NCCL_NEEDS_BARRIER",
     "legion_acquire_launcher_add_field",
     "legion_acquire_launcher_create",
     "legion_acquire_launcher_destroy",
@@ -454,6 +464,7 @@ __all__ = (
     "legion_field_allocator_destroy",
     "legion_field_allocator_free_field",
     "legion_field_allocator_free_field_unordered",
+    "legion_field_id_attach_semantic_information",
     "legion_field_space_create",
     "legion_field_space_destroy_unordered",
     "legion_fill_launcher_create_from_future",

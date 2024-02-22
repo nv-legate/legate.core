@@ -41,9 +41,9 @@ def test_cycle_check(tmp_path: Path) -> None:
     output = subprocess.check_output(
         [
             "legate",
-            prog_file,
             "--cpus",
             "1",
+            prog_file,
         ],
         env=env,
     )

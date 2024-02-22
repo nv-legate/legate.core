@@ -129,6 +129,11 @@ typedef enum legate_core_reduction_op_id_t {
   LEGATE_CORE_MAX_REDUCTION_OP_ID = 1,
 } legate_core_reduction_op_id_t;
 
+typedef enum legate_core_semantic_tag_t {
+  // 0 is reserved by Legion for the object's name
+  LEGATE_CORE_ALLOC_INFO_TAG = 1,
+} legate_core_semantic_tag_t;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
