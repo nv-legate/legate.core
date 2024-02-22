@@ -207,7 +207,7 @@ function(legate_default_python_install target)
     message(FATAL_ERROR "Need EXPORT name for legate_default_python_install")
   endif()
 
-  if (SKBUILD)
+  if (SKBUILD AND NOT TARGET legate::${target}_python)
     add_library(${target}_python INTERFACE)
     add_library(legate::${target}_python ALIAS ${target}_python)
     target_link_libraries(${target}_python INTERFACE legate::core legate::${target})
@@ -227,7 +227,7 @@ function(legate_default_python_install target)
 endfunction()
 
 function(legate_add_cpp_subdirectory dir)
-  set(options)
+  set(options ALWAYS_BUILD)
   set(one_value_args EXPORT TARGET)
   set(multi_value_args)
   cmake_parse_arguments(
@@ -255,7 +255,7 @@ function(legate_add_cpp_subdirectory dir)
           BUILD_EXPORT_SET ${LEGATE_OPT_EXPORT}
           INSTALL_EXPORT_SET ${LEGATE_OPT_EXPORT})
 
-  if (SKBUILD)
+  if (SKBUILD AND NOT LEGATE_OPT_ALWAYS_BUILD)
     if (NOT DEFINED ${target}_ROOT)
       set(${target}_ROOT ${CMAKE_SOURCE_DIR}/build)
     endif()
