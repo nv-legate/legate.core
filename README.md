@@ -3,9 +3,13 @@ SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES.
 SPDX-License-Identifier: Apache-2.0
 -->
 
-[![Build conda Nightly release package](https://github.com/nv-legate/legate.internal/actions/workflows/ci-gh-nightly-release.yml/badge.svg?event=schedule)](https://github.com/nv-legate/legate.internal/actions/workflows/ci-gh-nightly-release.yml)
-
 # Legate
+
+> [!IMPORTANT]
+> Legate has reached end of life and is no longer maintained or
+> supported. The final release is `v26.06.01`. No further releases,
+> fixes, or support are planned. Existing packages and documentation remain
+> available for historical reference.
 
 The Legate project makes it easier for programmers to leverage the
 power of large clusters of CPUs and GPUs. Using Legate, programs can be
@@ -18,7 +22,7 @@ see the [Legate overview](https://docs.nvidia.com/legate/latest/overview.html).
 
 ## Installation
 
-Pre-built Legate packages are available from
+Existing pre-built Legate packages remain available from
 [conda](https://docs.conda.io/projects/conda/en/latest/index.html) on the
 [legate channel](https://anaconda.org/legate/legate) and from
 [PyPI](https://pypi.org/project/legate/). See
@@ -33,10 +37,3 @@ Packages are offered for Linux (x86_64 and aarch64) supporting Python versions
 
 A complete list of available features and APIs can be found in the [Legate
 documentation](https://docs.nvidia.com/legate/latest/).
-
-## Contact
-
-For technical questions about Legate and Legate-based tools, please visit the
-[community discussion forum](https://github.com/nv-legate/discussion).
-
-If you have other questions, please contact us at legate(at)nvidia.com.
